@@ -43,11 +43,6 @@ struct handle {
     handle_ = other;
     return *this;
   }
-  const handle<THandle, TCloser>& operator=(handle<THandle, TCloser>& other) {
-    close();
-    handle_ = other.detach();
-    return *this;
-  }
 };
 
 }  // namespace hlp

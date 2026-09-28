@@ -26,7 +26,7 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   // and taking a copy in every check keeps the old instance alive until the
   // last check that observed it returns, instead of freeing its mutexes and
   // buffers under a check that is reading them.
-  std::shared_ptr<pdh_thread> collector;
+  std::shared_ptr<pdh_thread> collector_;
 
   typedef std::map<std::string, std::string> counter_map_type;
   counter_map_type counters;
@@ -62,7 +62,7 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   // The collector as the check threads must read it. Never dereference the
   // member directly from a check: a reload can replace it between the test and
   // the call.
-  std::shared_ptr<pdh_thread> get_collector() const { return std::atomic_load(&collector); }
+  std::shared_ptr<pdh_thread> get_collector() const { return std::atomic_load(&collector_); }
 
  public:
   CheckSystem() {}

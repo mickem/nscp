@@ -249,6 +249,9 @@ else()
         ${MONGOOSE_CPP_DIR}/Server_test.cpp
         ${MONGOOSE_INCLUDE_DIR}/mongoose.c
     )
+    # Source properties are directory-scoped, so this directory's copy of
+    # the vendored C source needs its own call.
+    nscp_quiet_vendored_mongoose(${MONGOOSE_INCLUDE_DIR}/mongoose.c)
 endif()
 
 NSCP_CREATE_TEST(

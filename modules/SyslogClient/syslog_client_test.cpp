@@ -130,7 +130,7 @@ TEST(SyslogConnectionData, DefaultsToTheSyslogPortAndSaneRetries) {
   const syslog_client::connection_data con(target_with({{"address", "syslog.example.com"}}), client::destination_container());
 
   EXPECT_EQ(con.get_port(), "514");
-  EXPECT_EQ(con.timeout, 30);
+  EXPECT_EQ(con.timeout, 30u);
   EXPECT_EQ(con.retry, 3);
 }
 
@@ -156,7 +156,7 @@ TEST(SyslogConnectionData, AConfiguredTimeoutDoesNotReachTheConnection) {
   // these clients document 30.
   const syslog_client::connection_data con(target_with({{"address", "h"}, {"timeout", "5"}, {"retry", "1"}}), client::destination_container());
 
-  EXPECT_EQ(con.timeout, 30) << "documenting the defect: the configured 5 was ignored";
+  EXPECT_EQ(con.timeout, 30u) << "documenting the defect: the configured 5 was ignored";
   EXPECT_EQ(con.retry, 3) << "documenting the defect: the configured 1 was ignored";
 }
 

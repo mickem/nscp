@@ -660,7 +660,6 @@ void script_wrapper::function_wrapper::on_simple_event(const std::string event, 
       return;
     }
     {
-      thread_locker locker;
       try {
         py::call<void>(py::object(it->second).ptr(), event, data);
       } catch (py::error_already_set &) {

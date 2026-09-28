@@ -3,9 +3,7 @@
 
 #include "storage_manager.hpp"
 
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/io/zero_copy_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <nscapi/protobuf/io.hpp>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/thread/locks.hpp>

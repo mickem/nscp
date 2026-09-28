@@ -94,7 +94,6 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   WebLoggerPtr logger_;
   std::string certificate;
   std::string key;
-  std::string ciphers;
   mg_mgr mgr{};
 
   std::vector<Controller *> controllers;

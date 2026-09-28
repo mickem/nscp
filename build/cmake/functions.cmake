@@ -118,7 +118,7 @@ macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
             "${BUILD_PYTHON_FOLDER}/create_plugin_module.py" --source ${_SOURCE}
             --target ${_TARGET}
         COMMENT
-            "Generating ${_TARGET}/module.cpp and ${_TARGET}/module.hpp from ${_SOURCE}/module.json"
+            "Generating module.* from ${_SOURCE}/module.json"
         DEPENDS
             ${_SOURCE}/module.json
             "${BUILD_PYTHON_FOLDER}/create_plugin_module.py"
@@ -286,6 +286,24 @@ function(nscp_apply_pic _TARGET)
             PROPERTIES
                 POSITION_INDEPENDENT_CODE
                     ON
+        )
+    endif()
+endfunction()
+
+# MSVC warnings the vendored mongoose.c raises, silenced for that one source.
+# libs/mongoose-cpp and the WEBServer wrapper test both compile it, and source
+# properties are directory-scoped, so each directory calls this for its own
+# copy; keep the list here so the two cannot drift apart.
+#
+# COMPILE_FLAGS rather than COMPILE_OPTIONS: the COMPILE_OPTIONS source
+# property only exists from CMake 3.11, and on the 3.10 the tree declares as
+# its minimum it is stored as an unknown custom property and silently ignored.
+function(nscp_quiet_vendored_mongoose _SOURCE)
+    if(MSVC)
+        set_property(
+            SOURCE "${_SOURCE}"
+            APPEND_STRING
+            PROPERTY COMPILE_FLAGS " /wd4201 /wd4204 /wd4267 /wd4310"
         )
     endif()
 endfunction()

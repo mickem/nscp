@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 
 #include <handle.hpp>
+#include <type_traits>
+#include <utility>
 
 namespace {
 
@@ -20,6 +22,10 @@ struct MockCloser {
 int MockCloser::close_count = 0;
 
 using mock_handle = hlp::handle<int*, MockCloser>;
+
+static_assert(!std::is_assignable<mock_handle&, mock_handle&>::value, "Handle ownership requires an explicit move");
+static_assert(!std::is_copy_constructible<mock_handle>::value, "Handles cannot be copied");
+static_assert(!std::is_copy_assignable<mock_handle>::value, "Handles cannot be copied");
 
 }  // namespace
 
@@ -180,14 +186,41 @@ TEST(handle, assign_from_raw_pointer_closes_old) {
 // Assignment from another handle (move ownership)
 // ============================================================================
 
-TEST(handle, assign_from_other_handle_transfers_ownership) {
+TEST(handle, move_into_empty_handle_closes_nothing) {
   MockCloser::close_count = 0;
   int* raw = new int(33);
   mock_handle src(raw);
   mock_handle dst;
-  dst = src;  // src.detach() is called inside
+  dst = std::move(src);
   EXPECT_EQ(dst.get(), raw);
   EXPECT_EQ(src.get(), nullptr);
   // Destructor of src must not close anything
   EXPECT_EQ(MockCloser::close_count, 0);
+}
+
+TEST(handle, move_assignment_closes_previous_handle_once) {
+  MockCloser::close_count = 0;
+  {
+    int* raw = new int(33);
+    mock_handle src(raw);
+    mock_handle dst(new int(44));
+    dst = std::move(src);
+    EXPECT_EQ(dst.get(), raw);
+    EXPECT_EQ(src.get(), nullptr);
+    EXPECT_EQ(MockCloser::close_count, 1);
+  }
+  EXPECT_EQ(MockCloser::close_count, 2);
+}
+
+TEST(handle, self_move_preserves_ownership) {
+  MockCloser::close_count = 0;
+  {
+    int* raw = new int(33);
+    mock_handle h(raw);
+    mock_handle& alias = h;
+    h = std::move(alias);
+    EXPECT_EQ(h.get(), raw);
+    EXPECT_EQ(MockCloser::close_count, 0);
+  }
+  EXPECT_EQ(MockCloser::close_count, 1);
 }

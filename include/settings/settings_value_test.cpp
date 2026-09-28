@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <settings/settings_value.hpp>
 #include <string>
 
@@ -27,7 +28,7 @@ TEST(settings_value, from_int_negative) {
 
 TEST(settings_value, from_int_max) { EXPECT_EQ(settings_value::from_int(2147483647), "2147483647"); }
 
-TEST(settings_value, from_int_min) { EXPECT_EQ(settings_value::from_int(-2147483648), "-2147483648"); }
+TEST(settings_value, from_int_min) { EXPECT_EQ(settings_value::from_int((std::numeric_limits<int>::min)()), "-2147483648"); }
 
 // ============================================================================
 // Tests for to_int

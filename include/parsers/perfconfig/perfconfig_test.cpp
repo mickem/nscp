@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+namespace perfconfig_test {
+
 std::string to_string(const parsers::perfconfig::result_type &v) {
   std::stringstream ss;
   for (const parsers::perfconfig::perf_rule &r : v) {
@@ -23,10 +25,6 @@ bool do_parse(const std::string &str, parsers::perfconfig::result_type &v) {
   v.clear();
   return parsers::perfconfig::parse(str, v);
 }
-
-#if defined(_MSC_VER)
-#pragma warning(disable : 4459)  // 'v' hides global - intentional in test scaffolding
-#endif
 
 parsers::perfconfig::result_type v;
 
@@ -352,3 +350,5 @@ TEST(PerfConfigTest, keyword_with_spaces_in_name) {
   ASSERT_EQ(1, v.size());
   EXPECT_EQ("foo bar", v[0].name);
 }
+
+}  // namespace perfconfig_test

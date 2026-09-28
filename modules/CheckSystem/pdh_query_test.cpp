@@ -343,7 +343,7 @@ TEST_F(PdhQueryLifecycleTest, GatherDataSkipsNegativeDenominatorWhenIgnoringErro
   // back to their default - not fail the whole gather, which the object
   // gathers then misreport as "the object does not exist on this host".
   PDH::PDHQuery q;
-  q.addCounter(make_counter("age", "\HTTP Service Request Queues\MaxQueueItemAge"));
+  q.addCounter(make_counter("age", "\\HTTP Service Request Queues\\MaxQueueItemAge"));
   q.open();
   mock->formatted_value_status = PDH_CALC_NEGATIVE_DENOMINATOR;
   EXPECT_NO_THROW(q.gatherData(true));
@@ -355,7 +355,7 @@ TEST_F(PdhQueryLifecycleTest, GatherDataStillThrowsOnNegativeDenominatorByDefaul
   // remains uncomputable after the retry raises, so single-counter callers
   // hear about it instead of silently reading a default.
   PDH::PDHQuery q;
-  q.addCounter(make_counter("age", "\HTTP Service Request Queues\MaxQueueItemAge"));
+  q.addCounter(make_counter("age", "\\HTTP Service Request Queues\\MaxQueueItemAge"));
   q.open();
   mock->formatted_value_status = PDH_CALC_NEGATIVE_DENOMINATOR;
   EXPECT_THROW(q.gatherData(false), PDH::pdh_exception);

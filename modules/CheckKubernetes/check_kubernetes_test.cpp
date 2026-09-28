@@ -310,7 +310,7 @@ TEST(CheckKubernetes, ANegativeResponseCapIsRefusedNotUnlimited) {
   std::string error;
   ASSERT_TRUE(kube_checks::resolve_cluster(s, c, error)) << error;
   EXPECT_NE(c.max_response_bytes, 0u);
-  if (sizeof(std::size_t) == 4) {
+  if constexpr (sizeof(std::size_t) == 4) {
     EXPECT_EQ(c.max_response_bytes, (std::numeric_limits<std::size_t>::max)());
   } else {
     EXPECT_EQ(c.max_response_bytes, 4096ull * 1024ull * 1024ull);

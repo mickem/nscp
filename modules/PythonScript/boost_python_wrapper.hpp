@@ -6,7 +6,8 @@
 // Wrapper for Boost.Python includes to suppress third-party warnings
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 4244)  // conversion from 'long double' to 'double', possible loss of data
+#pragma warning(disable : 4244)       // conversion from 'long double' to 'double', possible loss of data
+#pragma warning(disable : 4456 4459)  // shadowed names inside Boost.Python headers
 #endif
 
 #include <boost/python.hpp>

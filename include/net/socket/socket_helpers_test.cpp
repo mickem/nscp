@@ -616,7 +616,7 @@ TEST(SslOptsVerifyMode, SingleIsNotAVerifyBit) {
   opts.verify_mode = "single";
   EXPECT_EQ(+opts.get_verify_mode(), +boost::asio::ssl::context_base::verify_none);
   // single_dh_use is 0x0 (a no-op) on OpenSSL 3.0+, so only assert when non-zero
-  if (+boost::asio::ssl::context::single_dh_use != 0) {
+  if constexpr (+boost::asio::ssl::context::single_dh_use != 0) {
     EXPECT_NE(opts.get_ctx_opts() & +boost::asio::ssl::context::single_dh_use, 0);
   }
 }
@@ -889,7 +889,7 @@ TEST(SslOptsCtxOpts, NoSslv2) {
   socket_helpers::connection_info::ssl_opts opts;
   opts.ssl_options = "no-sslv2";
   // SSL_OP_NO_SSLv2 is 0x0 (no-op) on OpenSSL 3.0+, so only assert when non-zero
-  if (+boost::asio::ssl::context::no_sslv2 != 0) {
+  if constexpr (+boost::asio::ssl::context::no_sslv2 != 0) {
     EXPECT_NE(opts.get_ctx_opts() & +boost::asio::ssl::context::no_sslv2, 0);
   }
 }
@@ -928,7 +928,7 @@ TEST(SslOptsCtxOpts, SingleDhUse) {
   socket_helpers::connection_info::ssl_opts opts;
   opts.ssl_options = "single-dh-use";
   // SSL_OP_SINGLE_DH_USE is 0x0 (no-op) on OpenSSL 3.0+, so only assert when non-zero
-  if (+boost::asio::ssl::context::single_dh_use != 0) {
+  if constexpr (+boost::asio::ssl::context::single_dh_use != 0) {
     EXPECT_NE(opts.get_ctx_opts() & +boost::asio::ssl::context::single_dh_use, 0);
   }
 }
