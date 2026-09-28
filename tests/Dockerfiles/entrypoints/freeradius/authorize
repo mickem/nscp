@@ -1,0 +1,3 @@
+# The one identity check_radius authenticates as in checknet-freeradius.test.ts.
+# Longer than 16 bytes so User-Password hiding spans more than one MD5 block.
+test-user	Cleartext-Password := "a password longer than sixteen bytes"

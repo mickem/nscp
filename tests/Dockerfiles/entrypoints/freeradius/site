@@ -1,0 +1,31 @@
+# Minimal authentication site for checknet-freeradius.test.ts: PAP against the
+# `files` module, Access-Reject for anyone else, and an Access-Accept for an
+# authenticated Status-Server (RFC 5997) on the same port.
+server nscp {
+	listen {
+		type = auth
+		ipaddr = *
+		port = 1812
+	}
+
+	authorize {
+		files
+		pap
+
+		Autz-Type Status-Server {
+			ok
+		}
+	}
+
+	authenticate {
+		Auth-Type PAP {
+			pap
+		}
+	}
+
+	post-auth {
+		Post-Auth-Type REJECT {
+			ok
+		}
+	}
+}
