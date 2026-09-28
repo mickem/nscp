@@ -118,10 +118,11 @@ inline std::string uri_encode(const std::string &src) {
   return result;
 }
 
-// An outbound HTTP/1.0 request. Header keys are stored with the casing the
+// An outbound HTTP request, defaulting to HTTP/1.0. Header keys use the casing the
 // caller provides so the wire form is predictable for tools and tests; HTTP
 // is case-insensitive, but inspection tools and assertions are not.
 struct request {
+  enum class version { http_1_0, http_1_1 };
   typedef std::map<std::string, std::string> header_type;
   typedef std::map<std::string, std::string> post_map_type;
 
@@ -130,6 +131,7 @@ struct request {
   std::string server_;
   std::string path_;
   std::string payload_;
+  version version_ = version::http_1_0;
 
   request() = default;
   request(std::string verb, std::string server, std::string path, std::string payload)
@@ -161,7 +163,7 @@ struct request {
   std::string get_header() const {
     std::stringstream ss;
     const char *crlf = "\r\n";
-    ss << verb_ << " " << path_ << " HTTP/1.0" << crlf;
+    ss << verb_ << " " << path_ << (version_ == version::http_1_1 ? " HTTP/1.1" : " HTTP/1.0") << crlf;
     if (!server_.empty()) {
       ss << "Host: " << server_ << crlf;
     }
@@ -186,7 +188,7 @@ struct request {
 
   void build_request(std::ostream &os) const {
     const char *crlf = "\r\n";
-    os << verb_ << " " << path_ << " HTTP/1.0" << crlf;
+    os << verb_ << " " << path_ << (version_ == version::http_1_1 ? " HTTP/1.1" : " HTTP/1.0") << crlf;
     if (!server_.empty()) {
       os << "Host: " << server_ << crlf;
     }

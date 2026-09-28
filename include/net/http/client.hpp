@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <boost/asio.hpp>
+#include <boost/beast/http/parser.hpp>
+#include <boost/beast/http/string_body.hpp>
 #include <boost/version.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
@@ -13,6 +15,7 @@
 #endif
 #include <bytes/base64.hpp>
 #include <istream>
+#include <limits>
 #include <memory>
 #include <net/address_family.hpp>
 #include <net/http/http_packet.hpp>
@@ -1026,6 +1029,62 @@ class simple_client {
       if (last_coding == "chunked") resp.payload_ = decode_chunked(resp.payload_);
     }
     return resp;
+  }
+
+  // Strict buffered fetch for callers that must not accept partial transfers.
+  // Reuses the shared transport, TLS/proxy configuration and per-operation
+  // timeouts. Beast is only the HTTP framing parser, not another transport.
+  // Complete Content-Length/chunked messages finish without waiting for EOF;
+  // close-delimited messages require clean EOF. Non-2xx statuses are returned.
+  response fetch_strict(const std::string &server, const std::string &port, const request &req) {
+    namespace wire = boost::beast::http;
+    connect_and_send(server, port, req);
+    boost::asio::streambuf buffer;
+    bool eof = false;
+    // Bound informational responses so a peer cannot send them indefinitely.
+    for (int interim = 0; interim < 8; ++interim) {
+      wire::response_parser<wire::string_body> parser;
+      parser.eager(true);
+      parser.skip(req.verb_ == "HEAD");
+      parser.header_limit(16384);
+      parser.body_limit(options_.max_response_bytes_ == 0 ? (std::numeric_limits<std::uint64_t>::max)() : options_.max_response_bytes_);
+      while (!parser.is_done()) {
+        boost::system::error_code error;
+        if (buffer.size() > 0) {
+          const auto consumed = parser.put(buffer.data(), error);
+          buffer.consume(consumed);
+          if (error == wire::error::body_limit)
+            throw socket_helpers::socket_exception("Response from " + server + ":" + port + " exceeds the maximum size of " +
+                                                   str::xtos(options_.max_response_bytes_) + " bytes");
+          if (error && error != wire::error::need_more) throw socket_helpers::socket_exception("Invalid HTTP response: " + error.message());
+          if (parser.is_done()) break;
+        }
+        if (eof) {
+          parser.put_eof(error);
+          if (error || !parser.is_done()) throw socket_helpers::socket_exception("Incomplete HTTP response");
+          break;
+        }
+        const auto bytes = socket_->read_some(buffer, error);
+        if (error == boost::asio::error::eof) {
+          eof = true;
+        } else if (error == boost::asio::error::timed_out) {
+          throw socket_helpers::socket_exception("HTTP response read timed out");
+        } else if (error) {
+          throw socket_helpers::socket_exception("Failed to read HTTP response: " + error.message());
+        } else if (bytes == 0) {
+          throw socket_helpers::socket_exception("Incomplete HTTP response: read made no progress");
+        }
+      }
+      auto message = parser.release();
+      const auto code = message.result_int();
+      if (code == 101) throw socket_helpers::socket_exception("HTTP protocol switching is not supported");
+      if (code >= 100 && code < 200) continue;
+      response result("HTTP/" + std::to_string(message.version() / 10) + "." + std::to_string(message.version() % 10), code, std::string(message.reason()));
+      for (const auto &field : message.base()) result.add_header(std::string(field.name_string()), std::string(field.value()));
+      result.payload_ = std::move(message.body());
+      return result;
+    }
+    throw socket_helpers::socket_exception("Too many informational HTTP responses");
   }
 
   // timeout_seconds bounds each individual read and write; 0 waits forever.

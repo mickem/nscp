@@ -17,6 +17,7 @@
 
 #include "check_connections.h"
 #include "check_dns.h"
+#include "check_domain.hpp"
 #include "check_http.h"
 #include "check_nsclient_web_online.h"
 #include "check_ping_internal.hpp"
@@ -177,4 +178,8 @@ void CheckNet::check_connections(const PB::Commands::QueryRequestMessage::Reques
 }
 void CheckNet::check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_ntp_offset(request, response);
+}
+
+void CheckNet::check_domain(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_domain(default_ca_, request, response);
 }
