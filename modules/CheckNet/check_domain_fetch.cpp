@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 #include "check_domain.hpp"
-#include "check_http_internal.hpp"
+#include "check_domain_internal.hpp"
 #include "check_net_error.hpp"
 
 namespace check_net {
@@ -14,25 +14,8 @@ namespace domain {
 namespace {
 constexpr std::size_t max_response = 1024 * 1024;
 
-check_http_internal::parsed_url https_url(const std::string &url) {
-  check_http_internal::parsed_url parsed;
-  if (url.find_first_of("\r\n\t #\\") != std::string::npos || url.find('@') != std::string::npos || !check_http_internal::parse_url(url, parsed) ||
-      parsed.protocol != "https")
-    throw std::runtime_error("RDAP requires an HTTPS URL without credentials, whitespace or fragment");
-  return parsed;
-}
-
-std::string redirected_url(const std::string &base, const std::string &target) {
-  if (target.empty()) throw std::runtime_error("RDAP redirect has no Location");
-  if (target.find("://") != std::string::npos) return target;
-  if (target.compare(0, 2, "//") == 0) return "https:" + target;
-  const auto u = https_url(base);
-  const auto origin = "https://" + check_http_internal::host_header_value(u.host) + ":" + u.port;
-  if (target.front() == '/') return origin + target;
-  const auto path = u.path.substr(0, u.path.find('?'));
-  if (target.front() == '?') return origin + path + target;
-  return origin + path.substr(0, path.rfind('/') + 1) + target;
-}
+using internal::https_url;
+using internal::redirected_url;
 
 http::response get(const std::string &url, const lookup_options &options) {
   const auto u = https_url(url);
@@ -46,7 +29,7 @@ http::response get(const std::string &url, const lookup_options &options) {
   request.add_header("User-Agent", "NSClient++ check_domain");
   request.add_header("Accept", "application/rdap+json, application/json");
   request.add_header("Connection", "close");
-  return client.fetch(u.host, u.port, request);
+  return client.fetch_strict(u.host, u.port, request);
 }
 
 registration rdap(const std::string &name, std::string &url, const lookup_options &options) {

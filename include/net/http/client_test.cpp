@@ -1213,6 +1213,51 @@ TEST(http_packet_helpers, find_header_break_matches_lf_cr) {
 }
 
 // =============================================================================
+// Strict framing uses the same client transport, but rejects partial messages.
+TEST(simple_client, strict_fetch_validates_message_framing) {
+  for (const auto &raw : {
+           "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello",
+           "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5;ext=value\r\nhello\r\n0\r\nX-Trailer: yes\r\n\r\n",
+           "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nhello",
+           "HTTP/1.1 103 Early Hints\r\nLink: </foo>\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello"}) {
+    loopback_http_server server(raw);
+    http::http_client_options options("http", "", "none", "");
+    options.timeout_seconds_ = 1;
+    http::simple_client client(options);
+    const auto response = client.fetch_strict("127.0.0.1", std::to_string(server.port()), http::request("GET", "localhost", "/"));
+    EXPECT_EQ(response.status_code_, 200u);
+    EXPECT_EQ(response.payload_, "hello") << raw;
+  }
+}
+
+TEST(simple_client, strict_fetch_rejects_incomplete_and_malformed_messages) {
+  for (const auto &raw : {
+           "HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nhello",
+           "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n",
+           "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\nX-Trailer: yes\r\n",
+           "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhelloXX0\r\n\r\n",
+           "HTTP/1.1 200 OK\r\nContent-Length: nope\r\n\r\nhello",
+           "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nContent-Length: 6\r\n\r\nhello",
+           "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"}) {
+    loopback_http_server server(raw);
+    http::http_client_options options("http", "", "none", "");
+    options.timeout_seconds_ = 1;
+    http::simple_client client(options);
+    EXPECT_THROW(client.fetch_strict("127.0.0.1", std::to_string(server.port()), http::request("GET", "localhost", "/")), std::exception) << raw;
+  }
+}
+
+TEST(simple_client, strict_fetch_handles_bodyless_responses_and_status_errors) {
+  for (const auto &raw : {"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n", "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"}) {
+    loopback_http_server server(raw);
+    http::simple_client client(http::http_client_options("http", "", "none", ""));
+    EXPECT_TRUE(client.fetch_strict("127.0.0.1", std::to_string(server.port()), http::request("GET", "localhost", "/")).payload_.empty());
+  }
+  loopback_http_server server("HTTP/1.1 200 OK\r\nContent-Length: 123\r\n\r\n");
+  http::simple_client client(http::http_client_options("http", "", "none", ""));
+  EXPECT_TRUE(client.fetch_strict("127.0.0.1", std::to_string(server.port()), http::request("HEAD", "localhost", "/")).payload_.empty());
+}
+
 // chunked transfer decoding
 // =============================================================================
 

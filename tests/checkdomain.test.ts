@@ -5,6 +5,7 @@
 import * as http from "node:http";
 import * as https from "node:https";
 import * as net from "node:net";
+import * as tls from "node:tls";
 import {
   CRITICAL,
   NscpInstance,
@@ -105,6 +106,119 @@ describe("CheckNet check_domain", () => {
       ...args,
     });
   }
+
+  async function rawDomainQuery(
+    response: string,
+    keepOpen: boolean,
+    args: Record<string, string> = {},
+  ) {
+    const sockets = new Set<tls.TLSSocket>();
+    const server = tls.createServer(
+      { key: serverCert.keyPem, cert: serverCert.certPem },
+      (socket) => {
+        sockets.add(socket);
+        socket.on("close", () => sockets.delete(socket));
+        socket.on("error", () => {});
+        socket.once("data", () => {
+          if (keepOpen) socket.write(response);
+          else socket.end(response);
+        });
+      },
+    );
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    track({
+      port: portOf(server),
+      close: async () => {
+        for (const socket of sockets) socket.destroy();
+        await closeNetServer(server)();
+      },
+    });
+    return query({
+      domain: "example.com",
+      "rdap-url": `https://127.0.0.1:${portOf(server)}/domain/example.com`,
+      ca: caCert.certPath,
+      timeout: "1",
+      ...args,
+    });
+  }
+
+  it.each([
+    "length-timeout",
+    "length-eof",
+    "chunk-timeout",
+    "chunk-eof",
+    "trailer-eof",
+    "close-timeout",
+  ])("check_domain rejects valid JSON in an incomplete HTTP response: %s", async (mode) => {
+    const body = JSON.stringify(domainRecord(100));
+    let framing: string;
+    if (mode.startsWith("length"))
+      framing = `Content-Length: ${Buffer.byteLength(body) + 20}\r\n\r\n${body}`;
+    else if (mode.startsWith("chunk") || mode === "trailer-eof") {
+      framing = `Transfer-Encoding: chunked\r\n\r\n${Buffer.byteLength(body).toString(16)}\r\n${body}\r\n`;
+      if (mode === "trailer-eof") framing += "0\r\nX-Trailer: incomplete\r\n";
+    } else framing = `Connection: close\r\n\r\n${body}`;
+    const q = await rawDomainQuery(`HTTP/1.1 200 OK\r\n${framing}`, mode.endsWith("timeout"));
+    expect(q.result).toBe(UNKNOWN);
+    expect(q.output).toMatch(/timed out|Incomplete HTTP response/i);
+    expect(q.output).not.toMatch(/\|.*=/);
+  });
+
+  it.each(["length", "chunked"])(
+    "check_domain finishes a complete %s response without waiting for socket closure",
+    async (mode) => {
+      const body = JSON.stringify(domainRecord(100));
+      const framing =
+        mode === "length"
+          ? `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`
+          : `Transfer-Encoding: chunked\r\n\r\n${Buffer.byteLength(body).toString(16)}\r\n${body}\r\n0\r\n\r\n`;
+      const started = Date.now();
+      const q = await rawDomainQuery(`HTTP/1.1 200 OK\r\n${framing}`, true, { timeout: "3" });
+      expect(q.result).toBe(OK);
+      expect(q.output).toContain("expires in 100d");
+      expect(Date.now() - started).toBeLessThan(2500);
+    },
+  );
+
+  it("check_domain falls back to WHOIS on an incomplete RDAP transfer", async () => {
+    const body = JSON.stringify(domainRecord(100));
+    const whois = await startTcpGreeter(
+      `Registry Expiry Date: ${domainRecord(20).events[0].eventDate}\r\n`,
+    );
+    const q = await rawDomainQuery(
+      `HTTP/1.1 200 OK\r\nContent-Length: ${Buffer.byteLength(body) + 20}\r\n\r\n${body}`,
+      true,
+      {
+        "whois-fallback": "true",
+        "whois-server": "127.0.0.1",
+        "whois-port": String(whois.port),
+      },
+    );
+    expect(q.result).toBe(WARNING);
+    expect(q.output).toContain("expires in 20d");
+    expect(q.output).toContain("whois:127.0.0.1:");
+  });
+
+  it("check_domain normalizes parent paths in redirects", async () => {
+    const paths: string[] = [];
+    const q = await domainQuery((req, res) => {
+      paths.push(req.url ?? "");
+      if (req.url === "/domain/example.com") {
+        res.writeHead(302, { Location: "/nested/redirect" });
+        res.end();
+      } else if (req.url === "/nested/redirect") {
+        res.writeHead(302, { Location: "../final?value=../preserved" });
+        res.end();
+      } else if (req.url === "/final?value=../preserved")
+        res.end(JSON.stringify(domainRecord(100)));
+      else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+    expect(q.result).toBe(OK);
+    expect(paths).toEqual(["/domain/example.com", "/nested/redirect", "/final?value=../preserved"]);
+  });
 
   it.each([
     [100, OK],

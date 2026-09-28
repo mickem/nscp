@@ -14,7 +14,8 @@ The check does not guess the registered domain from a hostname.
 The default endpoint, `https://rdap.org/domain/{domain}`, redirects to the
 appropriate RDAP service. `rdap-url` can override it with a provider's HTTPS
 domain lookup URL; `{domain}` is replaced with the normalized name. Up to five
-redirects are followed per record, and HTTPS-to-HTTP downgrades are rejected.
+redirects are followed per record, relative paths are normalized using RFC 3986
+dot-segment removal, and HTTPS-to-HTTP downgrades are rejected.
 Certificate chain and hostname verification are always enabled. `ca` selects
 a custom trust bundle; by default the module uses the system CA bundle.
 Connections are direct; this check does not use an HTTP proxy.
@@ -41,7 +42,11 @@ applies separately to each network read or write through the shared client.
 There is no overall lookup deadline: redirects, registrar requests and a server
 that continues sending data can extend the total duration. DNS resolution and
 TCP connection establishment use the shared client's existing behavior.
-Response bodies are limited to 1 MiB.
+Response bodies are limited to 1 MiB and HTTP headers to 16 KiB. HTTP message
+framing is validated before the JSON is parsed: read failures, truncated
+Content-Length bodies and incomplete chunked responses are lookup failures,
+even if the bytes received so far contain valid JSON. Complete framed responses
+return without waiting for the server to close the connection.
 
 #### Optional WHOIS fallback
 

@@ -5,8 +5,30 @@
 
 #include <gtest/gtest.h>
 
+#include "check_domain_internal.hpp"
+
 namespace {
 using namespace check_net::domain;
+
+TEST(CheckDomain, RedirectsRemoveDotSegmentsWithoutChangingQueryOrEscapedDots) {
+  using internal::redirected_url;
+  const std::string base = "https://example.com/nested/redirect?old=../keep";
+  EXPECT_EQ("https://example.com:443/final", redirected_url(base, "../final"));
+  EXPECT_EQ("https://example.com:443/final", redirected_url(base, "../../../../final"));
+  EXPECT_EQ("https://example.com:443/nested/final", redirected_url(base, "./final"));
+  EXPECT_EQ("https://example.com:443/final?x=../keep", redirected_url(base, "../final?x=../keep"));
+  EXPECT_EQ("https://example.com:443/nested/redirect?new=../keep", redirected_url(base, "?new=../keep"));
+  EXPECT_EQ("https://example.com:443/nested/", redirected_url(base, "."));
+  EXPECT_EQ("https://example.com:443/", redirected_url(base, ".."));
+  EXPECT_EQ("https://example.com:443/nested/%2e%2e/final", redirected_url(base, "%2e%2e/final"));
+  EXPECT_EQ("https://example.com:443/a//final", redirected_url(base, "/a//b/../final"));
+  EXPECT_EQ("https://other.test/final", redirected_url(base, "https://other.test/a/../final"));
+  EXPECT_EQ("https://other.test/final", redirected_url(base, "//other.test/a/../final"));
+  EXPECT_EQ("https://example.com:443/final?next=https://other.test/a/../b", redirected_url(base, "../final?next=https://other.test/a/../b"));
+  EXPECT_EQ("https://other.test/?next=../keep", redirected_url(base, "https://other.test?next=../keep"));
+  EXPECT_EQ("https://[::1]:8443/final", redirected_url("https://[::1]:8443/nested/redirect", "../final"));
+  EXPECT_THROW(redirected_url(base, "http://other.test/a/../final"), std::exception);
+}
 
 TEST(CheckDomain, NormalizesAndValidatesNames) {
   EXPECT_EQ("example.com", normalize_domain("EXAMPLE.COM."));
