@@ -266,12 +266,20 @@ describe("plugin threading", () => {
         "  return 'ok', 'reload requested'",
         "end",
         "",
+        "-- The same, naming the NRPE server: this thread is dispatching",
+        "-- LUAScript, not NRPEServer, but it is still one of NRPE's own threads.",
+        "local function nrpe_reloader(command, args)",
+        "  core:reload('NRPEServer')",
+        "  return 'ok', 'nrpe reload requested'",
+        "end",
+        "",
         "local reg = Registry()",
         "reg:simple_function('lua_busy', busy, 'cpu work, never releases the lua lock')",
         "reg:simple_function('lua_inner', inner, 'innermost self-query target')",
         "reg:simple_function('lua_nested', nested, 'queries a command its own module serves')",
         "reg:simple_function('lua_deep', deep, 'two levels of self-query')",
         "reg:simple_function('lua_reload', reloader, 'reloads the service from inside a check')",
+        "reg:simple_function('lua_reload_nrpe', nrpe_reloader, 'reloads NRPEServer from inside a check')",
         "",
       ].join("\n"),
     );
@@ -628,5 +636,28 @@ describe("plugin threading", () => {
       await new Promise((r) => setTimeout(r, 250));
     }
     expect(out).toContain("after-scripted-reload");
+  });
+
+  it("survives a reload of the NRPE server requested from a Lua check it serves", async () => {
+    // The thread serving this check is dispatching LUAScript, not NRPEServer,
+    // yet it is an NRPE pool thread: run inline, the NRPE server would stop
+    // and join its own pool from it. The core defers a reload of any module
+    // asked for from inside any module, so this one goes to the scheduler too.
+    expect(await nrpe("lua_reload_nrpe")).toContain("nrpe reload requested");
+
+    let out = "";
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      out = await nrpe("check_ok", ["message=after-nrpe-reload"]);
+      if (out.includes("after-nrpe-reload")) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(out).toContain("after-nrpe-reload");
+    // Run inline, the server's stop() refuses to join its own pool and throws,
+    // so the listener lives on but the reload never applies - which the
+    // answers above cannot tell apart. The refusal is logged; it must not be.
+    expect(nscp.capturedStdout()).not.toContain(
+      "Refused to stop the server from one of its own threads",
+    );
   });
 });
