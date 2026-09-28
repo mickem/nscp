@@ -138,25 +138,30 @@ void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   if (!helper.parse_options()) return;
   if (!helper.build_filter(filter)) return;
 
+  std::vector<record> rows;
   try {
     // Acquire the complete snapshot before matching: a partial read must never
     // masquerade as a healthy cluster, even if some rows matched already.
-    const auto rows = fetch(kind);
-    bool found = false;
-    for (const auto &row : rows) {
-      if (!name.empty() && !boost::iequals(name, row.name)) continue;
-      found = true;
-      if (state_name(kind, row.state_id) == "unknown") {
-        return nscapi::protobuf::functions::set_response_bad(*response, "Unknown cluster state " + std::to_string(row.state_id) + " for '" + row.name + "'");
-      }
-      filter.match(std::make_shared<filter_obj>(row, kind));
-    }
-    if (!name.empty() && !found) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Cluster object '" + name + "' not found");
-    }
-    helper.post_process(filter);
+    rows = fetch(kind);
   } catch (const std::exception &e) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Failed to query cluster " + plural + ": " + e.what());
+    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to query cluster " + plural + ": " + e.what());
   }
+
+  bool found = false;
+  for (const auto &row : rows) {
+    if (!name.empty() && !boost::iequals(name, row.name)) continue;
+    found = true;
+    const auto object = std::make_shared<filter_obj>(row, kind);
+    const auto result = filter.match(object);
+    // Unknown states remain visible to filters, including state != 'unknown'.
+    // Only selected objects may make the check UNKNOWN.
+    if (result.matched_filter && object->state == "unknown") {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Unknown cluster state " + std::to_string(row.state_id) + " for '" + row.name + "'");
+    }
+  }
+  if (!name.empty() && !found) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Cluster object '" + name + "' not found");
+  }
+  helper.post_process(filter);
 }
 }  // namespace check_cluster

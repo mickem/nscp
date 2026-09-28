@@ -106,6 +106,39 @@ TEST(CheckCluster, AcquisitionFailureNeverBecomesEmptySuccess) {
   EXPECT_NE(message(response).find("access denied"), std::string::npos);
 }
 
+TEST(CheckCluster, FiltersExcludeUnmappedStatesBeforeUnknownGuard) {
+  for (const auto kind : {object_kind::group, object_kind::resource, object_kind::node, object_kind::network}) {
+    const long long healthy_state = kind == object_kind::resource ? 2 : (kind == object_kind::network ? 3 : 0);
+    for (const auto &expression : {"name != 'unmapped'", "state != 'unknown'", "state_id != 999"}) {
+      const auto response = run_rows(kind, {{"unmapped", "", "", "", 999}, {"healthy", "", "", "", healthy_state}}, {std::string("filter=") + expression});
+      EXPECT_EQ(response.result(), PB::Common::OK) << message(response);
+      EXPECT_NE(message(response).find("healthy"), std::string::npos);
+      EXPECT_EQ(message(response).find("unmapped"), std::string::npos);
+    }
+    const auto empty = run_rows(kind, {{"unmapped", "", "", "", 999}}, {"filter=state != 'unknown'", "empty-state=ok"});
+    EXPECT_EQ(empty.result(), PB::Common::OK) << message(empty);
+    const auto included = run_rows(kind, {{"unmapped", "", "", "", 999}}, {"filter=state = 'unknown'"});
+    EXPECT_EQ(included.result(), PB::Common::UNKNOWN);
+    EXPECT_NE(message(included).find("Unknown cluster state 999"), std::string::npos);
+  }
+}
+
+TEST(CheckCluster, InvalidSyntaxIsNotReportedAsAnAcquisitionFailure) {
+  for (const auto &argument : {"top-syntax=${nonexistent_keyword}", "critical=nonexistent_keyword > 1"}) {
+    bool fetched = false;
+    const auto response = run(object_kind::group,
+                              [&fetched](object_kind) {
+                                fetched = true;
+                                return std::vector<record>{{"SQL", "node-a", "", "", 0}};
+                              },
+                              {argument});
+    EXPECT_EQ(response.result(), PB::Common::UNKNOWN) << message(response);
+    EXPECT_FALSE(fetched);
+    EXPECT_EQ(message(response).find("Failed to query cluster"), std::string::npos);
+    EXPECT_TRUE(message(response).find("Failed to parse syntax") == 0 || message(response).find("Failed to validate filter") == 0) << message(response);
+  }
+}
+
 TEST(CheckCluster, HelpDoesNotAcquireCluster) {
   bool called = false;
   const auto response = run(object_kind::group,
@@ -116,6 +149,23 @@ TEST(CheckCluster, HelpDoesNotAcquireCluster) {
                             {"help"});
   EXPECT_FALSE(called);
   EXPECT_NE(message(response).find("name"), std::string::npos);
+}
+
+TEST(CheckCluster, NativeLibraryRemainsLoadedBetweenQueries) {
+  // Also exercises a long-lived process on an ordinary non-cluster workstation:
+  // a failed OpenClusterEx must not discard the successfully loaded API table.
+  const auto first = run(object_kind::node, fetch_local);
+  if (message(first).find("API not available") != std::string::npos) {
+    EXPECT_EQ(first.result(), PB::Common::UNKNOWN);
+    const auto second = run(object_kind::node, fetch_local);
+    EXPECT_EQ(second.result(), PB::Common::UNKNOWN);
+    EXPECT_EQ(message(first), message(second));
+  } else {
+    const auto library = GetModuleHandleW(L"clusapi.dll");
+    ASSERT_NE(library, nullptr);
+    run(object_kind::node, fetch_local);
+    EXPECT_EQ(GetModuleHandleW(L"clusapi.dll"), library);
+  }
 }
 
 // Native adapter tests use the real Windows signatures; only the calls into

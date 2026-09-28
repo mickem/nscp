@@ -12,5 +12,7 @@ member and monitor host availability separately.
 
 `name` selects an exact case-insensitive node name and returns UNKNOWN if missing,
 even with `empty-state=ok`. Empty filter results follow `empty-state` (UNKNOWN by
-default). Missing support, access errors, incomplete reads and unknown state
-codes return UNKNOWN. This is current state, not node failure history.
+default). Missing support, access errors and incomplete reads return UNKNOWN.
+Unmapped state codes return UNKNOWN only for objects selected by `filter`;
+exclude them by name or with `state != 'unknown'` when appropriate.
+This is current state, not node failure history.

@@ -14,5 +14,5 @@ language; this host uses Swedish. This is not a live cluster success example.
 
 ```text
 nscp client --module CheckWindowsApps --boot --query check_cluster_resources
-Failed to query cluster resources: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
+Failed to query cluster resources: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
 ```

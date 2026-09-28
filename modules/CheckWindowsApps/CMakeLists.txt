@@ -91,6 +91,7 @@ NSCP_CREATE_TEST(
         check_cluster_test.cpp
         check_cluster.cpp
         cluster_source_win.cpp
+        ${NSCP_ERROR_CPP}
         ${NSCP_FILTER_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

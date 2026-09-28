@@ -18,8 +18,10 @@ failover history; use an explicit owner threshold for placement policy. Use
 monitoring-server retries to tolerate brief pending states. Polling does not
 guarantee observing a transition that completed between checks.
 
-Missing cluster support, access errors, incomplete reads and unknown state
-codes return UNKNOWN, never an empty successful result. Acquisition is a series
+Missing cluster support, access errors and incomplete reads return UNKNOWN,
+never an empty successful result. Unmapped state codes return UNKNOWN only for
+objects selected by `filter`; exclude them by name or with `state != 'unknown'`
+when appropriate. Acquisition is a series
 of reads, not an atomic cluster snapshot; roles can move between reads. Monitor
 node reachability separately and schedule role checks through a surviving member.
 

@@ -4,15 +4,14 @@
 
 #include <algorithm>
 #include <cstring>
+#include <error/error.hpp>
 #include <stdexcept>
 #include <str/utf8.hpp>
 
 namespace check_cluster {
 namespace {
 std::runtime_error failure(const std::string &operation, DWORD code) {
-  wchar_t message[1024] = {};
-  FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, code, 0, message, 1024, nullptr);
-  std::string reason = utf8::cvt<std::string>(std::wstring(message));
+  std::string reason = error::format::from_system(code);
   while (!reason.empty() && (reason.back() == '\r' || reason.back() == '\n')) reason.pop_back();
   return std::runtime_error(operation + " (Windows error " + std::to_string(code) + ")" + (reason.empty() ? "" : ": " + reason));
 }
@@ -174,7 +173,8 @@ std::vector<record> native::fetch(const api &api, object_kind kind) {
   }
 }
 
-std::vector<record> fetch_local(object_kind kind) {
+namespace {
+HMODULE load_library() {
   // Use an absolute system path: neither the working directory nor PATH may
   // supply this DLL. No ClusAPI import is added to CheckWindowsApps itself.
   wchar_t directory[MAX_PATH + 1] = {};
@@ -182,28 +182,44 @@ std::vector<record> fetch_local(object_kind kind) {
   if (!length || length > MAX_PATH) throw failure("GetSystemDirectoryW", GetLastError());
   const auto module = LoadLibraryW((std::wstring(directory) + L"\\clusapi.dll").c_str());
   if (!module) throw failure("Failover Clustering API not available (clusapi.dll)", GetLastError());
-  scoped_handle<HMODULE, decltype(&FreeLibrary)> library(module, &FreeLibrary);
+  return module;
+}
+
+struct loaded_api {
+  // Declare the library first so it outlives the table and is released even
+  // when a symbol lookup throws during construction.
+  scoped_handle<HMODULE, decltype(&FreeLibrary)> library;
   native::api api;
+  loaded_api() : library(load_library(), &FreeLibrary) {
+    const auto module = library.get();
 #define CLUSTER_RESOLVE(member, function) api.member = resolve<decltype(api.member)>(module, #function)
-  CLUSTER_RESOLVE(open_cluster, OpenClusterEx);
-  CLUSTER_RESOLVE(close_cluster, CloseCluster);
-  CLUSTER_RESOLVE(open_enum, ClusterOpenEnum);
-  CLUSTER_RESOLVE(enumerate, ClusterEnum);
-  CLUSTER_RESOLVE(close_enum, ClusterCloseEnum);
-  CLUSTER_RESOLVE(open_group, OpenClusterGroupEx);
-  CLUSTER_RESOLVE(close_group, CloseClusterGroup);
-  CLUSTER_RESOLVE(group_state, GetClusterGroupState);
-  CLUSTER_RESOLVE(open_resource, OpenClusterResourceEx);
-  CLUSTER_RESOLVE(close_resource, CloseClusterResource);
-  CLUSTER_RESOLVE(resource_state, GetClusterResourceState);
-  CLUSTER_RESOLVE(resource_control, ClusterResourceControl);
-  CLUSTER_RESOLVE(open_node, OpenClusterNodeEx);
-  CLUSTER_RESOLVE(close_node, CloseClusterNode);
-  CLUSTER_RESOLVE(node_state, GetClusterNodeState);
-  CLUSTER_RESOLVE(open_network, OpenClusterNetworkEx);
-  CLUSTER_RESOLVE(close_network, CloseClusterNetwork);
-  CLUSTER_RESOLVE(network_state, GetClusterNetworkState);
+    CLUSTER_RESOLVE(open_cluster, OpenClusterEx);
+    CLUSTER_RESOLVE(close_cluster, CloseCluster);
+    CLUSTER_RESOLVE(open_enum, ClusterOpenEnum);
+    CLUSTER_RESOLVE(enumerate, ClusterEnum);
+    CLUSTER_RESOLVE(close_enum, ClusterCloseEnum);
+    CLUSTER_RESOLVE(open_group, OpenClusterGroupEx);
+    CLUSTER_RESOLVE(close_group, CloseClusterGroup);
+    CLUSTER_RESOLVE(group_state, GetClusterGroupState);
+    CLUSTER_RESOLVE(open_resource, OpenClusterResourceEx);
+    CLUSTER_RESOLVE(close_resource, CloseClusterResource);
+    CLUSTER_RESOLVE(resource_state, GetClusterResourceState);
+    CLUSTER_RESOLVE(resource_control, ClusterResourceControl);
+    CLUSTER_RESOLVE(open_node, OpenClusterNodeEx);
+    CLUSTER_RESOLVE(close_node, CloseClusterNode);
+    CLUSTER_RESOLVE(node_state, GetClusterNodeState);
+    CLUSTER_RESOLVE(open_network, OpenClusterNetworkEx);
+    CLUSTER_RESOLVE(close_network, CloseClusterNetwork);
+    CLUSTER_RESOLVE(network_state, GetClusterNetworkState);
 #undef CLUSTER_RESOLVE
-  return native::fetch(api, kind);
+  }
+};
+}  // namespace
+
+std::vector<record> fetch_local(object_kind kind) {
+  // Thread-safe initialization on first use, like win::load_iphlpapi(). Keep
+  // the DLL and its RPC caches alive between polls until module teardown.
+  static const loaded_api loaded;
+  return native::fetch(loaded.api, kind);
 }
 }  // namespace check_cluster

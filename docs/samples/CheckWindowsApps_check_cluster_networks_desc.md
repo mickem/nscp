@@ -13,5 +13,7 @@ do not have an owner node; the shared `owner`, `group` and `type` fields are emp
 
 `name` requires an exact case-insensitive network name; a missing name returns
 UNKNOWN regardless of `empty-state`. Empty filter results follow `empty-state`
-(UNKNOWN by default). Missing support, access errors, incomplete reads and unknown
-state codes return UNKNOWN. Schedule retries for transient failures.
+(UNKNOWN by default). Missing support, access errors and incomplete reads return
+UNKNOWN. Unmapped state codes return UNKNOWN only for objects selected by
+`filter`; exclude them by name or with `state != 'unknown'` when appropriate.
+Schedule retries for transient failures.

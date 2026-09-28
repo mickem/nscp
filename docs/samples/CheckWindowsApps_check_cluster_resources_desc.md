@@ -15,7 +15,9 @@ guest OS health, or an application's end-to-end availability.
 
 `name` requires an exact case-insensitive name and returns UNKNOWN if absent,
 regardless of `empty-state`. Empty filter results follow `empty-state` (UNKNOWN
-by default). Acquisition failures and unknown state codes always return UNKNOWN.
+by default). Acquisition failures always return UNKNOWN. Unmapped state codes
+return UNKNOWN only for objects selected by `filter`; exclude them by name or
+with `state != 'unknown'` when appropriate.
 Native state codes differ from group state codes; prefer the string `state`.
 An ownership change alone is healthy. Use monitoring-server retries for brief
 transitions; no history or transition duration is inferred from one sample.
