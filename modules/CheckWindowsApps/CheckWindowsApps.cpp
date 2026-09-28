@@ -3,6 +3,7 @@
 
 #include "CheckWindowsApps.h"
 
+#include "check_cluster.hpp"
 #include "check_iis_checks.hpp"
 #include "check_nps.hpp"
 #include "check_rds_licenses.hpp"
@@ -20,6 +21,21 @@ void CheckWindowsApps::check_nps_counters(const PB::Commands::QueryRequestMessag
 
 bool CheckWindowsApps::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) { return true; }
 bool CheckWindowsApps::unloadModule() { return true; }
+
+void CheckWindowsApps::check_cluster_groups(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_cluster::check_from(request, response, check_cluster::object_kind::group, check_cluster::fetch_local);
+}
+void CheckWindowsApps::check_cluster_resources(const PB::Commands::QueryRequestMessage::Request &request,
+                                               PB::Commands::QueryResponseMessage::Response *response) {
+  check_cluster::check_from(request, response, check_cluster::object_kind::resource, check_cluster::fetch_local);
+}
+void CheckWindowsApps::check_cluster_nodes(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_cluster::check_from(request, response, check_cluster::object_kind::node, check_cluster::fetch_local);
+}
+void CheckWindowsApps::check_cluster_networks(const PB::Commands::QueryRequestMessage::Request &request,
+                                              PB::Commands::QueryResponseMessage::Response *response) {
+  check_cluster::check_from(request, response, check_cluster::object_kind::network, check_cluster::fetch_local);
+}
 
 void CheckWindowsApps::check_iis_app_pools(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_iis::check_iis_app_pools(request, response);

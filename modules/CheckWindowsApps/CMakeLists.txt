@@ -9,6 +9,8 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
+    check_cluster.cpp
+    cluster_source_win.cpp
     check_iis_checks.cpp
     check_rds_licenses.cpp
     check_rds_sessions.cpp
@@ -36,6 +38,9 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         "${TARGET}.h"
+        check_cluster.hpp
+        cluster_source.hpp
+        cluster_source_win.hpp
         check_iis_checks.hpp
         check_iis_internal.hpp
         check_rds_licenses.hpp
@@ -79,6 +84,32 @@ target_link_libraries(
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/win/pdh/.*)
+
+NSCP_CREATE_TEST(
+    check_cluster_test
+    SOURCES
+        check_cluster_test.cpp
+        check_cluster.cpp
+        cluster_source_win.cpp
+        ${NSCP_FILTER_CPP}
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 NSCP_CREATE_TEST(
     check_iis_test
