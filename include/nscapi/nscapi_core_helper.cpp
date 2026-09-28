@@ -517,6 +517,26 @@ void nscapi::core_helper::register_channel(const std::string channel) {
   }
 }
 
+void nscapi::core_helper::unregister_channel(const std::string channel) {
+  PB::Registry::RegistryRequestMessage request;
+
+  PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+  PB::Registry::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+  regitem->set_plugin_id(plugin_id_);
+  regitem->set_type(PB::Registry::ItemType::HANDLER);
+  regitem->set_name(channel);
+  regitem->set_unregister(true);
+  regitem->mutable_info()->set_title(channel);
+  std::string response_string;
+  get_core()->registry_query(request.SerializeAsString(), response_string);
+  PB::Registry::RegistryResponseMessage response;
+  response.ParseFromString(response_string);
+  for (int i = 0; i < response.payload_size(); i++) {
+    if (response.payload(i).result().code() != PB::Common::Result_StatusCodeType_STATUS_OK)
+      get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to unregister " + channel + ": " + response.payload(i).result().message());
+  }
+}
+
 void nscapi::core_helper::register_event(const std::string event) {
   PB::Registry::RegistryRequestMessage request;
 

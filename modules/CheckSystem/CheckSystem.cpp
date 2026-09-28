@@ -816,6 +816,17 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
     return nscapi::protobuf::functions::set_response_bad(
         *response, "CPU load sampling is disabled (remove cpu from disable in /settings/system/windows to use check_cpu)");
   }
+  // The same contract as the Unix check: before the first sample there is no
+  // load to report, and the buffer's empty slots would read as an idle machine.
+  if (!collector->use_pdh_for_cpu) {
+    const boost::optional<bool> has_data = collector->has_cpu_data();
+    if (!has_data) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU data: the collector is busy (timed out waiting for its lock)");
+    }
+    if (!has_data.value()) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "No CPU data available yet (collector still initializing)");
+    }
+  }
 
   for (const std::string &time : times) {
     long seconds;

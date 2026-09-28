@@ -304,6 +304,30 @@ TEST_F(PluginsListWithListenerTest, RemovePluginKeepsOtherSubscribersOnSameChann
   EXPECT_EQ(listeners.front()->get_id(), 2u);
 }
 
+TEST_F(PluginsListWithListenerTest, UnregisterListenerDropsOnlyThatSubscription) {
+  // A module moving its subscription (SimpleFileWriter with a changed
+  // `channel`) takes back the old one while staying loaded, and leaves every
+  // other subscriber of that channel - and its own other channels - alone.
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  list_->add_plugin(plugin1);
+  list_->add_plugin(plugin2);
+  list_->register_listener(1, "shared_channel,own_channel");
+  list_->register_listener(2, "shared_channel");
+
+  list_->unregister_listener(1, "SHARED_CHANNEL");
+
+  const auto shared = list_->get("shared_channel");
+  ASSERT_EQ(shared.size(), 1u);
+  EXPECT_EQ(shared.front()->get_id(), 2u);
+  EXPECT_EQ(list_->get("own_channel").size(), 1u);
+
+  list_->unregister_listener(2, "shared_channel");
+  EXPECT_EQ(list_->get_listeners().count("shared_channel"), 0u);
+  // Unregistering what was never registered is harmless.
+  EXPECT_NO_THROW(list_->unregister_listener(1, "never_registered"));
+}
+
 TEST_F(PluginsListWithListenerTest, GetSkipsSubscriberIdsWithNoLoadedPlugin) {
   // A listener id with no matching plugin must be skipped. This used to be
   // `plugins_[id]`, whose default-insert both wrote to the map under a shared

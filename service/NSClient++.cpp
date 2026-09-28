@@ -880,6 +880,35 @@ NSCAPI::errorReturn NSClientT::reload(const std::string module) {
     } else if (module == "service") {
       delayed = false;
     }
+    // A reload requested from inside a call the core dispatched into a module
+    // cannot be run inline on that thread. The thread may belong to a module
+    // other than the one it is dispatching: a Lua check served over NRPE runs
+    // on an NRPE pool thread while dispatching LUAScript, so
+    // core.reload("NRPEServer") - or "service", which reloads every module -
+    // would have the NRPE server stop and join its own pool from one of its
+    // members. Which module owns the thread is not something the core can
+    // see, so any reload of a module is deferred whenever this thread is
+    // inside any module; "settings" touches no module at all. The scheduler's
+    // worker is not inside any module, so hand it over exactly as "delayed,"
+    // does; the call then returns before the reload has applied, which is the
+    // only order in which it can apply.
+    if (!delayed && task != "settings" && plugins_->is_dispatching_on_this_thread()) {
+      if (scheduler_.is_running()) {
+        LOG_DEBUG_CORE_STD("Reload of " + task + " requested from inside a call into a module: deferring it to the scheduler");
+        delayed = true;
+      } else if (task == "service" || plugins_->is_dispatching_on_this_thread(task)) {
+        // No scheduler to hand it to (`nscp unit`, `nscp client` without
+        // --boot). Reloading the module this thread is inside would unload
+        // the code - a script and its interpreter state - that the call
+        // returns into, so refuse rather than run it inline. Reloading some
+        // other module from here is what the unit-test scripts do to apply
+        // the configuration they have just set, and none of those run on a
+        // thread the reloaded module owns, so that still applies inline.
+        LOG_ERROR_CORE_STD("Refusing to reload " + task +
+                           " from inside a call into the module being reloaded while the scheduler is not running: request it from outside the module");
+        return NSCAPI::api_return_codes::hasFailed;
+      }
+    }
     if (delayed) {
       LOG_TRACE_CORE("Delayed reload");
       scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);

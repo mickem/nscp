@@ -8,6 +8,7 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/registry.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
@@ -99,7 +100,17 @@ bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
     // clang-format on
 
     settings.register_all();
+    // Rebuilt from the section on every load: an entry removed from the ini
+    // would otherwise still be loaded by the next reload.
+    configured_.clear();
     settings.notify();
+    // A reload: the instances loaded last time go before the section is
+    // loaded again. Left in place, every reload added a second copy of each
+    // plugin - registering its commands again, and answering queries from
+    // whichever copy came first in the list. What they registered goes with
+    // them; the plugins still configured register it again as they load.
+    unload_plugins();
+    unregister_tracked();
 
     if (configured_.empty()) {
       NSC_DEBUG_MSG_STD("No .NET plugins configured under " + settings_path_ + "/plugins");
@@ -248,7 +259,7 @@ bool DotnetPlugins::load_plugin(plugin_entry &entry, NSCAPI::moduleLoadMode mode
   return true;
 }
 
-bool DotnetPlugins::unloadModule() {
+void DotnetPlugins::unload_plugins() {
   std::vector<plugin_entry> plugins;
   {
     std::lock_guard<std::mutex> lock(plugins_mutex_);
@@ -263,6 +274,55 @@ bool DotnetPlugins::unloadModule() {
       }
     }
   }
+}
+
+void DotnetPlugins::track_registrations(const std::string &request) {
+  PB::Registry::RegistryRequestMessage message;
+  if (!message.ParseFromString(request)) return;
+  std::lock_guard<std::mutex> lock(plugins_mutex_);
+  for (const PB::Registry::RegistryRequestMessage::Request &payload : message.payload()) {
+    if (!payload.has_registration()) continue;
+    const PB::Registry::RegistryRequestMessage::Request::Registration &reg = payload.registration();
+    // Only what the core can take back: commands, aliases and channels.
+    if (reg.type() != PB::Registry::ItemType::QUERY && reg.type() != PB::Registry::ItemType::QUERY_ALIAS &&
+        reg.type() != PB::Registry::ItemType::HANDLER)
+      continue;
+    // An alias is taken back as a command name, the way a QUERY's aliases are.
+    const int key_type = static_cast<int>(reg.type() == PB::Registry::ItemType::HANDLER ? PB::Registry::ItemType::HANDLER : PB::Registry::ItemType::QUERY);
+    if (reg.unregister()) {
+      registered_.erase(std::make_pair(key_type, reg.name()));
+      for (const std::string &alias : reg.alias()) registered_.erase(std::make_pair(key_type, alias));
+    } else {
+      registered_.insert(std::make_pair(key_type, reg.name()));
+      for (const std::string &alias : reg.alias()) registered_.insert(std::make_pair(key_type, alias));
+    }
+  }
+}
+
+void DotnetPlugins::unregister_tracked() {
+  std::set<std::pair<int, std::string> > registered;
+  {
+    std::lock_guard<std::mutex> lock(plugins_mutex_);
+    registered.swap(registered_);
+  }
+  if (registered.empty()) return;
+  PB::Registry::RegistryRequestMessage request;
+  for (const std::pair<int, std::string> &item : registered) {
+    PB::Registry::RegistryRequestMessage::Request::Registration *reg = request.add_payload()->mutable_registration();
+    reg->set_plugin_id(get_id());
+    reg->set_type(static_cast<PB::Registry::ItemType>(item.first));
+    reg->set_name(item.second);
+    reg->set_unregister(true);
+    reg->mutable_info()->set_title(item.second);
+  }
+  std::string response;
+  if (!get_core()->registry_query(request.SerializeAsString(), response)) {
+    NSC_LOG_ERROR("Failed to unregister the commands and channels of the previously loaded .NET plugins");
+  }
+}
+
+bool DotnetPlugins::unloadModule() {
+  unload_plugins();
   configured_.clear();
   return true;
 }
@@ -427,6 +487,7 @@ std::int32_t DotnetPlugins::dispatch(std::int32_t op, const char *str, const std
     case dotnet::op_settings:
       return get_core()->settings_query(request, response) ? 1 : 0;
     case dotnet::op_registry:
+      track_registrations(request);
       return get_core()->registry_query(request, response) ? 1 : 0;
     case dotnet::op_log:
       get_core()->log(request);

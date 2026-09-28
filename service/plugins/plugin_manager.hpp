@@ -86,6 +86,10 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // different workers. Recursive because these call one another
   // (load_single_plugin -> add_plugin, start_plugins -> purge_broken_plugin).
   boost::recursive_mutex lifecycle_mutex_;
+  // Plugins purge_broken_plugin removed while the purging thread was still
+  // inside them: kept alive (and loaded) until stop_plugins unloads them.
+  // Guarded by lifecycle_mutex_.
+  std::list<plugin_type> retired_plugins_;
 
  public:
   plugin_manager(path_instance path_, logging::logger_instance log_instance);
@@ -126,6 +130,11 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   plugin_type only_load_module(const std::string &module, const std::string &alias, bool &loaded);
 
   plugin_type find_plugin(const unsigned int plugin_id);
+  // Whether the calling thread is inside a call the core dispatched into a
+  // plugin: `module` names one plugin (by alias or file name) to ask about,
+  // and empty asks about every loaded plugin. A reload or unload of a module
+  // must not run on a thread that is still executing inside it.
+  bool is_dispatching_on_this_thread(const std::string &module = "");
   bool remove_plugin(const std::string &name);
   int clone_plugin(unsigned int plugin_id);
   bool reload_plugin(const std::string &module);

@@ -242,3 +242,47 @@ TEST_F(SimpleFileWriterModule, WriteToAnUnopenableFileIsHandled) {
 
   EXPECT_NO_THROW(module_.handleNotification("FILE", payload, &response, request_message));
 }
+
+// ============================================================================
+// Reload: loadModuleEx runs again on the live module
+// ============================================================================
+
+// The syntax used to be appended to the lookup list the module already held,
+// so after N reloads every line carried N copies of it.
+TEST_F(SimpleFileWriterModule, ReloadReplacesTheSyntaxInsteadOfAppendingToIt) {
+  ASSERT_TRUE(load());
+  ASSERT_TRUE(load());
+  ASSERT_TRUE(load());
+
+  EXPECT_EQ(submit("check_cpu", "once"), "check_cpu OK once\n");
+}
+
+TEST_F(SimpleFileWriterModule, ReloadAppliesTheChangedSyntaxAndFile) {
+  ASSERT_TRUE(load());
+  submit("check_cpu", "before");
+
+  core().set_setting("syntax", "changed ${message}");
+  const std::string other = (scratch_ / "other.txt").string();
+  core().set_setting("file", other);
+  ASSERT_TRUE(load());
+  submit("check_cpu", "after");
+
+  EXPECT_EQ(read_output(), "check_cpu OK before\n");
+  std::ifstream in(other.c_str());
+  std::stringstream ss;
+  ss << in.rdbuf();
+  EXPECT_EQ(ss.str(), "changed after\n");
+}
+
+// The channel used to be registered again on every load with nothing taken
+// back, so changing it in the ini left the module subscribed to both.
+TEST_F(SimpleFileWriterModule, ReloadMovesTheSubscriptionToTheChangedChannel) {
+  ASSERT_TRUE(load());
+  ASSERT_TRUE(core().has_channel("FILE"));
+
+  core().set_setting("channel", "MY_FILE");
+  ASSERT_TRUE(load());
+
+  EXPECT_TRUE(core().has_channel("MY_FILE"));
+  EXPECT_FALSE(core().has_channel("FILE"));
+}

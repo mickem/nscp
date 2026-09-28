@@ -43,6 +43,7 @@ class NSCAPI_EXPORT core_helper {
   void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
   void register_event(std::string event);
   void register_channel(std::string channel);
+  void unregister_channel(std::string channel);
 
   NSCAPI::nagiosReturn simple_query(std::string command, const std::list<std::string> &argument, std::string &message, std::string &perf,
                                     std::size_t max_length);

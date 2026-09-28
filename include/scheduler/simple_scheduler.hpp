@@ -252,6 +252,9 @@ class scheduler : public boost::noncopyable {
   void start();
   void stop();
   void prepare_shutdown();
+  // Whether start() has run and stop() has not: a task added to a scheduler
+  // that is not running is queued but never picked up.
+  bool is_running() const { return running_; }
 
   void set_threads(std::size_t threads) {
     thread_count_ = threads;

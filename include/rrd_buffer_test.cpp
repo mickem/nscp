@@ -141,3 +141,54 @@ TEST(rrd_buffer, varying_push_correct_average_over_window) {
   double avg = buf.get_average(20).value;
   EXPECT_DOUBLE_EQ(avg, 2.0);
 }
+
+// ============================================================================
+// Warm-up: the rings are created full of zero slots, so only the samples
+// actually pushed may be reported
+// ============================================================================
+
+TEST(rrd_buffer, has_data_is_false_until_a_sample_is_pushed) {
+  rrd_buffer<double_value> buf;
+  EXPECT_FALSE(buf.has_data());
+  EXPECT_EQ(buf.sampled_seconds(), 0u);
+  buf.push(double_value(1.0));
+  EXPECT_TRUE(buf.has_data());
+  EXPECT_EQ(buf.sampled_seconds(), 1u);
+}
+
+// A five-minute window asked for after thirty seconds is answered from the
+// thirty samples there are - not from five empty minute slots, which read as
+// an idle machine however busy it was.
+TEST(rrd_buffer, window_longer_than_sampled_is_answered_from_the_samples) {
+  rrd_buffer<double_value> buf;
+  for (int i = 0; i < 30; ++i) buf.push(double_value(50.0));
+  EXPECT_DOUBLE_EQ(buf.get_average(300).value, 50.0);
+  EXPECT_DOUBLE_EQ(buf.get_average(60).value, 50.0);
+}
+
+// Ninety seconds in, the one whole minute there is answers for five.
+TEST(rrd_buffer, window_longer_than_sampled_uses_the_minutes_that_exist) {
+  rrd_buffer<double_value> buf;
+  for (int i = 0; i < 60; ++i) buf.push(double_value(40.0));
+  for (int i = 0; i < 30; ++i) buf.push(double_value(80.0));
+  EXPECT_DOUBLE_EQ(buf.get_average(300).value, 40.0);
+  // The seconds ring is unaffected: the last 30 are still the newest samples.
+  EXPECT_DOUBLE_EQ(buf.get_average(30).value, 80.0);
+}
+
+// Once the window has really been sampled it is reported as before.
+TEST(rrd_buffer, fully_sampled_window_is_unchanged) {
+  rrd_buffer<double_value> buf;
+  for (int i = 0; i < 300; ++i) buf.push(double_value(i < 240 ? 0.0 : 100.0));
+  // Five minute slots: four at 0 and one at 100.
+  EXPECT_DOUBLE_EQ(buf.get_average(300).value, 20.0);
+}
+
+TEST(rrd_buffer, sample_count_saturates_at_the_span_of_the_buffers) {
+  rrd_buffer<double_value> buf;
+  for (int i = 0; i < 24 * 60 * 60 + 10; ++i) buf.push(double_value(1.0));
+  EXPECT_EQ(buf.sampled_seconds(), 24u * 60u * 60u);
+  // The 24-hour window itself is still beyond what the hours ring can answer.
+  EXPECT_THROW(buf.get_average(24 * 60 * 60), nsclient::nsclient_exception);
+  EXPECT_DOUBLE_EQ(buf.get_average(23 * 60 * 60).value, 1.0);
+}

@@ -66,3 +66,29 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# Unit tests for the module class itself: the alias table it reads, what it
+# registers with the core and what a reload does to both. The stub core
+# (include/nscapi/test_helpers.hpp) stands in for the daemon.
+NSCP_CREATE_TEST(
+    check_helpers_module_test
+    SOURCES
+        check_helpers_module_test.cpp
+        "${TARGET}.cpp"
+        perf_filter.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_FILTER_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

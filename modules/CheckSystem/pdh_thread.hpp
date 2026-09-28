@@ -4,6 +4,7 @@
 #pragma once
 
 #include <atomic>
+#include <boost/optional.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
@@ -138,6 +139,11 @@ class pdh_thread {
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
+  // Whether the sampler has pushed at least one CPU sample yet, or none when
+  // the collector's lock could not be had - a busy collector is not a fresh
+  // one. Only meaningful for the sampled path (use_pdh_for_cpu == false); the
+  // PDH path reads its counters directly.
+  boost::optional<bool> has_cpu_data();
   // Snapshot of the synthetic load averages; samples == 0 until the collector
   // has completed its first tick (or when load sampling is disabled).
   load_check::load_avg_state get_load_avg();

@@ -278,9 +278,17 @@ void registry_query_handler::parse_registration(const PB::Registry::RegistryRequ
                                                registration.info().experimental());
     }
   } else if (registration.type() == PB::Registry::ItemType::HANDLER) {
-    plugins_->get_channels()->register_listener(registration.plugin_id(), registration.name());
+    if (registration.unregister()) {
+      plugins_->get_channels()->unregister_listener(registration.plugin_id(), registration.name());
+    } else {
+      plugins_->get_channels()->register_listener(registration.plugin_id(), registration.name());
+    }
   } else if (registration.type() == PB::Registry::ItemType::EVENT) {
-    plugins_->get_event_subscribers()->register_listener(registration.plugin_id(), registration.name());
+    if (registration.unregister()) {
+      plugins_->get_event_subscribers()->unregister_listener(registration.plugin_id(), registration.name());
+    } else {
+      plugins_->get_event_subscribers()->register_listener(registration.plugin_id(), registration.name());
+    }
   } else if (registration.type() == PB::Registry::ItemType::MODULE) {
     PB::Registry::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
     int new_id = plugins_->clone_plugin(registration.plugin_id());
