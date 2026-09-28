@@ -3,12 +3,14 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cctype>
 #include <onboarding/onboarding.hpp>
 #include <openssl/evp.h>
 #include <string>
 
-// SHA-256 over a buffer and hex encoding of the result: the two helpers the
-// onboarding library needs in more than one translation unit (verify.cpp
+// SHA-256 over a buffer, hex encoding of the result and ASCII lowercasing:
+// the helpers the onboarding library needs in more than one translation unit (verify.cpp
 // digests a bundle, bundle_crypto.cpp fingerprints a key). Internal to
 // libs/onboarding - the public headers expose sha256_hex() instead, which is
 // these two composed.
@@ -22,6 +24,13 @@ inline std::string sha256_raw(const std::string &bytes) {
     throw onboarding_error("SHA-256 digest failed", false);
   }
   return std::string(reinterpret_cast<const char *>(digest), length);
+}
+
+// ASCII lowercase: for comparing hex digests and protocol tokens, which are
+// case-insensitive on the wire.
+inline std::string to_lower(std::string s) {
+  std::transform(s.begin(), s.end(), s.begin(), [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return s;
 }
 
 inline std::string to_hex(const std::string &bytes) {

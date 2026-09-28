@@ -7,10 +7,12 @@
 #include <initializer_list>
 #include <limits>
 #include <map>
+#include <net/http/http_request.hpp>
 #include <onboarding/sync.hpp>
 #include <sstream>
 #include <str/xtos.hpp>
 
+#include "digest.hpp"
 #include "json_util.hpp"
 
 namespace json = boost::json;
@@ -74,15 +76,19 @@ std::string require_id(const json::object &object, const char *key, const char *
   return value;
 }
 
+// A SHA-256 as hex: exactly 64 hex digits, either case.
+bool is_sha256_hex(const std::string &value) {
+  if (value.size() != 64) return false;
+  for (const char c : value) {
+    if (std::isxdigit(static_cast<unsigned char>(c)) == 0) return false;
+  }
+  return true;
+}
+
 std::string require_sha256_hex(const json::object &object, const char *key, const char *context) {
   const std::string value = onboarding::detail::require_string(object, key, context);
-  if (value.size() != 64) {
+  if (!is_sha256_hex(value)) {
     throw bad_field(context, key, "must be a 64 character SHA-256 hex digest");
-  }
-  for (const char c : value) {
-    if (std::isxdigit(static_cast<unsigned char>(c)) == 0) {
-      throw bad_field(context, key, "must be a 64 character SHA-256 hex digest");
-    }
   }
   return value;
 }
@@ -326,8 +332,7 @@ std::string onboarding::render_ini(const boost::json::value &config) {
 }
 
 onboarding::transport_error_info onboarding::classify_transport_error(const std::string &message) {
-  std::string lower = message;
-  std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  const std::string lower = detail::to_lower(message);
   const auto contains_any = [&lower](std::initializer_list<const char *> needles) {
     for (const char *needle : needles) {
       if (lower.find(needle) != std::string::npos) return true;
@@ -361,7 +366,7 @@ onboarding::transport_error_info onboarding::classify_transport_error(const std:
 
 std::string onboarding::build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
                                            const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
-                                           const bool local_config_present) {
+                                           const bool local_config_present, const std::string &facts_hash) {
   json::object root;
   if (applied_state_hash) {
     root["applied_state_hash"] = applied_state_hash.value();
@@ -389,7 +394,66 @@ std::string onboarding::build_state_report(const boost::optional<std::string> &a
     tags[tag.first] = tag.second;
   }
   root["reported_tags"] = tags;
+  // The hash alone: cheap enough for every report, and enough for the server
+  // to see "inventory changed" or "inventory missing" without the document.
+  if (!facts_hash.empty()) {
+    root["facts_hash"] = facts_hash;
+  }
   return json::serialize(root);
+}
+
+std::string onboarding::build_facts_upload(const std::string &facts_hash, const std::string &collected_at, const std::string &facts_json) {
+  // Cheap shape check only: the document comes from the core's own renderer,
+  // and anything but an object here is a bug that would otherwise reach the
+  // server as a body it cannot parse.
+  if (facts_json.size() < 2 || facts_json.front() != '{' || facts_json.back() != '}') {
+    throw onboarding_error("Facts document is not a JSON object", false);
+  }
+  // Members in sorted order, like the document itself. The scalars go
+  // through the serialiser for their escaping; the document is spliced in
+  // verbatim (see the header for why).
+  std::string body = "{";
+  if (!collected_at.empty()) {
+    body += "\"collected_at\":";
+    body += json::serialize(json::value(collected_at));
+    body += ",";
+  }
+  body += "\"facts\":";
+  body += facts_json;
+  body += ",\"facts_hash\":";
+  body += json::serialize(json::value(facts_hash));
+  body += "}";
+  return body;
+}
+
+const char *const onboarding::facts_hash_header = "x-facts-hash";
+const char *const onboarding::empty_facts_hash = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+
+
+std::string onboarding::desired_state_path(const std::string &current_hash, const std::string &facts_hash) {
+  std::string path = "/agent/v1/desired-state";
+  char separator = '?';
+  if (!current_hash.empty()) {
+    path += separator;
+    path += "current_hash=" + http::uri_encode(current_hash);
+    separator = '&';
+  }
+  if (!facts_hash.empty()) {
+    path += separator;
+    path += "facts_hash=" + http::uri_encode(facts_hash);
+  }
+  return path;
+}
+
+boost::optional<std::string> onboarding::parse_facts_hash(const std::string &header_value) {
+  // Holding nothing and holding the empty document are one state, and a host
+  // with nothing enabled has nothing to send in answer to either.
+  // Case-insensitive, like the digests: a proxy or framework that title-cases
+  // header values must not turn "none" into an unreadable header.
+  const std::string value = detail::to_lower(header_value);
+  if (value == "none") return std::string(empty_facts_hash);
+  if (!is_sha256_hex(value)) return boost::none;
+  return value;
 }
 
 onboarding::enrolled_identity onboarding::parse_renew_response(const std::string &body, const identity &fresh_identity, const enrolled_identity &current,

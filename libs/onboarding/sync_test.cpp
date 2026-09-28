@@ -15,6 +15,7 @@
 #include <map>
 #include <memory>
 #include <onboarding/bundle_crypto.hpp>
+#include <onboarding/facts_pacer.hpp>
 #include <onboarding/sync.hpp>
 #include <string>
 #include <vector>
@@ -1438,16 +1439,539 @@ TEST(SyncReport, LocalConfigFlagCarriesNoConfigurationContent) {
   // holds passwords. Guard the payload, not just the boolean.
   std::map<std::string, std::string> tags;
   tags["os"] = "linux";
-  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true);
+  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true, std::string(64, 'a'));
   const json::object root = json::parse(payload).as_object();
   // Exactly the members the report is allowed to have.
   for (const auto &member : root) {
     const std::string name(member.key());
     EXPECT_TRUE(name == "applied_state_hash" || name == "bundles_installed" || name == "errors" || name == "reported_tags" ||
-                name == "local_config_present")
+                name == "local_config_present" || name == "facts_hash")
         << "unexpected member in the state report: " << name;
   }
+  EXPECT_EQ(root.size(), 6u);
   EXPECT_TRUE(root.at("local_config_present").as_bool());
+}
+
+// --- facts --------------------------------------------------------------------
+
+TEST(SyncReport, CarriesTheFactsHashNotTheDocument) {
+  const std::string hash = onboarding::sha256_hex("{\"os\":{\"family\":\"linux\"}}");
+  const std::string payload = onboarding::build_state_report(boost::none, {}, {}, {}, false, hash);
+  const json::object root = json::parse(payload).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), hash);
+  EXPECT_EQ(payload.find("family"), std::string::npos) << "the report carries the hash, never the document";
+}
+
+TEST(SyncReport, OmitsTheFactsHashWhenThereIsNone) {
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
+  EXPECT_EQ(root.if_contains("facts_hash"), nullptr);
+}
+
+TEST(SyncFacts, UploadSplicesTheDocumentByteForByte) {
+  // A number spelt the way the core's renderer spells it, which a JSON
+  // library round trip would be free to re-spell. The hash covers these
+  // exact bytes, so they must reach the server untouched.
+  const std::string document = "{\"hardware\":{\"memory_bytes\":17179869184,\"ratio\":0.5},\"os\":{\"family\":\"linux\"}}";
+  const std::string hash = onboarding::sha256_hex(document);
+  const std::string body = onboarding::build_facts_upload(hash, "2026-09-25T10:00:00Z", document);
+  EXPECT_EQ(body, "{\"collected_at\":\"2026-09-25T10:00:00Z\",\"facts\":" + document + ",\"facts_hash\":\"" + hash + "\"}");
+  const json::object root = json::parse(body).as_object();
+  EXPECT_EQ(root.at("facts_hash").as_string(), hash);
+  EXPECT_EQ(root.at("facts").as_object().at("os").as_object().at("family").as_string(), "linux");
+}
+
+TEST(SyncFacts, UploadOfTheEmptyDocument) {
+  const std::string body = onboarding::build_facts_upload(onboarding::sha256_hex("{}"), "2026-09-25T10:00:00Z", "{}");
+  const json::object root = json::parse(body).as_object();
+  EXPECT_TRUE(root.at("facts").as_object().empty());
+  EXPECT_EQ(root.at("facts_hash").as_string(), "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
+}
+
+TEST(SyncFacts, UploadLeavesOutAnUnknownCollectionTime) {
+  const json::object root = json::parse(onboarding::build_facts_upload(std::string(64, 'a'), "", "{}")).as_object();
+  EXPECT_EQ(root.if_contains("collected_at"), nullptr);
+  EXPECT_EQ(root.size(), 2u);
+}
+
+TEST(SyncFacts, UploadEscapesTheScalars) {
+  const std::string body = onboarding::build_facts_upload("h\"x", "t\"\n", "{}");
+  json::object root;
+  ASSERT_NO_THROW(root = json::parse(body).as_object()) << body;
+  EXPECT_EQ(root.at("facts_hash").as_string(), "h\"x");
+  EXPECT_EQ(root.at("collected_at").as_string(), "t\"\n");
+}
+
+TEST(SyncFacts, UploadRefusesSomethingThatIsNotAnObject) {
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", ""), onboarding::onboarding_error);
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "[]"), onboarding::onboarding_error);
+  EXPECT_THROW(onboarding::build_facts_upload("h", "t", "null"), onboarding::onboarding_error);
+}
+
+TEST(SyncFacts, ThePollCarriesWhatTheAgentHolds) {
+  const std::string facts(64, 'f');
+  EXPECT_EQ(onboarding::desired_state_path("", ""), "/agent/v1/desired-state");
+  EXPECT_EQ(onboarding::desired_state_path("h1", ""), "/agent/v1/desired-state?current_hash=h1");
+  // Before the first apply there is no state hash, but there is always a
+  // facts hash to compare - the empty document's, at the least.
+  EXPECT_EQ(onboarding::desired_state_path("", facts), "/agent/v1/desired-state?facts_hash=" + facts);
+  EXPECT_EQ(onboarding::desired_state_path("h1", facts), "/agent/v1/desired-state?current_hash=h1&facts_hash=" + facts);
+}
+
+TEST(SyncFacts, ThePollEscapesWhatItCarries) {
+  // A state hash is a token that may be base64: a bare '+' would read back as
+  // a space, '/' and '=' are delimiters, so all three are percent-encoded.
+  EXPECT_EQ(onboarding::desired_state_path("ab+c/d=", ""), "/agent/v1/desired-state?current_hash=ab%2Bc%2Fd%3D");
+  EXPECT_EQ(onboarding::desired_state_path("a:b~c-d._e", ""), "/agent/v1/desired-state?current_hash=a%3Ab~c-d._e");
+}
+
+TEST(SyncFacts, TheEmptyDocumentHashIsTheDigestOfEmptyBraces) {
+  EXPECT_EQ(onboarding::sha256_hex("{}"), onboarding::empty_facts_hash);
+}
+
+TEST(SyncFacts, ParsesTheHashAServerHolds) {
+  const std::string hash(64, 'a');
+  EXPECT_EQ(onboarding::parse_facts_hash(hash).value(), hash);
+  // Lowercased, so it compares against our own digest.
+  EXPECT_EQ(onboarding::parse_facts_hash(std::string(64, 'A')).value(), hash);
+  // `none` is an answer: the server holds nothing for this host, which is
+  // what a host with nothing enabled holds too - so they compare equal.
+  EXPECT_EQ(onboarding::parse_facts_hash("none").value(), onboarding::empty_facts_hash);
+  // In any case, like the digests: a proxy that title-cases header values
+  // must not make the server unreadable.
+  EXPECT_EQ(onboarding::parse_facts_hash("None").value(), onboarding::empty_facts_hash);
+  EXPECT_EQ(onboarding::parse_facts_hash("NONE").value(), onboarding::empty_facts_hash);
+}
+
+TEST(SyncFacts, IgnoresAHashThatIsNotADigest) {
+  EXPECT_FALSE(onboarding::parse_facts_hash(""));
+  EXPECT_FALSE(onboarding::parse_facts_hash("abc"));
+  EXPECT_FALSE(onboarding::parse_facts_hash(std::string(63, 'a') + "g"));
+  EXPECT_FALSE(onboarding::parse_facts_hash(std::string(65, 'a')));
+}
+
+// --- facts upload pacing -------------------------------------------------------
+
+namespace {
+typedef onboarding::facts_upload_pacer pacer;
+const pacer::clock::time_point t0 = pacer::clock::time_point() + std::chrono::hours(24);
+pacer::clock::time_point at(const long long seconds) { return t0 + std::chrono::seconds(seconds); }
+const std::string H1(64, '1');
+const std::string H2(64, '2');
+const std::string NONE = onboarding::empty_facts_hash;
+}  // namespace
+
+TEST(FactsPacer, NothingUntilTheServerSaysWhatItHolds) {
+  pacer p;
+  EXPECT_FALSE(p.should_upload(H1, t0)) << "a server that never says does not do facts";
+  p.server_holds(NONE, t0);
+  EXPECT_TRUE(p.should_upload(H1, t0));
+  EXPECT_FALSE(p.should_upload(NONE, t0)) << "no miss: the server holds what we hold";
+  EXPECT_FALSE(p.should_upload("", t0));
+}
+
+TEST(FactsPacer, SteadyStateSendsNothing) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
+  EXPECT_FALSE(p.should_upload(H1, at(2)));
+}
+
+TEST(FactsPacer, ARejectedDocumentWaitsDoublingUpToAnHour) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.rejected(H1, t0);
+  EXPECT_FALSE(p.should_upload(H1, at(59)));
+  EXPECT_TRUE(p.should_upload(H1, at(60)));
+  p.rejected(H1, at(60));
+  EXPECT_FALSE(p.should_upload(H1, at(60 + 119)));
+  EXPECT_TRUE(p.should_upload(H1, at(60 + 120)));
+  for (int i = 0; i < 10; ++i) p.rejected(H1, at(1000));
+  EXPECT_EQ(p.retry_at(H1), at(1000 + 3600)) << "capped at an hour";
+}
+
+TEST(FactsPacer, TheBackoffBelongsToTheDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 6; ++i) p.rejected(H1, t0);
+  EXPECT_FALSE(p.should_upload(H1, at(60)));
+  EXPECT_TRUE(p.should_upload(H2, at(1))) << "a changed inventory was never tried and must not wait on H1's clock";
+  p.rejected(H2, at(1));
+  EXPECT_EQ(p.retry_at(H2), at(61)) << "and starts its own clock from the first step";
+}
+
+TEST(FactsPacer, RetryAfterHoldsEveryDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.rejected(H1, t0);
+  p.hold(t0, 600);
+  EXPECT_FALSE(p.should_upload(H2, at(599))) << "the server asked for quiet, whatever we send";
+  EXPECT_TRUE(p.should_upload(H2, at(600)));
+  EXPECT_FALSE(p.should_upload(H1, at(599)));
+}
+
+TEST(FactsPacer, AnAcknowledgedDocumentReportedMissingIsResentOnceAtOnceThenPaced) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));    // holds it...
+  p.server_holds(NONE, at(5));  // ...then loses it
+  EXPECT_TRUE(p.should_upload(H1, at(5))) << "the first re-send is immediate";
+  p.acknowledged(H1, at(5));
+  p.server_holds(H1, at(6));    // echoes what the upload just set...
+  p.server_holds(NONE, at(10)); // ...and loses it again
+  EXPECT_FALSE(p.should_upload(H1, at(10))) << "an echo inside the window is not proof it stuck";
+  EXPECT_TRUE(p.should_upload(H1, at(65)));
+}
+
+TEST(FactsPacer, ADocumentThatStuckResetsThePacing) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
+  p.server_holds(NONE, at(5));
+  p.acknowledged(H1, at(5));  // re-sent: next re-send waits 60s
+  p.server_holds(H1, at(70)); // still held after the whole window: it stuck
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400))) << "a loss a day later is repaired at once";
+}
+
+TEST(FactsPacer, AnEchoOfTheOlderDocumentKeepsTheNewerOnesBackoff) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
+  // The inventory moves to H2, and its upload is rejected.
+  p.rejected(H2, at(10));
+  // The next poll truthfully answers H1: the server still holds the older
+  // document. That says nothing about H2, whose clock must keep running -
+  // or the megabyte POST would repeat on every poll.
+  p.server_holds(H1, at(11));
+  EXPECT_FALSE(p.should_upload(H2, at(12)));
+  p.server_holds(H1, at(30));
+  EXPECT_FALSE(p.should_upload(H2, at(69)));
+  EXPECT_TRUE(p.should_upload(H2, at(70)));
+}
+
+TEST(FactsPacer, AHoldPausesEveryDocument) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.hold(t0, 120);  // a rate-limited poll
+  EXPECT_FALSE(p.should_upload(H1, at(119)));
+  EXPECT_TRUE(p.should_upload(H1, at(120)));
+  p.hold(at(120), 30);
+  p.hold(at(120), 10);  // a shorter hold never shortens a longer one
+  EXPECT_FALSE(p.should_upload(H1, at(149)));
+  EXPECT_TRUE(p.should_upload(H1, at(150)));
+}
+
+TEST(FactsPacer, ASuccessfulUploadClearsTheRejections) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 3; ++i) p.rejected(H1, at(i));
+  EXPECT_EQ(p.acknowledged(H1, at(1000)).resends, 0u) << "a document the server did not have is not a re-send";
+  EXPECT_EQ(p.rejections(), 0u) << "a rejection is transient: it does not outlive the success";
+  // A later loss starts from nothing: the first re-send is immediate.
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400)));
+}
+
+TEST(FactsPacer, ATransientRejectionDuringAResendDoesNotEscalateTheLosses) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  p.server_holds(H1, at(1));
+  p.server_holds(NONE, at(5));  // lost
+  p.rejected(H1, at(5));        // the re-send hits a 500
+  EXPECT_FALSE(p.should_upload(H1, at(64)));
+  ASSERT_TRUE(p.should_upload(H1, at(65)));
+  // It gets through: one loss, one re-send - the 500 in between counts for
+  // nothing once it is over.
+  EXPECT_EQ(p.acknowledged(H1, at(65)).resends, 1u);
+  EXPECT_EQ(p.rejections(), 0u);
+  EXPECT_EQ(p.retry_at(H1), at(65 + 60)) << "the next re-send waits the first step, not a step escalated by the 500";
+}
+
+TEST(FactsPacer, AServerThatFallsSilentIsSentNothing) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  ASSERT_TRUE(p.should_upload(H1, t0));
+  p.server_silent();  // downgraded to a build without facts
+  EXPECT_FALSE(p.should_upload(H1, at(3600)));
+  p.server_holds(NONE, at(7200));  // and upgraded again
+  EXPECT_TRUE(p.should_upload(H1, at(7200)));
+}
+
+TEST(FactsPacer, ALossIsCountedPerResend) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  long long now = 0;
+  for (unsigned int n = 1; n <= 8; ++n) {
+    p.server_holds(H1, at(now + 1));  // it has it...
+    p.server_holds(NONE, at(now + 2));  // ...and loses it again before the wait is out
+    ASSERT_TRUE(p.should_upload(H1, std::max(p.retry_at(H1), at(now + 2))));
+    now = std::max<long long>(std::chrono::duration_cast<std::chrono::seconds>(p.retry_at(H1) - t0).count(), now + 2);
+    const pacer::ack ack = p.acknowledged(H1, at(now));
+    EXPECT_FALSE(ack.mismatch);
+    EXPECT_EQ(ack.resends, n);
+  }
+  EXPECT_EQ(p.retry_at(H1), at(now + 3600)) << "re-sends of a document the server keeps losing settle at once an hour";
+}
+
+TEST(FactsPacer, WithoutAHeaderOnTheAckAMismatchTakesThreeUnconfirmedAcks) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  EXPECT_FALSE(p.acknowledged(H1, t0).mismatch);
+  // It hashes its own re-encoding, so it never answers H1 - but the
+  // acknowledgements carry no header to say so.
+  p.server_holds(THEIRS, at(1));
+  EXPECT_FALSE(p.should_upload(H1, at(59))) << "not confirmed yet: the write gets a step to land";
+  ASSERT_TRUE(p.should_upload(H1, at(60)));
+  EXPECT_FALSE(p.acknowledged(H1, at(60)).mismatch) << "two unconfirmed acknowledgements are not yet a verdict";
+  p.server_holds(THEIRS, at(61));
+  EXPECT_FALSE(p.should_upload(H1, at(179))) << "and the next re-send waits the next, doubled step (2 min)";
+  ASSERT_TRUE(p.should_upload(H1, at(180)));
+  const pacer::ack third = p.acknowledged(H1, at(180));
+  EXPECT_TRUE(third.mismatch);
+  EXPECT_FALSE(third.hashed_differently) << "inferred, not stated: it may also just not keep it";
+  p.server_holds(THEIRS, at(181));
+  EXPECT_FALSE(p.should_upload(H1, at(3600))) << "refused";
+  EXPECT_TRUE(p.should_upload(H2, at(182)));
+}
+
+TEST(FactsPacer, AnAckAnsweringADifferentHashIsAMismatchAtOnce) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  const pacer::ack ack = p.acknowledged(H1, t0, THEIRS);
+  EXPECT_TRUE(ack.mismatch) << "no second upload needed to learn it";
+  EXPECT_TRUE(ack.hashed_differently);
+  EXPECT_FALSE(p.should_upload(H1, at(86400)));
+}
+
+TEST(FactsPacer, AnAckAnsweringOurHashConfirmsAtOnce) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  EXPECT_FALSE(p.acknowledged(H1, t0, H1).mismatch);
+  // Confirmed on the acknowledgement itself, so a later loss is a loss: the
+  // re-send is immediate, however soon it comes.
+  p.server_holds(NONE, at(1));
+  EXPECT_TRUE(p.should_upload(H1, at(1)));
+  EXPECT_FALSE(p.acknowledged(H1, at(1), H1).mismatch);
+}
+
+TEST(FactsPacer, AnAckAnsweringNoneIsNotAMismatchButIsNotKeptEither) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  const pacer::ack ack = p.acknowledged(H1, t0, NONE);
+  EXPECT_FALSE(ack.mismatch);
+  EXPECT_FALSE(ack.confirmed);
+  EXPECT_FALSE(p.should_upload(H1, at(59))) << "a miss, but the write gets a step to land first";
+  EXPECT_TRUE(p.should_upload(H1, at(60)));
+}
+
+TEST(FactsPacer, OneStaleAnswerCostsNoSecondUploadAndNeverRefuses) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  // A queued write or a lagging replica: the next answer is stale, once.
+  p.server_holds(NONE, at(1));
+  EXPECT_FALSE(p.should_upload(H1, at(1))) << "no second megabyte before the first write could land";
+  p.server_holds(H1, at(20));  // and then it catches up
+  EXPECT_FALSE(p.should_upload(H1, at(60)));
+  // A real loss later is still repaired, at once.
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400)));
+  EXPECT_FALSE(p.acknowledged(H1, at(86400)).mismatch);
+}
+
+TEST(FactsPacer, TroubleSkipsOnlyTheTurnItHappenedIn) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.begin_turn();
+  p.trouble_this_turn();  // the poll failed
+  EXPECT_FALSE(p.should_upload(H1, t0));
+  p.begin_turn();
+  EXPECT_TRUE(p.should_upload(H1, at(1)));
+}
+
+TEST(FactsPacer, ARateLimitedUploadSkipsExactlyTheNextTurn) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.begin_turn();
+  p.quiet_next_turn();  // the upload was answered 429
+  p.begin_turn();       // that next turn's poll fails at the transport: the upload is never asked
+  p.begin_turn();       // a later, healthy turn
+  EXPECT_TRUE(p.should_upload(H1, at(2))) << "the skip does not leak past the turn it was for";
+  p.quiet_next_turn();
+  p.begin_turn();
+  EXPECT_FALSE(p.should_upload(H1, at(3)));
+}
+
+
+TEST(FactsPacer, AnyAcknowledgementClearsTheRejections) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 6; ++i) p.rejected(H1, t0);  // H1: an hour-long clock
+  p.acknowledged(H2, at(1));                         // a detour through H2
+  p.server_holds(H2, at(2));
+  EXPECT_TRUE(p.should_upload(H1, at(3))) << "H1 coming back does not inherit the old clock";
+}
+
+TEST(FactsPacer, ARestartCarriesNoTurnOver) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.begin_turn();
+  p.quiet_next_turn();  // the last upload before the sync died was rate limited
+  p.start();            // thread_proc restarts the sync
+  EXPECT_TRUE(p.should_upload(H1, at(30))) << "the repair upload after a restart is not suppressed";
+}
+
+TEST(FactsPacer, AnAckEchoingWhatTheServerHeldBeforeIsNotAVerdict) {
+  pacer p;
+  p.server_holds(H2, t0);  // the server holds an older document
+  // Asynchronous storage: the upload of H1 is acknowledged while the server
+  // still answers with what it held before the write landed.
+  const pacer::ack first = p.acknowledged(H1, t0, H2);
+  EXPECT_FALSE(first.mismatch) << "a stale echo is not a server hashing differently";
+  EXPECT_FALSE(first.hashed_differently);
+  // The write lands; the next answer confirms, and nothing is refused.
+  p.server_holds(H1, at(5));
+  EXPECT_FALSE(p.should_upload(H1, at(5)));
+  p.server_holds(NONE, at(86400));
+  EXPECT_TRUE(p.should_upload(H1, at(86400)));
+}
+
+TEST(FactsPacer, AStaleEchoThatNeverClearsIsSettledByTheUnconfirmedCount) {
+  pacer p;
+  p.server_holds(H2, t0);
+  EXPECT_FALSE(p.acknowledged(H1, t0, H2).mismatch);
+  p.server_holds(H2, at(1));
+  EXPECT_FALSE(p.should_upload(H1, at(59)));
+  ASSERT_TRUE(p.should_upload(H1, at(60)));
+  EXPECT_FALSE(p.acknowledged(H1, at(60), H2).mismatch);
+  EXPECT_FALSE(p.should_upload(H1, at(179)));
+  ASSERT_TRUE(p.should_upload(H1, at(180)));
+  const pacer::ack third = p.acknowledged(H1, at(180), H2);
+  EXPECT_TRUE(third.mismatch) << "three unconfirmed acknowledgements";
+  EXPECT_FALSE(third.hashed_differently);
+}
+
+TEST(FactsPacer, AReleasedRefusalStartsTheCountOver) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  // Refused after three unconfirmed, header-less acknowledgements.
+  p.acknowledged(H1, t0);
+  p.server_holds(THEIRS, at(1));
+  p.acknowledged(H1, at(60));
+  p.server_holds(THEIRS, at(61));
+  ASSERT_TRUE(p.acknowledged(H1, at(180)).mismatch);
+  p.server_holds(THEIRS, at(181));
+  // A day later it is offered again - and one more unconfirmed
+  // acknowledgement is not a verdict: the count started over.
+  const pacer::clock::time_point later = at(180 + 86400);
+  ASSERT_TRUE(p.should_upload(H1, later));
+  const pacer::ack again = p.acknowledged(H1, later);
+  EXPECT_FALSE(again.mismatch);
+  EXPECT_EQ(again.resends, 0u) << "a fresh document to the pacer, not a re-send";
+}
+
+TEST(FactsPacer, OurOwnUploadOfAnotherDocumentDoesNotReleaseARefusal) {
+  pacer p;
+  const std::string H0(64, '0');
+  p.server_holds(H0, t0);
+  p.refused(H1, t0);          // a 413 on H1
+  p.server_holds(H0, at(1));  // the baseline: it still holds H0
+  // The operator turns the large set off; H2 goes up and sticks.
+  p.acknowledged(H2, at(10), H2);
+  p.server_holds(H2, at(11));
+  // The server's hash moved because of us, not because it changed: turning
+  // the set back on must not re-send the same oversized document at once.
+  EXPECT_FALSE(p.should_upload(H1, at(12)));
+}
+
+TEST(FactsPacer, UnconfirmedReSendsDouble) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0);
+  EXPECT_EQ(p.retry_at(H1), at(60)) << "the first re-send waits one step";
+  p.acknowledged(H1, at(60));
+  EXPECT_EQ(p.retry_at(H1), at(60 + 120)) << "the second waits twice that";
+}
+
+TEST(FactsPacer, ARetryAfterAHashedDifferentlyVerdictIsTheSameVerdictAtOnce) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  ASSERT_TRUE(p.acknowledged(H1, t0, THEIRS).hashed_differently);
+  // A day of polls answering with the server's own digest makes it the
+  // pre-upload value when the refusal lapses...
+  for (int i = 1; i < 24; ++i) p.server_holds(THEIRS, at(i * 3600));
+  const pacer::clock::time_point retry = at(86400);
+  ASSERT_TRUE(p.should_upload(H1, retry));
+  // ...but an acknowledgement echoing it is the same verdict, not a stale
+  // write: one upload a day, and the log names the real cause.
+  const pacer::ack again = p.acknowledged(H1, retry, THEIRS);
+  EXPECT_TRUE(again.mismatch);
+  EXPECT_TRUE(again.hashed_differently);
+}
+
+TEST(FactsPacer, EachLossEpisodeIsNumbered) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.acknowledged(H1, t0, H1);
+  p.server_holds(NONE, at(1));
+  const pacer::ack first = p.acknowledged(H1, at(1), H1);
+  ASSERT_EQ(first.resends, 1u);
+  p.server_holds(H1, at(100));  // stuck: the episode is over
+  p.server_holds(NONE, at(86400));
+  const pacer::ack second = p.acknowledged(H1, at(86400), H1);
+  ASSERT_EQ(second.resends, 1u);
+  EXPECT_NE(second.loss_episode, first.loss_episode) << "a new loss weeks later is a new episode, and its start is news";
+}
+
+TEST(FactsPacer, ARefusedDocumentWaitsForAChangeOrADay) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  p.refused(H1, t0);
+  EXPECT_FALSE(p.should_upload(H1, at(86399)));
+  EXPECT_TRUE(p.should_upload(H2, at(1))) << "a changed document goes at once";
+  EXPECT_TRUE(p.should_upload(H1, at(86400))) << "and after a day - a raised size cap, say - it is offered again";
+}
+
+TEST(FactsPacer, ARefusalIsReleasedWhenTheServersHashChanges) {
+  pacer p;
+  const std::string THEIRS(64, 'e');
+  p.server_holds(NONE, t0);
+  ASSERT_TRUE(p.acknowledged(H1, t0, THEIRS).mismatch);
+  p.server_holds(THEIRS, at(1));  // what it said at the verdict: nothing new
+  EXPECT_FALSE(p.should_upload(H1, at(2)));
+  // Its hashing is fixed, or its store wiped: it answers something else.
+  p.server_holds(NONE, at(3600));
+  EXPECT_TRUE(p.should_upload(H1, at(3600)));
+}
+
+TEST(FactsPacer, AnInferredRefusalTakesTheNextAnswerAsItsBaseline) {
+  pacer p;
+  p.refused(H1, t0);
+  p.server_holds(H2, at(1));  // what it held when the refusal was made
+  p.server_holds(H2, at(2));
+  EXPECT_FALSE(p.should_upload(H1, at(3)));
+  p.server_holds(NONE, at(4));
+  EXPECT_TRUE(p.should_upload(H1, at(4)));
+}
+
+TEST(FactsPacer, ANewDocumentAfterRejectionsStartsClean) {
+  pacer p;
+  p.server_holds(NONE, t0);
+  for (int i = 0; i < 4; ++i) p.rejected(H1, t0);
+  p.acknowledged(H2, at(1));
+  p.server_holds(H2, at(2));    // confirmed
+  p.server_holds(NONE, at(3));  // and lost
+  EXPECT_TRUE(p.should_upload(H2, at(3))) << "no rejection clock, and a confirmed loss is re-sent at once";
 }
 
 // build_state_report takes strings from outside (bundle names and versions

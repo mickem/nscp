@@ -371,6 +371,124 @@ TEST(FactRepository, TheEmptyDocumentHashIsThePinnedValue) {
   EXPECT_EQ(repo.get_hash(), "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
 }
 
+// What the fleet upload reads: the bytes it sends and the hash it claims for
+// them, from one lock, so they cannot describe two different documents.
+TEST(FactRepository, TheSnapshotHashesExactlyTheBytesItCarries) {
+  if (!fact_repository::can_hash()) GTEST_SKIP() << "built without OpenSSL: the document has no hash";
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  store(repo, "hardware", 1, R"({"vendor":"Dell Inc.","model":"PowerEdge R740"})");
+  const fact_repository::snapshot snapshot = repo.get_snapshot();
+  EXPECT_EQ(snapshot.json, json_of(repo));
+  EXPECT_EQ(snapshot.hash, repo.get_hash());
+  EXPECT_EQ(snapshot.revision, repo.get_revision());
+  repo.mark_collected("2026-09-26T08:00:00Z");
+  EXPECT_EQ(repo.get_snapshot().collected, "2026-09-26T08:00:00Z") << "read under the same lock as the document";
+  fact_repository same;
+  store(same, "hardware", 1, R"({"model":"PowerEdge R740","vendor":"Dell Inc."})");
+  store(same, "os", 1, R"({"family":"linux"})");
+  EXPECT_EQ(same.get_snapshot().hash, snapshot.hash);
+}
+
+TEST(FactRepository, SetSizesNameTheLargestSetFirst) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  store(repo, "hardware", 1, R"({"vendor":"a vendor with a long name","model":"and a long model name too"})");
+  const std::vector<std::pair<std::string, std::size_t>> sizes = repo.get_set_sizes();
+  ASSERT_EQ(sizes.size(), 2u);
+  EXPECT_EQ(sizes[0].first, "hardware");
+  EXPECT_EQ(sizes[1].first, "os");
+  EXPECT_GT(sizes[1].second, 0u);
+}
+
+// A round is published whole: a reader between two of its stores sees the
+// document as the last round left it, never a mix of the two.
+TEST(FactRepository, ARoundIsInvisibleToTheHashUntilItEnds) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  repo.mark_collected("2026-09-26T08:00:00Z");
+  const fact_repository::snapshot before = repo.get_snapshot();
+
+  repo.begin_round();
+  store(repo, "os", 1, R"({"family":"linux","name":"Ubuntu"})");
+  store(repo, "hardware", 1, R"({"vendor":"Dell Inc."})");
+  EXPECT_EQ(repo.get_hash(), before.hash) << "mid-round, the last complete document's hash";
+  EXPECT_EQ(repo.get_snapshot().json, before.json);
+  EXPECT_EQ(repo.get_snapshot().collected, "2026-09-26T08:00:00Z") << "with that document's own time";
+  EXPECT_NE(nscapi::facts::tree::to_json(repo.get_all()).find("hardware"), std::string::npos) << "the live views are not held";
+  repo.mark_collected("2026-09-26T09:00:00Z");
+  repo.end_round();
+
+  const fact_repository::snapshot after = repo.get_snapshot();
+  EXPECT_NE(after.json, before.json);
+  EXPECT_NE(after.json.find("hardware"), std::string::npos);
+  EXPECT_EQ(after.collected, "2026-09-26T09:00:00Z");
+  if (fact_repository::can_hash()) EXPECT_EQ(repo.get_hash(), after.hash);
+}
+
+TEST(FactRepository, ARoundThatOnlyMarksTheTimeHoldsTheTimeBack) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  repo.mark_collected("2026-09-26T08:00:00Z");
+  const fact_repository::snapshot before = repo.get_snapshot();
+
+  // The usual round: every set comes back unchanged, only the time moves.
+  repo.begin_round();
+  EXPECT_EQ(store(repo, "os", 1, R"({"family":"linux"})"), set_result::unchanged);
+  repo.mark_collected("2026-09-26T09:00:00Z");
+  const fact_repository::snapshot during = repo.get_snapshot();
+  EXPECT_EQ(during.json, before.json);
+  EXPECT_EQ(during.collected, "2026-09-26T08:00:00Z") << "the round's time is published with the round";
+  if (fact_repository::can_hash()) EXPECT_EQ(repo.get_hash(), before.hash);
+  repo.end_round();
+
+  EXPECT_EQ(repo.get_snapshot().collected, "2026-09-26T09:00:00Z");
+  EXPECT_EQ(repo.get_snapshot().json, before.json);
+}
+
+TEST(FactRepository, OverlappingRoundsPublishWhenTheLastEnds) {
+  fact_repository repo;
+  const std::string empty = repo.get_snapshot().json;
+  {
+    const fact_repository::scoped_round outer(repo);
+    store(repo, "os", 1, R"({"family":"linux"})");
+    {
+      const fact_repository::scoped_round inner(repo);
+      store(repo, "hardware", 1, R"({"vendor":"Dell Inc."})");
+    }
+    EXPECT_EQ(repo.get_snapshot().json, empty) << "still inside the outer round";
+  }
+  EXPECT_NE(repo.get_snapshot().json.find("hardware"), std::string::npos);
+  repo.end_round();  // an unmatched end is harmless
+  EXPECT_NE(repo.get_snapshot().json.find("os"), std::string::npos);
+}
+
+// A lowered cap is enforced once, in the repository, for every consumer.
+TEST(FactRepository, ALoweredCapDropsTheLargestSetsUntilTheRestFits) {
+  fact_repository repo;
+  store(repo, "os", 1, R"({"family":"linux"})");
+  store(repo, "hardware", 1, R"({"vendor":"a vendor with a long name","model":"and a long model name too"})");
+  const unsigned long long revision = repo.get_revision();
+  const std::size_t os_size = repo.get_set_sizes()[1].second;
+  const std::vector<std::string> dropped = repo.set_max_size(os_size + 1);
+  ASSERT_EQ(dropped.size(), 1u);
+  EXPECT_EQ(dropped[0], "hardware");
+  EXPECT_FALSE(repo.get("hardware").is_initialized());
+  EXPECT_TRUE(repo.get("os").is_initialized());
+  EXPECT_GT(repo.get_revision(), revision) << "a change like any other: the next upload carries it";
+  ASSERT_EQ(repo.get_errors().count("hardware"), 1u) << "still enabled in its module: the REST view says why it has no data";
+  EXPECT_NE(repo.get_errors().at("hardware").find("max size"), std::string::npos);
+  EXPECT_TRUE(repo.set_max_size(fact_repository::default_max_size).empty()) << "raising it drops nothing";
+}
+
+TEST(FactRepository, TheEmptySnapshot) {
+  const fact_repository repo;
+  const fact_repository::snapshot snapshot = repo.get_snapshot();
+  EXPECT_EQ(snapshot.json, "{}");
+  EXPECT_EQ(snapshot.revision, 0u);
+  EXPECT_TRUE(repo.get_set_sizes().empty());
+}
+
 TEST(FactRepository, ErrorsAreReplacedPerRound) {
   fact_repository repo;
   repo.set_errors({{"software.installed", "access denied"}});

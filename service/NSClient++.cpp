@@ -583,12 +583,7 @@ void NSClientT::boot_facts() {
                                                "itself; it is re-read at start and on every settings reload, which is when any of it can change.",
                                                "false", false, false);
 
-    const std::string max_size = settings_manager::get_settings()->get_string(path, "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
-    try {
-      facts_->set_max_size(str::stox<std::size_t>(max_size));
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the default: " + utf8::utf8_from_native(e.what()));
-    }
+    read_facts_max_size();
 
     if (!plugins_->has_facts_fetchers()) {
       LOG_DEBUG_CORE("No loaded module produces facts, inventory will not be collected");
@@ -605,6 +600,29 @@ void NSClientT::boot_facts() {
     LOG_ERROR_CORE_STD("Failed to configure facts: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     LOG_ERROR_CORE("Failed to configure facts");
+  }
+}
+
+// [/settings/facts] max size, applied to the repository. Read at boot, on a
+// settings-only reload, and on a full reload before its facts round, so a cap
+// that was raised or lowered applies without a restart.
+void NSClientT::read_facts_max_size() {
+  const std::string max_size =
+      settings_manager::get_settings()->get_string("/settings/facts", "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
+  try {
+    const std::size_t value = str::stox<std::size_t>(max_size);
+    if (value < nsclient::core::fact_repository::min_max_size) {
+      LOG_ERROR_CORE_STD("Facts 'max size' " + max_size + " is too small to hold any fact set; keeping the previous cap of " +
+                         str::xtos(facts_->get_max_size()) + " bytes.");
+      return;
+    }
+    const std::vector<std::string> dropped = facts_->set_max_size(value);
+    for (const std::string &fact_set : dropped) {
+      LOG_ERROR_CORE_STD("Dropped the fact set '" + fact_set + "': the facts document no longer fits the lowered [/settings/facts] max size of " +
+                         max_size + " bytes. Disable a set, or raise max size.");
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the previous one: " + utf8::utf8_from_native(e.what()));
   }
 }
 
@@ -671,7 +689,7 @@ void NSClientT::boot_fleet_sync() {
                          path_->expand_path("${data-path}") + ") and restart.");
       return;
     }
-    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, [this] { this->reload("delayed,service"); });
+    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, facts_, [this] { this->reload("delayed,service"); });
     {
       boost::mutex::scoped_lock lock(fleet_sync_mutex_);
       fleet_sync_ = sync;
@@ -800,7 +818,7 @@ void NSClientT::reloadPlugins() {
   // The reloaded configuration may have enabled or disabled fact sets, and a
   // set that is no longer enabled has to leave the document now rather than at
   // the next hourly round.
-  process_facts("reload");
+  process_facts("reload", true);
 }
 
 bool NSClientT::do_reload(const std::string module) {
@@ -812,6 +830,18 @@ bool NSClientT::do_reload(const std::string module) {
       // configs are reloaded via the per-plugin loadModuleEx path; this
       // catches the core-side state.
       plugins_->load_permissions();
+      // And [/settings/facts] max size, which a settings-only reload has to
+      // apply as well as a full one: a lowered cap drops the sets that no
+      // longer fit now, a raised one lets the next round keep them. Inside a
+      // round, so the drop is published as one change.
+      // The `agent` set's switch lives in the same section and is documented
+      // as re-read on every settings reload, so it is collected in the same
+      // round.
+      {
+        const nsclient::core::fact_repository::scoped_round round(*facts_);
+        read_facts_max_size();
+        collect_agent_facts();
+      }
       return true;
     } catch (const std::exception &e) {
       LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));
@@ -933,7 +963,14 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   return bundle;
 }
 void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
-void NSClientT::process_facts(const std::string &reason) {
+void NSClientT::process_facts(const std::string &reason, const bool reread_max_size) {
+  // One round, published whole: the fleet sync, polling on its own thread,
+  // hashes and uploads the document as the last round left it until this one
+  // has stored every set and marked the time.
+  const nsclient::core::fact_repository::scoped_round round(*facts_);
+  // A reload's new cap is applied inside the same round: the sets it drops
+  // and the ones the round stores are one publication, not two uploads.
+  if (reread_max_size) read_facts_max_size();
   collect_agent_facts();
   plugins_->process_facts(reason);
 }

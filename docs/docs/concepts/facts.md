@@ -25,7 +25,7 @@ facts do not replace tags.
 | Question              | *which group is this host in*                 | *what is this host*                                    |
 | Collected             | always, a handful per module                  | only the sets you enable                               |
 | Used for              | fleet group selectors (`os_family = "linux"`) | inventory, and deciding what to monitor                |
-| Sent to a fleet server | on every state report                        | not yet                                                |
+| Sent to a fleet server | whole, on every state report                  | the hash on every report, the document when it changes |
 
 A fleet selector matches a tag whole, which is why `os_family` and `arch` are
 tags. "Which volumes does this host have" is a list of records, and a
@@ -569,6 +569,107 @@ Gathered:
 `facts <path>` shows one subtree (`facts storage.volumes`), and `facts refresh`
 collects now. Over REST the same document is `GET /api/v2/facts` (see
 [Facts](../api/rest/facts.md)), and the web UI shows it on the Facts page.
+
+---
+
+## Facts and the fleet server
+
+An agent [enrolled with a fleet server](../setup/fleet.md) sends its facts
+there too, but only when the server does not already have them. The document
+is up to a megabyte and changes rarely, so the agent sends its hash and lets
+the server say whether it needs the rest:
+
+* **Every desired-state poll and every state report carries `facts_hash`**,
+  the SHA-256 of the document: a `facts_hash=` query parameter on the poll, a
+  member of the state report. A host with nothing enabled sends the hash of
+  the empty document, `{}`.
+* **The server answers with the hash it holds**, in an `X-Facts-Hash`
+  response header (`none`, in any case, when it holds nothing). It is a header so that it
+  works on the 304 a host that is in sync gets on nearly every poll. The
+  agent reads it only on a 2xx or 304: an error page from the server or a
+  proxy says nothing about what the server holds. The server sends it on its
+  answer to an upload too, saying what it now holds, so the agent learns at
+  once whether the document stuck.
+* **The document is uploaded only on a miss**: when the server's answer
+  differs from the agent's hash, the agent sends it on its own call,
+  `POST /agent/v1/facts`. A matching answer costs nothing more than the hash,
+  a host with nothing enabled never uploads, and a server whose poll answers
+  carry no `X-Facts-Hash` is one that does not do facts and is never sent the
+  document - including one that sent it before and was downgraded since. (A
+  state report answered without the header changes nothing: the poll is the
+  call it is for.) A header the agent cannot read counts as no header, and is
+  logged once.
+* **A round is published whole.** A round stores its sets one at a time; until
+  it has finished, the hash on the poll and the document an upload sends are
+  the previous round's. A round therefore costs at most one upload, never one
+  per set.
+
+```json
+{
+  "collected_at": "2026-09-25T10:00:00Z",
+  "facts": { "os": { "family": "linux", "...": "..." } },
+  "facts_hash": "<sha256 hex of the facts value>"
+}
+```
+
+`facts_hash` is the digest of the `facts` value exactly as it appears in the
+body: compact JSON with every object's keys sorted, so the server can check it
+without re-encoding anything.
+
+Because the switches are ordinary INI, a fleet bundle turns inventory on for a
+whole group of hosts the same way it configures anything else; see
+[Collect an inventory](../setup/fleet.md#collect-an-inventory).
+
+Uploads are paced so that a server in trouble is never sent the document on
+every poll:
+
+* **A rejected upload** (any error status but 413) is retried after a
+  minute, then two, doubling up to once an hour. The wait belongs to that
+  document: an inventory that changed in the meantime was never tried and goes
+  at once.
+* **A server in trouble** - any error answer to the poll, the state report
+  or the upload, a proxy's error page included - is sent no document in that
+  poll cycle. A `Retry-After` on a report or an upload holds every upload until
+  it has passed. On a poll, the agent waits out a 429's `Retry-After` before
+  it calls again at all; any other failed poll - a 503 maintenance page
+  included - is logged as a failure and backed off as usual, with its
+  `Retry-After` as the shortest wait. A 429 or 503 on the upload itself skips
+  the next poll cycle too.
+  A rejection is forgotten as soon as the document gets through.
+* **A document the server acknowledged and then reports missing** - having
+  reported holding it first - is sent again at once the first time, and the
+  agent log says so at info level. One it has not confirmed yet is not sent
+  again for a minute, so a store that is slow to land a write never costs a
+  second copy of the document.
+  Further re-sends of it wait a minute, then two, doubling up to once an hour,
+  which is logged as an error when it gets there. Once the server has kept it
+  for a whole wait, that resets, so a loss weeks later is repaired at once
+  again.
+* **A connection that fails outright** costs nothing when it is the poll: the
+  next poll that gets through tries again. When the polls get through and the
+  upload alone is cut - a proxy that resets a large request, a timeout too
+  short for a large document on a slow link - it is paced like a rejection.
+* **A document the server refuses as too large** (413) is not offered again
+  until it changes, or for a day - its cap may be raised in the meantime.
+* **A document the server does not end up holding as sent** is not offered
+  again until it changes, the hash the server reports changes for a reason
+  other than an upload of the agent's own (a fix on its
+  side), or a day has passed, with an error in the agent log. The server has to hash
+  the `facts` value exactly as it received it. When it answers the upload with
+  a new, different hash, that is known at once. When its answers carry no
+  hash, or only repeat what it held before the upload (an asynchronous store
+  whose write has not landed yet), it takes three acknowledgements of the
+  document with no confirmation between them, with the re-sends paced as
+  above - one stale answer from a lagging server never gets there.
+
+The size cap is enforced in one place, where the document is kept, so every
+reader - the web UI, REST and the fleet upload - sees the same document: the
+core refuses any set that would take the document past `[/settings/facts] max
+size`, and keeps the previous value of that set. `max size` is re-read on every
+settings reload. Lowering it under the document the core already holds drops
+the largest sets until the rest fits, logging each one; the next round offers
+them again and keeps whichever fit. Raising it takes effect on the next reload,
+with nothing else to change.
 
 ---
 

@@ -76,6 +76,8 @@ class fact_repository {
   // Encoded size of the whole document. Overridable from [/settings/facts]
   // max size.
   static constexpr std::size_t default_max_size = 1048576;
+  // The smallest budget set_max_size() takes: below it no set fits at all.
+  static constexpr std::size_t min_max_size = 2;
   // The owner id of the sets the core produces itself (`agent`). Plugin ids
   // count up from 0, so the top of the range is one no module will ever be
   // handed.
@@ -117,6 +119,7 @@ class fact_repository {
       error = "fact set '" + fact_set + "' would take the facts document past the " + std::to_string(max_size_) + " byte budget";
       return set_result::rejected;
     }
+    freeze_locked(true);
     sets_[fact_set] = candidate;
     encoded_[fact_set] = encoded;
     size_ = would_be;
@@ -219,13 +222,87 @@ class fact_repository {
   // sha256 of to_json(). Computed on demand rather than kept up to date: only
   // the fleet upload needs it, once per round it actually uploads, while the
   // agent's own reads and writes never look at it.
+  //
+  // During a round, the hash of the document as the last round left it (see
+  // begin_round): a half-built document has no hash anyone should act on.
   std::string get_hash() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
-    if (hash_dirty_) {
-      hash_ = sha256_hex(nscapi::facts::tree::to_json(build_document_locked()));
-      hash_dirty_ = false;
+    if (frozen_) return frozen_hash_locked();
+    // Clean: the cached digest, without rendering anything. This is what
+    // every poll asks, so it must stay this cheap.
+    if (!can_hash() || !hash_dirty_) return hash_;
+    return hash_locked(nscapi::facts::tree::to_json(build_document_locked()));
+  }
+
+  // The document, its hash and its revision read under one lock, so the bytes
+  // an upload sends and the hash it claims for them cannot straddle a round
+  // that lands between two separate reads.
+  struct snapshot {
+    std::string json;
+    std::string hash;
+    unsigned long long revision = 0;
+    // When the round that produced this document completed.
+    std::string collected;
+  };
+  // During a round, the document as the last round left it (see begin_round).
+  snapshot get_snapshot() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    if (frozen_) return frozen_snapshot_locked();
+    return build_snapshot_locked();
+  }
+
+  // A round stores its sets one at a time, and each store is a change; a
+  // reader between two of them would see a document that is part this round
+  // and part the last, stamped with the last round's time. So a round is
+  // bracketed: from begin_round() until the matching end_round(), get_hash()
+  // and get_snapshot() answer with the document as it stood when the round
+  // began - the last complete one - and the round's result becomes visible to
+  // them all at once when it ends. Rounds may overlap (a manual refresh during
+  // a scheduled one); the document is published when the last one ends.
+  //
+  // Everything else - get_all(), get(), the REST view - reads the live
+  // document, as it always has: only what is hashed and uploaded is held.
+  void begin_round() {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    // Nothing is copied yet: the state is frozen by the round's first change
+    // (freeze_locked). Every round moves the collection time, which costs a
+    // string; the sets are only copied by a round that changes one, so a round
+    // whose inventory did not move - the usual one - copies no document.
+    ++rounds_;
+  }
+  void end_round() {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    if (rounds_ == 0) return;
+    if (--rounds_ == 0) frozen_ = boost::none;
+  }
+  // begin_round/end_round for a scope, so a producer that throws cannot leave
+  // the document frozen.
+  class scoped_round {
+   public:
+    explicit scoped_round(fact_repository &repository) : repository_(repository) { repository_.begin_round(); }
+    ~scoped_round() { repository_.end_round(); }
+    scoped_round(const scoped_round &) = delete;
+    scoped_round &operator=(const scoped_round &) = delete;
+
+   private:
+    fact_repository &repository_;
+  };
+
+  // The size of each set's JSON rendering, largest first: what a refused
+  // upload names so the operator knows which set to turn off. JSON because
+  // that is what the upload sent and the server measured; it is not the
+  // measure max size is enforced on (the stored encoding, usually smaller),
+  // and the values alone - without their keys and the braces around them -
+  // add up to a little less than the document.
+  std::vector<std::pair<std::string, std::size_t>> get_set_sizes() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    std::vector<std::pair<std::string, std::size_t>> sizes;
+    for (const std::pair<const std::string, PB::Facts::Object> &entry : sets_) {
+      sizes.emplace_back(entry.first, nscapi::facts::tree::to_json(entry.second).size());
     }
-    return hash_;
+    std::stable_sort(sizes.begin(), sizes.end(),
+                     [](const std::pair<std::string, std::size_t> &a, const std::pair<std::string, std::size_t> &b) { return a.second > b.second; });
+    return sizes;
   }
 
   // Whether this build can hash the document at all (see the OpenSSL note at
@@ -282,6 +359,8 @@ class fact_repository {
 
   void mark_collected(const std::string &timestamp) {
     boost::unique_lock<boost::mutex> lock(mutex_);
+    if (collected_ == timestamp) return;
+    freeze_locked(false);
     collected_ = timestamp;
   }
 
@@ -313,10 +392,31 @@ class fact_repository {
   }
 
   // The encoded size budget ([/settings/facts] max size). A budget below what
-  // a single empty set needs is ignored.
-  void set_max_size(const std::size_t max_size) {
+  // a single empty set needs (min_max_size) is ignored; the caller says so.
+  //
+  // A budget lowered under the document the repository already holds is
+  // enforced here, once, for every consumer: the largest sets are dropped
+  // until the rest fits, and their names are returned for the caller to log.
+  // The next round offers them again, and set() takes back whichever fit.
+  std::vector<std::string> set_max_size(const std::size_t max_size) {
     boost::unique_lock<boost::mutex> lock(mutex_);
-    if (max_size >= 2) max_size_ = max_size;
+    std::vector<std::string> dropped;
+    if (max_size < min_max_size) return dropped;
+    max_size_ = max_size;
+    while (size_ > max_size_ && !encoded_.empty()) {
+      const std::map<std::string, std::string>::const_iterator largest =
+          std::max_element(encoded_.begin(), encoded_.end(), [](const std::pair<const std::string, std::string> &a,
+                                                                const std::pair<const std::string, std::string> &b) { return a.second.size() < b.second.size(); });
+      const std::string name = largest->first;
+      erase_locked(name);
+      dropped.push_back(name);
+      // Still enabled in its module, so still declared - and the REST view
+      // says why it has no data until the next round offers it again (and
+      // reports in its own words whether it fits).
+      errors_[name] = "not kept: the facts document no longer fits the lowered max size of " + std::to_string(max_size_) + " bytes";
+    }
+    if (!dropped.empty()) touch();
+    return dropped;
   }
   std::size_t get_max_size() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
@@ -336,10 +436,93 @@ class fact_repository {
   }
 
  private:
+  // The hash of the document, whose rendering is `json`: recomputed only
+  // after a change, so it is always the digest of the bytes a caller renders
+  // under the same lock. The one place the cache is read or refreshed.
+  // Callers hold the lock.
+  //
+  // A digest that failed (an OpenSSL error) is not cached: the cache stays
+  // dirty and the next call tries again, rather than every poll carrying no
+  // hash until the inventory happens to change.
+  std::string hash_locked(const std::string &json) const {
+    // Nothing to compute in a build without a digest (and nothing to retry).
+    if (!can_hash()) return std::string();
+    if (!hash_dirty_) return hash_;
+    const std::string digest = sha256_hex(json);
+    if (digest.empty()) return digest;
+    hash_ = digest;
+    hash_dirty_ = false;
+    return hash_;
+  }
+
+  snapshot build_snapshot_locked() const {
+    snapshot result;
+    result.json = nscapi::facts::tree::to_json(build_document_locked());
+    result.hash = hash_locked(result.json);
+    result.revision = revision_;
+    result.collected = collected_;
+    return result;
+  }
+
+  // The state a round started from, captured at the round's first change:
+  // the collection time always (marking it is the one change every round
+  // makes), the document only when the round changes a set - and then as the
+  // JSON it renders to, one string, which is all a reader mid-round is served.
+  // Until then the live sets are the round's starting sets, and serve as they
+  // are. The hash comes along when it was already known; otherwise it is only
+  // computed if someone asks mid-round.
+  struct frozen_state {
+    std::string collected;
+    boost::optional<std::string> json;
+    unsigned long long revision = 0;
+    mutable std::string hash;
+  };
+
+  // Called before every change; `sets_change` says whether it touches the
+  // sets or only the collection time. Callers hold the lock.
+  void freeze_locked(const bool sets_change) {
+    if (rounds_ == 0) return;
+    if (!frozen_) {
+      frozen_state state;
+      state.collected = collected_;
+      frozen_ = state;
+    }
+    frozen_state &state = frozen_.value();
+    if (!sets_change || state.json) return;
+    state.json = nscapi::facts::tree::to_json(build_document_locked());
+    state.revision = revision_;
+    if (!hash_dirty_) state.hash = hash_;
+  }
+
+  std::string frozen_hash_locked() const {
+    const frozen_state &state = frozen_.value();
+    // No set has moved: the live hash is the round's starting hash.
+    if (!state.json) return can_hash() && hash_dirty_ ? hash_locked(nscapi::facts::tree::to_json(build_document_locked())) : hash_;
+    if (state.hash.empty() && can_hash()) state.hash = sha256_hex(state.json.value());
+    return state.hash;
+  }
+
+  snapshot frozen_snapshot_locked() const {
+    const frozen_state &state = frozen_.value();
+    if (!state.json) {
+      snapshot live = build_snapshot_locked();
+      live.collected = state.collected;
+      return live;
+    }
+    snapshot result;
+    result.json = state.json.value();
+    result.hash = frozen_hash_locked();
+    result.revision = state.revision;
+    result.collected = state.collected;
+    return result;
+  }
+
   // The document, assembled from the sets. Callers hold the lock.
-  PB::Facts::Object build_document_locked() const {
+  PB::Facts::Object build_document_locked() const { return build_document(sets_); }
+
+  static PB::Facts::Object build_document(const std::map<std::string, PB::Facts::Object> &sets) {
     PB::Facts::Object document;
-    for (const std::pair<const std::string, PB::Facts::Object> &entry : sets_) {
+    for (const std::pair<const std::string, PB::Facts::Object> &entry : sets) {
       PB::Facts::Field *field = document.add_fields();
       field->set_key(entry.first);
       *field->mutable_value()->mutable_object_value() = entry.second;
@@ -470,6 +653,7 @@ class fact_repository {
     owners_.erase(fact_set);
     const std::map<std::string, std::string>::iterator encoded = encoded_.find(fact_set);
     if (encoded == encoded_.end()) return false;
+    freeze_locked(true);
     size_ -= encoded->second.size();
     encoded_.erase(encoded);
     sets_.erase(fact_set);
@@ -506,6 +690,10 @@ class fact_repository {
   mutable std::string hash_;
   mutable bool hash_dirty_ = true;
   unsigned long long revision_ = 0;
+  // Rounds in progress, and the state the first one started from - captured at
+  // its first change (freeze_locked).
+  unsigned int rounds_ = 0;
+  boost::optional<frozen_state> frozen_;
   std::size_t max_size_ = default_max_size;
 };
 

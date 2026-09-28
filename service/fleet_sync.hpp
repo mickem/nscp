@@ -11,11 +11,13 @@
 #include <memory>
 #include <net/http/http_response.hpp>
 #include <nsclient/logger/logger.hpp>
+#include <onboarding/facts_pacer.hpp>
 #include <onboarding/onboarding.hpp>
 #include <onboarding/sync.hpp>
 #include <string>
 #include <vector>
 
+#include "fact_repository.hpp"
 #include "tag_repository.hpp"
 
 struct fleet_config {
@@ -70,7 +72,8 @@ class fleet_sync {
   // description (who owns the file, who we are running as).
   static manifest_status check_manifest(const std::string &state_file, std::string &detail);
 
-  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags, reload_function request_reload);
+  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
+             nsclient::core::fact_repository_instance facts, reload_function request_reload);
   ~fleet_sync();
   void stop();
 
@@ -84,7 +87,14 @@ class fleet_sync {
   // retried by thread_proc.
   void run();
   // One poll cycle; returns how many seconds to sleep before the next one.
-  unsigned long poll_once();
+  // How long to sleep before the next poll, and whether that is a wait the
+  // server named (a Retry-After): a minimum, jittered upwards only.
+  struct poll_sleep {
+    unsigned long seconds;
+    bool at_least;
+    poll_sleep(const unsigned long seconds_, const bool at_least_ = false) : seconds(seconds_), at_least(at_least_) {}  // NOLINT: implicit on purpose
+  };
+  poll_sleep poll_once();
   // `stale` is set when the server says a bundle is no longer ours (the
   // desired state changed under us): the cycle is abandoned without reporting
   // a failure and the next poll picks up the new state.
@@ -101,6 +111,22 @@ class fleet_sync {
   void report_state(const boost::optional<std::string> &applied_hash, const std::vector<std::string> &errors);
   void maybe_renew();
   std::map<std::string, std::string> collect_tags() const;
+
+  // Upload the facts document to /agent/v1/facts when the server has said it
+  // holds a different one. Cheap when it has not: one hash compare.
+  void maybe_upload_facts();
+  // Which fleet call a response answered: they share one rule, which differs
+  // only in what trouble and a Retry-After mean for the facts upload.
+  enum class fleet_call { poll, report, upload };
+  void note_server_response(const http::response &response, fleet_call call);
+  // The X-Facts-Hash on a response the server meant, for both readers - what
+  // it holds after a poll or report, what it kept after an upload. None when
+  // there is no header, or one that cannot be read (logged once).
+  // `call` only picks the wording of the log line.
+  boost::optional<std::string> read_facts_hash_header(const http::response &response, fleet_call call);
+  void log_facts_failure(const std::string &hash, unsigned int status, const std::string &message);
+  // The current facts hash for the state report; empty without a repository.
+  std::string current_facts_hash() const;
 
   // Connection-failure bookkeeping: log a classified, actionable error the
   // first time a failure (or a new kind of failure) appears, demote repeats
@@ -128,6 +154,26 @@ class fleet_sync {
   nsclient::core::tag_repository_instance tags_;
   unsigned long long reported_tag_revision_ = 0;
   bool tags_reported_ = false;
+  // The core's facts repository: the host inventory, uploaded whole on its
+  // own call whenever its hash differs from what the server holds, while
+  // every state report carries only the hash.
+  nsclient::core::fact_repository_instance facts_;
+  // When to upload the facts document: only on a miss the server reported,
+  // paced per document. See onboarding::facts_upload_pacer for the rules.
+  onboarding::facts_upload_pacer facts_pacer_;
+  // Said once until the condition clears: an unreadable X-Facts-Hash, and a
+  // facts hash that could not be computed.
+  bool bad_facts_header_logged_ = false;
+  mutable bool facts_hash_failure_logged_ = false;
+  // The last failed upload that was logged, so a failure repeated at every
+  // backoff step is logged once per document and status - not per body,
+  // which may carry a request id that differs every time.
+  // The loss episodes the "lost" and "keeps losing" lines were last said for.
+  unsigned long lost_logged_episode_ = 0;
+  unsigned long hourly_logged_episode_ = 0;
+  std::string last_facts_error_hash_;
+  unsigned int last_facts_error_status_ = 0;
+  std::chrono::steady_clock::time_point last_facts_error_at_;
   reload_function request_reload_;
 
   onboarding::enrolled_identity identity_;

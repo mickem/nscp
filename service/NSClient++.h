@@ -130,7 +130,9 @@ class NSClientT : public nsclient::core::core_interface {
   void process_metrics();
   // Run one facts round. `reason` is what producers see: startup, scheduled,
   // reload or manual (the console verb and POST /api/v2/facts/refresh).
-  void process_facts(const std::string &reason);
+  // `reread_max_size`: apply [/settings/facts] max size inside the round (a
+  // reload), so what it drops is published with what the round stores.
+  void process_facts(const std::string &reason, bool reread_max_size = false);
 
  private:
   void reloadPlugins();
@@ -140,6 +142,7 @@ class NSClientT : public nsclient::core::core_interface {
   // Register [/settings/facts] and, when a fact set is enabled, schedule the
   // refresh round. Done at boot, before the first round runs.
   void boot_facts();
+  void read_facts_max_size();
   // Build the `agent` fact set (or drop it, when [/settings/facts] agent is
   // off) ahead of every facts round.
   void collect_agent_facts();
