@@ -1,10 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 #pragma once
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
 #include <map>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -15,27 +12,20 @@ struct event {
   std::string client, policy, reason;
 };
 
-inline event parse_event(const std::string &xml) {
-  boost::property_tree::ptree tree;
-  std::istringstream input(xml);
-  boost::property_tree::read_xml(input, tree, boost::property_tree::xml_parser::no_comments);
-  if (tree.get<std::string>("Event.System.Provider.<xmlattr>.Name") != "Microsoft-Windows-Security-Auditing")
-    throw std::runtime_error("Unexpected NPS audit provider");
+inline event make_event(const std::string &provider, int id, const std::string &client_name, const std::string &client_ip,
+                        const std::string &network_policy, const std::string &proxy_policy, const std::string &reason) {
+  if (provider != "Microsoft-Windows-Security-Auditing") throw std::runtime_error("Unexpected NPS audit provider");
+  if (id < 6272 || id > 6275) throw std::runtime_error("Unexpected NPS audit event ID");
   event out;
-  out.id = tree.get<int>("Event.System.EventID");
-  if (out.id < 6272 || out.id > 6275) throw std::runtime_error("Unexpected NPS audit event ID");
-  std::map<std::string, std::string> fields;
-  for (const auto &entry : tree.get_child("Event.EventData")) {
-    if (entry.first == "Data") fields[entry.second.get<std::string>("<xmlattr>.Name")] = entry.second.data();
-  }
+  out.id = id;
   // Missing grouping fields stay visible; they must not exclude the event.
-  out.client = fields["ClientName"];
-  if (out.client.empty() || out.client == "-") out.client = fields["ClientIPAddress"];
+  out.client = client_name;
+  if (out.client.empty() || out.client == "-") out.client = client_ip;
   if (out.client.empty()) out.client = "unknown";
-  out.policy = fields["NetworkPolicyName"];
-  if (out.policy.empty() || out.policy == "-") out.policy = fields["ProxyPolicyName"];
+  out.policy = network_policy;
+  if (out.policy.empty() || out.policy == "-") out.policy = proxy_policy;
   if (out.policy.empty()) out.policy = "unknown";
-  out.reason = fields["ReasonCode"];
+  out.reason = reason;
   if (out.reason.empty()) out.reason = out.id == 6272 ? "0" : "unknown";
   return out;
 }

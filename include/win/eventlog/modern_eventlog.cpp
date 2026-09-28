@@ -1,11 +1,10 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-#pragma once
-
 #include "modern_eventlog.hpp"
 
 #include <bytes/buffer.hpp>
+#include <mutex>
 #include <nsclient/nsclient_exception.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
@@ -32,27 +31,36 @@ tEvtCreateBookmark pEvtCreateBookmark = NULL;
 tEvtUpdateBookmark pEvtUpdateBookmark = NULL;
 
 void load_procs() {
-  HMODULE hModule = LoadLibrary(L"Wevtapi.dll");
-  pEvtFormatMessage = reinterpret_cast<api::tEvtFormatMessage>(GetProcAddress(hModule, "EvtFormatMessage"));
-  pEvtOpenPublisherMetadata = reinterpret_cast<api::tEvtOpenPublisherMetadata>(GetProcAddress(hModule, "EvtOpenPublisherMetadata"));
-  pEvtCreateRenderContext = reinterpret_cast<api::tEvtCreateRenderContext>(GetProcAddress(hModule, "EvtCreateRenderContext"));
-  pEvtRender = reinterpret_cast<api::tEvtRender>(GetProcAddress(hModule, "EvtRender"));
-  pEvtSeek = reinterpret_cast<api::tEvtSeek>(GetProcAddress(hModule, "EvtSeek"));
-  pEvtNext = reinterpret_cast<api::tEvtNext>(GetProcAddress(hModule, "EvtNext"));
-  pEvtOpenPublisherEnum = reinterpret_cast<api::tEvtOpenPublisherEnum>(GetProcAddress(hModule, "EvtOpenPublisherEnum"));
-  pEvtQuery = reinterpret_cast<api::tEvtQuery>(GetProcAddress(hModule, "EvtQuery"));
-  pEvtClose = reinterpret_cast<api::tEvtClose>(GetProcAddress(hModule, "EvtClose"));
-  pEvtNextChannelPath = reinterpret_cast<api::tEvtNextChannelPath>(GetProcAddress(hModule, "EvtNextChannelPath"));
-  pEvtOpenChannelEnum = reinterpret_cast<api::tEvtOpenChannelEnum>(GetProcAddress(hModule, "EvtOpenChannelEnum"));
-  ptEvtNextPublisherId = reinterpret_cast<api::tEvtNextPublisherId>(GetProcAddress(hModule, "EvtNextPublisherId"));
-  pEvtGetPublisherMetadataProperty = reinterpret_cast<api::tEvtGetPublisherMetadataProperty>(GetProcAddress(hModule, "EvtGetPublisherMetadataProperty"));
-  pEvtGetObjectArrayProperty = reinterpret_cast<api::tEvtGetObjectArrayProperty>(GetProcAddress(hModule, "EvtGetObjectArrayProperty"));
-  pEvtGetObjectArraySize = reinterpret_cast<api::tEvtGetObjectArraySize>(GetProcAddress(hModule, "EvtGetObjectArraySize"));
-  pEvtSubscribe = reinterpret_cast<api::tEvtSubscribe>(GetProcAddress(hModule, "EvtSubscribe"));
-  pEvtCreateBookmark = reinterpret_cast<api::tEvtCreateBookmark>(GetProcAddress(hModule, "EvtCreateBookmark"));
-  pEvtUpdateBookmark = reinterpret_cast<api::tEvtUpdateBookmark>(GetProcAddress(hModule, "EvtUpdateBookmark"));
+  static std::once_flag initialized;
+  std::call_once(initialized, [] {
+    // Keep the library loaded while wrappers and event handles can use it.
+    // Use the system directory explicitly, without searching PATH or the cwd.
+    wchar_t directory[MAX_PATH + 1]{};
+    const UINT size = GetSystemDirectoryW(directory, MAX_PATH);
+    if (!size || size >= MAX_PATH) return;
+    HMODULE hModule = LoadLibraryW((std::wstring(directory) + L"\\wevtapi.dll").c_str());
+    if (!hModule) return;
+    pEvtFormatMessage = reinterpret_cast<api::tEvtFormatMessage>(GetProcAddress(hModule, "EvtFormatMessage"));
+    pEvtOpenPublisherMetadata = reinterpret_cast<api::tEvtOpenPublisherMetadata>(GetProcAddress(hModule, "EvtOpenPublisherMetadata"));
+    pEvtCreateRenderContext = reinterpret_cast<api::tEvtCreateRenderContext>(GetProcAddress(hModule, "EvtCreateRenderContext"));
+    pEvtRender = reinterpret_cast<api::tEvtRender>(GetProcAddress(hModule, "EvtRender"));
+    pEvtSeek = reinterpret_cast<api::tEvtSeek>(GetProcAddress(hModule, "EvtSeek"));
+    pEvtNext = reinterpret_cast<api::tEvtNext>(GetProcAddress(hModule, "EvtNext"));
+    pEvtOpenPublisherEnum = reinterpret_cast<api::tEvtOpenPublisherEnum>(GetProcAddress(hModule, "EvtOpenPublisherEnum"));
+    pEvtQuery = reinterpret_cast<api::tEvtQuery>(GetProcAddress(hModule, "EvtQuery"));
+    pEvtClose = reinterpret_cast<api::tEvtClose>(GetProcAddress(hModule, "EvtClose"));
+    pEvtNextChannelPath = reinterpret_cast<api::tEvtNextChannelPath>(GetProcAddress(hModule, "EvtNextChannelPath"));
+    pEvtOpenChannelEnum = reinterpret_cast<api::tEvtOpenChannelEnum>(GetProcAddress(hModule, "EvtOpenChannelEnum"));
+    ptEvtNextPublisherId = reinterpret_cast<api::tEvtNextPublisherId>(GetProcAddress(hModule, "EvtNextPublisherId"));
+    pEvtGetPublisherMetadataProperty = reinterpret_cast<api::tEvtGetPublisherMetadataProperty>(GetProcAddress(hModule, "EvtGetPublisherMetadataProperty"));
+    pEvtGetObjectArrayProperty = reinterpret_cast<api::tEvtGetObjectArrayProperty>(GetProcAddress(hModule, "EvtGetObjectArrayProperty"));
+    pEvtGetObjectArraySize = reinterpret_cast<api::tEvtGetObjectArraySize>(GetProcAddress(hModule, "EvtGetObjectArraySize"));
+    pEvtSubscribe = reinterpret_cast<api::tEvtSubscribe>(GetProcAddress(hModule, "EvtSubscribe"));
+    pEvtCreateBookmark = reinterpret_cast<api::tEvtCreateBookmark>(GetProcAddress(hModule, "EvtCreateBookmark"));
+    pEvtUpdateBookmark = reinterpret_cast<api::tEvtUpdateBookmark>(GetProcAddress(hModule, "EvtUpdateBookmark"));
+  });
 }
-bool supports_modern() { return pEvtQuery != NULL; }
+bool supports_modern() { return pEvtQuery && pEvtNext && pEvtRender && pEvtClose; }
 }  // namespace api
 BOOL EvtFormatMessage(api::EVT_HANDLE PublisherMetadata, api::EVT_HANDLE Event, DWORD MessageId, DWORD ValueCount, api::PEVT_VARIANT Values, DWORD Flags,
                       DWORD BufferSize, LPWSTR Buffer, PDWORD BufferUsed) {

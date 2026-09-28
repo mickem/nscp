@@ -18,9 +18,9 @@
 #include <str/format.hpp>
 #include <string>
 #include <vector>
+#include <win/eventlog/modern_eventlog.hpp>
 
 #include "eventlog_record.hpp"
-#include "modern_eventlog.hpp"
 
 namespace eventlog_filter {
 struct filter_obj : boost::noncopyable {

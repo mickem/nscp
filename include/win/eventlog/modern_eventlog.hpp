@@ -4,7 +4,9 @@
 #pragma once
 
 #include <handle.hpp>
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
+#endif
 #include <Windows.h>
 
 #include <map>

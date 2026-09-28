@@ -3,62 +3,23 @@
 #include <Windows.h>
 
 #include <chrono>
+#include <error/error.hpp>
 #include <memory>
 #include <str/utf8.hpp>
+#include <win/eventlog/modern_eventlog.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/pdh/pdh_query.hpp>
 
-#include "check_nps_internal.hpp"
+#include "check_nps_event_values.hpp"
 
 namespace check_nps {
 namespace {
-std::runtime_error win_error(const std::string &action) { return std::runtime_error(action + " (Windows error " + std::to_string(GetLastError()) + ")"); }
 struct service_closer {
   void operator()(SC_HANDLE value) const {
     if (value) CloseServiceHandle(value);
   }
 };
 using service_handle = std::unique_ptr<SC_HANDLE__, service_closer>;
-
-// Resolve the Vista APIs dynamically so the existing module still loads on
-// older Windows. The check returns UNKNOWN when its APIs are unavailable.
-struct event_api {
-  HMODULE dll = nullptr;
-  using query_type = HANDLE(WINAPI *)(HANDLE, LPCWSTR, LPCWSTR, DWORD);
-  using next_type = BOOL(WINAPI *)(HANDLE, DWORD, HANDLE *, DWORD, DWORD, DWORD *);
-  using render_type = BOOL(WINAPI *)(HANDLE, HANDLE, DWORD, DWORD, void *, DWORD *, DWORD *);
-  using close_type = BOOL(WINAPI *)(HANDLE);
-  query_type query = nullptr;
-  next_type next = nullptr;
-  render_type render = nullptr;
-  close_type close = nullptr;
-  event_api() {
-    wchar_t directory[MAX_PATH + 1]{};
-    const UINT size = GetSystemDirectoryW(directory, MAX_PATH);
-    if (!size || size >= MAX_PATH) throw win_error("Cannot locate Windows system directory");
-    dll = LoadLibraryW((std::wstring(directory) + L"\\wevtapi.dll").c_str());
-    if (!dll) throw std::runtime_error("Windows Event Log API unavailable");
-    query = reinterpret_cast<query_type>(GetProcAddress(dll, "EvtQuery"));
-    next = reinterpret_cast<next_type>(GetProcAddress(dll, "EvtNext"));
-    render = reinterpret_cast<render_type>(GetProcAddress(dll, "EvtRender"));
-    close = reinterpret_cast<close_type>(GetProcAddress(dll, "EvtClose"));
-    if (!query || !next || !render || !close) {
-      FreeLibrary(dll);
-      throw std::runtime_error("Windows Event Log API unavailable");
-    }
-  }
-  ~event_api() { FreeLibrary(dll); }
-};
-struct event_handle {
-  HANDLE value;
-  const event_api &api;
-  event_handle(HANDLE value, const event_api &api) : value(value), api(api) {}
-  ~event_handle() {
-    if (value) api.close(value);
-  }
-  event_handle(const event_handle &) = delete;
-  event_handle &operator=(const event_handle &) = delete;
-};
 
 void require_audit(bool accounting) {
   struct policy {
@@ -74,7 +35,7 @@ void require_audit(bool accounting) {
   if (!query || !release) throw std::runtime_error("NPS audit policy API unavailable");
   const GUID nps = {0x0cce9243, 0x69ae, 0x11d9, {0xbe, 0xd3, 0x50, 0x50, 0x54, 0x50, 0x30, 0x30}};
   policy *result = nullptr;
-  if (!query(&nps, 1, &result)) throw win_error("Cannot read NPS audit policy");
+  if (!query(&nps, 1, &result)) throw std::runtime_error("Cannot read NPS audit policy: " + error::lookup::last_error());
   const ULONG flags = result->information;
   release(result);
   const ULONG required = accounting ? 2 : 3;  // POLICY_AUDIT_EVENT_FAILURE / SUCCESS
@@ -85,7 +46,7 @@ void require_audit(bool accounting) {
 std::wstring utc_time(ULONGLONG ticks) {
   FILETIME ft{static_cast<DWORD>(ticks), static_cast<DWORD>(ticks >> 32)};
   SYSTEMTIME st{};
-  if (!FileTimeToSystemTime(&ft, &st)) throw win_error("Cannot compute NPS scan window");
+  if (!FileTimeToSystemTime(&ft, &st)) throw std::runtime_error("Cannot compute NPS scan window: " + error::lookup::last_error());
   wchar_t text[40]{};
   swprintf_s(text, L"%04u-%02u-%02uT%02u:%02u:%02u.%03uZ", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
   return text;
@@ -94,44 +55,61 @@ std::wstring utc_time(ULONGLONG ticks) {
 
 void require_nps() {
   service_handle manager(OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT));
-  if (!manager) throw win_error("Cannot open service manager");
+  if (!manager) throw std::runtime_error("Cannot open service manager: " + error::lookup::last_error());
   service_handle service(OpenServiceW(manager.get(), L"IAS", SERVICE_QUERY_STATUS));
   if (!service) {
     if (GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST) throw std::runtime_error("NPS role is not installed (IAS service missing)");
-    throw win_error("Cannot inspect IAS service");
+    throw std::runtime_error("Cannot inspect IAS service: " + error::lookup::last_error());
   }
 }
 
 std::vector<event> read_events(int seconds, int max_events, bool accounting) {
   require_nps();
   require_audit(accounting);
-  event_api api;
+  eventlog::api::load_procs();
+  if (!eventlog::api::supports_modern()) throw std::runtime_error("Windows Event Log API unavailable");
   FILETIME ft{};
   GetSystemTimeAsFileTime(&ft);
   const ULONGLONG now = (static_cast<ULONGLONG>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
   const std::wstring ids = accounting ? L"EventID=6275" : L"EventID=6272 or EventID=6273 or EventID=6274";
   const std::wstring query = L"*[System[Provider[@Name='Microsoft-Windows-Security-Auditing'] and (" + ids + L") and TimeCreated[@SystemTime >= '" +
                              utc_time(now - static_cast<ULONGLONG>(seconds) * 10000000) + L"' and @SystemTime <= '" + utc_time(now) + L"']]]";
-  event_handle results(api.query(nullptr, L"Security", query.c_str(), 0x201), api);  // ChannelPath | ReverseDirection
-  if (!results.value) throw win_error("Cannot query NPS Security events");
+  eventlog::evt_handle results(
+      eventlog::EvtQuery(nullptr, L"Security", query.c_str(), eventlog::api::EvtQueryChannelPath | eventlog::api::EvtQueryReverseDirection));
+  if (!results.get()) throw std::runtime_error("Cannot query NPS Security events: " + error::lookup::last_error());
+  LPCWSTR paths[] = {L"Event/System/Provider/@Name", L"Event/System/EventID", L"Event/EventData/Data[@Name='ClientName']",
+                     L"Event/EventData/Data[@Name='ClientIPAddress']", L"Event/EventData/Data[@Name='NetworkPolicyName']",
+                     L"Event/EventData/Data[@Name='ProxyPolicyName']", L"Event/EventData/Data[@Name='ReasonCode']"};
+  static_assert(sizeof(paths) / sizeof(paths[0]) == event_field_count, "NPS render paths must match the field positions");
+  eventlog::evt_handle context(eventlog::EvtCreateRenderContext(event_field_count, paths, eventlog::api::EvtRenderContextValues));
+  if (!context.get()) throw std::runtime_error("Cannot create NPS event render context: " + error::lookup::last_error());
+  // Reuse an aligned buffer across events. Most events need just one render call;
+  // grow only when a selected string does not fit, retaining the existing size cap.
+  std::vector<eventlog::api::EVT_VARIANT> values(4096 / sizeof(eventlog::api::EVT_VARIANT));
   std::vector<event> out;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
   for (;;) {
     if (std::chrono::steady_clock::now() > deadline) throw std::runtime_error("NPS event scan exceeded 15 seconds; reduce window");
     HANDLE raw = nullptr;
     DWORD returned = 0;
-    if (!api.next(results.value, 1, &raw, 1000, 0, &returned)) {
+    if (!eventlog::EvtNext(results.get(), 1, &raw, 1000, 0, &returned)) {
       if (GetLastError() == ERROR_NO_MORE_ITEMS) break;
-      throw win_error("Cannot read NPS Security events");
+      throw std::runtime_error("Cannot read NPS Security events: " + error::lookup::last_error());
     }
-    event_handle item(raw, api);
+    eventlog::evt_handle item(raw);
     if (out.size() >= static_cast<std::size_t>(max_events)) throw std::runtime_error("NPS event limit exceeded; reduce window or raise max-events");
     DWORD bytes = 0, properties = 0;
-    api.render(nullptr, item.value, 1, 0, nullptr, &bytes, &properties);  // EvtRenderEventXml
-    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || bytes == 0 || bytes > 1024 * 1024) throw win_error("Cannot size NPS event XML");
-    std::vector<wchar_t> xml(bytes / sizeof(wchar_t) + 1, 0);
-    if (!api.render(nullptr, item.value, 1, bytes, xml.data(), &bytes, &properties)) throw win_error("Cannot render NPS event XML");
-    out.push_back(parse_event(utf8::cvt<std::string>(xml.data())));
+    if (!eventlog::EvtRender(context.get(), item.get(), eventlog::api::EvtRenderEventValues,
+                            static_cast<DWORD>(values.size() * sizeof(values[0])), values.data(), &bytes, &properties)) {
+      const DWORD status = GetLastError();
+      if (status != ERROR_INSUFFICIENT_BUFFER) throw std::runtime_error("Cannot render NPS event values: " + error::lookup::last_error(status));
+      if (bytes == 0 || bytes > 1024 * 1024) throw std::runtime_error("NPS event values exceed the render buffer limit");
+      values.resize((bytes + sizeof(values[0]) - 1) / sizeof(values[0]));
+      if (!eventlog::EvtRender(context.get(), item.get(), eventlog::api::EvtRenderEventValues,
+                              static_cast<DWORD>(values.size() * sizeof(values[0])), values.data(), &bytes, &properties))
+        throw std::runtime_error("Cannot render NPS event values: " + error::lookup::last_error());
+    }
+    out.push_back(parse_event_values(values.data(), properties));
   }
   return out;
 }

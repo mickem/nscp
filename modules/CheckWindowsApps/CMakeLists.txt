@@ -14,6 +14,7 @@ set(SRCS
     check_rds_sessions.cpp
     check_nps.cpp
     check_nps_source_win.cpp
+    ${NSCP_INCLUDEDIR}/win/eventlog/modern_eventlog.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
@@ -42,6 +43,7 @@ if(WIN32)
         check_rds_internal.hpp
         check_nps.hpp
         check_nps_internal.hpp
+        check_nps_event_values.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp

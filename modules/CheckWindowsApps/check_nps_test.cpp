@@ -10,6 +10,9 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include "check_nps_internal.hpp"
+#ifdef _WIN32
+#include "check_nps_event_values.hpp"
+#endif
 
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
@@ -53,21 +56,84 @@ class Nps : public ::testing::Test {
   }
 };
 }  // namespace
-TEST_F(Nps, ParsesStructuredFieldsAndXmlEntities) {
-  const auto e = parse_event(
-      R"(<Event><System><Provider Name="Microsoft-Windows-Security-Auditing"/><EventID>6273</EventID></System><EventData><Data Name="ClientName">AP &amp; VPN</Data><Data Name="NetworkPolicyName">Wifi</Data><Data Name="ReasonCode">16</Data></EventData></Event>)");
+TEST_F(Nps, ReadsStructuredFields) {
+  const auto e = make_event("Microsoft-Windows-Security-Auditing", 6273, "AP & VPN", "", "Wifi", "", "16");
   EXPECT_EQ(e.id, 6273);
   EXPECT_EQ(e.client, "AP & VPN");
   EXPECT_EQ(e.policy, "Wifi");
   EXPECT_EQ(e.reason, "16");
 }
 TEST_F(Nps, MissingFieldsRemainVisibleAndMalformedEventsFail) {
-  const auto e = parse_event(R"(<Event><System><Provider Name="Microsoft-Windows-Security-Auditing"/><EventID>6274</EventID></System><EventData/></Event>)");
+  const auto e = make_event("Microsoft-Windows-Security-Auditing", 6274, "", "", "", "", "");
   EXPECT_EQ(e.reason, "unknown");
   EXPECT_EQ(e.client, "unknown");
-  EXPECT_THROW(parse_event("<broken"), std::exception);
-  EXPECT_THROW(parse_event(R"(<Event><System><Provider Name="Other"/><EventID>6273</EventID></System></Event>)"), std::exception);
+  EXPECT_EQ(e.policy, "unknown");
+  EXPECT_THROW(make_event("Other", 6273, "", "", "", "", ""), std::runtime_error);
+  EXPECT_THROW(make_event("Microsoft-Windows-Security-Auditing", 1, "", "", "", "", ""), std::runtime_error);
 }
+TEST_F(Nps, FallsBackToClientAddressAndProxyPolicy) {
+  const auto e = make_event("Microsoft-Windows-Security-Auditing", 6272, "-", "192.0.2.1", "-", "Proxy", "");
+  EXPECT_EQ(e.client, "192.0.2.1");
+  EXPECT_EQ(e.policy, "Proxy");
+  EXPECT_EQ(e.reason, "0");
+}
+#ifdef _WIN32
+TEST_F(Nps, ReadsTypedEventValuesAndUnicodeWithoutXmlEscaping) {
+  eventlog::api::EVT_VARIANT values[event_field_count]{};
+  values[provider_field].Type = eventlog::api::EvtVarTypeString;
+  values[provider_field].StringVal = L"Microsoft-Windows-Security-Auditing";
+  values[id_field].Type = eventlog::api::EvtVarTypeUInt16;
+  values[id_field].UInt16Val = 6273;
+  values[client_field].Type = eventlog::api::EvtVarTypeString;
+  values[client_field].StringVal = L"AP & <VPN> \u79d8\u5bc6";
+  values[reason_field].Type = eventlog::api::EvtVarTypeUInt32;
+  values[reason_field].UInt32Val = 16;
+  const auto e = parse_event_values(values, event_field_count);
+  EXPECT_EQ(e.client, utf8::cvt<std::string>(values[client_field].StringVal));
+  EXPECT_EQ(e.policy, "unknown");
+  EXPECT_EQ(e.reason, "16");
+  values[reason_field].Type = eventlog::api::EvtVarTypeString;
+  values[reason_field].StringVal = L"48";
+  EXPECT_EQ(parse_event_values(values, event_field_count).reason, "48");
+}
+TEST_F(Nps, TypedValuesPreserveMissingFieldDefaultsAndFallbacks) {
+  eventlog::api::EVT_VARIANT values[event_field_count]{};
+  values[provider_field].Type = eventlog::api::EvtVarTypeString;
+  values[provider_field].StringVal = L"Microsoft-Windows-Security-Auditing";
+  values[id_field].Type = eventlog::api::EvtVarTypeUInt16;
+  values[id_field].UInt16Val = 6272;
+  const auto e = parse_event_values(values, event_field_count);
+  EXPECT_EQ(e.client, "unknown");
+  EXPECT_EQ(e.policy, "unknown");
+  EXPECT_EQ(e.reason, "0");
+  values[id_field].UInt16Val = 6275;
+  values[address_field].Type = eventlog::api::EvtVarTypeString;
+  values[address_field].StringVal = L"192.0.2.1";
+  values[proxy_policy_field].Type = eventlog::api::EvtVarTypeString;
+  values[proxy_policy_field].StringVal = L"Proxy";
+  const auto fallback = parse_event_values(values, event_field_count);
+  EXPECT_EQ(fallback.client, "192.0.2.1");
+  EXPECT_EQ(fallback.policy, "Proxy");
+  EXPECT_EQ(fallback.reason, "unknown");
+}
+TEST_F(Nps, RejectsIncompleteAndUnexpectedTypedValues) {
+  eventlog::api::EVT_VARIANT values[event_field_count]{};
+  EXPECT_THROW(parse_event_values(values, event_field_count - 1), std::runtime_error);
+  EXPECT_THROW(parse_event_values(values, event_field_count), std::runtime_error);
+  values[provider_field].Type = eventlog::api::EvtVarTypeString;
+  values[provider_field].StringVal = L"Other";
+  values[id_field].Type = eventlog::api::EvtVarTypeUInt32;
+  values[id_field].UInt32Val = 6274;
+  EXPECT_THROW(parse_event_values(values, event_field_count), std::runtime_error);
+  values[provider_field].StringVal = L"Microsoft-Windows-Security-Auditing";
+  EXPECT_EQ(parse_event_values(values, event_field_count).id, 6274);
+  values[client_field].Type = eventlog::api::EvtVarTypeString | EVT_VARIANT_TYPE_ARRAY;
+  EXPECT_THROW(parse_event_values(values, event_field_count), std::runtime_error);
+  values[client_field].Type = eventlog::api::EvtVarTypeString;
+  values[client_field].StringVal = nullptr;
+  EXPECT_THROW(parse_event_values(values, event_field_count), std::runtime_error);
+}
+#endif
 TEST_F(Nps, PercentagesExcludeDiscardsAndAccounting) {
   for (int i = 0; i < 80; ++i) fixture_events.push_back({6272, "AP", "Wifi", "0"});
   for (int i = 0; i < 20; ++i) fixture_events.push_back({6273, "AP", "Wifi", "16"});
