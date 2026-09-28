@@ -30,6 +30,17 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // command registered a second time by the generation that followed.
     // unload_all waits for the checks still running a script before deleting
     // it; a check arriving in between sees no manager and is refused.
+    //
+    // unload_all does not wait for the calling thread, though: a script that
+    // reloads this module from its own thread would have the script it is
+    // still running - and its lua_State - deleted under it. The core refuses
+    // or defers such a reload before it gets here; this is the backstop, and
+    // it keeps the running generation exactly as it was.
+    const std::shared_ptr<scripts::script_manager<lua::lua_traits> > current = std::atomic_load(&scripts_);
+    if (current && current->is_dispatching_on_this_thread()) {
+      NSC_LOG_ERROR_STD("Not reloading " + alias + ": the reload was requested by one of its own scripts; request it from outside the module");
+      return true;
+    }
     const std::shared_ptr<scripts::script_manager<lua::lua_traits> > previous =
         std::atomic_exchange(&scripts_, std::shared_ptr<scripts::script_manager<lua::lua_traits> >());
     if (previous) previous->unload_all();

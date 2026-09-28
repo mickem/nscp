@@ -217,6 +217,14 @@ struct script_manager {
   }
   script_manager(const script_manager &) = delete;
   script_manager &operator=(const script_manager &) = delete;
+  // Whether the calling thread is running one of these scripts. unload_all()
+  // reached from such a thread deletes the script - and the interpreter
+  // state - that the thread returns into, so a caller about to unload asks
+  // this first.
+  bool is_dispatching_on_this_thread() const {
+    boost::lock_guard<boost::mutex> lock(mutex_);
+    return dispatchers_.count(boost::this_thread::get_id()) > 0;
+  }
   script_information<script_trait> *add(std::string alias, std::string script) {
     script_information<script_trait> *info =
         new script_information_impl<script_trait>(this, nscp_runtime->get_settings_provider(), nscp_runtime->get_core_provider());

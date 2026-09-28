@@ -71,6 +71,10 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // different workers. Recursive because these call one another
   // (load_single_plugin -> add_plugin, start_plugins -> purge_broken_plugin).
   boost::recursive_mutex lifecycle_mutex_;
+  // Plugins purge_broken_plugin removed while the purging thread was still
+  // inside them: kept alive (and loaded) until stop_plugins unloads them.
+  // Guarded by lifecycle_mutex_.
+  std::list<plugin_type> retired_plugins_;
 
  public:
   plugin_manager(path_instance path_, logging::logger_instance log_instance);

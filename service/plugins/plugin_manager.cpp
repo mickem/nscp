@@ -411,16 +411,21 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plugin_id) {
   const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
   const auto plugin = plugin_list_.find_by_id(plugin_id);
-  // The load that failed was a reload driven from inside the module itself: a
-  // script calling core.reload() from a check the module is serving. Dropping
-  // the registries' references here would destroy the instance - and unmap the
-  // library - under a thread that is still executing inside it, the same
-  // hazard remove_plugin refuses. The module is still running and serving
-  // exactly as it was before the reload, so leave it be and say so; a reload
-  // from any other thread can retry.
-  if (plugin && plugin->is_dispatching_on_this_thread()) {
-    LOG_ERROR_CORE_STD("Not unloading " + plugin->get_alias_or_name() + " after its failed reload: the reload was requested from inside a call it is serving");
-    return;
+  // The load that failed was a reload driven from inside the module itself.
+  // The core defers or refuses those (NSClientT::reload), so this is the
+  // backstop. Whatever loadModuleEx tore down before it failed - scripts
+  // unloaded, a server stopped - is gone, so the module cannot be left listed
+  // as loaded: it would answer nothing and could never be loaded fresh. It is
+  // taken out of every registry as below, but neither unloaded nor released:
+  // unloading would run the module's teardown under the thread still inside
+  // it, and dropping the last reference would destroy the instance - and unmap
+  // the library - under that thread. It is parked until stop_plugins, when
+  // nothing can still be inside it.
+  const bool inside = plugin && plugin->is_dispatching_on_this_thread();
+  if (inside) {
+    LOG_ERROR_CORE_STD("Removing " + plugin->get_alias_or_name() +
+                       " after its failed reload; it is unloaded at shutdown, as the reload was requested from inside a call it is serving");
+    retired_plugins_.push_back(plugin);
   }
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
@@ -430,6 +435,8 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   metrics_submitters_.remove_plugin(plugin_id);
   if (plugin) {
     log_instance_->remove_subscriber(plugin);
+  }
+  if (plugin && !inside) {
     try {
       plugin->unload_plugin();
     } catch (const plugin_exception &e) {
@@ -520,6 +527,18 @@ void nsclient::core::plugin_manager::stop_plugins() {
     }
   }
   plugin_list_.clear();
+  // Parked by purge_broken_plugin while a thread was still inside them; that
+  // call has long returned by now.
+  for (const plugin_type &p : retired_plugins_) {
+    try {
+      p->unload_plugin();
+    } catch (const plugin_exception &e) {
+      LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
+    } catch (...) {
+      LOG_ERROR_CORE("Unknown exception raised when unloading plugin");
+    }
+  }
+  retired_plugins_.clear();
 }
 
 boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(const std::string &file_name) {
