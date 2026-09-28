@@ -91,10 +91,10 @@ class cursor {
     if (!t) return boost::none;
     const boost::optional<std::size_t> len = take_length();
     if (!len) return boost::none;
-    // Safe: take_length() guarantees *len <= remaining(), so pos_ + *len <= end_.
-    const cursor content(*data_, pos_, pos_ + *len);
-    pos_ += *len;
-    tag = *t;
+    // Safe: take_length() guarantees len <= remaining(), so pos_ + len <= end_.
+    const cursor content(*data_, pos_, pos_ + len.value());
+    pos_ += len.value();
+    tag = t.value();
     return content;
   }
 
@@ -105,7 +105,7 @@ class cursor {
     const std::size_t len = remaining();
     if (len < 1 || len > sizeof(long long)) return boost::none;
     unsigned long long acc = ((*data_)[pos_] & 0x80) != 0 ? ~0ULL : 0ULL;
-    for (std::size_t i = 0; i < len; ++i) acc = (acc << 8) | *take_byte();
+    for (std::size_t i = 0; i < len; ++i) acc = (acc << 8) | take_byte().value();
     return static_cast<long long>(acc);
   }
 
@@ -117,12 +117,12 @@ class cursor {
   boost::optional<std::size_t> take_length() {
     const boost::optional<unsigned char> first = take_byte();
     if (!first) return boost::none;
-    std::size_t len = *first & 0x7f;
-    if ((*first & 0x80) != 0) {
+    std::size_t len = first.value() & 0x7f;
+    if ((first.value() & 0x80) != 0) {
       const std::size_t count = len;
       if (count == 0 || count > 4 || remaining() < count) return boost::none;
       len = 0;
-      for (std::size_t i = 0; i < count; ++i) len = (len << 8) | *take_byte();
+      for (std::size_t i = 0; i < count; ++i) len = (len << 8) | take_byte().value();
     }
     if (remaining() < len) return boost::none;
     return len;
@@ -177,15 +177,15 @@ classification classify_response(const bytes &data) {
   unsigned char tag = 0;
   boost::optional<cursor> application = outer.take_tlv(tag);
   if (!application) return result;
-  boost::optional<cursor> sequence = application->take_tlv(tag);
+  boost::optional<cursor> sequence = application.value().take_tlv(tag);
   if (!sequence || tag != 0x30) return result;
-  while (!sequence->done()) {
-    boost::optional<cursor> field = sequence->take_tlv(tag);
+  while (!sequence.value().done()) {
+    boost::optional<cursor> field = sequence.value().take_tlv(tag);
     if (!field) return result;
     if (tag != 0xa6) continue;  // error-code [6]
-    boost::optional<cursor> integer = field->take_tlv(tag);
+    boost::optional<cursor> integer = field.value().take_tlv(tag);
     if (integer && tag == 0x02) {
-      if (const boost::optional<long long> code = integer->take_integer()) result.error_code = *code;
+      if (const boost::optional<long long> code = integer.value().take_integer()) result.error_code = code.value();
     }
     return result;
   }

@@ -52,7 +52,7 @@ Each scenario follows the same structure:
 | Scenario                                        | Description                                                                     |
 |-------------------------------------------------|---------------------------------------------------------------------------------|
 | [Host Security Posture](security-posture.md)    | Certificate expiry/hygiene and logon sessions (Windows & Linux), plus Windows firewall, antivirus, BitLocker and Secure Boot |
-| [Active Directory & Identity](active-directory.md) | DC replication, machine secure channel, Kerberos KDC probing, plus NTDS/ADCS/ADFS performance counters |
+| [Active Directory & Identity](active-directory.md) | DC replication, machine secure channel, Kerberos KDC probing (experimental), plus NTDS/ADCS/ADFS performance counters |
 
 ### Monitoring Server Integration
 
