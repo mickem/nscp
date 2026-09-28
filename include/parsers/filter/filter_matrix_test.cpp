@@ -486,6 +486,17 @@ TEST(FilterMatrixSize, UnitLiteralsIncludingFractions) {
   });
 }
 
+TEST(FilterMatrixSize, BareByteCountsAndSentinelGuards) {
+  run_matrix({
+      {"zval > 2000", "c, d"},
+      {"zval < 2000", "a, b"},
+      {"zval = 2048", "c"},
+      {"2048 <= zval", "c, d"},
+      {"2048 >= zval", "a, b, c"},
+      {"zval != -1 and zval >= 0 and zval < 1.5k", "a"},
+  });
+}
+
 // ============================================================================
 // Custom int keyword with converter: cust = {a:10, b:50, c:100, d:500},
 // converter "Nu" = N*10 (registered converters take precedence)
@@ -501,23 +512,8 @@ TEST(FilterMatrixCustom, ConverterUnitsTakePrecedence) {
 }
 
 // ============================================================================
-// Known engine gaps, pinned so a fix flips these tests deliberately.
-// Both reproduce identically on the pre-cross-type-fix engine — they are
-// long-standing limitations, not regressions.
+// Known engine gap, pinned so a fix flips this test deliberately.
 // ============================================================================
-
-TEST(FilterMatrixKnownGaps, BareNumberAgainstSizeTypedKeywordFailsValidation) {
-  // A bare byte count against a type_size keyword cannot be compared:
-  // int_value::infer_type refuses the type_size suggestion (type_is_int(size)
-  // is true, so it returns type_int unchanged) and can_convert has no
-  // int<->size rule, so validation fails loudly. Unit literals (2k) and, for
-  // whole kilobytes, `zval > 2048` written as `zval > 2k` are the supported
-  // forms. NB: the shipped check_registry_value sample `warn=size > 4096`
-  // hits exactly this.
-  const run_result r = run_query({"filter=zval > 2000", "warning=none", "critical=none"});
-  EXPECT_FALSE(r.built);
-  EXPECT_EQ(r.code, PB::Common::ResultCode::UNKNOWN) << r.message;
-}
 
 TEST(FilterMatrixKnownGaps, ExplicitConvertInAFilterStringSilentlyMatchesNothing) {
   // unary_fun::infer_type never adopts a type (always type_tbd), so in

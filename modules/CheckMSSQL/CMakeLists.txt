@@ -16,6 +16,14 @@ set(SRCS
     check_mssql_backup.cpp
     check_mssql_jobs.cpp
     mssql_facts.cpp
+    check_mssql_sessions.cpp
+    check_mssql_blocking.cpp
+    check_mssql_counters.cpp
+    check_mssql_availability_groups.cpp
+    check_mssql_waits.cpp
+    check_mssql_tempdb.cpp
+    check_mssql_integrity.cpp
+    check_mssql_transactions.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
@@ -35,6 +43,14 @@ if(WIN32)
         check_mssql_backup.hpp
         check_mssql_jobs.hpp
         mssql_facts.hpp
+        check_mssql_sessions.hpp
+        check_mssql_blocking.hpp
+        check_mssql_counters.hpp
+        check_mssql_availability_groups.hpp
+        check_mssql_waits.hpp
+        check_mssql_tempdb.hpp
+        check_mssql_integrity.hpp
+        check_mssql_transactions.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}
@@ -75,6 +91,14 @@ if(WIN32)
             check_mssql_backup.cpp
             check_mssql_jobs.cpp
             mssql_facts.cpp
+            check_mssql_sessions.cpp
+            check_mssql_blocking.cpp
+            check_mssql_counters.cpp
+            check_mssql_availability_groups.cpp
+            check_mssql_waits.cpp
+            check_mssql_tempdb.cpp
+            check_mssql_integrity.cpp
+            check_mssql_transactions.cpp
             ${NSCP_FILTER_CPP}
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

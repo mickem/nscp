@@ -67,6 +67,7 @@ bool can_convert(const value_type src, const value_type dst) {
   if (src == type_int && dst == type_float) return true;
   if (src == type_int && dst == type_string) return true;
   if (src == type_int && dst == type_bool) return true;
+  if (src == type_int && dst == type_size) return true;
   if (src == type_float && dst == type_int) return true;
   if (src == type_float && dst == type_string) return true;
   if (src == type_float && dst == type_bool) return true;

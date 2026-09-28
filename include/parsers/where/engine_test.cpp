@@ -1395,6 +1395,28 @@ TEST(EngineFilterMatch, SizeVarAgainstFractionalUnitLiteral) {
   EXPECT_TRUE(eval_match("szvar > 1.5k", above, true));
 }
 
+TEST(EngineFilterMatch, SizeSentinelsAndFractionalThresholds) {
+  auto ctx = make_native_context();
+  ctx->set_object({-1, 0.0, ""});
+  EXPECT_TRUE(eval_match("szvar = -1", ctx, true));
+  EXPECT_TRUE(eval_match("-1 = szvar", ctx, true));
+  EXPECT_FALSE(eval_match("szvar >= 0 and szvar < 1.5G", ctx, true));
+  ctx->set_object({1500000000, 0.0, ""});
+  EXPECT_TRUE(eval_match("szvar >= 0 and szvar < 1.5G", ctx, true));
+  EXPECT_TRUE(eval_match("0 <= szvar and 1.5G > szvar", ctx, true));
+  ctx->set_object({1700000000, 0.0, ""});
+  EXPECT_FALSE(eval_match("szvar >= 0 and szvar < 1.5G", ctx, true));
+}
+
+TEST(EngineFilterMatch, SizeIntegerConversionPreservesLargeByteCounts) {
+  auto ctx = make_native_context();
+  ctx->set_object({9007199254740993LL, 0.0, ""});
+  EXPECT_TRUE(eval_match("szvar = 9007199254740993", ctx, true));
+  EXPECT_TRUE(eval_match("9007199254740993 = szvar", ctx, true));
+  EXPECT_TRUE(eval_match("szvar = 9007199254740993B", ctx, true));
+  EXPECT_FALSE(eval_match("szvar = 9007199254740992", ctx, true));
+}
+
 // ============================================================================
 // Numbers win: a string variable compared against a bare numeric literal is
 // answered in the number domain (the row value is parsed); quoting the
