@@ -257,8 +257,10 @@ jobs:
         # Fail here, with a reason, rather than three steps later with an
         # empty artifact: the target exists only when the configure step found
         # mkdocs, and the extraction only works when PythonScript is built.
-        # Asked of the configured targets, since nothing is built yet.
-        if ! make help | grep -qx '\.\.\. PythonScript'; then
+        # Asked of the configured targets, since nothing is built yet. Not
+        # grep -q: it stops reading at the first match, make help dies of
+        # SIGPIPE, and pipefail reports the module as missing when it is not.
+        if ! make help | grep -x '\.\.\. PythonScript' > /dev/null; then
           echo "::error::PythonScript is not configured, so the documentation cannot be extracted (see the configure log for the Boost.Python lookup)"
           exit 1
         fi
