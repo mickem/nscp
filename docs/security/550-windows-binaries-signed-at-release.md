@@ -1,6 +1,6 @@
 ---
 title: "Windows releases: every shipped binary signed, and signing credentials only in the release build"
-fixed_in: next
+fixed_in: 0.24.0
 severity: "Low (build integrity)"
 modules: [packaging]
 action: none

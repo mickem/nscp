@@ -1,6 +1,6 @@
 ---
 title: "The shared default password is stored hashed"
-fixed_in: next
+fixed_in: 0.24.0
 severity: "Low"
 modules: [WEBServer, NSClientServer, NSCAServer]
 action: conditional
