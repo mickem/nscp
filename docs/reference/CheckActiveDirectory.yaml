@@ -1,0 +1,341 @@
+module: CheckActiveDirectory
+namespace: windows
+platforms:
+- windows
+windows:
+  info:
+    description: 'CheckActiveDirectory checks Active Directory health: replication on domain controllers,
+      the machine-account secure channel and Kerberos KDC availability.'
+    experimental: true
+    title: CheckActiveDirectory
+  queries:
+    check_ad_replication:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: consecutive_failures > 4 or last_success < -24h
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${source} ${naming_context}: ${consecutive_failures} failures, last success ${last_success}'
+        empty-state: ok
+        empty-syntax: No replication partners found (single domain controller?)
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): all %(count) replication links are healthy'
+        perf-config: ''
+        perf-syntax: ${source} ${naming_context}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_list}'
+        warn: ''
+        warning: consecutive_failures > 0
+      fields:
+      - generic: false
+        long_description: Number of consecutive failed sync attempts on this link
+        name: consecutive_failures
+        short_description: ''
+      - generic: false
+        long_description: True when the last sync attempt failed
+        name: failed
+        short_description: ''
+      - generic: false
+        long_description: When the last sync was attempted
+        name: last_attempt
+        short_description: ''
+      - generic: false
+        long_description: Win32 result code of the last sync attempt (0 = success)
+        name: last_error
+        short_description: ''
+      - generic: false
+        long_description: Human readable message for the last sync result (empty when ok)
+        name: last_error_message
+        short_description: ''
+      - generic: false
+        long_description: When the last sync succeeded (epoch 0 = never)
+        name: last_success
+        short_description: ''
+      - generic: false
+        long_description: The replicated directory partition (naming context) DN
+        name: naming_context
+        short_description: ''
+      - generic: false
+        long_description: The source domain controller this link replicates from
+        name: source
+        short_description: ''
+      - generic: false
+        long_description: Transport address of the source (GUID-based DNS name)
+        name: source_address
+        short_description: ''
+      - generic: false
+        long_description: Full DN of the source directory service agent
+        name: source_dsa
+        short_description: ''
+      info:
+        description: Check inbound Active Directory replication links on a domain controller (last success,
+          consecutive failures). Windows only.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'The domain controller to check (default: the local machine).'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'The domain controller to check (default: the local machine).'
+      - content_type: 2
+        default_value: '5000'
+        is_simple: false
+        long_description: Timeout in milliseconds for the whole read, the directory service bind included.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Timeout in milliseconds for the whole read, the directory service bind included.
+    check_kdc:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: responding = 0
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${kdc}: ${response} (${time}ms)'
+        empty-state: ignored
+        empty-syntax: ''
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): all %(count) KDC(s) are responding'
+        perf-config: ''
+        perf-syntax: ${kdc}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: time > 1000
+      fields:
+      - generic: false
+        long_description: KRB-ERROR code from the response (-1 when none)
+        name: error_code
+        short_description: ''
+      - generic: false
+        long_description: The KDC host that was probed
+        name: kdc
+        short_description: ''
+      - generic: false
+        long_description: TCP port probed
+        name: port
+        short_description: ''
+      - generic: false
+        long_description: The client principal the probe named (this machine's account unless principal=
+          was given)
+        name: principal
+        short_description: ''
+      - generic: false
+        long_description: The Kerberos realm the probe requested a ticket for
+        name: realm
+        short_description: ''
+      - generic: false
+        long_description: True when the KDC answered the AS-REQ with a well-formed Kerberos message
+        name: responding
+        short_description: ''
+      - generic: false
+        long_description: What the KDC answered (or the transport error)
+        name: response
+        short_description: ''
+      - generic: false
+        long_description: Probe round-trip time in milliseconds (none when the host never resolved)
+        name: time
+        short_description: ''
+      info:
+        description: Check that Kerberos KDCs answer an AS-REQ probe on port 88 (a real Kerberos exchange,
+          not just a port check). Windows only.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'KDC host to probe; can be given multiple times (default: the KDC located via
+          the domain join).'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'KDC host to probe; can be given multiple times (default: the KDC located via
+          the domain join).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Kerberos realm to request a ticket for (default: the joined domain; required
+          when not domain-joined).'
+        name: realm
+        repeatable: false
+        required: false
+        short_description: 'Kerberos realm to request a ticket for (default: the joined domain; required
+          when not domain-joined).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Client principal to name in the AS-REQ (default: this machine''s account, HOST$,
+          when probing the domain it is joined to; required for any other realm). Name an account that
+          exists and requires pre-authentication.'
+        name: principal
+        repeatable: false
+        required: false
+        short_description: 'Client principal to name in the AS-REQ (default: this machine''s account,
+          HOST$, when probing the domain it is joined to; required for any other realm). Name an account
+          that exists and requires pre-authentication.'
+      - content_type: 2
+        default_value: '88'
+        is_simple: false
+        long_description: TCP port to probe.
+        name: port
+        repeatable: false
+        required: false
+        short_description: TCP port to probe.
+      - content_type: 2
+        default_value: '5000'
+        is_simple: false
+        long_description: Timeout in milliseconds for the probes, name lookups included. All KDCs are
+          probed concurrently, so this also bounds the whole check.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Timeout in milliseconds for the probes, name lookups included. All KDCs are
+          probed concurrently, so this also bounds the whole check.
+    check_secure_channel:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: healthy = 0
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: 'secure channel to ${domain} via ${dc}: ${error_message}'
+        empty-state: ignored
+        empty-syntax: ''
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${domain}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: The domain controller the secure channel is established with
+        name: dc
+        short_description: ''
+      - generic: false
+        long_description: The trusted domain the secure channel points at
+        name: domain
+        short_description: ''
+      - generic: false
+        long_description: Win32 status of the secure channel (0 = healthy)
+        name: error_code
+        short_description: ''
+      - generic: false
+        long_description: Human readable channel state (OK or the failure message)
+        name: error_message
+        short_description: ''
+      - generic: false
+        long_description: True when the secure channel is established and verified
+        name: healthy
+        short_description: ''
+      info:
+        description: Verify the machine-account secure channel to the domain via netlogon. Windows only.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'The trusted domain to check the channel to (default: the domain this machine
+          is joined to).'
+        name: domain
+        repeatable: false
+        required: false
+        short_description: 'The trusted domain to check the channel to (default: the domain this machine
+          is joined to).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'The computer whose secure channel to check (default: the local machine).'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'The computer whose secure channel to check (default: the local machine).'
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Actively verify the channel by contacting the DC (netlogon TC_VERIFY). Set verify=false
+          for a passive status query only.
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Actively verify the channel by contacting the DC (netlogon TC_VERIFY). Set
+          verify=false for a passive status query only.

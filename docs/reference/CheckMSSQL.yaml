@@ -249,6 +249,196 @@ windows:
         repeatable: false
         required: false
         short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_availability_groups:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: health = 'NOT_HEALTHY' or connected_state = 'DISCONNECTED' or is_suspended = 1 or role
+          = 'RESOLVING'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${health}'
+        empty-state: ok
+        empty-syntax: '%(status): No availability groups found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All %(count) availability replicas/databases are healthy'
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_count}/${count} availability replicas/databases (${problem_list})'
+        warn: ''
+        warning: health = 'PARTIALLY_HEALTHY'
+      fields:
+      - generic: false
+        long_description: CONNECTED or DISCONNECTED
+        name: connected_state
+        short_description: ''
+      - generic: false
+        long_description: Availability database name (empty for replica-level rows)
+        name: database
+        short_description: ''
+      - generic: false
+        long_description: Database synchronization health (empty for replica-level rows)
+        name: db_health
+        short_description: ''
+      - generic: false
+        long_description: Availability group name
+        name: group
+        short_description: ''
+      - generic: false
+        long_description: 'Effective health: database health for database rows, replica health otherwise'
+        name: health
+        short_description: ''
+      - generic: false
+        long_description: 1 if this replica is the instance being checked
+        name: is_local
+        short_description: ''
+      - generic: false
+        long_description: 1 if data movement for the database is suspended
+        name: is_suspended
+        short_description: ''
+      - generic: false
+        long_description: Log not yet sent to the secondary in bytes, i.e. potential data loss/RPO lag
+          (supports units, e.g. log_send_queue > 100M)
+        name: log_send_queue
+        short_description: ''
+      - generic: false
+        long_description: group/replica or group/replica/database
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: 'Redo queue on the secondary in bytes: log received but not yet applied, i.e.
+          failover/RTO lag (supports units, e.g. redo_queue > 500M)'
+        name: redo_queue
+        short_description: ''
+      - generic: false
+        long_description: Replica server name
+        name: replica
+        short_description: ''
+      - generic: false
+        long_description: 'Replica synchronization health: HEALTHY, PARTIALLY_HEALTHY or NOT_HEALTHY'
+        name: replica_health
+        short_description: ''
+      - generic: false
+        long_description: 'Replica role: PRIMARY, SECONDARY or RESOLVING (no primary, e.g. during failover)'
+        name: role
+        short_description: ''
+      - generic: false
+        long_description: Database synchronization state, e.g. SYNCHRONIZED or SYNCHRONIZING
+        name: sync_state
+        short_description: ''
+      info:
+        description: Check Always On availability group replica and database health.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
     check_mssql_backup:
       common_fields:
       - count
@@ -424,6 +614,345 @@ windows:
         repeatable: false
         required: false
         short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_blocking:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: wait_time > 300
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${database}/${login} blocked by session ${blocking_session_id} (${blocking_login})
+          for ${wait_time}s on ${wait_type}
+        empty-state: ok
+        empty-syntax: '%(status): No blocked sessions'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): %(count) blocked sessions, none over the thresholds'
+        perf-config: ''
+        perf-syntax: ${session_id}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_count}/${count} blocked sessions (${problem_list})'
+        warn: ''
+        warning: wait_time > 30
+      fields:
+      - generic: false
+        long_description: 1 if the direct blocker is idle (holding locks with no active request)
+        name: blocker_idle
+        short_description: ''
+      - generic: false
+        long_description: Login of the direct blocker
+        name: blocking_login
+        short_description: ''
+      - generic: false
+        long_description: Session id of the direct blocker
+        name: blocking_session_id
+        short_description: ''
+      - generic: false
+        long_description: Command the blocked request is executing, e.g. UPDATE
+        name: command
+        short_description: ''
+      - generic: false
+        long_description: Database the blocked request runs in (empty if unavailable)
+        name: database
+        short_description: ''
+      - generic: false
+        long_description: Login of the blocked session
+        name: login
+        short_description: ''
+      - generic: false
+        long_description: Session id at the head of this blocking chain
+        name: root_blocker
+        short_description: ''
+      - generic: false
+        long_description: Session id of the blocked request
+        name: session_id
+        short_description: ''
+      - generic: false
+        long_description: Seconds the request has been blocked (supports units, e.g. wait_time > 5m)
+        name: wait_time
+        short_description: ''
+      - generic: false
+        long_description: Wait type of the blocked request, e.g. LCK_M_X
+        name: wait_type
+        short_description: ''
+      info:
+        description: Check for blocked sessions and blocking chains.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_counters:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: hit ratio ${hit_ratio}%, PLE ${page_life_expectancy}s, ${batch_requests} batches/s,
+          ${compilations} compilations/s, ${lazy_writes} lazy writes/s, ${lock_waits} lock waits/s, ${deadlocks}
+          deadlocks/s
+        empty-state: unknown
+        empty-syntax: '%(status): No performance counters found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: mssql
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Batch requests per second (-1 if unavailable)
+        name: batch_requests
+        short_description: ''
+      - generic: false
+        long_description: SQL compilations per second (-1 if unavailable)
+        name: compilations
+        short_description: ''
+      - generic: false
+        long_description: Deadlocks per second across all lock types (-1 if unavailable)
+        name: deadlocks
+        short_description: ''
+      - generic: false
+        long_description: Buffer cache hit ratio in percent over the sampling window (-1 if unavailable)
+        name: hit_ratio
+        short_description: ''
+      - generic: false
+        long_description: Lazy writer pages flushed per second, sustained values mean memory pressure
+          (-1 if unavailable)
+        name: lazy_writes
+        short_description: ''
+      - generic: false
+        long_description: Lock requests per second that had to wait (-1 if unavailable)
+        name: lock_waits
+        short_description: ''
+      - generic: false
+        long_description: Seconds a page stays in the buffer pool without being referenced (-1 if unavailable)
+        name: page_life_expectancy
+        short_description: ''
+      - generic: false
+        long_description: SQL re-compilations per second (-1 if unavailable)
+        name: recompilations
+        short_description: ''
+      info:
+        description: 'Check engine performance counters: buffer cache, page life expectancy, batch and
+          lock rates.'
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
     check_mssql_databases:
       common_fields:
       - count
@@ -468,12 +997,25 @@ windows:
         warning: state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'
       fields:
       - generic: false
+        long_description: 'Remaining growth room for the data files in bytes: each file''s room is the
+          distance to its max_size but never more than the free space on its volume, summed per filegroup,
+          and the most constrained filegroup wins; 0 when autogrowth is off, -1 if unavailable (supports
+          units and plain integers, e.g. data_headroom < 5G and data_headroom >= 0)'
+        name: data_headroom
+        short_description: ''
+      - generic: false
         long_description: Total size of the data files in bytes (supports units, e.g. data_size > 10G)
         name: data_size
         short_description: ''
       - generic: false
         long_description: 1 if the database is read-only
         name: is_read_only
+        short_description: ''
+      - generic: false
+        long_description: Remaining growth room for the log files in bytes, same semantics as data_headroom
+          - note that a log file with unlimited growth still carries the engine's 2TB cap, so this reports
+          the volume's free space until the log approaches 2TB (supports units)
+        name: log_headroom
         short_description: ''
       - generic: false
         long_description: Total size of the log files in bytes (supports units, e.g. log_size > 1G)
@@ -498,6 +1040,151 @@ windows:
         short_description: ''
       info:
         description: Check database state, recovery model and data/log size.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_integrity:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: suspect_pages > 0
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: checkdb age ${checkdb_age}s, ${suspect_pages} suspect pages'
+        empty-state: unknown
+        empty-syntax: '%(status): No databases found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): No integrity problems found in %(count) databases'
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_count}/${count} databases (${problem_list})'
+        warn: ''
+        warning: checkdb_age > 1209600 or checkdb_age = -1
+      fields:
+      - generic: false
+        long_description: Seconds since the last successful DBCC CHECKDB, -1 = never checked, -2 = unknown/no
+          access (supports units, e.g. checkdb_age > 14d)
+        name: checkdb_age
+        short_description: ''
+      - generic: false
+        long_description: Database name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Pages in msdb.dbo.suspect_pages with unresolved 823/824/825 errors - any value
+          above 0 means the engine has seen corruption, -1 = unknown/no msdb access
+        name: suspect_pages
+        short_description: ''
+      info:
+        description: Check suspect pages and the age of the last successful DBCC CHECKDB.
         experimental: true
       params:
       - content_type: 2
@@ -794,6 +1481,695 @@ windows:
         repeatable: false
         required: false
         short_description: The T-SQL query to execute.
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_sessions:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${sessions} sessions (${running} running)'
+        empty-state: unknown
+        empty-syntax: '%(status): No user sessions found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Number of physical connections for this database/login pair
+        name: connections
+        short_description: ''
+      - generic: false
+        long_description: Database the sessions are connected to (empty if unavailable)
+        name: database
+        short_description: ''
+      - generic: false
+        long_description: Sessions that are sleeping or dormant
+        name: idle
+        short_description: ''
+      - generic: false
+        long_description: Login name the sessions authenticated as
+        name: login
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the most idle sleeping/dormant session last completed a request
+          (running sessions are excluded), -1 = unknown (supports units, e.g. max_idle > 2h)
+        name: max_idle
+        short_description: ''
+      - generic: false
+        long_description: Database/login label, or just the login when the database is unavailable
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Sessions currently executing a request
+        name: running
+        short_description: ''
+      - generic: false
+        long_description: Number of sessions for this database/login pair
+        name: sessions
+        short_description: ''
+      info:
+        description: Check session and connection counts per database and login.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_tempdb:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: tempdb ${used_pct}% used of ${size}B (version store ${version_store}B, user ${user_objects}B,
+          internal ${internal_objects}B)
+        empty-state: unknown
+        empty-syntax: '%(status): No tempdb information returned'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: tempdb
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Unallocated bytes within the tempdb files (supports units)
+        name: free
+        short_description: ''
+      - generic: false
+        long_description: 'Bytes held by internal objects: sort/hash spills and work tables (supports
+          units)'
+        name: internal_objects
+        short_description: ''
+      - generic: false
+        long_description: Allocated tempdb data-file bytes (supports units, e.g. size > 50G)
+        name: size
+        short_description: ''
+      - generic: false
+        long_description: Bytes in use within the tempdb files (supports units)
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percent of the current tempdb allocation in use
+        name: used_pct
+        short_description: ''
+      - generic: false
+        long_description: 'Bytes held by user objects: temp tables and table variables (supports units)'
+        name: user_objects
+        short_description: ''
+      - generic: false
+        long_description: Bytes held by the version store; growth means a long-running snapshot transaction
+          is pinning it (supports units)
+        name: version_store
+        short_description: ''
+      - generic: false
+        long_description: Free bytes on the most constrained volume holding a tempdb data file, -1 = unknown
+          (supports units and plain integers, e.g. volume_free < 5G and volume_free >= 0)
+        name: volume_free
+        short_description: ''
+      info:
+        description: Check tempdb space usage by consumer and volume headroom.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_transactions:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: transaction_age > 7200
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: 'session ${session_id} (${database}/${login}) open for ${transaction_age}s (idle:
+          ${is_idle})'
+        empty-state: ok
+        empty-syntax: '%(status): No open transactions'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): %(count) open transactions, none over the thresholds'
+        perf-config: ''
+        perf-syntax: ${session_id}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_count}/${count} open transactions (${problem_list})'
+        warn: ''
+        warning: transaction_age > 1800 or is_idle = 1 and transaction_age > 300
+      fields:
+      - generic: false
+        long_description: Command of the active request (empty when the session is idle)
+        name: command
+        short_description: ''
+      - generic: false
+        long_description: Database context of the session
+        name: database
+        short_description: ''
+      - generic: false
+        long_description: 1 if the transaction is open but the session has no active request (leaked transaction)
+        name: is_idle
+        short_description: ''
+      - generic: false
+        long_description: Login that owns the transaction
+        name: login
+        short_description: ''
+      - generic: false
+        long_description: Seconds the current request has been executing, -1 = no active request (supports
+          units)
+        name: request_age
+        short_description: ''
+      - generic: false
+        long_description: Session id owning the transaction
+        name: session_id
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the transaction began (supports units, e.g. transaction_age >
+          30m)
+        name: transaction_age
+        short_description: ''
+      - generic: false
+        long_description: Transaction name, e.g. user_transaction or implicit_transaction
+        name: transaction_name
+        short_description: ''
+      info:
+        description: Check for old or leaked open transactions and long-running requests.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_waits:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${runnable_tasks} runnable tasks on ${schedulers} schedulers, ${work_queue} queued;
+          waits ms/s: cpu ${cpu_waits}, io ${io_waits}, log ${log_waits}, lock ${lock_waits}, memory ${memory_waits},
+          signal ${signal_wait_pct}%'
+        empty-state: unknown
+        empty-syntax: '%(status): No scheduler information returned'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: mssql
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: CPU/parallelism wait ms per second (SOS_SCHEDULER_YIELD, THREADPOOL, CX*)
+        name: cpu_waits
+        short_description: ''
+      - generic: false
+        long_description: Data-file I/O wait ms per second (PAGEIOLATCH_*, IO_COMPLETION, BACKUPIO)
+        name: io_waits
+        short_description: ''
+      - generic: false
+        long_description: Latch wait ms per second (PAGELATCH_*, LATCH_*)
+        name: latch_waits
+        short_description: ''
+      - generic: false
+        long_description: Lock wait ms per second (LCK_M_*)
+        name: lock_waits
+        short_description: ''
+      - generic: false
+        long_description: Transaction-log wait ms per second (WRITELOG, LOGBUFFER)
+        name: log_waits
+        short_description: ''
+      - generic: false
+        long_description: Memory wait ms per second (RESOURCE_SEMAPHORE*, CMEMTHREAD)
+        name: memory_waits
+        short_description: ''
+      - generic: false
+        long_description: Network wait ms per second (ASYNC_NETWORK_IO - usually the client not consuming
+          results, not the network)
+        name: network_waits
+        short_description: ''
+      - generic: false
+        long_description: Wait ms per second not covered by the categories (benign waits excluded)
+        name: other_waits
+        short_description: ''
+      - generic: false
+        long_description: Tasks that have CPU work but are waiting for a scheduler slot; sustained values
+          above the core count mean CPU pressure
+        name: runnable_tasks
+        short_description: ''
+      - generic: false
+        long_description: Visible online schedulers (compare runnable_tasks against this)
+        name: schedulers
+        short_description: ''
+      - generic: false
+        long_description: Percent of wait time spent runnable, i.e. waiting for CPU after the resource
+          arrived; sustained > 20-25% means CPU pressure (-1 when nothing waited)
+        name: signal_wait_pct
+        short_description: ''
+      - generic: false
+        long_description: Total non-benign wait ms per second
+        name: total_waits
+        short_description: ''
+      - generic: false
+        long_description: Tasks queued with no worker thread at all (THREADPOOL starvation when > 0)
+        name: work_queue
+        short_description: ''
+      - generic: false
+        long_description: Active worker threads
+        name: workers
+        short_description: ''
+      info:
+        description: Check wait statistics by category and scheduler pressure.
+        experimental: true
+      params:
       - content_type: 2
         default_value: localhost
         is_simple: false

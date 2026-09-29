@@ -1,6 +1,6 @@
 ---
 title: "An uncaught exception on a worker thread could terminate the agent"
-fixed_in: next
+fixed_in: 0.24.0
 severity: "Low"
 modules: [core, NRPEServer, NSClientServer, CheckMKServer, WEBServer, CheckDisk, CheckSystem, GearmanClient]
 action: none

@@ -112,12 +112,14 @@ A list of all available queries (check commands)
 | [check_apache_status](#check_apache_status) *(experimental)*             | Check an Apache httpd server via its mod_status page (server-status?auto).                  |
 | [check_connections](#check_connections) *(experimental)*                 | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
 | [check_dns](#check_dns) *(experimental)*                                 | Resolve a host name and check the response time and resulting addresses.                    |
+| [check_domain](#check_domain) *(experimental)*                           | Check registered domain expiration over RDAP with optional WHOIS fallback.                  |
 | [check_http](#check_http) *(experimental)*                               | Send an HTTP/HTTPS request and check the response status, time, size and body.              |
 | [check_nginx_status](#check_nginx_status) *(experimental)*               | Check an NGINX server via its stub_status page.                                             |
 | [check_nsclient_web_online](#check_nsclient_web_online) *(experimental)* | Query the REST API of a remote NSClient++ agent (reachability or a remote check).           |
 | [check_ntp_offset](#check_ntp_offset) *(experimental)*                   | Query an NTP server and check the offset between the local clock and the server.            |
 | [check_phpfpm_status](#check_phpfpm_status) *(experimental)*             | Check a PHP-FPM pool via its status page.                                                   |
 | [check_ping](#check_ping)                                                | Ping another host and check the result.                                                     |
+| [check_radius](#check_radius) *(experimental)*                           | Probe RADIUS authentication or responsiveness with authenticated UDP replies.               |
 | [check_ssh](#check_ssh) *(experimental)*                                 | Connect to an SSH port and verify the server presents a valid SSH banner.                   |
 | [check_tcp](#check_tcp) *(experimental)*                                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
 | [check_tomcat_status](#check_tomcat_status) *(experimental)*             | Check an Apache Tomcat server via the manager status page (XML).                            |
@@ -717,6 +719,253 @@ This command also accepts the standard [help options](../common-options.md#stand
 | server    | DNS server used (empty for the system resolver)                    |
 | time      | Time taken by the lookup in milliseconds                           |
 | type      | Record type that was queried (A, AAAA, MX, TXT, ...)               |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_domain
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
+Check registered domain expiration over RDAP with optional WHOIS fallback.
+
+Checks the expiration of a registered domain using RDAP over verified HTTPS.
+The command is experimental. By default it warns below 30 days and becomes
+critical below 10 days, including domains that have already expired.
+`expires_in` is a count of whole 24-hour periods rounded down, with negative
+values after expiration. It is also emitted as performance data in days.
+
+#### RDAP lookup
+
+Supply the registered domain, such as `example.co.uk`, rather than a web or mail
+host under that domain. Names are lowercased and a trailing dot is removed.
+Internationalized names must be supplied in ASCII/punycode form (`xn--...`).
+The check does not guess the registered domain from a hostname.
+
+The default endpoint, `https://rdap.org/domain/{domain}`, redirects to the
+appropriate RDAP service. `rdap-url` can override it with a provider's HTTPS
+domain lookup URL; `{domain}` is replaced with the normalized name. Up to five
+redirects are followed per record, relative paths are normalized using RFC 3986
+dot-segment removal, and HTTPS-to-HTTP downgrades are rejected.
+Certificate chain and hostname verification are always enabled. `ca` selects
+a custom trust bundle; by default the module uses the system CA bundle.
+Connections are direct; this check does not use an HTTP proxy.
+
+Only the requested domain's own events are examined. A `registrar expiration`
+event takes precedence over `expiration`. When only a registry date is present,
+one domain-level related RDAP link is followed to look for the registrar date.
+The output identifies the date as `registrar` or `registry`, and `source` names
+the server URL that supplied it. If the registrar record is available but has
+no registrar expiration event, the registry date is retained. Failure to fetch
+or validate an advertised registrar record is a lookup failure, not a silent
+return to the registry date.
+
+Registry auto-renewal can advance the registry date even when the registrant
+has not renewed. A registry date alone therefore does not prove renewal or
+payment. Expiration is also not an exact prediction of when DNS or mail stops:
+grace periods and suspension policies vary by provider.
+
+Malformed responses, conflicting dates, a different domain in the response,
+missing expiration, HTTP errors (including 404 and 429), TLS failures and
+timeouts return UNKNOWN without expiration performance data. A 404 does not
+prove that a domain is expired. `timeout` (default 15 seconds, maximum 300)
+applies separately to each network read or write through the shared client.
+There is no overall lookup deadline: redirects, registrar requests and a server
+that continues sending data can extend the total duration. DNS resolution and
+TCP connection establishment use the shared client's existing behavior.
+Response bodies are limited to 1 MiB and HTTP headers to 16 KiB. HTTP message
+framing is validated before the JSON is parsed: read failures, truncated
+Content-Length bodies and incomplete chunked responses are lookup failures,
+even if the bytes received so far contain valid JSON. Complete framed responses
+return without waiting for the server to close the connection.
+
+#### Optional WHOIS fallback
+
+`whois-fallback=true whois-server=<server>` enables fallback after a failed
+RDAP lookup. WHOIS uses TCP port 43 unless `whois-port` overrides it. Each
+read or write uses the same `timeout` setting as RDAP. Successful fallback is
+identified by a `whois:` source.
+The check does not discover WHOIS servers or follow referrals.
+
+WHOIS is unencrypted and unauthenticated, and many providers no longer offer
+it. Enabling fallback also permits its use after a TLS verification failure.
+Choose a server that you trust and that publishes the required domain data.
+
+Supported fields are `Registry Expiry Date`, `Registrar Registration Expiration
+Date`, `Expiry Date`, `Expiration Date`, `paid-till`, `expires` and `Expiration
+Time` (case insensitive). Values must be RFC 3339 timestamps with explicit
+timezones or ISO `YYYY-MM-DD` dates, interpreted as midnight UTC. Ambiguous
+locale-dependent dates are rejected. Other WHOIS formats return UNKNOWN;
+this is intentionally not a universal WHOIS parser.
+
+#### Scheduling
+
+Run this check daily from one monitoring location per domain. It makes live
+requests on every invocation and does not cache responses or retry rate limits.
+
+**Jump to section:**
+
+* [Sample Commands](#check_domain_samples)
+* [Command-line Arguments](#check_domain_options)
+* [Filter keywords](#check_domain_filter_keys)
+
+
+<a id="check_domain_samples"></a>
+#### Sample Commands
+
+#### Check a registered domain
+
+```text
+check_domain domain=example.com
+OK: example.com expires in 318d (2027-08-13T04:00:00Z, registry, rdap:https://rdap.verisign.com/com/v1/domain/example.com)
+'example.com'=318d;30;10
+```
+
+For a real deployment, replace `example.com` with a domain you manage. The
+default thresholds are warning below 30 days and critical below 10 days.
+
+#### Override the endpoint and thresholds
+
+These outputs were captured on 2026-09-28 against a local HTTPS RDAP fixture
+reporting an expiration of `2030-01-01T00:00:00Z`. The fixture served the domain
+`example.com`; these are not claims about its public registration. The CA file
+path in the command has been shortened for readability.
+
+```text
+check_domain domain=example.com "rdap-url=https://localhost:52513/domain/{domain}" ca=ca.crt
+OK: example.com expires in 1190d (2030-01-01T00:00:00Z, registry, rdap:https://localhost:52513/domain/example.com)|'example.com'=1190d;30;10
+
+check_domain domain=example.com "rdap-url=https://localhost:52513/domain/{domain}" ca=ca.crt "critical=expires_in < 2000"
+CRITICAL: example.com expires in 1190d (2030-01-01T00:00:00Z, registry, rdap:https://localhost:52513/domain/example.com)|'example.com'=1190d;30;2000
+```
+
+The source and expiration type distinguish the registry's expiry date from a
+registrar's renewal deadline. Prefer the registrar date when it is available;
+the check selects it automatically.
+
+#### Enable WHOIS fallback
+
+```text
+check_domain domain=your-domain.example whois-fallback=true whois-server=whois.your-provider.example
+```
+
+Replace both names with your registered domain and its provider's WHOIS server.
+WHOIS is only queried after RDAP fails or provides no usable expiration.
+The output's source starts with `whois:` when fallback supplied the date.
+
+#### Invalid input returns UNKNOWN
+
+Captured output (process exit code 3):
+
+```text
+nscp client --module CheckNet --boot --query check_domain domain=https://example.com
+Domain lookup failed: Invalid domain name; use ASCII or punycode
+```
+
+
+
+<a id="check_domain_options"></a>
+#### Command-line Arguments
+
+<a id="check_domain_domain"></a>
+<a id="check_domain_whois-server"></a>
+
+        
+        
+        
+        
+        
+        
+        
+| Option                                         | Default Value                    | Description                                                                                                                        |
+|------------------------------------------------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| domain                                         |                                  | Registered domain to check, not a URL or subdomain. Use punycode for internationalized names.                                      |
+| [rdap-url](#check_domain_rdap-url)             | https://rdap.org/domain/{domain} | HTTPS domain lookup URL; {domain} is replaced with the normalized domain. Redirects and one related registrar record are followed. |
+| [ca](#check_domain_ca)                         | ${ca-path}                       | CA bundle for verified HTTPS (defaults to the system CA bundle).                                                                   |
+| [timeout](#check_domain_timeout)               | 15                               | Timeout in seconds for each network read or write, including WHOIS fallback. Not an overall lookup deadline.                       |
+| [whois-fallback](#check_domain_whois-fallback) | false                            | Try the explicitly configured WHOIS server if RDAP fails or has no expiration. WHOIS is unencrypted and unauthenticated.           |
+| whois-server                                   |                                  | WHOIS server to use with whois-fallback=true. Referrals are not followed.                                                          |
+| [whois-port](#check_domain_whois-port)         | 43                               | WHOIS TCP port.                                                                                                                    |
+
+
+
+<h5 id="check_domain_rdap-url">rdap-url:</h5>
+
+HTTPS domain lookup URL; {domain} is replaced with the normalized domain. Redirects and one related registrar record are followed.
+
+*Default Value:* `https://rdap.org/domain/{domain}`
+
+<h5 id="check_domain_ca">ca:</h5>
+
+CA bundle for verified HTTPS (defaults to the system CA bundle).
+
+*Default Value:* `${ca-path}`
+
+<h5 id="check_domain_timeout">timeout:</h5>
+
+Timeout in seconds for each network read or write, including WHOIS fallback. Not an overall lookup deadline.
+
+*Default Value:* `15`
+
+<h5 id="check_domain_whois-fallback">whois-fallback:</h5>
+
+Try the explicitly configured WHOIS server if RDAP fails or has no expiration. WHOIS is unencrypted and unauthenticated.
+
+*Default Value:* `false`
+
+<h5 id="check_domain_whois-port">whois-port:</h5>
+
+WHOIS TCP port.
+
+*Default Value:* `43`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                       | Default Value                                                                      |
+|--------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| <a id="check_domain_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                    |
+| <a id="check_domain_warning"></a>[warning](../common-options.md#warning)                                     | expires_in < 30                                                                    |
+| <a id="check_domain_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                    |
+| <a id="check_domain_critical"></a>[critical](../common-options.md#critical)                                  | expires_in < 10                                                                    |
+| <a id="check_domain_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                    |
+| <a id="check_domain_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                    |
+| <a id="check_domain_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                              |
+| <a id="check_domain_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                              |
+| <a id="check_domain_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                            |
+| <a id="check_domain_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                    |
+| <a id="check_domain_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                              |
+| <a id="check_domain_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                  |
+| <a id="check_domain_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                                                         |
+| <a id="check_domain_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(list)                                                                 |
+| <a id="check_domain_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No domain checked                                                                  |
+| <a id="check_domain_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${domain} expires in ${expires_in}d (${expiration}, ${expiration_type}, ${source}) |
+| <a id="check_domain_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${domain}                                                                          |
+| <a id="check_domain_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                    |
+| <a id="check_domain_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                    |
+| <a id="check_domain_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                 |
+| <a id="check_domain_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                    |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_domain_filter_keys"></a>
+#### Filter keywords
+
+| Option          | Description                                                       |
+|-----------------|-------------------------------------------------------------------|
+| domain          | Registered domain name (ASCII/punycode).                          |
+| expiration      | Selected expiration timestamp in UTC.                             |
+| expiration_type | Date source: registrar, registry or whois.                        |
+| expires_in      | Whole days until expiration, rounded down; negative once expired. |
+| source          | RDAP URL or WHOIS server that supplied the selected date.         |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -2268,6 +2517,215 @@ This command also accepts the standard [help options](../common-options.md#stand
 | time    | Round trip time in ms                                                                                                          |
 | timeout | Number of packets which timed out from the host                                                                                |
 | ttl     | TTL of the last reply; 'unknown' when no reply carried one (nothing came back, or IPv6, where the hop limit is not available)  |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_radius
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
+Probe RADIUS authentication or responsiveness with authenticated UDP replies.
+
+Checks a RADIUS server over UDP using a shared secret. The command is experimental
+and requires OpenSSL. Each invocation sends one request and uses a fresh random
+identifier and request authenticator. `time` includes name resolution and the
+exchange; `timeout` is in milliseconds. With several resolved addresses, the first
+address in the selected `address-family` is tested. Test each NPS node separately.
+
+#### Choose what the probe proves
+
+- `mode=auth` sends PAP credentials and requires Access-Accept. Supply a dedicated
+  test `username` and `password-file`. This tests that identity and policy; it does
+  not test PEAP, EAP-TLS, certificate negotiation, or an interactive MFA exchange.
+- `mode=reject` sends a fictional username (default `nsclient-radius-probe`) with
+  an empty PAP password and requires Access-Reject. This demonstrates server
+  responsiveness, not successful authentication. An unexpected accept is critical.
+- `mode=status` sends RFC 5997 Status-Server without credentials. Enable this only
+  for servers confirmed to support it. It tests that server, not a downstream
+  realm or proxy chain. NPS support must not be assumed. An authenticated accept,
+  reject, or accounting response demonstrates responsiveness in this mode.
+
+All modes send Message-Authenticator and **require both a valid Response
+Authenticator and a valid Message-Authenticator in the response**. This deliberate
+strict policy can reject older servers, including implementations where
+Message-Authenticator was optional. Fix/upgrade the server configuration instead
+of weakening validation. Replies with an incorrect identifier or authentication
+are discarded while waiting for a valid reply within the original deadline; if
+none arrives, the last validation error is reported. Packets from other endpoints
+are ignored by the connected UDP socket. An Access-Challenge never means that
+authentication completed.
+
+Register the probe's source IP as a RADIUS client with the same shared secret.
+`nas-identifier` defaults to `nsclient-monitor` and can select the intended network
+policy. No NAS-IP-Address or vendor-specific attributes are synthesized.
+
+#### Credentials and status
+
+Use `secret-file` and, for authentication, `password-file`. Files contain one
+nonempty line; one trailing LF or CRLF is removed, while spaces are preserved.
+Protect them so only the agent account and administrators can read them. Secrets
+and passwords are not accepted directly on the command line and are never check
+keywords. PAP password hiding is not transport encryption: use the probe on a
+protected network and a limited test identity. Avoid identities that trigger
+interactive MFA or production account lockouts.
+
+The default critical expression is `result != 'ok'`. `reply` remains `none` until
+the response passes authentication. Configuration errors, unreadable credential
+files, and unavailable cryptographic support return UNKNOWN. Network and protocol
+failures return CRITICAL by default. Add `warning=time > 500` for a latency alert.
+The command does not create accounting sessions or support RadSec.
+
+Protocol references: [RFC 2865](https://www.rfc-editor.org/rfc/rfc2865),
+[RFC 3579](https://www.rfc-editor.org/rfc/rfc3579), and
+[RFC 5997](https://www.rfc-editor.org/rfc/rfc5997).
+
+**Jump to section:**
+
+* [Sample Commands](#check_radius_samples)
+* [Command-line Arguments](#check_radius_options)
+* [Filter keywords](#check_radius_filter_keys)
+
+
+<a id="check_radius_samples"></a>
+#### Sample Commands
+
+#### Successful PAP authentication
+
+Captured against the local UDP fixture, with `secret.txt` and `password.txt`
+containing its test credentials. The port and elapsed time vary between runs.
+
+```text
+nscp client --module CheckNet --boot --query check_radius host=127.0.0.1 port=49576 secret-file=secret.txt username=test-user password-file=password.txt
+OK: 127.0.0.1:49576 ok, reply=access_accept, time=1ms|'127.0.0.1_49576_time'=1ms;0;0
+```
+
+#### Responsiveness through an expected rejection
+
+Captured with the fixture returning an authenticated Access-Reject:
+
+```text
+nscp client --module CheckNet --boot --query check_radius host=127.0.0.1 port=49576 secret-file=secret.txt mode=reject
+OK: 127.0.0.1:49576 ok, reply=access_reject, time=0ms|'127.0.0.1_49576_time'=0ms;0;0
+```
+
+#### Latency and address-family selection
+
+Configuration example for a registered production probe identity:
+
+```text
+check_radius host=nps.example.net secret-file=C:\monitoring\radius-secret.txt username=nps-monitor password-file=C:\monitoring\radius-password.txt address-family=ipv4 "warning=time > 500" timeout=3000
+```
+
+Use `mode=status` only with a server that supports Status-Server and returns both
+authenticators. `port=1813` selects the usual accounting endpoint for that mode;
+it does not send Accounting-Start/Stop records.
+
+
+
+<a id="check_radius_options"></a>
+#### Command-line Arguments
+
+<a id="check_radius_host"></a>
+<a id="check_radius_username"></a>
+<a id="check_radius_secret-file"></a>
+<a id="check_radius_password-file"></a>
+<a id="check_radius_address-family"></a>
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+| Option                                         | Default Value    | Description                                                                                                                  |
+|------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------|
+| host                                           |                  | RADIUS host; the first address in the requested family is tested.                                                            |
+| [port](#check_radius_port)                     | 1812             | UDP port (1812 for authentication, usually 1813 for accounting Status-Server).                                               |
+| [timeout](#check_radius_timeout)               | 3000             | Overall deadline in milliseconds (1..60000); one request, no retries.                                                        |
+| [mode](#check_radius_mode)                     | auth             | auth: PAP and expect Access-Accept; reject: expect Access-Reject for a fictional user; status: RFC 5997 responsiveness only. |
+| username                                       |                  | Test identity for auth; fictional identity for reject (default nsclient-radius-probe).                                       |
+| secret-file                                    |                  | Protected file containing the shared secret (1..4096 bytes); one trailing newline is removed.                                |
+| password-file                                  |                  | Protected file containing the PAP test password (1..128 bytes). Required only for auth.                                      |
+| [nas-identifier](#check_radius_nas-identifier) | nsclient-monitor | NAS-Identifier sent to select the intended policy (1..253 bytes).                                                            |
+| address-family                                 |                  | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.        |
+
+
+
+<h5 id="check_radius_port">port:</h5>
+
+UDP port (1812 for authentication, usually 1813 for accounting Status-Server).
+
+*Default Value:* `1812`
+
+<h5 id="check_radius_timeout">timeout:</h5>
+
+Overall deadline in milliseconds (1..60000); one request, no retries.
+
+*Default Value:* `3000`
+
+<h5 id="check_radius_mode">mode:</h5>
+
+auth: PAP and expect Access-Accept; reject: expect Access-Reject for a fictional user; status: RFC 5997 responsiveness only.
+
+*Default Value:* `auth`
+
+<h5 id="check_radius_nas-identifier">nas-identifier:</h5>
+
+NAS-Identifier sent to select the intended policy (1..253 bytes).
+
+*Default Value:* `nsclient-monitor`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                       | Default Value                                               |
+|--------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| <a id="check_radius_filter"></a>[filter](../common-options.md#filter)                                        |                                                             |
+| <a id="check_radius_warning"></a>[warning](../common-options.md#warning)                                     |                                                             |
+| <a id="check_radius_warn"></a>[warn](../common-options.md#warn)                                              |                                                             |
+| <a id="check_radius_critical"></a>[critical](../common-options.md#critical)                                  | result != 'ok'                                              |
+| <a id="check_radius_crit"></a>[crit](../common-options.md#crit)                                              |                                                             |
+| <a id="check_radius_ok"></a>[ok](../common-options.md#ok)                                                    |                                                             |
+| <a id="check_radius_debug"></a>[debug](../common-options.md#debug)                                           | false                                                       |
+| <a id="check_radius_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                       |
+| <a id="check_radius_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                     |
+| <a id="check_radius_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                             |
+| <a id="check_radius_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                       |
+| <a id="check_radius_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                           |
+| <a id="check_radius_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                          |
+| <a id="check_radius_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                             |
+| <a id="check_radius_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No RADIUS server checked                                    |
+| <a id="check_radius_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${server}:${port} ${result}, reply=${reply}, time=${time}ms |
+| <a id="check_radius_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${server}_${port}                                           |
+| <a id="check_radius_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                             |
+| <a id="check_radius_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                             |
+| <a id="check_radius_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                          |
+| <a id="check_radius_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                             |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_radius_filter_keys"></a>
+#### Filter keywords
+
+| Option | Description                                                               |
+|--------|---------------------------------------------------------------------------|
+| port   | Remote UDP port                                                           |
+| reply  | Authenticated reply type; none until the reply passes both authenticators |
+| result | ok, unexpected_response, timeout, or a protocol/transport error           |
+| server | RADIUS server queried                                                     |
+| time   | Elapsed query time including resolution, in milliseconds                  |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
