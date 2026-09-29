@@ -49,7 +49,10 @@ cmake-build-debug
 .codelite
 
 # ─── IDE — Claude Code ────────────────────────────────────────────────────────
-.claude
+.claude/*
+# ...except the shared SessionStart hook (DCO sign-off in cloud sessions)
+!.claude/settings.json
+!.claude/hooks/
 
 # ─── Vagrant ──────────────────────────────────────────────────────────────────
 .vagrant
@@ -61,7 +64,6 @@ cmake-build-debug
 # ─── AI agent instructions (local only, not shared) ──────────────────────────
 AGENT_INSTRUCTIONS.md
 .github/copilot-instructions.md
-.claude
 
 # ─── Local / custom content ───────────────────────────────────────────────────
 # Custom installers not part of the main repo
