@@ -216,6 +216,17 @@ unix:
             and sysctl on macOS), and nothing is collected while this is off.'
           sample: false
           title: OS FACTS
+        services.installed:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect services.installed: installed systemd service units (including disabled
+            units and templates), plus loaded instances and transient services. Names match check_service,
+            without .service. Records contain name, description and native startup type, never state,
+            process metrics, accounts or command lines. Runs bounded systemctl queries every facts round
+            except startup. Failures retain the previous inventory; Linux hosts without systemd report
+            an error. Not yet supported on macOS. Limited to 2500 records with a truncation error.'
+          sample: false
+          title: INSTALLED SERVICES FACTS
         software.installed:
           advanced: false
           default_value: 'false'
@@ -2833,7 +2844,7 @@ windows:
           default_value: 'false'
           description: 'Collect the `hardware` fact set: the system manufacturer and model as the firmware
             reports them, the number of logical processors and the installed memory in whole GB. Cheap
-            - the vendor and model come from the SMBIOS strings the kernel publishes under HKLMHARDWAREDESCRIPTIONSystemBIOS,
+            - the vendor and model come from the SMBIOS strings the kernel publishes under HKLM\HARDWARE\DESCRIPTION\System\BIOS,
             not from WMI.'
           sample: false
           title: HARDWARE FACTS
@@ -2857,6 +2868,15 @@ windows:
             and nothing is collected while this is off.'
           sample: false
           title: OS FACTS
+        services.installed:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect services.installed: every local Windows service, including stopped and
+            disabled services, with its name, display name and startup type (the check_service vocabulary).
+            No state, process IDs, accounts or command lines. Read every facts round except startup; failures
+            retain the previous inventory. Limited to 2500 records with a truncation error.'
+          sample: false
+          title: INSTALLED SERVICES FACTS
         software.installed:
           advanced: false
           default_value: 'false'

@@ -248,4 +248,4 @@ alerts.
 - [Performance Counter (PDH) Monitoring](counters.md) — predefined counters, averaging, localisation gotchas
 - [Host Security Posture](security-posture.md) — `check_certificate` for CA / token-signing certificate expiry
 - [Service & Process Monitoring](service-monitoring.md) — keep `ntds`, `netlogon`, `kdc`, `adfssrv` running
-- [Reference: CheckActiveDirectory](../reference/check/CheckActiveDirectory.md) — full command reference
+- [Reference: CheckActiveDirectory](../reference/windows/CheckActiveDirectory.md) — full command reference

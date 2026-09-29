@@ -6,6 +6,24 @@ windows:
   info:
     description: Check status of your scheduled jobs.
     title: CheckTaskSched
+  paths:
+    /settings/task schedule/facts:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        tasks.scheduled:
+          advanced: false
+          default_value: 'false'
+          description: 'Collect tasks.scheduled: every local task, including disabled and hidden tasks
+            in subfolders. Records contain the full path (the check''s uri), name, folder, enabled and
+            hidden flags. No actions, arguments, accounts or run results. Collected every facts round
+            except startup; failures retain the previous inventory. Limited to 2500 records with a truncation
+            error.'
+          sample: false
+          title: SCHEDULED TASK FACTS
   queries:
     check_tasksched:
       common_fields:

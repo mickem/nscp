@@ -80,12 +80,14 @@ nav:
         - CheckExternalScripts: reference/check/CheckExternalScripts.md
         - CheckEventLog (Windows): reference/windows/CheckEventLog.md
         - CheckHelpers: reference/check/CheckHelpers.md
+        - CheckKubernetes: reference/check/CheckKubernetes.md
         - CheckLogFile: reference/check/CheckLogFile.md
         - CheckMySQL: reference/check/CheckMySQL.md
         - CheckNet: reference/check/CheckNet.md
         - CheckNSCP: reference/check/CheckNSCP.md
         - CheckSecurity: reference/check/CheckSecurity.md
         - CheckSystem: reference/check/CheckSystem.md
+        - CheckActiveDirectory (Windows): reference/windows/CheckActiveDirectory.md
         - CheckMSSQL (Windows): reference/windows/CheckMSSQL.md
         - CheckWindowsApps (Windows): reference/windows/CheckWindowsApps.md
         - CheckHyperV (Windows): reference/windows/CheckHyperV.md

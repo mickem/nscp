@@ -8607,6 +8607,7 @@ timezone=local
 | [hardware](#hardware-facts)                     | false         | HARDWARE FACTS           |
 | [network.interfaces](#network-interfaces-facts) | false         | NETWORK INTERFACES FACTS |
 | [os](#os-facts)                                 | false         | OS FACTS                 |
+| [services.installed](#installed-services-facts) | false         | INSTALLED SERVICES FACTS |
 | [software.installed](#installed-software-facts) | false         | INSTALLED SOFTWARE FACTS |
 
 
@@ -8616,6 +8617,7 @@ timezone=local
 hardware=false
 network.interfaces=false
 os=false
+services.installed=false
 software.installed=false
 ```
 
@@ -8677,6 +8679,26 @@ Collect the \`os\` fact set: the OS family, the distribution's product name, the
 [/settings/system/unix/facts]
 # OS FACTS
 os=false
+```
+
+#### INSTALLED SERVICES FACTS <a id="/settings/system/unix/facts/services.installed"></a>
+
+Collect services.installed: installed systemd service units (including disabled units and templates), plus loaded instances and transient services. Names match check_service, without .service. Records contain name, description and native startup type, never state, process metrics, accounts or command lines. Runs bounded systemctl queries every facts round except startup. Failures retain the previous inventory; Linux hosts without systemd report an error. Not yet supported on macOS. Limited to 2500 records with a truncation error.
+
+
+| Key            | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| Path:          | [/settings/system/unix/facts](#/settings/system/unix/facts) |
+| Key:           | services.installed                                          |
+| Default value: | `false`                                                     |
+
+
+**Sample:**
+
+```
+[/settings/system/unix/facts]
+# INSTALLED SERVICES FACTS
+services.installed=false
 ```
 
 #### INSTALLED SOFTWARE FACTS <a id="/settings/system/unix/facts/software.installed"></a>
@@ -9331,6 +9353,7 @@ parent=default
 | [hardware](#hardware-facts)                     | false         | HARDWARE FACTS           |
 | [network.interfaces](#network-interfaces-facts) | false         | NETWORK INTERFACES FACTS |
 | [os](#os-facts)                                 | false         | OS FACTS                 |
+| [services.installed](#installed-services-facts) | false         | INSTALLED SERVICES FACTS |
 | [software.installed](#installed-software-facts) | false         | INSTALLED SOFTWARE FACTS |
 
 
@@ -9340,12 +9363,13 @@ parent=default
 hardware=false
 network.interfaces=false
 os=false
+services.installed=false
 software.installed=false
 ```
 
 #### HARDWARE FACTS <a id="/settings/system/windows/facts/hardware"></a>
 
-Collect the \`hardware\` fact set: the system manufacturer and model as the firmware reports them, the number of logical processors and the installed memory in whole GB. Cheap - the vendor and model come from the SMBIOS strings the kernel publishes under HKLMHARDWAREDESCRIPTIONSystemBIOS, not from WMI.
+Collect the \`hardware\` fact set: the system manufacturer and model as the firmware reports them, the number of logical processors and the installed memory in whole GB. Cheap - the vendor and model come from the SMBIOS strings the kernel publishes under HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS, not from WMI.
 
 
 | Key            | Description                                                       |
@@ -9401,6 +9425,26 @@ Collect the \`os\` fact set: the OS family, product name and kernel version, the
 [/settings/system/windows/facts]
 # OS FACTS
 os=false
+```
+
+#### INSTALLED SERVICES FACTS <a id="/settings/system/windows/facts/services.installed"></a>
+
+Collect services.installed: every local Windows service, including stopped and disabled services, with its name, display name and startup type (the check_service vocabulary). No state, process IDs, accounts or command lines. Read every facts round except startup; failures retain the previous inventory. Limited to 2500 records with a truncation error.
+
+
+| Key            | Description                                                       |
+|----------------|-------------------------------------------------------------------|
+| Path:          | [/settings/system/windows/facts](#/settings/system/windows/facts) |
+| Key:           | services.installed                                                |
+| Default value: | `false`                                                           |
+
+
+**Sample:**
+
+```
+[/settings/system/windows/facts]
+# INSTALLED SERVICES FACTS
+services.installed=false
 ```
 
 #### INSTALLED SOFTWARE FACTS <a id="/settings/system/windows/facts/software.installed"></a>
