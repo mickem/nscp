@@ -51,6 +51,23 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     });
     // Warm the collector: memory totals come from its 1 Hz buffer on Linux.
     await pollQuery(key, "check_memory", {}, (q) => (perfValue(q, "physical") ?? 0) > 0);
+    // ...and warm CPU separately, which the line above does not cover. Since
+    // check_cpu answers UNKNOWN until the collector has pushed its first
+    // sample, the gate has to be the CPU ring itself: on Windows check_memory
+    // reads the OS directly (GlobalMemoryStatusEx) and says nothing about that
+    // ring, so it returns while check_cpu is still initializing. On Linux both
+    // rings are filled in the same loop iteration, so this returns at once.
+    const cpuWarm = await pollQuery(
+      key,
+      "check_cpu",
+      { warning: "usage > 101", critical: "usage > 101" },
+      (q) => q.result === OK,
+    );
+    if (cpuWarm.result !== OK) {
+      throw new Error(
+        `CPU collector produced no sample within the warm-up window: ${messageOf(cpuWarm)}`,
+      );
+    }
   });
 
   afterAll(async () => {
