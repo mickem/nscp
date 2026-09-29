@@ -23,13 +23,14 @@ on:
       extract-docs:
         type: boolean
         description: >-
-          After the build, re-extract the reference documentation from the
-          built modules (the extract_doc_sources target, which rewrites the
-          macOS slice of docs/reference/*.yaml) and upload the result as the
+          Build only what the reference documentation needs and re-extract it
+          (the extract_doc_sources target, which rewrites the macOS slice of
+          docs/reference/*.yaml), uploading the result as the
           docs-reference-darwin artifact. The extractor runs inside the
           PythonScript module, so this also installs Boost.Python and builds
-          that module, which the plain build leaves out. Only update-docs.yml
-          sets it.
+          that module, which the plain build leaves out. This is a docs-only
+          build: the unit tests, the package and the integration tests are all
+          skipped. Only update-docs.yml sets it.
         required: false
         default: false
   # The macOS build is not yet part of branch protection, so a contributor
@@ -131,7 +132,8 @@ jobs:
           py_prefix="$(brew --prefix "python@${py_version}")"
           echo "Boost.Python component: $bp_tag (Python $py_version at $py_prefix)"
           echo "NSCP_DOCS_PYTHON=${py_prefix}/bin/python${py_version}" >> "$GITHUB_ENV"
-          echo "NSCP_DOCS_CMAKE_ARGS=-DNSCP_BOOST_PYTHON_VERSION=${bp_tag} -DPython3_ROOT_DIR=${py_prefix} -DPython3_FIND_STRATEGY=LOCATION" >> "$GITHUB_ENV"
+          # Docs-only: no unit tests (and so no Google Test download).
+          echo "NSCP_DOCS_CMAKE_ARGS=-DNSCP_BOOST_PYTHON_VERSION=${bp_tag} -DPython3_ROOT_DIR=${py_prefix} -DPython3_FIND_STRATEGY=LOCATION -DNSCP_BUILD_TESTS=OFF" >> "$GITHUB_ENV"
         fi
 
         # The deployment target is the runner's own major version, not a number
@@ -218,7 +220,11 @@ jobs:
           -DUSE_STATIC_RUNTIME=OFF \
           ${NSCP_DOCS_CMAKE_ARGS:-}
 
+    # Docs-only builds (extract-docs) skip everything that does not feed the
+    # extractor: this full build (the extraction step builds just the targets
+    # it depends on), the unit tests, the package and the integration tests.
     - name: Build nsclient
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       shell: bash
       run: |
@@ -233,6 +239,7 @@ jobs:
         if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --show-stats; fi
 
     - name: Run tests
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       shell: bash
       run: ctest --output-on-failure -C Release
@@ -249,12 +256,16 @@ jobs:
         set -euo pipefail
         # Fail here, with a reason, rather than three steps later with an
         # empty artifact: the target exists only when the configure step found
-        # mkdocs, and the extraction only works when PythonScript was built.
-        if ! ls modules/ | grep -q '^PythonScript\.'; then
-          echo "::error::PythonScript was not built, so the documentation cannot be extracted (see the configure log for the Boost.Python lookup)"
+        # mkdocs, and the extraction only works when PythonScript is built.
+        # Asked of the configured targets, since nothing is built yet.
+        if ! make help | grep -qx '\.\.\. PythonScript'; then
+          echo "::error::PythonScript is not configured, so the documentation cannot be extracted (see the configure log for the Boost.Python lookup)"
           exit 1
         fi
-        make extract_doc_sources
+        # The build step was skipped, so this builds what the extractor needs.
+        if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --zero-stats; fi
+        make -j"$(sysctl -n hw.ncpu)" extract_doc_sources
+        if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --show-stats; fi
         echo "--- files the extraction changed ---"
         git -C "$GITHUB_WORKSPACE" status --short -- docs/reference
 
@@ -267,6 +278,7 @@ jobs:
         if-no-files-found: error
 
     - name: Stage the install tree
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       shell: bash
       run: |
@@ -281,6 +293,7 @@ jobs:
         find "$GITHUB_WORKSPACE/stage" -type f | sed "s#$GITHUB_WORKSPACE/stage##" | sort
 
     - name: Bundle the Homebrew dylibs
+      if: ${{ !inputs.extract-docs }}
       shell: bash
       run: |
         set -euo pipefail
@@ -290,6 +303,7 @@ jobs:
         packaging/macos/bundle_dylibs.sh "$GITHUB_WORKSPACE/stage" usr/local/lib/nsclient
 
     - name: Build the installer package
+      if: ${{ !inputs.extract-docs }}
       id: pkg
       shell: bash
       run: |
@@ -334,6 +348,7 @@ jobs:
         echo "label=$NSCP_LAUNCHD_LABEL" >> "$GITHUB_OUTPUT"
 
     - name: Build the tarball
+      if: ${{ !inputs.extract-docs }}
       shell: bash
       run: |
         set -euo pipefail
@@ -374,7 +389,7 @@ jobs:
         fi
 
     - name: Show the package contents
-      if: always()
+      if: always() && !inputs.extract-docs
       shell: bash
       run: |
         ls -la "$GITHUB_WORKSPACE/out" || true
@@ -393,6 +408,7 @@ jobs:
     # tarball out of the artifact by name, so the sample never reaches a
     # release.
     - name: Stage the C# sample plugin for the integration tests
+      if: ${{ !inputs.extract-docs }}
       shell: bash
       run: |
         if [ -f tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll ]; then
@@ -403,6 +419,7 @@ jobs:
         fi
 
     - uses: actions/upload-artifact@v6
+      if: ${{ !inputs.extract-docs }}
       with:
         name: NSCP-${{ inputs.version || '0.0.0' }}-macos-arm64
         path: out/
@@ -413,6 +430,7 @@ jobs:
     # dylib the bundling pass missed, a postinstall that cannot create its
     # account - none of which any amount of building would reveal.
     - name: Test the package on the runner
+      if: ${{ !inputs.extract-docs }}
       shell: bash
       run: |
         set -euo pipefail
@@ -468,6 +486,8 @@ jobs:
   integration-tests:
     name: integration-tests (macos, arm64)
     needs: build-macos
+    # A docs-only build produces no package to test.
+    if: ${{ !inputs.extract-docs }}
     uses: ./.github/workflows/integration-tests-macos.yml
     with:
       version: ${{ inputs.version || '0.0.0' }}
