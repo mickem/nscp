@@ -15,6 +15,22 @@
   `git config user.name "Jane Doe" && git config user.email "jane@example.com"`
   If you already have one, keep it and just make sure it is the name and email
   you sign off with.
+- **AI agents (Claude Code cloud sessions):** the sign-off belongs to the
+  *human* running the session, who reviews, tests and certifies the change —
+  never to the agent, and never to a hard-coded maintainer. The session commits
+  as `Claude <noreply@anthropic.com>` (the committer), so that human must be the
+  commit's **author**: each person sets `GIT_AUTHOR_NAME` / `GIT_AUTHOR_EMAIL`
+  to their own identity in their own cloud environment's variables. The
+  SessionStart hook (`.claude/hooks/session-start.sh`) points `core.hooksPath`
+  at `tools/git-hooks/`, whose `commit-msg` hook then appends
+  `Signed-off-by: <author>` as the final trailer, drops any `Signed-off-by` or
+  `Co-authored-by` carrying an `@anthropic.com` address, and refuses a commit
+  whose author is the agent. So in a session: commit with a plain
+  `git commit` (not `-s`, which would sign off as the committer, i.e. the
+  agent), do not type a `Signed-off-by` yourself, and never bypass the hook
+  with `--no-verify`. If the variables are unset the hook refuses the commit:
+  ask the user for the name and email they sign off with and pass
+  `--author="Name <email>"`, rather than guessing one.
 - If an AI coding assistant helped produce a commit, declare it with an
   `Assisted-by:` trailer, using the format codified by the [Linux kernel AI
   coding-assistants policy](https://docs.kernel.org/process/coding-assistants.html):
