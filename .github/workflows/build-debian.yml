@@ -26,11 +26,12 @@ on:
       extract-docs:
         type: boolean
         description: >-
-          After the build, re-extract the reference documentation from the
-          built modules (the extract_doc_sources target, which rewrites the
-          Linux slice of docs/reference/*.yaml) and upload the result as the
+          Build only what the reference documentation needs and re-extract it
+          (the extract_doc_sources target, which rewrites the Linux slice of
+          docs/reference/*.yaml), uploading the result as the
           docs-reference-unix artifact. Runs on the Ubuntu x64 entry only.
-          Only update-docs.yml sets it.
+          This is a docs-only build: the unit tests, the package and the
+          integration tests are all skipped. Only update-docs.yml sets it.
         required: false
         default: false
 
@@ -75,6 +76,10 @@ jobs:
           map(select(.integration_tests))
           | map({distro, distro_version, arch, deb_arch, runner, dotnet})' <<< "$selected")
         selected=$(jq -c 'map(del(.integration_tests))' <<< "$selected")
+        # A docs-only build produces no package to test.
+        if [ "${{ inputs.extract-docs }}" = "true" ]; then
+          tested='[]'
+        fi
         echo "Building: $(jq -r 'map("\(.distro) \(.distro_version) \(.arch)") | join(", ")' <<< "$selected")"
         echo "Testing:  $(jq -r 'if length == 0 then "(none)" else map("\(.distro) \(.distro_version) \(.arch)") | join(", ") end' <<< "$tested")"
         echo "build=$selected" >> "$GITHUB_OUTPUT"
@@ -181,7 +186,11 @@ jobs:
     # as a separate release artifact (build-web.yml) and installed at runtime
     # via `nscp web install-ui`.
 
+    # Docs-only builds (extract-docs) skip everything that does not feed the
+    # extractor: check_nsclient, the unit tests, the package and the
+    # integration tests.
     - name: Download check_nsclient from mickem/check_nsclient
+      if: ${{ !inputs.extract-docs }}
       shell: bash
       run: |
         ver=$(cat .check_nsclient_version | tr -d '[:space:]')
@@ -203,6 +212,12 @@ jobs:
         # `/home/runner/work/...` which doesn't exist inside the
         # container; $GITHUB_WORKSPACE is set per-runtime to the
         # container-mounted workspace path (`/__w/nscp/nscp`).
+        #
+        # Docs-only: no unit tests, and no check_nsclient (not downloaded).
+        docs_args=""
+        if [ "${{ inputs.extract-docs }}" = "true" ]; then
+          docs_args="-DNSCP_BUILD_TESTS=OFF -DCHECK_NSCLIENT_MISSING=ON"
+        fi
         cmake ../.. \
           ${CCACHE_LAUNCHER:+-DCMAKE_C_COMPILER_LAUNCHER=$CCACHE_LAUNCHER -DCMAKE_CXX_COMPILER_LAUNCHER=$CCACHE_LAUNCHER} \
           -DBUILD_VERSION=${{ inputs.version }} \
@@ -213,9 +228,13 @@ jobs:
           -DNSCP_BOOST_PYTHON_VERSION=${{ matrix.python_version }} \
           -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
           -DCHECK_NSCLIENT_LOCATION="$GITHUB_WORKSPACE" \
-          -DUSE_STATIC_RUNTIME=OFF
+          -DUSE_STATIC_RUNTIME=OFF \
+          $docs_args
 
+    # Docs-only builds skip this: the extraction step below builds just the
+    # targets extract_doc_sources depends on (nscp, the modules, the scripts).
     - name: Build nsclient
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       run: |
         # -j matters more here than anywhere else in the build: this single
@@ -233,16 +252,19 @@ jobs:
         if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --show-stats; fi
 
     - name: CPack
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       run: |
         cpack -G DEB
 
     - name: rename dist files
+      if: ${{ !inputs.extract-docs }}
       run: |
         mv tmp/nscp/NSCP-${{ inputs.version }}-${{ matrix.deb_arch }}.deb NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.deb_arch }}.deb
       shell: bash
 
     - name: Test DEB package installation
+      if: ${{ !inputs.extract-docs }}
       run: |
         apt-get install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.deb_arch }}.deb
         nscp settings --load-all --list --add-defaults
@@ -251,13 +273,14 @@ jobs:
     # the package, so it travels next to the package in the artifact and the
     # integration job copies it into the installed modules/dotnet folder.
     - name: Stage the C# sample plugin for the integration tests
-      if: matrix.dotnet == 'true'
+      if: matrix.dotnet == 'true' && !inputs.extract-docs
       shell: bash
       run: |
         mkdir -p dotnet-sample
         cp tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json dotnet-sample/
 
     - uses: actions/upload-artifact@v6
+      if: ${{ !inputs.extract-docs }}
       with:
         name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
         path: |
@@ -266,6 +289,7 @@ jobs:
         if-no-files-found: error
 
     - name: Run tests
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       run: |
         ctest --output-on-failure -C Release
@@ -279,7 +303,10 @@ jobs:
       if: inputs.extract-docs && matrix.distro == 'ubuntu' && matrix.arch == 'x64'
       working-directory: tmp/nscp
       run: |
-        make extract_doc_sources
+        # The build step was skipped, so this builds what the extractor needs.
+        if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --zero-stats; fi
+        make -j"$(nproc)" extract_doc_sources
+        if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --show-stats; fi
 
     - name: Upload the extracted documentation
       if: inputs.extract-docs && matrix.distro == 'ubuntu' && matrix.arch == 'x64'

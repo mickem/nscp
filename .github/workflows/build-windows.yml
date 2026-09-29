@@ -26,10 +26,13 @@ on:
       extract-docs:
         type: boolean
         description: >-
-          After the build, re-extract the reference documentation from the
-          built modules (the extract_doc_sources target, which rewrites the
-          Windows slice of docs/reference/*.yaml) and upload the result as the
-          docs-reference-windows artifact. Only update-docs.yml sets it.
+          Build only what the reference documentation needs and re-extract it
+          (the extract_doc_sources target, which rewrites the Windows slice of
+          docs/reference/*.yaml), uploading the result as the
+          docs-reference-windows artifact. This is a docs-only build: the web
+          UI, the unit tests, the installer, signing, the SBOM, the packages
+          and the integration tests are all skipped. Only update-docs.yml
+          sets it.
         required: false
         default: false
     secrets:
@@ -137,12 +140,17 @@ jobs:
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
+    # Docs-only builds (extract-docs) skip everything that does not feed the
+    # extractor: the web UI, the unit tests, installer_lib, the installer,
+    # signing, the SBOM, the packages and the integration tests.
     - uses: actions/setup-node@v6
+      if: ${{ !inputs.extract-docs }}
       with:
         node-version: 20
         cache: 'npm'
         cache-dependency-path: web/package-lock.json
     - id: build-web
+      if: ${{ !inputs.extract-docs }}
       working-directory: web
       run: |
         # npm ci, not npm install: install tolerates a lockfile that has drifted
@@ -179,6 +187,7 @@ jobs:
         & "$env:Python_ROOT_DIR\Scripts\pip" install -r build/python/requirements.txt
 
     - id: google-test
+      if: ${{ !inputs.extract-docs }}
       uses: ./.github/actions/google-test
       with:
         version: ${{ env.GOOGLE_TEST_VERSION }}
@@ -204,6 +213,7 @@ jobs:
     # (unresolved __imp_ CRT symbols), hence a second, no-shared -MT build in
     # a folder of its own.
     - id: openssl-static
+      if: ${{ !inputs.extract-docs }}
       uses: ./.github/actions/openssl
       with:
         version: ${{ ENV.OPENSSL_VERSION }}
@@ -263,6 +273,7 @@ jobs:
     # digest.
     - name: Build Boost (static)
       id: static_boost
+      if: ${{ !inputs.extract-docs }}
       uses: ./.github/actions/boost
       with:
         version: ${{ ENV.BOOST_VERSION }}
@@ -349,6 +360,7 @@ jobs:
     # SHA256SUMS, whose own digest is pinned in the same file, so the SBOM is
     # exactly the one released next to this binary.
     - name: Download check_nsclient from mickem/check_nsclient
+      if: ${{ !inputs.extract-docs }}
       shell: bash
       run: |
         set -euo pipefail
@@ -394,15 +406,23 @@ jobs:
         } else {
           echo "sdk=" >> $env:GITHUB_OUTPUT
         }
+        # Docs-only: no unit tests (and so no Google Test), and no
+        # check_nsclient, which was not downloaded.
+        if ("${{ inputs.extract-docs }}" -eq "true") {
+          $extra += '-D NSCP_BUILD_TESTS=OFF'
+          $extra += '-D CHECK_NSCLIENT_MISSING=ON'
+        }
         echo "extra=$($extra -join ' ')" >> $env:GITHUB_OUTPUT
       shell: pwsh
 
     - name: CMake (installer_lib)
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/installer_lib
       run: |
 
         cmake ../../installer_lib -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -DBOOST_ROOT=${{ steps.paths.outputs.static_boost_root }} -DBOOST_LIBRARYDIR=${{ steps.paths.outputs.static_boost_librarydir }} -DOPENSSL_ROOT_DIR=${{ steps.openssl-static.outputs.path_unix }} -DBUILD_VERSION=${{ inputs.version }} ${{ steps.cmake_options.outputs.sdk }}
     - name: Build installer_lib
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/installer_lib
       run: |
         msbuild installer_lib.sln /p:Configuration=Release /p:Platform=${{ steps.setup.outputs.platform }}
@@ -412,13 +432,16 @@ jobs:
       run: |
         cmake ../.. -T ${{ steps.setup.outputs.toolset }} -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -D BUILD_VERSION=${{ inputs.version }} -D CRT_MERGE_MODULE_NAME=Microsoft_VC143_CRT ${{ steps.cmake_options.outputs.sdk }} ${{ steps.cmake_options.outputs.extra }}
 
+    # Docs-only builds skip this: the extraction step below builds just the
+    # targets extract_doc_sources depends on (nscp, the modules, the scripts).
     - name: Build nsclient
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       run: |
         msbuild NSCP.sln /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }}
 
     - name: Run tests
-      if: inputs.architecture != 'arm64'
+      if: inputs.architecture != 'arm64' && !inputs.extract-docs
       working-directory: tmp/nscp
       run: |
         ctest --output-on-failure -C Release
@@ -433,7 +456,7 @@ jobs:
       working-directory: tmp/nscp
       shell: pwsh
       run: |
-        cmake --build . --target extract_doc_sources --config RelWithDebInfo
+        cmake --build . --target extract_doc_sources --config RelWithDebInfo --parallel
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         Write-Host "--- files the extraction changed ---"
         git -C "$env:GITHUB_WORKSPACE" status --short -- docs/reference
@@ -453,6 +476,7 @@ jobs:
     # that already carries a valid signature (the Python runtime, the bundled
     # check_nsclient.exe) keeps its publisher's.
     - name: List binaries to sign
+      if: ${{ !inputs.extract-docs }}
       id: signing_list
       shell: pwsh
       run: |
@@ -476,7 +500,7 @@ jobs:
         $delimiter | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
     - name: Sign binaries
-      if: inputs.sign && steps.signing_list.outputs.files != ''
+      if: inputs.sign && !inputs.extract-docs && steps.signing_list.outputs.files != ''
       uses: ./.github/actions/sign-windows-binaries
       with:
         files: ${{ steps.signing_list.outputs.files }}
@@ -485,11 +509,13 @@ jobs:
         azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
     - name: Build installer
+      if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       run: |
         msbuild installers\installer-NSCP\installer_NSCP.vcxproj /p:Configuration=RelWithDebInfo /p:Platform=${{ steps.setup.outputs.platform }} /p:BuildProjectReferences=false
 
     - name: Post process files
+      if: ${{ !inputs.extract-docs }}
       uses: ./.github/actions/post-process-windows-binaries
       with:
         version: ${{ inputs.version }}
@@ -507,6 +533,7 @@ jobs:
     # manifest, never from the downloads, so it only claims what the build
     # checked.
     - name: Write the SBOM
+      if: ${{ !inputs.extract-docs }}
       shell: bash
       run: |
         set -euo pipefail
@@ -547,13 +574,14 @@ jobs:
     # under tmp/nscp to keep the artifact's root where it is) and the
     # integration job copies it into the extracted modules/dotnet folder.
     - name: Stage the C# sample plugin for the integration tests
-      if: inputs.architecture != 'arm64'
+      if: inputs.architecture != 'arm64' && !inputs.extract-docs
       shell: bash
       run: |
         mkdir -p tmp/nscp/dotnet-sample
         cp tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json tmp/nscp/dotnet-sample/
 
     - uses: actions/upload-artifact@v6
+      if: ${{ !inputs.extract-docs }}
       with:
         name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}
         path: |
@@ -582,8 +610,9 @@ jobs:
 
   integration-tests:
     needs: build
-    # Cross-compiled ARM64 binaries cannot be executed on the x64 host.
-    if: inputs.architecture != 'arm64'
+    # Cross-compiled ARM64 binaries cannot be executed on the x64 host, and a
+    # docs-only build produces no package to test.
+    if: inputs.architecture != 'arm64' && !inputs.extract-docs
     uses: ./.github/workflows/integration-tests-windows.yml
     with:
       architecture: ${{ inputs.architecture }}
