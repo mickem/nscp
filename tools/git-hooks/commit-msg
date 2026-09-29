@@ -1,0 +1,47 @@
+#!/bin/sh
+# DCO guard for commits made by an AI agent in a Claude Code cloud session.
+# Installed by .claude/hooks/session-start.sh (core.hooksPath); see the
+# "Git commits" section of CLAUDE.md.
+#
+# The DCO check accepts a Signed-off-by that matches the commit's author or
+# committer. In a cloud session the committer is the agent, so the author
+# must be the human who reviews the work and certifies the DCO, taken from
+# GIT_AUTHOR_NAME / GIT_AUTHOR_EMAIL in that person's own cloud environment
+# (or `git commit --author=...`). This hook:
+#   - refuses a commit whose author is the agent,
+#   - drops agent Signed-off-by / Co-authored-by trailers,
+#   - appends the author's Signed-off-by as the final trailer.
+set -eu
+
+msg="$1"
+
+ident=$(git var GIT_AUTHOR_IDENT | sed 's/ [0-9]* [-+][0-9]*$//')
+email=$(printf '%s' "$ident" | sed 's/.*<\(.*\)>$/\1/')
+
+case "$email" in
+  *@anthropic.com | "")
+    cat >&2 <<MSG
+commit-msg: refusing a commit authored by '$ident'.
+
+The DCO sign-off on this repository must come from the human who reviews
+and certifies the change. Set your own identity in your cloud environment's
+environment variables and start a new session:
+
+  GIT_AUTHOR_NAME=Your Name
+  GIT_AUTHOR_EMAIL=you@example.com
+
+or commit with --author="Your Name <you@example.com>".
+MSG
+    exit 1
+    ;;
+esac
+
+# Agent trailers: an AI never carries a Signed-off-by, and AI help is
+# declared with Assisted-by rather than Co-authored-by.
+tmp="$msg.dco"
+grep -v -i -E '^(signed-off-by|co-authored-by):.*<[^>]*@anthropic\.com>[[:space:]]*$' "$msg" \
+  | grep -v -F -x "Signed-off-by: $ident" > "$tmp" || true
+mv "$tmp" "$msg"
+
+git interpret-trailers --in-place --where end --if-exists add \
+  --trailer "Signed-off-by: $ident" "$msg"
