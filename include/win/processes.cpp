@@ -3,6 +3,7 @@
 
 #include <tchar.h>
 
+#include <algorithm>
 #include <boost/algorithm/string/predicate.hpp>
 #include <bytes/buffer.hpp>
 #include <error/error.hpp>
@@ -423,6 +424,32 @@ void apply_system_gauges(process_info &entry, const std::map<DWORD, long long> &
   entry.total_physical_memory = total_phys;
   entry.total_pagefile = total_pagefile;
 }
+
+// Returns every PID EnumProcesses reports, growing the buffer until the result
+// is not truncated. EnumProcesses signals truncation by filling the buffer
+// exactly, so the test is against the size actually passed: comparing against
+// DEFAULT_BUFFER_SIZE kept retrying forever on hosts with 4096+ processes,
+// multiplying the buffer until new[] threw. The cap stops a host that keeps
+// spawning processes faster than we can list them from doing the same.
+std::vector<DWORD> enum_pids(unsigned int buffer_size, error_reporter *error_interface) {
+  constexpr unsigned int max_buffer_size = 1u << 22;  // 4M PIDs, 16 MiB
+  if (buffer_size == 0) buffer_size = DEFAULT_BUFFER_SIZE;
+  std::vector<DWORD> pids;
+  while (true) {
+    pids.resize(buffer_size);
+    DWORD cbNeeded = 0;
+    if (!EnumProcesses(pids.data(), static_cast<DWORD>(pids.size() * sizeof(DWORD)), &cbNeeded))
+      throw nsclient::nsclient_exception("Failed to enumerate process: " + error::lookup::last_error());
+    if (cbNeeded < pids.size() * sizeof(DWORD)) {
+      pids.resize(cbNeeded / sizeof(DWORD));
+      return pids;
+    }
+    if (buffer_size >= max_buffer_size)
+      throw nsclient::nsclient_exception("Failed to enumerate process: more than " + str::xtos(max_buffer_size) + " processes");
+    if (error_interface != nullptr) error_interface->report_debug("Need larger buffer: " + str::xtos(buffer_size));
+    buffer_size = (std::min)(buffer_size * 2, max_buffer_size);
+  }
+}
 }  // namespace
 
 process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool deep_scan, error_reporter *error_interface, unsigned int buffer_size,
@@ -434,20 +461,8 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
   }
 
   std::list<process_info> ret;
-  auto *dwPIDs = new DWORD[buffer_size + 1];
-  DWORD cbNeeded = 0;
-  const BOOL OK = EnumProcesses(dwPIDs, buffer_size * sizeof(DWORD), &cbNeeded);
-  if (cbNeeded >= DEFAULT_BUFFER_SIZE * sizeof(DWORD)) {
-    delete[] dwPIDs;
-    if (error_interface != nullptr) error_interface->report_debug("Need larger buffer: " + str::xtos(buffer_size));
-    return enumerate_processes(ignore_unreadable, find_16bit, deep_scan, error_interface, buffer_size * 10, resolve_owner);
-  }
-  if (!OK) {
-    delete[] dwPIDs;
-    throw nsclient::nsclient_exception("Failed to enumerate process: " + error::lookup::last_error());
-  }
-  unsigned int process_count = cbNeeded / sizeof(DWORD);
-  for (unsigned int i = 0; i < process_count; ++i) {
+  const std::vector<DWORD> dwPIDs = enum_pids(buffer_size, error_interface);
+  for (std::size_t i = 0; i < dwPIDs.size(); ++i) {
     if (dwPIDs[i] == 0) continue;
     process_info entry;
     entry.hung = false;
@@ -495,8 +510,6 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
     apply_system_gauges(*entry, thread_counts, total_phys, total_pagefile);
   }
 
-  delete[] dwPIDs;
-
   try {
     enable_token_privilege(SE_DEBUG_NAME, false);
   } catch (const nsclient::nsclient_exception &e) {
@@ -509,20 +522,8 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
 typedef std::map<DWORD, process_info> process_map;
 process_map get_process_data(bool ignore_unreadable, error_reporter *error_interface, const unsigned int buffer_size = DEFAULT_BUFFER_SIZE) {
   process_map ret;
-  const auto dwPIDs = new DWORD[buffer_size + 1];
-  DWORD cbNeeded = 0;
-  const BOOL OK = EnumProcesses(dwPIDs, buffer_size * sizeof(DWORD), &cbNeeded);
-  if (cbNeeded >= DEFAULT_BUFFER_SIZE * sizeof(DWORD)) {
-    delete[] dwPIDs;
-    if (error_interface != nullptr) error_interface->report_debug("Need larger buffer: " + str::xtos(buffer_size));
-    return get_process_data(ignore_unreadable, error_interface, buffer_size * 10);
-  }
-  if (!OK) {
-    delete[] dwPIDs;
-    throw nsclient::nsclient_exception("Failed to enumerate process: " + error::lookup::last_error());
-  }
-  unsigned int process_count = cbNeeded / sizeof(DWORD);
-  for (unsigned int i = 0; i < process_count; ++i) {
+  const std::vector<DWORD> dwPIDs = enum_pids(buffer_size, error_interface);
+  for (std::size_t i = 0; i < dwPIDs.size(); ++i) {
     if (dwPIDs[i] == 0) continue;
     process_info entry;
     entry.hung = false;
@@ -542,7 +543,6 @@ process_map get_process_data(bool ignore_unreadable, error_reporter *error_inter
       if (error_interface != nullptr) error_interface->report_error("Unknown exception describing PID: " + str::xtos(dwPIDs[i]));
     }
   }
-  delete[] dwPIDs;
   const std::map<DWORD, long long> thread_counts = snapshot_thread_counts();
   unsigned long long total_phys = 0, total_pagefile = 0;
   read_memory_totals(total_phys, total_pagefile);
