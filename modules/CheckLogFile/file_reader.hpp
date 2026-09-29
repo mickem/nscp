@@ -243,5 +243,44 @@ inline std::string read_leading_records(std::istream &is, const std::string &del
   return out;
 }
 
+// Read at most `max_bytes` from the current position of `is`, stopping at the
+// end of the stream. `truncated` says whether anything was left unread.
+//
+// The plain `contents.assign(istreambuf_iterator...)` this replaces had no
+// ceiling at all: pointed at a multi-gigabyte log (or a pagefile) by a caller
+// who supplies the path, one check inflated the agent to the size of the file
+// and then did file-sized matching work on it.
+inline std::string read_capped(std::istream &is, std::uint64_t max_bytes, bool &truncated) {
+  truncated = false;
+  std::string out;
+  while (is && out.size() < max_bytes) {
+    const std::uint64_t remaining = max_bytes - out.size();
+    const std::size_t want = static_cast<std::size_t>(std::min<std::uint64_t>(remaining, record_scan_chunk_size));
+    const std::string::size_type before = out.size();
+    out.resize(before + want);
+    is.read(&out[before], static_cast<std::streamsize>(want));
+    const std::size_t got = static_cast<std::size_t>(is.gcount());
+    out.resize(before + got);
+    is.clear();
+    if (got == 0) return out;
+  }
+  // Anything left? One more byte answers it without reading the rest.
+  char probe = 0;
+  is.read(&probe, 1);
+  truncated = is.gcount() > 0;
+  is.clear();
+  return out;
+}
+
+// Cut `contents` back to the end of its last complete record, so a read which
+// stopped at a byte limit never hands the filter half a line. Returns the
+// number of bytes kept; 0 when the buffer holds no complete record at all.
+inline std::string::size_type complete_record_end(const std::string &contents, const std::string &delim) {
+  if (delim.empty()) return contents.size();
+  const std::string::size_type last = contents.rfind(delim);
+  if (last == std::string::npos) return 0;
+  return last + delim.size();
+}
+
 }  // namespace file_reader
 }  // namespace check_logfile

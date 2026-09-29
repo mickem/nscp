@@ -8,12 +8,15 @@
 #include <boost/program_options.hpp>
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <str/format.hpp>
+#include <str/xtos.hpp>
 #include <utility>
 #include <vector>
 
@@ -204,6 +207,14 @@ std::string read_head(std::istream &is, std::size_t len) {
   is.clear();
   return head;
 }
+
+// One message for the two places the unbookmarked read gives up, so the way out
+// is always spelled the same.
+std::string describe_too_large(const std::string &filename, const std::string &limit) {
+  return "File is larger than max-size (" + limit + "): " + filename +
+         ". Without a bookmark the whole file has to be held in memory, so this check reads nothing rather than half of it. Add bookmark=auto to read only "
+         "what is new, add max-lines to read only the newest lines, or raise max-size.";
+}
 }  // namespace
 
 void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
@@ -217,6 +228,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
   std::string bookmark;
   std::size_t max_lines = 0;
   std::string newest;
+  std::string max_size;
 
   filter_type filter;
   filter_helper.add_options("", "", "", filter.get_filter_syntax());
@@ -268,6 +280,16 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 			"written at once. The lines dropped by the limit are never reported later either - the bookmark moves "
 			"past everything which was read.\n"
 			"Which end of the file holds the newest lines is controlled by `newest`.")
+		("max-size", po::value<std::string>(&max_size)->default_value("64m"),
+			"Most bytes of a single file this check reads into memory at once (0 means no limit).\n"
+			"A file is matched in memory, so without a ceiling one call at the default `max-lines=0` with no "
+			"bookmark reads the whole target - which the caller names - and does file-sized matching work on it. "
+			"Accepts a size suffix (`512k`, `64m`, `2g`).\n"
+			"With a bookmark the limit is a pacing device and nothing is lost: the check consumes up to this much "
+			"per run, the position advances over what it read, and the next run continues - a large backlog is "
+			"worked through over several checks. Without a bookmark there is no position to resume from, so a "
+			"file larger than the limit is reported as UNKNOWN instead of being silently half-read; add a "
+			"`bookmark`, a `max-lines`, or raise this.")
 		("newest", po::value<std::string>(&newest)->default_value("last"),
 			"Which end of the file holds the newest line: `last` (the default: lines are appended, as with most "
 			"machine-written logs) or `first` (the file is rewritten with the newest line at the top, which is "
@@ -311,6 +333,18 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
     if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
     filename = decision.value;
   }
+
+  std::uint64_t max_bytes = 0;
+  try {
+    const long long parsed = str::format::decode_byte_units(max_size);
+    if (parsed < 0) return nscapi::protobuf::functions::set_response_bad(*response, "Invalid max-size: " + max_size + " (must not be negative)");
+    max_bytes = static_cast<std::uint64_t>(parsed);
+  } catch (const std::exception &) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid max-size: " + max_size + " (expected a byte count, optionally suffixed k/m/g)");
+  }
+  // 0 means no ceiling, which is what the old behaviour was. Represent it as
+  // "everything" so the read path has one shape.
+  if (max_bytes == 0) max_bytes = (std::numeric_limits<std::uint64_t>::max)();
 
   const bool newest_first = newest == "first";
   if (!newest_first && newest != "last") {
@@ -371,13 +405,23 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
       std::string contents;
       if (max_lines > 0 && newest_first) {
         contents = check_logfile::file_reader::read_leading_records(file, line_split, max_lines);
+        if (contents.size() > max_bytes) {
+          return nscapi::protobuf::functions::set_response_bad(*response, describe_too_large(filename, max_size));
+        }
       } else {
         if (max_lines > 0) {
           const std::uint64_t offset = check_logfile::file_reader::find_tail_offset(file, line_split, max_lines);
           file.clear();
           file.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
         }
-        contents.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        // Without a bookmark there is no position to resume from, so reading a
+        // prefix and reporting on it would answer a different question than the
+        // one asked - quietly. Refuse instead and name the ways out.
+        bool truncated = false;
+        contents = check_logfile::file_reader::read_capped(file, max_bytes, truncated);
+        if (truncated) {
+          return nscapi::protobuf::functions::set_response_bad(*response, describe_too_large(filename, max_size));
+        }
       }
       match_records(filename, contents, line_split, column_split, strip_cr, true, max_lines, newest_first, filter);
       continue;
@@ -411,7 +455,24 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
     std::string::size_type consumed = 0;
     if (!decision.skip) {
       file.seekg(static_cast<std::streamoff>(decision.offset), std::ios::beg);
-      const std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+      // Bounded, unlike the unbookmarked path, rather than refused: the
+      // bookmark IS a position to resume from, so a backlog larger than the
+      // ceiling is simply worked through over several checks. Cut back to the
+      // last complete record so the limit never splits a line - the remainder
+      // is read again next time, from a position that is still a record
+      // boundary.
+      bool truncated = false;
+      std::string contents = check_logfile::file_reader::read_capped(file, max_bytes, truncated);
+      if (truncated) {
+        const std::string::size_type keep = check_logfile::file_reader::complete_record_end(contents, line_split);
+        if (keep == 0) {
+          return nscapi::protobuf::functions::set_response_bad(
+              *response, "No complete line in the first " + max_size + " of " + filename + " (max-size): raise max-size or check line-split");
+        }
+        contents.resize(keep);
+        NSC_DEBUG_MSG_STD("Read the first " + str::xtos(contents.size()) + " bytes of the pending data in " + filename +
+                          " (max-size=" + max_size + "); the rest is picked up by the next check");
+      }
       // A trailing record with no delimiter is not complete yet: skipping it
       // (and not counting it as consumed) is what makes the line show up once,
       // in full, on the check which sees its terminator.

@@ -135,3 +135,31 @@ Behaviour worth knowing:
   doing it quietly.
 * **An unterminated last line still counts as a line.** Without a bookmark the
   trailing fragment is one of the `N`; with a bookmark it is held back as usual.
+
+#### How much is read at once (`max-size`)
+
+The file is matched in memory, so one call is bounded by `max-size` (default
+`64m`, `0` for no limit). It accepts a size suffix: `512k`, `64m`, `2g`.
+
+The limit means two different things depending on whether the check is
+incremental:
+
+* **With a `bookmark` it is pacing, and nothing is lost.** The check reads up to
+  `max-size` of whatever is pending, cuts back to the last complete line so a
+  record is never split, and moves the stored position over what it read. The
+  next check continues from there, so a large backlog is worked through over
+  several runs rather than in one.
+* **Without a `bookmark` a file over the limit is an error.** There is no
+  position to resume from, so reading a prefix and reporting on it would answer
+  a different question than the one asked, quietly. The check returns UNKNOWN
+  naming the file and the three ways out: add `bookmark=auto`, add `max-lines`,
+  or raise `max-size`.
+
+```
+check_logfile "file=/var/log/huge.log" "filter=column1 like 'ERROR'" "max-size=1m"
+UNKNOWN: File is larger than max-size (1m): /var/log/huge.log. Without a bookmark the whole file has to be held in memory, so this check reads nothing rather than half of it. Add bookmark=auto to read only what is new, add max-lines to read only the newest lines, or raise max-size.
+```
+
+Raising it is the wrong first answer for a log that grows: a bookmark is what
+you want, and it reports each line once instead of re-reporting the file on
+every run.

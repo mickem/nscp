@@ -20,6 +20,10 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/parsers/where/value_node.cpp
     ${NSCP_INCLUDEDIR}/parsers/where/variable.cpp
     ${NSCP_INCLUDEDIR}/parsers/where/engine.cpp
+    # Only here, never in a test's own SOURCES: it defines the exported budget
+    # functions, and a binary that both compiles them and links this library
+    # defines them twice (LNK2005 on Windows).
+    ${NSCP_INCLUDEDIR}/parsers/where/regex_guard.cpp
     ${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar.cpp
 )
 
@@ -38,6 +42,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/parsers/where/unary_op.hpp
         ${NSCP_INCLUDEDIR}/parsers/where/value_node.hpp
         ${NSCP_INCLUDEDIR}/parsers/where/variable.hpp
+        ${NSCP_INCLUDEDIR}/parsers/where/regex_guard.hpp
         ${NSCP_INCLUDEDIR}/parsers/where/filter_handler_impl.hpp
         ${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar.hpp
         ${NSCP_INCLUDEDIR}/parsers/where/engine.hpp
