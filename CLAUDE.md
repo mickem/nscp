@@ -398,7 +398,21 @@ with `title:`, `fixed_in:` (`next` until it ships), `severity:`, `modules:`,
 published CVE/GHSA advisory — an `advisory:` block that becomes its row of
 the advisories table (format: `docs/security/README.md`), and mark the
 matching upgrade note with a 🔒 icon that links to it (the anchor is the
-slug of the notice's title). For an embargoed
+slug of the notice's title).
+
+**New features get a note too, not only breaking changes.** Any branch with a
+`feature:` commit — a new module, check, command, REST endpoint, grant, fact
+set, platform or package — adds its own `docs/upgrades/next/<slug>.md` in the
+same PR, with `action: none` when there is nothing to do (or `conditional`
+when, say, a custom role needs a new grant to use it). These notes are what the
+release notes and the *Unreleased* section are assembled from, so a feature
+without one ships invisibly. A feature or fix that changes what an attacker or
+an unprivileged caller can reach, or what data leaves the host, also gets a
+`docs/security/<slug>.md` notice. Before opening or merging a PR, check
+`git diff --name-only origin/main... -- docs/upgrades docs/security` is not
+empty for such a branch, and run `python3 docs/hooks/notes.py --check`.
+
+For an embargoed
 fix, add these
 entries **in the same branch/PR as the fix** so the notice becomes public only
 when the fix does — never describe an unfixed issue on a page that ships ahead
