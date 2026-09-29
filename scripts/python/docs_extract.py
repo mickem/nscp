@@ -7,10 +7,12 @@
 # modules over protobuf (registry + settings inventory). It serializes what it
 # finds into a git-committed, per-module YAML intermediate under docs/reference/.
 #
-# The YAML is keyed by platform tag ("unix" / "windows"); each run rewrites ONLY
-# the slice for the platform it runs on and leaves the other platform's slice
-# untouched. This lets the Linux and Windows pipelines update their own data
-# independently with clean, order-independent diffs. Rendering is a separate,
+# The YAML is keyed by platform tag ("windows" / "unix" / "darwin", see
+# PLATFORM_TAGS); each run rewrites ONLY the slice for the platform it runs on
+# and leaves the other platforms' slices untouched. This lets the Windows, Linux
+# and macOS pipelines update their own data independently with clean,
+# order-independent diffs - and docs_merge.py fold the results of three
+# parallel runs back into one set of files. Rendering is a separate,
 # platform-agnostic step (docs_generate.py) that reads these files.
 #
 # All path-variable resolution (unexpand of default values) happens here, so the
@@ -24,6 +26,15 @@ import sys
 import yaml
 
 helper = None
+
+# --- Platform tag of the slice this run writes. -------------------------------
+# Linux and macOS are both "unix" to the C++ (the CheckSystemUnix module, the
+# POSIX file finders), but they read different data sources (procfs against
+# sysctl and IOKit) and ship different module sets, so each gets a slice of its
+# own. Anything that is neither Windows nor macOS is Linux, and keeps the
+# historical "unix" tag. KEEP IN SYNC with PLATFORM_ORDER in docs_generate.py.
+PLATFORM_TAGS = {'win32': 'windows', 'darwin': 'darwin'}
+DEFAULT_PLATFORM_TAG = 'unix'
 
 # --- Static, platform-independent module -> namespace classification. ----------
 # (docs.py picked windows vs unix at runtime from sys.platform; here the mapping
@@ -380,11 +391,13 @@ def serialize_module(root, module, minfo, unexpand, commons):
 #   common:  {info?, queries?, aliases?, paths?}  -- items present & equal on ALL
 #   unix:    {...}     -- items unique to unix, or that differ across platforms
 #   windows: {...}     -- likewise for windows
+#   darwin:  {...}     -- likewise for macOS
 # expand() rebuilds each platform's full tree; factor() is its inverse. Because
 # the file always carries enough to reconstruct every platform, a single-platform
-# run reconstructs the OTHER platform from disk, re-compares against its own fresh
-# data and re-factors -- so Linux and Windows can update independently and still
-# converge. KEEP expand()/_merge_section IN SYNC with docs_generate.py.
+# run reconstructs the OTHER platforms from disk, re-compares against its own fresh
+# data and re-factors -- so Windows, Linux and macOS can update independently and
+# still converge. KEEP expand()/factor() IN SYNC with docs_generate.py and
+# docs_merge.py.
 FACTOR_SECTIONS = ('queries', 'aliases', 'paths')
 
 
@@ -641,7 +654,7 @@ class DocumentationExtractor(object):
         return sorted(cache.items(), key=lambda kv: len(kv[1]), reverse=True)
 
     def extract(self, output_dir):
-        platform = 'windows' if sys.platform == 'win32' else 'unix'
+        platform = PLATFORM_TAGS.get(sys.platform, DEFAULT_PLATFORM_TAG)
         yaml_dir = os.path.join(output_dir, 'reference')
         if not os.path.exists(yaml_dir):
             os.makedirs(yaml_dir)

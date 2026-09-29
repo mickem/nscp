@@ -19,10 +19,20 @@ on:
         type: string
         description: >-
           Which Debian-family packages to build: "default" for the Ubuntu LTS
-          pair, or "all" to add the Raspberry Pi OS / Debian package. Release
-          builds want all of them.
+          pair, "all" to add the Raspberry Pi OS / Debian package, or "x64"
+          for the Ubuntu x64 build alone. Release builds want all of them.
         required: false
         default: default
+      extract-docs:
+        type: boolean
+        description: >-
+          After the build, re-extract the reference documentation from the
+          built modules (the extract_doc_sources target, which rewrites the
+          Linux slice of docs/reference/*.yaml) and upload the result as the
+          docs-reference-unix artifact. Runs on the Ubuntu x64 entry only.
+          Only update-docs.yml sets it.
+        required: false
+        default: false
 
 jobs:
   # Computed rather than written out: `include:` entries cannot carry an `if:`,
@@ -51,8 +61,10 @@ jobs:
         case "${{ inputs.targets }}" in
           default) selected=$(jq -c '[.[] | select(.group == "default")] | map(del(.group))' <<< "$all") ;;
           all)     selected=$(jq -c 'map(del(.group))' <<< "$all") ;;
+          # One build is all the documentation pipeline needs from Linux.
+          x64)     selected=$(jq -c '[.[] | select(.group == "default" and .arch == "x64")] | map(del(.group))' <<< "$all") ;;
           *)
-            echo "::error::Unknown targets value '${{ inputs.targets }}' (expected 'default' or 'all')"
+            echo "::error::Unknown targets value '${{ inputs.targets }}' (expected 'default', 'all' or 'x64')"
             exit 1
             ;;
         esac
@@ -257,6 +269,25 @@ jobs:
       working-directory: tmp/nscp
       run: |
         ctest --output-on-failure -C Release
+
+    # The extractor is a Python script that runs inside nscp (PythonScript
+    # introspects the loaded modules over protobuf), so it runs against the
+    # build tree, on one matrix entry: the slice it writes is "unix", the
+    # same on every Linux build. update-docs.yml merges it with the slices
+    # the Windows and macOS builds extract.
+    - name: Extract the reference documentation (Linux slice)
+      if: inputs.extract-docs && matrix.distro == 'ubuntu' && matrix.arch == 'x64'
+      working-directory: tmp/nscp
+      run: |
+        make extract_doc_sources
+
+    - name: Upload the extracted documentation
+      if: inputs.extract-docs && matrix.distro == 'ubuntu' && matrix.arch == 'x64'
+      uses: actions/upload-artifact@v6
+      with:
+        name: docs-reference-unix
+        path: docs/reference/
+        if-no-files-found: error
 
   # Derived from the same list the packages are built from: the Raspberry Pi
   # (debian trixie) entry was built but never integration-tested while this

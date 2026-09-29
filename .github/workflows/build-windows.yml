@@ -23,6 +23,15 @@ on:
           below: a pull request or a merge to main never sees them.
         required: false
         default: false
+      extract-docs:
+        type: boolean
+        description: >-
+          After the build, re-extract the reference documentation from the
+          built modules (the extract_doc_sources target, which rewrites the
+          Windows slice of docs/reference/*.yaml) and upload the result as the
+          docs-reference-windows artifact. Only update-docs.yml sets it.
+        required: false
+        default: false
     secrets:
       AZURE_TENANT_ID:
         description: 'Azure tenant ID (signing only)'
@@ -413,6 +422,29 @@ jobs:
       working-directory: tmp/nscp
       run: |
         ctest --output-on-failure -C Release
+
+    # The extractor is a Python script that runs inside nscp (PythonScript
+    # introspects the loaded modules over protobuf), so it has to run on the
+    # host that built the modules and cannot run for the cross-compiled ARM64.
+    # It rewrites only the Windows slice of each YAML file; update-docs.yml
+    # merges it with the slices the Linux and macOS builds extract.
+    - name: Extract the reference documentation (Windows slice)
+      if: inputs.extract-docs && inputs.architecture != 'arm64'
+      working-directory: tmp/nscp
+      shell: pwsh
+      run: |
+        cmake --build . --target extract_doc_sources --config RelWithDebInfo
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Write-Host "--- files the extraction changed ---"
+        git -C "$env:GITHUB_WORKSPACE" status --short -- docs/reference
+
+    - name: Upload the extracted documentation
+      if: inputs.extract-docs && inputs.architecture != 'arm64'
+      uses: actions/upload-artifact@v6
+      with:
+        name: docs-reference-windows
+        path: docs/reference/
+        if-no-files-found: error
 
     # Every executable and library the MSI installs, taken from the installer's
     # own .wxs files, and nothing else: the unit tests build into the same
