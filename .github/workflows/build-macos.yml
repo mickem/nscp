@@ -20,6 +20,18 @@ on:
           newer runner raises that floor.
         required: false
         default: macos-15
+      extract-docs:
+        type: boolean
+        description: >-
+          After the build, re-extract the reference documentation from the
+          built modules (the extract_doc_sources target, which rewrites the
+          macOS slice of docs/reference/*.yaml) and upload the result as the
+          docs-reference-darwin artifact. The extractor runs inside the
+          PythonScript module, so this also installs Boost.Python and builds
+          that module, which the plain build leaves out. Only update-docs.yml
+          sets it.
+        required: false
+        default: false
   # The macOS build is not yet part of branch protection, so a contributor
   # working on the port needs a way to run it against an arbitrary branch
   # without opening a pull request.
@@ -81,6 +93,13 @@ jobs:
           pkgconf \
           ccache \
           coreutils
+        # The documentation extractor runs inside PythonScript, so the docs
+        # build is the one place the module has to exist. boost-python3 pulls
+        # in the CPython it was built against; the configure step below reads
+        # which one that is rather than guessing.
+        if [ "${{ inputs.extract-docs }}" = "true" ]; then
+          retry brew install --quiet boost-python3
+        fi
 
     - name: Configure the build environment
       id: env
@@ -98,6 +117,22 @@ jobs:
         # passed in. Both modules take the installed prefix.
         echo "PROTOBUF_ROOT=$(brew --prefix protobuf)" >> "$GITHUB_ENV"
         echo "CRYPTOPP_ROOT=$(brew --prefix cryptopp)" >> "$GITHUB_ENV"
+
+        # Docs build only: point CMake at the Boost.Python component and the
+        # CPython it was built against. The component's name carries the
+        # Python version (libboost_python313), and that version's Homebrew
+        # keg is the interpreter PythonScript has to embed - any other one
+        # fails to load. Both are derived from what boost-python3 installed,
+        # so a Homebrew python bump does not break this job.
+        if [ "${{ inputs.extract-docs }}" = "true" ]; then
+          bp_lib="$(ls "$(brew --prefix boost-python3)"/lib/libboost_python3*.dylib | head -n 1)"
+          bp_tag="$(basename "$bp_lib" | sed -E 's/^libboost_(python3[0-9]+).*$/\1/')"
+          py_version="3.${bp_tag#python3}"
+          py_prefix="$(brew --prefix "python@${py_version}")"
+          echo "Boost.Python component: $bp_tag (Python $py_version at $py_prefix)"
+          echo "NSCP_DOCS_PYTHON=${py_prefix}/bin/python${py_version}" >> "$GITHUB_ENV"
+          echo "NSCP_DOCS_CMAKE_ARGS=-DNSCP_BOOST_PYTHON_VERSION=${bp_tag} -DPython3_ROOT_DIR=${py_prefix} -DPython3_FIND_STRATEGY=LOCATION" >> "$GITHUB_ENV"
+        fi
 
         # The deployment target is the runner's own major version, not a number
         # picked by hand. The package carries Homebrew's bottles for boost,
@@ -142,6 +177,12 @@ jobs:
         # environment; --break-system-packages is the same escape hatch the
         # Debian and RedHat jobs use.
         retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
+        # The extractor imports PyYAML and protobuf from inside the embedded
+        # interpreter, which is the one Boost.Python was built against - not
+        # necessarily the one pip3 above installs into.
+        if [ -n "${NSCP_DOCS_PYTHON:-}" ]; then
+          retry "$NSCP_DOCS_PYTHON" -m pip install --break-system-packages -r build/python/requirements.txt
+        fi
 
     # No check_nsclient step, unlike the Linux jobs: mickem/check_nsclient
     # publishes linux and windows binaries only, so there is nothing to fetch
@@ -174,7 +215,8 @@ jobs:
           -DNSCP_WEB_BACKEND=beast \
           -DCHECK_NSCLIENT_MISSING=ON \
           -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
-          -DUSE_STATIC_RUNTIME=OFF
+          -DUSE_STATIC_RUNTIME=OFF \
+          ${NSCP_DOCS_CMAKE_ARGS:-}
 
     - name: Build nsclient
       working-directory: tmp/nscp
@@ -194,6 +236,35 @@ jobs:
       working-directory: tmp/nscp
       shell: bash
       run: ctest --output-on-failure -C Release
+
+    # The extractor is a Python script that runs inside nscp (PythonScript
+    # introspects the loaded modules over protobuf). It writes the "darwin"
+    # slice of each YAML file; update-docs.yml merges it with the slices the
+    # Windows and Linux builds extract.
+    - name: Extract the reference documentation (macOS slice)
+      if: inputs.extract-docs
+      working-directory: tmp/nscp
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Fail here, with a reason, rather than three steps later with an
+        # empty artifact: the target exists only when the configure step found
+        # mkdocs, and the extraction only works when PythonScript was built.
+        if ! ls modules/ | grep -q '^PythonScript\.'; then
+          echo "::error::PythonScript was not built, so the documentation cannot be extracted (see the configure log for the Boost.Python lookup)"
+          exit 1
+        fi
+        make extract_doc_sources
+        echo "--- files the extraction changed ---"
+        git -C "$GITHUB_WORKSPACE" status --short -- docs/reference
+
+    - name: Upload the extracted documentation
+      if: inputs.extract-docs
+      uses: actions/upload-artifact@v6
+      with:
+        name: docs-reference-darwin
+        path: docs/reference/
+        if-no-files-found: error
 
     - name: Stage the install tree
       working-directory: tmp/nscp

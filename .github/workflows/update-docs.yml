@@ -1,0 +1,240 @@
+name: Update reference docs
+
+# Rebuilds NSClient++ on Windows, Linux and macOS, re-extracts the reference
+# documentation from each build, merges the three results, renders the
+# Markdown and opens a pull request with whatever changed.
+#
+# Why three builds: docs/reference/*.yaml carries one slice per platform
+# (windows / unix / darwin), and the extractor is a Python script that runs
+# inside nscp and introspects the loaded modules - so only the platform that
+# built the modules can refresh its own slice. Each build uploads its copy of
+# docs/reference with that one slice fresh; scripts/python/docs_merge.py folds
+# the three copies into one tree, exactly as running the extractions one after
+# another on a single checkout would, and docs_generate.py renders it.
+#
+# Run it from the Actions tab ("Run workflow" -> pick the branch) after a
+# change to a module's commands, options, keywords or settings. Nothing
+# triggers it automatically, and it publishes nothing but the pull request.
+#
+# The pull request carries one DCO-signed commit whose subject ends in
+# "[skip ci]" (see the skip-ci input): its content was just extracted from
+# builds that passed every platform's test suite, and a docs-only change
+# cannot affect a build, so the full matrix is not spent on it again. The
+# skipped checks show as Pending, which is harmless because none of the
+# build checks is required by branch protection (see CLAUDE.md); the pull
+# request merges as it is. Run with skip-ci off to get an ordinary CI run
+# on the pull request instead.
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip-ci:
+        type: boolean
+        description: >-
+          Put "[skip ci]" in the commit subject, so neither the pull request
+          nor its merge runs the build matrix.
+        required: false
+        default: true
+
+# Two runs on the same branch would race for the same pull request branch.
+# The newer one is the one that reflects the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  get-version:
+    uses: ./.github/workflows/get-version.yml
+
+  # One build per platform. The version only names the artifacts and the
+  # package the build tests install; the documentation does not carry it.
+  build-windows:
+    needs: get-version
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      architecture: x64
+      version: ${{ needs.get-version.outputs.version }}
+      extract-docs: true
+  build-linux:
+    needs: get-version
+    uses: ./.github/workflows/build-debian.yml
+    with:
+      architecture: x64
+      version: ${{ needs.get-version.outputs.version }}
+      targets: x64
+      extract-docs: true
+  build-macos:
+    needs: get-version
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.get-version.outputs.version }}
+      extract-docs: true
+
+  update-docs:
+    name: Merge, render and open the pull request
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      # The pull request branch, per base branch so a run against a feature
+      # branch does not hijack the one for main. Owned by this workflow: every
+      # run regenerates it from the base it was dispatched on and force-pushes,
+      # so an open pull request is refreshed rather than duplicated.
+      PR_BRANCH: docs/reference-${{ github.ref_name }}
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+        cache-dependency-path: 'build/python/requirements.txt'
+
+    - name: Install the generator's dependencies
+      run: pip install -r build/python/requirements.txt
+
+    # The pattern picks the three docs-reference-* artifacts and nothing else
+    # (the builds also upload their packages). With the artifact name kept as
+    # a directory, each slice lands in its own folder under
+    # $RUNNER_TEMP/docs-slices.
+    - name: Download the extracted documentation from the three builds
+      uses: actions/download-artifact@v7
+      with:
+        pattern: docs-reference-*
+        path: ${{ runner.temp }}/docs-slices
+
+    - name: Check the downloads
+      run: |
+        set -euo pipefail
+        for platform in windows unix darwin; do
+          dir="$RUNNER_TEMP/docs-slices/docs-reference-$platform"
+          if [ ! -d "$dir" ] || ! ls "$dir"/*.yaml > /dev/null 2>&1; then
+            echo "::error::No extracted documentation for $platform under $dir"
+            exit 1
+          fi
+          echo "$platform: $(ls "$dir"/*.yaml | wc -l) files"
+        done
+
+    - name: Test the merge tool
+      run: python build/python/test_docs_merge.py
+
+    - name: Merge the platform slices into docs/reference
+      run: |
+        python scripts/python/docs_merge.py --reference docs/reference \
+          --slice "windows=$RUNNER_TEMP/docs-slices/docs-reference-windows" \
+          --slice "unix=$RUNNER_TEMP/docs-slices/docs-reference-unix" \
+          --slice "darwin=$RUNNER_TEMP/docs-slices/docs-reference-darwin"
+
+    - name: Render the Markdown reference
+      run: python scripts/python/docs_generate.py --input docs --output docs
+
+    - name: Look at what changed
+      id: changes
+      run: |
+        set -euo pipefail
+        # Only the generated trees: the samples and the hand-written pages are
+        # inputs to the generator, never its output, and a stray file anywhere
+        # else would be a bug in the steps above, not documentation.
+        git add -A docs/reference docs/docs/reference
+        if git diff --cached --quiet; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::The reference documentation is up to date on ${GITHUB_REF_NAME}; nothing to commit."
+          echo "The reference documentation is up to date on \`${GITHUB_REF_NAME}\`; no pull request opened." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        echo "changed=true" >> "$GITHUB_OUTPUT"
+        {
+          echo "### Regenerated files"
+          echo
+          echo '```'
+          git diff --cached --stat
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Commit
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        set -euo pipefail
+        git config user.name 'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        subject='docs: regenerate the reference from the Windows, Linux and macOS builds'
+        if [ "${{ inputs.skip-ci }}" = "true" ]; then
+          subject="$subject [skip ci]"
+        fi
+        message="$RUNNER_TEMP/commit-message.txt"
+        cat > "$message" <<EOF
+        $subject
+
+        Extracted by the '${GITHUB_WORKFLOW}' workflow from ${GITHUB_SHA} on
+        ${GITHUB_REF_NAME}:
+        ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+        Windows x64, Ubuntu 24.04 x64 and macOS arm64 each extracted their own
+        platform slice of docs/reference/*.yaml; scripts/python/docs_merge.py
+        merged them and scripts/python/docs_generate.py rendered the Markdown.
+        Nothing in this commit was written by hand.
+        EOF
+        # -s adds the DCO sign-off from the identity above; the DCO check
+        # accepts a sign-off that matches the author, which this does.
+        git commit -s -F "$message"
+
+    - name: Push the branch and open or refresh the pull request
+      if: steps.changes.outputs.changed == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        base="${GITHUB_REF_NAME}"
+        git push --force origin "HEAD:refs/heads/${PR_BRANCH}"
+
+        title='docs: regenerate the reference from the Windows, Linux and macOS builds'
+        body="$RUNNER_TEMP/pr-body.md"
+        {
+          echo "Regenerated reference documentation, extracted from a fresh build on each platform:"
+          echo
+          echo "| Platform | Build | Slice |"
+          echo "| --- | --- | --- |"
+          echo "| Windows | x64, \`build-windows.yml\` | \`windows\` |"
+          echo "| Linux | Ubuntu 24.04 x64, \`build-debian.yml\` | \`unix\` |"
+          echo "| macOS | arm64, \`build-macos.yml\` | \`darwin\` |"
+          echo
+          echo "Source: \`${GITHUB_SHA}\` on \`${base}\`, run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}."
+          echo "Merged by \`scripts/python/docs_merge.py\`, rendered by \`scripts/python/docs_generate.py\`; nothing here was written by hand."
+          echo
+          echo "### Changed files"
+          echo
+          echo '```'
+          git diff --stat HEAD~1 HEAD
+          echo '```'
+          echo
+          if [ "${{ inputs.skip-ci }}" = "true" ]; then
+            echo "> **CI is skipped on this pull request** (\`[skip ci]\` in the commit subject): the content comes from builds that passed every platform's tests, and documentation cannot affect a build. The build checks show as *Pending*; they are not required, so the pull request merges as it is. Re-run the *Update reference docs* workflow with *skip-ci* off for an ordinary CI run."
+          else
+            echo "> Opened with CI enabled (*skip-ci* was off)."
+          fi
+          echo
+          echo "This branch is owned by the *Update reference docs* workflow: a later run force-pushes it from the current \`${base}\`."
+        } > "$body"
+
+        number="$(gh pr list --head "$PR_BRANCH" --base "$base" --state open --json number --jq '.[0].number // empty')"
+        if [ -n "$number" ]; then
+          gh pr edit "$number" --title "$title" --body-file "$body"
+          url="$(gh pr view "$number" --json url --jq .url)"
+          echo "Refreshed the open pull request: $url"
+        else
+          if ! url="$(gh pr create --base "$base" --head "$PR_BRANCH" --title "$title" --body-file "$body")"; then
+            echo "::error::Could not open the pull request. If the message above says GitHub Actions is not permitted to create pull requests, enable 'Allow GitHub Actions to create and approve pull requests' under Settings -> Actions -> General -> Workflow permissions. The branch ${PR_BRANCH} is pushed; the pull request can also be opened by hand."
+            exit 1
+          fi
+          echo "Opened the pull request: $url"
+        fi
+        {
+          echo
+          echo "Pull request: $url"
+        } >> "$GITHUB_STEP_SUMMARY"

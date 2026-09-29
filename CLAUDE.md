@@ -41,14 +41,15 @@
   `[no ci]`, `[skip actions]`, `[actions skip]`, and a `skip-checks: true`
   trailer. Put it in the **subject**, e.g.
   `docs: document check_battery keywords [skip ci]`.
-  The catch: a skipped workflow leaves its check `Pending`, not `Passed`, so a
-  **required** check never resolves and the pull request cannot be merged.
-  Therefore:
-  - Use it on a commit pushed straight to `main`, or on a merge commit, where
-    nothing is gating it.
-  - Do **not** use it on a pull request head branch while any check is
-    required. Let CI run there — a docs-only PR is one of the cheap ones and
-    it stays mergeable.
+  A skipped workflow leaves its check `Pending`, not `Passed`. That would
+  block the merge if the build checks were **required** by branch protection,
+  but they are not: none of the build workflows is a hard-required check on
+  `main`, so a pull request whose head commit carries `[skip ci]` is still
+  mergeable. It is therefore fine on a docs-only pull request (the *Update
+  reference docs* workflow relies on it), on a commit pushed straight to
+  `main`, and on a merge commit. Should a build check ever be made required,
+  this changes: let CI run on the pull request instead — a docs-only PR is
+  one of the cheap ones.
   Reach for it only when the diff genuinely cannot affect a build: `.md` under
   `docs/`, release notes, prose in comments. Anything touching `docs/hooks/`,
   `mkdocs.yml`, the `docs/samples/` wiring or a `CMakeLists.txt` is not

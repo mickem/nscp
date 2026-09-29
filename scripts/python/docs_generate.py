@@ -7,12 +7,13 @@
 # (docs/reference/<Module>.yaml) and renders the Markdown reference under
 # docs/docs/reference/. It needs only PyYAML + jinja2 -- no running nscp.
 #
-# Each YAML file carries up to two platform slices ("unix" / "windows"). The
-# generator unions them:
-#   * an item present on only one platform gets an "Available on ... only" note;
+# Each YAML file carries up to three platform slices ("windows" / "unix" /
+# "darwin", i.e. Windows / Linux / macOS). The generator unions them:
+#   * an item present on fewer platforms than its module gets an
+#     "Available on ... only" note;
 #   * a section whose rendered content differs between platforms is wrapped in
-#     mkdocs-Material content tabs (=== "Windows" / === "Linux") so the reader can
-#     see both behaviours; identical sections render once.
+#     mkdocs-Material content tabs (=== "Windows" / === "Linux" / === "macOS")
+#     so the reader can see every behaviour; identical sections render once.
 #
 # Human-authored samples (docs/samples/*_samples.md, *_desc.md) are read here, as
 # in the original docs.py -- they are platform-neutral and not part of the YAML.
@@ -29,8 +30,11 @@ from jinja2 import Environment
 helper = None
 
 # Platform tab ordering + display labels (Windows first, matching the UI).
-PLATFORM_ORDER = ['windows', 'unix']
-PLATFORM_LABEL = {'windows': 'Windows', 'unix': 'Linux'}
+# A slice whose tag is not listed here is ignored, so an extractor that learns
+# a new platform does not break the rendering until this list catches up.
+# KEEP IN SYNC with PLATFORM_TAGS in docs_extract.py.
+PLATFORM_ORDER = ['windows', 'unix', 'darwin']
+PLATFORM_LABEL = {'windows': 'Windows', 'unix': 'Linux', 'darwin': 'macOS'}
 
 # --- Common options / keywords (see docs/reference/common-options.yaml). ---------
 # Shared options are stored per query as a slim `common_options: {name: default}`
@@ -466,13 +470,19 @@ def _indent(text, n=4):
 
 
 def tabify(rendered):
-    # rendered: {platform: markdown}. Emit mkdocs-Material content tabs.
+    # rendered: {platform: markdown}. Emit mkdocs-Material content tabs, one
+    # per distinct rendering: platforms that render the same share a tab
+    # ("Linux / macOS"), so a Windows-only difference does not make the reader
+    # open two identical tabs to find that out.
     blocks = []
+    seen = []
     for p in PLATFORM_ORDER:
-        if p not in rendered:
+        if p not in rendered or any(rendered[p] == rendered[q] for q in seen):
             continue
+        seen.append(p)
+        labels = [PLATFORM_LABEL[q] for q in PLATFORM_ORDER if q in rendered and rendered[q] == rendered[p]]
         body = _indent(rendered[p].strip('\n'))
-        blocks.append('=== "%s"\n\n%s' % (PLATFORM_LABEL[p], body))
+        blocks.append('=== "%s"\n\n%s' % (' / '.join(labels), body))
     return '\n\n'.join(blocks) + '\n'
 
 
@@ -523,13 +533,16 @@ def declared_platforms(desc):
     # The registry therefore lists them on both platforms, so the presence-based
     # availability logic cannot see the restriction. Such commands declare it by
     # ending the first line of their description (from module.json) with
-    # "Windows only." / "Linux only."; honour that here so they are documented
-    # as single-platform. Returns the declared platform list, or None.
+    # "Windows only." / "Linux only." / "macOS only."; honour that here so they
+    # are documented as single-platform. Returns the declared platform list, or
+    # None.
     line = first_line(desc)
     if line.endswith('Windows only.'):
         return ['windows']
     if line.endswith('Linux only.'):
         return ['unix']
+    if line.endswith('macOS only.'):
+        return ['darwin']
     return None
 
 
@@ -544,16 +557,18 @@ def effective_platforms(present, desc):
 
 # OS-logo shortcodes for the index tables, rendered to inline SVG by the
 # pymdownx.emoji extension configured in docs/mkdocs.yml.
-PLATFORM_ICON = {'windows': ':fontawesome-brands-windows:', 'unix': ':fontawesome-brands-linux:'}
+PLATFORM_ICON = {'windows': ':fontawesome-brands-windows:', 'unix': ':fontawesome-brands-linux:',
+                 'darwin': ':fontawesome-brands-apple:'}
 
 
 def os_label(platforms):
     # Index-table OS column: one logo per platform the item is available on
-    # (both logos when it spans every supported platform).
+    # (every logo when it spans every supported platform).
     return ' '.join(PLATFORM_ICON[p] for p in PLATFORM_ORDER if p in platforms)
 
 
-# --- Platform factoring (storage-only; KEEP IN SYNC with docs_extract.py). -------
+# --- Platform factoring (storage-only; KEEP IN SYNC with docs_extract.py and
+# docs_merge.py). ----------------------------------------------------------------
 # The YAML stores shared data once under "common" plus per-platform overrides.
 # expand() rebuilds each platform's full tree so the rest of the generator can keep
 # consuming plain per-platform slices -- rendering (markers/tabs) is unchanged.
@@ -922,13 +937,17 @@ class DocumentationGenerator(object):
         out.append('```\n[%s]\n# %s\n%s=%s\n```\n' % (pk, key.get('title', ''), k, key.get('default_value', '')))
         return '\n'.join(out)
 
-    def render_module(self, module, slices):
+    def render_module(self, module, slices, extracted):
+        # extracted: the platforms any module in the reference set has been
+        # extracted on. A module missing from one of them is called out as
+        # available on the others only; a platform nothing has been extracted
+        # on yet is not held against every module.
         present = [p for p in PLATFORM_ORDER if p in slices]
         namespace = self._namespace(slices)
         sample, ext_desc = self._module_sample(module)
 
         out = ['# %s\n' % module]
-        note = availability_note(present, PLATFORM_ORDER)
+        note = availability_note(present, extracted)
         if note:
             out.append(note)
         if any(is_experimental(slices[p].get('info', {})) for p in present):
@@ -1003,8 +1022,9 @@ class DocumentationGenerator(object):
 
     def generate(self, output_dir):
         modules = self.load()
+        extracted = [p for p in PLATFORM_ORDER if any(p in slices for slices in modules.values())]
         for i, (module, slices) in enumerate(sorted(modules.items()), 1):
-            namespace, text = self.render_module(module, slices)
+            namespace, text = self.render_module(module, slices, extracted)
             out_path = '%s/docs/reference/%s/%s.md' % (output_dir, namespace, module)
             render_template(text, out_path)
             print('Rendered %d of %d [%s -> %s]' % (i, len(modules), module, namespace))

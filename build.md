@@ -106,6 +106,19 @@ with `-DNSCP_CMAKE_CONFIG=<file>`).
 | `CHECK_NSCLIENT_MISSING`    | unset            | Set `TRUE` to skip bundling `check_nsclient` (no download required).                                                                                                     |
 | `NSCP_CMAKE_CONFIG`         | —                | Path (relative to the source or binary dir) to a custom `build.cmake`-style config to include.                                                                           |
 
+The reference documentation (`docs/docs/reference/`) is generated, in three
+steps, from the modules themselves: `extract_doc_sources` runs
+`scripts/python/docs_extract.py` inside the freshly built `nscp` and rewrites
+the current platform's slice of `docs/reference/*.yaml` (Windows, Linux and
+macOS each have one, and only the platform that built the modules can refresh
+its own); `scripts/python/docs_merge.py` folds the slices of several such runs
+into one tree; and `generate_doc_sources` runs `scripts/python/docs_generate.py`
+to render the Markdown from the YAML, which needs no `nscp` at all. Neither
+target is part of the default build. The *Update reference docs* workflow
+(`.github/workflows/update-docs.yml`, run it from the Actions tab) does all of
+this on a Windows, a Linux and a macOS runner and opens a pull request with
+the result.
+
 ### Dependency locations
 
 Mainly needed on Windows (and any time a library is not in a default search
