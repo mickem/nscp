@@ -98,6 +98,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"CheckWindowsApps", "Check Plugins"},
       {"CheckHyperV", "Check Plugins"},
       {"CheckSecurity", "Check Plugins"},
+      {"CheckActiveDirectory", "Check Plugins"},
       {"CheckMSSQL", "Check Plugins"},
       // Its own feature, not part of "Check Plugins": it is the one check
       // module that carries a third-party runtime library (libmariadb.dll).

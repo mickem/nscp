@@ -21,8 +21,11 @@ struct number_performance_generator_interface {
   virtual ~number_performance_generator_interface() = default;
   virtual bool is_configured() = 0;
   virtual void configure(std::string key, object_factory context) = 0;
-  virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, TDataType current_value, TDataType warn, TDataType crit,
-                    TObject object) = 0;
+  // warn/crit are empty when the warning/critical expression carries no bound
+  // for this variable; the emitted perfdata must leave the field empty then,
+  // not default it to 0 (perf consumers read crit=0 as "critical when > 0").
+  virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, TDataType current_value, boost::optional<TDataType> warn,
+                    boost::optional<TDataType> crit, TObject object) = 0;
 };
 
 // Parse a perf-config string (e.g. "0", "12345", "3.14") as a double. Returns
@@ -87,8 +90,8 @@ struct simple_number_performance_generator : number_performance_generator_interf
     if (!maximum) maximum = parse_optional_perf_bound(context->get_performance_config_key(p, k, s, "max", ""));
     configured = true;
   }
-  void eval(perf_list_type &list, evaluation_context context, const std::string alias, TDataType current_value, TDataType warn, TDataType crit,
-            TContext object) override {
+  void eval(perf_list_type &list, evaluation_context context, const std::string alias, TDataType current_value, boost::optional<TDataType> warn,
+            boost::optional<TDataType> crit, TContext object) override {
     if (ignored) return;
     // A perf-config `unit:` on a byte series converts the value and bounds
     // into the requested unit; relabelling alone would ship '=1536KB' for a
@@ -109,8 +112,8 @@ struct simple_number_performance_generator : number_performance_generator_interf
     performance_data data;
     performance_data::perf_value int_data;
     int_data.value = static_cast<double>(current_value) * scale;
-    int_data.warn = static_cast<double>(warn) * scale;
-    int_data.crit = static_cast<double>(crit) * scale;
+    if (warn) int_data.warn = static_cast<double>(warn.value()) * scale;
+    if (crit) int_data.crit = static_cast<double>(crit.value()) * scale;
     // Explicit minimum/maximum overrides are written by the operator in the
     // displayed unit already - never rescale them.
     if (minimum) int_data.minimum = minimum.value();
@@ -145,16 +148,16 @@ struct percentage_int_performance_generator : number_performance_generator_inter
     configured = true;
   }
   double round(double number) { return number < 0.0 ? ceil(number - 0.5) : floor(number + 0.5); }
-  void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit,
-            TContext object) override {
+  void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, boost::optional<long long> warn,
+            boost::optional<long long> crit, TContext object) override {
     if (ignored) return;
     long long maximum = maxfun(object, context);
     performance_data data;
     performance_data::perf_value double_data;
     if (maximum > 0) {
       double_data.value = round(static_cast<double>(current_value * 100) / maximum);
-      double_data.warn = round(static_cast<double>(warn * 100) / maximum);
-      double_data.crit = round(static_cast<double>(crit * 100) / maximum);
+      if (warn) double_data.warn = round(static_cast<double>(warn.value() * 100) / maximum);
+      if (crit) double_data.crit = round(static_cast<double>(crit.value() * 100) / maximum);
       double_data.maximum = 100;
       double_data.minimum = 0;
       data.set(double_data);
@@ -194,8 +197,8 @@ struct scaled_byte_int_performance_generator : number_performance_generator_inte
     if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true") ignored = true;
     configured = true;
   }
-  void eval(perf_list_type &list, evaluation_context context, const std::string alias, const long long current_value, const long long warn,
-            const long long crit, TContext object) override {
+  void eval(perf_list_type &list, evaluation_context context, const std::string alias, const long long current_value, const boost::optional<long long> warn,
+            const boost::optional<long long> crit, TContext object) override {
     if (ignored) return;
     std::string active_unit = unit;
     long long max_value = 0;
@@ -204,8 +207,8 @@ struct scaled_byte_int_performance_generator : number_performance_generator_inte
     if (minfun) min_value = minfun(object, context);
     if (active_unit.empty()) {
       long long m = current_value;
-      if (warn > 0) m = (std::max)(m, warn);
-      if (crit > 0) m = (std::max)(m, crit);
+      if (warn && warn.value() > 0) m = (std::max)(m, warn.value());
+      if (crit && crit.value() > 0) m = (std::max)(m, crit.value());
       if (max_value > 0) m = (std::min)(m, max_value);
       if (min_value > 0) m = (std::min)(m, min_value);
       active_unit = str::format::find_proper_unit_BKMG(m);
@@ -224,8 +227,8 @@ struct scaled_byte_int_performance_generator : number_performance_generator_inte
       else
         double_data.minimum = min_value;
     }
-    double_data.warn = str::format::convert_to_byte_units(warn, active_unit);
-    double_data.crit = str::format::convert_to_byte_units(crit, active_unit);
+    if (warn) double_data.warn = str::format::convert_to_byte_units(warn.value(), active_unit);
+    if (crit) double_data.crit = str::format::convert_to_byte_units(crit.value(), active_unit);
     double_data.value = str::format::convert_to_byte_units(current_value, active_unit);
     performance_data data;
     data.set(double_data);
@@ -313,8 +316,8 @@ struct int_variable_node : any_node {
     perf_list_type ret;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
     if (native_context != nullptr && native_context->has_object()) {
-      long long warn_value = 0;
-      long long crit_value = 0;
+      boost::optional<long long> warn_value;
+      boost::optional<long long> crit_value;
       long long current_value = get_int_value(context);
       if (warn) warn_value = warn->get_int_value(context);
       if (crit) crit_value = crit->get_int_value(context);
@@ -401,8 +404,8 @@ struct float_variable_node : any_node {
     perf_list_type ret;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
     if (native_context != nullptr && native_context->has_object()) {
-      double warn_value = 0;
-      double crit_value = 0;
+      boost::optional<double> warn_value;
+      boost::optional<double> crit_value;
       double current_value = get_float_value(context);
       if (warn) warn_value = warn->get_float_value(context);
       if (crit) crit_value = crit->get_float_value(context);
@@ -661,8 +664,8 @@ struct dual_variable_node : any_node {
     perf_list_type ret;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
     if (native_context != nullptr && native_context->has_object()) {
-      long long warn_value = 0;
-      long long crit_value = 0;
+      boost::optional<long long> warn_value;
+      boost::optional<long long> crit_value;
       long long current_value = get_int_value(context);
       if (warn) warn_value = warn->get_int_value(context);
       if (crit) crit_value = crit->get_int_value(context);
@@ -790,8 +793,8 @@ struct optional_int_variable_node : any_node {
       const boost::optional<long long> v = fun(native_context->get_object(), context);
       // No value, no metric: plotting a sentinel would poison the series.
       if (!v) return ret;
-      long long warn_value = 0;
-      long long crit_value = 0;
+      boost::optional<long long> warn_value;
+      boost::optional<long long> crit_value;
       if (warn) warn_value = warn->get_int_value(context);
       if (crit) crit_value = crit->get_int_value(context);
       for (int_performance_generator &p : perfgen) {
@@ -928,16 +931,12 @@ struct summary_int_variable_node : any_node {
     perf_list_type ret;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
     if (native_context != nullptr && !native_context->has_object()) {
-      long long warn_value = 0;
-      long long crit_value = 0;
       const long long current_value = get_int_value(context);
-      if (warn) warn_value = warn->get_int_value(context);
-      if (crit) crit_value = crit->get_int_value(context);
       performance_data data;
       performance_data::perf_value int_data;
       int_data.value = static_cast<double>(current_value);
-      int_data.warn = static_cast<double>(warn_value);
-      int_data.crit = static_cast<double>(crit_value);
+      if (warn) int_data.warn = static_cast<double>(warn->get_int_value(context));
+      if (crit) int_data.crit = static_cast<double>(crit->get_int_value(context));
       data.set(int_data);
       data.alias = name_;
       ret.push_back(data);

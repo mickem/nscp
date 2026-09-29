@@ -148,7 +148,9 @@ describe("CheckNet RADIUS", () => {
     try {
       const output = await query(target.port, auth());
       expect(output).toMatch(/OK:.*reply=access_accept/);
-      expect(output).toMatch(/=\d+ms;/);
+      // The timing perfdata carries no bounds: the default critical does not
+      // bound `time`, so no placeholder threshold follows the value.
+      expect(output).toMatch(/_time'=\d+ms(?:\s|$)/);
       expect(target.users).toEqual(["test-user"]);
       expect(target.passwords).toEqual([password]);
       expect(target.errors).toEqual([]);

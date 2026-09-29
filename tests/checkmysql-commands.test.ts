@@ -105,7 +105,7 @@ dockerOrSkip()("CheckMySQL commands", () => {
     ]);
     // information_schema alone holds far more than 5 tables.
     expect(out).toMatch(/tables=\d\d+/);
-    expect(out).toMatch(/'tables_counttables'=\d+;0;5/); // perf data from the threshold
+    expect(out).toMatch(/'tables_counttables'=\d+;;5/); // perf data from the threshold; no warning, so that field stays empty
   });
 
   it("check_mysql_query rejects a missing query with a clear message", async () => {
