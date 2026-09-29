@@ -91,43 +91,56 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
   settings.register_all();
   settings.notify();
 
+  // Anything that keeps the listener from starting is collected here and acted
+  // on by load mode. A start (normalStart, reloadStart) refuses: an empty or
+  // hashed key is a well-known one, and a server that came up anyway would
+  // accept forged submissions while looking configured. dontStart - `nscp
+  // settings`, `nscp client`, the documentation extractor, the unit tests - never
+  // binds the port, and those callers exist precisely to show and repair the
+  // configuration: a module that refuses to load over its own settings is one
+  // whose settings they can neither list, document nor fix. So with dontStart
+  // the problem is logged as a warning and the module loads, without a listener.
+  std::string refusal;
   try {
     encryption_ = nscp::encryption::helpers::encryption_to_int(encryption_name_);
   } catch (const nscp::encryption::encryption_exception &e) {
-    NSC_LOG_ERROR_STD("Refusing to start NSCA server: " + utf8::utf8_from_native(e.what()));
-    return false;
+    encryption_ = nscp::encryption::helpers::no_encryption;
+    refusal = utf8::utf8_from_native(e.what());
   }
-  if (encryption_ != nscp::encryption::helpers::no_encryption && password_hash::is_hashed(password_)) {
+  if (refusal.empty() && encryption_ != nscp::encryption::helpers::no_encryption && password_hash::is_hashed(password_)) {
     // The key is derived from the password string itself, so a hashed value is
     // not a usable key: no client knows it, and starting anyway would silently
     // reject every submission. This key is inherited from nowhere, so it takes
     // a deliberate paste to get here, but a stored hash is never a key - refuse
     // rather than run deaf.
-    NSC_LOG_ERROR_STD("Refusing to start NSCA server: the password is stored hashed (pbkdf2-sha256$...), but NSCA encryption (" + encryption_name_ +
-                      ") derives its key from the clear-text password. Set the clear-text key under /settings/NSCA/server (password=...), or set "
-                      "encryption = none.");
-    return false;
+    refusal = "the password is stored hashed (pbkdf2-sha256$...), but NSCA encryption (" + encryption_name_ +
+              ") derives its key from the clear-text password. Set the clear-text key under /settings/NSCA/server (password=...), or set "
+              "encryption = none.";
   }
-  if (encryption_ != nscp::encryption::helpers::no_encryption && password_.empty()) {
+  if (refusal.empty() && encryption_ != nscp::encryption::helpers::no_encryption && password_.empty()) {
     // Loudly, and without starting. An empty password is a well-known key, so
     // a server that came up anyway would accept forged submissions from anyone
     // who can reach the port while looking configured. There is nothing to fall
     // back on - the key is shared with the hosts submitting *to* this agent and
     // only the operator knows it - so the only safe answer is to refuse.
-    NSC_LOG_ERROR_STD("Refusing to start NSCA server: encryption is enabled (" + encryption_name_ +
-                      ") but no password is set under /settings/NSCA/server. The NSCA key is derived directly from the password, so an empty one is a "
-                      "well-known key: anyone who can reach the port could decrypt and forge submissions. Set password=<the key every submitting host "
-                      "uses> under /settings/NSCA/server - it is deliberately not inherited from /settings/default or from NSCAClient - or set "
-                      "encryption = none if the payload genuinely needs no protection.");
-    return false;
+    refusal = "encryption is enabled (" + encryption_name_ +
+              ") but no password is set under /settings/NSCA/server. The NSCA key is derived directly from the password, so an empty one is a "
+              "well-known key: anyone who can reach the port could decrypt and forge submissions. Set password=<the key every submitting host "
+              "uses> under /settings/NSCA/server - it is deliberately not inherited from /settings/default or from NSCAClient - or set "
+              "encryption = none if the payload genuinely needs no protection.";
   }
-
 #ifndef USE_SSL
-  if (info_.ssl.enabled) {
-    NSC_LOG_ERROR_STD("SSL not available! (not compiled with openssl support)");
-    return false;
+  if (refusal.empty() && info_.ssl.enabled) {
+    refusal = "SSL not available! (not compiled with openssl support)";
   }
 #endif
+  if (!refusal.empty()) {
+    if (mode != NSCAPI::dontStart) {
+      NSC_LOG_ERROR_STD("Refusing to start NSCA server: " + refusal);
+      return false;
+    }
+    NSC_LOG_WARNING("NSCA server would refuse to start: " + refusal + " (loaded without a listener so the configuration can be inspected and fixed)");
+  }
   if (payload_length_ != 512)
     NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = " +
                       str::xtos(payload_length_));

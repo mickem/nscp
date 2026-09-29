@@ -35,7 +35,9 @@ you do have to move it** — see the second point. Three things change:
   **If you run `NSCAServer` and its key came from the shared default, set it
   under its own section before upgrading** — otherwise the module refuses to
   start, logging `Refusing to start NSCA server: encryption is enabled … but no
-  password is set`:
+  password is set`. Only a *start* refuses: `nscp settings`, `nscp client
+  --module NSCAServer` and the documentation build still load the module
+  without its listener, so the section can be listed and corrected in place:
 
 ```ini
 [/settings/NSCA/server]
