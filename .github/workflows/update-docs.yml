@@ -20,10 +20,10 @@ name: Update reference docs
 # "[skip ci]" (see the skip-ci input): its content was just extracted from
 # builds that passed every platform's test suite, and a docs-only change
 # cannot affect a build, so the full matrix is not spent on it again. The
-# catch, spelled out in CLAUDE.md: a skipped workflow leaves its checks
-# Pending, so while those checks are required on the base branch the pull
-# request merges with an administrator override only. Run with skip-ci off
-# to get an ordinary CI run on the pull request instead.
+# skipped checks show as Pending, which is harmless because none of the
+# build checks is required by branch protection (see CLAUDE.md); the pull
+# request merges as it is. Run with skip-ci off to get an ordinary CI run
+# on the pull request instead.
 
 permissions:
   contents: read
@@ -214,7 +214,7 @@ jobs:
           echo '```'
           echo
           if [ "${{ inputs.skip-ci }}" = "true" ]; then
-            echo "> **CI is skipped on this pull request** (\`[skip ci]\` in the commit subject): the content comes from builds that passed every platform's tests, and documentation cannot affect a build. Checks that branch protection requires stay *Pending*, so merge with an administrator override, or re-run the *Update reference docs* workflow with *skip-ci* off for an ordinary CI run."
+            echo "> **CI is skipped on this pull request** (\`[skip ci]\` in the commit subject): the content comes from builds that passed every platform's tests, and documentation cannot affect a build. The build checks show as *Pending*; they are not required, so the pull request merges as it is. Re-run the *Update reference docs* workflow with *skip-ci* off for an ordinary CI run."
           else
             echo "> Opened with CI enabled (*skip-ci* was off)."
           fi
