@@ -3,8 +3,10 @@
 
 #include "realtime_thread.hpp"
 
+#include <algorithm>
 #include <boost/filesystem.hpp>
 #include <cerrno>
+#include <cstring>
 #include <error/error.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -169,7 +171,7 @@ void real_time_thread::thread_proc() {
 
     int timeout = 1000 * 60;
     if (dur) timeout = dur.value().total_milliseconds();
-    char buffer[BUF_LEN];
+    alignas(struct inotify_event) char buffer[BUF_LEN];
     int length = poll(pollfds, 2, timeout);
     if (!length) {
       continue;
@@ -184,9 +186,18 @@ void real_time_thread::thread_proc() {
       break;
     } else if (pollfds[0].revents != 0) {
       length = read(pollfds[0].fd, buffer, BUF_LEN);
-      for (int j = 0; j < length;) {
-        struct inotify_event *event = (struct inotify_event *)&buffer[j];
-        trigger_folder = event->name;
+      for (int j = 0; j + static_cast<int>(EVENT_SIZE) <= length;) {
+        const auto *event = reinterpret_cast<const struct inotify_event *>(&buffer[j]);
+        if (j + static_cast<int>(EVENT_SIZE + event->len) > length) break;
+        // The watches are on files, so events carry len == 0 and no name:
+        // reading event->name then ran strlen over the next event (or past
+        // the bytes read). Map the watch descriptor back to its file instead.
+        if (event->len > 0) {
+          trigger_folder.assign(event->name, strnlen(event->name, event->len));
+        } else {
+          const auto it = std::find(wds.begin(), wds.end(), event->wd);
+          if (it != wds.end()) trigger_folder = files_list[it - wds.begin()];
+        }
         j += EVENT_SIZE + event->len;
       }
     } else {
