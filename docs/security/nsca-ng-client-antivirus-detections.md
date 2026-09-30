@@ -1,6 +1,6 @@
 ---
 title: "NSCANgClient: antivirus detections, and the module leaves the Windows installer"
-fixed_in: next
+fixed_in: 0.24.1
 severity: "Unconfirmed: generic antivirus detections, no known vulnerability"
 modules: [NSCANgClient]
 action: conditional
