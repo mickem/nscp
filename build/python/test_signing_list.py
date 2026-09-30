@@ -71,6 +71,19 @@ class SigningListTest(unittest.TestCase):
                                'modules/CheckDisk.dll', 'nscp.exe', 'python311.pyd'])
         self.assertIn('Missing.dll: not built', err)
 
+    def test_zip_only_binaries_are_signed(self):
+        """A binary the zip ships without the MSI is listed when it is built."""
+        touch(os.path.join(self.build, 'modules', 'ZipOnly.dll'))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            files = signing_list.signable_files(self.wix, {'Source': self.build, 'Py': 'python311'},
+                                                zip_only=('$(var.Source)/modules/ZipOnly.dll',
+                                                          '$(var.Source)/modules/NotBuilt.dll'))
+        rel = [os.path.relpath(f, self.build).replace(os.sep, '/') for f in files]
+        self.assertIn('modules/ZipOnly.dll', rel)
+        self.assertNotIn('modules/NotBuilt.dll', rel)
+        self.assertIn('NotBuilt.dll: not built', err.getvalue())
+
     def test_undefined_variable_is_skipped(self):
         rel, err = self.listed({'Source': self.build, 'Py': 'python311'})
         self.assertNotIn('libcrypto-3-x64.dll', rel)
@@ -101,7 +114,10 @@ class SigningListTest(unittest.TestCase):
         defines = {'Source': self.build, 'BoostPythonVersion': 'python311',
                    'InstallerDllPath': os.path.join(self.root, 'installer_lib', 'Release'),
                    'OpenSSLCryptoDll': 'libcrypto-3-x64.dll', 'OpenSSLSslDll': 'libssl-3-x64.dll'}
-        for _, source in signing_list.sources(REAL_WIX_DIR):
+        real = [source for _, source in signing_list.sources(REAL_WIX_DIR)]
+        # Out of the MSI, still in the zip, still signed.
+        self.assertFalse([s for s in real if s.endswith('/NSCANgClient.dll')])
+        for source in real + list(signing_list.ZIP_ONLY):
             try:
                 name = signing_list.resolve(source, defines)
             except signing_list.UndefinedVariable:
@@ -113,7 +129,7 @@ class SigningListTest(unittest.TestCase):
         rel = {os.path.relpath(f, self.build).replace(os.sep, '/') for f in files}
         for expected in ('nscp.exe', 'plugin_api.dll', 'modules/CheckSystem.dll',
                          'modules/dotnet/NSCP.Core.dll', 'libcrypto-3-x64.dll', 'python311.dll',
-                         '../installer_lib/Release/installer_lib.dll'):
+                         '../installer_lib/Release/installer_lib.dll', 'modules/NSCANgClient.dll'):
             self.assertIn(expected, rel)
         self.assertNotIn('nscp_where_filter_test.exe', rel)
         self.assertFalse([f for f in rel if not f.endswith(signing_list.SIGNABLE)])

@@ -145,9 +145,19 @@
               <File Id="NSCAServerDLL" Name="NSCAServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCAServer.dll" Vital="no" />
               <File Id="SchedulerDLL" Name="Scheduler.dll" DiskId="1" Source="$(var.Source)/modules/Scheduler.dll" Vital="no" />
             </Component>
+            <!--
+              NSCANgClient is left out of the MSI: a handful of antivirus engines
+              flag NSCANgClient.dll with generic machine-learning verdicts
+              (Win64:Evo-gen, TR/W64.Evo, Mal/Generic-S, Artemis), which made the
+              whole installer look infected on VirusTotal. The module still ships,
+              signed, in the zip and is installed by hand: see
+              docs/samples/NSCANgClient_desc.md. build/python/signing_list.py keeps
+              signing it. Restore this component and the NSCANgPlugin feature below
+              once the vendors have cleared it.
             <Component Id="NSCANg" Guid="B2E1A5D7-3F46-4C8B-9E2D-7A6C8F1B2D4E" Win64="$(var.Win64)">
               <File Id="NSCANgClientDLL" Name="NSCANgClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCANgClient.dll" Vital="no" />
             </Component>
+            -->
             <?if "$(var.HasPython)" = "true"?>
             <Component Id="PythonScript" Guid="49C2120D-634D-48ef-B82E-F2E9B219A768" Win64="$(var.Win64)">
               <File Id="PythonScript" Name="PythonScript.dll" DiskId="1" Source="$(var.Source)/modules/PythonScript.dll" Vital="no" />
@@ -361,9 +371,11 @@
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to a legacy NSCA server" Level="1" Absent="allow">
           <ComponentRef Id="NSCA" />
         </Feature>
+        <!-- Left out with the NSCANg component above (antivirus false positives).
         <Feature Id="NSCANgPlugin" Title="NSCA-NG plugin" Description="Plugin to submit passive results to an NSCA-NG server (TLS with PSK or X.509 client certificates)" Level="1" Absent="allow">
           <ComponentRef Id="NSCANg" />
         </Feature>
+        -->
         <Feature Id="ElasticPlugin" Title="Elastic plugin" Description="Plugin to submit passive results and metrics to an Elastic server" Level="1" Absent="allow">
           <ComponentRef Id="ElasticClient" />
         </Feature>
