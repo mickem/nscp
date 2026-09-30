@@ -14,6 +14,10 @@ $(var.Source)/$(var.OpenSSLCryptoDll)). They are resolved from wix-defines.txt,
 which installers/installer-NSCP/CMakeLists.txt writes from the same -d flags it
 hands to candle, so the names here are the names the MSI packs.
 
+A binary the zip ships but the MSI leaves out has no File element to be found
+by, so it is named in ZIP_ONLY below. The zip is packaged from the same build
+tree after signing, so a binary missing from this list ships unsigned there.
+
 Printed: one absolute path per line, sorted, for every binary that exists.
 An entry whose variable is not defined (the OpenSSL DLLs of a static build) or
 whose file is absent (Python on ARM64, where the .wxs leaves it out behind an
@@ -39,6 +43,18 @@ SIGNABLE = ('.exe', '.dll', '.pyd')
 FILE_SOURCE = re.compile(r'<(?:File\b[^>]*?\bSource|Binary\b[^>]*?\bSourceFile)=(["\'])(.*?)\1', re.S)
 VARIABLE = re.compile(r'\$\(var\.([^)]+)\)')
 COMMENT = re.compile(r'<!--.*?-->', re.S)
+
+
+# Binaries the zip ships and the MSI does not, as a .wxs Source would name
+# them. Each one is here for a reason, and leaves again when it goes back into
+# the installer.
+ZIP_ONLY = (
+    # Left out of the MSI because antivirus engines flag it with generic
+    # machine-learning verdicts (see the NSCANg component in Product.wxs).
+    # It still ships in the zip, where an unsigned copy would only make that
+    # worse.
+    '$(var.Source)/modules/NSCANgClient.dll',
+)
 
 
 class UndefinedVariable(Exception):
@@ -75,10 +91,11 @@ def resolve(source, defines):
     return VARIABLE.sub(value, source)
 
 
-def signable_files(wix_dir, defines, log=None):
+def signable_files(wix_dir, defines, log=None, zip_only=ZIP_ONLY):
     log = log or sys.stderr
     found = set()
-    for wxs, source in sources(wix_dir):
+    listed = list(sources(wix_dir)) + [('ZIP_ONLY', source) for source in zip_only]
+    for wxs, source in listed:
         try:
             path = resolve(source, defines)
         except UndefinedVariable as e:
