@@ -31,7 +31,7 @@ masked_values:
   # password-enabled-web-server.
   "/settings/default": clear
 
-# NSCA-NG ships in the zip only (antivirus false positives on the DLL, see
+# NSCA-NG ships in the zip only (antivirus detections on the DLL, see
 # installers/installer-NSCP/Product.wxs), so even ADDLOCAL=ALL must leave it
 # out: a stray reference back into another feature would put it in the MSI
 # again without anything else failing.

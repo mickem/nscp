@@ -122,23 +122,25 @@ If this works out we will eventually make this default.
 
 ### 1.12 My antivirus reports NSClient++ as a virus
 
-A few antivirus engines occasionally report an NSClient++ binary as malware.
-The verdicts seen so far are generic machine-learning ones, not named
-signatures: `Win64:Evo-gen [Trj]` (Avast, AVG), `TR/W64.Evo` (Avira,
-WithSecure), `Mal/Generic-S` (Sophos) and `Artemis!<hash>` (Trellix). They
-fire on what a file looks like rather than on anything it does. A small DLL
-that mostly speaks TLS over raw sockets, like the NSCA-NG client, matches that
-shape, and every release rebuilds it with a new hash, so it never builds up
-reputation. The rest of the engines on VirusTotal, Microsoft Defender among
-them, report the same files as clean.
+A few antivirus engines have reported an NSClient++ binary as malware. The
+verdicts seen so far are generic machine-learning ones, not named signatures:
+`Win64:Evo-gen [Trj]` (Avast, AVG), `TR/W64.Evo` (Avira, WithSecure),
+`Mal/Generic-S` (Sophos) and `Artemis!<hash>` (Trellix). These score what a
+file looks like rather than matching known malware. A small DLL that mostly
+speaks TLS over raw sockets, like the NSCA-NG client, matches that shape, and
+every release rebuilds it with a new hash, so it never builds up reputation.
+In the reports we have seen, the other engines on VirusTotal, Microsoft
+Defender among them, reported the same file as clean.
+
+That pattern is typical of a false positive, but it is not proof of one. Treat
+a detection as unconfirmed until the vendor has analysed the file.
 
 Because of these reports the Windows installer no longer ships
 `NSCANgClient.dll`, the module the verdicts were aimed at. It is still in the
 Windows zip; see [NSCANgClient](reference/client/NSCANgClient.md) for how to
 add it by hand.
 
-Before you trust a flagged file, check that it is the one this project
-published:
+#### Check that the file is the one this project published
 
 1. **The signature.** Every executable and DLL of a release is
    Authenticode-signed. `Get-AuthenticodeSignature <file>` in PowerShell must
@@ -150,13 +152,40 @@ published:
 3. **The checksums.** The zip holds `SHA256SUMS` over every file in it. See
    [Checking the files you installed](setup/installing.md#checking-the-files-you-installed).
 
-If all three pass, the report is a false positive. Please send the file to the
-vendor that flagged it as one: VirusTotal lists
-[each vendor's false-positive contact](https://docs.virustotal.com/docs/false-positive-contacts).
-Reports from users are what clears a verdict for everyone, and a
-[GitHub issue](https://github.com/mickem/nscp/issues) with the VirusTotal
-link helps us follow up. Until the vendor clears it, exclude that single file,
-not the whole NSClient++ folder, in your antivirus.
+If any of these fails, the file is not what this project released. Do not run
+it, and report it privately through a
+[GitHub security advisory](https://github.com/mickem/nscp/security/advisories/new).
+
+#### What a passing check does and does not tell you
+
+Passing all three shows that the file was built by this project's release
+workflow from a named commit and has not been changed since. That rules out a
+tampered download, mirror or installed copy.
+
+It does not show that the file is safe. A compromise before the signature
+would produce a file that passes every check: malicious code merged into the
+repository, a compromised third-party dependency, or a compromised build
+runner. The signature vouches for where the file came from, not for what is
+in it. See
+[What this proves, and what it does not](setup/installing.md#what-this-proves-and-what-it-does-not).
+
+#### What to do with a detection
+
+* **Send the file to the vendor for analysis.** Their analysts look at what
+  the file does, which is the independent check a signature cannot give you.
+  They either clear the verdict for everyone or confirm it. VirusTotal lists
+  [each vendor's submission contact](https://docs.virustotal.com/docs/false-positive-contacts).
+* **Tell us.** A [GitHub issue](https://github.com/mickem/nscp/issues) with
+  the VirusTotal link helps us follow up with the vendors. Report privately
+  through a
+  [security advisory](https://github.com/mickem/nscp/security/advisories/new)
+  instead if anything suggests the detection is real: a named malware family
+  rather than a generic verdict, a detection based on behaviour, many engines
+  agreeing, or a vendor confirming it.
+* **Decide what to run meanwhile.** Whether to use the file before the vendor
+  answers is your call, based on your own risk assessment. If you do, exclude
+  that single file in your antivirus, not the whole NSClient++ folder, and
+  remove the exclusion once the vendor has cleared it.
 
 ## 2. Escaping and Strings
 

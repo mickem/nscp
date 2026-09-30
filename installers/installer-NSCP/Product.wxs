@@ -371,7 +371,7 @@
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to a legacy NSCA server" Level="1" Absent="allow">
           <ComponentRef Id="NSCA" />
         </Feature>
-        <!-- Left out with the NSCANg component above (antivirus false positives).
+        <!-- Left out with the NSCANg component above (antivirus detections).
         <Feature Id="NSCANgPlugin" Title="NSCA-NG plugin" Description="Plugin to submit passive results to an NSCA-NG server (TLS with PSK or X.509 client certificates)" Level="1" Absent="allow">
           <ComponentRef Id="NSCANg" />
         </Feature>
