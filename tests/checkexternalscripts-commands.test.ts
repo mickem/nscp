@@ -28,7 +28,10 @@ import {
   WARNING,
   describeOnUnix,
   describeOnWindows,
+  executeQuery,
+  messageOf,
   onWindows,
+  setupQueryNscp,
 } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -502,9 +505,12 @@ describe("CheckExternalScripts — argument substitution, lockdown and command n
 
   /** Run one command; the message is stdout with line endings normalised. */
   async function query(command: string, args: string[] = []): Promise<{ message: string; code: number }> {
-    const r = await nscp.run(["client", "--module", "CheckExternalScripts", "--boot", "--query", command, ...args], {
-      allowFailure: true,
-    });
+    // `--log critical` keeps the module's own error lines (a refused argument
+    // is logged as well as returned) out of the stdout the message is read from.
+    const r = await nscp.run(
+      ["client", "--log", "critical", "--module", "CheckExternalScripts", "--boot", "--query", command, ...args],
+      { allowFailure: true },
+    );
     const message = r.stdout.replace(/\r/g, "\n").replace(/\n+/g, "\n").trim();
     return { message, code: r.exitCode };
   }
@@ -568,16 +574,37 @@ describe("CheckExternalScripts — argument substitution, lockdown and command n
       });
     });
 
-    it("looks up script and alias names case-insensitively", async () => {
-      expect(await query("tes_upper_LOWER", ["OK"])).toEqual({
-        message: "OK: Everything is going to be fine",
-        code: OK,
-      });
-      expect(await query("ALIAS_upper_LOWER", ["OK"])).toEqual({
-        message: "OK: Everything is going to be fine",
-        code: OK,
+  });
+
+  describe("command names over REST", () => {
+    // Over REST (and NRPE) the core lowercases the name before the module
+    // looks it up. The one-shot client-query path hands it over as typed, so
+    // this block needs a running agent.
+    let agent: NscpInstance;
+    let key: string;
+
+    beforeAll(async () => {
+      agent = new NscpInstance();
+      key = await setupQueryNscp(agent, "CheckExternalScripts", {
+        "/settings/external scripts/scripts": { tes_UPPER_lower: script("check_ok") },
+        "/settings/external scripts/alias": { alias_UPPER_lower: "tes_UPPER_lower" },
       });
     });
+
+    afterAll(async () => {
+      await agent?.stop();
+    });
+
+    it.each(["tes_upper_LOWER", "TES_UPPER_LOWER", "ALIAS_upper_LOWER"])(
+      "finds %s whatever its case",
+      async (command) => {
+        const r = await executeQuery(key, command);
+        expect({ result: r.result, message: messageOf(r) }).toEqual({
+          result: OK,
+          message: "OK: Everything is going to be fine",
+        });
+      },
+    );
   });
 
   describe("with nasty characters allowed", () => {

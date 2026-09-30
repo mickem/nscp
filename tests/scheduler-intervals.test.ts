@@ -42,7 +42,9 @@ end
 
 local function on_result(channel, command, result, lines)
   results = results + 1
-  return 'ok', 'received'
+  -- A subscription answers (success, message); a status string reads as a
+  -- failed submit.
+  return true, 'received'
 end
 
 local function sched_counts(command, args)
@@ -111,10 +113,12 @@ describe("Scheduler intervals", () => {
       [`${BASE}/schedules/explicit`]: { command: `${COMMAND} explicit` },
       [`${BASE}/schedules/every_1s`]: { command: `${COMMAND} 1s`, interval: "1s" },
       [`${BASE}/schedules/every_10s`]: { command: `${COMMAND} 10s`, interval: "10s" },
-      // 2 s +/- 50%: every beat lands 1..3 s after the previous one.
+      // Randomness only ever brings a beat forward: the wait is drawn from
+      // [interval * (1 - r), interval] and truncated to whole seconds, so 4 s
+      // at 50% lands every 2 or 3 s.
       [`${BASE}/schedules/random`]: {
         command: `${COMMAND} rand`,
-        interval: "2s",
+        interval: "4s",
         randomness: "50%",
       },
     });
@@ -147,9 +151,14 @@ describe("Scheduler intervals", () => {
     band("short", 5, 2);
     band("explicit", 5, 2);
     band("10s", 10, 1);
-    // 1..3 s apart: between seconds/3 and seconds/1 beats.
-    expect(c.rand ?? 0).toBeGreaterThanOrEqual(Math.floor(seconds / 3) - 1);
-    expect(c.rand ?? 0).toBeLessThanOrEqual(Math.ceil(seconds) + 1);
+    // 2..3 s apart: about seconds/2.5 beats. The floor is what an unjittered
+    // 4 s schedule would manage, less a slack beat for a busy runner.
+    const rand = c.rand ?? 0;
+    const randLo = Math.floor(seconds / 4);
+    const randHi = Math.ceil(seconds / 2) + 1;
+    expect({ rand, randLo, randHi, inBand: rand >= randLo && rand <= randHi }).toMatchObject({
+      inBand: true,
+    });
 
     // The ordering invariants, which hold however busy the machine is.
     expect(c["1s"]).toBeGreaterThan(c.rand ?? 0);
@@ -159,15 +168,28 @@ describe("Scheduler intervals", () => {
     // `default` is the template, not a schedule of its own.
     expect(c.default).toBeUndefined();
 
-    // Every result reached the channel.
-    expect(c.results).toBeGreaterThan(0);
+    // Every result reached the channel, and the channel accepted it. A beat
+    // in flight when the counters were read may not have landed yet.
+    const fired = ["1s", "short", "explicit", "10s", "rand"].reduce((n, k) => n + (c[k] ?? 0), 0);
+    expect(c.results).toBeGreaterThanOrEqual(fired - 5);
+    expect(c.results).toBeLessThanOrEqual(fired);
+    expect(nscp.capturedStdout()).not.toMatch(/Failed to submit/);
   });
 
   it("stops firing once the pool is set to zero threads", async () => {
     expect((await executeQuery(key, "sched_stop")).result).toBe(OK);
-    // Let the reload land and any beat already in flight finish.
-    await sleep(3_000);
-    const before = await counts();
+    // A reload asked for from inside a check is deferred to the core's own
+    // scheduler, which can run it several seconds later. Wait until the 1 s
+    // schedule has been quiet for three reads in a row...
+    const deadline = Date.now() + 30_000;
+    let before = await counts();
+    for (let quiet = 0; quiet < 3 && Date.now() < deadline; ) {
+      await sleep(1_000);
+      const now = await counts();
+      quiet = now["1s"] === before["1s"] ? quiet + 1 : 0;
+      before = now;
+    }
+    // ...then require it to stay quiet.
     await sleep(5_000);
     const after = await counts();
     // With a 1 s schedule in the mix, a live scheduler would have fired ~5 times.
