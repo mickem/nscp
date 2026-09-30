@@ -120,6 +120,44 @@ use pdh for cpu=true
 
 If this works out we will eventually make this default.
 
+### 1.12 My antivirus reports NSClient++ as a virus
+
+A few antivirus engines occasionally report an NSClient++ binary as malware.
+The verdicts seen so far are generic machine-learning ones, not named
+signatures: `Win64:Evo-gen [Trj]` (Avast, AVG), `TR/W64.Evo` (Avira,
+WithSecure), `Mal/Generic-S` (Sophos) and `Artemis!<hash>` (Trellix). They
+fire on what a file looks like rather than on anything it does. A small DLL
+that mostly speaks TLS over raw sockets, like the NSCA-NG client, matches that
+shape, and every release rebuilds it with a new hash, so it never builds up
+reputation. The rest of the engines on VirusTotal, Microsoft Defender among
+them, report the same files as clean.
+
+Because of these reports the Windows installer no longer ships
+`NSCANgClient.dll`, the module the verdicts were aimed at. It is still in the
+Windows zip; see [NSCANgClient](reference/client/NSCANgClient.md) for how to
+add it by hand.
+
+Before you trust a flagged file, check that it is the one this project
+published:
+
+1. **The signature.** Every executable and DLL of a release is
+   Authenticode-signed. `Get-AuthenticodeSignature <file>` in PowerShell must
+   report `Valid`, and *Properties > Digital Signatures* shows the signer.
+2. **The attestation.** Every release asset carries a signed statement of
+   the commit and the workflow run that built it:
+   `gh attestation verify <file> --repo mickem/nscp`. See
+   [Verifying the download](setup/installing.md#verifying-the-download).
+3. **The checksums.** The zip holds `SHA256SUMS` over every file in it. See
+   [Checking the files you installed](setup/installing.md#checking-the-files-you-installed).
+
+If all three pass, the report is a false positive. Please send the file to the
+vendor that flagged it as one: VirusTotal lists
+[each vendor's false-positive contact](https://docs.virustotal.com/docs/false-positive-contacts).
+Reports from users are what clears a verdict for everyone, and a
+[GitHub issue](https://github.com/mickem/nscp/issues) with the VirusTotal
+link helps us follow up. Until the vendor clears it, exclude that single file,
+not the whole NSClient++ folder, in your antivirus.
+
 ## 2. Escaping and Strings
 
 ### 2.1 How do I properly escape spaces in strings

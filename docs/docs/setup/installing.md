@@ -771,6 +771,11 @@ NSClient++ consists of the following features most which can be disabled when do
 | WEBPlugins        | WEB Server             | NSClient WEB Server. Use this to administrate or check NSClient via a browser or REST API |
 | OP5Monitoring     | OP5 Monitoring         | Scripts/config for the op5 monitoring system.                                             |
 
+The NSCA-NG client (`NSCANgClient`) is not an installer feature. A few
+antivirus engines report its DLL as malware with false positives, so it ships
+in the Windows zip only and is copied into the `modules` folder by hand. See
+[NSCANgClient](../reference/client/NSCANgClient.md) for the steps.
+
 ### Silent install
 
 Now we can put all this together using the normal silent installer which is again part of the standard windows install
