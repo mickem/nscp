@@ -72,6 +72,20 @@ struct payload_builder {
   }
   void set_batch(const std::vector<std::string> &data);
 
+  // Forget everything the option notifiers built. A request naming target= is
+  // parsed a second time once that target has been applied, so an explicit
+  // option still beats the target, and po::notify then runs every notifier
+  // again. The payload notifiers append - an argument, a message line, a batch
+  // record - so without this the second parse sent each of them twice.
+  void reset() {
+    submit_message.Clear();
+    exec_message.Clear();
+    query_message.Clear();
+    submit_payload = nullptr;
+    exec_payload = nullptr;
+    query_payload = nullptr;
+  }
+
  private:
   ::PB::Commands::QueryResponseMessage::Response *get_submit_payload() {
     if (submit_payload == nullptr) submit_payload = submit_message.add_payload();
@@ -612,6 +626,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
         if (op) {
           d.apply(op);
           d.apply(t, request.header());
+          builder.reset();
           if (!parse_arguments()) return;
         }
       }
@@ -769,6 +784,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
         }
 
         // If we have --target speciied apply the target and reapply the command line
+        builder.reset();
         if (custom_command) {
           // TODO: Parse argument vector here
         } else if (use_header) {

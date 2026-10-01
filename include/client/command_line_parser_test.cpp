@@ -760,6 +760,70 @@ TEST(client_host_override, the_query_path_honours_the_target_argument) {
   EXPECT_EQ(f.handler->last_target.get_string_data("token"), "backup-token");
 }
 
+TEST(client_host_override, selecting_a_target_sends_each_argument_once) {
+  // target= makes the request parse a second time, once the target is
+  // applied, and the payload notifiers append: every argument went out twice
+  // (`check_echo!a!b!a!b` over NRPE), which a handler reading only the first
+  // ones never noticed - until the doubled payload overflowed the packet.
+  fixture f;
+  f.add_target("other", {{"address", "nrpe://other.example:5666"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("nrpe_query", {"target=other", "command=check_echo", "argument=ok", "argument=hello"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  ASSERT_EQ(f.handler->last_query.payload_size(), 1);
+  EXPECT_EQ(f.handler->last_query.payload(0).command(), "check_echo");
+  ASSERT_EQ(f.handler->last_query.payload(0).arguments_size(), 2);
+  EXPECT_EQ(f.handler->last_query.payload(0).arguments(0), "ok");
+  EXPECT_EQ(f.handler->last_query.payload(0).arguments(1), "hello");
+}
+
+TEST(client_host_override, selecting_a_target_submits_the_message_once) {
+  fixture f;
+  f.add_target("other", {{"address", "nsca://other.example:5667"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("submit_nsca", {"target=other", "command=disk", "result=2", "message=full"}), response);
+
+  ASSERT_EQ(f.handler->submit_calls, 1) << first_message(response);
+  ASSERT_EQ(f.handler->last_submit.payload_size(), 1);
+  EXPECT_EQ(f.handler->last_submit.payload(0).command(), "disk");
+  ASSERT_EQ(f.handler->last_submit.payload(0).lines_size(), 1);
+  EXPECT_EQ(f.handler->last_submit.payload(0).lines(0).message(), "full");
+}
+
+TEST(client_host_override, selecting_a_target_submits_each_batch_record_once) {
+  fixture f;
+  f.add_target("other", {{"address", "nsca://other.example:5667"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("submit_nsca", {"target=other", "batch=one|0|fine", "batch=two|2|broken"}), response);
+
+  ASSERT_EQ(f.handler->submit_calls, 1) << first_message(response);
+  ASSERT_EQ(f.handler->last_submit.payload_size(), 2);
+  EXPECT_EQ(f.handler->last_submit.payload(0).command(), "one");
+  EXPECT_EQ(f.handler->last_submit.payload(1).command(), "two");
+}
+
+TEST(client_host_override, selecting_a_target_on_the_exec_path_sends_each_argument_once) {
+  fixture f;
+  f.add_target("other", {{"address", "nrpe://other.example:5666"}});
+  PB::Commands::ExecuteRequestMessage request;
+  PB::Commands::ExecuteRequestMessage::Request *payload = request.add_payload();
+  payload->set_command("exec_something");
+  for (const char *a : {"--target", "other", "--command", "remote_script", "--argument", "one"}) payload->add_arguments(a);
+  PB::Commands::ExecuteResponseMessage response;
+
+  f.config.do_exec(request, response, "");
+
+  ASSERT_EQ(f.handler->exec_calls, 1);
+  ASSERT_EQ(f.handler->last_exec.payload_size(), 1);
+  EXPECT_EQ(f.handler->last_exec.payload(0).command(), "remote_script");
+  ASSERT_EQ(f.handler->last_exec.payload(0).arguments_size(), 1);
+  EXPECT_EQ(f.handler->last_exec.payload(0).arguments(0), "one");
+}
+
 TEST(client_host_override, a_credential_in_the_configured_url_counts_as_a_credential) {
   // The credential does not have to sit in a key named "token": this project
   // documents `address = https://server/submit.php?token=SECRET`, and set_host

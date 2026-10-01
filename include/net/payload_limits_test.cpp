@@ -33,7 +33,7 @@ TEST(PayloadLimits, TheMaximumItselfIsAllowed) {
 
 TEST(PayloadLimits, AMebibyteNrpePayloadIsSupported) {
   // The NRPE v3/v4 decoder accepts payloads up to 1 MiB and
-  // scripts/python/test_nrpe.py drives an SSL exchange at exactly that size,
+  // tests/nrpe-loopback.test.ts drives an SSL exchange at exactly that size,
   // so the clamp must not shrink it. A tighter bound here passes every unit
   // test and then fails the integration suite, which is how it was caught.
   std::string reason;

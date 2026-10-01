@@ -21,14 +21,15 @@ import {
 jest.setTimeout(900_000);
 
 /**
- * The facts document once the startup round has claimed `set`. The round runs
+ * The facts document once the startup round has claimed `sets`. The round runs
  * on the boot thread after the modules (and the web server) have started, so
  * a read the moment the port opens can land before it; poll rather than race.
  */
 async function documentClaiming(
   key: string | undefined,
-  set: string,
+  sets: string | string[],
 ): Promise<Record<string, any>> {
+  const wanted = Array.isArray(sets) ? sets : [sets];
   const deadline = Date.now() + 60_000;
   for (;;) {
     const response = await request(REST_URL)
@@ -36,7 +37,8 @@ async function documentClaiming(
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true)
       .expect(200);
-    if (response.body.enabled.includes(set) || Date.now() > deadline) return response.body;
+    const claimed = wanted.every((set) => response.body.enabled.includes(set));
+    if (claimed || Date.now() > deadline) return response.body;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 }
@@ -110,59 +112,54 @@ describeWithModules("CheckSystem", "CheckDisk")("REST facts", () => {
   });
 
   it("serves the sets its producers were configured to produce", async () => {
-    await request(REST_URL)
-      .get("/api/v2/facts")
-      .set("Authorization", `Bearer ${key}`)
-      .trustLocalhost(true)
-      .expect(200)
-      .then((response) => {
-        expect(response.body.enabled.sort()).toEqual(
-          [
-            "agent",
-            "hardware",
-            ...(onWindows ? ["hyperv"] : []),
-            "network",
-            "os",
-            "software",
-            "storage",
-          ].sort(),
-        );
-        // `software` is allowed one: a host with more packages than the set
-        // ships reports the truncation here, which the software test below
-        // checks in full. `hyperv` is allowed one too: it is claimed on the
-        // startup round and collected from the next one on, which the Hyper-V
-        // test below checks in full.
-        expect(
-          Object.keys(response.body.errors).filter((id) => id !== "software" && id !== "hyperv"),
-        ).toEqual([]);
-        expect(response.body.found).toBe(true);
-        expect(response.body.revision).toBeGreaterThan(0);
-        // ISO 8601 UTC, as the document rules require.
-        expect(response.body.collected).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
-        // Per set, when its values were actually read off the machine.
-        // CheckSystem caches, so this is what says how old the numbers are -
-        // `collected` only says when the core last asked.
-        // The core's own `agent` set carries none: it is built on the round,
-        // so the round's `collected` time is when it was read.
-        expect(
-          Object.keys(response.body.gathered)
-            .filter((id) => id !== "hyperv")
-            .sort(),
-        ).toEqual(["hardware", "network", "os", "software", "storage"]);
-        expect(response.body.gathered.os).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    const expected = [
+      "agent",
+      "hardware",
+      ...(onWindows ? ["hyperv"] : []),
+      "network",
+      "os",
+      "software",
+      "storage",
+    ].sort();
+    // Read once every set is claimed: a slow runner (the x86 Windows jobs)
+    // answered the first request with only the core's and CheckDisk's sets.
+    const response = { body: await documentClaiming(key, expected) };
+    expect(response.body.enabled.sort()).toEqual(expected);
+    // `software` is allowed one: a host with more packages than the set
+    // ships reports the truncation here, which the software test below
+    // checks in full. `hyperv` is allowed one too: it is claimed on the
+    // startup round and collected from the next one on, which the Hyper-V
+    // test below checks in full.
+    expect(
+      Object.keys(response.body.errors).filter((id) => id !== "software" && id !== "hyperv"),
+    ).toEqual([]);
+    expect(response.body.found).toBe(true);
+    expect(response.body.revision).toBeGreaterThan(0);
+    // ISO 8601 UTC, as the document rules require.
+    expect(response.body.collected).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    // Per set, when its values were actually read off the machine.
+    // CheckSystem caches, so this is what says how old the numbers are -
+    // `collected` only says when the core last asked.
+    // The core's own `agent` set carries none: it is built on the round,
+    // so the round's `collected` time is when it was read.
+    expect(
+      Object.keys(response.body.gathered)
+        .filter((id) => id !== "hyperv")
+        .sort(),
+    ).toEqual(["hardware", "network", "os", "software", "storage"]);
+    expect(response.body.gathered.os).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
 
-        expect(response.body.facts.os.family).toEqual(
-          onWindows ? "windows" : onDarwin ? "darwin" : "linux",
-        );
-        expect(response.body.facts.os.name).toBeTruthy();
-        expect(response.body.facts.os.version).toBeTruthy();
-        expect(response.body.facts.os.arch).toMatch(/^[a-z0-9_]+$/);
-        // Numbers cross the wire as numbers here, unlike in the string-valued
-        // tag map - that is half the reason the document exists.
-        expect(typeof response.body.facts.hardware.cpu_cores).toBe("number");
-        expect(response.body.facts.hardware.cpu_cores).toBeGreaterThan(0);
-        expect(typeof response.body.facts.hardware.memory_gb).toBe("number");
-      });
+    expect(response.body.facts.os.family).toEqual(
+      onWindows ? "windows" : onDarwin ? "darwin" : "linux",
+    );
+    expect(response.body.facts.os.name).toBeTruthy();
+    expect(response.body.facts.os.version).toBeTruthy();
+    expect(response.body.facts.os.arch).toMatch(/^[a-z0-9_]+$/);
+    // Numbers cross the wire as numbers here, unlike in the string-valued
+    // tag map - that is half the reason the document exists.
+    expect(typeof response.body.facts.hardware.cpu_cores).toBe("number");
+    expect(response.body.facts.hardware.cpu_cores).toBeGreaterThan(0);
+    expect(typeof response.body.facts.hardware.memory_gb).toBe("number");
   });
 
   it("lists the volumes by the name check_drivesize gives them", async () => {
