@@ -26,7 +26,7 @@ constexpr unsigned int max_nsca_payload_length = 65536;
 // finding is that a caller could name a value near INT_MAX and get a
 // multi-gigabyte allocation, not that large-but-supported payloads should
 // stop working. Clamping to 64 KiB instead would have silently shrunk the
-// protocol - scripts/python/test_nrpe.py exercises a 1 MiB payload end to
+// protocol - tests/nrpe-loopback.test.ts exercises a 1 MiB payload end to
 // end, and it is a supported configuration.
 constexpr unsigned int max_nrpe_payload_length = 1024 * 1024;
 // Below this the packet builders have no room for their own headers and the

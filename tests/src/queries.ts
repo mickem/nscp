@@ -142,3 +142,22 @@ export async function pollQuery(
     await new Promise((r) => setTimeout(r, 500));
   }
 }
+
+/**
+ * Write keys under one settings path through PUT /api/v2/settings - the way an
+ * operator changes a running agent. Nothing is reloaded; pair it with a module
+ * reload to have the change applied.
+ */
+export async function putSettings(
+  key: string,
+  settingsPath: string,
+  values: Record<string, string | number | boolean>,
+): Promise<void> {
+  const res = await request(REST_URL)
+    .put(`/api/v2/settings${settingsPath}`)
+    .set("Authorization", `Bearer ${key}`)
+    .send(Object.entries(values).map(([k, v]) => ({ key: k, value: String(v) })))
+    .trustLocalhost(true)
+    .expect(200);
+  expect(res.body.status).toEqual("success");
+}

@@ -4,21 +4,6 @@ setlocal
 set CI_MODE=0
 if "%1"=="--ci" set CI_MODE=1
 
-echo Running NSCA tests...
-for %%c in (none xor des 3des cast128 xtea blowfish twofish rc2 aes aes256 aes192 aes128 serpent gost 3way) do (
-    echo Running test_nsca case: %%c
-    nscp unit --language python --script test_nsca --case %%c
-    if errorlevel 1 goto :failed
-)
-
-echo Running NRPE tests...
-nscp unit --language python --script test_nrpe
-if errorlevel 1 goto :failed
-
-rem echo Running Lua NRPE tests...
-rem nscp unit --language lua --script test_nrpe.lua --log error
-rem if errorlevel 1 goto :failed
-
 echo Running Python tests...
 nscp unit --language python --script test_python
 if errorlevel 1 goto :failed
