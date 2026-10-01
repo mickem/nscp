@@ -1385,3 +1385,68 @@ describeOnWindows("CheckSystem check_process delta with the CPU collector (Windo
     expect(msg).toMatch(/user=\d+ kernel=\d+/);
   });
 });
+
+describeWithModules("CheckSystem")("CheckSystem check_uptime timezone and max-unit (#365, #452, #590)", () => {
+  // Port of scripts/python/test_uptime.py. The module reads
+  // `/settings/default/timezone` once, in loadModuleEx, so each zone gets its
+  // own one-shot boot over the client-query path rather than a live reload.
+  // That path prints the raw Nagios message with no status word, so the
+  // verdict is read from the exit code.
+  let nscp: NscpInstance;
+
+  async function uptime(args: string[]): Promise<{ out: string; code: number }> {
+    const r = await nscp.run(["client", "--module", "CheckSystem", "--boot", "--query", "check_uptime", ...args], {
+      allowFailure: true,
+    });
+    return { out: r.stdout, code: r.exitCode };
+  }
+
+  beforeAll(() => {
+    nscp = new NscpInstance();
+  });
+
+  describe.each([
+    ["local", "local", "UTC"],
+    ["utc", "UTC", "local"],
+  ])("timezone=%s", (tz, label, opposite) => {
+    beforeAll(async () => {
+      await nscp.configure({ "/settings/default": { timezone: tz } });
+    });
+
+    it("names the zone in the default detail-syntax", async () => {
+      // Thresholds that never trip: the defaults (warn < 2d) alert on a freshly
+      // booted CI machine.
+      const { out, code } = await uptime(["show-all", "warn=uptime < 0", "crit=uptime < 0"]);
+      expect(code).toBe(OK);
+      expect(out).toContain(label);
+      expect(out).not.toContain(opposite);
+      expect(out).toContain("boot:");
+      expect(out).toContain("uptime:");
+    });
+
+    it("max-unit=d rolls weeks into days and ${tz} resolves", async () => {
+      const { out, code } = await uptime([
+        "show-all",
+        "max-unit=d",
+        "warn=uptime < 0",
+        "crit=uptime < 0",
+        "detail-syntax=uptime=${uptime} tz=${tz}",
+      ]);
+      expect(code).toBe(OK);
+      expect(out).toMatch(/uptime=\S/);
+      expect(out).not.toMatch(/\dw\b/);
+      expect(out).toContain(`tz=${label}`);
+    });
+
+    it("rejects an unknown max-unit", async () => {
+      const { code } = await uptime(["show-all", "max-unit=foo"]);
+      expect(code).toBe(UNKNOWN);
+    });
+
+    it.each(["30m", "2h", "1d", "2w"])("parses a %s duration threshold", async (spec) => {
+      const { out, code } = await uptime(["show-all", `warn=uptime < ${spec}`, "detail-syntax=ok"]);
+      expect(out).not.toMatch(/parse|invalid/i);
+      expect(code).not.toBe(UNKNOWN);
+    });
+  });
+});

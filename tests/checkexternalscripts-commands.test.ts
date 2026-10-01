@@ -20,7 +20,19 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { NscpInstance, describeOnWindows, describeOnUnix } from "@fixtures/index";
+import {
+  CRITICAL,
+  NscpInstance,
+  OK,
+  UNKNOWN,
+  WARNING,
+  describeOnUnix,
+  describeOnWindows,
+  executeQuery,
+  messageOf,
+  onWindows,
+  setupQueryNscp,
+} from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
@@ -394,5 +406,222 @@ describeOnWindows("CheckExternalScripts — output capture (Windows launcher)", 
     // Enforced near the 2s timeout, nowhere near the script's 30s ping.
     expect(elapsed).toBeLessThan(25);
     expect(out).toMatch(/did.?n.?t terminate|timeout/i);
+  });
+});
+
+describe("CheckExternalScripts — argument substitution, lockdown and command names", () => {
+  // Port of scripts/python/test_external_script.py. A `check_test` script echoes
+  // its first three arguments and maps $1 to an exit code, so the message shows
+  // exactly what reached argv and the status shows the script ran. The same
+  // cases run against a shell script on Unix and a batch file on Windows.
+  //
+  // The Windows command is written with backslashes, as the legacy test's
+  // `scripts\check_test.bat` was: that is what an operator writes, and it takes
+  // the launcher's single-string path (the tokeniser rejects the backslash)
+  // rather than the argv one. On that path NSCP re-quotes each argument and
+  // cmd's `%n` echoes the quotes back, so the expected messages keep them.
+  // On Unix the template tokeniser consumes the quotes before argv is built.
+  let nscp: NscpInstance;
+  let scriptsDir: string;
+
+  const DIGITS = "0123456789".repeat(10);
+  const ext = onWindows ? "bat" : "sh";
+  const script = (name: string) => path.join(scriptsDir, `${name}.${ext}`);
+  /** How a quoted template argument reads once it reaches the script. */
+  const q = (s: string) => (onWindows ? `"${s}"` : s);
+
+  beforeAll(() => {
+    scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extscr-args-"));
+    if (onWindows) {
+      const exits = ["CRIT 2", "WARN 1", "UNKNOWN 3"].map((e) => {
+        const [arg, code] = e.split(" ");
+        return `IF "%1" == "${arg}" exit /B ${code}`;
+      });
+      fs.writeFileSync(script("check_ok"), "@echo OK: Everything is going to be fine\r\n@exit 0\r\n");
+      fs.writeFileSync(
+        script("check_test"),
+        [
+          "@echo off",
+          "echo Test arguments are: (%1 %2 %3)",
+          // One echo per line: inside `( a & b )` cmd keeps the space before
+          // each `&`, so every line would end in a trailing blank.
+          'IF NOT "%1" == "LONG" GOTO :SHORT',
+          ...Array.from({ length: 11 }, () => `echo ${DIGITS}`),
+          ":SHORT",
+          ...exits,
+          "exit /B 0",
+          "",
+        ].join("\r\n"),
+      );
+    } else {
+      fs.writeFileSync(script("check_ok"), "#!/bin/sh\necho OK: Everything is going to be fine\nexit 0\n", {
+        mode: 0o755,
+      });
+      fs.writeFileSync(
+        script("check_test"),
+        [
+          "#!/bin/sh",
+          'echo "Test arguments are: ($1 $2 $3)"',
+          `if [ "$1" = "LONG" ]; then for i in 1 2 3 4 5 6 7 8 9 10 11; do echo ${DIGITS}; done; fi`,
+          'if [ "$1" = "CRIT" ]; then exit 2; fi',
+          'if [ "$1" = "WARN" ]; then exit 1; fi',
+          'if [ "$1" = "UNKNOWN" ]; then exit 3; fi',
+          "exit 0",
+          "",
+        ].join("\n"),
+        { mode: 0o755 },
+      );
+    }
+    nscp = new NscpInstance();
+  });
+
+  afterAll(() => {
+    fs.rmSync(scriptsDir, { recursive: true, force: true });
+  });
+
+  /**
+   * Write the ini directly so each block starts from exactly the lockdown
+   * flags it names (`nscp settings --set` only adds keys).
+   */
+  function configure(allowArguments: boolean, allowNasty: boolean) {
+    const ini = [
+      "[/modules]",
+      "CheckExternalScripts = enabled",
+      "",
+      "[/settings/external scripts]",
+      "timeout = 30",
+      `allow arguments = ${allowArguments}`,
+      `allow nasty characters = ${allowNasty}`,
+      "",
+      "[/settings/external scripts/scripts]",
+      `tes_UPPER_lower = ${script("check_ok")}`,
+      `tes_script_ok = ${script("check_ok")}`,
+      `tes_script_test = ${script("check_test")}`,
+      `tes_sa_test = ${script("check_test")} "ARG1" "ARG 2" "A R G 3"`,
+      `tes_sca = ${script("check_test")} $ARG1$ "$ARG2$" "$ARG3$"`,
+      "",
+      "[/settings/external scripts/alias]",
+      "alias_UPPER_lower = tes_UPPER_lower",
+      "",
+    ].join("\n");
+    fs.writeFileSync(nscp.settingsFile, ini);
+  }
+
+  /** Run one command; the message is stdout with line endings normalised. */
+  async function query(command: string, args: string[] = []): Promise<{ message: string; code: number }> {
+    // `--log critical` keeps the module's own error lines (a refused argument
+    // is logged as well as returned) out of the stdout the message is read from.
+    const r = await nscp.run(
+      ["client", "--log", "critical", "--module", "CheckExternalScripts", "--boot", "--query", command, ...args],
+      { allowFailure: true },
+    );
+    const message = r.stdout.replace(/\r/g, "\n").replace(/\n+/g, "\n").trim();
+    return { message, code: r.exitCode };
+  }
+
+  describe("with arguments not allowed", () => {
+    beforeAll(() => configure(false, false));
+
+    it("runs a script with no arguments", async () => {
+      expect(await query("tes_script_ok")).toEqual({ message: "OK: Everything is going to be fine", code: OK });
+      expect(await query("tes_script_test")).toEqual({ message: "Test arguments are: (  )", code: OK });
+    });
+
+    it("passes the arguments fixed in the template", async () => {
+      expect(await query("tes_sa_test")).toEqual({
+        message: `Test arguments are: (${q("ARG1")} ${q("ARG 2")} ${q("A R G 3")})`,
+        code: OK,
+      });
+    });
+
+    it("refuses caller-supplied arguments", async () => {
+      expect(await query("tes_script_test", ["NOT ALLOWED"])).toEqual({
+        message: "Arguments not allowed see nsclient.log for details",
+        code: UNKNOWN,
+      });
+    });
+  });
+
+  describe("with arguments allowed", () => {
+    beforeAll(() => configure(true, false));
+
+    it.each([
+      ["OK", OK],
+      ["WARN", WARNING],
+      ["CRIT", CRITICAL],
+      ["UNKNOWN", UNKNOWN],
+    ])("substitutes $ARG1$=%s and leaves unsupplied $ARGn$ verbatim", async (arg, code) => {
+      // Argument isolation (0.13+): an unsubstituted `$ARGn$` reaches the script
+      // as-is instead of being expanded to nothing by a shell.
+      expect(await query("tes_sca", [arg])).toEqual({
+        message: `Test arguments are: (${arg} ${q("$ARG2$")} ${q("$ARG3$")})`,
+        code,
+      });
+    });
+
+    it("keeps an argument with spaces as one argument", async () => {
+      expect(await query("tes_sca", ["OK", "String with space", "A long long option with many spaces"])).toEqual({
+        message: `Test arguments are: (OK ${q("String with space")} ${q("A long long option with many spaces")})`,
+        code: OK,
+      });
+    });
+
+    it("returns multi-line output whole", async () => {
+      const expected = [`Test arguments are: (LONG ${q("$ARG2$")} ${q("$ARG3$")})`, ...Array(11).fill(DIGITS)];
+      expect(await query("tes_sca", ["LONG"])).toEqual({ message: expected.join("\n"), code: OK });
+    });
+
+    it("refuses nasty characters", async () => {
+      expect(await query("tes_sca", ["OK", "$$$ \\ \\", "$$$ \\ \\"])).toEqual({
+        message: "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!",
+        code: UNKNOWN,
+      });
+    });
+
+  });
+
+  describe("command names over REST", () => {
+    // Over REST (and NRPE) the core lowercases the name before the module
+    // looks it up. The one-shot client-query path hands it over as typed, so
+    // this block needs a running agent.
+    let agent: NscpInstance;
+    let key: string;
+
+    beforeAll(async () => {
+      agent = new NscpInstance();
+      key = await setupQueryNscp(agent, "CheckExternalScripts", {
+        "/settings/external scripts/scripts": { tes_UPPER_lower: script("check_ok") },
+        "/settings/external scripts/alias": { alias_UPPER_lower: "tes_UPPER_lower" },
+      });
+    });
+
+    afterAll(async () => {
+      await agent?.stop();
+    });
+
+    it.each(["tes_upper_LOWER", "TES_UPPER_LOWER", "ALIAS_upper_LOWER"])(
+      "finds %s whatever its case",
+      async (command) => {
+        const r = await executeQuery(key, command);
+        expect({ result: r.result, message: messageOf(r) }).toEqual({
+          result: OK,
+          message: "OK: Everything is going to be fine",
+        });
+      },
+    );
+  });
+
+  describe("with nasty characters allowed", () => {
+    beforeAll(() => configure(true, true));
+
+    it("passes each nasty argument through as one argv element, unmangled", async () => {
+      // No shell sits between the template and the script on Unix, so `$` and
+      // `\` arrive verbatim.
+      const nasty = onWindows ? "$$$ \\ \\" : "$ \\ \\";
+      expect(await query("tes_sca", ["OK", nasty, nasty])).toEqual({
+        message: `Test arguments are: (OK ${q(nasty)} ${q(nasty)})`,
+        code: OK,
+      });
+    });
   });
 });
