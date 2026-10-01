@@ -82,10 +82,12 @@ describeOnWindows("CheckSystem pdh counter listing", () => {
     return (lines) => lines.filter((line) => stable.has(line)).sort();
   }
 
+  // Matching ignores case (pinned below), so the per-line checks do too: a
+  // listing may legitimately return "Hanteringsprocessor" for "Processor".
   it("filters on the value given to --list", async () => {
     const lines = await list(["--list", "Processor", "--all", "--no-instances"]);
     expect(lines.length).toBeGreaterThan(0);
-    for (const line of lines) expect(line).toContain("Processor");
+    for (const line of lines) expect(line.toLowerCase()).toContain("processor");
   });
 
   it("narrows rather than replaces when --filter is added", async () => {
@@ -100,8 +102,8 @@ describeOnWindows("CheckSystem pdh counter listing", () => {
     // only the --filter term, which is what came back while the two options
     // shared one variable.
     for (const line of narrow) {
-      expect(line).toContain("Processor");
-      expect(line).toContain("Frequency");
+      expect(line.toLowerCase()).toContain("processor");
+      expect(line.toLowerCase()).toContain("frequency");
     }
     // ... and the result really is a subset of the unfiltered listing. Kept as
     // a genuine subset check rather than filtered through stableOnly, which
@@ -122,16 +124,16 @@ describeOnWindows("CheckSystem pdh counter listing", () => {
     expect(two.length).toBeGreaterThan(0);
     expect(two.length).toBeLessThan(one.length);
     for (const line of two) {
-      expect(line).toContain("Processor");
-      expect(line).toContain("Frequency");
-      expect(line).toContain("Maximum");
+      expect(line.toLowerCase()).toContain("processor");
+      expect(line.toLowerCase()).toContain("frequency");
+      expect(line.toLowerCase()).toContain("maximum");
     }
   });
 
   it("matches the instance in the path, not only the counter name", async () => {
     const lines = await list(["--list", "Processor Information(0,0)", "--all"]);
     expect(lines.length).toBeGreaterThan(0);
-    for (const line of lines) expect(line).toContain("Processor Information(0,0)");
+    for (const line of lines) expect(line.toLowerCase()).toContain("processor information(0,0)");
   });
 
   it("ignores case, in --list and in --filter alike", async () => {
@@ -183,6 +185,6 @@ describeOnWindows("CheckSystem pdh counter listing", () => {
     expect(wide.length).toBeGreaterThan(0);
     expect(narrow.length).toBeGreaterThan(0);
     expect(narrow.length).toBeLessThan(wide.length);
-    for (const line of narrow) expect(line).toContain("Frequency");
+    for (const line of narrow) expect(line.toLowerCase()).toContain("frequency");
   });
 });

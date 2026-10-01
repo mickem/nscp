@@ -460,7 +460,14 @@ describeOnWindows("CheckSecurity (Windows posture)", () => {
     const dir = nscp.scratch("world_writable");
     const child = path.join(dir, "child");
     fs.mkdirSync(child, { recursive: true });
-    execFileSync("icacls", [dir, "/grant", "*S-1-1-0:(OI)(CI)M"], { stdio: "ignore" });
+    // Inheritance is cut first: the scratch tree sits under %TEMP%, whose ACL
+    // can carry write grants of its own (a sandbox group, say) that would turn
+    // the allow-listed run below WARNING on one machine and not another.
+    execFileSync(
+      "icacls",
+      [dir, "/inheritance:r", "/grant", `${process.env.USERNAME}:(OI)(CI)F`, "/grant", "*S-1-1-0:(OI)(CI)M"],
+      { stdio: "ignore" },
+    );
 
     const out = await query("check_file_security", [`path=${dir}`, `path=${child}`]);
     expect(out).toMatch(/^CRITICAL/m);
