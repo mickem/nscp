@@ -229,3 +229,44 @@ This command also accepts the standard [help options](../common-options.md#stand
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
+## Configuration
+
+| Path / Section                                                  | Description |
+|-----------------------------------------------------------------|-------------|
+| [/settings/task schedule/facts](#/settings/task schedule/facts) |             |
+
+
+### /settings/task schedule/facts <a id="/settings/task schedule/facts"></a>
+
+
+
+| Key                                      | Default Value | Description          |
+|------------------------------------------|---------------|----------------------|
+| [tasks.scheduled](#scheduled-task-facts) | false         | SCHEDULED TASK FACTS |
+
+
+```ini
+# 
+[/settings/task schedule/facts]
+tasks.scheduled=false
+```
+
+#### SCHEDULED TASK FACTS <a id="/settings/task schedule/facts/tasks.scheduled"></a>
+
+Collect tasks.scheduled: every local task, including disabled and hidden tasks in subfolders. Records contain the full path (the check's uri), name, folder, enabled and hidden flags. No actions, arguments, accounts or run results. Collected every facts round except startup; failures retain the previous inventory. Limited to 2500 records with a truncation error.
+
+
+| Key            | Description                                                     |
+|----------------|-----------------------------------------------------------------|
+| Path:          | [/settings/task schedule/facts](#/settings/task schedule/facts) |
+| Key:           | tasks.scheduled                                                 |
+| Default value: | `false`                                                         |
+
+
+**Sample:**
+
+```
+[/settings/task schedule/facts]
+# SCHEDULED TASK FACTS
+tasks.scheduled=false
+```

@@ -68,6 +68,17 @@ Scheduler    = enabled   ; runs checks on a timer
 NSCANgClient = enabled   ; pushes results via NSCA-NG
 ```
 
+<!-- @formatter:off -->
+!!! warning "Windows: NSCANgClient is not in the installer"
+    The Windows MSI does not install `NSCANgClient.dll`: a few antivirus
+    engines flag it with generic, unconfirmed detections, so it ships in the
+    Windows zip only.
+    Copy it from the zip of the same version and platform into the `modules`
+    folder, and again after every upgrade. The
+    [NSCANgClient reference](../reference/client/NSCANgClient.md) has the
+    steps. The Linux and macOS packages include it as before.
+<!-- @formatter:on -->
+
 You also need an NSCA-NG server reachable on port `5668` (default), with a
 matching PSK identity + password configured. A typical server snippet
 (`nsca-ng.cfg`):

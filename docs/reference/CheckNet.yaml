@@ -433,6 +433,137 @@ common:
         short_description: 'IP version to use: any (default), ipv4 or ipv6. Selects which address of the
           DNS server to query; with the system resolver (A/AAAA and no server=) it also restricts the
           answer to that family. Accepts 4/v4/inet and 6/v6/inet6 as aliases.'
+    check_domain:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: expires_in < 10
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${domain} expires in ${expires_in}d (${expiration}, ${expiration_type}, ${source})
+        empty-state: unknown
+        empty-syntax: No domain checked
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): %(list)'
+        perf-config: ''
+        perf-syntax: ${domain}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_list}'
+        warn: ''
+        warning: expires_in < 30
+      fields:
+      - generic: false
+        long_description: Registered domain name (ASCII/punycode).
+        name: domain
+        short_description: ''
+      - generic: false
+        long_description: Selected expiration timestamp in UTC.
+        name: expiration
+        short_description: ''
+      - generic: false
+        long_description: 'Date source: registrar, registry or whois.'
+        name: expiration_type
+        short_description: ''
+      - generic: false
+        long_description: Whole days until expiration, rounded down; negative once expired.
+        name: expires_in
+        short_description: ''
+      - generic: false
+        long_description: RDAP URL or WHOIS server that supplied the selected date.
+        name: source
+        short_description: ''
+      info:
+        description: Check registered domain expiration over RDAP with optional WHOIS fallback.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Registered domain to check, not a URL or subdomain. Use punycode for internationalized
+          names.
+        name: domain
+        repeatable: false
+        required: false
+        short_description: Registered domain to check, not a URL or subdomain. Use punycode for internationalized
+          names.
+      - content_type: 2
+        default_value: https://rdap.org/domain/{domain}
+        is_simple: false
+        long_description: HTTPS domain lookup URL; {domain} is replaced with the normalized domain. Redirects
+          and one related registrar record are followed.
+        name: rdap-url
+        repeatable: false
+        required: false
+        short_description: HTTPS domain lookup URL; {domain} is replaced with the normalized domain. Redirects
+          and one related registrar record are followed.
+      - content_type: 2
+        default_value: ${ca-path}
+        is_simple: false
+        long_description: CA bundle for verified HTTPS (defaults to the system CA bundle).
+        name: ca
+        repeatable: false
+        required: false
+        short_description: CA bundle for verified HTTPS (defaults to the system CA bundle).
+      - content_type: 2
+        default_value: '15'
+        is_simple: false
+        long_description: Timeout in seconds for each network read or write, including WHOIS fallback.
+          Not an overall lookup deadline.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Timeout in seconds for each network read or write, including WHOIS fallback.
+          Not an overall lookup deadline.
+      - content_type: 4
+        default_value: 'false'
+        is_simple: false
+        long_description: Try the explicitly configured WHOIS server if RDAP fails or has no expiration.
+          WHOIS is unencrypted and unauthenticated.
+        name: whois-fallback
+        repeatable: false
+        required: false
+        short_description: Try the explicitly configured WHOIS server if RDAP fails or has no expiration.
+          WHOIS is unencrypted and unauthenticated.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: WHOIS server to use with whois-fallback=true. Referrals are not followed.
+        name: whois-server
+        repeatable: false
+        required: false
+        short_description: WHOIS server to use with whois-fallback=true. Referrals are not followed.
+      - content_type: 2
+        default_value: '43'
+        is_simple: false
+        long_description: WHOIS TCP port.
+        name: whois-port
+        repeatable: false
+        required: false
+        short_description: WHOIS TCP port.
     check_http:
       common_fields:
       - count
@@ -1436,6 +1567,153 @@ common:
         short_description: 'TTL / hop limit to set on outgoing packets (0 keeps the system default). Note
           the ttl keyword reports the TTL of the reply, which is a different number: it is what is left
           of the remote host''s own outgoing TTL after the return path.'
+    check_radius:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: result != 'ok'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${server}:${port} ${result}, reply=${reply}, time=${time}ms
+        empty-state: unknown
+        empty-syntax: No RADIUS server checked
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${server}_${port}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Remote UDP port
+        name: port
+        short_description: ''
+      - generic: false
+        long_description: Authenticated reply type; none until the reply passes both authenticators
+        name: reply
+        short_description: ''
+      - generic: false
+        long_description: ok, unexpected_response, timeout, or a protocol/transport error
+        name: result
+        short_description: ''
+      - generic: false
+        long_description: RADIUS server queried
+        name: server
+        short_description: ''
+      - generic: false
+        long_description: Elapsed query time including resolution, in milliseconds
+        name: time
+        short_description: ''
+      info:
+        description: Probe RADIUS authentication or responsiveness with authenticated UDP replies.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: RADIUS host; the first address in the requested family is tested.
+        name: host
+        repeatable: false
+        required: false
+        short_description: RADIUS host; the first address in the requested family is tested.
+      - content_type: 2
+        default_value: '1812'
+        is_simple: false
+        long_description: UDP port (1812 for authentication, usually 1813 for accounting Status-Server).
+        name: port
+        repeatable: false
+        required: false
+        short_description: UDP port (1812 for authentication, usually 1813 for accounting Status-Server).
+      - content_type: 2
+        default_value: '3000'
+        is_simple: false
+        long_description: Overall deadline in milliseconds (1..60000); one request, no retries.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Overall deadline in milliseconds (1..60000); one request, no retries.
+      - content_type: 2
+        default_value: auth
+        is_simple: false
+        long_description: 'auth: PAP and expect Access-Accept; reject: expect Access-Reject for a fictional
+          user; status: RFC 5997 responsiveness only.'
+        name: mode
+        repeatable: false
+        required: false
+        short_description: 'auth: PAP and expect Access-Accept; reject: expect Access-Reject for a fictional
+          user; status: RFC 5997 responsiveness only.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Test identity for auth; fictional identity for reject (default nsclient-radius-probe).
+        name: username
+        repeatable: false
+        required: false
+        short_description: Test identity for auth; fictional identity for reject (default nsclient-radius-probe).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Protected file containing the shared secret (1..4096 bytes); one trailing newline
+          is removed.
+        name: secret-file
+        repeatable: false
+        required: false
+        short_description: Protected file containing the shared secret (1..4096 bytes); one trailing newline
+          is removed.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Protected file containing the PAP test password (1..128 bytes). Required only
+          for auth.
+        name: password-file
+        repeatable: false
+        required: false
+        short_description: Protected file containing the PAP test password (1..128 bytes). Required only
+          for auth.
+      - content_type: 2
+        default_value: nsclient-monitor
+        is_simple: false
+        long_description: NAS-Identifier sent to select the intended policy (1..253 bytes).
+        name: nas-identifier
+        repeatable: false
+        required: false
+        short_description: NAS-Identifier sent to select the intended policy (1..253 bytes).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts
+          4/v4/inet and 6/v6/inet6 as aliases.'
+        name: address-family
+        repeatable: false
+        required: false
+        short_description: 'IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts
+          4/v4/inet and 6/v6/inet6 as aliases.'
     check_ssh:
       common_fields:
       - count

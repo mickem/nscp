@@ -1,6 +1,6 @@
 ---
 title: "`nscp web install` serves HTTPS by default"
-fixed_in: next
+fixed_in: 0.24.0
 severity: "Low"
 modules: [WEBServer]
 action: none

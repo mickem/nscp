@@ -1,6 +1,6 @@
 ---
 title: "Verified build dependencies and a signed SBOM for Windows releases"
-fixed_in: next
+fixed_in: 0.24.0
 severity: "Low: build-chain integrity, no impact on a running agent"
 modules: [packaging]
 action: none

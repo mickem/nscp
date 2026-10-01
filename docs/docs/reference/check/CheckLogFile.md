@@ -173,6 +173,34 @@ Behaviour worth knowing:
 * **An unterminated last line still counts as a line.** Without a bookmark the
   trailing fragment is one of the `N`; with a bookmark it is held back as usual.
 
+#### How much is read at once (`max-size`)
+
+The file is matched in memory, so one call is bounded by `max-size` (default
+`64m`, `0` for no limit). It accepts a size suffix: `512k`, `64m`, `2g`.
+
+The limit means two different things depending on whether the check is
+incremental:
+
+* **With a `bookmark` it is pacing, and nothing is lost.** The check reads up to
+  `max-size` of whatever is pending, cuts back to the last complete line so a
+  record is never split, and moves the stored position over what it read. The
+  next check continues from there, so a large backlog is worked through over
+  several runs rather than in one.
+* **Without a `bookmark` a file over the limit is an error.** There is no
+  position to resume from, so reading a prefix and reporting on it would answer
+  a different question than the one asked, quietly. The check returns UNKNOWN
+  naming the file and the three ways out: add `bookmark=auto`, add `max-lines`,
+  or raise `max-size`.
+
+```
+check_logfile "file=/var/log/huge.log" "filter=column1 like 'ERROR'" "max-size=1m"
+UNKNOWN: File is larger than max-size (1m): /var/log/huge.log. Without a bookmark the whole file has to be held in memory, so this check reads nothing rather than half of it. Add bookmark=auto to read only what is new, add max-lines to read only the newest lines, or raise max-size.
+```
+
+Raising it is the wrong first answer for a log that grows: a bookmark is what
+you want, and it reports each line once instead of re-reporting the file on
+every run.
+
 **Jump to section:**
 
 * [Sample Commands](#check_logfile_samples)
@@ -336,6 +364,7 @@ UNKNOWN: Nothing found|'count'=0;0;0
         
         
         
+        
 | Option                                      | Default Value | Description                                                                                                                                                                                                                                               |
 |---------------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [line-split](#check_logfile_line-split)     | \n            | Character string used to split a file into several lines (default `\n`).                                                                                                                                                                                  |
@@ -345,6 +374,7 @@ UNKNOWN: Nothing found|'count'=0;0;0
 | files                                       |               | A comma separated list of files to scan (same as file except a list)                                                                                                                                                                                      |
 | [bookmark](#check_logfile_bookmark)         | auto          | Only scan lines added since the last check with the same bookmark name.                                                                                                                                                                                   |
 | [max-lines](#check_logfile_max-lines)       | 0             | Only examine the newest <N> lines of each file (0, the default, means every line).                                                                                                                                                                        |
+| [max-size](#check_logfile_max-size)         | 64m           | Most bytes of a single file this check reads into memory at once (0 means no limit).                                                                                                                                                                      |
 | [newest](#check_logfile_newest)             | last          | Which end of the file holds the newest line: `last` (the default: lines are appended, as with most machine-written logs) or `first` (the file is rewritten with the newest line at the top, which is common in hand-maintained files such as changelogs). |
 
 
@@ -386,6 +416,14 @@ The limit is applied per file, after any bookmark: with a bookmark the check sti
 Which end of the file holds the newest lines is controlled by `newest`.
 
 *Default Value:* `0`
+
+<h5 id="check_logfile_max-size">max-size:</h5>
+
+Most bytes of a single file this check reads into memory at once (0 means no limit).
+A file is matched in memory, so without a ceiling one call at the default `max-lines=0` with no bookmark reads the whole target - which the caller names - and does file-sized matching work on it. Accepts a size suffix (`512k`, `64m`, `2g`).
+With a bookmark the limit is a pacing device and nothing is lost: the check consumes up to this much per run, the position advances over what it read, and the next run continues - a large backlog is worked through over several checks. Without a bookmark there is no position to resume from, so a file larger than the limit is reported as UNKNOWN instead of being silently half-read; add a `bookmark`, a `max-lines`, or raise this.
+
+*Default Value:* `64m`
 
 <h5 id="check_logfile_newest">newest:</h5>
 

@@ -1,6 +1,6 @@
 ---
 title: "RADIUS probe: authenticated replies and file-based credentials"
-fixed_in: next
+fixed_in: 0.24.0
 severity: "Informational"
 modules: [CheckNet]
 action: none

@@ -14,7 +14,7 @@ namespace domain {
 namespace {
 std::string string_field(const boost::json::object &obj, const char *key) {
   const auto *v = obj.if_contains(key);
-  return v && v->is_string() ? std::string(v->as_string()) : std::string();
+  return v && v->is_string() ? std::string(v->as_string().c_str()) : std::string();
 }
 
 void assign_date(boost::posix_time::ptime &target, const boost::posix_time::ptime &date) {

@@ -1,6 +1,6 @@
 ---
 title: "Resource limits on command nesting, regular-expression matching and log-file reads"
-fixed_in: next
+fixed_in: 0.24.0
 severity: "Medium: denial of service reachable by any caller allowed to pass check arguments"
 modules: [core, filters, CheckHelpers, CheckLogFile]
 action: conditional

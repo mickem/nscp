@@ -4,12 +4,336 @@ platforms:
 - windows
 windows:
   info:
-    description: 'Checks for applications and server roles on Windows: IIS (web sites, application pools,
-      worker processes, HTTP.sys request queues) and Remote Desktop Services (CAL licensing, session host
-      load, Connection Broker).'
+    description: 'Checks for Windows applications and server roles: IIS, Remote Desktop Services, NPS
+      authentication, accounting and performance counters, and Failover Clustering groups, resources,
+      nodes and networks.'
     experimental: true
     title: CheckWindowsApps
   queries:
+    check_cluster_groups:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: state = 'failed' or state = 'offline'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${state} (owner=${owner})'
+        empty-state: unknown
+        empty-syntax: No cluster groups matched
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: state = 'pending' or state = 'partial_online'
+      fields:
+      - generic: false
+        long_description: Containing group (resources)
+        name: group
+        short_description: ''
+      - generic: false
+        long_description: Cluster object name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Current owner node (groups and resources)
+        name: owner
+        short_description: ''
+      - generic: false
+        long_description: Object state (lowercase; mappings differ by object kind)
+        name: state
+        short_description: ''
+      - generic: false
+        long_description: Native state code for this object kind
+        name: state_id
+        short_description: ''
+      - generic: false
+        long_description: Resource type (resources)
+        name: type
+        short_description: ''
+      info:
+        description: Check Windows Failover Cluster roles and their current owner nodes.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Require one exact object name (case insensitive). Missing objects return UNKNOWN
+          regardless of empty-state.
+        name: name
+        repeatable: false
+        required: false
+        short_description: Require one exact object name (case insensitive). Missing objects return UNKNOWN
+          regardless of empty-state.
+    check_cluster_networks:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: state = 'down' or state = 'unavailable'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${state}'
+        empty-state: unknown
+        empty-syntax: No cluster networks matched
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: state = 'partitioned'
+      fields:
+      - generic: false
+        long_description: Containing group (resources)
+        name: group
+        short_description: ''
+      - generic: false
+        long_description: Cluster object name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Current owner node (groups and resources)
+        name: owner
+        short_description: ''
+      - generic: false
+        long_description: Object state (lowercase; mappings differ by object kind)
+        name: state
+        short_description: ''
+      - generic: false
+        long_description: Native state code for this object kind
+        name: state_id
+        short_description: ''
+      - generic: false
+        long_description: Resource type (resources)
+        name: type
+        short_description: ''
+      info:
+        description: Check Windows Failover Cluster network states.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Require one exact object name (case insensitive). Missing objects return UNKNOWN
+          regardless of empty-state.
+        name: name
+        repeatable: false
+        required: false
+        short_description: Require one exact object name (case insensitive). Missing objects return UNKNOWN
+          regardless of empty-state.
+    check_cluster_nodes:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: state = 'down'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${state}'
+        empty-state: unknown
+        empty-syntax: No cluster nodes matched
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: state = 'paused' or state = 'joining'
+      fields:
+      - generic: false
+        long_description: Containing group (resources)
+        name: group
+        short_description: ''
+      - generic: false
+        long_description: Cluster object name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Current owner node (groups and resources)
+        name: owner
+        short_description: ''
+      - generic: false
+        long_description: Object state (lowercase; mappings differ by object kind)
+        name: state
+        short_description: ''
+      - generic: false
+        long_description: Native state code for this object kind
+        name: state_id
+        short_description: ''
+      - generic: false
+        long_description: Resource type (resources)
+        name: type
+        short_description: ''
+      info:
+        description: Check Windows Failover Cluster node states.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Require one exact object name (case insensitive). Missing objects return UNKNOWN
+          regardless of empty-state.
+        name: name
+        repeatable: false
+        required: false
+        short_description: Require one exact object name (case insensitive). Missing objects return UNKNOWN
+          regardless of empty-state.
+    check_cluster_resources:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: state = 'failed'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${state} (group=${group}, owner=${owner}, type=${type})'
+        empty-state: unknown
+        empty-syntax: No cluster resources matched
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: state = 'initializing' or state = 'pending' or state = 'online_pending' or state = 'offline_pending'
+      fields:
+      - generic: false
+        long_description: Containing group (resources)
+        name: group
+        short_description: ''
+      - generic: false
+        long_description: Cluster object name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Current owner node (groups and resources)
+        name: owner
+        short_description: ''
+      - generic: false
+        long_description: Object state (lowercase; mappings differ by object kind)
+        name: state
+        short_description: ''
+      - generic: false
+        long_description: Native state code for this object kind
+        name: state_id
+        short_description: ''
+      - generic: false
+        long_description: Resource type (resources)
+        name: type
+        short_description: ''
+      info:
+        description: Check Windows Failover Cluster resources, types, groups and owners.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Require one exact object name (case insensitive). Missing objects return UNKNOWN
+          regardless of empty-state.
+        name: name
+        repeatable: false
+        required: false
+        short_description: Require one exact object name (case insensitive). Missing objects return UNKNOWN
+          regardless of empty-state.
     check_iis_app_pools:
       common_fields:
       - count
@@ -296,6 +620,328 @@ windows:
       info:
         description: Check IIS worker processes (active and served requests per w3wp).
         experimental: true
+    check_nps_accounting:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: accounting_discards > 0 or log_state in ('missing', 'empty', 'stale')
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${accounting_discards} accounting discards, log=${log_state}, age=${log_age}, size=${log_size}
+        empty-state: unknown
+        empty-syntax: No NPS accounting data
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: nps
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Discarded accounting requests (event 6275)
+        name: accounting_discards
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the selected log file was modified; unknown when not available
+        name: log_age
+        short_description: ''
+      - generic: false
+        long_description: Selected log file size in bytes; unknown when not available
+        name: log_size
+        short_description: ''
+      - generic: false
+        long_description: not_checked, ok, missing, empty, or stale; freshness/empty checks require require-traffic=true
+        name: log_state
+        short_description: ''
+      info:
+        description: Check discarded NPS accounting requests and optional accounting log freshness.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: '300'
+        is_simple: false
+        long_description: Scan the last N seconds for discarded accounting requests.
+        name: window
+        repeatable: false
+        required: false
+        short_description: Scan the last N seconds for discarded accounting requests.
+      - content_type: 2
+        default_value: '100000'
+        is_simple: false
+        long_description: Maximum events; exceeding the limit returns UNKNOWN.
+        name: max-events
+        repeatable: false
+        required: false
+        short_description: Maximum events; exceeding the limit returns UNKNOWN.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Optional current accounting log file to inspect. Supply the current path after
+          rotation; SQL logging is checked separately with CheckMSSQL.
+        name: log-file
+        repeatable: false
+        required: false
+        short_description: Optional current accounting log file to inspect. Supply the current path after
+          rotation; SQL logging is checked separately with CheckMSSQL.
+      - content_type: 4
+        default_value: 'false'
+        is_simple: false
+        long_description: Check the selected file for empty/stale output when accounting traffic is expected.
+        name: require-traffic
+        repeatable: false
+        required: false
+        short_description: Check the selected file for empty/stale output when accounting traffic is expected.
+      - content_type: 2
+        default_value: '600'
+        is_simple: false
+        long_description: Maximum log age in seconds when require-traffic=true.
+        name: max-age
+        repeatable: false
+        required: false
+        short_description: Maximum log age in seconds when require-traffic=true.
+    check_nps_auth:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: discarded > 0 or (decisions >= min_requests and reject_pct > 25) or (require_traffic
+          = 1 and requests = 0)
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${group}: ${accepted} accepted, ${rejected} rejected, ${discarded} discarded,
+          reject=${reject_pct}%, top reason=${top_reason}'
+        empty-state: unknown
+        empty-syntax: No NPS groups found in window
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${group}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: decisions >= min_requests and reject_pct > 10
+      fields:
+      - generic: false
+        long_description: Access-granted events (6272)
+        name: accepted
+        short_description: ''
+      - generic: false
+        long_description: Accepted + rejected events; percentage denominator
+        name: decisions
+        short_description: ''
+      - generic: false
+        long_description: Discarded authentication events (6274)
+        name: discarded
+        short_description: ''
+      - generic: false
+        long_description: all, client, policy, or reason-code group
+        name: group
+        short_description: ''
+      - generic: false
+        long_description: Minimum decisions for default percentage thresholds
+        name: min_requests
+        short_description: ''
+      - generic: false
+        long_description: 100 * rejected / (accepted + rejected), or 0 when no decisions; excludes discards
+        name: reject_pct
+        short_description: ''
+      - generic: false
+        long_description: Access-denied events (6273)
+        name: rejected
+        short_description: ''
+      - generic: false
+        long_description: Accepted + rejected + discarded events
+        name: requests
+        short_description: ''
+      - generic: false
+        long_description: Whether zero authentication events should alert
+        name: require_traffic
+        short_description: ''
+      - generic: false
+        long_description: Most frequent reject/discard reason code; none without failures
+        name: top_reason
+        short_description: ''
+      info:
+        description: Check NPS authentication outcomes, rejection percentages and reason codes over a
+          time window.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: '300'
+        is_simple: false
+        long_description: Scan the last N seconds (1..86400), with a fixed start and end time.
+        name: window
+        repeatable: false
+        required: false
+        short_description: Scan the last N seconds (1..86400), with a fixed start and end time.
+      - content_type: 2
+        default_value: '100000'
+        is_simple: false
+        long_description: Fail UNKNOWN instead of reporting partial counts if this many events is exceeded.
+        name: max-events
+        repeatable: false
+        required: false
+        short_description: Fail UNKNOWN instead of reporting partial counts if this many events is exceeded.
+      - content_type: 2
+        default_value: '20'
+        is_simple: false
+        long_description: Minimum accepted+rejected events per group before default percentage thresholds
+          apply.
+        name: min-requests
+        repeatable: false
+        required: false
+        short_description: Minimum accepted+rejected events per group before default percentage thresholds
+          apply.
+      - content_type: 2
+        default_value: all
+        is_simple: false
+        long_description: Aggregate by all, client, policy, or reason (numeric reason code).
+        name: group-by
+        repeatable: false
+        required: false
+        short_description: Aggregate by all, client, policy, or reason (numeric reason code).
+      - content_type: 4
+        default_value: 'false'
+        is_simple: false
+        long_description: Alert on a quiet aggregate window; only supported with group-by=all.
+        name: require-traffic
+        repeatable: false
+        required: false
+        short_description: Alert on a quiet aggregate window; only supported with group-by=all.
+    check_nps_counters:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${label}=${value}
+        empty-state: unknown
+        empty-syntax: No NPS counters found
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${label}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Installed counter name
+        name: counter
+        short_description: ''
+      - generic: false
+        long_description: Counter instance, including _Total; empty for a single-instance object
+        name: instance
+        short_description: ''
+      - generic: false
+        long_description: Object, counter and instance used for a unique performance label
+        name: label
+        short_description: ''
+      - generic: false
+        long_description: Installed performance object name
+        name: object
+        short_description: ''
+      - generic: false
+        long_description: Formatted PDH value after two samples; units depend on the selected counter
+        name: value
+        short_description: ''
+      info:
+        description: Check the installed NPS/RADIUS performance counters using two samples.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: NPS Authentication Server
+        is_simple: false
+        long_description: Installed NPS performance object; use NPS Accounting Server for accounting,
+          or a localized name.
+        name: object
+        repeatable: false
+        required: false
+        short_description: Installed NPS performance object; use NPS Accounting Server for accounting,
+          or a localized name.
+      - content_type: 2
+        default_value: '1000'
+        is_simple: false
+        long_description: Delay between the two PDH samples (100..10000 milliseconds).
+        name: sample-ms
+        repeatable: false
+        required: false
+        short_description: Delay between the two PDH samples (100..10000 milliseconds).
     check_rds_broker:
       common_fields:
       - count

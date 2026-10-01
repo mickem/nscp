@@ -65,8 +65,6 @@ std::string installer_feature_hint(const std::string &module) {
       {"NSCAClient", "NSCA plugin"},
       {"NSCAServer", "NSCA plugin"},
       {"Scheduler", "NSCA plugin"},
-      // NSCA-NG plugin
-      {"NSCANgClient", "NSCA-NG plugin"},
       // Python Scripting
       {"PythonScript", "Python Scripting"},
       // Various client plugins
@@ -110,6 +108,15 @@ std::string installer_feature_hint(const std::string &module) {
       {"CheckDocker", "Check Plugins"},
       {"CheckKubernetes", "Check Plugins"},
   };
+  // Not in the MSI at all: antivirus engines flag the DLL with generic
+  // machine-learning verdicts, so it ships in the zip only (see the NSCANg
+  // component in Product.wxs). No feature to point at, so say where it is.
+  if (name == "NSCANgClient") {
+    return std::string(" (module '") + name +
+           "' is not part of the Windows installer; copy modules/NSCANgClient.dll from the "
+           "NSClient++ zip of the same version into the modules folder, see the NSCANgClient "
+           "reference documentation)";
+  }
   for (const auto &e : table) {
     if (name == e.module) {
       return std::string(" (module '") + name + "' is part of the '" + e.feature_title +

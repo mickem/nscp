@@ -8,7 +8,7 @@
     and output may change in a future release. Please try it and report
     anything that does not behave the way you expect.
 
-Checks for applications and server roles on Windows: IIS (web sites, application pools, worker processes, HTTP.sys request queues) and Remote Desktop Services (CAL licensing, session host load, Connection Broker).
+Checks for Windows applications and server roles: IIS, Remote Desktop Services, NPS authentication, accounting and performance counters, and Failover Clustering groups, resources, nodes and networks.
 
 ## Enable module
 
@@ -27,16 +27,498 @@ A quick reference for all available queries (check commands) in the CheckWindows
 
 A list of all available queries (check commands)
 
-| Command                                                                    | Description                                                                         |
-|----------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
-| [check_iis_app_pools](#check_iis_app_pools) *(experimental)*               | Check IIS application pools (state, uptime, recycles).                              |
-| [check_iis_request_queues](#check_iis_request_queues) *(experimental)*     | Check HTTP.sys request queues (length, rejections, age).                            |
-| [check_iis_sites](#check_iis_sites) *(experimental)*                       | Check IIS web sites (state, connections, traffic).                                  |
-| [check_iis_worker_processes](#check_iis_worker_processes) *(experimental)* | Check IIS worker processes (active and served requests per w3wp).                   |
-| [check_rds_broker](#check_rds_broker) *(experimental)*                     | Check the Remote Desktop Connection Broker counterset (failed/pending connections). |
-| [check_rds_licenses](#check_rds_licenses) *(experimental)*                 | Check Remote Desktop licensing (CAL key packs: issued versus available licenses).   |
-| [check_rds_session_load](#check_rds_session_load) *(experimental)*         | Check per-session resource usage (CPU, working set, protocol bytes).                |
-| [check_rds_sessions](#check_rds_sessions) *(experimental)*                 | Check session counts on a session host (active, inactive, total).                   |
+| Command                                                                    | Description                                                                                   |
+|----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| [check_cluster_groups](#check_cluster_groups) *(experimental)*             | Check Windows Failover Cluster roles and their current owner nodes.                           |
+| [check_cluster_networks](#check_cluster_networks) *(experimental)*         | Check Windows Failover Cluster network states.                                                |
+| [check_cluster_nodes](#check_cluster_nodes) *(experimental)*               | Check Windows Failover Cluster node states.                                                   |
+| [check_cluster_resources](#check_cluster_resources) *(experimental)*       | Check Windows Failover Cluster resources, types, groups and owners.                           |
+| [check_iis_app_pools](#check_iis_app_pools) *(experimental)*               | Check IIS application pools (state, uptime, recycles).                                        |
+| [check_iis_request_queues](#check_iis_request_queues) *(experimental)*     | Check HTTP.sys request queues (length, rejections, age).                                      |
+| [check_iis_sites](#check_iis_sites) *(experimental)*                       | Check IIS web sites (state, connections, traffic).                                            |
+| [check_iis_worker_processes](#check_iis_worker_processes) *(experimental)* | Check IIS worker processes (active and served requests per w3wp).                             |
+| [check_nps_accounting](#check_nps_accounting) *(experimental)*             | Check discarded NPS accounting requests and optional accounting log freshness.                |
+| [check_nps_auth](#check_nps_auth) *(experimental)*                         | Check NPS authentication outcomes, rejection percentages and reason codes over a time window. |
+| [check_nps_counters](#check_nps_counters) *(experimental)*                 | Check the installed NPS/RADIUS performance counters using two samples.                        |
+| [check_rds_broker](#check_rds_broker) *(experimental)*                     | Check the Remote Desktop Connection Broker counterset (failed/pending connections).           |
+| [check_rds_licenses](#check_rds_licenses) *(experimental)*                 | Check Remote Desktop licensing (CAL key packs: issued versus available licenses).             |
+| [check_rds_session_load](#check_rds_session_load) *(experimental)*         | Check per-session resource usage (CPU, working set, protocol bytes).                          |
+| [check_rds_sessions](#check_rds_sessions) *(experimental)*                 | Check session counts on a session host (active, inactive, total).                             |
+
+### check_cluster_groups
+
+Check Windows Failover Cluster roles and their current owner nodes.
+
+#### Clustered roles and ownership
+
+Reads every group (clustered role) in the local Windows Failover Cluster,
+including groups owned by another node. Run NSCP on a cluster member using an
+account with cluster read access. The check uses ClusAPI and requires Windows
+Server 2008 R2 or later with Failover Clustering available. It does not require
+PowerShell or WMI, and does not move or restart roles.
+
+Defaults: offline or failed groups are CRITICAL; pending or partial-online
+groups are WARNING. Select the roles expected to run: intentionally offline
+groups, including unused storage groups, may otherwise alert. `name=SQL`
+requires that exact name (case insensitive); a missing name returns UNKNOWN
+even with `empty-state=ok`. A general `filter` matching nothing follows
+`empty-state` (UNKNOWN by default).
+
+Ownership changes alone are healthy. `owner` reports the current owner, not
+failover history; use an explicit owner threshold for placement policy. Use
+monitoring-server retries to tolerate brief pending states. Polling does not
+guarantee observing a transition that completed between checks.
+
+Missing cluster support, access errors and incomplete reads return UNKNOWN,
+never an empty successful result. Unmapped state codes return UNKNOWN only for
+objects selected by `filter`; exclude them by name or with `state != 'unknown'`
+when appropriate. Acquisition is a series
+of reads, not an atomic cluster snapshot; roles can move between reads. Monitor
+node reachability separately and schedule role checks through a surviving member.
+
+ClusAPI is loaded only for cluster checks, so enabling CheckWindowsApps on a
+non-cluster host does not prevent its IIS or RDS commands from running.
+
+**Jump to section:**
+
+* [Sample Commands](#check_cluster_groups_samples)
+* [Command-line Arguments](#check_cluster_groups_options)
+* [Filter keywords](#check_cluster_groups_filter_keys)
+
+
+<a id="check_cluster_groups_samples"></a>
+#### Sample Commands
+
+#### Usage
+
+Run from a cluster member; replace these illustrative names with your own.
+
+```text
+check_cluster_groups "name=SQL Server (PROD)"
+check_cluster_groups "filter=name != 'Available Storage'"
+```
+
+#### Captured unavailable-cluster result
+
+The following output was captured on a Windows workstation without an accessible
+local cluster (exit code 3, UNKNOWN). The Windows error text follows the OS
+language; this host uses Swedish. This is not a live cluster success example.
+
+```text
+nscp client --module CheckWindowsApps --boot --query check_cluster_groups
+Failed to query cluster groups: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
+```
+
+
+
+<a id="check_cluster_groups_options"></a>
+#### Command-line Arguments
+
+<a id="check_cluster_groups_name"></a>
+
+        
+| Option | Default Value | Description                                                                                                 |
+|--------|---------------|-------------------------------------------------------------------------------------------------------------|
+| name   |               | Require one exact object name (case insensitive). Missing objects return UNKNOWN regardless of empty-state. |
+
+
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                               | Default Value                                 |
+|----------------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+| <a id="check_cluster_groups_filter"></a>[filter](../common-options.md#filter)                                        |                                               |
+| <a id="check_cluster_groups_warning"></a>[warning](../common-options.md#warning)                                     | state = 'pending' or state = 'partial_online' |
+| <a id="check_cluster_groups_warn"></a>[warn](../common-options.md#warn)                                              |                                               |
+| <a id="check_cluster_groups_critical"></a>[critical](../common-options.md#critical)                                  | state = 'failed' or state = 'offline'         |
+| <a id="check_cluster_groups_crit"></a>[crit](../common-options.md#crit)                                              |                                               |
+| <a id="check_cluster_groups_ok"></a>[ok](../common-options.md#ok)                                                    |                                               |
+| <a id="check_cluster_groups_debug"></a>[debug](../common-options.md#debug)                                           | false                                         |
+| <a id="check_cluster_groups_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                         |
+| <a id="check_cluster_groups_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                       |
+| <a id="check_cluster_groups_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                               |
+| <a id="check_cluster_groups_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                         |
+| <a id="check_cluster_groups_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                             |
+| <a id="check_cluster_groups_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                            |
+| <a id="check_cluster_groups_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                               |
+| <a id="check_cluster_groups_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No cluster groups matched                     |
+| <a id="check_cluster_groups_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${state} (owner=${owner})            |
+| <a id="check_cluster_groups_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                       |
+| <a id="check_cluster_groups_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                               |
+| <a id="check_cluster_groups_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                               |
+| <a id="check_cluster_groups_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                            |
+| <a id="check_cluster_groups_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                               |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_cluster_groups_filter_keys"></a>
+#### Filter keywords
+
+| Option   | Description                                              |
+|----------|----------------------------------------------------------|
+| group    | Containing group (resources)                             |
+| name     | Cluster object name                                      |
+| owner    | Current owner node (groups and resources)                |
+| state    | Object state (lowercase; mappings differ by object kind) |
+| state_id | Native state code for this object kind                   |
+| type     | Resource type (resources)                                |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_cluster_networks
+
+Check Windows Failover Cluster network states.
+
+#### Cluster network health
+
+Reads networks from the local Windows Failover Cluster. Down or unavailable
+networks are CRITICAL, partitioned networks are WARNING, and up networks are OK.
+Unavailable means all interfaces are unavailable; partitioned means some cluster
+nodes cannot communicate through that network. Select relevant networks with
+`name` or `filter` to exclude intentionally unused networks.
+
+Requires a cluster member running Windows Server 2008 R2 or later and an account
+with cluster read access. Uses read-only ClusAPI calls. This checks the cluster's
+network state, not traffic, bandwidth, or individual network interfaces. Networks
+do not have an owner node; the shared `owner`, `group` and `type` fields are empty.
+
+`name` requires an exact case-insensitive network name; a missing name returns
+UNKNOWN regardless of `empty-state`. Empty filter results follow `empty-state`
+(UNKNOWN by default). Missing support, access errors and incomplete reads return
+UNKNOWN. Unmapped state codes return UNKNOWN only for objects selected by
+`filter`; exclude them by name or with `state != 'unknown'` when appropriate.
+Schedule retries for transient failures.
+
+**Jump to section:**
+
+* [Sample Commands](#check_cluster_networks_samples)
+* [Command-line Arguments](#check_cluster_networks_options)
+* [Filter keywords](#check_cluster_networks_filter_keys)
+
+
+<a id="check_cluster_networks_samples"></a>
+#### Sample Commands
+
+#### Usage
+
+Run from a cluster member; replace these illustrative names with your own.
+
+```text
+check_cluster_networks "name=Cluster Network 1"
+```
+
+#### Captured unavailable-cluster result
+
+The following output was captured on a Windows workstation without an accessible
+local cluster (exit code 3, UNKNOWN). The Windows error text follows the OS
+language; this host uses Swedish. This is not a live cluster success example.
+
+```text
+nscp client --module CheckWindowsApps --boot --query check_cluster_networks
+Failed to query cluster networks: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
+```
+
+
+
+<a id="check_cluster_networks_options"></a>
+#### Command-line Arguments
+
+<a id="check_cluster_networks_name"></a>
+
+        
+| Option | Default Value | Description                                                                                                 |
+|--------|---------------|-------------------------------------------------------------------------------------------------------------|
+| name   |               | Require one exact object name (case insensitive). Missing objects return UNKNOWN regardless of empty-state. |
+
+
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                                 | Default Value                           |
+|------------------------------------------------------------------------------------------------------------------------|-----------------------------------------|
+| <a id="check_cluster_networks_filter"></a>[filter](../common-options.md#filter)                                        |                                         |
+| <a id="check_cluster_networks_warning"></a>[warning](../common-options.md#warning)                                     | state = 'partitioned'                   |
+| <a id="check_cluster_networks_warn"></a>[warn](../common-options.md#warn)                                              |                                         |
+| <a id="check_cluster_networks_critical"></a>[critical](../common-options.md#critical)                                  | state = 'down' or state = 'unavailable' |
+| <a id="check_cluster_networks_crit"></a>[crit](../common-options.md#crit)                                              |                                         |
+| <a id="check_cluster_networks_ok"></a>[ok](../common-options.md#ok)                                                    |                                         |
+| <a id="check_cluster_networks_debug"></a>[debug](../common-options.md#debug)                                           | false                                   |
+| <a id="check_cluster_networks_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                   |
+| <a id="check_cluster_networks_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                 |
+| <a id="check_cluster_networks_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                         |
+| <a id="check_cluster_networks_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                   |
+| <a id="check_cluster_networks_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                       |
+| <a id="check_cluster_networks_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                      |
+| <a id="check_cluster_networks_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                         |
+| <a id="check_cluster_networks_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No cluster networks matched             |
+| <a id="check_cluster_networks_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${state}                       |
+| <a id="check_cluster_networks_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                 |
+| <a id="check_cluster_networks_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                         |
+| <a id="check_cluster_networks_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                         |
+| <a id="check_cluster_networks_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                      |
+| <a id="check_cluster_networks_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                         |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_cluster_networks_filter_keys"></a>
+#### Filter keywords
+
+| Option   | Description                                              |
+|----------|----------------------------------------------------------|
+| group    | Containing group (resources)                             |
+| name     | Cluster object name                                      |
+| owner    | Current owner node (groups and resources)                |
+| state    | Object state (lowercase; mappings differ by object kind) |
+| state_id | Native state code for this object kind                   |
+| type     | Resource type (resources)                                |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_cluster_nodes
+
+Check Windows Failover Cluster node states.
+
+#### Cluster node health
+
+Reads every node in the local Windows Failover Cluster. Down nodes are CRITICAL;
+paused or joining nodes are WARNING; up nodes are OK. A down state does not
+identify the cause: the machine, cluster service or connectivity may be down.
+Exclude planned maintenance nodes with `filter` or adjust the warning threshold.
+
+Requires a cluster member running Windows Server 2008 R2 or later and an account
+with cluster read access. It uses read-only ClusAPI calls. A stopped local cluster
+service may prevent acquisition entirely, yielding UNKNOWN; query a surviving
+member and monitor host availability separately.
+
+`name` selects an exact case-insensitive node name and returns UNKNOWN if missing,
+even with `empty-state=ok`. Empty filter results follow `empty-state` (UNKNOWN by
+default). Missing support, access errors and incomplete reads return UNKNOWN.
+Unmapped state codes return UNKNOWN only for objects selected by `filter`;
+exclude them by name or with `state != 'unknown'` when appropriate.
+This is current state, not node failure history.
+
+**Jump to section:**
+
+* [Sample Commands](#check_cluster_nodes_samples)
+* [Command-line Arguments](#check_cluster_nodes_options)
+* [Filter keywords](#check_cluster_nodes_filter_keys)
+
+
+<a id="check_cluster_nodes_samples"></a>
+#### Sample Commands
+
+#### Usage
+
+Run from a cluster member; replace these illustrative names with your own.
+
+```text
+check_cluster_nodes "name=NODE01"
+check_cluster_nodes "filter=name != 'MAINTENANCE-NODE'"
+```
+
+#### Captured unavailable-cluster result
+
+The following output was captured on a Windows workstation without an accessible
+local cluster (exit code 3, UNKNOWN). The Windows error text follows the OS
+language; this host uses Swedish. This is not a live cluster success example.
+
+```text
+nscp client --module CheckWindowsApps --boot --query check_cluster_nodes
+Failed to query cluster nodes: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
+```
+
+
+
+<a id="check_cluster_nodes_options"></a>
+#### Command-line Arguments
+
+<a id="check_cluster_nodes_name"></a>
+
+        
+| Option | Default Value | Description                                                                                                 |
+|--------|---------------|-------------------------------------------------------------------------------------------------------------|
+| name   |               | Require one exact object name (case insensitive). Missing objects return UNKNOWN regardless of empty-state. |
+
+
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                              | Default Value                         |
+|---------------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| <a id="check_cluster_nodes_filter"></a>[filter](../common-options.md#filter)                                        |                                       |
+| <a id="check_cluster_nodes_warning"></a>[warning](../common-options.md#warning)                                     | state = 'paused' or state = 'joining' |
+| <a id="check_cluster_nodes_warn"></a>[warn](../common-options.md#warn)                                              |                                       |
+| <a id="check_cluster_nodes_critical"></a>[critical](../common-options.md#critical)                                  | state = 'down'                        |
+| <a id="check_cluster_nodes_crit"></a>[crit](../common-options.md#crit)                                              |                                       |
+| <a id="check_cluster_nodes_ok"></a>[ok](../common-options.md#ok)                                                    |                                       |
+| <a id="check_cluster_nodes_debug"></a>[debug](../common-options.md#debug)                                           | false                                 |
+| <a id="check_cluster_nodes_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                 |
+| <a id="check_cluster_nodes_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                               |
+| <a id="check_cluster_nodes_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                       |
+| <a id="check_cluster_nodes_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                 |
+| <a id="check_cluster_nodes_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                     |
+| <a id="check_cluster_nodes_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                    |
+| <a id="check_cluster_nodes_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                       |
+| <a id="check_cluster_nodes_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No cluster nodes matched              |
+| <a id="check_cluster_nodes_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${state}                     |
+| <a id="check_cluster_nodes_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                               |
+| <a id="check_cluster_nodes_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                       |
+| <a id="check_cluster_nodes_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                       |
+| <a id="check_cluster_nodes_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                    |
+| <a id="check_cluster_nodes_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                       |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_cluster_nodes_filter_keys"></a>
+#### Filter keywords
+
+| Option   | Description                                              |
+|----------|----------------------------------------------------------|
+| group    | Containing group (resources)                             |
+| name     | Cluster object name                                      |
+| owner    | Current owner node (groups and resources)                |
+| state    | Object state (lowercase; mappings differ by object kind) |
+| state_id | Native state code for this object kind                   |
+| type     | Resource type (resources)                                |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_cluster_resources
+
+Check Windows Failover Cluster resources, types, groups and owners.
+
+#### Resources behind clustered roles
+
+Reads all resources in the local Windows Failover Cluster, with their current
+owner, containing group and resource type. Resources owned by other nodes remain
+visible. Requires a cluster member running Windows Server 2008 R2 or later and
+an account with cluster read access; uses read-only ClusAPI calls.
+
+Failed resources are CRITICAL. Initializing, pending, online-pending and
+offline-pending resources are WARNING. Offline and inherited resources do not
+alert by default: dependency configurations and deliberately stopped workloads
+can legitimately leave resources offline. To require selected resources online,
+set `critical=state = 'failed' or state = 'offline'` and select them with `name`
+or `filter`. This checks cluster resource state, not SQL replication health,
+guest OS health, or an application's end-to-end availability.
+
+`name` requires an exact case-insensitive name and returns UNKNOWN if absent,
+regardless of `empty-state`. Empty filter results follow `empty-state` (UNKNOWN
+by default). Acquisition failures always return UNKNOWN. Unmapped state codes
+return UNKNOWN only for objects selected by `filter`; exclude them by name or
+with `state != 'unknown'` when appropriate.
+Native state codes differ from group state codes; prefer the string `state`.
+An ownership change alone is healthy. Use monitoring-server retries for brief
+transitions; no history or transition duration is inferred from one sample.
+
+**Jump to section:**
+
+* [Sample Commands](#check_cluster_resources_samples)
+* [Command-line Arguments](#check_cluster_resources_options)
+* [Filter keywords](#check_cluster_resources_filter_keys)
+
+
+<a id="check_cluster_resources_samples"></a>
+#### Sample Commands
+
+#### Usage
+
+Run from a cluster member; replace these illustrative names with your own.
+
+```text
+check_cluster_resources "filter=group = 'SQL Server (PROD)'" "critical=state = 'failed' or state = 'offline'"
+```
+
+#### Captured unavailable-cluster result
+
+The following output was captured on a Windows workstation without an accessible
+local cluster (exit code 3, UNKNOWN). The Windows error text follows the OS
+language; this host uses Swedish. This is not a live cluster success example.
+
+```text
+nscp client --module CheckWindowsApps --boot --query check_cluster_resources
+Failed to query cluster resources: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
+```
+
+
+
+<a id="check_cluster_resources_options"></a>
+#### Command-line Arguments
+
+<a id="check_cluster_resources_name"></a>
+
+        
+| Option | Default Value | Description                                                                                                 |
+|--------|---------------|-------------------------------------------------------------------------------------------------------------|
+| name   |               | Require one exact object name (case insensitive). Missing objects return UNKNOWN regardless of empty-state. |
+
+
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                                  | Default Value                                                                                        |
+|-------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| <a id="check_cluster_resources_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                      |
+| <a id="check_cluster_resources_warning"></a>[warning](../common-options.md#warning)                                     | state = 'initializing' or state = 'pending' or state = 'online_pending' or state = 'offline_pending' |
+| <a id="check_cluster_resources_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                      |
+| <a id="check_cluster_resources_critical"></a>[critical](../common-options.md#critical)                                  | state = 'failed'                                                                                     |
+| <a id="check_cluster_resources_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                      |
+| <a id="check_cluster_resources_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                      |
+| <a id="check_cluster_resources_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                |
+| <a id="check_cluster_resources_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                |
+| <a id="check_cluster_resources_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                              |
+| <a id="check_cluster_resources_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                      |
+| <a id="check_cluster_resources_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                |
+| <a id="check_cluster_resources_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                    |
+| <a id="check_cluster_resources_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                   |
+| <a id="check_cluster_resources_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                      |
+| <a id="check_cluster_resources_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No cluster resources matched                                                                         |
+| <a id="check_cluster_resources_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${state} (group=${group}, owner=${owner}, type=${type})                                     |
+| <a id="check_cluster_resources_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                                                              |
+| <a id="check_cluster_resources_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                      |
+| <a id="check_cluster_resources_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                      |
+| <a id="check_cluster_resources_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                   |
+| <a id="check_cluster_resources_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                      |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_cluster_resources_filter_keys"></a>
+#### Filter keywords
+
+| Option   | Description                                              |
+|----------|----------------------------------------------------------|
+| group    | Containing group (resources)                             |
+| name     | Cluster object name                                      |
+| owner    | Current owner node (groups and resources)                |
+| state    | Object state (lowercase; mappings differ by object kind) |
+| state_id | Native state code for this object kind                   |
+| type     | Resource type (resources)                                |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_iis_app_pools
 
@@ -514,6 +996,477 @@ This command also accepts the standard [help options](../common-options.md#stand
 | pid             | Process id of the w3wp worker                 |
 | pool            | Application pool the worker serves            |
 | total_requests  | HTTP requests served since the worker started |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_nps_accounting
+
+Check discarded NPS accounting requests and optional accounting log freshness.
+
+Counts discarded NPS accounting requests (Security event 6275) during `window`
+seconds. An accounting discard is critical by default. NPS must be installed,
+failure auditing must be enabled, and the agent must be able to query audit policy
+and read the Security log. Unavailable or incomplete event data returns UNKNOWN.
+
+Optionally specify the **current** accounting `log-file` to report its existence,
+size and modification age. A missing specified file is critical. Set
+`require-traffic=true` to also alert on an empty file or one older than `max-age`
+seconds (default 600). Leave this disabled for quiet installations. Select the
+current filename when logs rotate; the command does not guess rotation patterns.
+
+Without `log-file`, `log_state` is `not_checked`, and file size/age are `unknown`
+with no corresponding performance data. A healthy discard count alone does not
+prove that accounting writes succeed. File inspection also cannot establish
+write permissions, SQL sink health, or that a particular request was persisted.
+For SQL accounting, use CheckMSSQL to check the configured destination and record
+arrival; use CheckDisk for free space. The command does not write synthetic
+accounting records or modify NPS logging configuration.
+
+The event scan shares the authentication check's event limit and deadline. A
+Windows API/access error is UNKNOWN; explicit missing/empty/stale file states are
+evaluated by the filter. Custom thresholds replace the defaults.
+
+**Jump to section:**
+
+* [Sample Commands](#check_nps_accounting_samples)
+* [Command-line Arguments](#check_nps_accounting_options)
+* [Filter keywords](#check_nps_accounting_filter_keys)
+
+
+<a id="check_nps_accounting_samples"></a>
+#### Sample Commands
+
+#### Host without NPS
+
+Captured on Windows without the role; the result is UNKNOWN.
+
+```text
+nscp client --module CheckWindowsApps --boot --query check_nps_accounting
+NPS accounting data unavailable: NPS role is not installed (IAS service missing)
+```
+
+#### Accounting discard and log checks
+
+Configuration examples; choose the current accounting filename after rotation:
+
+```text
+check_nps_accounting window=300
+check_nps_accounting log-file=C:\Windows\System32\LogFiles\IN260928.log
+check_nps_accounting log-file=C:\Windows\System32\LogFiles\IN260928.log require-traffic=true max-age=600
+```
+
+The first command evaluates discarded requests only. The second also checks the
+specified file exists and reports its age/size. The third treats empty or stale
+output as a problem because accounting traffic is expected.
+
+
+
+<a id="check_nps_accounting_options"></a>
+#### Command-line Arguments
+
+<a id="check_nps_accounting_log-file"></a>
+
+        
+        
+        
+        
+        
+| Option                                                   | Default Value | Description                                                                                                                                 |
+|----------------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| [window](#check_nps_accounting_window)                   | 300           | Scan the last N seconds for discarded accounting requests.                                                                                  |
+| [max-events](#check_nps_accounting_max-events)           | 100000        | Maximum events; exceeding the limit returns UNKNOWN.                                                                                        |
+| log-file                                                 |               | Optional current accounting log file to inspect. Supply the current path after rotation; SQL logging is checked separately with CheckMSSQL. |
+| [require-traffic](#check_nps_accounting_require-traffic) | false         | Check the selected file for empty/stale output when accounting traffic is expected.                                                         |
+| [max-age](#check_nps_accounting_max-age)                 | 600           | Maximum log age in seconds when require-traffic=true.                                                                                       |
+
+
+
+<h5 id="check_nps_accounting_window">window:</h5>
+
+Scan the last N seconds for discarded accounting requests.
+
+*Default Value:* `300`
+
+<h5 id="check_nps_accounting_max-events">max-events:</h5>
+
+Maximum events; exceeding the limit returns UNKNOWN.
+
+*Default Value:* `100000`
+
+<h5 id="check_nps_accounting_require-traffic">require-traffic:</h5>
+
+Check the selected file for empty/stale output when accounting traffic is expected.
+
+*Default Value:* `false`
+
+<h5 id="check_nps_accounting_max-age">max-age:</h5>
+
+Maximum log age in seconds when require-traffic=true.
+
+*Default Value:* `600`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                               | Default Value                                                                                  |
+|----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| <a id="check_nps_accounting_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                |
+| <a id="check_nps_accounting_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                                |
+| <a id="check_nps_accounting_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                |
+| <a id="check_nps_accounting_critical"></a>[critical](../common-options.md#critical)                                  | accounting_discards > 0 or log_state in ('missing', 'empty', 'stale')                          |
+| <a id="check_nps_accounting_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                |
+| <a id="check_nps_accounting_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                |
+| <a id="check_nps_accounting_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                          |
+| <a id="check_nps_accounting_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                          |
+| <a id="check_nps_accounting_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                        |
+| <a id="check_nps_accounting_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                |
+| <a id="check_nps_accounting_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                          |
+| <a id="check_nps_accounting_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                              |
+| <a id="check_nps_accounting_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                             |
+| <a id="check_nps_accounting_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                |
+| <a id="check_nps_accounting_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No NPS accounting data                                                                         |
+| <a id="check_nps_accounting_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${accounting_discards} accounting discards, log=${log_state}, age=${log_age}, size=${log_size} |
+| <a id="check_nps_accounting_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | nps                                                                                            |
+| <a id="check_nps_accounting_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                |
+| <a id="check_nps_accounting_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                |
+| <a id="check_nps_accounting_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                             |
+| <a id="check_nps_accounting_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_nps_accounting_filter_keys"></a>
+#### Filter keywords
+
+| Option              | Description                                                                                    |
+|---------------------|------------------------------------------------------------------------------------------------|
+| accounting_discards | Discarded accounting requests (event 6275)                                                     |
+| log_age             | Seconds since the selected log file was modified; unknown when not available                   |
+| log_size            | Selected log file size in bytes; unknown when not available                                    |
+| log_state           | not_checked, ok, missing, empty, or stale; freshness/empty checks require require-traffic=true |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_nps_auth
+
+Check NPS authentication outcomes, rejection percentages and reason codes over a time window.
+
+Summarizes local NPS Security audit events in a fixed window ending when the check
+starts. `window` is in seconds (default 300). Events 6272, 6273 and 6274 represent
+accepted, rejected and discarded authentication requests. XML field names are
+parsed directly; localized rendered messages are not used.
+
+The default output is one `all` record, including a quiet window with zero events.
+`group-by=client`, `policy` or `reason` produces one record per observed group.
+Missing grouping fields are reported as `unknown`. A group absent from the window
+cannot be detected without an expected-client inventory; grouped checks therefore
+return the configured empty state when no groups are found.
+
+`reject_pct` is `100 * rejected / (accepted + rejected)`. Discards are reported
+separately and excluded from that denominator. With no decisions the percentage
+is zero; inspect `decisions` or `requests` to distinguish this from successful
+traffic. Default percentage alerts apply only after `min-requests` decisions per
+group (default 20): warning above 10%, critical above 25%. Any discarded request
+is critical by default. `top_reason` is the most frequent numeric reject/discard
+reason code, with lexical tie-breaking, or `none` without failures.
+
+Use `require-traffic=true` only where authentication traffic is expected. It adds
+a default critical condition for zero requests and requires `group-by=all`.
+Custom warning/critical expressions replace the defaults, including their
+minimum-volume and traffic guards.
+
+The IAS service must be installed, the agent must be able to query audit policy
+and read Security events, and NPS success **and** failure auditing must be enabled.
+Missing prerequisites return UNKNOWN even if `empty-state=ok` is requested.
+Enable the Network Policy Server audit subcategory through local/group policy.
+Run `check_service service=IAS` separately to monitor service state.
+
+The scan is bounded by `max-events` (default 100000) and a 15-second enumeration
+deadline. A failed, malformed or truncated scan returns UNKNOWN, never partial
+counts. Windows query setup itself may take additional time. The check counts
+available audit records; it cannot reconstruct cleared/overwritten logs or events
+from periods when auditing was disabled. It does not maintain bookmarks or
+represent every packet received at the UDP listener.
+
+**Jump to section:**
+
+* [Sample Commands](#check_nps_auth_samples)
+* [Command-line Arguments](#check_nps_auth_options)
+* [Filter keywords](#check_nps_auth_filter_keys)
+
+
+<a id="check_nps_auth_samples"></a>
+#### Sample Commands
+
+#### Host without NPS
+
+Captured with the one-shot client on Windows without the NPS role. The command
+returns UNKNOWN; the client prints the check message without adding a status word.
+
+```text
+nscp client --module CheckWindowsApps --boot --query check_nps_auth
+NPS authentication data unavailable: NPS role is not installed (IAS service missing)
+```
+
+#### Aggregate and per-client policy
+
+Configuration examples for an NPS host with auditing enabled:
+
+```text
+check_nps_auth window=300 min-requests=20
+check_nps_auth window=300 group-by=client min-requests=50
+check_nps_auth window=600 group-by=policy "filter=group = 'Corporate WiFi'"
+check_nps_auth window=300 require-traffic=true
+```
+
+Custom percentage thresholds should preserve the minimum-volume guard and the
+independent discard alert:
+
+```text
+check_nps_auth "warning=decisions >= min_requests and reject_pct > 15" "critical=discarded > 0 or (decisions >= min_requests and reject_pct > 30)"
+```
+
+Use the separate IAS service check and certificate check alongside the traffic
+summary. A quiet authentication window alone does not establish service health.
+
+
+
+<a id="check_nps_auth_options"></a>
+#### Command-line Arguments
+
+        
+        
+        
+        
+        
+| Option                                             | Default Value | Description                                                                            |
+|----------------------------------------------------|---------------|----------------------------------------------------------------------------------------|
+| [window](#check_nps_auth_window)                   | 300           | Scan the last N seconds (1..86400), with a fixed start and end time.                   |
+| [max-events](#check_nps_auth_max-events)           | 100000        | Fail UNKNOWN instead of reporting partial counts if this many events is exceeded.      |
+| [min-requests](#check_nps_auth_min-requests)       | 20            | Minimum accepted+rejected events per group before default percentage thresholds apply. |
+| [group-by](#check_nps_auth_group-by)               | all           | Aggregate by all, client, policy, or reason (numeric reason code).                     |
+| [require-traffic](#check_nps_auth_require-traffic) | false         | Alert on a quiet aggregate window; only supported with group-by=all.                   |
+
+
+
+<h5 id="check_nps_auth_window">window:</h5>
+
+Scan the last N seconds (1..86400), with a fixed start and end time.
+
+*Default Value:* `300`
+
+<h5 id="check_nps_auth_max-events">max-events:</h5>
+
+Fail UNKNOWN instead of reporting partial counts if this many events is exceeded.
+
+*Default Value:* `100000`
+
+<h5 id="check_nps_auth_min-requests">min-requests:</h5>
+
+Minimum accepted+rejected events per group before default percentage thresholds apply.
+
+*Default Value:* `20`
+
+<h5 id="check_nps_auth_group-by">group-by:</h5>
+
+Aggregate by all, client, policy, or reason (numeric reason code).
+
+*Default Value:* `all`
+
+<h5 id="check_nps_auth_require-traffic">require-traffic:</h5>
+
+Alert on a quiet aggregate window; only supported with group-by=all.
+
+*Default Value:* `false`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                         | Default Value                                                                                                                 |
+|----------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| <a id="check_nps_auth_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                                               |
+| <a id="check_nps_auth_warning"></a>[warning](../common-options.md#warning)                                     | decisions >= min_requests and reject_pct > 10                                                                                 |
+| <a id="check_nps_auth_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                               |
+| <a id="check_nps_auth_critical"></a>[critical](../common-options.md#critical)                                  | discarded > 0 or (decisions >= min_requests and reject_pct > 25) or (require_traffic = 1 and requests = 0)                    |
+| <a id="check_nps_auth_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                               |
+| <a id="check_nps_auth_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                               |
+| <a id="check_nps_auth_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                                         |
+| <a id="check_nps_auth_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                                         |
+| <a id="check_nps_auth_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                                                       |
+| <a id="check_nps_auth_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                               |
+| <a id="check_nps_auth_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                                         |
+| <a id="check_nps_auth_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                                             |
+| <a id="check_nps_auth_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                                            |
+| <a id="check_nps_auth_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                                               |
+| <a id="check_nps_auth_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No NPS groups found in window                                                                                                 |
+| <a id="check_nps_auth_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${group}: ${accepted} accepted, ${rejected} rejected, ${discarded} discarded, reject=${reject_pct}%, top reason=${top_reason} |
+| <a id="check_nps_auth_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${group}                                                                                                                      |
+| <a id="check_nps_auth_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                               |
+| <a id="check_nps_auth_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                               |
+| <a id="check_nps_auth_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                                            |
+| <a id="check_nps_auth_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                               |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_nps_auth_filter_keys"></a>
+#### Filter keywords
+
+| Option          | Description                                                                       |
+|-----------------|-----------------------------------------------------------------------------------|
+| accepted        | Access-granted events (6272)                                                      |
+| decisions       | Accepted + rejected events; percentage denominator                                |
+| discarded       | Discarded authentication events (6274)                                            |
+| group           | all, client, policy, or reason-code group                                         |
+| min_requests    | Minimum decisions for default percentage thresholds                               |
+| reject_pct      | 100 * rejected / (accepted + rejected), or 0 when no decisions; excludes discards |
+| rejected        | Access-denied events (6273)                                                       |
+| requests        | Accepted + rejected + discarded events                                            |
+| require_traffic | Whether zero authentication events should alert                                   |
+| top_reason      | Most frequent reject/discard reason code; none without failures                   |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_nps_counters
+
+Check the installed NPS/RADIUS performance counters using two samples.
+
+Enumerates and reads counters from an installed NPS performance object. The
+default `object` is `NPS Authentication Server`; select
+`object=NPS Accounting Server` for accounting. On localized Windows, supply the
+installed localized object name if the English name is unavailable. Counter and
+instance names are those provided by Windows, allowing version-specific fields
+without assuming that every server exposes the same names.
+
+Two PDH samples are always collected, separated by `sample-ms` (default 1000),
+so rate counters are measured. Missing objects, failed samples, and unavailable
+values return UNKNOWN instead of being represented as zero. The IAS service must
+be installed. An object with no values returns the configured empty state,
+UNKNOWN by default.
+
+Each record exposes an object, counter, instance, and formatted numeric value.
+The label includes all three names to avoid performance-data collisions. Aggregate
+instances such as `_Total` are included: select the aggregate or individual
+clients with `filter`, and do not sum both. There are no default numeric thresholds
+because counters have different units and meanings. Match a counter by name when
+setting `warning` or `critical`. Lifetime totals are not converted into interval
+counts; rate counters already carry the rate computed by PDH.
+
+For arbitrary counter paths or long-term collector averages, use CheckSystem's
+`check_pdh`. For accepted/rejected percentages and reason codes, use
+`check_nps_auth`.
+
+**Jump to section:**
+
+* [Sample Commands](#check_nps_counters_samples)
+* [Command-line Arguments](#check_nps_counters_options)
+* [Filter keywords](#check_nps_counters_filter_keys)
+
+
+<a id="check_nps_counters_samples"></a>
+#### Sample Commands
+
+#### Host without NPS
+
+Captured on Windows without the role; the result is UNKNOWN.
+
+```text
+nscp client --module CheckWindowsApps --boot --query check_nps_counters
+NPS counters unavailable: NPS role is not installed (IAS service missing)
+```
+
+#### Select an installed counter object
+
+Configuration examples for an English Windows NPS host:
+
+```text
+check_nps_counters
+check_nps_counters "object=NPS Accounting Server" sample-ms=1000
+```
+
+Use the returned `counter` and `instance` names when setting a filter and
+threshold. Counter names and available instances depend on the Windows version
+and language. Select individual clients or `_Total` when available, avoiding
+double-counting both in a graph.
+
+
+
+<a id="check_nps_counters_options"></a>
+#### Command-line Arguments
+
+        
+        
+| Option                                     | Default Value             | Description                                                                                      |
+|--------------------------------------------|---------------------------|--------------------------------------------------------------------------------------------------|
+| [object](#check_nps_counters_object)       | NPS Authentication Server | Installed NPS performance object; use NPS Accounting Server for accounting, or a localized name. |
+| [sample-ms](#check_nps_counters_sample-ms) | 1000                      | Delay between the two PDH samples (100..10000 milliseconds).                                     |
+
+
+
+<h5 id="check_nps_counters_object">object:</h5>
+
+Installed NPS performance object; use NPS Accounting Server for accounting, or a localized name.
+
+*Default Value:* `NPS Authentication Server`
+
+<h5 id="check_nps_counters_sample-ms">sample-ms:</h5>
+
+Delay between the two PDH samples (100..10000 milliseconds).
+
+*Default Value:* `1000`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                             | Default Value         |
+|--------------------------------------------------------------------------------------------------------------------|-----------------------|
+| <a id="check_nps_counters_filter"></a>[filter](../common-options.md#filter)                                        |                       |
+| <a id="check_nps_counters_warning"></a>[warning](../common-options.md#warning)                                     |                       |
+| <a id="check_nps_counters_warn"></a>[warn](../common-options.md#warn)                                              |                       |
+| <a id="check_nps_counters_critical"></a>[critical](../common-options.md#critical)                                  |                       |
+| <a id="check_nps_counters_crit"></a>[crit](../common-options.md#crit)                                              |                       |
+| <a id="check_nps_counters_ok"></a>[ok](../common-options.md#ok)                                                    |                       |
+| <a id="check_nps_counters_debug"></a>[debug](../common-options.md#debug)                                           | false                 |
+| <a id="check_nps_counters_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                 |
+| <a id="check_nps_counters_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown               |
+| <a id="check_nps_counters_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                       |
+| <a id="check_nps_counters_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                 |
+| <a id="check_nps_counters_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                     |
+| <a id="check_nps_counters_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}    |
+| <a id="check_nps_counters_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                       |
+| <a id="check_nps_counters_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No NPS counters found |
+| <a id="check_nps_counters_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${label}=${value}     |
+| <a id="check_nps_counters_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${label}              |
+| <a id="check_nps_counters_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                       |
+| <a id="check_nps_counters_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                       |
+| <a id="check_nps_counters_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                    |
+| <a id="check_nps_counters_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                       |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_nps_counters_filter_keys"></a>
+#### Filter keywords
+
+| Option   | Description                                                                 |
+|----------|-----------------------------------------------------------------------------|
+| counter  | Installed counter name                                                      |
+| instance | Counter instance, including _Total; empty for a single-instance object      |
+| label    | Object, counter and instance used for a unique performance label            |
+| object   | Installed performance object name                                           |
+| value    | Formatted PDH value after two samples; units depend on the selected counter |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 

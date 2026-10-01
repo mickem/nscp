@@ -31,6 +31,14 @@ masked_values:
   # password-enabled-web-server.
   "/settings/default": clear
 
+# NSCA-NG ships in the zip only (antivirus detections on the DLL, see
+# installers/installer-NSCP/Product.wxs), so even ADDLOCAL=ALL must leave it
+# out: a stray reference back into another feature would put it in the MSI
+# again without anything else failing.
+forbidden_files:
+  nsca-ng:
+    - modules/NSCANgClient.dll
+
 required_files:
   dlls:
     - boost_chrono.dll
@@ -116,8 +124,6 @@ required_files:
     - modules/NSCAClient.dll
     - modules/NSCAServer.dll
     - modules/Scheduler.dll
-    # NSCA-NG plugin (NSCANgPlugin)
-    - modules/NSCANgClient.dll
     # Elastic plugin (ElasticPlugin)
     - modules/ElasticClient.dll
     # Various client plugins (ExtraClientPlugin)

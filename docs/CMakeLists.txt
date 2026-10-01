@@ -10,12 +10,12 @@ if(MKDOCS_FOUND)
         # sys.path from ${scripts}/python/lib. Point ${scripts} at the build tree
         # (where protoc generated them) so this works without `make install`.
         set(SCRIPTS_ARG "scripts=\${base-path}/scripts")
-        # No "--log oneline" here, unlike the Linux command below: oneline
-        # prints "file(line): error: message", the canonical Visual Studio
-        # format, and MSBuild counts every such line a custom command prints
-        # as a build error. --load-all starts every module against empty
-        # settings, so some log errors (a missing certificate, an unknown path
-        # token) and the target failed after a successful extraction.
+        # No `--log oneline` here: that format is `file(line): error: text`,
+        # which MSBuild recognises as its canonical error line and turns into
+        # a failed build. Modules loaded with --load-all under a dummy settings
+        # store log a few errors (missing certificates, an unknown path token)
+        # that the extraction itself tolerates, so under Visual Studio the
+        # target failed after having written every YAML file.
         set(COMMAND_LINE
             ${CMAKE_BINARY_DIR}/nscp
             client
