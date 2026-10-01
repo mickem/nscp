@@ -188,3 +188,86 @@ describeOnWindows("CheckSystem pdh counter listing", () => {
     for (const line of narrow) expect(line.toLowerCase()).toContain("frequency");
   });
 });
+
+/**
+ * The index lookups and the legacy CheckCounter, ported from the legacy
+ * scripts/python/test_w32_system.py. PDH names are localised but their
+ * indexes are not, so this round trip is how an operator writes a counter
+ * that works whatever language the host is installed in.
+ *
+ * The verbs read the opposite way to their names: --lookup-name takes an
+ * index and prints its name, --lookup-index takes a name and prints its
+ * index.
+ */
+describeOnWindows("CheckSystem pdh index lookup", () => {
+  let nscp: NscpInstance;
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    await nscp.configure({ "/modules": { CheckSystem: "enabled" } });
+  });
+
+  /** One `nscp sys -- <args> --porcelain` run: its exit code and its one line of output. */
+  async function lookup(args: string[]): Promise<{ code: number; value: string }> {
+    const r = await nscp.run(["sys", "--", ...args, "--porcelain"], { allowFailure: true });
+    const lines = r.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    return { code: r.exitCode, value: lines[lines.length - 1] ?? "" };
+  }
+
+  /** The legacy CheckCounter through a one-shot client query. */
+  async function checkCounter(args: string[]): Promise<{ code: number; out: string }> {
+    const r = await nscp.run(
+      ["client", "--module", "CheckSystem", "--boot", "--query", "CheckCounter", ...args],
+      {
+        allowFailure: true,
+      },
+    );
+    return { code: r.exitCode, out: r.stdout };
+  }
+
+  const names: Record<number, string> = {};
+
+  // 4 is the Memory object and 26 its Committed Bytes counter.
+  it.each([4, 26])(
+    "--lookup-name %i and --lookup-index of the result round-trip",
+    async (index) => {
+      const name = await lookup(["--lookup-name", String(index)]);
+      expect(name.code).toBe(0);
+      expect(name.value.length).toBeGreaterThan(0);
+      names[index] = name.value;
+
+      const back = await lookup(["--lookup-index", name.value]);
+      expect(back.code).toBe(0);
+      expect(back.value).toBe(String(index));
+    },
+  );
+
+  // CheckCounter answers UNKNOWN when it cannot read the counter, so anything
+  // else - with a message and perfdata - means the path resolved.
+  it.each([
+    ["by index", ["Counter=\\4\\26", "ShowAll", "MaxWarn=10"]],
+    ["by index with the index flag", ["Counter=\\4\\26", "index", "ShowAll", "MaxWarn=10"]],
+  ])("CheckCounter reads a counter %s", async (_label, args) => {
+    const { code, out } = await checkCounter(args);
+    expect(code).not.toBe(3);
+    const [message, perf] = out.trim().split("|");
+    expect(message.trim().length).toBeGreaterThan(0);
+    expect((perf ?? "").trim().length).toBeGreaterThan(0);
+  });
+
+  it("CheckCounter reads a counter by the names the lookup returned", async () => {
+    // Runs after the round trip above, which recorded the names.
+    expect(names[4]).toBeDefined();
+    expect(names[26]).toBeDefined();
+    const { code, out } = await checkCounter([
+      `Counter=\\${names[4]}\\${names[26]}`,
+      "ShowAll",
+      "MaxWarn=10",
+    ]);
+    expect(code).not.toBe(3);
+    expect(out).toContain("|");
+  });
+});
