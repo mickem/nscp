@@ -26,6 +26,15 @@ NSCAPI_EXPORT void set_response_bad(::PB::Commands::QueryResponseMessage_Respons
 NSCAPI_EXPORT void set_response_bad(::PB::Commands::ExecuteResponseMessage_Response &response, std::string message);
 NSCAPI_EXPORT void set_response_bad(::PB::Commands::SubmitResponseMessage_Response &response, std::string message);
 
+// Make every free-text field (result messages, perfdata aliases) well-formed
+// UTF-8 before the message is serialized. protobuf refuses a string field that
+// is not, and the core then cannot parse the response at all, so one stray
+// ANSI byte from an OS error message would cost the caller the whole result.
+// Text that is already UTF-8 is left untouched (see utf8::make_valid).
+NSCAPI_EXPORT void make_valid_utf8(::PB::Commands::QueryResponseMessage &message);
+NSCAPI_EXPORT void make_valid_utf8(::PB::Commands::ExecuteResponseMessage &message);
+NSCAPI_EXPORT void make_valid_utf8(::PB::Commands::SubmitResponseMessage &message);
+
 }  // namespace functions
 }  // namespace protobuf
 }  // namespace nscapi

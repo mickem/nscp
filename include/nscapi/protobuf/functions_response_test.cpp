@@ -5,6 +5,7 @@
 
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
+#include <str/utf8.hpp>
 
 // Response setting functions tests
 TEST(ResponseFunctionsTest, set_response_good_query) {
@@ -277,4 +278,39 @@ TEST(ResponseFunctionsTest, set_response_good_wdata_submit_preserves_existing_co
   nscapi::protobuf::functions::set_response_good_wdata(response, "Data");
 
   EXPECT_EQ("my_command", response.command());
+}
+
+// make_valid_utf8: a message that would not serialize is repaired, valid text
+// is left exactly as it was.
+TEST(ResponseFunctionsTest, make_valid_utf8_query) {
+  const std::string valid = "connect failed: m\xC3\xA5l";
+  PB::Commands::QueryResponseMessage message;
+  PB::Commands::QueryResponseMessage::Response *payload = message.add_payload();
+  payload->add_lines()->set_message(valid);
+  PB::Commands::QueryResponseMessage::Response::Line *bad = payload->add_lines();
+  bad->set_message("connect failed: m\xE5l");
+  bad->add_perf()->set_alias(
+      "dr\xE5"
+      "ve");
+
+  nscapi::protobuf::functions::make_valid_utf8(message);
+
+  EXPECT_EQ(valid, message.payload(0).lines(0).message());
+  EXPECT_TRUE(utf8::is_valid(message.payload(0).lines(1).message()));
+  EXPECT_EQ(0u, message.payload(0).lines(1).message().find("connect failed: m"));
+  EXPECT_TRUE(utf8::is_valid(message.payload(0).lines(1).perf(0).alias()));
+}
+
+TEST(ResponseFunctionsTest, make_valid_utf8_execute_and_submit) {
+  PB::Commands::ExecuteResponseMessage exec;
+  exec.add_payload()->set_message("fel: \xE4");
+  nscapi::protobuf::functions::make_valid_utf8(exec);
+  EXPECT_TRUE(utf8::is_valid(exec.payload(0).message()));
+
+  PB::Commands::SubmitResponseMessage submit;
+  submit.add_payload()->mutable_result()->set_message("fel: \xE4");
+  submit.add_payload();  // no result at all: must not grow one
+  nscapi::protobuf::functions::make_valid_utf8(submit);
+  EXPECT_TRUE(utf8::is_valid(submit.payload(0).result().message()));
+  EXPECT_FALSE(submit.payload(1).has_result());
 }
