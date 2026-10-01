@@ -24,9 +24,10 @@
  * the core defers it to the scheduler, so every reconfiguration is confirmed
  * by a probe submission landing rather than by a sleep.
  *
- * The default matrix is every cipher at the protocol's 512 bytes plus every
- * length at aes256 (the default) and xor. NSCP_FULL_MATRIX=1 runs all 64
- * combinations.
+ * The matrix is every cipher at the protocol's 512 bytes plus every other
+ * length at aes256 (the default), not every combination: the payload is
+ * encrypted byte by byte in CFB mode (libs/nscpcrypt/nscpcrypt.cpp), so no
+ * cipher's block size has to divide the length and the two cannot interact.
  *
  * nsca-ciphers.test.ts tests a different property and stays: the `nscp nsca`
  * CLI against a real libmcrypt nsca daemon. There 3way and gost fail
@@ -85,17 +86,11 @@ const CIPHERS = [
 ];
 const LENGTHS = [128, 512, 1024, 4096];
 
-const fullMatrix = process.env.NSCP_FULL_MATRIX === "1";
-
 /** [cipher, payload length] rows, in run order. */
-const MATRIX: Array<[string, number]> = fullMatrix
-  ? CIPHERS.flatMap((c) => LENGTHS.map((l): [string, number] => [c, l]))
-  : [
-      ...CIPHERS.map((c): [string, number] => [c, 512]),
-      ...["aes256", "xor"].flatMap((c) =>
-        LENGTHS.filter((l) => l !== 512).map((l): [string, number] => [c, l]),
-      ),
-    ];
+const MATRIX: Array<[string, number]> = [
+  ...CIPHERS.map((c): [string, number] => [c, 512]),
+  ...LENGTHS.filter((l) => l !== 512).map((l): [string, number] => ["aes256", l]),
+];
 
 const STATES: Array<[string, number]> = [
   ["ok", OK],
