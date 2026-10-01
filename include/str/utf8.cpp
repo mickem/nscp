@@ -242,3 +242,79 @@ std::wstring utf8::string_to_wstring(std::string const &str) {
   return iconv_convert<wchar_t>(kWcharEncoding, "UTF-8", str.data(), str.size());
 #endif
 }
+
+namespace {
+// Length of the well-formed UTF-8 sequence starting at p, or 0 when there is
+// none (Unicode 15, table 3-7).
+std::size_t sequence_length(const unsigned char *p, std::size_t remaining) {
+  const unsigned char c = p[0];
+  if (c < 0x80) return 1;
+  std::size_t len;
+  unsigned char lo = 0x80, hi = 0xBF;
+  if (c >= 0xC2 && c <= 0xDF) {
+    len = 2;
+  } else if (c >= 0xE0 && c <= 0xEF) {
+    len = 3;
+    if (c == 0xE0) lo = 0xA0;
+    if (c == 0xED) hi = 0x9F;
+  } else if (c >= 0xF0 && c <= 0xF4) {
+    len = 4;
+    if (c == 0xF0) lo = 0x90;
+    if (c == 0xF4) hi = 0x8F;
+  } else {
+    return 0;
+  }
+  if (remaining < len) return 0;
+  if (p[1] < lo || p[1] > hi) return 0;
+  for (std::size_t i = 2; i < len; ++i) {
+    if (p[i] < 0x80 || p[i] > 0xBF) return 0;
+  }
+  return len;
+}
+
+std::string decode_invalid_run(const std::string &run) {
+#ifdef WIN32
+  const std::wstring wide = utf8::to_unicode(run);
+  if (!wide.empty()) return utf8::wstring_to_string(wide);
+#endif
+  std::string out;
+  for (std::size_t i = 0; i < run.size(); ++i) out += "\xEF\xBF\xBD";  // U+FFFD
+  return out;
+}
+}  // namespace
+
+bool utf8::is_valid(std::string const &str) {
+  const auto *p = reinterpret_cast<const unsigned char *>(str.data());
+  const std::size_t size = str.size();
+  for (std::size_t i = 0; i < size;) {
+    const std::size_t len = sequence_length(p + i, size - i);
+    if (len == 0) return false;
+    i += len;
+  }
+  return true;
+}
+
+std::string utf8::make_valid(std::string const &str) {
+  if (is_valid(str)) return str;
+  const auto *p = reinterpret_cast<const unsigned char *>(str.data());
+  const std::size_t size = str.size();
+  std::string out;
+  out.reserve(size + size / 2);
+  std::size_t run_start = std::string::npos;
+  for (std::size_t i = 0; i < size;) {
+    const std::size_t len = sequence_length(p + i, size - i);
+    if (len == 0) {
+      if (run_start == std::string::npos) run_start = i;
+      ++i;
+      continue;
+    }
+    if (run_start != std::string::npos) {
+      out += decode_invalid_run(str.substr(run_start, i - run_start));
+      run_start = std::string::npos;
+    }
+    out.append(str, i, len);
+    i += len;
+  }
+  if (run_start != std::string::npos) out += decode_invalid_run(str.substr(run_start));
+  return out;
+}

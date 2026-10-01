@@ -360,15 +360,34 @@ describeOnWindows("CheckSecurity (Windows posture)", () => {
 
   // --- check_group_members ---------------------------------------------------
 
+  /**
+   * The Administrators group under the name an operator sees, which follows the
+   * language Windows was installed in. Deliberately the display name and not
+   * S-1-5-32-544: looking a group up by its localized name is what this check
+   * does in the field. The suite runs on English and Swedish hosts; any other
+   * language fails here, so the table gets a row instead of a guess.
+   */
+  function administratorsGroup(): string {
+    const language = execFileSync(
+      "powershell",
+      ["-NoProfile", "-Command", "[Globalization.CultureInfo]::InstalledUICulture.TwoLetterISOLanguageName"],
+      { encoding: "utf8" },
+    ).trim();
+    const names: Record<string, string> = { en: "Administrators", sv: "Administratörer" };
+    const name = names[language];
+    if (!name) throw new Error(`No Administrators group name known for Windows install language '${language}'`);
+    return name;
+  }
+
   it("check_group_members lists the Administrators group", async () => {
-    // Default group, no allow-list -> every member is expected -> OK.
-    const out = await query("check_group_members", []);
+    // No allow-list -> every member is expected -> OK.
+    const out = await query("check_group_members", [`group=${administratorsGroup()}`]);
     expect(out).toMatch(/^OK/m);
   });
 
   it("check_group_members flags membership drift against an expected list", async () => {
     // No real member has this name, so every member is unexpected -> CRITICAL.
-    const out = await query("check_group_members", ["expected=NSCP_nobody_zzz"]);
+    const out = await query("check_group_members", [`group=${administratorsGroup()}`, "expected=NSCP_nobody_zzz"]);
     expect(out).toMatch(/^CRITICAL/m);
   });
 
@@ -460,7 +479,14 @@ describeOnWindows("CheckSecurity (Windows posture)", () => {
     const dir = nscp.scratch("world_writable");
     const child = path.join(dir, "child");
     fs.mkdirSync(child, { recursive: true });
-    execFileSync("icacls", [dir, "/grant", "*S-1-1-0:(OI)(CI)M"], { stdio: "ignore" });
+    // Inheritance is cut first: the scratch tree sits under %TEMP%, whose ACL
+    // can carry write grants of its own (a sandbox group, say) that would turn
+    // the allow-listed run below WARNING on one machine and not another.
+    execFileSync(
+      "icacls",
+      [dir, "/inheritance:r", "/grant", `${process.env.USERNAME}:(OI)(CI)F`, "/grant", "*S-1-1-0:(OI)(CI)M"],
+      { stdio: "ignore" },
+    );
 
     const out = await query("check_file_security", [`path=${dir}`, `path=${child}`]);
     expect(out).toMatch(/^CRITICAL/m);

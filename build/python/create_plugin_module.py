@@ -278,6 +278,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 {% elif cmd.raw_mapping %}
 			} else if (request_payload.command() == "{{cmd.name|lower}}") {
 				impl_->{{cmd_name}}("{{cmd.name|lower}}", request_message, &response_message);
+				nscapi::protobuf::functions::make_valid_utf8(response_message);
 				response_message.SerializeToString(&response);
 				return NSCAPI::cmd_return_codes::isSuccess;
 {% elif cmd.nagios %}
@@ -369,6 +370,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
         payload->set_result(PB::Common::ResultCode::UNKNOWN);
         payload->add_lines()->set_message("Failed to process command ");
 	}
+    nscapi::protobuf::functions::make_valid_utf8(response_message);
     response_message.SerializeToString(&response);
     return NSCAPI::cmd_return_codes::isSuccess;
 {% endif %}
@@ -480,6 +482,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWNotification(const char* ch
         payload->mutable_result()->set_message(std::string("Failed to process submission on ") + channel);
         payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
 	}
+    nscapi::protobuf::functions::make_valid_utf8(response_message);
     response_message.SerializeToString(&response);
     return NSCAPI::cmd_return_codes::isSuccess;
 }
@@ -515,6 +518,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, 
 			}
 		}
 		if (found) {
+			nscapi::protobuf::functions::make_valid_utf8(response_message);
 			response_message.SerializeToString(&response);
 			return NSCAPI::cmd_return_codes::isSuccess;
 		}
@@ -539,6 +543,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, 
 		request_message.ParseFromString(request);
 		if (!impl_->commandLineExec(target_mode, request_message, response_message))
 			return NSCAPI::cmd_return_codes::returnIgnored;
+		nscapi::protobuf::functions::make_valid_utf8(response_message);
 		response_message.SerializeToString(&response);
 		return NSCAPI::cmd_return_codes::isSuccess;
 	} catch (const std::exception &e) {
@@ -573,6 +578,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, 
 			}
 		}
 		if (found) {
+			nscapi::protobuf::functions::make_valid_utf8(response_message);
 			response_message.SerializeToString(&response);
 			return NSCAPI::cmd_return_codes::isSuccess;
 		}

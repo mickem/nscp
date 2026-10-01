@@ -78,7 +78,9 @@ describeIf(canRun)("check_nt (legacy NSClient) integration", () => {
         // the case where the operator has to opt out explicitly.
         "use ssl": false,
         port: "12489",
-        ...(allow !== undefined ? { allow } : {}),
+        // Always written: configure() only sets keys, so leaving it out would
+        // keep whatever the previous block configured. "any" is the default.
+        allow: allow ?? "any",
       },
     });
     nscp.start();

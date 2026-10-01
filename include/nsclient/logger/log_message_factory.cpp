@@ -4,6 +4,7 @@
 #include <iostream>
 #include <nscapi/protobuf/log.hpp>
 #include <nsclient/logger/log_message_factory.hpp>
+#include <str/utf8.hpp>
 
 void nsclient::logging::log_message_factory::log_fatal(const std::string &message) { std::cout << message << "\n"; }
 
@@ -16,7 +17,9 @@ std::string create_message(const std::string &module, PB::Log::LogEntry::Entry::
     msg->set_level(level);
     msg->set_file(file);
     msg->set_line(line);
-    msg->set_message(logMessage);
+    // A log line often quotes OS error text; one that is not UTF-8 would fail
+    // to serialize and the line would be lost. See utf8::make_valid.
+    msg->set_message(utf8::make_valid(logMessage));
     return message.SerializeAsString();
   } catch (std::exception &e) {
     nsclient::logging::log_message_factory::log_fatal(std::string("Failed to generate message: ") + e.what());

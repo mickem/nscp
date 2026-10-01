@@ -45,6 +45,25 @@ inline std::wstring cvt(std::string const& str) {
 }
 
 inline std::string utf8_from_native(std::string const& str) { return cvt<std::string>(to_unicode(str)); }
+
+/** True when the bytes are well-formed UTF-8 (no overlong forms, surrogates or code points past U+10FFFF). */
+bool is_valid(std::string const& str);
+
+/**
+ * Returns the text as well-formed UTF-8, unchanged when it already is.
+ *
+ * A last line of defence for text on its way into a protobuf string field,
+ * which refuses to serialize anything else and takes the whole message down
+ * with it. Unlike utf8_from_native() it is safe on text that is already UTF-8,
+ * so it can sit on a path where most text is: only the runs of bytes that are
+ * not valid UTF-8 are touched. On Windows those are decoded from the ANSI code
+ * page - where they almost always come from (error_code::message(),
+ * system_error::what()) - elsewhere each byte becomes U+FFFD.
+ *
+ * It is not a substitute for converting OS text where it is produced: a run
+ * that happens to be valid UTF-8 as well is kept as UTF-8.
+ */
+std::string make_valid(std::string const& str);
 inline std::string to_encoding(std::string const& str, const std::string& encoding) { return to_encoding(cvt<std::wstring>(str), encoding); }
 }  // namespace utf8
 /*

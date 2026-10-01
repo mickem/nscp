@@ -186,7 +186,7 @@ gearmandOrSkip()("Mod-Gearman submit channel", () => {
       expect((await reading)!.output).toBe("one off");
     });
 
-    it("sends unencrypted only when that is said out loud", async () => {
+    it("refuses unencrypted unless said out loud, and on a borrowed key at all", async () => {
       // encryption=false alone is refused: the payload would be plain base64,
       // readable and forgeable by anyone who can reach gearmand.
       const refused = await submit([
@@ -199,20 +199,20 @@ gearmandOrSkip()("Mod-Gearman submit channel", () => {
       expect(refused).toMatch(/insecure/i);
       expect(refused).not.toContain("Submission successful");
 
-      // With `insecure` it goes, and the payload really is plain base64 - the
-      // reader below is given no key at all.
-      const reading = nextResult(runQueue("submit_plain"), { key: "", encryption: false });
-      const sent = await submit([
+      // Saying it out loud is not enough here: the key comes from the
+      // configured `default` target, and a request may not weaken the
+      // transport of a target whose credentials it borrows. The block below
+      // has no target, so that is where the plaintext submission goes through.
+      const downgraded = await submit([
         `address=${server.host}:${server.port}`,
         "encryption=false",
         "insecure=true",
-        `queue=${runQueue("submit_plain")}`,
         "command=plain",
         "result=0",
-        "message=in the clear",
+        "message=nope",
       ]);
-      expect(sent).toContain("Submission successful");
-      expect((await reading)!.output).toBe("in the clear");
+      expect(downgraded).toMatch(/carries credentials/);
+      expect(downgraded).not.toContain("Submission successful");
     });
 
     it("reports a gearmand that is not there rather than claiming success", async () => {
@@ -275,6 +275,23 @@ gearmandOrSkip()("Mod-Gearman submit channel", () => {
       ]);
       expect(out).toMatch(/no key/i);
       expect(out).not.toContain("Submission successful");
+    });
+
+    it("sends unencrypted when that is said out loud", async () => {
+      // With `insecure` it goes, and the payload really is plain base64 - the
+      // reader below is given no key at all.
+      const reading = nextResult(runQueue("submit_plain"), { key: "", encryption: false });
+      const sent = await submit([
+        `address=${server.host}:${server.port}`,
+        "encryption=false",
+        "insecure=true",
+        `queue=${runQueue("submit_plain")}`,
+        "command=plain",
+        "result=0",
+        "message=in the clear",
+      ]);
+      expect(sent).toContain("Submission successful");
+      expect((await reading)!.output).toBe("in the clear");
     });
 
     it("says where to name a gearmand when none was", async () => {

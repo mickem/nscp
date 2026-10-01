@@ -148,17 +148,17 @@ void begin_exchange(probe_state &st, const kdc_probe::bytes &framed) {
   st.start_exchange();
   asio::async_connect(st.socket, st.endpoints, [&st, &framed](const boost::system::error_code &ec, const tcp::endpoint &) {
     if (ec) {
-      st.finish("connect failed: " + ec.message());
+      st.finish("connect failed: " + check_ad::error_text(ec));
       return;
     }
     asio::async_write(st.socket, asio::buffer(framed), [&st](const boost::system::error_code &ec, std::size_t) {
       if (ec) {
-        st.finish("send failed: " + ec.message());
+        st.finish("send failed: " + check_ad::error_text(ec));
         return;
       }
       asio::async_read(st.socket, asio::buffer(st.header), [&st](const boost::system::error_code &ec, std::size_t) {
         if (ec) {
-          st.finish("read failed: " + ec.message());
+          st.finish("read failed: " + check_ad::error_text(ec));
           return;
         }
         const std::size_t len = (static_cast<std::size_t>(st.header[0]) << 24) | (static_cast<std::size_t>(st.header[1]) << 16) |
@@ -171,7 +171,7 @@ void begin_exchange(probe_state &st, const kdc_probe::bytes &framed) {
         asio::async_read(st.socket, asio::buffer(st.out.response), [&st](const boost::system::error_code &ec, std::size_t) {
           if (ec) {
             st.out.response.clear();
-            st.finish("read failed: " + ec.message());
+            st.finish("read failed: " + check_ad::error_text(ec));
             return;
           }
           st.out.exchanged = true;
@@ -237,7 +237,7 @@ std::vector<probe_outcome> exchange_with_kdcs(const std::vector<std::string> &ho
           boost::system::error_code resolve_ec;
           const tcp::resolver::results_type found = resolver.resolve(host, service, resolve_ec);
           if (resolve_ec) {
-            result->error = "resolve failed: " + resolve_ec.message();
+            result->error = "resolve failed: " + check_ad::error_text(resolve_ec);
             return;
           }
           for (const tcp::resolver::results_type::value_type &entry : found) result->endpoints.push_back(entry.endpoint());

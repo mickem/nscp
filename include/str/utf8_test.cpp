@@ -318,3 +318,56 @@ TEST(utf8, wstring_to_string_with_tabs) {
   std::string result = utf8::wstring_to_string(input);
   EXPECT_EQ(result, "col1\tcol2\tcol3");
 }
+
+// Tests for is_valid / make_valid
+
+TEST(utf8, is_valid_accepts_ascii_and_multibyte) {
+  EXPECT_TRUE(utf8::is_valid(""));
+  EXPECT_TRUE(utf8::is_valid("plain"));
+  EXPECT_TRUE(utf8::is_valid("m\xC3\xA5l"));        // U+00E5
+  EXPECT_TRUE(utf8::is_valid("\xE2\x82\xAC"));      // U+20AC
+  EXPECT_TRUE(utf8::is_valid("\xF0\x9F\x98\x80"));  // U+1F600
+  EXPECT_TRUE(utf8::is_valid("\xEF\xBF\xBD"));      // U+FFFD
+}
+
+TEST(utf8, is_valid_rejects_malformed) {
+  EXPECT_FALSE(utf8::is_valid("m\xE5l"));            // cp1252 a-ring
+  EXPECT_FALSE(utf8::is_valid("\xC3"));              // truncated
+  EXPECT_FALSE(utf8::is_valid("\xC0\xAF"));          // overlong '/'
+  EXPECT_FALSE(utf8::is_valid("\xE0\x80\xAF"));      // overlong
+  EXPECT_FALSE(utf8::is_valid("\xED\xA0\x80"));      // surrogate
+  EXPECT_FALSE(utf8::is_valid("\xF4\x90\x80\x80"));  // past U+10FFFF
+  EXPECT_FALSE(utf8::is_valid("\x80"));              // stray continuation
+}
+
+TEST(utf8, make_valid_leaves_valid_text_alone) {
+  const std::string text = "connect failed: m\xC3\xA5l \xE2\x82\xAC";
+  EXPECT_EQ(text, utf8::make_valid(text));
+}
+
+TEST(utf8, make_valid_produces_valid_utf8) {
+  // Valid UTF-8 around an invalid run survives byte for byte.
+  const std::string out = utf8::make_valid(
+      "\xC3\xA5 connect failed: m\xE5"
+      "l");
+  EXPECT_TRUE(utf8::is_valid(out));
+  EXPECT_EQ(0u, out.find("\xC3\xA5 connect failed: m"));
+  EXPECT_EQ('l', out.back());
+  EXPECT_TRUE(utf8::is_valid(utf8::make_valid("\xC3")));
+  EXPECT_TRUE(utf8::is_valid(utf8::make_valid("\xFF\xFE\x80")));
+}
+
+#ifdef WIN32
+TEST(utf8, make_valid_decodes_an_invalid_run_from_the_ansi_code_page) {
+  // Whatever the code page, the run comes back as what utf8_from_native makes of it.
+  const std::string native = "\xE5\xE4\xF6";
+  EXPECT_EQ("x " + utf8::utf8_from_native(native) + " y", utf8::make_valid("x " + native + " y"));
+}
+#else
+TEST(utf8, make_valid_replaces_each_invalid_byte) {
+  EXPECT_EQ(
+      "m\xEF\xBF\xBD"
+      "l",
+      utf8::make_valid("m\xE5l"));
+}
+#endif

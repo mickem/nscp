@@ -135,7 +135,7 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
   payload->set_command(command);
   payload->set_result(protobuf::functions::nagios_status_to_gpb(code));
   PB::Commands::QueryResponseMessage::Response::Line *line = payload->add_lines();
-  line->set_message(message);
+  line->set_message(utf8::make_valid(message));
   if (!perf.empty()) protobuf::functions::parse_performance_data(line, perf);
 
   request_message.SerializeToString(&request);

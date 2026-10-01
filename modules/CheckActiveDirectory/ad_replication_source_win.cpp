@@ -112,12 +112,12 @@ bool can_reach_rpc(const std::string &host, int timeout_ms, std::string &error) 
 
   resolver.async_resolve(host, "135", [&](const boost::system::error_code &ec, tcp::resolver::results_type results) {
     if (ec) {
-      error = "resolve failed: " + ec.message();
+      error = "resolve failed: " + check_ad::error_text(ec);
       return;
     }
     asio::async_connect(socket, results, [&](const boost::system::error_code &ec, const tcp::endpoint &) {
       if (ec)
-        error = "connect failed: " + ec.message();
+        error = "connect failed: " + check_ad::error_text(ec);
       else
         connected = true;
     });
