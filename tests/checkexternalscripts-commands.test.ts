@@ -443,7 +443,11 @@ describe("CheckExternalScripts — argument substitution, lockdown and command n
         [
           "@echo off",
           "echo Test arguments are: (%1 %2 %3)",
-          `IF "%1" == "LONG" (${Array.from({ length: 11 }, () => `echo ${DIGITS}`).join(" & ")})`,
+          // One echo per line: inside `( a & b )` cmd keeps the space before
+          // each `&`, so every line would end in a trailing blank.
+          'IF NOT "%1" == "LONG" GOTO :SHORT',
+          ...Array.from({ length: 11 }, () => `echo ${DIGITS}`),
+          ":SHORT",
           ...exits,
           "exit /B 0",
           "",
