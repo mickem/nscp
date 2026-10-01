@@ -2,7 +2,7 @@
 title: "Undefined-behaviour sweep: process listing, remote registry, real-time log files and remote JSON values"
 fixed_in: next
 severity: "Low–Medium"
-modules: [CheckSystem, CheckLogFile, CheckNet, NRPEServer, NSCAServer]
+modules: [CheckSystem, CheckLogFile, CheckNet, NRPEServer, NSCAServer, NRPEClient, NSCAClient]
 action: none
 ---
 Five more findings from the second undefined-behaviour sweep were fixed. Only
@@ -29,7 +29,8 @@ one takes its input from outside the host: the reply of a server that
   was read.
 - The NRPE and NSCA CRC32 table was filled in lazily by the first thread
   that needed it. Two connections arriving together on a freshly started agent
-  could use a partly filled table and reject a valid packet. The table is now
+  could use a partly filled table and reject a valid packet. The same table is
+  used by NRPEClient and NSCAClient for outbound packets. The table is now
   a compile-time constant.
 
 None of these is known to have been exploited.
