@@ -73,9 +73,14 @@ const STATES: Array<[string, number]> = [
 
 const LUA = `
 -- Answers with the state and message it was handed: whatever went out over
--- NRPE has to come back unchanged.
+-- NRPE has to come back unchanged. Exactly two arguments, so a client that
+-- sends them twice (target= used to re-parse into the same payload) fails
+-- rather than echoing the first pair.
 local function check_echo(command, args)
-  return args[1] or 'unknown', args[2] or '', ''
+  if #args ~= 2 then
+    return 'unknown', 'check_echo expected 2 arguments, got ' .. #args .. ': ' .. table.concat(args, '!'), ''
+  end
+  return args[1], args[2], ''
 end
 
 -- Forward check_echo over NRPE through Core:query_forward, which sets the
@@ -133,30 +138,69 @@ describe("NRPE client -> server loopback", () => {
     };
   }
 
+  /** How many times the core has started reloading `module` so far. */
+  const reloadsOf = (module: string) =>
+    nscp
+      .capturedStdout()
+      .split(/\r?\n/)
+      .filter((l) => l.includes(`Reloading: ${module}`)).length;
+
+  /**
+   * Ask for a reload of `modules` and wait until the core has run it. From
+   * inside a REST call the core defers a reload to its scheduler, so the call
+   * returns before anything has happened; the core logs `Reloading: <module>`
+   * when it gets to it.
+   */
+  async function reloadModules(...modules: string[]): Promise<void> {
+    const before = modules.map(reloadsOf);
+    const r = await executeQuery(
+      key,
+      "reload_modules",
+      Object.fromEntries(modules.map((m) => [m, ""])),
+    );
+    expect(r.result).toBe(OK);
+    const deadline = Date.now() + 60_000;
+    while (modules.some((m, i) => reloadsOf(m) <= before[i])) {
+      if (Date.now() >= deadline)
+        throw new Error(`${modules.join(", ")} did not reload within 60s`);
+      await sleep(100);
+    }
+  }
+
+  /** What both ends were last switched to; the boot configuration first. */
+  let current = { ssl: true, length: 1024 };
+
   /**
    * Switch both ends to one SSL mode and length, reload them, and wait until
-   * the configured target answers - which only happens once both reloads have
-   * applied.
+   * the change has applied.
+   *
+   * Once both reloads have run, the probe goes through request-supplied
+   * options carrying the new mode and length and through the configured
+   * target; it retries while a listener is still coming back up. A switch to
+   * what is already configured is skipped.
    */
   async function reconfigure(ssl: boolean, length: number): Promise<void> {
+    if (current.ssl === ssl && current.length === length) return;
     await putSettings(key, SERVER_PATH, { "use ssl": ssl, "payload length": length });
     await putSettings(key, TARGET_PATH, { "use ssl": ssl, "payload length": length });
-    const r = await executeQuery(key, "reload_modules", { NRPEServer: "", NRPEClient: "" });
-    expect(r.result).toBe(OK);
+    await reloadModules("NRPEServer", "NRPEClient");
 
+    const tag = `probe-${ssl}-${length}`;
     const deadline = Date.now() + 30_000;
-    let last: QueryResult | undefined;
     for (;;) {
-      const tag = `probe-${ssl}-${length}`;
-      last = await echo("ok", tag);
-      if (last.result === OK && messageOf(last) === tag) return;
+      const direct = await echo("ok", tag, adHoc(ssl, length));
+      const configured = await echo("ok", tag);
+      const up = (q: QueryResult) => q.result === OK && messageOf(q) === tag;
+      if (up(direct) && up(configured)) break;
       if (Date.now() >= deadline) {
         throw new Error(
-          `NRPE loopback did not come up with ssl=${ssl} length=${length} within 30s: ${JSON.stringify(last)}`,
+          `NRPE loopback did not come up with ssl=${ssl} length=${length} within 30s: ` +
+            JSON.stringify({ direct, configured }),
         );
       }
       await sleep(250);
     }
+    current = { ssl, length };
   }
 
   beforeAll(async () => {

@@ -183,12 +183,50 @@ describe("NSCA client -> server loopback", () => {
     };
   }
 
+  /** How many times the core has started reloading `module` so far. */
+  const reloadsOf = (module: string) =>
+    nscp
+      .capturedStdout()
+      .split(/\r?\n/)
+      .filter((l) => l.includes(`Reloading: ${module}`)).length;
+
+  /**
+   * Ask for a reload of `modules` and wait until the core has run it. From
+   * inside a REST call the core defers a reload to its scheduler, so the call
+   * returns before anything has happened; the core logs `Reloading: <module>`
+   * when it gets to it.
+   */
+  async function reloadModules(...modules: string[]): Promise<void> {
+    const before = modules.map(reloadsOf);
+    const r = await executeQuery(
+      key,
+      "reload_modules",
+      Object.fromEntries(modules.map((m) => [m, ""])),
+    );
+    expect(r.result).toBe(OK);
+    const deadline = Date.now() + 60_000;
+    while (modules.some((m, i) => reloadsOf(m) <= before[i])) {
+      if (Date.now() >= deadline)
+        throw new Error(`${modules.join(", ")} did not reload within 60s`);
+      await sleep(100);
+    }
+  }
+
+  /** What both ends were last switched to; the boot configuration first. */
+  let current = { cipher: "aes256", length: 512 };
+
   /**
    * Point both modules at one cipher, key and length, reload them, and wait
-   * until a submission through the configured target lands - which only
-   * happens once both reloads have applied.
+   * until the change has applied.
+   *
+   * Once both reloads have run, a probe goes out with request-supplied
+   * options carrying the new cipher, key and length, which only the new
+   * server can decode, and one through the configured target, which only
+   * matches the new server if the client re-read the target. A switch to what
+   * is already configured is skipped.
    */
   async function reconfigure(cipher: string, length: number): Promise<void> {
+    if (current.cipher === cipher && current.length === length) return;
     await putSettings(key, SERVER_PATH, {
       encryption: cipher,
       password: keyFor(cipher),
@@ -199,18 +237,26 @@ describe("NSCA client -> server loopback", () => {
       password: keyFor(cipher),
       "payload length": length,
     });
-    const r = await executeQuery(key, "reload_modules", { NSCAServer: "", NSCAClient: "" });
-    expect(r.result).toBe(OK);
+    await reloadModules("NSCAServer", "NSCAClient");
 
     const deadline = Date.now() + 30_000;
-    for (;;) {
-      const probe = `probe-${randomUUID()}`;
-      await submit(probe, "ok", "probe", { target: "valid" });
-      if (await waitFor(probe, 1_000)) return;
+    let direct: CachedResult | undefined;
+    let configured: CachedResult | undefined;
+    while (!(direct && configured)) {
       if (Date.now() >= deadline) {
-        throw new Error(`NSCA loopback did not come up with ${cipher}/${length} within 30s`);
+        throw new Error(
+          `NSCA loopback did not come up with ${cipher}/${length} within 30s ` +
+            `(request options: ${direct ? "landed" : "lost"}, configured target: ${configured ? "landed" : "lost"})`,
+        );
       }
+      const a = `probe-${randomUUID()}`;
+      const b = `probe-${randomUUID()}`;
+      await submit(a, "ok", "probe", adHoc(cipher, length));
+      await submit(b, "ok", "probe", { target: "valid" });
+      direct = direct ?? (await waitFor(a, 1_000));
+      configured = configured ?? (await waitFor(b, 1_000));
     }
+    current = { cipher, length };
   }
 
   beforeAll(async () => {
@@ -386,8 +432,7 @@ describe("NSCA client -> server loopback", () => {
 
     it("refuses to start the listener on a reload that removes the key", async () => {
       await putSettings(key, SERVER_PATH, { encryption: "aes256", password: "" });
-      const r = await executeQuery(key, "reload_modules", { NSCAServer: "" });
-      expect(r.result).toBe(OK);
+      await reloadModules("NSCAServer");
 
       // The refusal stops the old listener and starts no new one.
       const deadline = Date.now() + 30_000;
