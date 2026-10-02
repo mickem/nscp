@@ -7,6 +7,7 @@
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <error/error.hpp>
+#include <functional>
 #include <map>
 #include <memory>
 #include <nscapi/nscapi_core_wrapper.hpp>
@@ -165,7 +166,10 @@ class pdh_thread {
   std::string last_logged_cpu_error;
   std::string last_logged_memory_error;
   std::string last_logged_network_error;
+  std::string last_logged_history_error;
 
+  static std::string read_source(const std::function<void()> &read);
+  static void record(sampling::tracker &tracker, bool sampled, bool baseline, const std::string &error);
   void log_sampling_error(const std::string &what, const std::string &error, std::string &last_logged);
 
   // Process history (keyed by lowercase exe name), tracked once per second when

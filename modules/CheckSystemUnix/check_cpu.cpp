@@ -13,6 +13,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
+#include <time_windows.hpp>
 
 #include "realtime_thread.hpp"
 
@@ -70,7 +71,7 @@ void check_cpu(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryR
   // clang-format off
   filter_helper.get_desc().add_options()
     ("time", po::value<std::vector<std::string>>(&times), "The time to check")
-    ("cores", boost::program_options::bool_switch(&show_all_cores),
+    ("cores", po::value<bool>(&show_all_cores)->implicit_value(true)->default_value(false),
     "This will remove the filter to include the cores, if you use filter don't use this as well.")
     ;
   // clang-format on
@@ -89,16 +90,9 @@ void check_cpu(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryR
 
   if (!filter_helper.build_filter(filter)) return;
 
-  // Validated before the collector is consulted: a bad time= is a
-  // configuration error and must not hide behind a warm-up answer.
-  std::vector<std::pair<std::string, long>> time_windows;
-  for (const std::string &time : times) {
-    try {
-      time_windows.emplace_back(time, str::format::decode_time<long>(time, 1));
-    } catch (const std::exception &e) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
-    }
-  }
+  time_windows::list windows_to_check;
+  const std::string time_error = time_windows::decode(times, windows_to_check);
+  if (!time_error.empty()) return nscapi::protobuf::functions::set_response_bad(*response, time_error);
 
   // Check if collector is available and has data
   if (!collector) {
@@ -107,7 +101,7 @@ void check_cpu(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryR
 
   if (filter_helper.answer_unless_sampled(collector->cpu_status(), "CPU")) return;
 
-  for (const auto &window : time_windows) {
+  for (const auto &window : windows_to_check) {
     const std::string &time = window.first;
     const long seconds = window.second;
     auto cpu_data = collector->get_cpu_load(seconds);

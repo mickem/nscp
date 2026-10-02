@@ -40,6 +40,13 @@ struct tracker {
     ++attempts;
     last_error = error.empty() ? "unknown error" : error;
   }
+  // A source whose samples are deltas has just read its baseline again after
+  // failing: the next attempt produces the first sample, so it is warming up
+  // again - not failed, and not yet ready.
+  void restarted() {
+    attempts = 0;
+    last_error.clear();
+  }
 
   // `has_data`: whether the buffer holds a sample to answer from.
   status get(const bool has_data) const {

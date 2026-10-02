@@ -10,18 +10,27 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 #include <locale>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
 #include <sstream>
+#include <stdexcept>
 
 #include "collector_source.h"
 
 namespace collector_source {
 
 namespace {
+
+// The collector reports a source that cannot be read, once per change of
+// reason; the readers only say why, so a missing file is never mistaken for
+// an empty one and nothing is logged every second.
+void open_or_throw(std::ifstream &file, const std::string &path) {
+  file.open(path);
+  if (!file.is_open()) throw std::runtime_error(path + ": " + std::strerror(errno));
+}
 
 // Read a single-line value from a /sys file, trimming whitespace. Returns ""
 // when the file is missing/unreadable.
@@ -53,11 +62,11 @@ unsigned long long read_mem_line(std::istringstream &iss) {
 std::map<std::string, cpu_times> read_cpu_times() {
   std::map<std::string, cpu_times> result;
 
-  try {
+  {
     std::locale mylocale("C");
     std::ifstream file;
     file.imbue(mylocale);
-    file.open("/proc/stat");
+    open_or_throw(file, "/proc/stat");
     std::string line;
 
     while (std::getline(file, line)) {
@@ -69,8 +78,6 @@ std::map<std::string, cpu_times> read_cpu_times() {
 
       result[ct.name] = ct;
     }
-  } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Failed to read CPU times: " + std::string(e.what()));
   }
 
   return result;
@@ -79,12 +86,12 @@ std::map<std::string, cpu_times> read_cpu_times() {
 memory_sample read_memory() {
   memory_sample result;
 
-  try {
+  {
     unsigned long long cached = 0;
     std::locale mylocale("C");
     std::ifstream file;
     file.imbue(mylocale);
-    file.open("/proc/meminfo");
+    open_or_throw(file, "/proc/meminfo");
     std::string line;
 
     while (std::getline(file, line)) {
@@ -106,8 +113,6 @@ memory_sample read_memory() {
 
     // Cached memory: total is physical total, free is physical free + buffers/cached
     result.cached_free = result.physical_free + cached;
-  } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Failed to read memory info: " + std::string(e.what()));
   }
 
   return result;
@@ -117,11 +122,11 @@ std::map<std::string, unsigned long long> read_memory_extras() { return {}; }
 
 std::map<std::string, net_sample> read_network() {
   std::map<std::string, net_sample> result;
-  try {
+  {
     std::locale mylocale("C");
     std::ifstream file;
     file.imbue(mylocale);
-    file.open("/proc/net/dev");
+    open_or_throw(file, "/proc/net/dev");
     std::string line;
     int header = 0;
     while (std::getline(file, line)) {
@@ -162,8 +167,6 @@ std::map<std::string, net_sample> read_network() {
       }
       result[name] = c;
     }
-  } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Failed to read network counters: " + std::string(e.what()));
   }
   return result;
 }

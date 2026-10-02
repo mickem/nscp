@@ -186,6 +186,26 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(messageOf(q)).not.toMatch(/Invalid warmup-state/);
   });
 
+  it("check_cpu accepts a valued cores=true over REST", async () => {
+    // REST sends the flag as one `cores=true` token, which a bool_switch
+    // rejects with "does not take any arguments".
+    const q = await executeQuery(key, "check_cpu", {
+      cores: "true",
+      warning: "none",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "${core}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/core/);
+  });
+
+  it("check_cpu rejects a zero time window", async () => {
+    const q = await executeQuery(key, "check_cpu", { time: "0s" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid time '0s': the window must be at least one second/);
+  });
+
   it("check_cpu reports an invalid time= whatever warmup-state says", async () => {
     // Option errors are answered before the collector is consulted, so this
     // holds in and after the warm-up alike.

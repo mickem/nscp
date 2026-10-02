@@ -856,6 +856,16 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+NSCP_CREATE_TEST(
+    time_windows_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/time_windows_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 # Lua acceptance tests (protobuf-free) - drive the built `nscp` over the Lua
 # scripting API. Registered as ctest `*_test` targets so they run under the
 # sanitizer environment via tools/sanitizers/run.sh (ctest -R '_test$').

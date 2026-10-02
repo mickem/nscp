@@ -24,6 +24,7 @@
 #include <nscp_time.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
+#include <time_windows.hpp>
 #include <utility>
 #include <vector>
 #include <win/com_helpers.hpp>
@@ -789,7 +790,7 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
   // clang-format off
   filter_helper.get_desc().add_options()
     ("time", po::value<std::vector<std::string>>(&times), "The time to check")
-    ("cores", boost::program_options::bool_switch(&show_all_cores),
+    ("cores", po::value<bool>(&show_all_cores)->implicit_value(true)->default_value(false),
     "This will remove the filter to  include the cores, if you use filter dont use this as well.")
     ;
   // clang-format on
@@ -808,21 +809,9 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 
   if (!filter_helper.build_filter(filter)) return;
 
-  // Validated before the collector is consulted: a bad time= is a
-  // configuration error and must not hide behind a warm-up answer.
-  std::vector<std::pair<std::string, long>> time_windows;
-  for (const std::string &time : times) {
-    long seconds;
-    try {
-      seconds = str::format::decode_time<long>(time, 1);
-    } catch (const std::exception &e) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
-    }
-    if (seconds <= 0) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': the window must be at least one second");
-    }
-    time_windows.emplace_back(time, seconds);
-  }
+  time_windows::list windows_to_check;
+  const std::string time_error = time_windows::decode(times, windows_to_check);
+  if (!time_error.empty()) return nscapi::protobuf::functions::set_response_bad(*response, time_error);
 
   const std::shared_ptr<pdh_thread> collector = get_collector();
   if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
@@ -852,7 +841,7 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
     if (filter_helper.answer_unless_sampled(status.value(), "CPU")) return;
   }
 
-  for (const auto &window : time_windows) {
+  for (const auto &window : windows_to_check) {
     const std::string &time = window.first;
     const long seconds = window.second;
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(seconds);

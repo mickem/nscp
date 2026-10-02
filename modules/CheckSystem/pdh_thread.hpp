@@ -5,6 +5,8 @@
 
 #include <atomic>
 #include <boost/optional.hpp>
+#include <boost/thread/lock_guard.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
@@ -87,7 +89,10 @@ class pdh_thread {
   std::list<PDH::pdh_object> configs_;
   std::list<PDH::pdh_instance> counters_;
   rrd_buffer<windows::system_info::cpu_load> cpu;
-  // Attempts to read the CPU load for `cpu` (guarded by mutex_, like it).
+  // Attempts to read the CPU load for `cpu`. Guarded by its own mutex rather
+  // than mutex_, so an attempt is counted even when mutex_ cannot be had;
+  // taken after mutex_ wherever both are held.
+  boost::mutex cpu_sampling_mutex_;
   sampling::tracker cpu_sampling_;
   // Unix-style load averages folded from queue length + busy cores each tick
   // (guarded by mutex_; see check_load.hpp).
@@ -193,11 +198,17 @@ class pdh_thread {
 
  private:
   static spi_container fetch_spi(error_list &errors);
+  // One tick's CPU reading, or why there is none.
+  struct cpu_reading {
+    bool ok = false;
+    windows::system_info::cpu_load load;
+    std::string error;
+  };
+  // Stores this tick's CPU reading (null when CPU sampling is disabled) and,
+  // with_metrics, the metrics, under one exclusive lock. The CPU ring does not
+  // depend on with_metrics: `disable = metrics` must not starve check_cpu.
+  void store_tick(const cpu_reading *cpu_read, const spi_container &handles, PDH::PDHQuery *pdh, bool with_metrics, error_list &errors);
   void write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors);
-  // Store one CPU reading (or the reason there is none) for check_cpu and the
-  // realtime filters. Independent of write_metrics(): `disable = metrics` must
-  // not starve the CPU ring.
-  void record_cpu_sample(bool have_cpu, const windows::system_info::cpu_load &load, const std::string &error, error_list &errors);
 
   // Single attempt at resolving counters and opening the PDH query. Rebuilds
   // counters_ and lookups_ from configs_ each call so that wildcard expansion

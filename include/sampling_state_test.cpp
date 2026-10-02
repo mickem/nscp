@@ -47,3 +47,14 @@ TEST(SamplingTracker, SucceededButEmptyIsFailedWithoutAnError) {
   EXPECT_EQ(readiness::failed, s.state);
   EXPECT_TRUE(s.error.empty());
 }
+
+// After a run of failures, the read that only re-establishes a delta source's
+// baseline puts it back into warm-up until the next read produces a sample.
+TEST(SamplingTracker, RestartedAfterFailuresIsWarmUpAgain) {
+  tracker t;
+  t.failed("/proc/stat: cannot open");
+  t.restarted();
+  EXPECT_EQ(readiness::warming_up, t.get(false).state);
+  t.succeeded();
+  EXPECT_EQ(readiness::ready, t.get(true).state);
+}

@@ -37,4 +37,6 @@ still UNKNOWN unless noted, only with a message that says what is wrong:
   `use pdh for cpu` enabled, an explicit `warmup-state` is refused, as that
   source has no warm-up to report.
 - **Both** - an invalid `time=` on `check_cpu` is reported right away instead of
-  after the warm-up.
+  after the warm-up, and Linux and macOS now reject a zero window (`time=0s`)
+  as Windows already did. `check_cpu cores=true` is now accepted over REST,
+  where it used to fail with *"does not take any arguments"*.
