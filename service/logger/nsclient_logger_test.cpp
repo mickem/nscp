@@ -22,11 +22,15 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <nsclient/logger/log_message_factory.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <string>
+#include <thread>
 #include <vector>
 
 using nsclient::logging::log_message_factory;
@@ -214,4 +218,157 @@ TEST(NsclientLogger, DriverOptionsDoNotDisturbTheSeverityLevel) {
     EXPECT_NO_THROW(logger->set_log_level(option));
     EXPECT_EQ(logger->get_log_level(), "warning");
   }
+}
+
+// ===== delivery outside the lock ==========================================
+//
+// on_log_message() used to hold the subscriber mutex (a 5 s timed one) across
+// the whole fan-out. A subscriber that logged from inside its handler then
+// re-entered on the same thread, waited out the 5 s and lost the line, and a
+// remove() during a slow delivery gave up after 5 s and left the subscriber
+// in the list. Delivery now runs on a snapshot with the lock released.
+
+namespace {
+
+// Logs again from inside its handler, once, the way a log-handler module
+// that reports a problem with the line it was handed does.
+class ReentrantSubscriber : public logging_subscriber {
+ public:
+  explicit ReentrantSubscriber(nsclient_logger* logger) : logger_(logger) {}
+  void on_log_message(const std::string& payload) override {
+    {
+      std::lock_guard<std::mutex> g(mu);
+      payloads.push_back(payload);
+    }
+    if (payload == "outer") logger_->on_log_message("inner");
+  }
+  std::vector<std::string> snapshot() {
+    std::lock_guard<std::mutex> g(mu);
+    return payloads;
+  }
+  nsclient_logger* logger_;
+  std::vector<std::string> payloads;
+  std::mutex mu;
+};
+
+// Unsubscribes itself from inside its handler.
+class SelfRemovingSubscriber : public logging_subscriber, public std::enable_shared_from_this<SelfRemovingSubscriber> {
+ public:
+  explicit SelfRemovingSubscriber(nsclient_logger* logger) : logger_(logger) {}
+  void on_log_message(const std::string&) override {
+    ++calls;
+    logger_->remove_subscriber(shared_from_this());
+  }
+  nsclient_logger* logger_;
+  std::atomic<int> calls{0};
+};
+
+// Blocks inside its handler until released, so a test can hold a delivery
+// open on one thread while another calls remove().
+class BlockingSubscriber : public logging_subscriber {
+ public:
+  void on_log_message(const std::string&) override {
+    std::unique_lock<std::mutex> lock(mu);
+    entered = true;
+    cv.notify_all();
+    cv.wait(lock, [this]() { return released; });
+    finished = true;
+  }
+  void wait_until_entered() {
+    std::unique_lock<std::mutex> lock(mu);
+    cv.wait(lock, [this]() { return entered; });
+  }
+  void release() {
+    {
+      std::lock_guard<std::mutex> lock(mu);
+      released = true;
+    }
+    cv.notify_all();
+  }
+  std::mutex mu;
+  std::condition_variable cv;
+  bool entered = false;
+  bool released = false;
+  std::atomic<bool> finished{false};
+};
+
+}  // namespace
+
+TEST(NsclientLogger, SubscriberMayLogFromInsideItsHandler) {
+  auto logger = make_backendless_logger();
+  auto reentrant = std::make_shared<ReentrantSubscriber>(logger.get());
+  auto other = std::make_shared<CapturingSubscriber>();
+  logger->add_subscriber(reentrant);
+  logger->add_subscriber(other);
+
+  const auto started = std::chrono::steady_clock::now();
+  logger->on_log_message("outer");
+  const auto elapsed = std::chrono::steady_clock::now() - started;
+
+  // Both lines reach both subscribers, and the nested delivery did not sit
+  // out a lock timeout first.
+  EXPECT_EQ(reentrant->snapshot(), (std::vector<std::string>{"outer", "inner"}));
+  EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"inner", "outer"}));
+  EXPECT_LT(elapsed, std::chrono::seconds(2));
+}
+
+TEST(NsclientLogger, SubscriberMayRemoveItselfFromInsideItsHandler) {
+  auto logger = make_backendless_logger();
+  auto self_removing = std::make_shared<SelfRemovingSubscriber>(logger.get());
+  auto other = std::make_shared<CapturingSubscriber>();
+  logger->add_subscriber(self_removing);
+  logger->add_subscriber(other);
+
+  const auto started = std::chrono::steady_clock::now();
+  logger->on_log_message("first");
+  logger->on_log_message("second");
+  const auto elapsed = std::chrono::steady_clock::now() - started;
+
+  // Removed on the first line, so it never sees the second; the other
+  // subscriber sees both and nothing waited for a timeout.
+  EXPECT_EQ(self_removing->calls.load(), 1);
+  EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"first", "second"}));
+  EXPECT_LT(elapsed, std::chrono::seconds(2));
+}
+
+TEST(NsclientLogger, RemoveWaitsForADeliveryInFlightOnAnotherThread) {
+  auto logger = make_backendless_logger();
+  auto blocking = std::make_shared<BlockingSubscriber>();
+  logger->add_subscriber(blocking);
+
+  std::thread delivery([&logger]() { logger->on_log_message("slow"); });
+  blocking->wait_until_entered();
+
+  std::atomic<bool> removed{false};
+  std::thread remover([&]() {
+    logger->remove_subscriber(blocking);
+    removed = true;
+  });
+
+  // The subscriber is still inside its handler, so remove() must not have
+  // returned yet - the caller is about to tear the subscriber down.
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  EXPECT_FALSE(removed.load());
+  EXPECT_FALSE(blocking->finished.load());
+
+  blocking->release();
+  remover.join();
+  delivery.join();
+  EXPECT_TRUE(blocking->finished.load());
+
+  // And it really is gone: a later line does not reach it.
+  blocking->entered = false;
+  logger->on_log_message("after");
+  EXPECT_FALSE(blocking->entered);
+}
+
+TEST(NsclientLogger, RemoveAndClearReturnAtOnceWithNothingInFlight) {
+  // Plain add / remove with nothing in flight returns at once.
+  auto logger = make_backendless_logger();
+  auto sub = std::make_shared<CapturingSubscriber>();
+  logger->add_subscriber(sub);
+  const auto started = std::chrono::steady_clock::now();
+  logger->remove_subscriber(sub);
+  logger->clear_subscribers();
+  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
 }
