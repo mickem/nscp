@@ -9,13 +9,14 @@ Three informational findings from the 2026-09 source review were closed. None
 of them gives a caller more than it already had; each tidies up what a peer
 inside `allowed hosts` could make the agent write or render.
 
-- **NRPE logged the command name as raw wire bytes** on two paths (the
-  trace line for every response and the error line for an internal
-  exception). The core logger does not scrub control characters, so a command
-  name carrying `CR`/`LF` could forge a second, convincing log line. Both
-  sites now pass the name through the same `escape_for_log()` that already
-  protects the TLS peer name, which renders control characters as `\xNN` and
-  truncates an oversized value.
+- **NRPE logged the command name and arguments as raw wire bytes** on three
+  paths: the trace line for every request, which ran before the metacharacter
+  filter and carried the arguments too, the trace line for every response, and
+  the error line for an internal exception. The core logger does not scrub
+  control characters, so a command or argument carrying `CR`/`LF` could forge
+  a second, convincing log line. All three now pass those fields through the
+  same `escape_for_log()` that already protects the TLS peer name, which
+  renders control characters as `\xNN` and truncates an oversized value.
 - **check_nt logged an error for every request when no password was
   configured.** Every request is refused in that state, which is right, but
   an allowed host could grow `nsclient.log` by a line per packet for as long
@@ -33,4 +34,5 @@ inside `allowed hosts` could make the agent write or render.
 None of these is known to have been exploited.
 
 **What to do:** nothing beyond upgrading. If you alert on NRPE log lines, note
-that a command name is now rendered with `\xNN` escapes for control characters.
+that a command name or argument string is now rendered with `\xNN` escapes
+for control characters and cut at 255 characters.

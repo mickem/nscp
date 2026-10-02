@@ -261,10 +261,12 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
   // Trace incoming requests so the log shows what the upstream server actually
   // asked for (previously only the connection IP appeared in the log; the
   // command name + argument blob were invisible). Gated because building the
-  // string traverses the payload and does string concatenation.
+  // string traverses the payload and does string concatenation. Both fields
+  // are raw wire bytes that have not been through the metachar filter yet, so
+  // they are escaped: a CR/LF in either would otherwise forge a log line.
   NSC_TRACE_ENABLED() {
-    NSC_TRACE_MSG("NRPE request: command='" + cmd.first + "' args='" + cmd.second + "' (payload_length=" + str::xtos(p.get_payload_length()) +
-                  ", peer_identity='" + peer_identity + "')");
+    NSC_TRACE_MSG("NRPE request: command='" + socket_helpers::escape_for_log(cmd.first) + "' args='" + socket_helpers::escape_for_log(cmd.second) +
+                  "' (payload_length=" + str::xtos(p.get_payload_length()) + ", peer_identity='" + peer_identity + "')");
   }
   if (cmd.first == "_NRPE_CHECK") {
     // The ping reply is unauthenticated (it precedes the argument and
