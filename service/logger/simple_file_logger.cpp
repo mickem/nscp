@@ -9,6 +9,7 @@
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/logger/logger_helper.hpp>
 #include <nscp/path_defaults.hpp>
+#include <limits>
 #include <str/format.hpp>
 #include <vector>
 
@@ -72,7 +73,11 @@ void simple_file_logger::do_log(const std::string data) {
   if (file_.empty()) return;
   try {
     if (max_size_ != 0 && boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
-      std::streamsize target_size = static_cast<int>(max_size_ * 0.7);
+      // 70% in integer arithmetic, clamped to streamsize: max_size_ * 0.7 was
+      // cast to int, undefined once it passes INT_MAX (a max size of ~2.9 GiB).
+      const std::size_t keep = max_size_ / 10 * 7;
+      const std::streamsize target_size =
+          keep > static_cast<std::size_t>((std::numeric_limits<std::streamsize>::max)()) ? (std::numeric_limits<std::streamsize>::max)() : static_cast<std::streamsize>(keep);
       std::vector<char> tmpBuffer(static_cast<std::size_t>(target_size) + 1);
       try {
         std::ifstream ifs(file_.c_str());
