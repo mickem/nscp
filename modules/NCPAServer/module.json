@@ -1,0 +1,13 @@
+{
+	"module"		: {
+		"title"			: "NCPA server",
+		"description"	: "A server that serves the Nagios NCPA HTTP API, so Nagios Core and XI can poll NSClient++ with the stock check_ncpa.py plugin and the XI NCPA wizard.",
+		"name"			: "NCPAServer",
+		"alias"			: "ncpa",
+		"version"		: "auto",
+		"reload"		: true,
+		"experimental"	: true
+	},
+	"metrics"		: "consume",
+	"prepare_shutdown" : true
+}

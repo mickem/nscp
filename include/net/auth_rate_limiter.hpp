@@ -12,6 +12,11 @@
 // count; on reaching `max_failures` the IP is blocked. A successful auth clears
 // the counter.
 //
+// Shared by every listener that takes a credential over HTTP: the WEB server
+// (Basic auth, the password header, legacy query-string auth) and the NCPA
+// server (the community token). Header-only, so each module carries its own
+// instance and its own table.
+//
 // The block escalates, but only against a machine-speed guesser. A fixed window
 // let an attacker keep spending `max_failures` guesses per window forever -
 // ~14k guesses/day per IP at the defaults - so a block whose failures arrived
