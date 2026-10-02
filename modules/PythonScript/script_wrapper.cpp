@@ -1012,15 +1012,18 @@ py::tuple script_wrapper::command_wrapper::simple_query(std::string command, py:
   return py::make_tuple(nagios_return_to_py(ret), msg, perf);
 }
 py::tuple script_wrapper::command_wrapper::query(std::string command, py::object request) {
+  // Read the request and build the early-return tuple while the GIL is still
+  // held: both touch Python objects, which must never happen inside the
+  // thread_unlocker scope (submit() has the same shape).
+  std::string req = pybuf(request, "parse query");
+  if (req.empty()) {
+    return py::make_tuple(false, "Failed to parse request");
+  }
+  req = restamp_caller_plugin_id(req, plugin_id);
   std::string response;
   int ret = 0;
   {
     thread_unlocker unlocker;
-    std::string req = pybuf(request, "parse query");
-    if (req.empty()) {
-      return py::make_tuple(false, "Failed to parse request");
-    }
-    req = restamp_caller_plugin_id(req, plugin_id);
     ret = core->query(req, response);
   }
   return py::make_tuple(ret, pybuf(response));
