@@ -8,7 +8,7 @@
  * no elevation needed) so `hidden=1` and `uri` can be asserted on real data,
  * then removed in afterAll.
  */
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -111,5 +111,88 @@ describeOnWindows("CheckTaskSched check_tasksched", () => {
     expect(messageOf(q)).toMatch(/No tasks found/i);
     const relaxed = await executeQuery(key, "check_tasksched", { ...args, "empty-state": "ok" });
     expect(relaxed.result).toBe(OK);
+  });
+
+  /**
+   * Tasks that have really run, ported from the legacy
+   * scripts/python/test_w32_schetask.py: four per-user tasks whose action
+   * exits 0, 1 and 2, plus one that prints a long output before exiting 0.
+   * Each is run once through schtasks, and exit_code must then read back
+   * exactly what the action returned.
+   */
+  describe("exit_code of tasks that ran", () => {
+    const suffix = `${Date.now()}_${process.pid}`;
+    const expected: Record<string, number> = { OK: 0, WARN: 1, CRIT: 2, LONG: 0 };
+    const taskName = (state: string) => `nscp_exit_${state}_${suffix}`;
+    let dir: string;
+
+    function schtasks(args: string[]): void {
+      execFileSync("schtasks.exe", args, { stdio: "ignore" });
+    }
+
+    /** exit_code = `code` as the warning, so WARNING means it matched. */
+    function exitCodeIs(state: string, code: number) {
+      return executeQuery(key, "check_tasksched", {
+        filter: `title = '${taskName(state)}'`,
+        warning: `exit_code = ${code}`,
+      });
+    }
+
+    beforeAll(async () => {
+      dir = mkdtempSync(join(tmpdir(), "nscp-task-exit-"));
+      for (const state of Object.keys(expected)) {
+        const lines = state === "LONG" ? Array(11).fill(`echo ${"0123456789".repeat(10)}`) : [];
+        const bat = join(dir, `${state.toLowerCase()}.bat`);
+        writeFileSync(bat, ["@echo off", ...lines, `exit /b ${expected[state]}`, ""].join("\r\n"));
+        schtasks([
+          "/Create",
+          "/SC",
+          "DAILY",
+          "/TN",
+          taskName(state),
+          "/TR",
+          bat,
+          "/ST",
+          "00:00",
+          "/F",
+        ]);
+        schtasks(["/Run", "/TN", taskName(state)]);
+      }
+      // A task that has never run reads 267011 (SCHED_S_TASK_HAS_NOT_RUN), so
+      // this waits for the run to finish even for the tasks that exit 0.
+      for (const state of Object.keys(expected)) {
+        const deadline = Date.now() + 120_000;
+        while ((await exitCodeIs(state, expected[state])).result !== WARNING) {
+          if (Date.now() > deadline)
+            throw new Error(`task ${taskName(state)} never reported exit code ${expected[state]}`);
+          await new Promise((r) => setTimeout(r, 2_000));
+        }
+      }
+    });
+
+    afterAll(() => {
+      for (const state of Object.keys(expected)) {
+        try {
+          schtasks(["/Delete", "/TN", taskName(state), "/F"]);
+        } catch {
+          /* best-effort cleanup */
+        }
+      }
+      if (dir) rmSync(dir, { recursive: true, force: true });
+    });
+
+    it.each(Object.entries(expected))(
+      "the %s task reads exit_code %i and nothing else",
+      async (state, code) => {
+        for (const probe of [0, 1, 2, 3, 4]) {
+          const q = await exitCodeIs(state, probe);
+          expect({ probe, result: q.result, message: messageOf(q) }).toEqual({
+            probe,
+            result: probe === code ? WARNING : OK,
+            message: expect.any(String),
+          });
+        }
+      },
+    );
   });
 });
