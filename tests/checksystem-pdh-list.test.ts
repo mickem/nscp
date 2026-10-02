@@ -224,7 +224,9 @@ describeOnWindows("CheckSystem pdh index lookup", () => {
    */
   async function checkCounter(args: string[]): Promise<{ code: number; out: string; all: string }> {
     const r = await nscp.run(
-      ["client", "--module", "CheckSystem", "--boot", "--query", "CheckCounter", ...args],
+      // --log debug: the shim logs the check_pdh arguments it builds, and
+      // check_pdh what it did with each counter.
+      ["client", "--log", "debug", "--module", "CheckSystem", "--boot", "--query", "CheckCounter", ...args],
       {
         allowFailure: true,
       },
