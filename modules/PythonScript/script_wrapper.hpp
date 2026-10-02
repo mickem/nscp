@@ -4,6 +4,8 @@
 #pragma once
 
 #include <memory>
+#include <utility>
+#include <vector>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -150,7 +152,11 @@ struct function_wrapper {
   bool has_message_handler(const std::string command);
   bool has_simple_message_handler(const std::string command);
 
-  void on_simple_event(const std::string event, const boost::python::dict &data) const;
+  // `data` is plain C++ on purpose: the dict the handler receives is built
+  // inside, under the GIL. Building it in the caller - which holds no GIL, as
+  // it runs on whichever thread emitted the event - crashed the agent in
+  // PyDict_New on the first event a script subscribed to.
+  void on_simple_event(const std::string event, const std::vector<std::pair<std::string, std::string>> &data) const;
   void on_event(const std::string event, const std::string &request) const;
   bool has_event_handler(const std::string event);
   bool has_simple_event_handler(const std::string event);

@@ -25,8 +25,13 @@ namespace po = boost::program_options;
 namespace py = boost::python;
 
 bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-  alias_ = alias;
-  script_wrapper::command_wrapper::register_self(get_id(), "PythonScript", alias);
+  // The alias the module answers to: what it was loaded as, or the default
+  // `python` its settings live under when it was loaded without one. Scripts
+  // get it as init()'s plugin_alias, which the docs tell them to key their own
+  // settings on - an empty one turned /settings/<script>/<plugin_alias>/...
+  // into a path with an empty segment.
+  alias_ = alias.empty() ? "python" : alias;
+  script_wrapper::command_wrapper::register_self(get_id(), "PythonScript", alias_);
 
   if (mode == NSCAPI::reloadStart) {
     nscapi::core_helper ch(get_core(), get_id());
@@ -266,9 +271,14 @@ void PythonScript::handleNotification(const std::string &channel, const PB::Comm
     }
   }
   if (inst->has_simple_message_handler(channel)) {
+    // A submission names the system it is about in its header (the sender, as
+    // check_and_forward's `source` and the passive receivers set it); a result
+    // only carries a source of its own when its producer filled one in. Hand
+    // the script whichever there is, as the WEB result cache does.
+    const std::string source = request.source().empty() ? request_message.header().sender_id() : request.source();
     for (::PB::Commands::QueryResponseMessage_Response_Line line : request.lines()) {
       std::string perf = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
-      if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) !=
+      if (inst->handle_simple_message(channel, source, request.command(), request.result(), line.message(), perf) !=
           NSCAPI::api_return_codes::isSuccess)
         return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
     }
@@ -283,10 +293,17 @@ void PythonScript::onEvent(const PB::Commands::EventMessage &request, const std:
     inst->on_event("$$event$$", buffer);
   }
   for (const ::PB::Commands::EventMessage::Request &line : request.payload()) {
+    // Registry.event_pb(name, fn) files its handler under the event's own
+    // name, and the core only delivers events this module subscribed to by
+    // that name - but only the "$$event$$" catch-all above was ever looked
+    // up, so an event_pb handler registered the documented way never ran.
+    if (line.event() != "$$event$$" && inst->has_event_handler(line.event())) {
+      inst->on_event(line.event(), buffer);
+    }
     if (inst->has_simple_event_handler(line.event())) {
-      boost::python::dict data;
+      std::vector<std::pair<std::string, std::string>> data;
       for (const PB::Common::KeyValue &e : line.data()) {
-        data[e.key()] = e.value();
+        data.emplace_back(e.key(), e.value());
       }
       inst->on_simple_event(line.event(), data);
     }

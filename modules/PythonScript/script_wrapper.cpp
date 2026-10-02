@@ -637,7 +637,10 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
     }
     {
       try {
-        py::call<py::object>(py::object(it->second).ptr(), event, request);
+        // The payload is a serialised protobuf, so it goes in as bytes: as a
+        // std::string boost.python would decode it as UTF-8 and raise on the
+        // first byte that is not, before the handler ever ran.
+        py::call<py::object>(py::object(it->second).ptr(), event, pybuf(request));
       } catch (py::error_already_set &) {
         log_exception(__FILE__, __LINE__, event);
       }
@@ -648,7 +651,7 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
     NSC_LOG_ERROR_EX(event);
   }
 }
-void script_wrapper::function_wrapper::on_simple_event(const std::string event, const py::dict &data) const {
+void script_wrapper::function_wrapper::on_simple_event(const std::string event, const std::vector<std::pair<std::string, std::string>> &data) const {
   try {
     // Under the GIL for the lookup too: registration inserts into this map
     // from Python, so the GIL is what keeps the two apart.
@@ -661,7 +664,9 @@ void script_wrapper::function_wrapper::on_simple_event(const std::string event, 
     }
     {
       try {
-        py::call<void>(py::object(it->second).ptr(), event, data);
+        py::dict dict;
+        for (const std::pair<std::string, std::string> &kv : data) dict[kv.first] = kv.second;
+        py::call<void>(py::object(it->second).ptr(), event, dict);
       } catch (py::error_already_set &) {
         log_exception(__FILE__, __LINE__, event);
       }
