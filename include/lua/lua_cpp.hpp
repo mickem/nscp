@@ -124,7 +124,13 @@ class lua_wrapper {
   template <class T>
   int destroy_user_object_instance() {
     T **ptr = this->checkudata<T *>(1, internal_user_instance_prefix + T::tag);
-    delete *ptr;
+    // A script can call obj:__gc() itself, after which the collector runs the
+    // metamethod again: null the slot so the second call is a no-op instead
+    // of a double delete.
+    if (ptr != nullptr && *ptr != nullptr) {
+      delete *ptr;
+      *ptr = nullptr;
+    }
     return 0;
   }
   template <class T>
