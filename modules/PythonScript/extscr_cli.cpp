@@ -11,6 +11,9 @@
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include <file_helpers.hpp>
+#include <fstream>
+#include <iterator>
+#include <list>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -157,17 +160,43 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
   nscapi::protobuf::functions::set_response_good(*response, resp);
 }
 
-void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
-  namespace po = boost::program_options;
-  namespace pf = nscapi::protobuf::functions;
+namespace {
+// The script file a `--script` name refers to, resolved only inside `root`
+// (`${scripts}/python`). Unlike script_provider::find_file() this does not try
+// the name as given - relative to the working directory, or absolute - so a
+// name cannot reach a file outside the scripts folder. `python/foo.py` (the
+// form `list` and the REST listing print) and `foo.py` / `foo` (the form a
+// script is configured by) both resolve. `outside` is set when a name only
+// resolves to a file outside `root`, so the caller can say why it refused.
+boost::optional<fs::path> resolve_in_sandbox(const fs::path &root, const std::string &script, bool &outside) {
+  outside = false;
+  if (script.empty()) return boost::none;
+  const fs::path parent = root.parent_path();
+  const std::list<fs::path> candidates = {root / script, root / (script + ".py"), parent / script, parent / (script + ".py")};
+  for (const fs::path &c : candidates) {
+    const fs::path candidate = c.lexically_normal();
+    boost::system::error_code ec;
+    if (!fs::is_regular_file(candidate, ec)) continue;
+    if (file_helpers::checks::path_contains_file(root, candidate)) return candidate;
+    outside = true;
+  }
+  return boost::none;
+}
+
+std::string read_file(const fs::path &file) {
+  std::ifstream in(file.string().c_str(), std::ios::in | std::ios::binary);
+  return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+
+bool parse_script_option(const char *what, const PB::Commands::ExecuteRequestMessage::Request &request,
+                         PB::Commands::ExecuteResponseMessage::Response *response, std::string &script) {
   po::variables_map vm;
   po::options_description desc;
-  std::string script;
 
   // clang-format off
   desc.add_options()
     ("help", "Show help.")
-    ("script", po::value<std::string>(&script), "Script to show.")
+    ("script", po::value<std::string>(&script), what)
   ;
   // clang-format on
 
@@ -179,46 +208,94 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
     po::store(parsed, vm);
     po::notify(vm);
   } catch (const std::exception &e) {
-    return npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+    npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+    return false;
   }
 
   if (vm.count("help")) {
     nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
+    return false;
+  }
+  if (script.empty()) {
+    nscapi::protobuf::functions::set_response_bad(*response, "No script specified add --script");
+    return false;
+  }
+  return true;
+}
+}  // namespace
+
+void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+  std::string script;
+  if (!parse_script_option("Script to show.", request, response, script)) return;
+
+  const fs::path root = provider_->get_root();
+  bool outside = false;
+  const boost::optional<fs::path> file = resolve_in_sandbox(root, script, outside);
+  if (!file) {
+    nscapi::protobuf::functions::set_response_bad(*response, outside ? "Not allowed outside: " + root.string() : "Script not found: " + script);
     return;
   }
+  nscapi::protobuf::functions::set_response_good(*response, read_file(file.value()));
 }
 
 void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
-  namespace po = boost::program_options;
-  namespace pf = nscapi::protobuf::functions;
-  po::variables_map vm;
-  po::options_description desc;
   std::string script;
+  if (!parse_script_option("Script to delete.", request, response, script)) return;
 
-  // clang-format off
-  desc.add_options()
-    ("help", "Show help.")
-
-    ("script", po::value<std::string>(&script),
-    "Script to delete.")
-    ;
-  // clang-format on
-
-  try {
-    npo::basic_command_line_parser cmd(request);
-    cmd.options(desc);
-
-    po::parsed_options parsed = cmd.run();
-    po::store(parsed, vm);
-    po::notify(vm);
-  } catch (const std::exception &e) {
-    return npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-  }
-
-  if (vm.count("help")) {
-    nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
+  const fs::path root = provider_->get_root();
+  bool outside = false;
+  const boost::optional<fs::path> file = resolve_in_sandbox(root, script, outside);
+  if (!file) {
+    nscapi::protobuf::functions::set_response_bad(*response, outside ? "Not allowed outside: " + root.string() : "Script not found: " + script);
     return;
   }
+  const fs::path target = file.value();
+
+  // Drop every configured alias that loads this file, so the next reload does
+  // not log a script it can no longer find. Resolved before the file goes, as
+  // resolving needs it to exist.
+  pf::settings_query q(provider_->get_id());
+  q.list(SCRIPT_PATH);
+  provider_->get_core()->settings_query(q.request(), q.response());
+  if (!q.validate_response()) {
+    nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+    return;
+  }
+  std::list<std::string> aliases;
+  for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
+    if (!val.matches(SCRIPT_PATH)) continue;
+    // `alias = file`, or a bare `file =` whose key is the script.
+    std::string configured = val.get_string();
+    if (configured.empty()) configured = val.key();
+    bool ignored = false;
+    const boost::optional<fs::path> loaded = resolve_in_sandbox(root, configured, ignored);
+    if (loaded && loaded.value() == target) aliases.push_back(val.key());
+  }
+
+  boost::system::error_code ec;
+  fs::remove(target, ec);
+  if (ec) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to delete " + target.string() + ": " + ec.message());
+    return;
+  }
+
+  if (!aliases.empty()) {
+    pf::settings_query s(provider_->get_id());
+    for (const std::string &alias : aliases) s.erase(SCRIPT_PATH, alias);
+    s.save();
+    provider_->get_core()->settings_query(s.request(), s.response());
+    if (!s.validate_response()) {
+      nscapi::protobuf::functions::set_response_bad(*response,
+                                                    "Deleted " + target.string() + " but failed to update the configuration: " + s.get_response_error());
+      return;
+    }
+  }
+  std::string msg = "Deleted " + target.string();
+  if (!aliases.empty()) msg += " and removed it from " SCRIPT_PATH;
+  // The instance already loaded keeps running until the module reloads; say
+  // so rather than leave a caller wondering why its commands still answer.
+  msg += ", it stays loaded until PythonScript is reloaded";
+  nscapi::protobuf::functions::set_response_good(*response, msg);
 }
 
 void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
