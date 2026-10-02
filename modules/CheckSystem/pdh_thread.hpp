@@ -198,6 +198,18 @@ class pdh_thread {
 
  private:
   static spi_container fetch_spi(error_list &errors);
+  // What one collector tick folds into load_avg_. have_cpu is false when CPU
+  // sampling is disabled or failed this tick: the load then degrades to the
+  // queue component instead of counting unknown cores as busy. elapsed_seconds
+  // is the measured time since the previous fold, so the averages stay
+  // correct when a tick overruns the 1-second cadence.
+  struct load_fold {
+    double queue = 0.0;
+    double busy_cores = 0.0;
+    long long cores = 0;
+    long long threads = 0;
+    double elapsed_seconds = 1.0;
+  };
   // One tick's CPU reading, or why there is none.
   struct cpu_reading {
     bool ok = false;
@@ -236,18 +248,6 @@ class pdh_thread {
     unsigned long long creation;  // unix seconds (matches process_info::get_creation_time)
     unsigned long long kernel;    // cumulative kernel time in 100ns ticks
     unsigned long long user;      // cumulative user time in 100ns ticks
-  };
-  // What one collector tick folds into load_avg_. have_cpu is false when CPU
-  // sampling is disabled or failed this tick: the load then degrades to the
-  // queue component instead of counting unknown cores as busy. elapsed_seconds
-  // is the measured time since the previous fold, so the averages stay
-  // correct when a tick overruns the 1-second cadence.
-  struct load_fold {
-    double queue = 0.0;
-    double busy_cores = 0.0;
-    long long cores = 0;
-    long long threads = 0;
-    double elapsed_seconds = 1.0;
   };
   static load_fold prepare_load_fold(double queue, bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi,
                                      double elapsed_seconds);
