@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <list>
 #include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
@@ -1419,6 +1420,32 @@ TEST(FunctionNeg, NegOnIntNegates) {
   auto fun = op_factory::get_binary_function(ctx, "neg", subject);
   auto result = fun->evaluate(type_int, ctx, subject);
   EXPECT_EQ(result->get_int_value(ctx), -42);
+}
+
+TEST(FunctionNeg, NegOnIntMinThrowsInsteadOfOverflowing) {
+  // -LLONG_MIN does not fit a long long (signed overflow).
+  auto ctx = make_context();
+  auto subject = make_int((std::numeric_limits<long long>::min)());
+  auto fun = op_factory::get_binary_function(ctx, "neg", subject);
+  EXPECT_THROW(fun->evaluate(type_int, ctx, subject), std::out_of_range);
+}
+
+TEST(FunctionNeg, NegOnDateMirrorsAroundNow) {
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  const long long now = parsers::where::constants::get_now();
+  auto subject = make_int(now + 3600);
+  auto fun = op_factory::get_binary_function(ctx, "neg", subject);
+  auto result = fun->evaluate(type_date, ctx, subject);
+  EXPECT_EQ(result->get_int_value(ctx), now - 3600);
+}
+
+TEST(FunctionNeg, NegOnFarDateThrowsInsteadOfOverflowing) {
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  auto subject = make_int((std::numeric_limits<long long>::min)() + 1);
+  auto fun = op_factory::get_binary_function(ctx, "neg", subject);
+  EXPECT_THROW(fun->evaluate(type_date, ctx, subject), std::out_of_range);
 }
 
 // ======================================================================

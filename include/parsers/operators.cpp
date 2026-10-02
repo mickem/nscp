@@ -28,6 +28,19 @@ namespace parsers {
 namespace where {
 
 namespace {
+// Checked long long arithmetic for values a filter supplies: signed overflow
+// is undefined. std::out_of_range is reported as an evaluation error by
+// parser::evaluate / parser::static_eval.
+long long add_checked(const long long a, const long long b, const std::string &what) {
+  if (b > 0 && a > (std::numeric_limits<long long>::max)() - b) throw std::out_of_range(what + " is too large");
+  if (b < 0 && a < (std::numeric_limits<long long>::min)() - b) throw std::out_of_range(what + " is too small");
+  return a + b;
+}
+long long negate_checked(const long long a, const std::string &what) {
+  if (a == (std::numeric_limits<long long>::min)()) throw std::out_of_range(what + " is too large");
+  return -a;
+}
+
 // The budget itself (and the thread-local counters behind it) lives in
 // regex_guard.cpp, which is compiled only into nscp_where_filter; this file is
 // also compiled straight into parsers_where_test, so defining an exported
@@ -715,15 +728,7 @@ struct function_convert : binary_function_impl {
   }
 
   // A string operand reaches these as a bare long long (convert('9000000', 't')),
-  // so the unit multiplier and the offset from now are checked: signed
-  // overflow is undefined. std::out_of_range is reported as an evaluation
-  // error by parser::evaluate / parser::static_eval.
-  static long long add_checked(const long long a, const long long b, const std::string &what) {
-    if (b > 0 && a > (std::numeric_limits<long long>::max)() - b) throw std::out_of_range(what + " is too large");
-    if (b < 0 && a < (std::numeric_limits<long long>::min)() - b) throw std::out_of_range(what + " is too small");
-    return a + b;
-  }
-
+  // so the unit multiplier and the offset from now are checked.
   static long long parse_time(const long long new_value, const std::string &new_unit) {
     const long long now = constants::get_now();
     const std::string what = "convert(" + std::to_string(new_value) + ", '" + new_unit + "')";
@@ -788,7 +793,7 @@ struct operator_not : unary_operator_impl, binary_function_impl {
       if (!v.is(type_int)) {
         return std::make_shared<int_value>(0, /*is_unsure=*/true);
       }
-      return std::make_shared<int_value>(-v.get_int(0), v.is_unsure);
+      return std::make_shared<int_value>(negate_checked(v.get_int(0), "neg(" + std::to_string(v.get_int(0)) + ")"), v.is_unsure);
     }
     if (type == type_date) {
       const long long now = constants::get_now();
@@ -796,7 +801,9 @@ struct operator_not : unary_operator_impl, binary_function_impl {
       if (!v.is(type_int)) {
         return std::make_shared<int_value>(now, /*is_unsure=*/true);
       }
-      return std::make_shared<int_value>(now - (v.get_int(0) - now), v.is_unsure);
+      // now - (v - now) = 2 * now - v, checked: a date far enough from now overflows.
+      const std::string what = "neg(" + std::to_string(v.get_int(0)) + ")";
+      return std::make_shared<int_value>(add_checked(add_checked(now, now, what), negate_checked(v.get_int(0), what), what), v.is_unsure);
     }
     // Defence-in-depth: any type not handled above (e.g. type_string reached
     // via binary_function_impl from `unary_fun::evaluate` rather than the
