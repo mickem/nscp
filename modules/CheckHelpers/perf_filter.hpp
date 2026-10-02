@@ -61,4 +61,25 @@ struct filter_obj_handler : public native_context {
 };
 
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+
+// Sort orders for filter_perf. Both are a strict weak ordering, which
+// std::sort requires (anything else is UB): an entry without a numeric value
+// used to compare "not less" against everything, which made two numeric
+// entries equivalent whenever a string entry sat between them. Numeric
+// entries are ordered by value and sort before every non-numeric entry; the
+// non-numeric entries are equivalent among themselves.
+struct normal_sort {
+  bool operator()(const PB::Common::PerformanceData &v1, const PB::Common::PerformanceData &v2) const {
+    if (!v1.has_float_value()) return false;
+    if (!v2.has_float_value()) return true;
+    return v1.float_value().value() > v2.float_value().value();
+  }
+};
+struct reverse_sort {
+  bool operator()(const PB::Common::PerformanceData &v1, const PB::Common::PerformanceData &v2) const {
+    if (!v1.has_float_value()) return false;
+    if (!v2.has_float_value()) return true;
+    return v1.float_value().value() < v2.float_value().value();
+  }
+};
 }  // namespace perf_filter

@@ -13,9 +13,6 @@ package.json
 package-lock.json
 tsconfig.json
 jest.config.js
-acceptance-tests.bat
-acceptance-tests.sh
-run-all-tests.bat
 
 # Jest test sources. The Dockerfiles never reference these.
 **/*.test.ts

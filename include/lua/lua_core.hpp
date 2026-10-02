@@ -15,6 +15,7 @@ extern "C" {
 #include <nscapi/protobuf/command.hpp>
 #include <scripts/script_interface.hpp>
 #include <string>
+#include <utility>
 
 namespace lua {
 typedef scripts::script_information<lua_traits> script_information;
@@ -48,10 +49,12 @@ struct lua_runtime_plugin {
 typedef std::shared_ptr<lua_runtime_plugin> lua_runtime_plugin_type;
 
 struct lua_runtime : public scripts::script_runtime_interface<lua::lua_traits> {
+  // The scripts folder (${scripts}): require() resolves from its lua/lib and
+  // lua subfolders.
   std::string base_path;
   std::list<lua_runtime_plugin_type> plugins;
 
-  lua_runtime(std::string base_path) : base_path(base_path) {}
+  explicit lua_runtime(std::string scripts_path) : base_path(std::move(scripts_path)) {}
 
   virtual void register_query(const std::string &command, const std::string &description);
   virtual void register_subscription(const std::string &channel, const std::string &description);

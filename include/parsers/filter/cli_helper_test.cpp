@@ -987,3 +987,116 @@ TEST_F(CliHelperTest, MiscBooleansStillWorkAsBareFlags) {
   EXPECT_TRUE(helper.show_all);
   EXPECT_TRUE(data_.debug);
 }
+
+// ============================================================================
+// cli_helper — warmup-state
+// ============================================================================
+
+TEST_F(CliHelperTest, WarmupStateDefaultsToUnknown) {
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_warmup_option();
+
+  ASSERT_TRUE(helper.parse_options());
+  helper.set_warmup_response("No data available yet (collector still initializing)");
+
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, response_->result());
+  ASSERT_EQ(1, response_->lines_size());
+  EXPECT_EQ("No data available yet (collector still initializing)", response_->lines(0).message());
+}
+
+// REST passes the option as a single key=value token.
+TEST_F(CliHelperTest, WarmupStatePicksTheReportedStatus) {
+  const std::vector<std::pair<std::string, PB::Common::ResultCode>> cases{{"ok", PB::Common::ResultCode::OK},
+                                                                          {"warning", PB::Common::ResultCode::WARNING},
+                                                                          {"CRITICAL", PB::Common::ResultCode::CRITICAL},
+                                                                          {"unknown", PB::Common::ResultCode::UNKNOWN},
+                                                                          // The short spellings every other status option takes.
+                                                                          {"warn", PB::Common::ResultCode::WARNING},
+                                                                          {"crit", PB::Common::ResultCode::CRITICAL}};
+  for (const auto &c : cases) {
+    PB::Commands::QueryRequestMessage::Request request;
+    request.set_command("test_command");
+    request.add_arguments("warmup-state=" + c.first);
+    PB::Commands::QueryResponseMessage msg;
+    PB::Commands::QueryResponseMessage::Response *response = msg.add_payload();
+    modern_filter::data_container data;
+    modern_filter::cli_helper<DummyFilter> helper(request, response, data);
+    helper.add_warmup_option();
+
+    ASSERT_TRUE(helper.parse_options()) << c.first;
+    helper.set_warmup_response("warming up");
+    EXPECT_EQ(c.second, response->result()) << c.first;
+    EXPECT_EQ("warming up", response->lines(0).message()) << c.first;
+  }
+}
+
+TEST_F(CliHelperTest, WarmupStateRejectsAnUnknownValue) {
+  request_.add_arguments("warmup-state=okay");
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_warmup_option();
+
+  EXPECT_FALSE(helper.parse_options());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, response_->result());
+  ASSERT_EQ(1, response_->lines_size());
+  EXPECT_NE(std::string::npos, response_->lines(0).message().find("Invalid warmup-state: okay"));
+}
+
+// Only checks that opt in carry the option; elsewhere it stays an unknown
+// argument instead of being silently accepted.
+TEST_F(CliHelperTest, WarmupStateIsNotRegisteredWithoutOptIn) {
+  request_.add_arguments("warmup-state=ok");
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_misc_options();
+
+  EXPECT_FALSE(helper.parse_options());
+}
+
+TEST_F(CliHelperTest, WarmupStateRemembersWhetherItWasGiven) {
+  modern_filter::cli_helper<DummyFilter> defaulted(request_, response_, data_);
+  defaulted.add_warmup_option();
+  ASSERT_TRUE(defaulted.parse_options());
+  EXPECT_FALSE(defaulted.warmup_state_given());
+
+  request_.add_arguments("warmup-state=unknown");
+  modern_filter::data_container data;
+  modern_filter::cli_helper<DummyFilter> given(request_, response_, data);
+  given.add_warmup_option();
+  ASSERT_TRUE(given.parse_options());
+  EXPECT_TRUE(given.warmup_state_given());
+}
+
+// A collector that has tried and come back empty is never a warm-up.
+TEST_F(CliHelperTest, AnswerUnlessSampledKeepsFailuresUnknown) {
+  request_.add_arguments("warmup-state=ok");
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_warmup_option();
+  ASSERT_TRUE(helper.parse_options());
+
+  sampling::tracker t;
+  t.failed("/proc/stat: permission denied");
+  EXPECT_TRUE(helper.answer_unless_sampled(t.get(false), "CPU"));
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, response_->result());
+  EXPECT_EQ("No CPU data available: the collector failed to sample it: /proc/stat: permission denied", response_->lines(0).message());
+}
+
+TEST_F(CliHelperTest, AnswerUnlessSampledUsesWarmupStateBeforeTheFirstAttempt) {
+  request_.add_arguments("warmup-state=ok");
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_warmup_option();
+  ASSERT_TRUE(helper.parse_options());
+
+  EXPECT_TRUE(helper.answer_unless_sampled(sampling::tracker().get(false), "CPU"));
+  EXPECT_EQ(PB::Common::ResultCode::OK, response_->result());
+  EXPECT_EQ("No CPU data available yet (collector still initializing)", response_->lines(0).message());
+}
+
+TEST_F(CliHelperTest, AnswerUnlessSampledLeavesAReadyCheckAlone) {
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_warmup_option();
+  ASSERT_TRUE(helper.parse_options());
+
+  sampling::tracker t;
+  t.succeeded();
+  EXPECT_FALSE(helper.answer_unless_sampled(t.get(true), "CPU"));
+  EXPECT_EQ(0, response_->lines_size());
+}

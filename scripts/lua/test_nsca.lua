@@ -41,7 +41,7 @@ end
 
 Registry():simple_subscription(INBOX, on_inbox, 'NSCA inbox sink (test)')
 
-local NscaTest = {}
+local NscaTest = { name = "NSCA round trip" }
 
 function NscaTest:install(arguments)
 	local conf = Settings()
@@ -52,6 +52,11 @@ function NscaTest:install(arguments)
 
 	conf:set_string('/settings/NSCA/' .. SERVER, 'port', PORT)
 	conf:set_string('/settings/NSCA/' .. SERVER, 'inbox', INBOX)
+	-- A server with encryption on and no password refuses to load, and one that
+	-- never loaded cannot be reloaded per cipher below - so boot it with a valid
+	-- configuration of its own. reconfigure() replaces both before each cipher.
+	conf:set_string('/settings/NSCA/' .. SERVER, 'encryption', 'none')
+	conf:set_string('/settings/NSCA/' .. SERVER, 'password', 'pwd-none')
 
 	-- The client listens on OUTBOX and relays to its default target.
 	conf:set_string('/settings/NSCA/' .. CLIENT, 'channel', OUTBOX)

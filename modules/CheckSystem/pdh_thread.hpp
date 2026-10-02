@@ -5,6 +5,8 @@
 
 #include <atomic>
 #include <boost/optional.hpp>
+#include <boost/thread/lock_guard.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
@@ -12,6 +14,7 @@
 #include <memory>
 #include <nscapi/settings/proxy.hpp>
 #include <rrd_buffer.hpp>
+#include <sampling_state.hpp>
 #include <threads/stop_signal.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_query.hpp>
@@ -86,6 +89,11 @@ class pdh_thread {
   std::list<PDH::pdh_object> configs_;
   std::list<PDH::pdh_instance> counters_;
   rrd_buffer<windows::system_info::cpu_load> cpu;
+  // Attempts to read the CPU load for `cpu`. Guarded by its own mutex rather
+  // than mutex_, so an attempt is counted even when mutex_ cannot be had;
+  // taken after mutex_ wherever both are held.
+  boost::mutex cpu_sampling_mutex_;
+  sampling::tracker cpu_sampling_;
   // Unix-style load averages folded from queue length + busy cores each tick
   // (guarded by mutex_; see check_load.hpp).
   load_check::load_avg_state load_avg_;
@@ -139,14 +147,16 @@ class pdh_thread {
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
-  // Whether the sampler has pushed at least one CPU sample yet, or none when
+  // Whether the sampler has pushed a CPU sample yet, is still waiting for its
+  // first tick, or has tried and failed (see sampling_state.hpp); none when
   // the collector's lock could not be had - a busy collector is not a fresh
   // one. Only meaningful for the sampled path (use_pdh_for_cpu == false); the
   // PDH path reads its counters directly.
-  boost::optional<bool> has_cpu_data();
+  boost::optional<sampling::status> cpu_status();
   // Snapshot of the synthetic load averages; samples == 0 until the collector
-  // has completed its first tick (or when load sampling is disabled).
-  load_check::load_avg_state get_load_avg();
+  // has completed its first tick (or when load sampling is disabled). None
+  // when the collector's lock could not be had.
+  boost::optional<load_check::load_avg_state> get_load_avg();
 
   network_check::nics_type get_network();
   temperature_check::zones_type get_temperature();
@@ -188,7 +198,33 @@ class pdh_thread {
 
  private:
   static spi_container fetch_spi(error_list &errors);
-  void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
+  // What one collector tick folds into load_avg_. have_cpu is false when CPU
+  // sampling is disabled or failed this tick: the load then degrades to the
+  // queue component instead of counting unknown cores as busy. elapsed_seconds
+  // is the measured time since the previous fold, so the averages stay
+  // correct when a tick overruns the 1-second cadence.
+  struct load_fold {
+    double queue = 0.0;
+    double busy_cores = 0.0;
+    long long cores = 0;
+    long long threads = 0;
+    double elapsed_seconds = 1.0;
+  };
+  // One tick's CPU reading, or why there is none.
+  struct cpu_reading {
+    bool ok = false;
+    windows::system_info::cpu_load load;
+    std::string error;
+  };
+  // Stores this tick's CPU reading (null when CPU sampling is disabled), its
+  // load-average fold (null when load sampling is disabled) and, with_metrics,
+  // the metrics, under one exclusive lock. The CPU ring does not depend on
+  // with_metrics: `disable = metrics` must not starve check_cpu. Returns false
+  // when the lock could not be taken: nothing was folded, so the caller keeps
+  // accumulating the load interval rather than dropping it.
+  bool store_tick(const cpu_reading *cpu_read, const load_fold *fold, const spi_container &handles, PDH::PDHQuery *pdh, bool with_metrics,
+                  error_list &errors);
+  void write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors);
 
   // Single attempt at resolving counters and opening the PDH query. Rebuilds
   // counters_ and lookups_ from configs_ each call so that wildcard expansion
@@ -213,15 +249,10 @@ class pdh_thread {
     unsigned long long kernel;    // cumulative kernel time in 100ns ticks
     unsigned long long user;      // cumulative user time in 100ns ticks
   };
-  // Fold one collector tick into load_avg_ (takes the write lock). have_cpu is
-  // false when CPU sampling is disabled or failed this tick: the load then
-  // degrades to the queue component instead of counting unknown cores as busy.
-  // elapsed_seconds is the measured time since the previous fold, so the
-  // averages stay correct when a tick overruns the 1-second cadence. Returns
-  // false when the lock could not be taken (nothing was folded, so the caller
-  // must keep accumulating the interval rather than dropping it).
-  bool update_load_avg(double queue, bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi, double elapsed_seconds,
-                       error_list &errors);
+  static load_fold prepare_load_fold(double queue, bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi,
+                                     double elapsed_seconds);
+  // Caller must hold the unique (write) lock on mutex_.
+  void fold_load_avg(const load_fold &fold);
 
   std::map<DWORD, proc_cpu_raw> prev_proc_cpu_;
   unsigned long long prev_sys_kernel_ = 0;

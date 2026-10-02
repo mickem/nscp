@@ -12,6 +12,7 @@
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
+#include <str/saturate.hpp>
 #include <str/utf8.hpp>
 
 namespace parsers {
@@ -367,7 +368,9 @@ struct float_variable_node : any_node {
         native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
         if (native_context != nullptr && fun && native_context->has_object()) {
           const double v = fun(native_context->get_object(), context);
-          if (ti) return value_container::create_int(static_cast<long long>(v));
+          // Casting a NaN or an out-of-range double to long long is UB:
+          // saturate, and flag the value as unsure, like float_value does.
+          if (ti) return value_container::create_int(str::to_int64_saturating(v), !str::fits_int64(v));
           return value_container::create_float(v);
         }
         context->warn("Failed to get " + name_ + " no object instance");

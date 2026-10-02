@@ -46,10 +46,9 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     if (previous) previous->unload_all();
     root_ = get_core()->expand_path("${scripts}");
     nscp_runtime_ = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
-    // The lua runtime appends "/scripts/lua/lib/?.lua" to this base when building
-    // package.path for require(), so it must be the install base ("${base-path}"),
-    // not "${scripts}" (which already points at the scripts dir and would double it).
-    lua_runtime_ = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(get_core()->expand_path("${base-path}")));
+    // The lua runtime builds package.path for require() from this folder's
+    // lua/lib and lua subfolders.
+    lua_runtime_ = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(root_.string()));
     // Published atomically, and read the same way everywhere below: a check
     // thread copying this member while a reload replaces it is a data race on
     // the shared_ptr itself, not merely on what it points at. The reload

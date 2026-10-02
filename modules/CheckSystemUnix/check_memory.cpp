@@ -9,6 +9,7 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/helpers.hpp>
+#include <str/saturate.hpp>
 
 #include "realtime_thread.hpp"
 
@@ -25,7 +26,9 @@ node_type calculate_free(std::shared_ptr<filter_obj> object, evaluation_context 
   std::string unit = value.get<2>();
 
   if (unit == "%") {
-    number = object->get_total() * number / 100;
+    // total * number overflows long long (UB) for a large caller-supplied
+    // percentage; compute in double and saturate, as check_drive does.
+    number = str::to_int64_saturating(static_cast<double>(object->get_total()) * static_cast<double>(number) / 100.0);
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
@@ -69,6 +72,7 @@ void check_memory(std::shared_ptr<pdh_thread> collector, const PB::Commands::Que
   filter_type filter;
   filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "${type} = ${used}", "${type}", "", "");
+  filter_helper.add_warmup_option();
   filter_helper.get_desc().add_options()("type", po::value<std::vector<std::string> >(&types),
                                          "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)");
 
@@ -87,9 +91,7 @@ void check_memory(std::shared_ptr<pdh_thread> collector, const PB::Commands::Que
     return nscapi::protobuf::functions::set_response_bad(*response, "Memory collector not initialized");
   }
 
-  if (!collector->has_memory_data()) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "No memory data available yet (collector still initializing)");
-  }
+  if (filter_helper.answer_unless_sampled(collector->memory_status(), "memory")) return;
 
   const memory_info mem_data = collector->get_memory(1);
 

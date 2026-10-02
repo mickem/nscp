@@ -42,3 +42,23 @@ read as 100% used in your dashboards.
 Swap comes from `vm.swapusage`, reported as the single `total` record. macOS
 creates its swap files on demand, so a Mac that has not needed swap reports a
 size of zero, and the same `filter=size > 0` guard applies.
+
+#### Right after the agent starts (Linux and macOS)
+
+On Linux and macOS the figures come from the 1 Hz background collector rather
+than from a direct read, so for the first second after the agent (or the module)
+starts there is nothing to report yet:
+
+```
+check_pagefile
+UNKNOWN: No pagefile/swap data available yet (collector still initializing)
+```
+
+`warmup-state` picks the status reported during that window (`ok`, `warning`,
+`critical` or `unknown`, the default); the message stays the same. A collector
+that has tried to sample and failed - an unreadable `/proc` inside a locked-down
+container, for instance - is not warming up: the check then answers UNKNOWN
+*"No pagefile/swap data available: the collector failed to sample it: ..."* whatever
+`warmup-state` says. On Windows `check_pagefile` reads the system directly and has no
+warm-up, so the option is not accepted there. See
+[Collector-backed checks and warm-up](../../concepts/checks.md#8-collector-backed-checks-and-warm-up).

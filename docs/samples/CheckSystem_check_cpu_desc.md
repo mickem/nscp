@@ -23,6 +23,11 @@ size puts an upper bound on the time windows you can use:
 * If NSClient++ was started **less time ago than the requested window**, the result will only
   reflect the samples collected since startup. Right after start-up `5m` and `1m` averages will
   therefore be based on fewer samples than they normally would be.
+* Before the collector has taken its **first** sample (the first second or so after the agent
+  starts) there is nothing to average, and the check answers
+  `No CPU data available yet (collector still initializing)`. That is UNKNOWN by default; set
+  `warmup-state=ok` (or `warning`/`critical`) to report a different status meanwhile. Only that
+  first-sample case is affected: a window that is merely not full yet answers from what it has.
 
 If you need to check on longer windows (for example `2h` or `6h`) you must increase
 `default buffer length` accordingly. Note that a larger buffer uses more memory, so only increase

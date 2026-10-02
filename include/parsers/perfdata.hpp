@@ -82,6 +82,9 @@ inline void parse(std::shared_ptr<builder> builder, const std::string &perff) {
     if (perf.empty()) return;
     std::string::size_type p = 0;
     p = perf.find_first_not_of(perf_separator, p);
+    // Whitespace-only input: find_first_not_of yields npos and substr(npos)
+    // would throw std::out_of_range out of the parser.
+    if (p == std::string::npos) return;
     if (p != 0) perf = perf.substr(p);
     if (perf[0] == perf_lable_enclosure[0]) {
       // Find the closing quote first: npos + 1 is 0, so testing the

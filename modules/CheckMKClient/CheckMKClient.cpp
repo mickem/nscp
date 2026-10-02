@@ -29,7 +29,9 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   std::map<std::wstring, std::wstring> commands;
 
   try {
-    root_ = get_base_path();
+    // ${scripts}, as CheckMKServer and LUAScript use: find_script() looks in
+    // <root>/lua, and the install base has no lua folder on any platform.
+    root_ = get_core()->expand_path("${scripts}");
     nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
     lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
     lua_runtime_->register_plugin(std::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
@@ -95,7 +97,10 @@ bool CheckMKClient::add_script(std::string alias, std::string file) {
     }
 
     boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
-    if (!ofile) return false;
+    if (!ofile) {
+      NSC_LOG_ERROR("Failed to find script: " + file);
+      return false;
+    }
     handler_->scripts_->add(alias, ofile.value().string());
     return true;
   } catch (...) {

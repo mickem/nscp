@@ -5,6 +5,8 @@
 
 #include <config.h>
 
+#include <cstring>
+
 #include <boost/algorithm/string.hpp>
 #include <bytes/buffer.hpp>
 #include <error/error.hpp>
@@ -186,7 +188,10 @@ class REGSettings : public settings::settings_interface_impl {
         }
         throw settings_exception(__FILE__, __LINE__, "String to long: " + path.to_string());
       } else if (type == REG_DWORD) {
-        DWORD dw = *(reinterpret_cast<DWORD *>(bData.get()));
+        // Reading a DWORD through the BYTE buffer violates strict aliasing;
+        // copy it out, and guard against a value shorter than a DWORD.
+        DWORD dw = 0;
+        if (cbData >= sizeof(dw)) std::memcpy(&dw, bData.get(), sizeof(dw));
         return str::xtos(dw);
       }
       throw settings_exception(__FILE__, __LINE__, "Unsupported key type: " + path.to_string());

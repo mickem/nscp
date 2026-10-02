@@ -12,6 +12,9 @@
 --   test.status_to_int(status) - 'ok'/'warn'/'crit'/'unknown' -> nagios code
 --   test.init_test_manager(t)  - register the `lua_unittest` query (call at load)
 --   test.install_test_manager(t) - run every case's :install() (call from main)
+--
+-- A suite may carry a `name` field; `nscp unit --case <text>` runs only the
+-- suites whose name contains <text>.
 -----------------------------------------------------------------------------
 local math = require('math')
 local os = require('os')
@@ -154,6 +157,26 @@ function TestResult:get_nagios()
 end
 
 local test_cases = {}
+-- Set by `nscp unit --show-all` (lua_unittest_show_ok) and `--case`
+-- (lua_unittest_add_case), both queried before lua_unittest itself.
+local show_all = false
+local selected_cases = {}
+
+-- A suite's name: its `name` field, or its position when it has none.
+local function suite_name(suite, i)
+	return suite.name or ('suite ' .. tostring(i))
+end
+
+-- A suite runs when no --case was given, or when a case is a substring of its
+-- name, ignoring case.
+local function is_selected(name)
+	if #selected_cases == 0 then return true end
+	local lname = string.lower(name)
+	for _, c in ipairs(selected_cases) do
+		if string.find(lname, string.lower(c), 1, true) then return true end
+	end
+	return false
+end
 
 function M.install_test_manager(cases)
 	test_cases = cases
@@ -165,23 +188,47 @@ end
 
 local function lua_unittest_handler(command, args)
 	local result = TestResult:new{message = 'Running testsuite'}
+	local ran = 0
 	for i = 1, #test_cases do
-		local case_result = TestResult:new{message = 'Running testsuite'}
-		test_cases[i]:setup()
-		case_result:add(test_cases[i]:run())
-		test_cases[i]:teardown()
-		result:add(case_result)
+		local name = suite_name(test_cases[i], i)
+		if is_selected(name) then
+			ran = ran + 1
+			local case_result = TestResult:new{message = 'Running suite: ' .. name}
+			test_cases[i]:setup()
+			case_result:add(test_cases[i]:run())
+			test_cases[i]:teardown()
+			result:add(case_result)
+		end
 	end
-	result:print()
+	if ran == 0 then
+		result:add_message(false, 'No suite matches --case ' .. table.concat(selected_cases, ', '))
+	end
+	if show_all then
+		result:print()
+	end
 	core:log("info", "--//Failed tests//---")
 	result:print_failed()
 	return result:get_nagios()
+end
+
+local function lua_unittest_show_ok(command, args)
+	show_all = true
+	return 'ok', 'Done', ''
+end
+
+local function lua_unittest_add_case(command, args)
+	for _, c in ipairs(args or {}) do
+		table.insert(selected_cases, c)
+	end
+	return 'ok', 'Done', ''
 end
 
 function M.init_test_manager(cases)
 	test_cases = cases
 	local reg = Registry()
 	reg:simple_query('lua_unittest', lua_unittest_handler, 'Run the lua unit test suite')
+	reg:simple_query('lua_unittest_show_ok', lua_unittest_show_ok, 'Log passing results too')
+	reg:simple_query('lua_unittest_add_case', lua_unittest_add_case, 'Set which suites to run')
 end
 
 return M
