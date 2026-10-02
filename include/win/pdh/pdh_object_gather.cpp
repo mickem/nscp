@@ -14,9 +14,12 @@ namespace {
 // The aggregate pseudo-instance is not localized and always spelled _Total.
 bool is_total_instance(const std::string &name) { return name == "_Total"; }
 
+// Returns the resolved counters; empty, without throwing, when the object
+// exists but has no instances at the moment.
 std::list<pdh_instance> add_counters(PDHQuery &query, const std::string &object, const std::vector<std::string> &counters, const bool with_instances) {
   std::list<pdh_instance> instances;
   std::string first_error;
+  bool no_instances = false;
   for (const std::string &counter : counters) {
     try {
       pdh_object obj;
@@ -29,6 +32,11 @@ std::list<pdh_instance> add_counters(PDHQuery &query, const std::string &object,
       pdh_instance instance = factory::create(obj);
       query.addCounter(instance);
       instances.push_back(instance);
+    } catch (const pdh_no_instance_exception &) {
+      // The object is there, it just has nothing behind the wildcard right
+      // now (W3SVC_W3WP with no worker process running). For a gather that is
+      // an empty result set, not a missing counter set.
+      no_instances = true;
     } catch (const pdh_exception &e) {
       // Individual counters vary between Windows versions and SKUs (e.g. the
       // Terminal Services Session protocol counters only exist on session
@@ -37,16 +45,12 @@ std::list<pdh_instance> add_counters(PDHQuery &query, const std::string &object,
       if (first_error.empty()) first_error = e.reason();
     }
   }
+  if (instances.empty() && no_instances && first_error.empty()) return instances;
   if (instances.empty()) throw pdh_exception(first_error.empty() ? "No counters given for " + object : first_error);
   return instances;
 }
 
 void collect(PDHQuery &query, const bool double_sample) {
-  // Every wildcard expanded to nothing (the object exists but has no
-  // instances right now): there is nothing to sample, and PdhCollectQueryData
-  // on a counter-less query fails with PDH_NO_DATA, which would turn the
-  // empty set back into an error.
-  if (!query.has_counters()) return;
   query.open();
   if (double_sample) {
     query.collect();
@@ -64,9 +68,11 @@ void collect(PDHQuery &query, const bool double_sample) {
 object_instance_values gather_object_instances(const std::string &object, const std::vector<std::string> &counters, const bool double_sample) {
   PDHQuery query;
   std::list<pdh_instance> roots = add_counters(query, object, counters, true);
+  object_instance_values out;
+  // Nothing behind the wildcard: nothing to sample, and no query to open.
+  if (roots.empty()) return out;
   collect(query, double_sample);
 
-  object_instance_values out;
   for (pdh_instance &root : roots) {
     // The root's alias is the plain counter name; each expanded child is
     // named "<alias>_<instance>", so strip the prefix to get the instance.

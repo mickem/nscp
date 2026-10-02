@@ -389,30 +389,119 @@ TEST_F(PdhQueryLifecycleTest, GatherDataStillThrowsOnNegativeDenominatorByDefaul
 // ----------------------------------------------------------------------------
 
 // PDH_CSTATUS_NO_INSTANCE means the object resolved but has nothing to list
-// right now (W3SVC_W3WP once the idle worker has spun down). That is an empty
-// set, not an error: the IIS checks must answer "No IIS worker processes
-// running", never "counters not available - is the role installed?".
+// right now (W3SVC_W3WP once the idle worker has spun down). The expansion
+// reports it through its flag, not as an error: the IIS checks must answer
+// "No IIS worker processes running", never "counters not available - is the
+// role installed?". The collector, on the other hand, must keep seeing a
+// failed counter so its boot-time retry (#634) is not cut short.
+
+namespace {
+// A $INSTANCE$ counter as the collector and the gather build it.
+PDH::pdh_object wildcard_object(const std::string &alias, const std::string &path) {
+  PDH::pdh_object obj;
+  obj.set_alias(alias);
+  obj.set_counter(path);
+  obj.set_instances("true");
+  obj.set_strategy_static();
+  obj.set_type("double");
+  obj.set_resolution("auto");
+  return obj;
+}
+}  // namespace
 
 TEST_F(PdhQueryLifecycleTest, ExpandWildCardWithNoInstancesIsEmptyNotError) {
   mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
   std::string err;
-  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\W3SVC_W3WP(*)\\Active Requests", err);
+  bool no_instances = false;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\W3SVC_W3WP(*)\\Active Requests", err, no_instances);
   EXPECT_TRUE(paths.empty());
   EXPECT_EQ(err, "") << "an empty instance set must not surface as an expansion error";
+  EXPECT_TRUE(no_instances);
   EXPECT_EQ(mock->expand_wild_card_calls, 1) << "no locale fallback is attempted for an object that resolved";
+  EXPECT_EQ(mock->open_calls, 0);
   EXPECT_EQ(mock->add_counter_calls, 0);
   EXPECT_EQ(mock->add_english_counter_calls, 0);
 }
 
+TEST_F(PdhQueryLifecycleTest, ExpandWildCardWithNoInstancesOnLocalizedHostIsEmptyNotError) {
+  // A localized host: the English path does not expand directly, so the
+  // code resolves it through a temporary query, and the English-name add is
+  // where the empty object first shows (NO_INSTANCE). That must come out the
+  // same as the direct case, with the temporary query released.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_COUNTER;
+  mock->add_counter_status = PDH_CSTATUS_NO_INSTANCE;
+  std::string err;
+  bool no_instances = false;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\W3SVC_W3WP(*)\\Active Requests", err, no_instances);
+  EXPECT_TRUE(paths.empty());
+  EXPECT_EQ(err, "");
+  EXPECT_TRUE(no_instances);
+  EXPECT_EQ(mock->expand_wild_card_calls, 1);
+  EXPECT_EQ(mock->open_calls, 1) << "the fallback goes through one temporary query";
+  EXPECT_EQ(mock->add_english_counter_calls, 1);
+  EXPECT_EQ(mock->close_calls, 1);
+  EXPECT_EQ(mock->open_handles, 0) << "the temporary query must be released";
+  EXPECT_EQ(mock->open_counter_handles, 0);
+}
+
 TEST_F(PdhQueryLifecycleTest, ExpandWildCardStillReportsMissingCounter) {
   // Guard the boundary: an object PDH cannot resolve at all stays an error
-  // after the English-name fallback (which the mock also refuses).
+  // after the English-name fallback (which the mock also refuses), and the
+  // temporary query of that fallback is released.
   mock->expand_wild_card_status = PDH_CSTATUS_NO_OBJECT;
   mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
   std::string err;
-  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\NoSuchObject(*)\\Counter", err);
+  bool no_instances = false;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\NoSuchObject(*)\\Counter", err, no_instances);
   EXPECT_TRUE(paths.empty());
   EXPECT_NE(err, "");
+  EXPECT_FALSE(no_instances);
+  EXPECT_EQ(mock->expand_wild_card_calls, 1);
+  EXPECT_EQ(mock->open_calls, 1) << "the is_not_found() fallback must still try the English name";
+  EXPECT_EQ(mock->add_english_counter_calls, 1);
+  EXPECT_EQ(mock->close_calls, 1);
+  EXPECT_EQ(mock->open_handles, 0);
+  EXPECT_EQ(mock->open_counter_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, ExpandWildCardTwoArgumentFormReportsNoInstancesAsError) {
+  // Callers without the flag cannot tell an empty object from a missing one
+  // and must keep getting the PDH status text.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  std::string err;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\W3SVC_W3WP(*)\\Active Requests", err);
+  EXPECT_TRUE(paths.empty());
+  EXPECT_NE(err.find("0x800007D1"), std::string::npos) << err;
+}
+
+TEST_F(PdhQueryLifecycleTest, FactoryCreateOnEmptyObjectThrowsNoInstance) {
+  // The collector treats a counter it cannot create as not-yet-available and
+  // retries with back-off; a childless container would instead count as
+  // success and leave the counter publishing nothing for good.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  const PDH::pdh_object obj = wildcard_object("workers", "\\W3SVC_W3WP($INSTANCE$)\\Active Requests");
+  EXPECT_THROW(PDH::factory::create(obj), PDH::pdh_no_instance_exception);
+  try {
+    PDH::factory::create(obj);
+    FAIL() << "expected pdh_no_instance_exception";
+  } catch (const PDH::pdh_exception &e) {
+    // Caught through the base, as the collector's catch (std::exception) does.
+    EXPECT_NE(e.reason().find("no instances"), std::string::npos) << e.reason();
+    EXPECT_NE(e.reason().find("W3SVC_W3WP"), std::string::npos) << e.reason();
+  }
+}
+
+TEST_F(PdhQueryLifecycleTest, FactoryCreateOnMissingObjectThrowsPlainPdhException) {
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_OBJECT;
+  mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
+  const PDH::pdh_object obj = wildcard_object("nothing", "\\NoSuchObject($INSTANCE$)\\Counter");
+  EXPECT_THROW(PDH::factory::create(obj), PDH::pdh_exception);
+  try {
+    PDH::factory::create(obj);
+  } catch (const PDH::pdh_no_instance_exception &) {
+    FAIL() << "a missing object is not an empty one";
+  } catch (const PDH::pdh_exception &) {
+  }
 }
 
 TEST_F(PdhQueryLifecycleTest, GatherObjectInstancesWithNoInstancesIsEmptyMap) {
@@ -420,10 +509,30 @@ TEST_F(PdhQueryLifecycleTest, GatherObjectInstancesWithNoInstancesIsEmptyMap) {
   PDH::object_instance_values out;
   EXPECT_NO_THROW(out = PDH::gather_object_instances("W3SVC_W3WP", {"Active Requests", "Total HTTP Requests Served"}, false));
   EXPECT_TRUE(out.empty());
-  // Nothing to sample, so no query is opened and PdhCollectQueryData (which
-  // fails with PDH_NO_DATA on a counter-less query) is never called.
+  // Nothing to sample, so no query is opened and nothing is collected.
   EXPECT_EQ(mock->open_calls, 0);
   EXPECT_EQ(mock->collect_calls, 0);
   EXPECT_EQ(mock->open_handles, 0);
   EXPECT_EQ(mock->listener_count, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherObjectInstancesOnMissingObjectStillThrows) {
+  // The role-not-installed contract of the IIS checks rides on this throw.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_OBJECT;
+  mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
+  EXPECT_THROW(PDH::gather_object_instances("W3SVC_W3WP", {"Active Requests"}, false), PDH::pdh_exception);
+  EXPECT_EQ(mock->open_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, CollectOnQueryWithoutCountersIsANoOp) {
+  // PdhCollectQueryData on a counter-less query fails with PDH_NO_DATA; an
+  // empty query has nothing to sample, so neither collect() nor gatherData()
+  // asks PDH.
+  PDH::PDHQuery q;
+  q.open();
+  EXPECT_NO_THROW(q.collect());
+  EXPECT_NO_THROW(q.gatherData(false));
+  EXPECT_EQ(mock->collect_calls, 0);
+  q.close();
+  EXPECT_EQ(mock->open_handles, 0);
 }

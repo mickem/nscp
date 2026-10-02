@@ -43,8 +43,10 @@ namespace {
 
   // Resolve a counter path via the temporary-query trick: open a query, add
   // the (possibly English) counter, ask PDH for its full localized path, and
-  // return that. All handles are released on every exit path.
-  bool resolve_path_via_temp_query(const std::wstring &input, std::wstring &resolved_out, std::string &error_out) {
+  // return that. All handles are released on every exit path. Returns false
+  // with `error_out` empty and `no_instances` set when the counter resolved
+  // to an object that has no instances right now.
+  bool resolve_path_via_temp_query(const std::wstring &input, std::wstring &resolved_out, std::string &error_out, bool &no_instances) {
     ScopedPdhQuery query;
     pdh_error status = factory::get_impl()->PdhOpenQuery(nullptr, 0, &query.h);
     if (status.is_error()) {
@@ -53,6 +55,13 @@ namespace {
     }
     ScopedPdhCounter counter;
     status = factory::get_impl()->PdhAddEnglishCounter(query.h, input.c_str(), 0, &counter.h);
+    if (status.is_no_instance()) {
+      // On a localized host the direct expansion fails on the English name
+      // and the English-name add is where an empty object first shows: the
+      // path is good, there is just nothing behind the wildcard yet.
+      no_instances = true;
+      return false;
+    }
     if (status.is_error()) {
       error_out = status.get_message();
       return false;
@@ -70,6 +79,15 @@ namespace {
 }  // namespace
 
 std::list<std::string> Enumerations::expand_wild_card_path(const std::string &query, std::string &error) {
+  bool no_instances = false;
+  std::list<std::string> ret = expand_wild_card_path(query, error, no_instances);
+  // Callers of this form do not distinguish an empty object from a missing
+  // one; give them the PDH status text they always got.
+  if (no_instances && error.empty()) error = pdh_error(PDH_CSTATUS_NO_INSTANCE).get_message();
+  return ret;
+}
+
+std::list<std::string> Enumerations::expand_wild_card_path(const std::string &query, std::string &error, bool &no_instances) {
   std::list<std::string> ret;
   auto wquery = utf8::cvt<std::wstring>(query);
   hlp::buffer<TCHAR> buffer(1024);
@@ -87,17 +105,18 @@ std::list<std::string> Enumerations::expand_wild_card_path(const std::string &qu
       // into its localized form), then recurse with the localized path so
       // wildcard expansion can complete.
       std::wstring resolved;
-      if (!resolve_path_via_temp_query(wquery, resolved, error)) {
+      if (!resolve_path_via_temp_query(wquery, resolved, error, no_instances)) {
         return ret;
       }
       error.clear();
-      return expand_wild_card_path(utf8::cvt<std::string>(resolved), error);
+      return expand_wild_card_path(utf8::cvt<std::string>(resolved), error, no_instances);
     }
     if (status.is_no_instance()) {
       // The object resolved but has no instances at the moment (an IIS pool
       // whose idle worker has spun down leaves W3SVC_W3WP empty). That is a
-      // legitimately empty set, not a missing counter set, so hand back an
-      // empty list without an error and let the caller report "none".
+      // legitimately empty set, not a missing counter set: report it through
+      // the flag, with an empty list and no error.
+      no_instances = true;
       return ret;
     }
     if (status.is_error()) {

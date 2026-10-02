@@ -71,8 +71,14 @@ std::pair<bool, std::string> validate_counter(std::string counter) {
       std::string c = counter;
       str::utils::replace(c, "$INSTANCE$", "*");
       std::string err;
+      bool no_instances = false;
       bool status = true;
-      for (const std::string &s : PDH::Enumerations::expand_wild_card_path(c, err)) {
+      const std::list<std::string> expanded = PDH::Enumerations::expand_wild_card_path(c, err, no_instances);
+      // Nothing behind the wildcard. Say so: an object with no instances at
+      // the moment is a valid counter, an unexpandable path is not.
+      if (expanded.empty() && no_instances) return std::make_pair(true, "ok (no instances)");
+      if (expanded.empty() && !err.empty()) return std::make_pair(false, "query failed: " + err);
+      for (const std::string &s : expanded) {
         std::string::size_type pos1 = s.find('(');
         std::string tag = s;
         if (pos1 != std::string::npos) {

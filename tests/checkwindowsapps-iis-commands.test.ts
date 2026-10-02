@@ -11,6 +11,9 @@
  * so a regression in either fails the test on every machine.
  * Client-query output is the raw Nagios message with no status-word prefix.
  */
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+
 import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -40,6 +43,14 @@ describeOnWindows("CheckWindowsApps IIS commands", () => {
   beforeAll(() => {
     nscp = new NscpInstance();
   });
+
+  /** Drive IIS' own appcmd (ships with the Web-Server role). */
+  function appcmd(...args: string[]): string {
+    const exe = path.join(process.env.windir ?? "C:\\Windows", "system32", "inetsrv", "appcmd.exe");
+    return execFileSync(exe, args, { encoding: "utf8", timeout: 60_000 });
+  }
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // --- check_iis_app_pools --------------------------------------------------
 
@@ -107,6 +118,35 @@ describeOnWindows("CheckWindowsApps IIS commands", () => {
     // fallback, which the query() helper rejects under NSCP_EXPECT_IIS.
     const out = await query("check_iis_worker_processes");
     expect(out).toMatch(/not available|No IIS worker processes running|active requests/);
+  });
+
+  it("check_iis_worker_processes reports an idle IIS as no workers, not as counters missing", async () => {
+    // Strict mode only: it needs a real IIS to stop. With DefaultAppPool
+    // stopped no w3wp.exe is alive, W3SVC_W3WP has zero instances and PDH
+    // answers the wildcard with PDH_CSTATUS_NO_INSTANCE. That is the empty
+    // set, and the query() helper above fails the test should it come back
+    // as the role-not-installed message instead (the shape that made this
+    // suite flaky once the primed worker had idled out).
+    if (!expectIis) return;
+    appcmd("stop", "apppool", "/apppool.name:DefaultAppPool");
+    try {
+      // WAS takes the worker down asynchronously; give it a moment.
+      let out = "";
+      for (let attempt = 0; attempt < 30; attempt++) {
+        out = await query("check_iis_worker_processes");
+        if (/No IIS worker processes running/.test(out)) break;
+        await sleep(1000);
+      }
+      expect(out).toMatch(/No IIS worker processes running/);
+      expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL|UNKNOWN)\b/);
+    } finally {
+      // Hand the pool back warm for whatever queries IIS after this.
+      appcmd("start", "apppool", "/apppool.name:DefaultAppPool");
+      execFileSync("powershell", ["-NoProfile", "-Command", "Invoke-WebRequest -UseBasicParsing http://localhost/ | Out-Null"], {
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+    }
   });
 
   // --- check_iis_request_queues ---------------------------------------------

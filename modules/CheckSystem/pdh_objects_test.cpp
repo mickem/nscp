@@ -92,6 +92,17 @@ TEST(PdhException, StringPlusFailedErrorAppendsErrorMessage) {
   EXPECT_EQ(r.rfind("context:", 0), 0u) << "actual: " << r;
 }
 
+TEST(PdhException, NoInstanceIsAPdhException) {
+  // The collector and check_pdh catch pdh_exception / std::exception and
+  // treat the counter as failed; the subtype must stay inside that net.
+  static_assert(std::is_nothrow_copy_constructible<PDH::pdh_no_instance_exception>::value, "subtype must keep the noexcept copy (CERT-ERR60)");
+  try {
+    throw PDH::pdh_no_instance_exception("\\W3SVC_W3WP(*)\\Active Requests: the object has no instances at the moment");
+  } catch (const PDH::pdh_exception &e) {
+    EXPECT_NE(e.reason().find("no instances"), std::string::npos);
+  }
+}
+
 TEST(PdhException, CopyPreservesMessage) {
   PDH::pdh_exception original("orig");
   PDH::pdh_exception copy = original;

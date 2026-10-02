@@ -137,8 +137,9 @@ pdh_instance factory::create(const pdh_object &object) {
     str::utils::replace(path, "$INSTANCE$", "*");
     const std::string alias = object.alias;
     std::string err;
+    bool no_instances = false;
     std::list<pdh_object> sub_counters;
-    for (const std::string &s : Enumerations::expand_wild_card_path(path, err)) {
+    for (const std::string &s : Enumerations::expand_wild_card_path(path, err, no_instances)) {
       const auto pos1 = s.find('(');
       std::string tag = s;
       if (pos1 != std::string::npos) {
@@ -152,6 +153,11 @@ pdh_instance factory::create(const pdh_object &object) {
       sub_counters.push_back(sub);
     }
     if (!err.empty()) throw pdh_exception("Failed to expand path: " + err);
+    // An object with nothing behind the wildcard is reported, not returned as
+    // a childless container: a container that publishes nothing would read as
+    // success to the collector, which would stop retrying it at boot (#634)
+    // and never pick the instances up once they appear.
+    if (no_instances && sub_counters.empty()) throw pdh_no_instance_exception(path + ": the object has no instances at the moment");
     return std::make_shared<instance_providers::container>(object, sub_counters);
   }
   if (object.is_rrd()) {

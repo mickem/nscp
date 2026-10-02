@@ -18,9 +18,9 @@ typedef std::map<std::string, std::map<std::string, double> > object_instance_va
 // localized/English/index strategies. `double_sample` waits a second between
 // two collections so rate counters (".../sec", "% ...") carry real values —
 // without it they read 0. `_Total` style aggregate instances are skipped.
-// An object that exists but currently has no instances (no IIS worker
-// process running, no RDS session) yields an empty map, so a caller can
-// report "none" rather than "not available".
+// An object that exists but currently has no instances (W3SVC_W3WP with no
+// IIS worker process running) yields an empty map, so a caller can report
+// "none" rather than "not available".
 // Throws PDH::pdh_exception when the object/counters cannot be resolved
 // (typically: the role providing them is not installed).
 object_instance_values gather_object_instances(const std::string &object, const std::vector<std::string> &counters, bool double_sample);

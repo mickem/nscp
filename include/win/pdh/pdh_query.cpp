@@ -158,6 +158,10 @@ void PDHQuery::gatherData(const bool ignore_errors) {
   }
 }
 void PDHQuery::collect() const {
+  // PdhCollectQueryData on a query without counters fails with PDH_NO_DATA,
+  // which tells the caller nothing it did not already know; an empty query
+  // simply has nothing to sample.
+  if (counters_.empty()) return;
   const pdh_error status = factory::get_impl()->PdhCollectQueryData(hQuery_);
   if (status.is_error()) throw pdh_exception("PdhCollectQueryData failed: ", status);
 }

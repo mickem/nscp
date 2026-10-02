@@ -125,7 +125,8 @@ jobs:
         shell: powershell
         run: |
           Install-WindowsFeature -Name Web-Server, Web-Scripting-Tools | Out-Null
-          & "$env:windir\system32\inetsrv\appcmd.exe" set apppool "DefaultAppPool" /processModel.idleTimeout:00:00:00 | Out-Null
+          & "$env:windir\system32\inetsrv\appcmd.exe" set apppool "DefaultAppPool" /processModel.idleTimeout:00:00:00
+          if ($LASTEXITCODE -ne 0) { throw "appcmd could not switch off the DefaultAppPool idle timeout (exit $LASTEXITCODE)" }
           Start-Service W3SVC
           Invoke-WebRequest -UseBasicParsing http://localhost/ | Out-Null
 
