@@ -28,6 +28,8 @@
 
 #include <algorithm>
 #include <limits>
+#include <list>
+#include <mutex>
 #include <bytes/buffer.hpp>
 #include <process/execute_process.hpp>
 #include <string>
@@ -122,8 +124,55 @@ void close_above_stdio(long max_fd) {
 }
 }  // namespace
 
+namespace {
+// The children this launcher has forked and not yet reaped, so that kill_all()
+// (module unload) can end them. `group` records that `kill tree` put the child
+// in a process group of its own, in which case the group id is the pid and a
+// signal to -pid reaches everything the script started as well.
+struct running_child {
+  pid_t pid;
+  bool group;
+};
+std::mutex children_mutex;
+std::list<running_child> children;
+
+// Deliver `sig` to a child - to its whole process group when it leads one.
+// kill(-pid) fails with ESRCH if the child died before setpgid() ran (or if
+// the group is already empty); the direct kill then covers the leader itself,
+// and is harmless on an already-reaped pid since we have not waited for it yet.
+void signal_child(pid_t pid, bool group, int sig) {
+  if (group && kill(-pid, sig) == 0) return;
+  kill(pid, sig);
+}
+
+// Scope guard: a forked child is in the registry from fork to waitpid, on
+// every return path, so kill_all() never misses one and never signals a pid
+// that was reaped and may since have been reused.
+class child_registration {
+  const pid_t pid_;
+
+ public:
+  child_registration(pid_t pid, bool group) : pid_(pid) {
+    const std::lock_guard<std::mutex> lock(children_mutex);
+    children.push_back(running_child{pid, group});
+  }
+  ~child_registration() {
+    const std::lock_guard<std::mutex> lock(children_mutex);
+    children.remove_if([this](const running_child& c) { return c.pid == pid_; });
+  }
+  child_registration(const child_registration&) = delete;
+  child_registration& operator=(const child_registration&) = delete;
+};
+}  // namespace
+
 void process::kill_all() {
-  // TODO: Fixme
+  // Called on module unload, with worker threads possibly still blocked in
+  // drain_with_timeout on a script that will not finish. SIGKILL, as the
+  // Windows launcher's TerminateProcess: the point of unload is to stop
+  // waiting. The worker that owns each child sees EOF on its pipe, reaps it
+  // and reports UNKNOWN; nothing here waits.
+  const std::lock_guard<std::mutex> lock(children_mutex);
+  for (const running_child& c : children) signal_child(c.pid, c.group, SIGKILL);
 }
 
 namespace {
@@ -296,6 +345,12 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     if (dup2(pipefd[1], STDOUT_FILENO) < 0) _exit(127);
     if (dup2(pipefd[1], STDERR_FILENO) < 0) _exit(127);
     close(pipefd[1]);
+    // `kill tree`: lead a process group of our own, so that the parent can
+    // signal -pid and reach whatever the script forks, backgrounds or leaves
+    // behind, rather than the script alone. Without it a helper the script
+    // started keeps running past the timeout and past module unload - and,
+    // holding the pipe's write end, keeps the parent waiting for the deadline.
+    if (args.kill_tree) setpgid(0, 0);
     close_above_stdio(max_fd);
     execvp(cargs[0], cargs.data());
     // execvp only returns on error.
@@ -304,6 +359,11 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
 
   // Parent.
   close(pipefd[1]);
+  // Create the group from this side as well: the child may not have reached
+  // its setpgid() yet when a kill_all() comes in, and once it has exec'd this
+  // call fails with EACCES - which is fine, the group exists by then.
+  if (args.kill_tree) setpgid(pid, pid);
+  const child_registration registered(pid, args.kill_tree);
 
   // Compute the effective timeout once so the deadline and the messages that
   // report it agree (a caller-supplied 0 falls back to 30s here).
@@ -315,8 +375,10 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   close(pipefd[0]);
 
   if (timed_out) {
-    // Graceful first, hard second. Treat ECHILD/ESRCH as already-gone.
-    kill(pid, SIGTERM);
+    // Graceful first, hard second. Treat ECHILD/ESRCH as already-gone. With
+    // `kill tree` both signals go to the process group, so a helper the
+    // script backgrounded - the usual reason the pipe never closed - dies too.
+    signal_child(pid, args.kill_tree, SIGTERM);
     for (int i = 0; i < 20; ++i) {
       int status = 0;
       const pid_t r = waitpid(pid, &status, WNOHANG);
@@ -330,7 +392,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
       ts.tv_nsec = 100 * 1000 * 1000;  // 100ms
       nanosleep(&ts, nullptr);
     }
-    kill(pid, SIGKILL);
+    signal_child(pid, args.kill_tree, SIGKILL);
     int status = 0;
     waitpid(pid, &status, 0);
     output = "Command " + args.alias + " didn't terminate within " + std::to_string(effective_timeout) + "s; killed";

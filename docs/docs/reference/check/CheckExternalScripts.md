@@ -217,7 +217,7 @@ allow nasty characters=false
 
 #### Kill process tree <a id="/settings/external scripts/kill tree"></a>
 
-Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process).
+Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process). On Linux the script is started in a process group of its own and the whole group is signalled when it times out or the module unloads, so helpers it backgrounds die with it.
 
 
 | Key            | Description                                               |
