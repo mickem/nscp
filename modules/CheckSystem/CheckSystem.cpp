@@ -785,6 +785,7 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
   filter_type filter;
   filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
+  filter_helper.add_warmup_option();
   // clang-format off
   filter_helper.get_desc().add_options()
     ("time", po::value<std::vector<std::string>>(&times), "The time to check")
@@ -824,7 +825,7 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
       return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU data: the collector is busy (timed out waiting for its lock)");
     }
     if (!has_data.value()) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "No CPU data available yet (collector still initializing)");
+      return filter_helper.set_warmup_response("No CPU data available yet (collector still initializing)");
     }
   }
 

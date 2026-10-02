@@ -149,6 +149,38 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(Object.keys(perfOf(q)).length).toBeGreaterThan(0);
   });
 
+  // --- warmup-state -----------------------------------------------------------
+  // The warm-up window itself is over by the time the suite runs (beforeAll
+  // waited it out), so these pin the parts that hold deterministically: the
+  // option parses as a REST `k=v` token, it leaves a sampled result alone,
+  // and a typo is rejected up front instead of surfacing at the next restart.
+
+  /** Collector-backed checks that carry warmup-state on this platform. */
+  const WARMUP_CHECKS = onWindows
+    ? ["check_cpu", "check_load"]
+    : ["check_cpu", "check_memory", "check_pagefile", "check_network"];
+
+  it.each(WARMUP_CHECKS)(
+    "%s ignores warmup-state once the collector has sampled",
+    async (command) => {
+      // beforeAll only gates the CPU ring; poll in case this one lags behind it.
+      const q = await pollQuery(
+        key,
+        command,
+        { "warmup-state": "critical", warning: "none", critical: "none", "empty-state": "ok" },
+        (r) => !/initializing/i.test(messageOf(r)),
+      );
+      expect(messageOf(q)).not.toMatch(/initializing/i);
+      expect(q.result).toBe(OK);
+    },
+  );
+
+  it.each(WARMUP_CHECKS)("%s rejects an unknown warmup-state", async (command) => {
+    const q = await executeQuery(key, command, { "warmup-state": "okay" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid warmup-state: okay/);
+  });
+
   // --- check_process ---------------------------------------------------------
 
   it("check_process finds our own process running", async () => {

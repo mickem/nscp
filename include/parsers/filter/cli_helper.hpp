@@ -26,6 +26,9 @@ const std::string common_option_marker = "\nCommon option for all filter checks.
 struct data_container {
   std::vector<std::string> filter_string, warn_string, crit_string, ok_string;
   std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique, list_separator;
+  // Status to answer with while the check's collector has not produced its
+  // first sample; only checks that call add_warmup_option() read it.
+  std::string warmup_state;
   bool debug, escape_html;
   // How the numbers of the message are rendered (issue #1428); -1 decimals is
   // "leave the rendering alone". These only ever touch the message: the
@@ -35,7 +38,7 @@ struct data_container {
   // list_separator carries its default here as well as on the option, so a
   // check that builds a filter without registering the misc options still
   // joins lists with ", " instead of with nothing.
-  data_container() : list_separator(", "), debug(false), escape_html(false), decimals(-1), decimal_separator(".") {}
+  data_container() : list_separator(", "), warmup_state("unknown"), debug(false), escape_html(false), decimals(-1), decimal_separator(".") {}
 
   // The number format these options describe, or an error message when the
   // pinned unit is not one we know about.
@@ -88,10 +91,11 @@ struct cli_helper : boost::noncopyable {
   const PB::Commands::QueryRequestMessage::Request &request;
   PB::Commands::QueryResponseMessage::Response *response;
   bool show_all;
+  bool has_warmup_option;
   nscapi::program_options::field_map fields;
 
   cli_helper(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, data_container &data)
-      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false) {}
+      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false), has_warmup_option(false) {}
 
   ~cli_helper() {}
 
@@ -268,6 +272,52 @@ struct cli_helper : boost::noncopyable {
     add_misc_options(empty_state);
   }
 
+  // Opt-in for checks that read a background collector: before its first
+  // sample there is nothing to evaluate, and this picks the status reported
+  // meanwhile. Not a common option - most filter checks have no warm-up.
+  void add_warmup_option() {
+    has_warmup_option = true;
+    // clang-format off
+    desc.add_options()
+      ("warmup-state", boost::program_options::value<std::string>(&data.warmup_state)->default_value("unknown"),
+        "Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): "
+        "ok, warning, critical or unknown.\n"
+        "The message still says that the collector is initializing, so a warm-up result is never mistaken for a reading.")
+      ;
+    // clang-format on
+  }
+
+  // Answer with the warm-up status and `message` instead of evaluating the
+  // filter. For checks without add_warmup_option() this is UNKNOWN.
+  void set_warmup_response(const std::string &message) const {
+    response->add_lines()->set_message(message);
+    if (response->command().empty()) response->set_command("unknown");
+    response->set_result(warmup_result(data.warmup_state));
+  }
+
+  static bool is_valid_warmup_state(const std::string &state) {
+    const std::string s = boost::to_lower_copy(state);
+    return s == "ok" || s == "warning" || s == "critical" || s == "unknown";
+  }
+  static PB::Common::ResultCode warmup_result(const std::string &state) {
+    const std::string s = boost::to_lower_copy(state);
+    if (s == "ok") return PB::Common::ResultCode::OK;
+    if (s == "warning") return PB::Common::ResultCode::WARNING;
+    if (s == "critical") return PB::Common::ResultCode::CRITICAL;
+    return PB::Common::ResultCode::UNKNOWN;
+  }
+
+  // Rejected up front: a typo would otherwise only surface as UNKNOWN during
+  // the next warm-up, long after the check was configured.
+  bool validate_options() const {
+    if (has_warmup_option && !is_valid_warmup_state(data.warmup_state)) {
+      nscapi::protobuf::functions::set_response_bad(*response,
+                                                    "Invalid warmup-state: " + data.warmup_state + " (expected one of ok, warning, critical, unknown)");
+      return false;
+    }
+    return true;
+  }
+
   void parse_options_post(const boost::program_options::variables_map &vm) const {
     if (show_all) {
       if (data.syntax_top.find("${problem_list}") != std::string::npos)
@@ -292,19 +342,19 @@ struct cli_helper : boost::noncopyable {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response, p)) return false;
     parse_options_post(vm);
-    return true;
+    return validate_options();
   }
   bool parse_options() const {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response)) return false;
     parse_options_post(vm);
-    return true;
+    return validate_options();
   }
   bool parse_options(std::vector<std::string> &extra) const {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response, true, extra)) return false;
     parse_options_post(vm);
-    return true;
+    return validate_options();
   }
 
   bool empty() const { return data.warn_string.empty() && data.crit_string.empty(); }

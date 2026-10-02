@@ -161,3 +161,24 @@ TEST(CheckLoad, QueueAndSamplesKeywordsAreThresholdable) {
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run_check(state_after(600, 6.0, 2.0), {"crit=queue > 4 and samples > 60"}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
+
+// --- warm-up -------------------------------------------------------------------
+
+TEST(CheckLoad, NoSampleYetIsUnknownByDefault) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(load_avg_state(), {}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("collector still initializing"), std::string::npos) << join_lines(response);
+  // No zeros dressed up as averages.
+  EXPECT_FALSE(has_perf(response, "load1"));
+}
+
+TEST(CheckLoad, WarmupStatePicksTheStatusBeforeTheFirstSample) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(load_avg_state(), {"warmup-state=ok"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("collector still initializing"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckLoad, WarmupStateDoesNotTouchASampledState) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(state_after(60, 0.0, 1.0), {"warmup-state=critical"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+}

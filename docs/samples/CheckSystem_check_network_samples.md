@@ -72,6 +72,14 @@ check_network
 UNKNOWN: No network data available yet (collector still initializing)
 ```
 
+On Linux, `warmup-state` picks the status reported during that window, for
+instance to keep a freshly restarted agent from paging anyone:
+
+```
+check_network warmup-state=ok
+OK: No network data available yet (collector still initializing)
+```
+
 **Over NRPE against a remote host:**
 
 ```

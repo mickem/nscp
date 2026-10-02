@@ -69,6 +69,7 @@ void check_pagefile(std::shared_ptr<pdh_thread> collector, const PB::Commands::Q
   filter_type filter;
   filter_helper.add_options("used > 60%", "used > 80%", "", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "${name} ${used} (${size})", "${name}", "", "");
+  filter_helper.add_warmup_option();
 
   if (!filter_helper.parse_options()) return;
 
@@ -80,7 +81,7 @@ void check_pagefile(std::shared_ptr<pdh_thread> collector, const PB::Commands::Q
   }
 
   if (!collector->has_memory_data()) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "No pagefile/swap data available yet (collector still initializing)");
+    return filter_helper.set_warmup_response("No pagefile/swap data available yet (collector still initializing)");
   }
 
   // Get memory data from collector (use 1 second average for current snapshot)
