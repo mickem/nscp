@@ -10,7 +10,18 @@
  */
 import request from "supertest";
 
-import { NscpInstance, OK, REST_URL, UNKNOWN, executeQuery, messageOf, perfValue, setupQueryNscp, describeOnWindows } from "@fixtures/index";
+import {
+  NscpInstance,
+  OK,
+  REST_URL,
+  UNKNOWN,
+  executeQuery,
+  messageOf,
+  perfValue,
+  pollQuery,
+  setupQueryNscp,
+  describeOnWindows,
+} from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
@@ -61,10 +72,17 @@ describeOnWindows("CheckSystem disable=cpu_frequency (#1368)", () => {
   });
 
   it("leaves check_cpu answering from the collector", async () => {
-    const q = await executeQuery(key, "check_cpu", {
-      warning: "load > 101",
-      critical: "load > 101",
-    });
+    // check_cpu answers UNKNOWN ("collector still initializing") until the
+    // collector has pushed its first sample, so wait that out. A sampler the
+    // disable setting wrongly stopped never gets there and still fails below,
+    // with its own message in the diff.
+    const q = await pollQuery(
+      key,
+      "check_cpu",
+      { warning: "load > 101", critical: "load > 101" },
+      (r) => r.result === OK,
+    );
+    expect(messageOf(q)).not.toMatch(/initializing/i);
     expect(q.result).toBe(OK);
     expect(messageOf(q)).not.toMatch(/disabled/i);
     const load = perfValue(q, "total 5m");
