@@ -28,19 +28,6 @@ namespace parsers {
 namespace where {
 
 namespace {
-// Checked long long arithmetic for values a filter supplies: signed overflow
-// is undefined. std::out_of_range is reported as an evaluation error by
-// parser::evaluate / parser::static_eval.
-long long add_checked(const long long a, const long long b, const std::string &what) {
-  if (b > 0 && a > (std::numeric_limits<long long>::max)() - b) throw std::out_of_range(what + " is too large");
-  if (b < 0 && a < (std::numeric_limits<long long>::min)() - b) throw std::out_of_range(what + " is too small");
-  return a + b;
-}
-long long negate_checked(const long long a, const std::string &what) {
-  if (a == (std::numeric_limits<long long>::min)()) throw std::out_of_range(what + " is too large");
-  return -a;
-}
-
 // The budget itself (and the thread-local counters behind it) lives in
 // regex_guard.cpp, which is compiled only into nscp_where_filter; this file is
 // also compiled straight into parsers_where_test, so defining an exported
@@ -683,27 +670,17 @@ struct function_convert : binary_function_impl {
     node_type v = value.value();
     if (unit) {
       const node_type u = unit.value();
-      if (type == type_date) {
+      if (type == type_date || type == type_size) {
         const std::string unit_s = u->get_string_value(context);
-        if (v->is_float()) {
-          // Scale fractional counts in double before rounding — going through
-          // the int accessor truncated `2.5h` to 2 hours. Whole-number values
-          // keep the pure-int path below, bit-identical for large offsets.
-          const value_container vc = v->get_value(context, type_float);
-          return std::make_shared<int_value>(constants::get_now() + llround(vc.get_float(0.0) * str::format::time_unit_multiplier(unit_s)), vc.is_unsure);
+        // Both spellings share the unit helpers (first character decides, so
+        // 'min' is minutes and 'kb' is KiB either way) and are range checked:
+        // a value supplied by the filter must not overflow. The message is
+        // only built on the throw path.
+        try {
+          return convert_with_unit(type, context, v, unit_s);
+        } catch (const std::out_of_range &) {
+          throw std::out_of_range("convert(" + v->to_string() + ", '" + unit_s + "') does not fit a 64-bit integer");
         }
-        const value_container vc = v->get_value(context, type_int);
-        return std::make_shared<int_value>(parse_time(vc.get_int(0), unit_s), vc.is_unsure);
-      }
-      if (type == type_size) {
-        const std::string unit_s = u->get_string_value(context);
-        if (v->is_float() && !v->is_int()) {
-          // Same as above: `1.5g` used to truncate to 1g before scaling.
-          const value_container vc = v->get_value(context, type_float);
-          return std::make_shared<int_value>(llround(str::format::decode_byte_units<double>(vc.get_float(0.0), unit_s)), vc.is_unsure);
-        }
-        const value_container vc = v->get_value(context, type_int);
-        return std::make_shared<int_value>(parse_size(vc.get_int(0), unit_s), vc.is_unsure);
       }
       context->error("could not convert to " + helpers::type_to_string(type) + " from " + v->to_string() + ", " + u->to_string());
       return std::make_shared<int_value>(0, /*is_unsure=*/true);
@@ -727,27 +704,29 @@ struct function_convert : binary_function_impl {
     return v;
   }
 
-  // A string operand reaches these as a bare long long (convert('9000000', 't')),
-  // so the unit multiplier and the offset from now are checked.
-  static long long parse_time(const long long new_value, const std::string &new_unit) {
-    const long long now = constants::get_now();
-    const std::string what = "convert(" + std::to_string(new_value) + ", '" + new_unit + "')";
-    long long factor = 1;
-    if ((new_unit == "m") || (new_unit == "M")) factor = 60;
-    if ((new_unit == "h") || (new_unit == "H")) factor = 60 * 60;
-    if ((new_unit == "d") || (new_unit == "D")) factor = 24 * 60 * 60;
-    if ((new_unit == "w") || (new_unit == "W")) factor = 7 * 24 * 60 * 60;
-    return add_checked(now, str::format::mul_checked(new_value, factor, what), what);
-  }
-
-  static long long parse_size(const long long new_value, const std::string &new_unit) {
-    const std::string what = "convert(" + std::to_string(new_value) + ", '" + new_unit + "')";
-    long long factor = 1;
-    if ((new_unit == "k") || (new_unit == "K")) factor = 1024LL;
-    if ((new_unit == "m") || (new_unit == "M")) factor = 1024LL * 1024;
-    if ((new_unit == "g") || (new_unit == "G")) factor = 1024LL * 1024 * 1024;
-    if ((new_unit == "t") || (new_unit == "T")) factor = 1024LL * 1024 * 1024 * 1024;
-    return str::format::mul_checked(new_value, factor, what);
+  static node_type convert_with_unit(const value_type type, const evaluation_context &context, const node_type &v, const std::string &unit_s) {
+    static const std::string what = "convert()";
+    if (type == type_date) {
+      const long long now = constants::get_now();
+      if (v->is_float()) {
+        // Scale fractional counts in double before rounding — going through
+        // the int accessor truncated `2.5h` to 2 hours. Whole-number values
+        // keep the pure-int path below, bit-identical for large offsets.
+        const value_container vc = v->get_value(context, type_float);
+        const long long offset = str::format::llround_checked(vc.get_float(0.0) * str::format::time_unit_multiplier(unit_s), what);
+        return std::make_shared<int_value>(str::format::add_checked(now, offset, what), vc.is_unsure);
+      }
+      const value_container vc = v->get_value(context, type_int);
+      const long long offset = str::format::mul_checked(vc.get_int(0), str::format::time_unit_multiplier(unit_s), what);
+      return std::make_shared<int_value>(str::format::add_checked(now, offset, what), vc.is_unsure);
+    }
+    if (v->is_float() && !v->is_int()) {
+      // Same as above: `1.5g` used to truncate to 1g before scaling.
+      const value_container vc = v->get_value(context, type_float);
+      return std::make_shared<int_value>(str::format::llround_checked(str::format::decode_byte_units<double>(vc.get_float(0.0), unit_s), what), vc.is_unsure);
+    }
+    const value_container vc = v->get_value(context, type_int);
+    return std::make_shared<int_value>(str::format::decode_byte_units<long long>(vc.get_int(0), unit_s), vc.is_unsure);
   }
 };
 
@@ -793,7 +772,8 @@ struct operator_not : unary_operator_impl, binary_function_impl {
       if (!v.is(type_int)) {
         return std::make_shared<int_value>(0, /*is_unsure=*/true);
       }
-      return std::make_shared<int_value>(negate_checked(v.get_int(0), "neg(" + std::to_string(v.get_int(0)) + ")"), v.is_unsure);
+      if (v.get_int(0) == (std::numeric_limits<long long>::min)()) throw std::out_of_range("neg(" + std::to_string(v.get_int(0)) + ") does not fit a 64-bit integer");
+      return std::make_shared<int_value>(-v.get_int(0), v.is_unsure);
     }
     if (type == type_date) {
       const long long now = constants::get_now();
@@ -801,9 +781,15 @@ struct operator_not : unary_operator_impl, binary_function_impl {
       if (!v.is(type_int)) {
         return std::make_shared<int_value>(now, /*is_unsure=*/true);
       }
-      // now - (v - now) = 2 * now - v, checked: a date far enough from now overflows.
-      const std::string what = "neg(" + std::to_string(v.get_int(0)) + ")";
-      return std::make_shared<int_value>(add_checked(add_checked(now, now, what), negate_checked(v.get_int(0), what), what), v.is_unsure);
+      // now - (v - now) = 2 * now - v, checked: a date far enough from now
+      // overflows. The message is only built on the throw path.
+      try {
+        static const std::string what = "neg()";
+        return std::make_shared<int_value>(
+            str::format::add_checked(str::format::add_checked(now, now, what), str::format::negate_checked(v.get_int(0), what), what), v.is_unsure);
+      } catch (const std::out_of_range &) {
+        throw std::out_of_range("neg(" + std::to_string(v.get_int(0)) + ") does not fit a 64-bit integer");
+      }
     }
     // Defence-in-depth: any type not handled above (e.g. type_string reached
     // via binary_function_impl from `unary_fun::evaluate` rather than the

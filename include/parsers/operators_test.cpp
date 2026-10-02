@@ -1379,6 +1379,59 @@ TEST(FunctionConvert, ConvertTimeUnitOverflowThrowsInsteadOfWrapping) {
   EXPECT_THROW(fun->evaluate(type_date, ctx, list), std::out_of_range);
 }
 
+TEST(FunctionConvert, ConvertFloatTimeOverflowThrowsInsteadOfWrapping) {
+  // The float branch added llround(...) to now unchecked: 9.2233720368e18 s
+  // is within ~55 million seconds of LLONG_MAX, so adding now overflows.
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  auto list = factory::create_list();
+  list->push_back(make_float(9.2233720368e18));
+  list->push_back(make_string("s"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_date, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertFloatTimeUnitOverflowThrowsInsteadOfRoundingToGarbage) {
+  // 1.5e17 weeks is ~9.1e22 seconds: llround's result is unspecified there.
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_float(1.5e17));
+  list->push_back(make_string("w"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_date, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertFloatSizeOverflowThrowsInsteadOfRoundingToGarbage) {
+  // 1e16 TiB is ~1.1e28 bytes: llround's result is unspecified out of range.
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_float(1e16));
+  list->push_back(make_string("t"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_size, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertIntAndFloatAgreeOnMultiCharacterUnits) {
+  // The first character decides on both branches: 'min' is minutes and 'kb'
+  // is KiB whether the count is written 2 or 2.5.
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  const long long now = parsers::where::constants::get_now();
+  auto int_list = factory::create_list();
+  int_list->push_back(make_int(2));
+  int_list->push_back(make_string("min"));
+  auto float_list = factory::create_list();
+  float_list->push_back(make_float(2.5));
+  float_list->push_back(make_string("min"));
+  EXPECT_EQ(op_factory::get_binary_function(ctx, "convert", int_list)->evaluate(type_date, ctx, int_list)->get_int_value(ctx), now + 120);
+  EXPECT_EQ(op_factory::get_binary_function(ctx, "convert", float_list)->evaluate(type_date, ctx, float_list)->get_int_value(ctx), now + 150);
+
+  auto kb_list = factory::create_list();
+  kb_list->push_back(make_int(2));
+  kb_list->push_back(make_string("kb"));
+  EXPECT_EQ(op_factory::get_binary_function(ctx, "convert", kb_list)->evaluate(type_size, ctx, kb_list)->get_int_value(ctx), 2048);
+}
+
 TEST(FunctionConvert, ConvertTimeNegativeOffsetStillConverts) {
   auto ctx = make_context();
   auto list = factory::create_list();
