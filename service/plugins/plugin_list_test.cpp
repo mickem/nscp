@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <vector>
 
 #include "plugin_interface.hpp"
 
@@ -197,6 +198,38 @@ TEST_F(SimplePluginsListTest, DoAllOnEmptyList) {
   list_->do_all([&count](nsclient::plugin_type) { count++; });
 
   EXPECT_EQ(count, 0);
+}
+
+// The callback runs module code, and a module may load or unload another
+// module from there (a metrics fetcher calling load_module). That re-enters
+// add_plugin / remove_plugin on the thread do_all is running on, so do_all
+// must not hold the list's lock across the call: with it held shared, the
+// unique lock those want waited out its timeout and the change was dropped.
+TEST_F(SimplePluginsListTest, DoAllCallbackMayRemoveAndAddPlugins) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  const auto plugin3 = std::make_shared<MockListPlugin>(3, "alias3", "Module3");
+  list_->add_plugin(plugin1);
+  list_->add_plugin(plugin2);
+
+  std::vector<unsigned int> seen;
+  list_->do_all([&](nsclient::plugin_type p) {
+    seen.push_back(p->get_id());
+    list_->remove_plugin(p->get_id());
+    if (p->get_id() == 1) list_->add_plugin(plugin3);
+  });
+
+  // Every plugin that was registered when the walk started was visited
+  // exactly once; the one added during the walk is not visited this time.
+  EXPECT_EQ(seen, (std::vector<unsigned int>{1, 2}));
+  int count = 0;
+  std::vector<unsigned int> remaining;
+  list_->do_all([&](nsclient::plugin_type p) {
+    count++;
+    remaining.push_back(p->get_id());
+  });
+  EXPECT_EQ(count, 1);
+  EXPECT_EQ(remaining, (std::vector<unsigned int>{3}));
 }
 
 // ============================================================================

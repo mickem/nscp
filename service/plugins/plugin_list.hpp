@@ -103,10 +103,23 @@ struct simple_plugins_list : boost::noncopyable {
     return plugins_.empty();
   }
 
+  // Call `fun` on every registered plugin. The list is copied under the lock
+  // and the calls are made outside it, as master_plugin_list::get_plugins
+  // does: `fun` runs module code (fetchMetrics, submitMetrics, fetchFacts),
+  // and a module that loads or unloads another from there re-enters
+  // add_plugin / remove_plugin, which want this mutex exclusively on the
+  // thread that held it shared - a 30 s or 10 s wait and then a silently
+  // dropped registration. Holding it across the calls also parked every
+  // web unload behind a slow metrics tick. The copies keep each plugin alive
+  // for its own call even if it is removed meanwhile.
   void do_all(const boost::function<void(plugin_type)> &fun) {
-    const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-    if (!has_valid_lock_log(readLock, "plugins_list::list")) return;
-    for (const plugin_type &p : plugins_) {
+    simple_plugin_list_type snapshot;
+    {
+      const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+      if (!has_valid_lock_log(readLock, "plugins_list::list")) return;
+      snapshot = plugins_;
+    }
+    for (const plugin_type &p : snapshot) {
       fun(p);
     }
   }
