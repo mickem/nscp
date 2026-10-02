@@ -224,9 +224,12 @@ describeOnWindows("CheckSystem pdh index lookup", () => {
    */
   async function checkCounter(args: string[]): Promise<{ code: number; out: string; all: string }> {
     const r = await nscp.run(
-      // --log debug: the shim logs the check_pdh arguments it builds, and
-      // check_pdh what it did with each counter.
-      ["client", "--log", "debug", "--module", "CheckSystem", "--boot", "--query", "CheckCounter", ...args],
+      // Lower case, as every other route delivers it: the module's generated
+      // dispatch compares lower-case names, and `client --query` (unlike the
+      // query path REST and NRPE take) passes the name through as typed, so
+      // `CheckCounter` reaches the module, matches nothing and comes back as
+      // an empty UNKNOWN.
+      ["client", "--module", "CheckSystem", "--boot", "--query", "checkcounter", ...args],
       {
         allowFailure: true,
       },
