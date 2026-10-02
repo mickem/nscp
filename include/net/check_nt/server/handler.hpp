@@ -15,8 +15,6 @@ class handler : public boost::noncopyable {
   virtual void log_error(std::string module, std::string file, int line, std::string msg) const = 0;
   virtual check_nt::packet create_error(std::string msg) = 0;
 
-  virtual void set_allow_arguments(bool) = 0;
-  virtual void set_allow_nasty_arguments(bool) = 0;
   virtual void set_perf_data(bool) = 0;
 
   virtual void set_password(std::string password) = 0;
