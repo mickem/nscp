@@ -111,11 +111,17 @@ TEST_F(PerfDataParserTest, EmptyString) {
   EXPECT_TRUE(b->entries.empty());
   EXPECT_TRUE(b->string_entries.empty());
 }
-// TODO: FIx this test
-// TEST_F(PerfDataParserTest, WhitespaceOnly) {
-//   parsers::perfdata::parse(b, "     ");
-//   EXPECT_TRUE(b->entries.empty());
-// }
+TEST_F(PerfDataParserTest, WhitespaceOnly) {
+  parsers::perfdata::parse(b, "     ");
+  EXPECT_TRUE(b->entries.empty());
+  EXPECT_TRUE(b->string_entries.empty());
+}
+TEST_F(PerfDataParserTest, TrailingWhitespaceAfterMetric) {
+  parsers::perfdata::parse(b, "load=42   ");
+  ASSERT_EQ(1, b->entries.size());
+  EXPECT_EQ("load", b->entries[0].alias);
+  EXPECT_DOUBLE_EQ(42.0, b->entries[0].value);
+}
 
 // ==============================================================
 // parse — single metric
