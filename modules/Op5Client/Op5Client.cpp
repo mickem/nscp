@@ -25,11 +25,16 @@
  */
 Op5Client::Op5Client() {}
 
-/**
- * Default d-tor
- * @return
- */
-Op5Client::~Op5Client() {}
+// The client's own destructor joins its worker, but only once the last
+// reference goes; stop it here explicitly so a module torn down without
+// unloadModule still ends the thread before the module object is gone.
+Op5Client::~Op5Client() {
+  try {
+    if (client) client->stop();
+  } catch (...) {
+    // Nothing a destructor can do about a failed join.
+  }
+}
 
 #define HTTP_HDR_AUTH "Authorization"
 #define HTTP_HDR_AUTH_BASIC "Basic "

@@ -31,11 +31,20 @@ op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_conf
   thread_ = threads::start_guarded_thread("op5 client", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
 }
 
-/**
- * Default d-tor
- * @return
- */
-op5_client::~op5_client() {}
+// Stop the worker before the members it dereferences go. stop() is otherwise
+// only reached from Op5Client::unloadModule, so any path that destroyed the
+// client without it (an unloadModule that threw, static teardown at DLL unload
+// when the core never called NSUnloadModule, the test fixture) destroyed a
+// joinable boost::thread: with the project's Boost defaults that detaches it,
+// and thread_proc went on locking mutex_ and reading config_ inside freed
+// memory. Idempotent: a second call after unloadModule finds no thread.
+op5_client::~op5_client() {
+  try {
+    stop();
+  } catch (...) {
+    // Nothing a destructor can do about a failed join.
+  }
+}
 
 #define HTTP_HDR_AUTH "Authorization"
 #define HTTP_HDR_AUTH_BASIC "Basic "
@@ -371,14 +380,21 @@ void op5_client::thread_proc() {
       }
 
       op5_config::check_map copy;
+      // Skip this round's checks (copy stays empty) when the config cannot be
+      // read, but still fall through to the stop check and the sleep below. A
+      // `continue` here jumped past both, and while the lock stayed
+      // unobtainable (a wall-clock step - the timed lock uses system time - or
+      // a stuck logger) the thread hot-looped re-sending the host check, with
+      // nothing for stop() to interrupt: timed_lock is not an interruption
+      // point, so join() waited until the lock came back.
       {
         boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-        if (!lock.owns_lock()) {
+        if (lock.owns_lock()) {
+          interval = config_.interval;
+          copy = config_.checks;
+        } else {
           NSC_LOG_ERROR("Failed to run checks");
-          continue;
         }
-        interval = config_.interval;
-        copy = config_.checks;
       }
       std::string response;
       nscapi::core_helper ch(get_core(), get_id());
