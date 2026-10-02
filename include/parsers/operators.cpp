@@ -15,7 +15,9 @@
 #include <str/xtos.hpp>
 
 #include <chrono>
+#include <limits>
 #include <list>
+#include <stdexcept>
 #include <utility>
 
 #ifdef _WIN32
@@ -712,25 +714,35 @@ struct function_convert : binary_function_impl {
     return v;
   }
 
+  // A string operand reaches these as a bare long long (convert('9000000', 't')),
+  // so the unit multiplier and the offset from now are checked: signed
+  // overflow is undefined. std::out_of_range is reported as an evaluation
+  // error by parser::evaluate / parser::static_eval.
+  static long long add_checked(const long long a, const long long b, const std::string &what) {
+    if (b > 0 && a > (std::numeric_limits<long long>::max)() - b) throw std::out_of_range(what + " is too large");
+    if (b < 0 && a < (std::numeric_limits<long long>::min)() - b) throw std::out_of_range(what + " is too small");
+    return a + b;
+  }
+
   static long long parse_time(const long long new_value, const std::string &new_unit) {
     const long long now = constants::get_now();
-    if (new_unit.empty()) return now + new_value;
-    if ((new_unit == "s") || (new_unit == "S")) return now + (new_value);
-    if ((new_unit == "m") || (new_unit == "M")) return now + (new_value * 60);
-    if ((new_unit == "h") || (new_unit == "H")) return now + (new_value * 60 * 60);
-    if ((new_unit == "d") || (new_unit == "D")) return now + (new_value * 24 * 60 * 60);
-    if ((new_unit == "w") || (new_unit == "W")) return now + (new_value * 7 * 24 * 60 * 60);
-    return now + new_value;
+    const std::string what = "convert(" + std::to_string(new_value) + ", '" + new_unit + "')";
+    long long factor = 1;
+    if ((new_unit == "m") || (new_unit == "M")) factor = 60;
+    if ((new_unit == "h") || (new_unit == "H")) factor = 60 * 60;
+    if ((new_unit == "d") || (new_unit == "D")) factor = 24 * 60 * 60;
+    if ((new_unit == "w") || (new_unit == "W")) factor = 7 * 24 * 60 * 60;
+    return add_checked(now, str::format::mul_checked(new_value, factor, what), what);
   }
 
   static long long parse_size(const long long new_value, const std::string &new_unit) {
-    if (new_unit.empty()) return new_value;
-    if ((new_unit == "b") || (new_unit == "B")) return new_value;
-    if ((new_unit == "k") || (new_unit == "K")) return new_value * 1024;
-    if ((new_unit == "m") || (new_unit == "M")) return new_value * 1024 * 1024;
-    if ((new_unit == "g") || (new_unit == "G")) return new_value * 1024 * 1024 * 1024;
-    if ((new_unit == "t") || (new_unit == "T")) return new_value * 1024 * 1024 * 1024 * 1024;
-    return new_value;
+    const std::string what = "convert(" + std::to_string(new_value) + ", '" + new_unit + "')";
+    long long factor = 1;
+    if ((new_unit == "k") || (new_unit == "K")) factor = 1024LL;
+    if ((new_unit == "m") || (new_unit == "M")) factor = 1024LL * 1024;
+    if ((new_unit == "g") || (new_unit == "G")) factor = 1024LL * 1024 * 1024;
+    if ((new_unit == "t") || (new_unit == "T")) factor = 1024LL * 1024 * 1024 * 1024;
+    return str::format::mul_checked(new_value, factor, what);
   }
 };
 
