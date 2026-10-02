@@ -11,7 +11,9 @@ answer UNKNOWN *"… not available yet (collector still initializing)"*. A new
 `warmup-state` option (`ok`, `warning`, `critical` or `unknown`, default
 `unknown`) picks that status instead, for instance `warmup-state=ok` to keep a
 restart from raising alerts; the message still says the collector is
-initializing. Without the option every check answers exactly as before. On
+initializing (see
+[Collector-backed checks and warm-up](../concepts/checks.md#8-collector-backed-checks-and-warm-up)).
+Without the option every check answers exactly as before. On
 Windows, `check_load` with `disable = load` now says *"Load average sampling is
 disabled"* instead of the warm-up message it shared until now, and stays
 UNKNOWN whatever `warmup-state` says.
