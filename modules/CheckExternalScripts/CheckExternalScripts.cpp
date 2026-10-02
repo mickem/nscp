@@ -161,8 +161,8 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
                  "commands not internal ones.")
         .add_bool("kill tree", sh::bool_key(&kill_tree, false), "Kill process tree",
                   "Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process). On Linux the "
-                  "script is started in a process group of its own and the whole group is signalled when it times out or the module unloads, so helpers "
-                  "it backgrounds die with it.")
+                  "script then runs in a session of its own, and the whole process group is signalled when it times out or the module unloads, so helpers "
+                  "it backgrounds die with it; a script that calls setsid() itself gets EPERM, as it already leads its session.")
 
         .add_bool("allow arguments", sh::bool_key(&allowArgs_, false), "Allow arguments when executing external scripts",
                   "This option determines whether or not we will allow clients to specify arguments to commands that are executed. NOTICE this governs "

@@ -9,8 +9,10 @@
  *     large output spanning multiple reads, exec failure (127), timeout kill
  *   - legacy popen path (argv empty): shell execution and exit codes
  *   - run-as settings (user/domain/password): refused, never silently ignored
- *   - kill tree: a backgrounded helper dies with the script on timeout, and
- *     kill_all() ends a running child
+ *   - kill tree: a backgrounded helper dies with the script on timeout and on
+ *     kill_all(), and the script runs in a session of its own
+ *   - kill_all() ends a running child and the check says why; a script killed
+ *     by a signal says which; stdin is /dev/null
  *
  * Everything runs real child processes against /bin/sh and friends, which is
  * deterministic on any POSIX build host.
@@ -30,7 +32,7 @@
 #include <ctime>
 #include <process/execute_process.hpp>
 #include <string>
-#include <thread>
+#include <threads/guarded_thread.hpp>
 #include <vector>
 
 namespace {
@@ -281,24 +283,118 @@ TEST(ExecuteProcessUnix, WithoutKillTreeBackgroundedHelperSurvives) {
   wait_terminated(helper);
 }
 
+// Poll until `path` has content: the script has started. With the child
+// registered under the lock that is held across fork(), a started script is a
+// registered one, so kill_all() after this cannot miss it however loaded the
+// runner is.
+bool wait_for_file(const std::string& path, int timeout_seconds = 20) {
+  const time_t deadline = time(nullptr) + timeout_seconds;
+  while (time(nullptr) < deadline) {
+    FILE* f = fopen(path.c_str(), "r");
+    if (f) {
+      const int c = fgetc(f);
+      fclose(f);
+      if (c != EOF) return true;
+    }
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 20 * 1000 * 1000;
+    nanosleep(&ts, nullptr);
+  }
+  return false;
+}
+
+// Run execute_process on a guarded worker thread, kill_all() once the script
+// has started, and return how long the worker took to come back after that.
+time_t run_and_kill_all(process::exec_arguments args, const std::string& started, int& ret, std::string& output) {
+  std::string escaped;
+  ret = -1;
+  const auto worker = threads::start_guarded_thread(
+      "execute_process_test worker", [&] { ret = process::execute_process(args, output); }, [&escaped](const std::string& line) { escaped = line; });
+  EXPECT_TRUE(wait_for_file(started)) << "the script never started";
+  const time_t killed_at = time(nullptr);
+  process::kill_all();
+  worker->join();
+  EXPECT_EQ(escaped, "");
+  return time(nullptr) - killed_at;
+}
+
 TEST(ExecuteProcessUnix, KillAllEndsRunningChildren) {
   // kill_all() is what module unload calls; a worker blocked on a script that
-  // will not finish must come back, well before the script's own timeout.
-  process::exec_arguments args = make_args("sleep", 30);
-  args.argv = {"/bin/sleep", "30"};
-  std::string output;
+  // will not finish must come back, well before the script's own timeout, and
+  // say why the script ended.
+  const std::string started = temp_pidfile();
+  process::exec_arguments args = make_args("sleep", 60);
+  args.argv = {"/bin/sh", "-c", "echo up > " + started + "; exec /bin/sleep 60"};
   int ret = -1;
-  const time_t start = time(nullptr);
-  std::thread worker([&] { ret = process::execute_process(args, output); });
-  // Give the worker time to fork and register the child.
-  struct timespec ts;
-  ts.tv_sec = 0;
-  ts.tv_nsec = 300 * 1000 * 1000;
-  nanosleep(&ts, nullptr);
-  process::kill_all();
-  worker.join();
-  const time_t elapsed = time(nullptr) - start;
+  std::string output;
+  const time_t elapsed = run_and_kill_all(args, started, ret, output);
+  unlink(started.c_str());
 
   EXPECT_EQ(ret, NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(output, "Command test_command was killed: the module is unloading");
   EXPECT_LT(elapsed, 10);
 }
+
+TEST(ExecuteProcessUnix, KillAllWithKillTreeEndsBackgroundedHelper) {
+  const std::string started = temp_pidfile();
+  process::exec_arguments args = make_args("helper", 60);
+  args.argv = {"/bin/sh", "-c", "/bin/sleep 60 & echo $! > " + started + "; wait"};
+  args.kill_tree = true;
+  int ret = -1;
+  std::string output;
+  const time_t elapsed = run_and_kill_all(args, started, ret, output);
+  const pid_t helper = read_pid(started);
+  unlink(started.c_str());
+
+  EXPECT_EQ(ret, NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(output, "Command test_command was killed: the module is unloading");
+  EXPECT_LT(elapsed, 10);
+  ASSERT_GT(helper, 0);
+  EXPECT_TRUE(wait_terminated(helper)) << "helper " << helper << " outlived the unload";
+  kill(helper, SIGKILL);
+}
+
+TEST(ExecuteProcessUnix, ScriptKilledBySignalSaysSo) {
+  process::exec_arguments args = make_args("suicide");
+  args.argv = {"/bin/sh", "-c", "echo partial; kill -9 $$"};
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(output, "Command test_command was terminated by signal 9 (SIGKILL)\npartial\n");
+}
+
+#if defined(__linux__)
+TEST(ExecuteProcessUnix, StdinIsDevNullWithAndWithoutKillTree) {
+  for (const bool kill_tree : {false, true}) {
+    process::exec_arguments args = make_args("stdin");
+    args.argv = {"/bin/sh", "-c", "readlink /proc/$$/fd/0"};
+    args.kill_tree = kill_tree;
+    std::string output;
+    const int ret = process::execute_process(args, output);
+    EXPECT_EQ(ret, 0) << "kill_tree=" << kill_tree;
+    EXPECT_EQ(output, "/dev/null\n") << "kill_tree=" << kill_tree;
+  }
+}
+
+TEST(ExecuteProcessUnix, KillTreeRunsTheScriptInASessionOfItsOwn) {
+  // A session of its own has no controlling terminal, so a script that touches
+  // the tty cannot be stopped by SIGTTIN/SIGTTOU as a background group would.
+  // Field 6 of /proc/<pid>/stat is the session id; for /bin/sh the comm field
+  // has no spaces, so a plain field split is safe.
+  for (const bool kill_tree : {false, true}) {
+    process::exec_arguments args = make_args("session");
+    args.argv = {"/bin/sh", "-c", "echo $$ $(cut -d' ' -f6 /proc/$$/stat)"};
+    args.kill_tree = kill_tree;
+    std::string output;
+    const int ret = process::execute_process(args, output);
+    ASSERT_EQ(ret, 0) << output;
+    long pid = 0, sid = 0;
+    ASSERT_EQ(sscanf(output.c_str(), "%ld %ld", &pid, &sid), 2) << output;
+    if (kill_tree)
+      EXPECT_EQ(pid, sid) << "with kill tree the script should lead its own session";
+    else
+      EXPECT_NE(pid, sid) << "without kill tree the script should stay in the agent's session";
+  }
+}
+#endif
