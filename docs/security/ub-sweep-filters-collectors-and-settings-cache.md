@@ -1,13 +1,13 @@
 ---
-title: "Undefined-behaviour sweep: filter convert(), filter reference time, PDH counters, process memory and the HTTP settings cache"
+title: "Undefined-behaviour sweep: filter arithmetic, collector and status races, process memory, log truncation and the HTTP settings cache"
 fixed_in: next
 severity: "Low–Medium"
-modules: [filters, core, CheckSystem, CheckSystemUnix]
+modules: [filters, core, CheckSystem, CheckSystemUnix, WEBServer]
 action: none
 ---
-Five more findings from the second undefined-behaviour sweep were fixed. Only
-the first takes its input from outside the host: a filter expression sent by a
-caller that is allowed to pass arguments.
+Ten more findings from the second undefined-behaviour sweep were fixed. Only
+the first two take their input from outside the host: a filter expression
+sent by a caller that is allowed to pass arguments.
 
 - `convert()` in a filter multiplied a string operand by its unit, and added
   a time offset to the current time, without checking for overflow:
@@ -15,6 +15,9 @@ caller that is allowed to pass arguments.
   `written > convert('9223372036854775807', 's')` computed a signed overflow,
   which is undefined. A value that does not fit is now reported as an
   evaluation error on the check instead.
+- Negating an integer (`not` / `neg()`) of the smallest 64-bit value, or a
+  date far enough from now, overflowed the same way. That is now reported as
+  an evaluation error too.
 - The reference time that date keywords (`age`, `written`, certificate
   expiry, …) are measured against was a plain global, set by every check and
   read by checks running at the same time on other threads. It is now
@@ -31,6 +34,18 @@ caller that is allowed to pass arguments.
   existing file threw an exception no handler catches, so the agent
   terminated instead of reporting `Cache path not found`. It is now reported
   like any other settings error.
+- The log file truncation that keeps `nsclient.log` under `max size`
+  computed 70% of the limit through a 32-bit `int`, which is undefined for a
+  `max size` of about 2.9 GiB or more. It is now computed in the file-size
+  type.
+- On Linux, the stop flag of the CheckSystemUnix collector thread was a plain
+  `bool` shared between the module and the collector thread; it is now
+  atomic.
+- The legacy web API stored the agent status for `/core/isalive` under a
+  shared (read) lock, so a `/core/reload` could assign the string while
+  `/core/isalive` copied it. The store now takes an exclusive lock.
+- When a module's version call failed, the version string was formatted from
+  uninitialised integers. It now reads `0.0.0`.
 
 None of these is known to have been exploited.
 
