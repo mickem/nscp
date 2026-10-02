@@ -44,6 +44,11 @@ class pdh_error {
   bool is_more_data() const { return status_ == PDH_MORE_DATA; }
   bool is_invalid_data() const { return status_ == PDH_INVALID_DATA || status_ == PDH_CSTATUS_INVALID_DATA; }
   bool is_not_found() const { return status_ == PDH_CSTATUS_NO_OBJECT || status_ == PDH_CSTATUS_NO_COUNTER || status_ == PDH_CSTATUS_BAD_COUNTERNAME; }
+  // The object and counter exist but the object has no instances right now
+  // (W3SVC_W3WP with no worker process running, Terminal Services Session
+  // between sessions). Distinct from is_not_found(): the counter set is
+  // installed, the set of instances is merely empty.
+  bool is_no_instance() const { return status_ == PDH_CSTATUS_NO_INSTANCE; }
 
   bool is_negative_denominator() const { return status_ == PDH_CALC_NEGATIVE_DENOMINATOR || status_ == PDH_CALC_NEGATIVE_VALUE; }
   bool is_invalid_argument() const { return status_ == PDH_INVALID_ARGUMENT; }

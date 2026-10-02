@@ -117,11 +117,15 @@ jobs:
       # failure). Web-Scripting-Tools brings the root\WebAdministration WMI
       # provider the app-pool check uses for auto_start enrichment, and the
       # priming request starts DefaultAppPool so its counter instances exist
-      # before the suite queries them.
+      # before the suite queries them. The pool's idle timeout is switched
+      # off first: the suite takes well over IIS' default 20 minutes to reach
+      # the IIS cases, and once the primed w3wp.exe has spun down the worker
+      # check can only report the (valid, but less interesting) empty set.
       - name: Enable IIS (live target for CheckWindowsApps)
         shell: powershell
         run: |
           Install-WindowsFeature -Name Web-Server, Web-Scripting-Tools | Out-Null
+          & "$env:windir\system32\inetsrv\appcmd.exe" set apppool "DefaultAppPool" /processModel.idleTimeout:00:00:00 | Out-Null
           Start-Service W3SVC
           Invoke-WebRequest -UseBasicParsing http://localhost/ | Out-Null
 

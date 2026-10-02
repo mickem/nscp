@@ -3,8 +3,12 @@
 
 #include <gtest/gtest.h>
 
+#include <list>
 #include <memory>
+#include <string>
+#include <win/pdh/pdh_enumerations.hpp>
 #include <win/pdh/pdh_interface.hpp>
+#include <win/pdh/pdh_object_gather.hpp>
 #include <win/pdh/pdh_query.hpp>
 
 namespace {
@@ -19,6 +23,7 @@ class MockPdh : public PDH::impl_interface {
   PDH_STATUS add_counter_status = ERROR_SUCCESS;
   PDH_STATUS remove_counter_status = ERROR_SUCCESS;
   PDH_STATUS formatted_value_status = ERROR_SUCCESS;
+  PDH_STATUS expand_wild_card_status = ERROR_SUCCESS;
   bool throw_on_add_listener = false;
 
   // Observables
@@ -30,6 +35,8 @@ class MockPdh : public PDH::impl_interface {
   int add_counter_calls = 0;
   int add_english_counter_calls = 0;
   int remove_counter_calls = 0;
+  int collect_calls = 0;
+  int expand_wild_card_calls = 0;
 
   // The "open handle count" we track to assert no leaks.
   int open_handles = 0;
@@ -81,7 +88,10 @@ class MockPdh : public PDH::impl_interface {
     --open_counter_handles;
     return {};
   }
-  PDH::pdh_error PdhCollectQueryData(PDH::PDH_HQUERY) override { return {}; }
+  PDH::pdh_error PdhCollectQueryData(PDH::PDH_HQUERY) override {
+    ++collect_calls;
+    return {};
+  }
 
   void add_listener(PDH::subscriber *) override {
     ++add_listener_calls;
@@ -104,7 +114,19 @@ class MockPdh : public PDH::impl_interface {
   PDH::pdh_error PdhValidatePath(LPCWSTR, bool) override { return {}; }
   PDH::pdh_error PdhEnumObjects(LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, DWORD, BOOL) override { return {}; }
   PDH::pdh_error PdhEnumObjectItems(LPCWSTR, LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, LPWSTR, LPDWORD, DWORD, DWORD) override { return {}; }
-  PDH::pdh_error PdhExpandWildCardPath(LPCTSTR, LPCTSTR, LPWSTR, LPDWORD, DWORD) override { return {}; }
+  // Expansion is driven by expand_wild_card_status: on success the list is
+  // left empty (an empty, zero-terminated buffer), which is all the tests
+  // here need.
+  PDH::pdh_error PdhExpandWildCardPath(LPCTSTR, LPCTSTR, LPWSTR mszExpandedPathList, LPDWORD pcchPathListLength, DWORD) override {
+    ++expand_wild_card_calls;
+    if (expand_wild_card_status != ERROR_SUCCESS) return {expand_wild_card_status};
+    if (mszExpandedPathList != nullptr && pcchPathListLength != nullptr && *pcchPathListLength >= 2) {
+      mszExpandedPathList[0] = L'\0';
+      mszExpandedPathList[1] = L'\0';
+      *pcchPathListLength = 2;
+    }
+    return {};
+  }
 };
 
 class PdhQueryLifecycleTest : public ::testing::Test {
@@ -360,4 +382,48 @@ TEST_F(PdhQueryLifecycleTest, GatherDataStillThrowsOnNegativeDenominatorByDefaul
   mock->formatted_value_status = PDH_CALC_NEGATIVE_DENOMINATOR;
   EXPECT_THROW(q.gatherData(false), PDH::pdh_exception);
   q.close();
+}
+
+// ----------------------------------------------------------------------------
+// Wildcard expansion of an object that currently has no instances
+// ----------------------------------------------------------------------------
+
+// PDH_CSTATUS_NO_INSTANCE means the object resolved but has nothing to list
+// right now (W3SVC_W3WP once the idle worker has spun down). That is an empty
+// set, not an error: the IIS checks must answer "No IIS worker processes
+// running", never "counters not available - is the role installed?".
+
+TEST_F(PdhQueryLifecycleTest, ExpandWildCardWithNoInstancesIsEmptyNotError) {
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  std::string err;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\W3SVC_W3WP(*)\\Active Requests", err);
+  EXPECT_TRUE(paths.empty());
+  EXPECT_EQ(err, "") << "an empty instance set must not surface as an expansion error";
+  EXPECT_EQ(mock->expand_wild_card_calls, 1) << "no locale fallback is attempted for an object that resolved";
+  EXPECT_EQ(mock->add_counter_calls, 0);
+  EXPECT_EQ(mock->add_english_counter_calls, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, ExpandWildCardStillReportsMissingCounter) {
+  // Guard the boundary: an object PDH cannot resolve at all stays an error
+  // after the English-name fallback (which the mock also refuses).
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_OBJECT;
+  mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
+  std::string err;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\NoSuchObject(*)\\Counter", err);
+  EXPECT_TRUE(paths.empty());
+  EXPECT_NE(err, "");
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherObjectInstancesWithNoInstancesIsEmptyMap) {
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  PDH::object_instance_values out;
+  EXPECT_NO_THROW(out = PDH::gather_object_instances("W3SVC_W3WP", {"Active Requests", "Total HTTP Requests Served"}, false));
+  EXPECT_TRUE(out.empty());
+  // Nothing to sample, so no query is opened and PdhCollectQueryData (which
+  // fails with PDH_NO_DATA on a counter-less query) is never called.
+  EXPECT_EQ(mock->open_calls, 0);
+  EXPECT_EQ(mock->collect_calls, 0);
+  EXPECT_EQ(mock->open_handles, 0);
+  EXPECT_EQ(mock->listener_count, 0);
 }

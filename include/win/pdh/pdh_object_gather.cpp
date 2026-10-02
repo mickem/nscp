@@ -42,6 +42,11 @@ std::list<pdh_instance> add_counters(PDHQuery &query, const std::string &object,
 }
 
 void collect(PDHQuery &query, const bool double_sample) {
+  // Every wildcard expanded to nothing (the object exists but has no
+  // instances right now): there is nothing to sample, and PdhCollectQueryData
+  // on a counter-less query fails with PDH_NO_DATA, which would turn the
+  // empty set back into an error.
+  if (!query.has_counters()) return;
   query.open();
   if (double_sample) {
     query.collect();

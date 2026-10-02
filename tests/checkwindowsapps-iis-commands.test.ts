@@ -100,7 +100,11 @@ describeOnWindows("CheckWindowsApps IIS commands", () => {
 
   it("check_iis_worker_processes reports workers or the documented contracts", async () => {
     // No workers is a normal state (idle pools spin down), so an IIS host may
-    // also answer with the empty-set OK message.
+    // also answer with the empty-set OK message. That holds in strict mode
+    // too: with no w3wp.exe alive the W3SVC_W3WP object has zero instances
+    // and PDH expands the wildcard to PDH_CSTATUS_NO_INSTANCE, which the
+    // gather must treat as an empty set - not as the role-not-installed
+    // fallback, which the query() helper rejects under NSCP_EXPECT_IIS.
     const out = await query("check_iis_worker_processes");
     expect(out).toMatch(/not available|No IIS worker processes running|active requests/);
   });

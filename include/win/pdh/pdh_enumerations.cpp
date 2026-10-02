@@ -93,6 +93,13 @@ std::list<std::string> Enumerations::expand_wild_card_path(const std::string &qu
       error.clear();
       return expand_wild_card_path(utf8::cvt<std::string>(resolved), error);
     }
+    if (status.is_no_instance()) {
+      // The object resolved but has no instances at the moment (an IIS pool
+      // whose idle worker has spun down leaves W3SVC_W3WP empty). That is a
+      // legitimately empty set, not a missing counter set, so hand back an
+      // empty list without an error and let the caller report "none".
+      return ret;
+    }
     if (status.is_error()) {
       error = status.get_message();
       return ret;

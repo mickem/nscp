@@ -46,6 +46,15 @@ TEST(PdhError, NotFoundCoversAllThreeCodes) {
   EXPECT_FALSE(PDH::pdh_error(PDH_INVALID_DATA).is_not_found());
 }
 
+TEST(PdhError, NoInstanceIsNotNotFound) {
+  // An object with zero instances is an empty set, not a missing counter set:
+  // the two predicates must stay disjoint or an idle IIS reads as uninstalled.
+  EXPECT_TRUE(PDH::pdh_error(PDH_CSTATUS_NO_INSTANCE).is_no_instance());
+  EXPECT_FALSE(PDH::pdh_error(PDH_CSTATUS_NO_INSTANCE).is_not_found());
+  EXPECT_FALSE(PDH::pdh_error(PDH_CSTATUS_NO_OBJECT).is_no_instance());
+  EXPECT_FALSE(PDH::pdh_error(ERROR_SUCCESS).is_no_instance());
+}
+
 TEST(PdhError, NegativeDenominatorCoversBothCodes) {
   EXPECT_TRUE(PDH::pdh_error(PDH_CALC_NEGATIVE_DENOMINATOR).is_negative_denominator());
   EXPECT_TRUE(PDH::pdh_error(PDH_CALC_NEGATIVE_VALUE).is_negative_denominator());
