@@ -86,18 +86,6 @@ jobs:
             cp ../../dotnet-sample/* modules/dotnet/
           fi
 
-      - name: Copy test scripts
-        working-directory: tmp/nscp
-        shell: bash
-        run: |
-          cp -r ../../scripts/* scripts
-          find scripts
-
-      - name: Acceptance tests (Windows)
-        working-directory: tmp/nscp
-        run: |
-          ..\..\tests\acceptance-tests.bat --ci
-
       # Replaces the old ./.github/actions/rest-test composite action. The
       # rest scenarios now live as top-level rest-*.test.ts files under the
       # main integration harness; NSCP_SKIP_DOCKER=1 makes every docker-

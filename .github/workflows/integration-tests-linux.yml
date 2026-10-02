@@ -183,22 +183,6 @@ jobs:
             cp dotnet-sample/* /usr/lib/nsclient/modules/dotnet/
           fi
 
-      # Linux: Acceptance tests (DEB)
-      - name: Acceptance tests (Linux DEB)
-        if: inputs.package-type == 'deb'
-        run: |
-          cp -r scripts/* /usr/lib/nsclient/scripts
-          nscp nrpe install --certificate --verify none
-          ./tests/acceptance-tests.sh
-
-      # Linux: Acceptance tests (RPM)
-      - name: Acceptance tests (Linux RPM)
-        if: inputs.package-type == 'rpm'
-        run: |
-          cp -r scripts/* /usr/lib/nsclient/scripts
-          nscp nrpe install --certificate --verify none
-          ./tests/acceptance-tests.sh
-
       - name: Setup Python for tests
         run: |
           retry() {
@@ -221,8 +205,8 @@ jobs:
       #
       # This used to be deb-only, from when the harness still needed a docker
       # daemon. NSCP_SKIP_DOCKER removed that, but the condition stayed - which
-      # left the rpm packages with only acceptance-tests.sh for coverage, so
-      # anything that behaves differently on RHEL went untested. The RPM base
+      # left the rpm packages with only the old nscp unit acceptance script for
+      # coverage, so anything that behaves differently on RHEL went untested. The RPM base
       # dependencies already install Node 20 from nodesource, so both package
       # types run the same suite.
       - name: Install integration harness deps

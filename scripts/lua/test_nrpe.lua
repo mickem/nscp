@@ -56,7 +56,7 @@ local function check_echo(command, args)
 end
 Registry():simple_function(ECHO, check_echo, 'NRPE round-trip echo (test helper)')
 
-local NrpeTest = {}
+local NrpeTest = { name = "NRPE round trip" }
 
 function NrpeTest:install(arguments)
 	local conf = Settings()

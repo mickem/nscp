@@ -135,6 +135,8 @@ Docker-free scenarios (always run, including in no-docker CI pipelines):
 | `tests/rest-queries-v1.test.ts`         | queries × execute × json/nagios/text                                                         |
 | `tests/rest-queries-v2.test.ts`         | queries v2 of the above                                                                      |
 | `tests/rest-settings.test.ts`           | settings GET / PUT / DELETE                                                                  |
+| `tests/scripting-unit-python.test.ts`   | `scripts/python/test_*.py` through `nscp unit`; replaces `acceptance-tests.sh` / `.bat`      |
+| `tests/scripting-unit-lua.test.ts`      | `nscp unit --language lua` with `${scripts}` off the install base, `--case`, `--show-all`    |
 
 The Checkmk end-to-end test (`check_mk-site.test.ts`) pulls a ~500MB image and is also gated by `RUN_CMK_SITE_TEST=1`
 (must be set _and_ docker must not be skipped).
@@ -178,6 +180,11 @@ core's own `status.dat` out of the container - `plugin_output`, `performance_dat
 an active result and a `last_check` newer than the test. That file is the only uniform probe: Nagios Core has no REST
 API, and Naemon writes the same format. The suite publishes gearmand on host port **14732**, again fixed, for the case
 that restarts the whole core container and expects the agent to re-register and keep answering.
+
+The `scripting-unit-*` suites run the in-process test scripts with `nscp unit`. They copy `scripts/python` or
+`scripts/lua` out of this checkout into a scratch `${scripts}`, because the install does not ship them, so they test the
+scripts on this branch against whatever `NSCP_BIN` is. The Lua scripts are also CTest targets (`NSCP_ADD_LUA_TEST` in
+`tests/CMakeLists.txt`), which is how the sanitizer job runs them.
 
 The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness.
 

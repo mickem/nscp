@@ -94,9 +94,8 @@ jobs:
             sudo cp dotnet-sample/* /usr/local/lib/nsclient/modules/dotnet/
           fi
 
-      # No acceptance-tests.sh here, unlike the Linux jobs: it drives
-      # `nscp unit --language python`, and PythonScript is not built into the
-      # macOS package yet (build-macos.yml says why). It joins when it is.
+      # scripting-unit-python skips itself here: PythonScript is not built into
+      # the macOS package yet (build-macos.yml says why). It joins when it is.
 
       - name: Install integration harness deps
         working-directory: tests

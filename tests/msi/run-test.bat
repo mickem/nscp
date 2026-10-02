@@ -3,7 +3,8 @@ rem ============================================================
 rem  MSI installer integration tests.
 rem
 rem  Mirrors .github/actions/installer-test/action.yaml so the
-rem  same suite runs locally via tests\run-all-tests.bat.
+rem  same suite runs locally: run this file from the build/target
+rem  folder.
 rem
 rem  Requires:
 rem    * Python 3 on PATH
@@ -16,7 +17,7 @@ rem
 rem  When the MSI artifacts are not present (e.g. running the
 rem  test bundle on a developer machine that didn't build them)
 rem  the suite is skipped with a clear message rather than
-rem  failed, so run-all-tests.bat stays green for partial builds.
+rem  failed, so a partial build stays green.
 rem ============================================================
 setlocal EnableDelayedExpansion
 
