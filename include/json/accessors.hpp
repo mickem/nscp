@@ -9,6 +9,7 @@
 // throws. Pull them into a module's own namespace with using-declarations.
 
 #include <boost/json.hpp>
+#include <str/saturate.hpp>
 #include <string>
 
 namespace json_accessors {
@@ -24,7 +25,9 @@ inline long long get_num(const boost::json::object &o, const char *key) {
   if (const boost::json::value *p = o.if_contains(key)) {
     if (p->is_int64()) return p->as_int64();
     if (p->is_uint64()) return static_cast<long long>(p->as_uint64());
-    if (p->is_double()) return static_cast<long long>(p->as_double());
+    // A daemon can report a NaN or a number beyond 2^63; casting either to
+    // long long is UB, so saturate instead.
+    if (p->is_double()) return str::to_int64_saturating(p->as_double());
   }
   return 0;
 }
