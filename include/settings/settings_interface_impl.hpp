@@ -141,7 +141,18 @@ class settings_interface_impl : public settings_interface {
     }
   }
 
-  virtual std::list<std::shared_ptr<settings_interface>> get_children() { return children_; }
+  // children_ is cleared and refilled under mutex_ by clear_cache() (a
+  // settings reload, or settings_http re-downloading its includes) while
+  // other threads walk it. Everything outside the lock walks a copy taken
+  // under it; the copy holds shared_ptrs, so the children it names stay alive
+  // even if a reload drops them meanwhile. Never recurse into a child while
+  // holding mutex_: it is not recursive, and a child is free to call back.
+  parent_list_type snapshot_children() {
+    MUTEX_GUARD();
+    return children_;
+  }
+
+  virtual std::list<std::shared_ptr<settings_interface>> get_children() { return snapshot_children(); }
 
   template <class T>
   typename T::op_type getter(std::string path, std::string key) {
@@ -682,9 +693,10 @@ class settings_interface_impl : public settings_interface {
 
   virtual std::string to_string() {
     std::string ret = get_info();
-    if (!children_.empty()) {
+    const parent_list_type children = snapshot_children();
+    if (!children.empty()) {
       ret += "parents = [";
-      for (parent_list_type::value_type i : children_) {
+      for (parent_list_type::value_type i : children) {
         ret += i->to_string();
       }
       ret += "]";
@@ -695,7 +707,7 @@ class settings_interface_impl : public settings_interface {
   inline std::string make_skey(std::string path, std::string key) { return path + "." + key; }
 
   virtual void house_keeping() {
-    for (parent_list_type::value_type i : children_) {
+    for (parent_list_type::value_type i : snapshot_children()) {
       i->house_keeping();
     }
   }
@@ -782,7 +794,7 @@ class settings_interface_impl : public settings_interface {
     }
 
     // Recurse into child stores (e.g. included config files)
-    for (parent_list_type::value_type i : children_) {
+    for (parent_list_type::value_type i : snapshot_children()) {
       change_list child_changes = i->get_changes();
       result.insert(result.end(), child_changes.begin(), child_changes.end());
     }
