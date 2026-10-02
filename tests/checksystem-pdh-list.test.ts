@@ -217,15 +217,19 @@ describeOnWindows("CheckSystem pdh index lookup", () => {
     return { code: r.exitCode, value: lines[lines.length - 1] ?? "" };
   }
 
-  /** The legacy CheckCounter through a one-shot client query. */
-  async function checkCounter(args: string[]): Promise<{ code: number; out: string }> {
+  /**
+   * The legacy CheckCounter through a one-shot client query: the exit code
+   * (the Nagios status), the result line, and everything the process printed
+   * so a failure says why.
+   */
+  async function checkCounter(args: string[]): Promise<{ code: number; out: string; all: string }> {
     const r = await nscp.run(
       ["client", "--module", "CheckSystem", "--boot", "--query", "CheckCounter", ...args],
       {
         allowFailure: true,
       },
     );
-    return { code: r.exitCode, out: r.stdout };
+    return { code: r.exitCode, out: r.stdout, all: r.all ?? `${r.stdout}\n${r.stderr}` };
   }
 
   const names: Record<number, string> = {};
@@ -251,8 +255,8 @@ describeOnWindows("CheckSystem pdh index lookup", () => {
     ["by index", ["Counter=\\4\\26", "ShowAll", "MaxWarn=10"]],
     ["by index with the index flag", ["Counter=\\4\\26", "index", "ShowAll", "MaxWarn=10"]],
   ])("CheckCounter reads a counter %s", async (_label, args) => {
-    const { code, out } = await checkCounter(args);
-    expect(code).not.toBe(3);
+    const { code, out, all } = await checkCounter(args);
+    expect([code, all]).not.toEqual([3, expect.anything()]);
     const [message, perf] = out.trim().split("|");
     expect(message.trim().length).toBeGreaterThan(0);
     expect((perf ?? "").trim().length).toBeGreaterThan(0);
@@ -262,12 +266,12 @@ describeOnWindows("CheckSystem pdh index lookup", () => {
     // Runs after the round trip above, which recorded the names.
     expect(names[4]).toBeDefined();
     expect(names[26]).toBeDefined();
-    const { code, out } = await checkCounter([
+    const { code, out, all } = await checkCounter([
       `Counter=\\${names[4]}\\${names[26]}`,
       "ShowAll",
       "MaxWarn=10",
     ]);
-    expect(code).not.toBe(3);
+    expect([code, all]).not.toEqual([3, expect.anything()]);
     expect(out).toContain("|");
   });
 });

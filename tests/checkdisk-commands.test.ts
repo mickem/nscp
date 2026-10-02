@@ -799,7 +799,6 @@ describeWithModules("CheckDisk")("CheckDisk commands", () => {
         path: tree,
         filter,
         "detail-syntax": "%(filename): %(size) %(written)",
-        "top-syntax": "count=${count}",
         warning: "count > 1",
         critical: "count > 3",
         "empty-state": "unknown",
@@ -848,7 +847,10 @@ describeWithModules("CheckDisk")("CheckDisk commands", () => {
     it.each(cases)("filter %s %j counts %i on Windows, %i on Linux", async (filter, extra, onWin, onLinux) => {
       const expected = onWindows ? onWin : onLinux;
       const q = await matrix(filter, extra);
-      if (expected > 0) expect(messageOf(q)).toContain(`count=${expected}`);
+      // The count is read from the perfdata, as the legacy script did: an
+      // all-OK result renders the ok-syntax ("All 1 files are ok") rather than
+      // the top-syntax, so the message does not always carry it.
+      if (expected > 0) expect(Object.values(perfOf(q)).map((e) => e.value)).toEqual([expected]);
       expect(q.result).toBe(statusForCount(expected));
     });
 
