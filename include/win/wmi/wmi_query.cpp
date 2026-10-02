@@ -100,7 +100,9 @@ std::string get_array(SAFEARRAY *parray) {
     CComVariant vValue = arr.GetAt(index);
     HRESULT hr = vValue.ChangeType(VT_BSTR);
     if (FAILED(hr)) throw wmi_exception(hr, "Failed to convert array to string");
-    ss << utf8::cvt<std::string>(vValue.bstrVal);
+    // A VT_BSTR element may hold a NULL BSTR (an empty string in COM); handing
+    // it to std::wstring is UB.
+    ss << (vValue.bstrVal ? utf8::cvt<std::string>(vValue.bstrVal) : std::string());
     if (index < end) {
       ss << ", ";
     }

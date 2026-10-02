@@ -587,23 +587,6 @@ void CheckHelpers::check_timeout(const PB::Commands::QueryRequestMessage::Reques
   }
 }
 
-struct normal_sort {
-  bool operator()(const PB::Common::PerformanceData &v1, const PB::Common::PerformanceData &v2) const {
-    if (!v1.has_float_value()) return false;
-    if (!v2.has_float_value()) return false;
-    if (v1.float_value().value() > v2.float_value().value()) return true;
-    return false;
-  }
-};
-struct reverse_sort {
-  bool operator()(const PB::Common::PerformanceData &v1, const PB::Common::PerformanceData &v2) const {
-    if (!v1.has_float_value()) return false;
-    if (!v2.has_float_value()) return false;
-    if (v1.float_value().value() < v2.float_value().value()) return true;
-    return false;
-  }
-};
-
 void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                const PB::Commands::QueryRequestMessage &request_message) {
   const forwarded_identity id = extract_identity(request_message);
@@ -637,9 +620,9 @@ void CheckHelpers::filter_perf(const PB::Commands::QueryRequestMessage::Request 
   }
 
   if (sort == "normal")
-    std::sort(perfs.begin(), perfs.end(), normal_sort());
+    std::sort(perfs.begin(), perfs.end(), perf_filter::normal_sort());
   else if (sort == "reverse")
-    std::sort(perfs.begin(), perfs.end(), reverse_sort());
+    std::sort(perfs.begin(), perfs.end(), perf_filter::reverse_sort());
   response->clear_lines();
   ::PB::Commands::QueryResponseMessage_Response_Line *line = response->add_lines();
   line->set_message(ss.str());

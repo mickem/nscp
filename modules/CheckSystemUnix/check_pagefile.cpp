@@ -8,6 +8,7 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/helpers.hpp>
+#include <str/saturate.hpp>
 
 #include "realtime_thread.hpp"
 
@@ -25,7 +26,9 @@ node_type calculate_free(std::shared_ptr<filter_obj> object, evaluation_context 
   std::string unit = value.get<2>();
 
   if (unit == "%") {
-    number = (object->get_total() * number) / 100;
+    // total * number overflows long long (UB) for a large caller-supplied
+    // percentage; compute in double and saturate, as check_drive does.
+    number = str::to_int64_saturating(static_cast<double>(object->get_total()) * static_cast<double>(number) / 100.0);
   } else {
     number = str::format::decode_byte_units(number, unit);
   }
