@@ -89,22 +89,27 @@ void check_cpu(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryR
 
   if (!filter_helper.build_filter(filter)) return;
 
+  // Validated before the collector is consulted: a bad time= is a
+  // configuration error and must not hide behind a warm-up answer.
+  std::vector<std::pair<std::string, long>> time_windows;
+  for (const std::string &time : times) {
+    try {
+      time_windows.emplace_back(time, str::format::decode_time<long>(time, 1));
+    } catch (const std::exception &e) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
+    }
+  }
+
   // Check if collector is available and has data
   if (!collector) {
     return nscapi::protobuf::functions::set_response_bad(*response, "CPU collector not initialized");
   }
 
-  if (!collector->has_cpu_data()) {
-    return filter_helper.set_warmup_response("No CPU data available yet (collector still initializing)");
-  }
+  if (filter_helper.answer_unless_sampled(collector->cpu_status(), "CPU")) return;
 
-  for (const std::string &time : times) {
-    long seconds;
-    try {
-      seconds = str::format::decode_time<long>(time, 1);
-    } catch (const std::exception &e) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
-    }
+  for (const auto &window : time_windows) {
+    const std::string &time = window.first;
+    const long seconds = window.second;
     auto cpu_data = collector->get_cpu_load(seconds);
 
     if (cpu_data.empty()) {

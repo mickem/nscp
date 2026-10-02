@@ -88,9 +88,7 @@ void check_memory(std::shared_ptr<pdh_thread> collector, const PB::Commands::Que
     return nscapi::protobuf::functions::set_response_bad(*response, "Memory collector not initialized");
   }
 
-  if (!collector->has_memory_data()) {
-    return filter_helper.set_warmup_response("No memory data available yet (collector still initializing)");
-  }
+  if (filter_helper.answer_unless_sampled(collector->memory_status(), "memory")) return;
 
   const memory_info mem_data = collector->get_memory(1);
 

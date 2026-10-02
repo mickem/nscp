@@ -80,9 +80,7 @@ void check_pagefile(std::shared_ptr<pdh_thread> collector, const PB::Commands::Q
     return nscapi::protobuf::functions::set_response_bad(*response, "Pagefile collector not initialized");
   }
 
-  if (!collector->has_memory_data()) {
-    return filter_helper.set_warmup_response("No pagefile/swap data available yet (collector still initializing)");
-  }
+  if (filter_helper.answer_unless_sampled(collector->memory_status(), "pagefile/swap")) return;
 
   // Get memory data from collector (use 1 second average for current snapshot)
   memory_info mem_data = collector->get_memory(1);

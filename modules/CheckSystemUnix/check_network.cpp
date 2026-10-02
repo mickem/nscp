@@ -98,9 +98,7 @@ void check_network(std::shared_ptr<pdh_thread> collector, const PB::Commands::Qu
   if (!collector) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Network collector not initialized");
   }
-  if (!collector->has_network_data()) {
-    return filter_helper.set_warmup_response("No network data available yet (collector still initializing)");
-  }
+  if (filter_helper.answer_unless_sampled(collector->network_status(), "network")) return;
 
   for (const network_interface &v : collector->get_network()) {
     const std::shared_ptr<filter_obj> record(new filter_obj(v));

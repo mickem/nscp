@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+#include <boost/optional.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <chrono>
 #include <fstream>
@@ -12,6 +13,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include <sstream>
+#include <stdexcept>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <thread>
@@ -27,9 +29,15 @@ typedef parsers::where::realtime_filter_helper<check_proc::check_proc_filter::ru
  * Thread that collects the data every second and evaluates real-time filters.
  */
 void pdh_thread::thread_proc() {
-  // Initial read to establish baseline
-  last_cpu_times_ = collector_source::read_cpu_times();
-  last_net_ = collector_source::read_network();
+  // Initial read to establish baseline. A failure here must not end the
+  // thread: the loop below keeps trying, and the first tick that reads
+  // successfully simply has no previous sample to diff against.
+  try {
+    last_cpu_times_ = collector_source::read_cpu_times();
+    last_net_ = collector_source::read_network();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Failed to read the initial system sample: " + std::string(e.what()));
+  }
   auto last_net_sample = std::chrono::steady_clock::now();
 
   // Build real-time filter helpers from the configured objects
@@ -95,22 +103,59 @@ void pdh_thread::thread_proc() {
     if (stop_requested_) break;
 
     try {
-      // Collect CPU data
-      auto current_times = collector_source::read_cpu_times();
-      auto load = collector_calc::calculate_cpu_load(last_cpu_times_, current_times);
-      last_cpu_times_ = current_times;
+      // Each source is read and recorded on its own, so one unreadable file
+      // (an empty or unreadable /proc/stat in a locked-down container) does
+      // not mark the others as failed. The readers report an unreadable
+      // source as an empty result rather than by throwing, so emptiness is
+      // what is checked: storing it would present zeros as a measurement.
+      boost::optional<cpu_load> load;
+      std::string cpu_error;
+      bool cpu_attempted = true;
+      try {
+        auto current_times = collector_source::read_cpu_times();
+        if (current_times.empty()) throw std::runtime_error("no CPU times could be read");
+        if (last_cpu_times_.empty()) {
+          // Only the baseline so far: there is no delta to store yet, which
+          // is still the warm-up, not a sample and not a failure.
+          cpu_attempted = false;
+        } else {
+          load = collector_calc::calculate_cpu_load(last_cpu_times_, current_times);
+        }
+        last_cpu_times_ = current_times;
+      } catch (const std::exception &e) {
+        cpu_error = e.what();
+      }
 
-      // Collect memory data
-      auto mem = collector_calc::to_memory_info(collector_source::read_memory());
+      boost::optional<memory_info> mem;
+      std::string memory_error;
+      try {
+        const collector_source::memory_sample sample = collector_source::read_memory();
+        if (sample.physical_total == 0) throw std::runtime_error("no memory information could be read");
+        mem = collector_calc::to_memory_info(sample);
+      } catch (const std::exception &e) {
+        memory_error = e.what();
+      }
 
       // Collect network data (rates over the measured sampling interval — the
       // loop target is 1s but scheduling delays and suspend/resume stretch it).
-      auto net_now = collector_source::read_network();
-      const auto net_sample_time = std::chrono::steady_clock::now();
-      const double dt = std::chrono::duration<double>(net_sample_time - last_net_sample).count();
-      auto nics = collector_calc::calculate_network(last_net_, net_now, dt);
-      last_net_ = net_now;
-      last_net_sample = net_sample_time;
+      boost::optional<network_check::nics_type> nics;
+      std::string network_error;
+      try {
+        auto net_now = collector_source::read_network();
+        // Every host lists at least its loopback interface.
+        if (net_now.empty()) throw std::runtime_error("no network interfaces could be read");
+        const auto net_sample_time = std::chrono::steady_clock::now();
+        const double dt = std::chrono::duration<double>(net_sample_time - last_net_sample).count();
+        nics = collector_calc::calculate_network(last_net_, net_now, dt);
+        last_net_ = net_now;
+        last_net_sample = net_sample_time;
+      } catch (const std::exception &e) {
+        network_error = e.what();
+      }
+
+      log_sampling_error("CPU", cpu_error, last_logged_cpu_error);
+      log_sampling_error("memory", memory_error, last_logged_memory_error);
+      log_sampling_error("network", network_error, last_logged_network_error);
 
       // Collect process history (only when explicitly enabled — it enumerates
       // every process every second).
@@ -120,9 +165,24 @@ void pdh_thread::thread_proc() {
 
       {
         boost::unique_lock lock(mutex_);
-        cpu_buffer_.push(load);
-        memory_buffer_.push(mem);
-        network_ = nics;
+        if (load) {
+          cpu_buffer_.push(load.value());
+          cpu_sampling_.succeeded();
+        } else if (cpu_attempted) {
+          cpu_sampling_.failed(cpu_error);
+        }
+        if (mem) {
+          memory_buffer_.push(mem.value());
+          memory_sampling_.succeeded();
+        } else {
+          memory_sampling_.failed(memory_error);
+        }
+        if (nics) {
+          network_ = nics.value();
+          network_sampling_.succeeded();
+        } else {
+          network_sampling_.failed(network_error);
+        }
         if (track_history) {
           static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
           const long long now_ts = (boost::posix_time::second_clock::universal_time() - epoch).total_seconds();
@@ -131,6 +191,8 @@ void pdh_thread::thread_proc() {
       }
     } catch (const std::exception &e) {
       NSC_LOG_ERROR("Failed to collect system data: " + std::string(e.what()));
+    } catch (...) {
+      NSC_LOG_ERROR("Failed to collect system data: unknown error");
     }
 
     // Evaluate real-time filters once we have collected data
@@ -200,6 +262,33 @@ network_check::nics_type pdh_thread::get_network() const {
 bool pdh_thread::has_network_data() const {
   boost::shared_lock lock(mutex_);
   return !network_.empty();
+}
+
+sampling::status pdh_thread::cpu_status() const {
+  boost::shared_lock lock(mutex_);
+  return cpu_sampling_.get(cpu_buffer_.has_data());
+}
+
+sampling::status pdh_thread::memory_status() const {
+  boost::shared_lock lock(mutex_);
+  return memory_sampling_.get(memory_buffer_.has_data());
+}
+
+sampling::status pdh_thread::network_status() const {
+  boost::shared_lock lock(mutex_);
+  return network_sampling_.get(!network_.empty());
+}
+
+// Logged when the reason changes rather than every second, so a source that
+// stays unreadable does not flood the log; recovery is logged once too.
+void pdh_thread::log_sampling_error(const std::string &what, const std::string &error, std::string &last_logged) {
+  if (error == last_logged) return;
+  if (error.empty()) {
+    NSC_LOG_MESSAGE("Reading " + what + " data works again");
+  } else {
+    NSC_LOG_ERROR("Failed to read " + what + " data: " + error);
+  }
+  last_logged = error;
 }
 
 // Caller must hold the unique (write) lock on mutex_.

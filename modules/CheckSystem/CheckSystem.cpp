@@ -808,27 +808,9 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 
   if (!filter_helper.build_filter(filter)) return;
 
-  const std::shared_ptr<pdh_thread> collector = get_collector();
-  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
-
-  if (collector->is_disabled("cpu") && !collector->use_pdh_for_cpu) {
-    // Without this guard the check would answer from a buffer that is never
-    // updated, reporting frozen values as fresh samples (#1368).
-    return nscapi::protobuf::functions::set_response_bad(
-        *response, "CPU load sampling is disabled (remove cpu from disable in /settings/system/windows to use check_cpu)");
-  }
-  // The same contract as the Unix check: before the first sample there is no
-  // load to report, and the buffer's empty slots would read as an idle machine.
-  if (!collector->use_pdh_for_cpu) {
-    const boost::optional<bool> has_data = collector->has_cpu_data();
-    if (!has_data) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU data: the collector is busy (timed out waiting for its lock)");
-    }
-    if (!has_data.value()) {
-      return filter_helper.set_warmup_response("No CPU data available yet (collector still initializing)");
-    }
-  }
-
+  // Validated before the collector is consulted: a bad time= is a
+  // configuration error and must not hide behind a warm-up answer.
+  std::vector<std::pair<std::string, long>> time_windows;
   for (const std::string &time : times) {
     long seconds;
     try {
@@ -839,6 +821,40 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
     if (seconds <= 0) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': the window must be at least one second");
     }
+    time_windows.emplace_back(time, seconds);
+  }
+
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return nscapi::protobuf::functions::set_response_bad(*response, "Collector is not running");
+
+  if (collector->use_pdh_for_cpu) {
+    // The PDH counters cannot tell a warm-up from a counter that never
+    // resolves, so this source has no warm-up to pick a status for. Refusing
+    // the option says so instead of silently ignoring it.
+    if (filter_helper.warmup_state_given()) {
+      return nscapi::protobuf::functions::set_response_bad(
+          *response, "warmup-state is not supported while CPU load is read from PDH counters ('use pdh for cpu' is enabled in "
+                     "/settings/system/windows): that source cannot tell a warm-up from a counter that is unavailable");
+    }
+  } else {
+    if (collector->is_disabled("cpu")) {
+      // Without this guard the check would answer from a buffer that is never
+      // updated, reporting frozen values as fresh samples (#1368).
+      return nscapi::protobuf::functions::set_response_bad(
+          *response, "CPU load sampling is disabled (remove cpu from disable in /settings/system/windows to use check_cpu)");
+    }
+    // The same contract as the Unix check: before the first sample there is no
+    // load to report, and the buffer's empty slots would read as an idle machine.
+    const boost::optional<sampling::status> status = collector->cpu_status();
+    if (!status) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU data: the collector is busy (timed out waiting for its lock)");
+    }
+    if (filter_helper.answer_unless_sampled(status.value(), "CPU")) return;
+  }
+
+  for (const auto &window : time_windows) {
+    const std::string &time = window.first;
+    const long seconds = window.second;
     std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(seconds);
     typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
     for (vt v : vals) {

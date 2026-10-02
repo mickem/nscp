@@ -12,6 +12,7 @@
 #include <memory>
 #include <nscapi/settings/proxy.hpp>
 #include <rrd_buffer.hpp>
+#include <sampling_state.hpp>
 #include <threads/stop_signal.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_query.hpp>
@@ -86,6 +87,8 @@ class pdh_thread {
   std::list<PDH::pdh_object> configs_;
   std::list<PDH::pdh_instance> counters_;
   rrd_buffer<windows::system_info::cpu_load> cpu;
+  // Attempts to read the CPU load for `cpu` (guarded by mutex_, like it).
+  sampling::tracker cpu_sampling_;
   // Unix-style load averages folded from queue length + busy cores each tick
   // (guarded by mutex_; see check_load.hpp).
   load_check::load_avg_state load_avg_;
@@ -139,14 +142,16 @@ class pdh_thread {
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
-  // Whether the sampler has pushed at least one CPU sample yet, or none when
+  // Whether the sampler has pushed a CPU sample yet, is still waiting for its
+  // first tick, or has tried and failed (see sampling_state.hpp); none when
   // the collector's lock could not be had - a busy collector is not a fresh
   // one. Only meaningful for the sampled path (use_pdh_for_cpu == false); the
   // PDH path reads its counters directly.
-  boost::optional<bool> has_cpu_data();
+  boost::optional<sampling::status> cpu_status();
   // Snapshot of the synthetic load averages; samples == 0 until the collector
-  // has completed its first tick (or when load sampling is disabled).
-  load_check::load_avg_state get_load_avg();
+  // has completed its first tick (or when load sampling is disabled). None
+  // when the collector's lock could not be had.
+  boost::optional<load_check::load_avg_state> get_load_avg();
 
   network_check::nics_type get_network();
   temperature_check::zones_type get_temperature();
@@ -188,7 +193,11 @@ class pdh_thread {
 
  private:
   static spi_container fetch_spi(error_list &errors);
-  void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
+  void write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors);
+  // Store one CPU reading (or the reason there is none) for check_cpu and the
+  // realtime filters. Independent of write_metrics(): `disable = metrics` must
+  // not starve the CPU ring.
+  void record_cpu_sample(bool have_cpu, const windows::system_info::cpu_load &load, const std::string &error, error_list &errors);
 
   // Single attempt at resolving counters and opening the PDH query. Rebuilds
   // counters_ and lookups_ from configs_ each call so that wildcard expansion

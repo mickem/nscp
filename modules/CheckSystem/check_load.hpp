@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -86,9 +87,24 @@ typedef modern_filter::modern_filters<load_obj, filter_obj_handler> filter_type;
 // unscaled: it is an absolute thread count, not a per-core ratio.
 load_obj make_load_obj(const load_avg_state &state, bool percpu);
 
+// What check_load gathered from the collector. Each condition is only acted
+// on after the options are parsed, so help, show-default and an invalid option
+// are answered as such whatever state the collector is in.
+struct load_reading {
+  bool collector_running = true;
+  bool disabled = false;
+  // None when the collector's lock could not be had: a busy collector is
+  // neither a fresh one nor a disabled one.
+  boost::optional<load_avg_state> state;
+
+  load_reading() = default;
+  // A plain snapshot, as the unit tests hand it in.
+  load_reading(const load_avg_state &s) : state(s) {}  // NOLINT(google-explicit-constructor)
+};
+
 // Testable core: renders / thresholds a pre-gathered collector snapshot.
 void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                     const load_avg_state &state);
+                     const load_reading &reading);
 
 // Live check: reads the collector's load-average state.
 void check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

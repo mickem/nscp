@@ -176,14 +176,28 @@ bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as
   }
 }
 
-void pdh_thread::write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors) {
+void pdh_thread::record_cpu_sample(const bool have_cpu, const windows::system_info::cpu_load &load, const std::string &error, error_list &errors) {
+  boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!writeLock.owns_lock()) {
+    errors.emplace_back("Failed to get mutex for writing the CPU load");
+    return;
+  }
+  // A failed read is not pushed: it would enter the averages as an idle CPU.
+  if (have_cpu) {
+    cpu.push(load);
+    cpu_sampling_.succeeded();
+  } else {
+    cpu_sampling_.failed(error);
+  }
+}
+
+void pdh_thread::write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors) {
   boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!writeLock.owns_lock()) {
     errors.emplace_back("Failed to get mutex for writing");
     return;
   }
   try {
-    cpu.push(load);
     if (pdh != nullptr) pdh->gatherData();
 
     for (const lookup_type::value_type &e : lookups_) {
@@ -432,6 +446,7 @@ void pdh_thread::thread_proc() {
       }
       windows::system_info::cpu_load load;
       bool have_cpu = false;
+      std::string cpu_error;
       if (!disable_cpu) {
         try {
           if (read_core_load) {
@@ -440,12 +455,16 @@ void pdh_thread::thread_proc() {
             load = windows::system_info::get_cpu_load_total();
           }
           have_cpu = true;
+        } catch (const std::exception &e) {
+          cpu_error = utf8::utf8_from_native(e.what());
+          errors.emplace_back("Failed to get cpu load: " + cpu_error);
         } catch (...) {
           errors.emplace_back("Failed to get cpu load");
         }
+        record_cpu_sample(have_cpu, load, cpu_error, errors);
       }
       if (!disable_metrics) {
-        write_metrics(handles, load, check_pdh ? &pdh : nullptr, errors);
+        write_metrics(handles, check_pdh ? &pdh : nullptr, errors);
       }
       if (!disable_load) {
         double queue = 0.0;
@@ -772,13 +791,13 @@ process_checks::cpu_delta_map pdh_thread::get_process_cpu_deltas() {
   return process_checks::cpu_delta_map(proc_cpu_deltas_);
 }
 
-boost::optional<bool> pdh_thread::has_cpu_data() {
+boost::optional<sampling::status> pdh_thread::cpu_status() {
   boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!readLock.owns_lock()) {
     NSC_LOG_ERROR("Failed to get Mutex for: cpu");
     return boost::none;
   }
-  return cpu.has_data();
+  return cpu_sampling_.get(cpu.has_data());
 }
 
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {
@@ -854,11 +873,11 @@ bool pdh_thread::update_load_avg(const double queue, const bool have_cpu, const 
   return true;
 }
 
-load_check::load_avg_state pdh_thread::get_load_avg() {
+boost::optional<load_check::load_avg_state> pdh_thread::get_load_avg() {
   boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
   if (!readLock.owns_lock()) {
     NSC_LOG_ERROR("Failed to get Mutex for: load average");
-    return load_check::load_avg_state();
+    return boost::none;
   }
   return load_avg_;
 }

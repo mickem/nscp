@@ -13,6 +13,7 @@
 #include <nscapi/settings/proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <rrd_buffer.hpp>
+#include <sampling_state.hpp>
 #include <string>
 #include <vector>
 
@@ -155,6 +156,17 @@ class pdh_thread {
   std::map<std::string, collector_source::cpu_times> last_cpu_times_;
   std::map<std::string, collector_source::net_sample> last_net_;
   network_check::nics_type network_;
+  // Whether each buffer has been tried and how the last try went (guarded by
+  // mutex_, like the buffers).
+  sampling::tracker cpu_sampling_;
+  sampling::tracker memory_sampling_;
+  sampling::tracker network_sampling_;
+  // Thread-local to thread_proc(): the error each source last logged.
+  std::string last_logged_cpu_error;
+  std::string last_logged_memory_error;
+  std::string last_logged_network_error;
+
+  void log_sampling_error(const std::string &what, const std::string &error, std::string &last_logged);
 
   // Process history (keyed by lowercase exe name), tracked once per second when
   // process_history_enabled is set. Mirrors the Windows process-history feature.
@@ -205,6 +217,12 @@ class pdh_thread {
 
   // Check if we have collected any network data yet
   bool has_network_data() const;
+
+  // Whether each buffer is ready, still waiting for its first tick, or has
+  // been tried and is still empty (see sampling_state.hpp).
+  sampling::status cpu_status() const;
+  sampling::status memory_status() const;
+  sampling::status network_status() const;
 
   // Get the accumulated process history (empty unless tracking is enabled)
   process_history_check::history_type get_process_history() const;

@@ -762,8 +762,24 @@ OK: No CPU data available yet (collector still initializing)
 
 The message stays the same whatever status you choose, so a warm-up result is never mistaken for a
 reading. The option only covers the time before the first sample: once there is data, the check is
-evaluated normally and `warmup-state` has no effect. An unrecognised value is rejected when the
-check runs, not saved for the next restart.
+evaluated normally and `warmup-state` has no effect. It takes the same spellings as the other status
+options (`warn` and `crit` work too), and an unrecognised value is rejected whenever the check runs,
+not saved for the next restart. Any problem with the options themselves — an invalid `time=`, a
+typo — is reported before the collector is even consulted, so it never hides behind a warm-up
+answer.
+
+### Warming up versus not working
+
+`warmup-state` only ever applies to a collector that **has not tried yet**. Everything else that
+leaves a check without data is a fault, and is reported UNKNOWN whatever `warmup-state` says — so
+`warmup-state=ok` can quiet a restart, but never a broken collector:
+
+| Situation                                                                  | Result                                                              |
+|----------------------------------------------------------------------------|---------------------------------------------------------------------|
+| The collector has not taken its first sample yet                            | `warmup-state` (UNKNOWN by default), *"… (collector still initializing)"* |
+| The collector has tried and every attempt failed (e.g. `/proc` unreadable)  | UNKNOWN *"No … data available: the collector failed to sample it: <reason>"* |
+| Sampling is switched off (`disable = cpu`, `disable = load`)                | UNKNOWN *"… sampling is disabled"*                                  |
+| The collector is running but its lock could not be had in time (Windows)    | UNKNOWN *"… the collector is busy (timed out waiting for its lock)"* |
 
 `warmup-state` is accepted by the checks that can tell "not sampled yet" apart from "no data":
 
@@ -772,15 +788,11 @@ check runs, not saved for the next restart.
 | Windows         | `check_cpu`, `check_load`                                           |
 | Linux and macOS | `check_cpu`, `check_memory`, `check_pagefile`, `check_network`      |
 
-Other checks reject it as an unknown option.
+Other checks reject it as an unknown option. On Windows, `check_cpu` also refuses an explicit
+`warmup-state` while `use pdh for cpu` is enabled: the PDH counters cannot tell a warm-up from a
+counter that is unavailable, so there is no warm-up to choose a status for.
 
 <!-- @formatter:off -->
-!!! note "Disabled is not warming up"
-    A collector that is switched off never takes a first sample, so it is reported separately and
-    `warmup-state` does not apply. With `disable = cpu` or `disable = load` under
-    `[/settings/system/windows]`, `check_cpu` and `check_load` answer UNKNOWN *"… sampling is
-    disabled"* whatever `warmup-state` says.
-
 !!! warning "Checks that cannot tell warm-up apart yet"
     Some collector-backed checks cannot yet distinguish "not sampled yet" from "nothing there":
     on Windows `check_network`, `check_temperature`, `check_cpu_frequency`, `check_battery`,

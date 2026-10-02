@@ -181,6 +181,19 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(messageOf(q)).toMatch(/Invalid warmup-state: okay/);
   });
 
+  it.each(WARMUP_CHECKS)("%s takes the short status spellings for warmup-state", async (command) => {
+    const q = await executeQuery(key, command, { "warmup-state": "warn" });
+    expect(messageOf(q)).not.toMatch(/Invalid warmup-state/);
+  });
+
+  it("check_cpu reports an invalid time= whatever warmup-state says", async () => {
+    // Option errors are answered before the collector is consulted, so this
+    // holds in and after the warm-up alike.
+    const q = await executeQuery(key, "check_cpu", { time: "5x", "warmup-state": "ok" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid time '5x'/);
+  });
+
   // --- check_process ---------------------------------------------------------
 
   it("check_process finds our own process running", async () => {
