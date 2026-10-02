@@ -82,3 +82,44 @@ TEST(LuaWrapper, ANumericStringArgumentStillConverts) {
   EXPECT_TRUE(ok) << result;
   EXPECT_EQ(result, "42") << result;
 }
+
+namespace {
+// Stands in for the Check_MK data objects: a heap object owned by a userdata
+// slot, registered under the internal instance prefix the wrapper looks up.
+struct probe_object {
+  static const std::string tag;
+  static int live;
+  probe_object() { ++live; }
+  ~probe_object() { --live; }
+};
+const std::string probe_object::tag = "probe";
+int probe_object::live = 0;
+}  // namespace
+
+TEST(LuaWrapper, AnExplicitGcFollowedByAMethodRaisesInsteadOfCrashing) {
+  // obj:__gc() is reachable from a script (the metatable is its own __index),
+  // and the collector runs the metamethod again afterwards. The first call
+  // must delete exactly once, and a method on the dead object must raise a
+  // Lua error rather than dereference the emptied slot.
+  probe_object::live = 0;
+  std::string message;
+  const bool ok = call_protected(
+      [](lua_State *L) {
+        lua::lua_wrapper instance(L);
+        luaL_newmetatable(L, (lua::internal_user_instance_prefix + probe_object::tag).c_str());
+        lua_pop(L, 1);
+        instance.push_user_object_instance<probe_object>();
+        if (probe_object::live != 1) return instance.error("expected one live object after push");
+        instance.destroy_user_object_instance<probe_object>();
+        instance.destroy_user_object_instance<probe_object>();
+        if (probe_object::live != 0) return instance.error("expected the object to be deleted once");
+        instance.get_user_object_instance<probe_object>();
+        lua_pushstring(L, "reached the method body with a dead object");
+        return 1;
+      },
+      message);
+
+  EXPECT_FALSE(ok) << message;
+  EXPECT_NE(message.find("probe: object was already destroyed"), std::string::npos) << message;
+  EXPECT_EQ(probe_object::live, 0);
+}

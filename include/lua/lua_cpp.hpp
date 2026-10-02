@@ -119,6 +119,11 @@ class lua_wrapper {
   template <class T>
   T *get_user_object_instance(int pos = 1) {
     T **ptr = this->checkudata<T *>(pos, internal_user_instance_prefix + T::tag);
+    // destroy_user_object_instance nulls the slot, so a script that called
+    // obj:__gc() itself and then a method lands here with nothing behind the
+    // userdata. Raise a Lua error, as checkudata does for the wrong type,
+    // instead of handing the caller a null it dereferences.
+    if (*ptr == nullptr) luaL_error(L, "%s: object was already destroyed", T::tag.c_str());
     return *ptr;
   }
   template <class T>

@@ -35,7 +35,8 @@ API server reply, and a WMI array value).
 - A Lua script that called `obj:__gc()` on a Check_MK section, packet, line
   or metrics object itself, before the collector ran the metamethod again,
   deleted the wrapped C++ object twice. The slot is nulled after the first
-  delete.
+  delete, and a method called on the destroyed object raises a Lua error
+  instead of dereferencing the empty slot.
 - On Windows, a WMI array whose `VT_BSTR` element was a null string was
   handed to `std::wstring` as a null pointer. It renders as an empty string.
 - The registry settings backend read a `REG_DWORD` value through the byte
