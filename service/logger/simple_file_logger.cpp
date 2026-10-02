@@ -70,6 +70,34 @@ static void create_log_file_with_mode(const std::string &file) {
 #endif
 }
 
+void simple_file_logger::truncate_to_tail(const std::string &file, const std::uintmax_t size, const std::uintmax_t keep) {
+  if (keep >= size) return;
+  std::fstream fs(file.c_str(), std::ios::in | std::ios::out | std::ios::binary);
+  if (!fs.is_open()) throw std::runtime_error("cannot open for truncation");
+  std::vector<char> buffer(64 * 1024);
+  std::uintmax_t from = size - keep, to = 0;
+  while (to < keep) {
+    const std::streamsize chunk = static_cast<std::streamsize>(std::min<std::uintmax_t>(buffer.size(), keep - to));
+    fs.seekg(static_cast<std::streamoff>(from));
+    fs.read(buffer.data(), chunk);
+    const std::streamsize got = fs.gcount();
+    // The file is shorter than `size` said: someone else truncated it first.
+    if (got <= 0) throw std::runtime_error("file shrank during truncation");
+    fs.clear();
+    fs.seekp(static_cast<std::streamoff>(to));
+    fs.write(buffer.data(), got);
+    if (!fs) throw std::runtime_error("write failed during truncation");
+    from += static_cast<std::uintmax_t>(got);
+    to += static_cast<std::uintmax_t>(got);
+  }
+  fs.flush();
+  if (!fs) throw std::runtime_error("write failed during truncation");
+  fs.close();
+  // Only now is the whole tail at the front: cutting earlier would keep a
+  // partial copy (or nothing at all) and drop the rest of the log.
+  boost::filesystem::resize_file(file, keep);
+}
+
 void simple_file_logger::do_log(const std::string data) {
   if (file_.empty()) return;
   try {
@@ -79,30 +107,10 @@ void simple_file_logger::do_log(const std::string data) {
       // made a large max size (a few GiB on x86) throw bad_alloc on every
       // line, and 70% computed through an int was undefined past INT_MAX.
       // In place, so the file keeps the mode it was created with.
-      const boost::uintmax_t size = boost::filesystem::file_size(file_.c_str());
-      const boost::uintmax_t keep = static_cast<boost::uintmax_t>(max_size_ / 10 * 7);
+      const std::uintmax_t size = boost::filesystem::file_size(file_.c_str());
+      const std::uintmax_t keep = static_cast<std::uintmax_t>(max_size_ / 10 * 7);
       try {
-        if (keep < size) {
-          std::fstream fs(file_.c_str(), std::ios::in | std::ios::out | std::ios::binary);
-          // Nothing moved yet: resizing now would throw the whole log away.
-          if (!fs.is_open()) throw std::runtime_error("cannot open for truncation");
-          std::vector<char> buffer(64 * 1024);
-          boost::uintmax_t from = size - keep, to = 0;
-          while (fs && to < keep) {
-            const std::streamsize chunk = static_cast<std::streamsize>(std::min<boost::uintmax_t>(buffer.size(), keep - to));
-            fs.seekg(static_cast<std::streamoff>(from));
-            fs.read(buffer.data(), chunk);
-            const std::streamsize got = fs.gcount();
-            if (got <= 0) break;
-            fs.clear();
-            fs.seekp(static_cast<std::streamoff>(to));
-            fs.write(buffer.data(), got);
-            from += static_cast<boost::uintmax_t>(got);
-            to += static_cast<boost::uintmax_t>(got);
-          }
-          fs.close();
-          boost::filesystem::resize_file(file_.c_str(), to);
-        }
+        if (keep < size) truncate_to_tail(file_, size, keep);
       } catch (...) {
         logger_helper::log_fatal("Failed to truncate log file: " + file_);
       }

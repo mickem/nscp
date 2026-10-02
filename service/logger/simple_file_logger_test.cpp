@@ -23,6 +23,7 @@
 #include <atomic>
 #include <boost/filesystem.hpp>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <nscapi/protobuf/log.hpp>
@@ -383,6 +384,50 @@ TEST_F(SimpleFileLoggerSettingsTest, MaxSizeKeepsExactlyTheNewestSeventyPercent)
   ASSERT_GE(contents.size(), 280u);
   EXPECT_EQ(contents.substr(0, 280), original.substr(original.size() - 280));
   EXPECT_NE(contents.find("after-truncation", 280), std::string::npos);
+}
+
+namespace {
+std::string slurp(const boost::filesystem::path &p) {
+  std::ifstream in(p.string().c_str(), std::ios::binary);
+  return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+void spit(const boost::filesystem::path &p, const std::string &data) {
+  std::ofstream out(p.string().c_str(), std::ios::binary | std::ios::trunc);
+  out << data;
+}
+}  // namespace
+
+TEST(SimpleFileLoggerTruncate, KeepsTheTailAndCutsTheFile) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.path() / "t.log";
+  std::string original;
+  for (int i = 0; i < 20000; i++) original += static_cast<char>('a' + i % 26);
+  spit(file, original);
+  simple_file_logger::truncate_to_tail(file.string(), original.size(), 7000);
+  EXPECT_EQ(slurp(file), original.substr(original.size() - 7000));
+}
+
+TEST(SimpleFileLoggerTruncate, KeepsTheTailAcrossSeveralBufferChunks) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.path() / "big.log";
+  std::string original;
+  for (int i = 0; i < 300000; i++) original += static_cast<char>('a' + (i * 7) % 26);
+  spit(file, original);
+  simple_file_logger::truncate_to_tail(file.string(), original.size(), 200000);
+  EXPECT_EQ(slurp(file), original.substr(original.size() - 200000));
+}
+
+TEST(SimpleFileLoggerTruncate, StaleSizeLeavesTheFileAlone) {
+  // Two processes sharing a log both saw it over the limit; the first already
+  // cut it to `keep`. The second still holds the old size, so its seek lands
+  // past the end and reads nothing. It used to resize the file to the zero
+  // bytes it had copied, wiping the tail the first one preserved.
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.path() / "shared.log";
+  const std::string preserved(700, 'p');
+  spit(file, preserved);
+  EXPECT_ANY_THROW(simple_file_logger::truncate_to_tail(file.string(), 1000, 700));
+  EXPECT_EQ(slurp(file), preserved);
 }
 
 TEST_F(SimpleFileLoggerSettingsTest, FileNameNoneDisablesTheFileLog) {
