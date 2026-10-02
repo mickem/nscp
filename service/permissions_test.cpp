@@ -262,3 +262,74 @@ TEST(Permissions, exec_toggle_does_not_affect_query_is_allowed) {
   EXPECT_TRUE(p.is_allowed("WEBServer:admin", "CheckSystem.check_cpu"));
   EXPECT_FALSE(p.is_allowed("WEBServer:guest", "CheckSystem.check_cpu"));
 }
+
+// ===== replace (atomic reload) ============================================
+//
+// load_permissions() builds the new policy into a staging object and swaps
+// it in with replace(), so a request arriving mid-reload sees either the
+// old table or the new one - never an enabled policy with an empty table.
+
+TEST(Permissions, replace_swaps_rules_and_flags_in_one_step) {
+  permissions live;
+  live.set_enabled(true);
+  live.add_rule("X", "A.old");
+
+  permissions staged;
+  staged.set_enabled(true);
+  staged.set_allow_exec(false);
+  staged.set_log_denials(false);
+  staged.set_log_allows(true);
+  staged.add_rule("X", "A.new");
+  staged.add_rule("Y", "B.*");
+
+  live.replace(staged);
+
+  EXPECT_TRUE(live.is_enabled());
+  EXPECT_FALSE(live.is_exec_allowed());
+  EXPECT_FALSE(live.should_log_denials());
+  EXPECT_TRUE(live.should_log_allows());
+  EXPECT_EQ(2u, live.rule_count());
+  EXPECT_TRUE(live.is_allowed("X", "A.new"));
+  EXPECT_TRUE(live.is_allowed("Y", "B.anything"));
+  // The rule the old table had and the new one does not is gone.
+  EXPECT_FALSE(live.is_allowed("X", "A.old"));
+}
+
+TEST(Permissions, replace_leaves_staged_empty_and_at_defaults) {
+  permissions live;
+  permissions staged;
+  staged.set_enabled(true);
+  staged.set_allow_exec(false);
+  staged.add_rule("X", "A.b");
+
+  live.replace(staged);
+
+  EXPECT_EQ(0u, staged.rule_count());
+  EXPECT_FALSE(staged.is_enabled());
+  EXPECT_TRUE(staged.is_exec_allowed());
+  EXPECT_TRUE(staged.should_log_denials());
+  EXPECT_FALSE(staged.should_log_allows());
+}
+
+TEST(Permissions, replace_with_disabled_policy_turns_enforcement_off) {
+  permissions live;
+  live.set_enabled(true);
+  live.add_rule("X", "A.b");
+
+  permissions staged;  // enabled defaults to false, no rules
+  live.replace(staged);
+
+  EXPECT_FALSE(live.is_enabled());
+  EXPECT_EQ(0u, live.rule_count());
+  EXPECT_TRUE(live.is_allowed("anyone", "anything"));
+}
+
+TEST(Permissions, replace_with_self_is_a_no_op) {
+  permissions live;
+  live.set_enabled(true);
+  live.add_rule("X", "A.b");
+  live.replace(live);
+  EXPECT_TRUE(live.is_enabled());
+  EXPECT_EQ(1u, live.rule_count());
+  EXPECT_TRUE(live.is_allowed("X", "A.b"));
+}

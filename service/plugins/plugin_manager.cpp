@@ -260,11 +260,11 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 }
 
 // Read /settings/permissions{,/policies} into permissions_. Idempotent:
-// safe to call from both the boot path and from do_reload("settings"). On
-// reload we clear the rule table first so deleted rules disappear, then
-// re-register each policies key. The four global switches use
-// register_key + get_string so the settings UI / docs see the keys even
-// when the operator hasn't customised them. See
+// safe to call from both the boot path and from do_reload("settings"). The
+// policy is built into a staging object from scratch, so deleted rules
+// disappear, and swapped into permissions_ in one step. The four global
+// switches use register_key + get_string so the settings UI / docs see the
+// keys even when the operator hasn't customised them. See
 // docs/design/core-permissions.md for the wire format.
 void nsclient::core::plugin_manager::load_permissions() {
   const auto core = settings_manager::get_core();
@@ -297,17 +297,24 @@ void nsclient::core::plugin_manager::load_permissions() {
                         "object patterns (module.command). Rules merge additively.",
                         true, false);
 
-    permissions_.clear_rules();
+    // Build the new policy aside and swap it in whole: is_allowed() runs on
+    // the NRPE and web workers throughout, and rebuilding permissions_ in
+    // place (clear, then one add_rule per policy) denied every call that
+    // landed between the clear and the last add. A settings error part-way
+    // through now leaves the previous policy in force instead of a table
+    // that was cleared and never refilled.
+    permissions staged;
     const std::string enabled = settings->get_string(section, "enabled", "false");
-    permissions_.set_enabled(enabled == "true" || enabled == "1");
-    permissions_.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
-    permissions_.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
-    permissions_.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
+    staged.set_enabled(enabled == "true" || enabled == "1");
+    staged.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
+    staged.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
+    staged.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
 
     for (const std::string &subject : settings->get_keys(policies_section)) {
       const std::string objects = settings->get_string(policies_section, subject, "");
-      permissions_.add_rule(subject, objects);
+      staged.add_rule(subject, objects);
     }
+    permissions_.replace(staged);
     LOG_DEBUG_CORE_STD("permissions: loaded " + str::xtos(permissions_.rule_count()) + " rule(s), enabled=" + (permissions_.is_enabled() ? "true" : "false"));
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("permissions: failed to load: " + utf8::utf8_from_native(e.what()));

@@ -111,6 +111,31 @@ class permissions {
     return rules_.size();
   }
 
+  // Replace the whole policy - the flags and the rule table - with
+  // `staged`'s in one step under the mutex. A reload builds the new policy
+  // into a local permissions object and swaps it in through this, so a
+  // request arriving mid-reload sees either the old table or the new one.
+  // Rebuilding in place (clear_rules(), then set_*, then one add_rule() per
+  // policy) left a window where enabled_ was true and rules_ empty, and
+  // every call in it was denied: a burst of 'permissions: denied' UNKNOWNs
+  // on every settings reload while checks were flowing.
+  //
+  // `staged` is left empty (no rules, flags at their defaults).
+  void replace(permissions& staged) {
+    if (&staged == this) return;
+    std::scoped_lock lk(mutex_, staged.mutex_);
+    enabled_ = staged.enabled_;
+    allow_exec_ = staged.allow_exec_;
+    log_denials_ = staged.log_denials_;
+    log_allows_ = staged.log_allows_;
+    rules_.swap(staged.rules_);
+    staged.rules_.clear();
+    staged.enabled_ = false;
+    staged.allow_exec_ = true;
+    staged.log_denials_ = true;
+    staged.log_allows_ = false;
+  }
+
   // The policy decision. `subject` is `module[:principal]` (use
   // make_subject below); `object` is `module.command` (use make_object).
   //
