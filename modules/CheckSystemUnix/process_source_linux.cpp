@@ -173,11 +173,17 @@ filter_obj read_process_info(int pid, bool resolve_owner = false) {
   try {
     std::ifstream statm_file(proc_path + "/statm");
     if (statm_file.is_open()) {
-      unsigned long size, resident, shared, text, lib, data, dt;
-      statm_file >> size >> resident >> shared >> text >> lib >> data >> dt;
+      // Only the first two fields are used. They start at 0 and are only
+      // used when the read succeeded: a process that exits between the open
+      // and the read leaves an empty file, and the extraction then left the
+      // fields indeterminate, which were read anyway.
+      unsigned long size = 0, resident = 0;
+      statm_file >> size >> resident;
 
       long page_size = sysconf(_SC_PAGESIZE);
-      if (page_size > 0) {
+      if (!statm_file) {
+        info.error = "Cannot read statm";
+      } else if (page_size > 0) {
         info.virtual_size = size * page_size;
         info.working_set = resident * page_size;
       }

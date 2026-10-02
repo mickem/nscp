@@ -72,17 +72,15 @@ describeOnWindows("CheckSystem disable=cpu_frequency (#1368)", () => {
   });
 
   it("leaves check_cpu answering from the collector", async () => {
-    // check_cpu answers UNKNOWN ("collector still initializing") until the
-    // collector has pushed its first sample, so wait that out. A sampler the
-    // disable setting wrongly stopped never gets there and still fails below,
-    // with its own message in the diff.
+    // check_cpu answers UNKNOWN until the collector has pushed its first
+    // sample, so a query straight after boot can land before it. Wait that
+    // out; a sampler that never starts still fails, with its last answer.
     const q = await pollQuery(
       key,
       "check_cpu",
       { warning: "load > 101", critical: "load > 101" },
-      (r) => r.result === OK,
+      (r) => r.result !== UNKNOWN,
     );
-    expect(messageOf(q)).not.toMatch(/initializing/i);
     expect(q.result).toBe(OK);
     expect(messageOf(q)).not.toMatch(/disabled/i);
     const load = perfValue(q, "total 5m");

@@ -15,6 +15,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <str/number_format.hpp>
+#include <str/saturate.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <string>
@@ -309,6 +310,29 @@ T mul_checked_impl(const T value, const long long factor, const std::string &wha
 template <class T>
 T mul_checked(const T value, const long long factor, const std::string &what) {
   return detail::mul_checked_impl(value, factor, what, std::is_integral<T>());
+}
+
+// a + b, or std::out_of_range when the sum does not fit a long long (signed
+// overflow is undefined behaviour). For offsets applied to values that come
+// from outside: a filter's `now + 5d`, a timestamp minus a remote date.
+inline long long add_checked(const long long a, const long long b, const std::string &what) {
+  if (b > 0 && a > (std::numeric_limits<long long>::max)() - b) throw std::out_of_range(what + " is too large");
+  if (b < 0 && a < (std::numeric_limits<long long>::min)() - b) throw std::out_of_range(what + " is too small");
+  return a + b;
+}
+
+// -a, or std::out_of_range for LLONG_MIN, whose negation does not fit.
+inline long long negate_checked(const long long a, const std::string &what) {
+  if (a == (std::numeric_limits<long long>::min)()) throw std::out_of_range(what + " is too large");
+  return -a;
+}
+
+// llround(v), or std::out_of_range when v is NaN or rounds outside the long
+// long range: llround's result is unspecified there (it does not throw).
+inline long long llround_checked(const double v, const std::string &what) {
+  const double r = std::round(v);
+  if (!fits_int64(r)) throw std::out_of_range(what + " is too large");
+  return static_cast<long long>(r);
 }
 
 template <class T>

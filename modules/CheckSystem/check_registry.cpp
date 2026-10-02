@@ -142,14 +142,14 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
       return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
     }
 
-    // Connect to remote registry if needed
+    // Connect to remote registry if needed. remote_root owns the connected hive for the whole iteration: declared
+    // inside the try it closed the handle before the enumeration used it.
     HKEY effective_root = parts.hive;
+    win_registry::raii_hkey remote_root;
     if (!computer.empty()) {
       try {
-        win_registry::raii_hkey remote_root;
-        HKEY rr = win_registry::connect_registry(computer, parts.hive);
-        remote_root.hKey = rr;
-        effective_root = rr;
+        remote_root.hKey = win_registry::connect_registry(computer, parts.hive);
+        effective_root = remote_root.get();
       } catch (const win_registry::registry_exception &e) {
         return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
       }
@@ -311,13 +311,14 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
       return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
     }
 
+    // remote_root owns the connected hive for the whole iteration: declared
+    // inside the try it closed the handle before the enumeration used it.
     HKEY effective_root = parts.hive;
+    win_registry::raii_hkey remote_root;
     if (!computer.empty()) {
       try {
-        win_registry::raii_hkey remote_root;
-        HKEY rr = win_registry::connect_registry(computer, parts.hive);
-        remote_root.hKey = rr;
-        effective_root = rr;
+        remote_root.hKey = win_registry::connect_registry(computer, parts.hive);
+        effective_root = remote_root.get();
       } catch (const win_registry::registry_exception &e) {
         return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
       }

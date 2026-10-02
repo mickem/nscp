@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/circular_buffer.hpp>
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
@@ -142,7 +143,8 @@ class pdh_thread {
  private:
   std::shared_ptr<boost::thread> thread_;
   mutable boost::shared_mutex mutex_;
-  bool stop_requested_;
+  // Set by stop() on the module thread, polled by the collector thread.
+  std::atomic<bool> stop_requested_;
 
   nscapi::core_wrapper *core_;
   int plugin_id_;

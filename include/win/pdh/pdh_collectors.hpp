@@ -136,7 +136,9 @@ class value_collector : public base_collector<T> {
     return static_cast<double>(value);
   }
   void update(T newValue) override {
-    boost::shared_lock<boost::shared_mutex> lock(mutex_);
+    // A writer: exclusive, like rrd_collector::update. A shared lock let the
+    // collector thread store value while a check read it on another thread.
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
     if (!lock.owns_lock()) throw pdh_exception(get_name(), "Could not get mutex");
     value = newValue;
   }

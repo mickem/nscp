@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <list>
 #include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
@@ -11,6 +12,7 @@
 #include <parsers/where/node.hpp>
 #include <parsers/where/regex_guard.hpp>
 #include <parsers/where/value_node.hpp>
+#include <stdexcept>
 #include <string>
 
 using namespace parsers::where;
@@ -1336,6 +1338,113 @@ TEST(FunctionConvert, ConvertUnknownTypeWithUnitReturnsError) {
   EXPECT_TRUE(ctx->has_error());
 }
 
+TEST(FunctionConvert, ConvertSizeOverflowThrowsInsteadOfWrapping) {
+  // 9000000t is ~9.9e18 bytes, past LLONG_MAX: signed overflow used to be
+  // computed (undefined behaviour). It is now rejected as out of range,
+  // which parser::evaluate reports as an evaluation error.
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_string("9000000"));
+  list->push_back(make_string("t"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_size, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertSizeLargestFittingValueStillConverts) {
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_int(8388607));  // 8388607 TiB = 2^63 - 2^40
+  list->push_back(make_string("t"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  auto result = fun->evaluate(type_size, ctx, list);
+  EXPECT_EQ(result->get_int_value(ctx), 8388607LL * 1024 * 1024 * 1024 * 1024);
+}
+
+TEST(FunctionConvert, ConvertTimeOverflowThrowsInsteadOfWrapping) {
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  auto list = factory::create_list();
+  list->push_back(make_string("9223372036854775807"));
+  list->push_back(make_string("s"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_date, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertTimeUnitOverflowThrowsInsteadOfWrapping) {
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_string("9223372036854775807"));
+  list->push_back(make_string("w"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_date, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertFloatTimeOverflowThrowsInsteadOfWrapping) {
+  // The float branch added llround(...) to now unchecked: 9.2233720368e18 s
+  // is within ~55 million seconds of LLONG_MAX, so adding now overflows.
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  auto list = factory::create_list();
+  list->push_back(make_float(9.2233720368e18));
+  list->push_back(make_string("s"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_date, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertFloatTimeUnitOverflowThrowsInsteadOfRoundingToGarbage) {
+  // 1.5e17 weeks is ~9.1e22 seconds: llround's result is unspecified there.
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_float(1.5e17));
+  list->push_back(make_string("w"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_date, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertFloatSizeOverflowThrowsInsteadOfRoundingToGarbage) {
+  // 1e16 TiB is ~1.1e28 bytes: llround's result is unspecified out of range.
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_float(1e16));
+  list->push_back(make_string("t"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  EXPECT_THROW(fun->evaluate(type_size, ctx, list), std::out_of_range);
+}
+
+TEST(FunctionConvert, ConvertIntAndFloatAgreeOnMultiCharacterUnits) {
+  // The first character decides on both branches: 'min' is minutes and 'kb'
+  // is KiB whether the count is written 2 or 2.5.
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  const long long now = parsers::where::constants::get_now();
+  auto int_list = factory::create_list();
+  int_list->push_back(make_int(2));
+  int_list->push_back(make_string("min"));
+  auto float_list = factory::create_list();
+  float_list->push_back(make_float(2.5));
+  float_list->push_back(make_string("min"));
+  EXPECT_EQ(op_factory::get_binary_function(ctx, "convert", int_list)->evaluate(type_date, ctx, int_list)->get_int_value(ctx), now + 120);
+  EXPECT_EQ(op_factory::get_binary_function(ctx, "convert", float_list)->evaluate(type_date, ctx, float_list)->get_int_value(ctx), now + 150);
+
+  auto kb_list = factory::create_list();
+  kb_list->push_back(make_int(2));
+  kb_list->push_back(make_string("kb"));
+  EXPECT_EQ(op_factory::get_binary_function(ctx, "convert", kb_list)->evaluate(type_size, ctx, kb_list)->get_int_value(ctx), 2048);
+}
+
+TEST(FunctionConvert, ConvertTimeNegativeOffsetStillConverts) {
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_int(-2));
+  list->push_back(make_string("d"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  const long long before = parsers::where::constants::get_now();
+  auto result = fun->evaluate(type_date, ctx, list);
+  const long long after = parsers::where::constants::get_now();
+  EXPECT_GE(result->get_int_value(ctx), before - 2 * 24 * 60 * 60);
+  EXPECT_LE(result->get_int_value(ctx), after - 2 * 24 * 60 * 60);
+}
+
 // ======================================================================
 // neg function — via op_factory::get_binary_function
 // ======================================================================
@@ -1364,6 +1473,32 @@ TEST(FunctionNeg, NegOnIntNegates) {
   auto fun = op_factory::get_binary_function(ctx, "neg", subject);
   auto result = fun->evaluate(type_int, ctx, subject);
   EXPECT_EQ(result->get_int_value(ctx), -42);
+}
+
+TEST(FunctionNeg, NegOnIntMinThrowsInsteadOfOverflowing) {
+  // -LLONG_MIN does not fit a long long (signed overflow).
+  auto ctx = make_context();
+  auto subject = make_int((std::numeric_limits<long long>::min)());
+  auto fun = op_factory::get_binary_function(ctx, "neg", subject);
+  EXPECT_THROW(fun->evaluate(type_int, ctx, subject), std::out_of_range);
+}
+
+TEST(FunctionNeg, NegOnDateMirrorsAroundNow) {
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  const long long now = parsers::where::constants::get_now();
+  auto subject = make_int(now + 3600);
+  auto fun = op_factory::get_binary_function(ctx, "neg", subject);
+  auto result = fun->evaluate(type_date, ctx, subject);
+  EXPECT_EQ(result->get_int_value(ctx), now - 3600);
+}
+
+TEST(FunctionNeg, NegOnFarDateThrowsInsteadOfOverflowing) {
+  auto ctx = make_context();
+  parsers::where::constants::reset();
+  auto subject = make_int((std::numeric_limits<long long>::min)() + 1);
+  auto fun = op_factory::get_binary_function(ctx, "neg", subject);
+  EXPECT_THROW(fun->evaluate(type_date, ctx, subject), std::out_of_range);
 }
 
 // ======================================================================

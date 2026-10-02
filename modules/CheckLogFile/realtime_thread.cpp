@@ -3,8 +3,10 @@
 
 #include "realtime_thread.hpp"
 
+#include <algorithm>
 #include <boost/filesystem.hpp>
 #include <cerrno>
+#include <cstring>
 #include <error/error.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -169,7 +171,7 @@ void real_time_thread::thread_proc() {
 
     int timeout = 1000 * 60;
     if (dur) timeout = dur.value().total_milliseconds();
-    char buffer[BUF_LEN];
+    alignas(struct inotify_event) char buffer[BUF_LEN];
     int length = poll(pollfds, 2, timeout);
     if (!length) {
       continue;
@@ -184,9 +186,21 @@ void real_time_thread::thread_proc() {
       break;
     } else if (pollfds[0].revents != 0) {
       length = read(pollfds[0].fd, buffer, BUF_LEN);
-      for (int j = 0; j < length;) {
-        struct inotify_event *event = (struct inotify_event *)&buffer[j];
-        trigger_folder = event->name;
+      // All bounds arithmetic in size_t: event->len is a uint32_t, and
+      // folding it into an int could wrap negative and pass the check.
+      const std::size_t bytes_read = length > 0 ? static_cast<std::size_t>(length) : 0;
+      for (std::size_t j = 0; bytes_read - j >= EVENT_SIZE;) {
+        const auto *event = reinterpret_cast<const struct inotify_event *>(&buffer[j]);
+        if (bytes_read - j - EVENT_SIZE < event->len) break;
+        // The watches are on regular files, so events carry len == 0 and no
+        // name: reading event->name ran strlen over the next event (or past
+        // the bytes read). Map the watch descriptor back to its file instead.
+        // A negative wd (IN_Q_OVERFLOW) names no watch, and must not match a
+        // slot whose inotify_add_watch failed and was stored as -1.
+        if (event->wd >= 0 && (event->mask & IN_Q_OVERFLOW) == 0) {
+          const auto it = std::find(wds.begin(), wds.end(), event->wd);
+          if (it != wds.end()) trigger_folder = files_list[it - wds.begin()];
+        }
         j += EVENT_SIZE + event->len;
       }
     } else {

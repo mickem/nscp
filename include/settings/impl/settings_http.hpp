@@ -115,9 +115,9 @@ class settings_http : public settings::settings_interface_impl {
     remote_url = parse_settings_url(utf8::cvt<std::string>(context));
     boost::filesystem::path path = core->expand_path(CACHE_FOLDER);
     if (!boost::filesystem::is_directory(path)) {
-      if (boost::filesystem::is_regular_file(path)) throw new settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
+      if (boost::filesystem::is_regular_file(path)) throw settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
       boost::filesystem::create_directories(path);
-      if (!boost::filesystem::is_directory(path)) throw new settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
+      if (!boost::filesystem::is_directory(path)) throw settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
     }
     local_file_ = boost::filesystem::path(path) / "cached.ini";
 

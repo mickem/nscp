@@ -728,7 +728,9 @@ bool nsclient::core::dll_plugin::is_duplicate(boost::filesystem::path file, std:
 }
 
 std::string nsclient::core::dll_plugin::get_version() {
-  int major, minor, revision;
-  getVersion(&major, &minor, &revision);
+  // Zeroed, and only formatted when the module reports success: a failing
+  // call need not write them, and formatting them then read indeterminate ints.
+  int major = 0, minor = 0, revision = 0;
+  if (!getVersion(&major, &minor, &revision)) return "0.0.0";
   return str::xtos(major) + "." + str::xtos(minor) + "." + str::xtos(revision);
 }
