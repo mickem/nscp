@@ -5,6 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <thread>
+
 using nsclient::core::permissions;
 
 // ===== disabled / no-rules stance =========================================
@@ -261,4 +264,62 @@ TEST(Permissions, exec_toggle_does_not_affect_query_is_allowed) {
   p.add_rule("WEBServer:admin", "CheckSystem.check_cpu");
   EXPECT_TRUE(p.is_allowed("WEBServer:admin", "CheckSystem.check_cpu"));
   EXPECT_FALSE(p.is_allowed("WEBServer:guest", "CheckSystem.check_cpu"));
+}
+
+TEST(Permissions, replace_with_takes_over_rules_and_flags) {
+  permissions fresh;
+  fresh.set_enabled(true);
+  fresh.set_allow_exec(false);
+  fresh.set_log_denials(false);
+  fresh.set_log_allows(true);
+  fresh.add_rule("NRPEServer", "CheckSystem.check_cpu");
+
+  permissions p;
+  p.add_rule("WEBServer", "*");
+  p.replace_with(fresh);
+
+  EXPECT_TRUE(p.is_enabled());
+  EXPECT_FALSE(p.is_exec_allowed());
+  EXPECT_FALSE(p.should_log_denials());
+  EXPECT_TRUE(p.should_log_allows());
+  EXPECT_EQ(1u, p.rule_count());
+  EXPECT_TRUE(p.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  // The old rule is gone, not merged.
+  EXPECT_FALSE(p.is_allowed("WEBServer", "CheckSystem.check_cpu"));
+}
+
+TEST(Permissions, replace_with_self_is_a_no_op) {
+  permissions p;
+  p.set_enabled(true);
+  p.add_rule("NRPEServer", "*");
+  p.replace_with(p);
+  EXPECT_EQ(1u, p.rule_count());
+  EXPECT_TRUE(p.is_allowed("NRPEServer", "check_cpu"));
+}
+
+TEST(Permissions, reader_never_sees_an_empty_table_during_replace) {
+  // A settings reload republishes the table while checks keep flowing.
+  // Rebuilding in place (clear_rules + add_rule) left a window in which an
+  // enabled policy had no rules and denied everything; replace_with must
+  // not have one.
+  permissions p;
+  p.set_enabled(true);
+  p.add_rule("NRPEServer", "CheckSystem.*");
+
+  std::atomic<bool> done{false};
+  std::atomic<int> denied{0};
+  std::thread reader([&] {
+    while (!done) {
+      if (!p.is_allowed("NRPEServer", "CheckSystem.check_cpu")) ++denied;
+    }
+  });
+  for (int i = 0; i < 2000; ++i) {
+    permissions fresh;
+    fresh.set_enabled(true);
+    fresh.add_rule("NRPEServer", "CheckSystem.*");
+    p.replace_with(fresh);
+  }
+  done = true;
+  reader.join();
+  EXPECT_EQ(0, denied.load());
 }

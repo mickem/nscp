@@ -297,17 +297,21 @@ void nsclient::core::plugin_manager::load_permissions() {
                         "object patterns (module.command). Rules merge additively.",
                         true, false);
 
-    permissions_.clear_rules();
+    // Build the table aside and publish it in one step: checks keep flowing
+    // on the server pools during a reload, and filling permissions_ rule by
+    // rule left it empty (deny-all, with the policy enabled) in between.
+    nsclient::core::permissions fresh;
     const std::string enabled = settings->get_string(section, "enabled", "false");
-    permissions_.set_enabled(enabled == "true" || enabled == "1");
-    permissions_.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
-    permissions_.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
-    permissions_.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
+    fresh.set_enabled(enabled == "true" || enabled == "1");
+    fresh.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
+    fresh.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
+    fresh.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
 
     for (const std::string &subject : settings->get_keys(policies_section)) {
       const std::string objects = settings->get_string(policies_section, subject, "");
-      permissions_.add_rule(subject, objects);
+      fresh.add_rule(subject, objects);
     }
+    permissions_.replace_with(fresh);
     LOG_DEBUG_CORE_STD("permissions: loaded " + str::xtos(permissions_.rule_count()) + " rule(s), enabled=" + (permissions_.is_enabled() ? "true" : "false"));
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("permissions: failed to load: " + utf8::utf8_from_native(e.what()));

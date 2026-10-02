@@ -106,6 +106,31 @@ class permissions {
     rules_.clear();
   }
 
+  // Take over every rule and flag of `other` in one step. A reload builds
+  // the complete table in a local instance and publishes it here, so a
+  // caller of is_allowed() sees either the old table or the new one -
+  // never the empty or half-filled one in between, which with the policy
+  // enabled denied every call that arrived during the rebuild.
+  void replace_with(const permissions& other) {
+    if (&other == this) return;
+    std::vector<rule> rules;
+    bool enabled, allow_exec, log_denials, log_allows;
+    {
+      std::lock_guard<std::mutex> lk(other.mutex_);
+      rules = other.rules_;
+      enabled = other.enabled_;
+      allow_exec = other.allow_exec_;
+      log_denials = other.log_denials_;
+      log_allows = other.log_allows_;
+    }
+    std::lock_guard<std::mutex> lk(mutex_);
+    rules_.swap(rules);
+    enabled_ = enabled;
+    allow_exec_ = allow_exec;
+    log_denials_ = log_denials;
+    log_allows_ = log_allows;
+  }
+
   std::size_t rule_count() const {
     std::lock_guard<std::mutex> lk(mutex_);
     return rules_.size();
