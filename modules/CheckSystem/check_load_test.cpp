@@ -161,3 +161,110 @@ TEST(CheckLoad, QueueAndSamplesKeywordsAreThresholdable) {
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run_check(state_after(600, 6.0, 2.0), {"crit=queue > 4 and samples > 60"}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
+
+// --- warm-up -------------------------------------------------------------------
+
+TEST(CheckLoad, NoSampleYetIsUnknownByDefault) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(load_avg_state(), {}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("collector still initializing"), std::string::npos) << join_lines(response);
+  // No zeros dressed up as averages.
+  EXPECT_FALSE(has_perf(response, "load1"));
+}
+
+TEST(CheckLoad, WarmupStatePicksTheStatusBeforeTheFirstSample) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(load_avg_state(), {"warmup-state=ok"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("collector still initializing"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckLoad, WarmupStateDoesNotTouchASampledState) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(state_after(60, 0.0, 1.0), {"warmup-state=critical"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+}
+
+namespace {
+PB::Common::ResultCode run_reading(const load_check::load_reading &reading, const std::vector<std::string> &args,
+                                   PB::Commands::QueryResponseMessage::Response &response) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_load");
+  for (const std::string &a : args) request.add_arguments(a);
+  load_check::check_load_from(request, &response, reading);
+  return response.result();
+}
+load_check::load_reading disabled_reading() {
+  load_check::load_reading r;
+  r.disabled = true;
+  return r;
+}
+}  // namespace
+
+// Lock contention on a running collector is not a warm-up: warmup-state=ok
+// must not turn a stalled collector into an OK.
+TEST(CheckLoad, BusyCollectorIsUnknownWhateverWarmupStateSays) {
+  load_check::load_reading busy;  // running, enabled, no snapshot
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_reading(busy, {"warmup-state=ok"}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("collector is busy"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckLoad, DisabledSamplingIsUnknownWhateverWarmupStateSays) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_reading(disabled_reading(), {"warmup-state=ok"}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("sampling is disabled"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckLoad, StoppedCollectorIsUnknownWhateverWarmupStateSays) {
+  load_check::load_reading stopped;
+  stopped.collector_running = false;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_reading(stopped, {"warmup-state=ok"}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("not running"), std::string::npos) << join_lines(response);
+}
+
+// The options are handled before the collector's state: a typo is reported
+// as such even while load sampling is disabled...
+TEST(CheckLoad, InvalidWarmupStateIsReportedBeforeTheDisabledGate) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_reading(disabled_reading(), {"warmup-state=okay"}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("Invalid warmup-state: okay"), std::string::npos) << join_lines(response);
+}
+
+// ...and help is answered rather than the disabled message.
+TEST(CheckLoad, HelpIsAnsweredBeforeTheDisabledGate) {
+  PB::Commands::QueryResponseMessage::Response response;
+  run_reading(disabled_reading(), {"help"}, response);
+  EXPECT_EQ(join_lines(response).find("sampling is disabled"), std::string::npos) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("warmup-state"), std::string::npos) << join_lines(response);
+}
+
+// The shared status vocabulary (parse_nagios), not a private one.
+TEST(CheckLoad, WarmupStateAcceptsTheShortStatusSpellings) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_check(load_avg_state(), {"warmup-state=warn"}, response), PB::Common::ResultCode::WARNING) << join_lines(response);
+  PB::Commands::QueryResponseMessage::Response response2;
+  EXPECT_EQ(run_check(load_avg_state(), {"warmup-state=crit"}, response2), PB::Common::ResultCode::CRITICAL) << join_lines(response2);
+}
+
+// help and option errors never consult the collector, so they cannot wait on
+// a busy collector's lock.
+TEST(CheckLoad, TheCollectorIsOnlyReadOnceTheOptionsAreParsed) {
+  bool read = false;
+  const std::function<load_check::load_reading()> reader = [&read]() {
+    read = true;
+    return load_check::load_reading(load_avg_state());
+  };
+  for (const char *arg : {"help", "warmup-state=okay"}) {
+    PB::Commands::QueryRequestMessage::Request request;
+    request.set_command("check_load");
+    request.add_arguments(arg);
+    PB::Commands::QueryResponseMessage::Response response;
+    load_check::check_load_from(request, &response, reader);
+    EXPECT_FALSE(read) << arg;
+  }
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_load");
+  PB::Commands::QueryResponseMessage::Response response;
+  load_check::check_load_from(request, &response, reader);
+  EXPECT_TRUE(read);
+}

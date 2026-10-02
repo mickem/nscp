@@ -120,12 +120,19 @@ bool cpu_interval(const std::map<std::string, collector_source::cpu_times> &befo
 
 void cpu_utilization_check::check_cpu_utilization(const PB::Commands::QueryRequestMessage::Request &request,
                                                   PB::Commands::QueryResponseMessage::Response *response) {
-  const std::map<std::string, collector_source::cpu_times> before = collector_source::read_cpu_times();
+  std::map<std::string, collector_source::cpu_times> before, after;
+  try {
+    before = collector_source::read_cpu_times();
+    if (!before.empty()) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      after = collector_source::read_cpu_times();
+    }
+  } catch (const std::exception &e) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU times: " + std::string(e.what()));
+  }
   if (before.empty()) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU times (host_processor_info)");
   }
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  const std::map<std::string, collector_source::cpu_times> after = collector_source::read_cpu_times();
   cpu_jiffies prev, cur;
   if (after.empty() || !cpu_interval(before, after, prev, cur)) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read CPU times (host_processor_info)");

@@ -16,8 +16,7 @@
 #include <sys/types.h>
 
 #include <cstring>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -33,10 +32,9 @@ std::map<std::string, cpu_times> read_cpu_times() {
   processor_info_array_t info = nullptr;
   mach_msg_type_number_t info_count = 0;
   const kern_return_t kr = host_processor_info(mach_stats::host_port(), PROCESSOR_CPU_LOAD_INFO, &cpu_count, &info, &info_count);
-  if (kr != KERN_SUCCESS || info == nullptr) {
-    NSC_LOG_ERROR("Failed to read CPU times: host_processor_info returned " + std::to_string(kr));
-    return result;
-  }
+  // Reported by the caller, once per change of reason: the collector polls
+  // this every second and must not log every time.
+  if (kr != KERN_SUCCESS || info == nullptr) throw std::runtime_error("host_processor_info returned " + std::to_string(kr));
 
   // Per core only. The ticks are 32-bit and each core wraps on its own, so an
   // aggregate row summed here could not be corrected for a wrap; the load
@@ -63,13 +61,12 @@ struct vm_pages {
   bool ok = false;
   unsigned long long page_size = 0;
   vm_statistics64_data_t stats;
+  std::string error;
 };
 
 vm_pages read_vm_pages() {
   vm_pages out;
-  std::string error;
-  out.ok = mach_stats::read_vm_statistics(out.stats, out.page_size, error);
-  if (!out.ok) NSC_LOG_ERROR("Failed to read memory info: " + error);
+  out.ok = mach_stats::read_vm_statistics(out.stats, out.page_size, out.error);
   return out;
 }
 
@@ -85,8 +82,9 @@ unsigned long long read_memsize() {
 memory_sample read_memory() {
   memory_sample result;
   const vm_pages vm = read_vm_pages();
+  if (!vm.ok) throw std::runtime_error("vm statistics: " + vm.error);
   const unsigned long long total = read_memsize();
-  if (!vm.ok || total == 0) return result;
+  if (total == 0) throw std::runtime_error("hw.memsize is unavailable");
 
   const unsigned long long page = vm.page_size;
   result.physical_total = total;
@@ -124,7 +122,7 @@ std::map<std::string, unsigned long long> read_memory_extras() {
 
 std::map<std::string, net_sample> read_network() {
   std::map<std::string, net_sample> result;
-  try {
+  {
     for (const darwin_interfaces::interface_info &nic : darwin_interfaces::read()) {
       net_sample s;
       s.rx_bytes = nic.rx_bytes;
@@ -138,8 +136,6 @@ std::map<std::string, net_sample> read_network() {
       s.speed_bps = nic.speed_bps;
       result[nic.name] = s;
     }
-  } catch (const std::exception &e) {
-    NSC_LOG_ERROR("Failed to read network counters: " + std::string(e.what()));
   }
   return result;
 }

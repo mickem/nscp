@@ -149,6 +149,71 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(Object.keys(perfOf(q)).length).toBeGreaterThan(0);
   });
 
+  // --- warmup-state -----------------------------------------------------------
+  // The warm-up window itself is over by the time the suite runs (beforeAll
+  // waited it out), so these pin the parts that hold deterministically: the
+  // option parses as a REST `k=v` token, it leaves a sampled result alone,
+  // and a typo is rejected up front instead of surfacing at the next restart.
+
+  /** Collector-backed checks that carry warmup-state on this platform. */
+  const WARMUP_CHECKS = onWindows
+    ? ["check_cpu", "check_load"]
+    : ["check_cpu", "check_memory", "check_pagefile", "check_network"];
+
+  it.each(WARMUP_CHECKS)(
+    "%s ignores warmup-state once the collector has sampled",
+    async (command) => {
+      // beforeAll only gates the CPU ring; poll in case this one lags behind it.
+      const q = await pollQuery(
+        key,
+        command,
+        { "warmup-state": "critical", warning: "none", critical: "none", "empty-state": "ok" },
+        (r) => !/initializing/i.test(messageOf(r)),
+      );
+      expect(messageOf(q)).not.toMatch(/initializing/i);
+      expect(q.result).toBe(OK);
+    },
+  );
+
+  it.each(WARMUP_CHECKS)("%s rejects an unknown warmup-state", async (command) => {
+    const q = await executeQuery(key, command, { "warmup-state": "okay" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid warmup-state: okay/);
+  });
+
+  it.each(WARMUP_CHECKS)("%s takes the short status spellings for warmup-state", async (command) => {
+    const q = await executeQuery(key, command, { "warmup-state": "warn" });
+    expect(messageOf(q)).not.toMatch(/Invalid warmup-state/);
+  });
+
+  it("check_cpu accepts a valued cores=true over REST", async () => {
+    // REST sends the flag as one `cores=true` token, which a bool_switch
+    // rejects with "does not take any arguments".
+    const q = await executeQuery(key, "check_cpu", {
+      cores: "true",
+      warning: "none",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "${core}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/core/);
+  });
+
+  it("check_cpu rejects a zero time window", async () => {
+    const q = await executeQuery(key, "check_cpu", { time: "0s" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid time '0s': the window must be at least one second/);
+  });
+
+  it("check_cpu reports an invalid time= whatever warmup-state says", async () => {
+    // Option errors are answered before the collector is consulted, so this
+    // holds in and after the warm-up alike.
+    const q = await executeQuery(key, "check_cpu", { time: "5x", "warmup-state": "ok" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid time '5x'/);
+  });
+
   // --- check_process ---------------------------------------------------------
 
   it("check_process finds our own process running", async () => {

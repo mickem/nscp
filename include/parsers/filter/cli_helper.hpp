@@ -10,7 +10,9 @@
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/functions_status.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <sampling_state.hpp>
 #include <str/format.hpp>
 #include <str/utils_no_boost.hpp>
 
@@ -26,6 +28,10 @@ const std::string common_option_marker = "\nCommon option for all filter checks.
 struct data_container {
   std::vector<std::string> filter_string, warn_string, crit_string, ok_string;
   std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique, list_separator;
+  // Status to answer with while the check's collector has not produced its
+  // first sample; only checks that call add_warmup_option() read it.
+  std::string warmup_state;
+  bool warmup_state_given;
   bool debug, escape_html;
   // How the numbers of the message are rendered (issue #1428); -1 decimals is
   // "leave the rendering alone". These only ever touch the message: the
@@ -35,7 +41,7 @@ struct data_container {
   // list_separator carries its default here as well as on the option, so a
   // check that builds a filter without registering the misc options still
   // joins lists with ", " instead of with nothing.
-  data_container() : list_separator(", "), debug(false), escape_html(false), decimals(-1), decimal_separator(".") {}
+  data_container() : list_separator(", "), warmup_state("unknown"), warmup_state_given(false), debug(false), escape_html(false), decimals(-1), decimal_separator(".") {}
 
   // The number format these options describe, or an error message when the
   // pinned unit is not one we know about.
@@ -88,10 +94,11 @@ struct cli_helper : boost::noncopyable {
   const PB::Commands::QueryRequestMessage::Request &request;
   PB::Commands::QueryResponseMessage::Response *response;
   bool show_all;
+  bool has_warmup_option;
   nscapi::program_options::field_map fields;
 
   cli_helper(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, data_container &data)
-      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false) {}
+      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false), has_warmup_option(false) {}
 
   ~cli_helper() {}
 
@@ -268,7 +275,80 @@ struct cli_helper : boost::noncopyable {
     add_misc_options(empty_state);
   }
 
+  // Opt-in for checks that read a background collector: before its first
+  // sample there is nothing to evaluate, and this picks the status reported
+  // meanwhile. Not a common option - most filter checks have no warm-up.
+  void add_warmup_option() {
+    has_warmup_option = true;
+    // clang-format off
+    desc.add_options()
+      ("warmup-state", boost::program_options::value<std::string>(&data.warmup_state)->default_value("unknown"),
+        "Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): "
+        "ok, warning, critical or unknown.\n"
+        "The message still says that the collector is initializing, so a warm-up result is never mistaken for a reading. "
+        "A collector that has tried to sample and failed is not warming up: that is always UNKNOWN.")
+      ;
+    // clang-format on
+  }
+
+  // Answer with the warm-up status and `message` instead of evaluating the
+  // filter. For checks without add_warmup_option() this is UNKNOWN.
+  void set_warmup_response(const std::string &message) const {
+    response->add_lines()->set_message(message);
+    if (response->command().empty()) response->set_command("unknown");
+    response->set_result(warmup_result(data.warmup_state));
+  }
+
+  // Answers for a collector-backed check whose buffer holds nothing to
+  // evaluate, and returns true; returns false without answering when there is
+  // data. `what` names the data in the message ("CPU", "memory", ...). Only a
+  // collector that has not tried yet is warming up: one that tried and came
+  // back empty-handed is UNKNOWN whatever warmup-state says.
+  bool answer_unless_sampled(const sampling::status &status, const std::string &what) const {
+    switch (status.state) {
+      case sampling::readiness::ready:
+        return false;
+      case sampling::readiness::warming_up:
+        set_warmup_response("No " + what + " data available yet (collector still initializing)");
+        return true;
+      case sampling::readiness::failed:
+      default:
+        if (status.recovering) {
+          nscapi::protobuf::functions::set_response_bad(
+              *response, "No " + what + " data available: the collector could read it again just now, after failing; the first sample follows next");
+        } else {
+          nscapi::protobuf::functions::set_response_bad(
+              *response, "No " + what + " data available: the collector failed to sample it" + (status.error.empty() ? "" : ": " + status.error));
+        }
+        return true;
+    }
+  }
+
+  // The vocabulary of every other status option (parse_nagios), plus the
+  // explicit spelling of the default it maps everything else to.
+  static bool is_valid_warmup_state(const std::string &state) {
+    const std::string s = boost::to_lower_copy(state);
+    return s == "unknown" || s == "u" || s == "3" || nscapi::protobuf::functions::parse_nagios(s) != PB::Common::ResultCode::UNKNOWN;
+  }
+  static PB::Common::ResultCode warmup_result(const std::string &state) { return nscapi::protobuf::functions::parse_nagios(state); }
+
+  // Whether warmup-state was passed rather than defaulted, for a check whose
+  // current data source cannot tell warm-up apart and has to refuse it.
+  bool warmup_state_given() const { return data.warmup_state_given; }
+
+  // Rejected up front: a typo would otherwise only surface as UNKNOWN during
+  // the next warm-up, long after the check was configured.
+  bool validate_options() const {
+    if (has_warmup_option && !is_valid_warmup_state(data.warmup_state)) {
+      nscapi::protobuf::functions::set_response_bad(*response,
+                                                    "Invalid warmup-state: " + data.warmup_state + " (expected one of ok, warning, critical, unknown)");
+      return false;
+    }
+    return true;
+  }
+
   void parse_options_post(const boost::program_options::variables_map &vm) const {
+    data.warmup_state_given = vm.count("warmup-state") > 0 && !vm["warmup-state"].defaulted();
     if (show_all) {
       if (data.syntax_top.find("${problem_list}") != std::string::npos)
         boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
@@ -292,19 +372,19 @@ struct cli_helper : boost::noncopyable {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response, p)) return false;
     parse_options_post(vm);
-    return true;
+    return validate_options();
   }
   bool parse_options() const {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response)) return false;
     parse_options_post(vm);
-    return true;
+    return validate_options();
   }
   bool parse_options(std::vector<std::string> &extra) const {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response, true, extra)) return false;
     parse_options_post(vm);
-    return true;
+    return validate_options();
   }
 
   bool empty() const { return data.warn_string.empty() && data.crit_string.empty(); }

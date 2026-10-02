@@ -50,11 +50,12 @@ data (`total_load1` etc., `scaled_*` with `percpu=true`). `queue` is never
 divided by `percpu` — it is an absolute thread count.
 
 **Windows caveats:** the averages live in the collector, so the check reports
-*"Load average data is not available yet"* right after service start. 
+*"Load average data is not available yet"* right after service start - UNKNOWN by
+default, or whatever status `warmup-state=` names (`ok`, `warning`, `critical`). 
 If the `\System\Processor Queue Length` counter is unavailable (corrupt perflib), 
 the load degrades to the CPU-utilization component and a warning is logged. 
 Some hypervisors report a small nonzero queue on idle guests — the smoothing 
 absorbs the noise, but baseline before alerting tightly on `queue`. 
 Load sampling can be turned off with `disable = load` in 
-`/settings/system/windows` (the check then reports data-unavailable rather 
-than zeros).
+`/settings/system/windows` (the check then reports UNKNOWN *"Load average 
+sampling is disabled"* rather than zeros, whatever `warmup-state` says).

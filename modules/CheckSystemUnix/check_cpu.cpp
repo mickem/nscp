@@ -13,6 +13,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
+#include <time_windows.hpp>
 
 #include "realtime_thread.hpp"
 
@@ -66,10 +67,11 @@ void check_cpu(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryR
   filter_type filter;
   filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
+  filter_helper.add_warmup_option();
   // clang-format off
   filter_helper.get_desc().add_options()
     ("time", po::value<std::vector<std::string>>(&times), "The time to check")
-    ("cores", boost::program_options::bool_switch(&show_all_cores),
+    ("cores", po::value<bool>(&show_all_cores)->implicit_value(true)->default_value(false),
     "This will remove the filter to include the cores, if you use filter don't use this as well.")
     ;
   // clang-format on
@@ -88,22 +90,20 @@ void check_cpu(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryR
 
   if (!filter_helper.build_filter(filter)) return;
 
+  time_windows::list windows_to_check;
+  const std::string time_error = time_windows::decode(times, windows_to_check);
+  if (!time_error.empty()) return nscapi::protobuf::functions::set_response_bad(*response, time_error);
+
   // Check if collector is available and has data
   if (!collector) {
     return nscapi::protobuf::functions::set_response_bad(*response, "CPU collector not initialized");
   }
 
-  if (!collector->has_cpu_data()) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "No CPU data available yet (collector still initializing)");
-  }
+  if (filter_helper.answer_unless_sampled(collector->cpu_status(), "CPU")) return;
 
-  for (const std::string &time : times) {
-    long seconds;
-    try {
-      seconds = str::format::decode_time<long>(time, 1);
-    } catch (const std::exception &e) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid time '" + time + "': " + e.what());
-    }
+  for (const auto &window : windows_to_check) {
+    const std::string &time = window.first;
+    const long seconds = window.second;
     auto cpu_data = collector->get_cpu_load(seconds);
 
     if (cpu_data.empty()) {

@@ -85,7 +85,12 @@ load_obj make_load_obj(const load_avg_state &state, const bool percpu) {
 }
 
 void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                     const load_avg_state &state) {
+                     const load_reading &reading) {
+  check_load_from(request, response, std::function<load_reading()>([&reading]() { return reading; }));
+}
+
+void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                     const std::function<load_reading()> &read) {
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
@@ -95,6 +100,7 @@ void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, 
   filter_helper.add_syntax("${status}: ${list}", "${type} load average: ${load1}, ${load5}, ${load15}", "${type}", "", "");
   // Always emit the three averages as perf data even without warn/crit set.
   filter_helper.set_default_perf_config("extra(load1;load5;load15)");
+  filter_helper.add_warmup_option();
   // clang-format off
   filter_helper.get_desc().add_options()
     ("percpu", po::value<bool>(&percpu)->implicit_value(true)->default_value(false),
@@ -106,6 +112,29 @@ void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, 
 
   if (!filter_helper.build_filter(filter)) return;
 
+  const load_reading reading = read();
+  if (!reading.collector_running) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Load average data is not available (the CheckSystem collector is not running)");
+  }
+  if (reading.disabled) {
+    // Checked apart from the warm-up below: a disabled sampler never gets a
+    // first sample, and warmup-state=ok must not turn that into a silent OK.
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "Load average sampling is disabled (remove load from disable in /settings/system/windows to use check_load)");
+  }
+  if (!reading.state) {
+    // Contention on a running collector, not a warm-up: warmup-state does not
+    // apply, or a stalled collector would answer OK.
+    return nscapi::protobuf::functions::set_response_bad(*response,
+                                                         "Failed to read load average data: the collector is busy (timed out waiting for its lock)");
+  }
+  const load_avg_state &state = reading.state.value();
+  if (state.samples == 0) {
+    // The collector has not completed a tick yet: reporting load=0 here would
+    // be a false OK.
+    return filter_helper.set_warmup_response("Load average data is not available yet (collector still initializing)");
+  }
+
   const std::shared_ptr<load_obj> record(new load_obj(make_load_obj(state, percpu)));
   filter.match(record);
 
@@ -114,17 +143,17 @@ void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, 
 
 void check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                 const std::shared_ptr<pdh_thread> &collector) {
-  if (!collector) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Load average data is not available (the CheckSystem collector is not running)");
-  }
-  const load_avg_state state = collector->get_load_avg();
-  if (state.samples == 0) {
-    // Zero samples means the collector has not completed a tick yet, or load
-    // sampling is turned off. Reporting load=0 here would be a false OK.
-    return nscapi::protobuf::functions::set_response_bad(
-        *response, "Load average data is not available yet (the collector just started, or load is listed in disable in /settings/system/windows)");
-  }
-  check_load_from(request, response, state);
+  check_load_from(request, response, std::function<load_reading()>([&collector]() {
+                    load_reading reading;
+                    if (!collector) {
+                      reading.collector_running = false;
+                    } else if (collector->is_disabled("load")) {
+                      reading.disabled = true;
+                    } else {
+                      reading.state = collector->get_load_avg();
+                    }
+                    return reading;
+                  }));
 }
 
 }  // namespace load_check

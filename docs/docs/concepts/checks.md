@@ -315,6 +315,10 @@ What status to return when the filter selects no items:
 check_service "filter=name = 'NonExistentService'" empty-state=ok
 ```
 
+`empty-state` is about a filter that matched nothing. A check whose background collector has not
+produced any data yet is a different situation with its own option, `warmup-state` — see
+[section 8](#8-collector-backed-checks-and-warm-up).
+
 ---
 
 ## 5. Output Syntax — Choosing the Message Text
@@ -707,7 +711,109 @@ check_cpu "perf-config=load(prefix:cpu_ suffix:_load)"   # 'cpu_total 5m_load'=.
 
 ---
 
-## 8. Putting It Together
+## 8. Collector-Backed Checks and Warm-Up
+
+Most checks read what they report at the moment you run them: a service's state, a file's size,
+the free space on a drive. A few cannot, because the value only exists as a difference or an average
+over time — CPU load, network throughput, disk I/O rates. For those, a **background collector**
+inside the module samples the system on a fixed interval and keeps a rolling buffer, and the check
+answers from that buffer.
+
+| Module                     | Collector interval | Checks that read it                                                                                                                                        |
+|----------------------------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CheckSystem (Windows)      | 1 second           | `check_cpu`, `check_load`, `check_network`, `check_temperature`, `check_cpu_frequency`, `check_battery`, `check_os_updates`, `check_process_history`, `check_process delta=true` |
+| CheckSystemUnix            | 1 second           | `check_cpu`, `check_memory`, `check_pagefile`, `check_network`, `check_process_history`                                                                     |
+| CheckDisk                  | 10 seconds         | `check_disk_io`, `check_disk_health`, the trend keywords of `check_drivesize` (`full_in`, `rate`, …)                                                        |
+
+Two things follow from this.
+
+**Time windows are capped at the agent's uptime.** `check_cpu time=15m` averages the samples of the
+last fifteen minutes — or, if the agent started five minutes ago, the five minutes it has. The
+check does not wait for the window to fill; it answers from what it has. The same goes for the
+5- and 15-minute averages of `check_load`, and the `check_drivesize` trend keywords need several
+samples spread over a while before they produce a value (`trend_samples` and `trend_span` say how
+much they have, so you can threshold on that).
+
+**Before the first sample there is nothing to report.** For the first moment after the agent (or
+the module) starts, the collector has not sampled anything yet. Answering from the empty buffer
+would report an idle CPU or zero traffic as if it had been measured, so instead the check says so:
+
+```
+check_cpu
+UNKNOWN: No CPU data available yet (collector still initializing)
+```
+
+### `warmup-state` — what to report during warm-up
+
+UNKNOWN is the default because the check genuinely does not know. If a restart of the agent should
+not raise anything in your monitoring, pick a different status with `warmup-state`:
+
+| Value      | Meaning                                  |
+|------------|------------------------------------------|
+| `unknown`  | Return UNKNOWN (default)                 |
+| `ok`       | Return OK                                |
+| `warning`  | Return WARNING                           |
+| `critical` | Return CRITICAL                          |
+
+```shell
+check_cpu warmup-state=ok
+OK: No CPU data available yet (collector still initializing)
+```
+
+The message stays the same whatever status you choose, so a warm-up result is never mistaken for a
+reading. The option only covers the time before the first sample: once there is data, the check is
+evaluated normally and `warmup-state` has no effect. It takes the same spellings as the other status
+options (`warn` and `crit` work too), and an unrecognised value is rejected whenever the check runs,
+not saved for the next restart. Any problem with the options themselves — an invalid `time=`, a
+typo — is reported before the collector is even consulted, so it never hides behind a warm-up
+answer.
+
+### Warming up versus not working
+
+`warmup-state` only ever applies to a collector that **has not tried yet**. Everything else that
+leaves a check without data is a fault, and is reported UNKNOWN whatever `warmup-state` says — so
+`warmup-state=ok` can quiet a restart, but never a broken collector:
+
+| Situation                                                                  | Result                                                              |
+|----------------------------------------------------------------------------|---------------------------------------------------------------------|
+| The collector has not taken its first sample yet                            | `warmup-state` (UNKNOWN by default), *"… (collector still initializing)"* |
+| The collector has tried and every attempt failed (e.g. `/proc` unreadable)  | UNKNOWN *"No … data available: the collector failed to sample it: <reason>"* |
+| It worked, but its last five samples in a row failed                         | The same UNKNOWN: the older samples still in the buffer are not reported as current |
+| It failed, and has just become readable again (CPU and network, one tick)    | UNKNOWN *"… could read it again just now, after failing; the first sample follows next"* |
+| Sampling is switched off (`disable = cpu`, `disable = load`)                | UNKNOWN *"… sampling is disabled"*                                  |
+| The collector is running but its lock could not be had in time (Windows)    | UNKNOWN *"… the collector is busy (timed out waiting for its lock)"* |
+
+`warmup-state` is accepted by the checks that can tell "not sampled yet" apart from "no data":
+
+| Platform        | Checks                                                              |
+|-----------------|---------------------------------------------------------------------|
+| Windows         | `check_cpu`, `check_load`                                           |
+| Linux and macOS | `check_cpu`, `check_memory`, `check_pagefile`, `check_network`      |
+
+Other checks reject it as an unknown option. On Windows, `check_cpu` also refuses an explicit
+`warmup-state` while `use pdh for cpu` is enabled: the PDH counters cannot tell a warm-up from a
+counter that is unavailable, so there is no warm-up to choose a status for.
+
+<!-- @formatter:off -->
+!!! warning "Checks that cannot tell warm-up apart yet"
+    Some collector-backed checks cannot yet distinguish "not sampled yet" from "nothing there":
+    on Windows `check_network`, `check_temperature`, `check_cpu_frequency`, `check_battery`,
+    `check_os_updates` and `check_process_history`, and CheckDisk's `check_disk_io` and
+    `check_disk_health`. Right after a start these may answer with an empty result (through
+    `empty-state`), with zero rates, or with "no sensors found", rather than with a warm-up message.
+    Give the agent a few seconds after a restart before trusting them.
+<!-- @formatter:on -->
+
+### Running checks right after a start
+
+This matters most when the agent is started just to answer one query. `nscp client --boot --query
+check_cpu` loads the module, asks at once and exits — it always lands in the warm-up window. Run
+collector-backed checks against a running agent (the service, or `nscp test`), and when you script
+against a freshly started one, retry until the message no longer says *initializing*.
+
+---
+
+## 9. Putting It Together
 
 Pick a check, run `show-default`, identify the option you want to change, change just that one. Repeat.
 

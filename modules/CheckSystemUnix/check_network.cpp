@@ -90,6 +90,7 @@ void check_network(std::shared_ptr<pdh_thread> collector, const PB::Commands::Qu
   filter_type filter;
   filter_helper.add_options("throughput > 10000", "throughput > 100000", "", filter.get_filter_syntax(), "critical");
   filter_helper.add_syntax("${status}: ${list}", "${name} >${sent_human}/s <${received_human}/s", "${name}", "", "%(status): Network interfaces seem ok.");
+  filter_helper.add_warmup_option();
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
@@ -97,9 +98,7 @@ void check_network(std::shared_ptr<pdh_thread> collector, const PB::Commands::Qu
   if (!collector) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Network collector not initialized");
   }
-  if (!collector->has_network_data()) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "No network data available yet (collector still initializing)");
-  }
+  if (filter_helper.answer_unless_sampled(collector->network_status(), "network")) return;
 
   for (const network_interface &v : collector->get_network()) {
     const std::shared_ptr<filter_obj> record(new filter_obj(v));
