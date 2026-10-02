@@ -359,6 +359,32 @@ TEST_F(SimpleFileLoggerSettingsTest, MaxSizeTruncatesTheLogFile) {
   EXPECT_EQ(contents.find("entry-0-"), std::string::npos) << "the oldest entry survived truncation";
 }
 
+TEST_F(SimpleFileLoggerSettingsTest, MaxSizeKeepsExactlyTheNewestSeventyPercent) {
+  // The tail is moved to the front of the file in place, then the file is
+  // cut: what survives must be byte-for-byte the newest 70% of the cap.
+  const boost::filesystem::path target = dir_.path() / "tail.log";
+  std::string original;
+  for (int i = 0; i < 100; i++) original += std::to_string(i % 10) + "abcdefghi";
+  {
+    std::ofstream out(target.string().c_str(), std::ios::binary);
+    out << original;
+  }
+  boot_with(
+      "[/settings/log]\n"
+      "file name = " + target.generic_string() + "\n"
+      "[/settings/log/file]\n"
+      "max size = 400\n");
+
+  simple_file_logger logger(unique_name("tail"));
+  logger.asynch_configure();
+  logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 1, "after-truncation"));
+
+  const std::string contents = read_all(target);
+  ASSERT_GE(contents.size(), 280u);
+  EXPECT_EQ(contents.substr(0, 280), original.substr(original.size() - 280));
+  EXPECT_NE(contents.find("after-truncation", 280), std::string::npos);
+}
+
 TEST_F(SimpleFileLoggerSettingsTest, FileNameNoneDisablesTheFileLog) {
   boot_with(
       "[/settings/log]\n"

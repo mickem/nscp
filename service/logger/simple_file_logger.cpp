@@ -9,7 +9,8 @@
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/logger/logger_helper.hpp>
 #include <nscp/path_defaults.hpp>
-#include <limits>
+#include <algorithm>
+#include <stdexcept>
 #include <str/format.hpp>
 #include <vector>
 
@@ -73,19 +74,35 @@ void simple_file_logger::do_log(const std::string data) {
   if (file_.empty()) return;
   try {
     if (max_size_ != 0 && boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
-      // 70% in integer arithmetic, clamped to streamsize: max_size_ * 0.7 was
-      // cast to int, undefined once it passes INT_MAX (a max size of ~2.9 GiB).
-      const std::size_t keep = max_size_ / 10 * 7;
-      const std::streamsize target_size =
-          keep > static_cast<std::size_t>((std::numeric_limits<std::streamsize>::max)()) ? (std::numeric_limits<std::streamsize>::max)() : static_cast<std::streamsize>(keep);
-      std::vector<char> tmpBuffer(static_cast<std::size_t>(target_size) + 1);
+      // Keep the newest 70%, moved to the front of the file through a fixed
+      // buffer and then cut off with resize_file. Holding the tail in memory
+      // made a large max size (a few GiB on x86) throw bad_alloc on every
+      // line, and 70% computed through an int was undefined past INT_MAX.
+      // In place, so the file keeps the mode it was created with.
+      const boost::uintmax_t size = boost::filesystem::file_size(file_.c_str());
+      const boost::uintmax_t keep = static_cast<boost::uintmax_t>(max_size_ / 10 * 7);
       try {
-        std::ifstream ifs(file_.c_str());
-        ifs.seekg(-target_size, std::ios_base::end);
-        ifs.read(tmpBuffer.data(), target_size);
-        ifs.close();
-        std::ofstream ofs(file_.c_str(), std::ios::trunc);
-        ofs.write(tmpBuffer.data(), target_size);
+        if (keep < size) {
+          std::fstream fs(file_.c_str(), std::ios::in | std::ios::out | std::ios::binary);
+          // Nothing moved yet: resizing now would throw the whole log away.
+          if (!fs.is_open()) throw std::runtime_error("cannot open for truncation");
+          std::vector<char> buffer(64 * 1024);
+          boost::uintmax_t from = size - keep, to = 0;
+          while (fs && to < keep) {
+            const std::streamsize chunk = static_cast<std::streamsize>(std::min<boost::uintmax_t>(buffer.size(), keep - to));
+            fs.seekg(static_cast<std::streamoff>(from));
+            fs.read(buffer.data(), chunk);
+            const std::streamsize got = fs.gcount();
+            if (got <= 0) break;
+            fs.clear();
+            fs.seekp(static_cast<std::streamoff>(to));
+            fs.write(buffer.data(), got);
+            from += static_cast<boost::uintmax_t>(got);
+            to += static_cast<boost::uintmax_t>(got);
+          }
+          fs.close();
+          boost::filesystem::resize_file(file_.c_str(), to);
+        }
       } catch (...) {
         logger_helper::log_fatal("Failed to truncate log file: " + file_);
       }
