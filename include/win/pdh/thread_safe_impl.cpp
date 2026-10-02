@@ -4,28 +4,32 @@
 #include <win/pdh/thread_safe_impl.hpp>
 
 namespace PDH {
+// The subscribers (PDHQuery) react to on_unload() / on_reload() by calling
+// straight back into this object - PdhRemoveCounter, PdhCloseQuery,
+// PdhOpenQuery - and every one of those takes mutex_. It is not recursive, so
+// the callbacks must run with it released. They run under subscribers_mutex_
+// instead, which no Pdh* call takes: that keeps a query's destructor
+// (remove_listener) from returning while the query is still being called back.
+// Lock order is subscribers_mutex_ then mutex_, never the reverse.
 bool ThreadedSafePDH::reload() {
-  boost::unique_lock<boost::shared_mutex> lock(mutex_);
-  if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
-  return reload_unsafe();
-}
-
-bool ThreadedSafePDH::reload_unsafe() {
-  for (subscriber_list::const_iterator cit = subscribers_.begin(); cit != subscribers_.end(); ++cit) (*cit)->on_unload();
-  unload_procs();
-  load_procs();
-  for (subscriber_list::const_iterator cit = subscribers_.begin(); cit != subscribers_.end(); ++cit) (*cit)->on_reload();
+  boost::unique_lock<boost::mutex> subscribers_lock(subscribers_mutex_);
+  for (subscriber* sub : subscribers_) sub->on_unload();
+  {
+    boost::unique_lock<boost::shared_mutex> lock(mutex_);
+    if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
+    unload_procs();
+    load_procs();
+  }
+  for (subscriber* sub : subscribers_) sub->on_reload();
   return true;
 }
 
 void ThreadedSafePDH::add_listener(subscriber* sub) {
-  boost::unique_lock<boost::shared_mutex> lock(mutex_);
-  if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
+  boost::unique_lock<boost::mutex> lock(subscribers_mutex_);
   subscribers_.push_back(sub);
 }
 void ThreadedSafePDH::remove_listener(subscriber* sub) {
-  boost::unique_lock<boost::shared_mutex> lock(mutex_);
-  if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for reload");
+  boost::unique_lock<boost::mutex> lock(subscribers_mutex_);
   // Previously this loop did `it = erase(it)` and then the for-loop's `++it`
   // ran on the result — skipping the element after the erased one, so a
   // listener that appeared twice (or two adjacent listeners equal to `sub`)
@@ -105,14 +109,18 @@ pdh_error ThreadedSafePDH::PdhCollectQueryData(const PDH_HQUERY hQuery) {
   if (pPdhCollectQueryData == nullptr) throw pdh_exception("Failed to initialize PdhCollectQueryData :(");
   return pdh_error(pPdhCollectQueryData(hQuery));
 }
-pdh_error ThreadedSafePDH::PdhValidatePath(const LPCWSTR szFullPathBuffer, const bool force_reload) {
+pdh_error ThreadedSafePDH::validate_path_locked(const LPCWSTR szFullPathBuffer) {
   boost::unique_lock<boost::shared_mutex> lock(mutex_);
   if (!lock.owns_lock()) throw pdh_exception("Failed to get mutex for PdhValidatePath");
   if (pPdhValidatePath == nullptr) throw pdh_exception("Failed to initialize PdhValidatePath :(");
-  pdh_error status = pdh_error(pPdhValidatePath(szFullPathBuffer));
+  return pdh_error(pPdhValidatePath(szFullPathBuffer));
+}
+pdh_error ThreadedSafePDH::PdhValidatePath(const LPCWSTR szFullPathBuffer, const bool force_reload) {
+  pdh_error status = validate_path_locked(szFullPathBuffer);
   if (status.is_error() && force_reload) {
-    reload_unsafe();
-    status = pdh_error(pPdhValidatePath(szFullPathBuffer));
+    // Not under the lock: reload() runs the subscriber callbacks, which lock it.
+    reload();
+    status = validate_path_locked(szFullPathBuffer);
   }
   return status;
 }
