@@ -199,7 +199,11 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
   for (lua_runtime_plugin_type &plugin : plugins) {
     plugin->load(lua_instance);
   }
-  lua_instance.append_path(script_base_path + "/scripts/lua/lib/?.lua;" + script_base_path + "scripts/lua/?;");
+  // script_base_path is ${scripts}. It used to be the install base with
+  // "/scripts" appended here, which only lands on the scripts folder on
+  // Windows: on Linux the base is the directory holding the binary, so
+  // require() of anything in lua/lib could not work from a package.
+  lua_instance.append_path(script_base_path + "/lua/lib/?.lua;" + script_base_path + "/lua/?.lua");
   if (lua_instance.loadfile(info->script) != 0) throw lua::lua_exception("Failed to load script: " + info->script + ": " + lua_instance.pop_string());
   if (lua_instance.pcall(0, 0, 0) != 0) throw lua::lua_exception("Failed to execute script: " + info->script + ": " + lua_instance.pop_string());
   lua_instance.gc(LUA_GCCOLLECT, 0);
