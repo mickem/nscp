@@ -4,6 +4,7 @@
 #pragma once
 
 #include <nsclient/logger/log_driver_interface_impl.hpp>
+#include <cstdint>
 #include <string>
 
 namespace nsclient {
@@ -24,6 +25,13 @@ class simple_file_logger : public log_driver_interface_impl {
   // exist - the mangled-sentinel bug wrote to a real path outside the test's
   // temp directory, which no existence check in that directory could see.
   const std::string &get_file() const { return file_; }
+
+  // Moves the last `keep` bytes of a file that was `size` bytes long to its
+  // front and cuts it to `keep`. Only resizes once the whole tail was copied:
+  // when the file shrank since `size` was taken (another process sharing the
+  // log truncated it first) or a write fails, it throws and leaves the length
+  // alone rather than cutting the log down to whatever was copied.
+  static void truncate_to_tail(const std::string &file, std::uintmax_t size, std::uintmax_t keep);
 
   void do_log(std::string data) override;
   struct config_data {

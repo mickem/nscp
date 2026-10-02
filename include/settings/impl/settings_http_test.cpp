@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <boost/asio.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include <future>
 #include <map>
 #include <memory>
@@ -228,6 +229,17 @@ TEST(settings_http, type_is_http) {
   http_test_core core(cache.path());
   settings::settings_http s(&core, "test", http_url(server.port()));
   EXPECT_EQ(s.get_type(), "http");
+}
+
+TEST(settings_http, cache_path_that_is_a_file_throws_a_catchable_exception) {
+  // Thrown by value: it used to be `throw new settings_exception`, a pointer
+  // no handler catches, so a misconfigured cache folder terminated the agent
+  // instead of being reported. The constructor throws before any download.
+  temp_dir dir;
+  const boost::filesystem::path file = dir.path() / "not-a-directory";
+  boost::filesystem::ofstream(file) << "x";
+  http_test_core core(file);
+  EXPECT_THROW(settings::settings_http(&core, "test", http_url(1)), settings::settings_exception);
 }
 
 TEST(settings_http, does_not_support_updates) {

@@ -8,7 +8,6 @@
 namespace parsers {
 namespace where {
 struct constants {
-  static NSCP_WHERE_EXPORT long long now;
   static NSCP_WHERE_EXPORT long long get_now();
   static NSCP_WHERE_EXPORT void reset();
 };
