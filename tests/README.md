@@ -117,9 +117,6 @@ Docker-free scenarios (always run, including in no-docker CI pipelines):
 | `tests/checknet-commands.test.ts`       | CheckNet tcp/ssh/http/dns/web checks                                                         |
 | `tests/checkdisk-commands.test.ts`      | CheckDisk drive/IO checks, both OSes                                                         |
 | `tests/checkdisk-unix.test.ts`          | CheckDisk file/drive checks (Linux)                                                          |
-| `tests/checkdisk-files-windows.test.ts` | check_files / check_single_file (Windows)                                                    |
-| `tests/checkeventlog-realtime.test.ts`  | CheckEventLog real-time filters + legacy CheckEventLog (Windows)                             |
-| `tests/checkwmi-cli.test.ts`            | `nscp wmi` browsing verbs (Windows)                                                          |
 | `tests/checkmssql-commands.test.ts`     | CheckMSSQL contract tests (Windows); a docker-gated block adds live SQL Server 2022 coverage |
 | `tests/metrics-realtime.test.ts`        | Metrics + real-time filters, both OSes                                                       |
 | `tests/rest-aliases-v2.test.ts`         | CheckHelpers alias listing                                                                   |
