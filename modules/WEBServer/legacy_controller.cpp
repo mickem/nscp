@@ -44,7 +44,8 @@ std::string legacy_controller::get_status() {
   return status;
 }
 bool legacy_controller::set_status(std::string status_) {
-  const boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+  // A writer: exclusive, or /core/isalive copies the string while it is assigned.
+  const boost::unique_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
   if (!lock.owns_lock()) return false;
   status = status_;
   return true;
