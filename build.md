@@ -971,21 +971,21 @@ uses `tar` rather than CPack for it.
 
 ## Running tests
 
-There are four kinds of tests in this repo:
+There are three kinds of tests in this repo:
 
 1. **Unit tests** — C++ Google Test binaries, registered with CTest via
    `NSCP_CREATE_TEST()` in `tests/CMakeLists.txt`. They run against
-   library code and don't need a built daemon.
-2. **Acceptance tests** — Python scripts driven by `nscp unit`, executed
-   by `tests/acceptance-tests.sh` (Linux) and
-   `tests/acceptance-tests.bat` (Windows). They need an installed `nscp`
-   on PATH.
-3. **Scenario / integration tests** — cross-platform Jest + TypeScript
+   library code and don't need a built daemon. The in-process Lua scripts
+   (`scripts/lua/test_*.lua`) are CTest targets too (`NSCP_ADD_LUA_TEST()`),
+   run through `nscp unit --language lua` from the build tree.
+2. **Scenario / integration tests** — cross-platform Jest + TypeScript
    suites that spin up per-protocol Docker containers (NRDP, NSCA,
    NSCA-NG, SMTP, Icinga, HTTP proxy, etc.) and drive `nscp` against
    them. These replace the old `tests/<proto>/run-test.bat` scripts and
    run on both Linux and Windows.
-4. **Live / remote acceptance tests** — the same Jest harness, but pointed
+   The in-process Python scripts (`scripts/python/test_*.py`) run from
+   here as well, through `nscp unit` (`scripting-unit-python.test.ts`).
+3. **Live / remote acceptance tests** — the same Jest harness, but pointed
    at an nscp that is **already installed and running** (a provisioned
    Azure VM, a package install, or a dev build you started by hand) rather
    than one it spawns itself. They talk to the running server over REST and
@@ -1005,14 +1005,22 @@ ctest --test-dir cmake-build-debug-wsl -R str_test --output-on-failure
 ./cmake-build-debug-wsl/bin/str_test --gtest_filter='FormatTest.*'
 ```
 
-### Acceptance tests
+### In-process script tests (`nscp unit`)
+
+`nscp unit` boots PythonScript or LUAScript, runs a test script's
+`__main__` / `main` to write the module configuration, reloads and queries
+`py_unittest` / `lua_unittest`. `--case <text>` runs only the suites whose
+title contains `<text>`; `--show-all` logs passing results too.
 
 ```bash
-# Linux
-./tests/acceptance-tests.sh
+# One Lua script, as CTest runs it
+ctest --test-dir cmake-build-debug-wsl -R lua_nsca_test --output-on-failure
 
-# Windows (from the build/target folder containing nscp.exe)
-tests\acceptance-tests.bat
+# The Python scripts, from jest (see below for NSCP_BIN)
+cd tests && npx jest --runInBand scripting-unit
+
+# Or by hand against a build
+nscp unit --language python --script test_python --case perfdata --show-all
 ```
 
 ### Scenario / integration tests

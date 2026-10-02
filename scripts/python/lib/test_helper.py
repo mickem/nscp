@@ -75,9 +75,24 @@ class TestManager:
         for suite in suites:
             self.suites.append(suite)
 
+    def selected(self, suite: BasicTest) -> bool:
+        """A suite runs when no --case was given, or when a case names it.
+
+        A case matches a suite whose title contains it, ignoring case. The
+        cases are still handed to run_test(), so a suite can narrow further.
+        """
+        if not self.cases:
+            return True
+        title = (suite.title() or '').lower()
+        return any(c.lower() in title for c in self.cases)
+
     def run(self):
-        result = TestResult('Test result for %d suites'%len(self.suites))
-        for suite in self.suites:
+        suites = [s for s in self.suites if self.selected(s)]
+        result = TestResult('Test result for %d suites'%len(suites))
+        if not suites:
+            result.add_message(False, 'No suite matches --case %s'%', '.join(self.cases))
+            return result
+        for suite in suites:
             suite.setup(self.plugin_id, self.prefix)
             suite_result = TestResult('Running suite: %s'%suite.title())
             cases = self.cases if self.cases else None

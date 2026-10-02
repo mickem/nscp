@@ -9,7 +9,7 @@
 -- disabled); query_target() is the API that makes this expressible without them.
 local test = require("test_helper")
 
-local NrpeRelayTest = {}
+local NrpeRelayTest = { name = "NRPE relay" }
 
 function NrpeRelayTest:install(arguments)
 	local conf = Settings()
