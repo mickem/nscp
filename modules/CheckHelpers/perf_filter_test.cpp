@@ -4,6 +4,7 @@
 #include "perf_filter.hpp"
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -236,4 +237,82 @@ TEST(PerfFilterKeywords, KeyKeywordMatchesAlias) {
   const std::string msg = run_filter({"filter=key = 'alpha'"}, two_records());
   EXPECT_NE(msg.find("alpha"), std::string::npos) << msg;
   EXPECT_EQ(msg.find("bravo"), std::string::npos) << msg;
+}
+
+// ==============================================================
+// filter_perf sort orders
+// ==============================================================
+
+namespace {
+std::vector<std::string> sorted_keys(const std::vector<PB::Common::PerformanceData> &input, const bool reverse) {
+  std::vector<PB::Common::PerformanceData> perfs = input;
+  if (reverse)
+    std::sort(perfs.begin(), perfs.end(), perf_filter::reverse_sort());
+  else
+    std::sort(perfs.begin(), perfs.end(), perf_filter::normal_sort());
+  std::vector<std::string> keys;
+  for (const PB::Common::PerformanceData &p : perfs) keys.push_back(p.alias());
+  return keys;
+}
+
+// Numeric entries interleaved with string entries: the old comparators
+// treated a string entry as "not less than" anything, so the numeric entries
+// on either side of it were never compared with each other.
+std::vector<PB::Common::PerformanceData> mixed_records() {
+  return {make_numeric_perf("two", 2, 0, 10), make_string_perf("s1", "x"), make_numeric_perf("nine", 9, 0, 10), make_string_perf("s2", "y"),
+          make_numeric_perf("five", 5, 0, 10), make_numeric_perf("one", 1, 0, 10)};
+}
+}  // namespace
+
+TEST(PerfFilterSort, NormalOrdersNumericDescendingAndStringsLast) {
+  const std::vector<std::string> keys = sorted_keys(mixed_records(), false);
+  ASSERT_EQ(keys.size(), 6u);
+  EXPECT_EQ(keys[0], "nine");
+  EXPECT_EQ(keys[1], "five");
+  EXPECT_EQ(keys[2], "two");
+  EXPECT_EQ(keys[3], "one");
+  EXPECT_FALSE(keys[4] == "one" || keys[4] == "two" || keys[4] == "five" || keys[4] == "nine");
+  EXPECT_FALSE(keys[5] == "one" || keys[5] == "two" || keys[5] == "five" || keys[5] == "nine");
+}
+
+TEST(PerfFilterSort, ReverseOrdersNumericAscendingAndStringsLast) {
+  const std::vector<std::string> keys = sorted_keys(mixed_records(), true);
+  ASSERT_EQ(keys.size(), 6u);
+  EXPECT_EQ(keys[0], "one");
+  EXPECT_EQ(keys[1], "two");
+  EXPECT_EQ(keys[2], "five");
+  EXPECT_EQ(keys[3], "nine");
+}
+
+// The strict-weak-ordering axioms std::sort relies on: irreflexive,
+// asymmetric, and consistent between numeric and non-numeric entries.
+TEST(PerfFilterSort, ComparatorsAreStrictWeakOrderings) {
+  const PB::Common::PerformanceData a = make_numeric_perf("a", 1, 0, 10);
+  const PB::Common::PerformanceData b = make_numeric_perf("b", 2, 0, 10);
+  const PB::Common::PerformanceData s = make_string_perf("s", "x");
+  const PB::Common::PerformanceData t = make_string_perf("t", "y");
+  perf_filter::normal_sort normal;
+  perf_filter::reverse_sort reverse;
+
+  EXPECT_FALSE(normal(a, a));
+  EXPECT_FALSE(normal(s, s));
+  EXPECT_FALSE(reverse(a, a));
+  EXPECT_FALSE(reverse(s, s));
+
+  EXPECT_TRUE(normal(b, a));
+  EXPECT_FALSE(normal(a, b));
+  EXPECT_TRUE(reverse(a, b));
+  EXPECT_FALSE(reverse(b, a));
+
+  // A numeric entry always precedes a string entry, never the other way.
+  EXPECT_TRUE(normal(a, s));
+  EXPECT_FALSE(normal(s, a));
+  EXPECT_TRUE(reverse(a, s));
+  EXPECT_FALSE(reverse(s, a));
+
+  // String entries are equivalent to each other.
+  EXPECT_FALSE(normal(s, t));
+  EXPECT_FALSE(normal(t, s));
+  EXPECT_FALSE(reverse(s, t));
+  EXPECT_FALSE(reverse(t, s));
 }
