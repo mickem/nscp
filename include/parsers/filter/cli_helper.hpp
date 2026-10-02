@@ -313,8 +313,13 @@ struct cli_helper : boost::noncopyable {
         return true;
       case sampling::readiness::failed:
       default:
-        nscapi::protobuf::functions::set_response_bad(
-            *response, "No " + what + " data available: the collector failed to sample it" + (status.error.empty() ? "" : ": " + status.error));
+        if (status.recovering) {
+          nscapi::protobuf::functions::set_response_bad(
+              *response, "No " + what + " data available: the collector could read it again just now, after failing; the first sample follows next");
+        } else {
+          nscapi::protobuf::functions::set_response_bad(
+              *response, "No " + what + " data available: the collector failed to sample it" + (status.error.empty() ? "" : ": " + status.error));
+        }
         return true;
     }
   }

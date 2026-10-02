@@ -28,8 +28,13 @@ namespace {
 // reason; the readers only say why, so a missing file is never mistaken for
 // an empty one and nothing is logged every second.
 void open_or_throw(std::ifstream &file, const std::string &path) {
+  // ifstream::open is not required to set errno, so only trust one it did set.
+  errno = 0;
   file.open(path);
-  if (!file.is_open()) throw std::runtime_error(path + ": " + std::strerror(errno));
+  if (!file.is_open()) {
+    const int error = errno;
+    throw std::runtime_error(path + ": " + (error != 0 ? std::string(std::strerror(error)) : std::string("cannot be opened")));
+  }
 }
 
 // Read a single-line value from a /sys file, trimming whitespace. Returns ""

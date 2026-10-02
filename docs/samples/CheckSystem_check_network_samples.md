@@ -72,7 +72,7 @@ check_network
 UNKNOWN: No network data available yet (collector still initializing)
 ```
 
-On Linux, `warmup-state` picks the status reported during that window, for
+On Linux and macOS, `warmup-state` picks the status reported during that window, for
 instance to keep a freshly restarted agent from paging anyone:
 
 ```

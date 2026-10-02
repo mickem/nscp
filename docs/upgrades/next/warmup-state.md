@@ -26,7 +26,10 @@ still UNKNOWN unless noted, only with a message that says what is wrong:
   `check_memory`, `check_pagefile` and `check_network` now answer UNKNOWN
   *"the collector failed to sample it"* with the reason, and each source is
   judged on its own, so an unreadable `/proc/stat` does not affect
-  `check_memory`.
+  `check_memory`. A source that stops being readable later is reported the
+  same way after five failed samples in a row, instead of the averages of the
+  samples taken before it failed being reported as current (Windows
+  `check_cpu` too).
 - **Windows `check_load`** - `disable = load` now reports *"Load average
   sampling is disabled"*, and a collector whose lock could not be had reports
   *"the collector is busy"*; both used to share the warm-up message.

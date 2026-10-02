@@ -245,3 +245,26 @@ TEST(CheckLoad, WarmupStateAcceptsTheShortStatusSpellings) {
   PB::Commands::QueryResponseMessage::Response response2;
   EXPECT_EQ(run_check(load_avg_state(), {"warmup-state=crit"}, response2), PB::Common::ResultCode::CRITICAL) << join_lines(response2);
 }
+
+// help and option errors never consult the collector, so they cannot wait on
+// a busy collector's lock.
+TEST(CheckLoad, TheCollectorIsOnlyReadOnceTheOptionsAreParsed) {
+  bool read = false;
+  const std::function<load_check::load_reading()> reader = [&read]() {
+    read = true;
+    return load_check::load_reading(load_avg_state());
+  };
+  for (const char *arg : {"help", "warmup-state=okay"}) {
+    PB::Commands::QueryRequestMessage::Request request;
+    request.set_command("check_load");
+    request.add_arguments(arg);
+    PB::Commands::QueryResponseMessage::Response response;
+    load_check::check_load_from(request, &response, reader);
+    EXPECT_FALSE(read) << arg;
+  }
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_load");
+  PB::Commands::QueryResponseMessage::Response response;
+  load_check::check_load_from(request, &response, reader);
+  EXPECT_TRUE(read);
+}

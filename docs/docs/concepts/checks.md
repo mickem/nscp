@@ -778,6 +778,8 @@ leaves a check without data is a fault, and is reported UNKNOWN whatever `warmup
 |----------------------------------------------------------------------------|---------------------------------------------------------------------|
 | The collector has not taken its first sample yet                            | `warmup-state` (UNKNOWN by default), *"… (collector still initializing)"* |
 | The collector has tried and every attempt failed (e.g. `/proc` unreadable)  | UNKNOWN *"No … data available: the collector failed to sample it: <reason>"* |
+| It worked, but its last five samples in a row failed                         | The same UNKNOWN: the older samples still in the buffer are not reported as current |
+| It failed, and has just become readable again (CPU and network, one tick)    | UNKNOWN *"… could read it again just now, after failing; the first sample follows next"* |
 | Sampling is switched off (`disable = cpu`, `disable = load`)                | UNKNOWN *"… sampling is disabled"*                                  |
 | The collector is running but its lock could not be had in time (Windows)    | UNKNOWN *"… the collector is busy (timed out waiting for its lock)"* |
 

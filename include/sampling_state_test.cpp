@@ -48,13 +48,42 @@ TEST(SamplingTracker, SucceededButEmptyIsFailedWithoutAnError) {
   EXPECT_TRUE(s.error.empty());
 }
 
+// The first baseline of a delta source is still the warm-up.
+TEST(SamplingTracker, FirstBaselineIsWarmUp) {
+  tracker t;
+  t.baseline();
+  EXPECT_EQ(readiness::warming_up, t.get(false).state);
+}
+
 // After a run of failures, the read that only re-establishes a delta source's
-// baseline puts it back into warm-up until the next read produces a sample.
-TEST(SamplingTracker, RestartedAfterFailuresIsWarmUpAgain) {
+// baseline is not a warm-up - the collector has tried - but no longer reports
+// the old failure either.
+TEST(SamplingTracker, BaselineAfterFailuresIsNotWarmUp) {
   tracker t;
   t.failed("/proc/stat: cannot open");
-  t.restarted();
-  EXPECT_EQ(readiness::warming_up, t.get(false).state);
+  t.failed("/proc/stat: cannot open");
+  t.baseline();
+  const sampling::status s = t.get(false);
+  EXPECT_EQ(readiness::failed, s.state);
+  EXPECT_TRUE(s.recovering);
+  EXPECT_TRUE(s.error.empty());
+  t.succeeded();
+  EXPECT_EQ(readiness::ready, t.get(true).state);
+}
+
+// A source that worked and then died keeps old samples in its buffer; after a
+// few failed ticks in a row those are no longer answered from.
+TEST(SamplingTracker, PersistentFailureOverridesOldData) {
+  tracker t;
+  t.succeeded();
+  for (long long i = 1; i < tracker::stale_after; ++i) {
+    t.failed("/proc/stat: Permission denied");
+    EXPECT_EQ(readiness::ready, t.get(true).state) << "a transient failure keeps the recent samples, after " << i;
+  }
+  t.failed("/proc/stat: Permission denied");
+  const sampling::status s = t.get(true);
+  EXPECT_EQ(readiness::failed, s.state);
+  EXPECT_EQ("/proc/stat: Permission denied", s.error);
   t.succeeded();
   EXPECT_EQ(readiness::ready, t.get(true).state);
 }

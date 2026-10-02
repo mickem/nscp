@@ -176,8 +176,9 @@ bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as
   }
 }
 
-void pdh_thread::store_tick(const cpu_reading *cpu_read, const spi_container &handles, PDH::PDHQuery *pdh, const bool with_metrics, error_list &errors) {
-  if (cpu_read == nullptr && !with_metrics) return;
+bool pdh_thread::store_tick(const cpu_reading *cpu_read, const load_fold *fold, const spi_container &handles, PDH::PDHQuery *pdh, const bool with_metrics,
+                            error_list &errors) {
+  if (cpu_read == nullptr && fold == nullptr && !with_metrics) return true;
   boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!writeLock.owns_lock()) {
     errors.emplace_back("Failed to get mutex for writing");
@@ -188,7 +189,7 @@ void pdh_thread::store_tick(const cpu_reading *cpu_read, const spi_container &ha
       const boost::lock_guard<boost::mutex> guard(cpu_sampling_mutex_);
       cpu_sampling_.failed("the collector could not get its lock to store the sample");
     }
-    return;
+    return false;
   }
   if (cpu_read != nullptr) {
     // A failed read is not pushed: it would enter the averages as an idle CPU.
@@ -200,7 +201,9 @@ void pdh_thread::store_tick(const cpu_reading *cpu_read, const spi_container &ha
       cpu_sampling_.failed(cpu_read->error);
     }
   }
+  if (fold != nullptr) fold_load_avg(*fold);
   if (with_metrics) write_metrics(handles, pdh, errors);
+  return true;
 }
 
 // Caller must hold the unique (write) lock on mutex_.
@@ -469,12 +472,8 @@ void pdh_thread::thread_proc() {
           errors.emplace_back("Failed to get cpu load");
         }
       }
-      // One exclusive lock for the CPU sample and the metrics of this tick.
-      store_tick(disable_cpu ? nullptr : &cpu_read, handles, check_pdh ? &pdh : nullptr, !disable_metrics, errors);
-      const windows::system_info::cpu_load &load = cpu_read.load;
-      const bool have_cpu = cpu_read.ok;
+      double queue = 0.0;
       if (!disable_load) {
-        double queue = 0.0;
         if (check_queue) {
           try {
             load_query.gatherData();
@@ -493,13 +492,18 @@ void pdh_thread::thread_proc() {
             }
           }
         }
-        // Decay over the time actually elapsed since the previous fold: the
-        // loop targets 1 Hz but runs long whenever a tick overruns. A tick that
-        // could not take the lock folded nothing, so its interval is carried
-        // into the next one instead of being dropped.
-        const double elapsed_seconds = last_load_tick == 0 ? 1.0 : static_cast<double>(tick_start - last_load_tick) / 1000.0;
-        if (update_load_avg(queue, have_cpu, load, handles, elapsed_seconds, errors)) last_load_tick = tick_start;
       }
+      // Decay over the time actually elapsed since the previous fold: the
+      // loop targets 1 Hz but runs long whenever a tick overruns. A tick that
+      // could not take the lock folded nothing, so its interval is carried
+      // into the next one instead of being dropped.
+      const double elapsed_seconds = last_load_tick == 0 ? 1.0 : static_cast<double>(tick_start - last_load_tick) / 1000.0;
+      load_fold fold;
+      if (!disable_load) fold = prepare_load_fold(queue, cpu_read.ok, cpu_read.load, handles, elapsed_seconds);
+      // One exclusive lock for the CPU sample, the load fold and the metrics.
+      const bool stored =
+          store_tick(disable_cpu ? nullptr : &cpu_read, disable_load ? nullptr : &fold, handles, check_pdh ? &pdh : nullptr, !disable_metrics, errors);
+      if (stored && !disable_load) last_load_tick = tick_start;
     }
     // network, temperature, cpu_frequency, battery and os_updates are collected
     // on aux_thread_proc() so a slow WMI provider cannot freeze this 1 Hz loop
@@ -858,27 +862,28 @@ std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load
   return ret;
 }
 
-bool pdh_thread::update_load_avg(const double queue, const bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi,
-                                 const double elapsed_seconds, error_list &errors) {
-  double busy_cores = 0.0;
-  long long cores = load.cores;
-  if (cores <= 0) cores = static_cast<long long>(windows::system_info::get_numberOfProcessorscores());
-  if (have_cpu && cores > 0) {
+pdh_thread::load_fold pdh_thread::prepare_load_fold(const double queue, const bool have_cpu, const windows::system_info::cpu_load &load,
+                                                    const spi_container &spi, const double elapsed_seconds) {
+  load_fold fold;
+  fold.queue = queue < 0.0 ? 0.0 : queue;
+  fold.elapsed_seconds = elapsed_seconds;
+  fold.threads = spi.threads;
+  fold.cores = load.cores;
+  if (fold.cores <= 0) fold.cores = static_cast<long long>(windows::system_info::get_numberOfProcessorscores());
+  if (have_cpu && fold.cores > 0) {
     // load.total.idle is the averaged idle percentage across all cores.
     double busy_fraction = (100.0 - load.total.idle) / 100.0;
     if (busy_fraction < 0.0) busy_fraction = 0.0;
     if (busy_fraction > 1.0) busy_fraction = 1.0;
-    busy_cores = busy_fraction * static_cast<double>(cores);
+    fold.busy_cores = busy_fraction * static_cast<double>(fold.cores);
   }
-  boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
-  if (!writeLock.owns_lock()) {
-    errors.emplace_back("Failed to get mutex for load average");
-    return false;
-  }
-  load_avg_.update(queue < 0.0 ? 0.0 : queue, busy_cores, elapsed_seconds);
-  if (spi.threads > 0) load_avg_.procs_total = spi.threads;
-  if (cores > 0) load_avg_.cores = cores;
-  return true;
+  return fold;
+}
+
+void pdh_thread::fold_load_avg(const load_fold &fold) {
+  load_avg_.update(fold.queue, fold.busy_cores, fold.elapsed_seconds);
+  if (fold.threads > 0) load_avg_.procs_total = fold.threads;
+  if (fold.cores > 0) load_avg_.cores = fold.cores;
 }
 
 boost::optional<load_check::load_avg_state> pdh_thread::get_load_avg() {

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
+#include <functional>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -102,7 +103,12 @@ struct load_reading {
   load_reading(const load_avg_state &s) : state(s) {}  // NOLINT(google-explicit-constructor)
 };
 
-// Testable core: renders / thresholds a pre-gathered collector snapshot.
+// Testable core: renders / thresholds what `read` gathers from the collector.
+// `read` is only called once the options have been parsed, so help,
+// show-default and an invalid option never wait on the collector's lock.
+void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                     const std::function<load_reading()> &read);
+// The same, for a snapshot gathered up front (the unit tests).
 void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                      const load_reading &reading);
 

@@ -86,6 +86,11 @@ load_obj make_load_obj(const load_avg_state &state, const bool percpu) {
 
 void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                      const load_reading &reading) {
+  check_load_from(request, response, std::function<load_reading()>([&reading]() { return reading; }));
+}
+
+void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                     const std::function<load_reading()> &read) {
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
@@ -107,6 +112,7 @@ void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, 
 
   if (!filter_helper.build_filter(filter)) return;
 
+  const load_reading reading = read();
   if (!reading.collector_running) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Load average data is not available (the CheckSystem collector is not running)");
   }
@@ -137,15 +143,17 @@ void check_load_from(const PB::Commands::QueryRequestMessage::Request &request, 
 
 void check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                 const std::shared_ptr<pdh_thread> &collector) {
-  load_reading reading;
-  if (!collector) {
-    reading.collector_running = false;
-  } else if (collector->is_disabled("load")) {
-    reading.disabled = true;
-  } else {
-    reading.state = collector->get_load_avg();
-  }
-  check_load_from(request, response, reading);
+  check_load_from(request, response, std::function<load_reading()>([&collector]() {
+                    load_reading reading;
+                    if (!collector) {
+                      reading.collector_running = false;
+                    } else if (collector->is_disabled("load")) {
+                      reading.disabled = true;
+                    } else {
+                      reading.state = collector->get_load_avg();
+                    }
+                    return reading;
+                  }));
 }
 
 }  // namespace load_check
