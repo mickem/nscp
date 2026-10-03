@@ -34,8 +34,12 @@ class NSCP_MONGOOSE_EXPORT Server {
 
   /**
    * Runs the Mongoose server
+   *
+   * @return true when the server is listening. A failure (bad bind address,
+   *         port in use, TLS setup refused) has already been logged; the
+   *         caller only decides what to report about it.
    */
-  virtual void start(const std::string &bind) = 0;
+  virtual bool start(const std::string &bind) = 0;
 
   /**
    * Stops the Mongoose server
@@ -69,8 +73,12 @@ class NSCP_MONGOOSE_EXPORT Server {
    * @param certificate path to the PEM-encoded certificate
    * @param key path to the PEM-encoded private key (may equal `certificate`
    *            if the key is concatenated into the cert file)
+   * @return true when a certificate and key were loaded. On false the server
+   *         serves plain HTTP if started anyway: both backends decide TLS by
+   *         whether a certificate is loaded, so a caller that must not fall
+   *         back to cleartext has to check this.
    */
-  virtual void setSsl(std::string &certificate, std::string &key) = 0;
+  virtual bool setSsl(std::string &certificate, std::string &key) = 0;
 
   /**
    * Cap the per-request HTTP body size the server will buffer (bytes).
@@ -80,6 +88,21 @@ class NSCP_MONGOOSE_EXPORT Server {
    * `start()` for the change to take effect.
    */
   virtual void setBodyLimit(std::size_t /*bytes*/) {}
+
+  /**
+   * How many threads run request handlers. Must be set before `start()`.
+   *
+   * The default, 1, runs every handler on the server's single I/O thread, so
+   * one slow handler holds up every other request and TLS handshake until it
+   * returns. A server whose handlers can block for long (running a check, an
+   * external script) asks for more. The controllers it registers must then
+   * be safe to call concurrently.
+   *
+   * The Beast backend runs its io_context on this many threads. The mongoose
+   * backend keeps its single poll thread for the sockets and hands each
+   * request to a pool of this many workers, answering through mg_wakeup().
+   */
+  virtual void setWorkerThreads(std::size_t /*threads*/) {}
 
   /**
    * Restrict the TLS versions and cipher suites the listener negotiates.

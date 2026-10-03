@@ -93,8 +93,12 @@ class FixedHandler : public RequestHandlerBase {
  public:
   FixedHandler(int code, std::string body) : code(code), body(std::move(body)) {}
   Response* process(Request& request) override {
-    last_method = request.getMethod();
-    last_url = request.getUrl();
+    {
+      // The worker-thread tests call one handler from several threads.
+      std::lock_guard<std::mutex> g(mu);
+      last_method = request.getMethod();
+      last_url = request.getUrl();
+    }
     auto* r = new StreamResponse(code);
     r->setCode(code, "OK");
     r->append(body);
@@ -104,6 +108,7 @@ class FixedHandler : public RequestHandlerBase {
   std::string body;
   std::string last_method;
   std::string last_url;
+  std::mutex mu;
 };
 
 class CookieHandler : public RequestHandlerBase {
@@ -521,4 +526,185 @@ TEST(ServerImpl, ReturnsHandlerStatusCode) {
   ASSERT_TRUE(resp.received);
   EXPECT_EQ(resp.status, 418);
   EXPECT_NE(resp.body.find("teapot"), std::string::npos);
+}
+
+// ---- Start / TLS failure reporting -----------------------------------------
+
+TEST(ServerImpl, StartReportsAPortThatIsTaken) {
+  const int port = choose_port_base() + 30;
+  const ServerFixture first;
+  first.start(port, new MatchController());
+
+  const auto logger = std::make_shared<CollectingLogger>();
+  const std::unique_ptr<Server> second(Server::make_server(logger));
+  // mg_http_listen() returning NULL used to go unnoticed: the caller went on
+  // to report a listener that did not exist.
+  EXPECT_FALSE(second->start(bind_url(port)));
+  first.server->stop();
+}
+
+TEST(ServerImpl, SetSslReportsACertificateThatDidNotLoad) {
+  const auto logger = std::make_shared<CollectingLogger>();
+  const std::unique_ptr<Server> server(Server::make_server(logger));
+  std::string cert = "no-such-dir/no-such-certificate.pem";
+  std::string key;
+  EXPECT_FALSE(server->setSsl(cert, key));
+}
+
+// ---- Logging with more than one server --------------------------------------
+
+namespace {
+bool logged(CollectingLogger& logger, const std::string& needle) {
+  std::lock_guard<std::mutex> g(logger.mu);
+  for (const auto* list : {&logger.errors, &logger.infos, &logger.debugs}) {
+    for (const std::string& line : *list) {
+      if (line.find(needle) != std::string::npos) return true;
+    }
+  }
+  return false;
+}
+
+// A request mongoose cannot parse: it logs "HTTP parse" from the poll thread
+// of the server that received it.
+void send_garbage(const int port) { raw_fetch(bind_url(port), "GET / BOGUS/1.0\r\n\r\n"); }
+
+bool wait_logged(CollectingLogger& logger, const std::string& needle) {
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (logged(logger, needle)) return true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+  return false;
+}
+}  // namespace
+
+TEST(ServerImpl, EachServerLogsToItsOwnLogger) {
+  // mongoose has one process-wide log hook. It used to be pointed at whichever
+  // server was constructed last, so a second server took over the first one's
+  // log lines (and the two poll threads shared one line buffer).
+  const int port_a = choose_port_base() + 31;
+  const int port_b = choose_port_base() + 32;
+  const ServerFixture a;
+  const ServerFixture b;
+  a.start(port_a, new MatchController());
+  b.start(port_b, new MatchController());
+
+  send_garbage(port_a);
+  EXPECT_TRUE(wait_logged(*a.logger, "HTTP parse"));
+  EXPECT_FALSE(logged(*b.logger, "HTTP parse"));
+  a.server->stop();
+  b.server->stop();
+}
+
+TEST(ServerImpl, DestroyingOneServerLeavesTheOthersLoggingOn) {
+  // Destroying a server used to clear the hook for every server in the
+  // process, and a poll thread could still call into the destroyed logger.
+  const int port_a = choose_port_base() + 33;
+  const int port_b = choose_port_base() + 34;
+  const ServerFixture a;
+  {
+    ServerFixture b;
+    a.start(port_a, new MatchController());
+    b.start(port_b, new MatchController());
+    b.server->stop();
+    b.server.reset();
+  }
+  send_garbage(port_a);
+  EXPECT_TRUE(wait_logged(*a.logger, "HTTP parse"));
+  a.server->stop();
+}
+
+// ---- Worker threads ---------------------------------------------------------
+
+namespace {
+class SlowHandler : public RequestHandlerBase {
+ public:
+  explicit SlowHandler(std::chrono::milliseconds delay) : delay(delay) {}
+  Response* process(Request& /*request*/) override {
+    std::this_thread::sleep_for(delay);
+    auto* r = new StreamResponse(200);
+    r->setCode(200, "OK");
+    r->append("slow");
+    return r;
+  }
+  std::chrono::milliseconds delay;
+};
+}  // namespace
+
+TEST(ServerImpl, WorkerThreadsKeepOtherRequestsMovingPastASlowHandler) {
+  // Every handler used to run on the single poll thread, so one slow one
+  // stalled every other request and TLS handshake on the server.
+  const int port = choose_port_base() + 35;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/slow", new SlowHandler(std::chrono::milliseconds(1500)));
+  controller->registerRoute("GET", "/fast", new FixedHandler(200, "fast"));
+  const ServerFixture fx;
+  fx.server->setWorkerThreads(4);
+  fx.start(port, controller);
+
+  RawResponse slow;
+  std::thread slow_client([&] { slow = raw_fetch(bind_url(port), make_get_request("/slow", port)); });
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  const auto before = std::chrono::steady_clock::now();
+  const RawResponse fast = raw_fetch(bind_url(port), make_get_request("/fast", port));
+  const auto elapsed = std::chrono::steady_clock::now() - before;
+  slow_client.join();
+  fx.server->stop();
+
+  ASSERT_TRUE(fast.received);
+  EXPECT_EQ(fast.body, "fast");
+  EXPECT_LT(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(), 1000);
+  ASSERT_TRUE(slow.received);
+  EXPECT_EQ(slow.body, "slow");
+}
+
+TEST(ServerImpl, WorkerThreadsServeManyConcurrentClients) {
+  const int port = choose_port_base() + 36;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/x", new FixedHandler(200, "x"));
+  const ServerFixture fx;
+  fx.server->setWorkerThreads(4);
+  fx.start(port, controller);
+
+  std::atomic<int> ok{0};
+  std::vector<std::thread> clients;
+  for (int t = 0; t < 8; ++t) {
+    clients.emplace_back([&] {
+      for (int i = 0; i < 16; ++i) {
+        const RawResponse r = raw_fetch(bind_url(port), make_get_request("/x", port));
+        if (r.received && r.body == "x") ++ok;
+      }
+    });
+  }
+  for (std::thread& c : clients) c.join();
+  fx.server->stop();
+  EXPECT_EQ(ok.load(), 8 * 16);
+}
+
+TEST(ServerImpl, AClientThatLeavesBeforeItsAnswerIsForgotten) {
+  // The worker's answer arrives for a connection that has closed; it must be
+  // dropped, not kept or written to a stranger.
+  const int port = choose_port_base() + 37;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/slow", new SlowHandler(std::chrono::milliseconds(500)));
+  controller->registerRoute("GET", "/fast", new FixedHandler(200, "fast"));
+  const ServerFixture fx;
+  fx.server->setWorkerThreads(2);
+  fx.start(port, controller);
+  {
+    mg_mgr mgr{};
+    mg_mgr_init(&mgr);
+    RawResponse ignored;
+    mg_connection* c = mg_http_connect(&mgr, bind_url(port).c_str(), raw_ev_handler, &ignored);
+    ASSERT_NE(c, nullptr);
+    const std::string req = make_get_request("/slow", port);
+    mg_send(c, req.c_str(), req.size());
+    for (int i = 0; i < 4; ++i) mg_mgr_poll(&mgr, 25);
+    mg_mgr_free(&mgr);  // hang up before the answer
+  }
+  std::this_thread::sleep_for(std::chrono::milliseconds(700));
+  const RawResponse fast = raw_fetch(bind_url(port), make_get_request("/fast", port));
+  fx.server->stop();
+  ASSERT_TRUE(fast.received);
+  EXPECT_EQ(fast.body, "fast");
 }

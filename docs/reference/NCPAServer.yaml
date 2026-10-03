@@ -105,6 +105,14 @@ unix:
           description: Port to listen on. 5693 is the port check_ncpa.py and the XI wizard default to.
           sample: false
           title: PORT NUMBER
+        threads:
+          advanced: false
+          default_value: '10'
+          description: How many requests are answered at the same time. A check blocks the thread answering
+            it until it returns, so a slow external script only delays the polls behind it once all threads
+            are busy. Default 10.
+          sample: false
+          title: WORKER THREADS
         tls version:
           advanced: false
           default_value: 1.2+

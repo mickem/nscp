@@ -8,6 +8,5 @@
 		"reload"		: true,
 		"experimental"	: true
 	},
-	"metrics"		: "consume",
 	"prepare_shutdown" : true
 }

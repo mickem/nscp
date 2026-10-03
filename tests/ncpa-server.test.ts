@@ -11,6 +11,9 @@
  * body (check_ncpa.py turns `{"error": ...}` into CRITICAL); only a host
  * outside `allowed hosts` gets a bare HTTP 403.
  */
+import * as fs from "fs";
+import * as net from "net";
+import * as path from "path";
 import request from "supertest";
 import { NscpInstance, onWindows } from "@fixtures/index";
 
@@ -22,6 +25,15 @@ const TOKEN = "ncpa-primary-token";
 const BACKUP = "ncpa-backup-token";
 const SCRIPT = "ncpa_echo";
 const SCRIPT_COMMAND = onWindows ? "cmd /c echo script-output" : "/bin/echo script-output";
+// Prints its first two arguments, to see what order they arrive in.
+const ARGS_SCRIPT = "ncpa_args";
+const ARGS_COMMAND = onWindows
+  ? "cmd /c echo first=$ARG1$ second=$ARG2$"
+  : "/bin/echo first=$ARG1$ second=$ARG2$";
+// Takes a few seconds, like an external script near its timeout.
+const SLOW_SCRIPT = "ncpa_slow";
+const SLOW_COMMAND = onWindows ? "cmd /c ping -n 4 127.0.0.1" : "/bin/sleep 3";
+const ALIAS = "ncpa_alias";
 
 type Settings = Record<string, Record<string, string | number | boolean>>;
 
@@ -29,23 +41,40 @@ type Settings = Record<string, Record<string, string | number | boolean>>;
 async function startNcpa(
   server: Record<string, string | number | boolean>,
   extra: Settings = {},
+  // Other ports the agent will bind, waited free first (the REST suites share 8443).
+  alsoBinds: number[] = [],
 ): Promise<NscpInstance> {
   const nscp = new NscpInstance();
   await nscp.configure({
     "/modules": { NCPAServer: "enabled", CheckHelpers: "enabled", CheckExternalScripts: "enabled" },
     "/settings/default": { "allowed hosts": "127.0.0.1,::1" },
-    "/settings/external scripts/scripts": { [SCRIPT]: SCRIPT_COMMAND },
+    "/settings/external scripts": { "allow arguments": true },
+    "/settings/external scripts/scripts": {
+      [SCRIPT]: SCRIPT_COMMAND,
+      [ARGS_SCRIPT]: ARGS_COMMAND,
+      [SLOW_SCRIPT]: SLOW_COMMAND,
+    },
+    // A query alias: the registry lists these apart from the queries.
+    "/settings/check helpers/alias": { [ALIAS]: "check_ok message=via-alias" },
     // The suite probes wrong tokens on purpose.
     "/settings/NCPA/server": { "auth rate limit max failures": 0, ...server },
     ...extra,
   });
-  await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
+  for (const port of [PORT, ...alsoBinds]) await nscp.waitForPortFree(port, { timeoutMs: 30_000 });
   nscp.start();
   await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
   return nscp;
 }
 
-const get = (path: string) => request(URL).get(path).trustLocalhost(true);
+const get = (target: string) => request(URL).get(target).trustLocalhost(true);
+
+/** Poll the agent's output until `text` shows up (or give up after 30 s). */
+async function waitForLog(nscp: NscpInstance, text: string): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline && !nscp.capturedStdout().includes(text)) {
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
 
 describe("NCPA server", () => {
   describe("with a token and the defaults", () => {
@@ -162,6 +191,27 @@ describe("NCPA server", () => {
       expect(res.body).toEqual({ returncode: 0, stdout: "script-output" });
     });
 
+    it("lists and runs query aliases", async () => {
+      const list = await get(`/api/plugins?token=${TOKEN}`).expect(200);
+      expect(list.body.plugins).toContain(ALIAS);
+      const res = await get(`/api/plugins/${ALIAS}?token=${TOKEN}&check=1`).expect(200);
+      expect(res.body.returncode).toBe(0);
+      expect(res.body.stdout).toContain("via-alias");
+    });
+
+    it("keeps answering while a slow check runs", async () => {
+      // Checks used to run on the listener's only thread: one slow external
+      // script stalled every other poll on the port.
+      const slow = get(`/api/plugins/${SLOW_SCRIPT}?token=${TOKEN}&check=1`).then((r) => r);
+      await new Promise((r) => setTimeout(r, 300));
+      const started = Date.now();
+      const fast = await get(`/api/plugins/check_ok?token=${TOKEN}&check=1`).expect(200);
+      const elapsed = Date.now() - started;
+      expect(fast.body.returncode).toBe(0);
+      expect(elapsed).toBeLessThan(1500);
+      expect((await slow).body.returncode).toBe(0);
+    });
+
     it("does not answer outside /api", async () => {
       await get(`/apix?token=${TOKEN}`).expect(404);
     });
@@ -174,7 +224,7 @@ describe("NCPA server", () => {
       nscp = await startNcpa({
         token: TOKEN,
         "allow arguments": true,
-        plugins: "check_warning, CHECK_OK",
+        plugins: `check_warning, CHECK_OK, ${ARGS_SCRIPT}`,
       });
     });
 
@@ -184,7 +234,7 @@ describe("NCPA server", () => {
 
     it("lists only the exposed queries", async () => {
       const res = await get(`/api/plugins?token=${TOKEN}`).expect(200);
-      expect(res.body).toEqual({ plugins: ["check_ok", "check_warning"] });
+      expect(res.body).toEqual({ plugins: ["check_ok", "check_warning", ARGS_SCRIPT] });
     });
 
     it("re-splits quoted path segments the way NCPA does", async () => {
@@ -204,6 +254,27 @@ describe("NCPA server", () => {
       ).expect(200);
       expect(res.body.returncode).toBe(1);
       expect(res.body.stdout).toContain("from args");
+    });
+
+    it("puts args= values before the path segments, as NCPA does", async () => {
+      const res = await get(
+        `/api/plugins/${ARGS_SCRIPT}/from-path?token=${TOKEN}&check=1&args=from-args`,
+      ).expect(200);
+      expect(res.body.returncode).toBe(0);
+      expect(res.body.stdout).toBe("first=from-args second=from-path");
+    });
+
+    it("keeps backslashes in an argument", async () => {
+      // A Windows path: NCPA on Windows splits with posix=False and keeps them.
+      const arg = encodeURIComponent("message=C:\\Windows\\Temp");
+      const res = await get(`/api/plugins/check_ok/${arg}?token=${TOKEN}&check=1`).expect(200);
+      expect(res.body.stdout).toContain("C:\\Windows\\Temp");
+    });
+
+    it("keeps a filter's own single quotes", async () => {
+      const arg = encodeURIComponent("message=core='total'");
+      const res = await get(`/api/plugins/check_ok/${arg}?token=${TOKEN}&check=1`).expect(200);
+      expect(res.body.stdout).toContain("core='total'");
     });
 
     it("answers a registered but unlisted query as missing", async () => {
@@ -232,6 +303,38 @@ describe("NCPA server", () => {
       expect(res.body.plugins).not.toContain("check_ok");
       const check = await get(`/api/plugins/check_ok?token=${TOKEN}&check=1`).expect(200);
       expect(check.body.returncode).toBe(3);
+    });
+  });
+
+  describe("with plugins = scripts and CheckExternalScripts loaded under an alias", () => {
+    let nscp: NscpInstance;
+
+    beforeAll(async () => {
+      // The registry names a query's owner by the module's alias; the policy
+      // has to see through it.
+      nscp = await startNcpa(
+        { token: TOKEN, plugins: "scripts" },
+        {
+          "/modules": {
+            NCPAServer: "enabled",
+            CheckHelpers: "enabled",
+            myscripts: "CheckExternalScripts",
+          },
+          "/settings/myscripts/scripts": { [SCRIPT]: SCRIPT_COMMAND },
+        },
+      );
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("still exposes the external scripts", async () => {
+      const res = await get(`/api/plugins?token=${TOKEN}`).expect(200);
+      expect(res.body.plugins).toContain(SCRIPT);
+      expect(res.body.plugins).not.toContain("check_ok");
+      const check = await get(`/api/plugins/${SCRIPT}?token=${TOKEN}&check=1`).expect(200);
+      expect(check.body).toEqual({ returncode: 0, stdout: "script-output" });
     });
   });
 
@@ -292,17 +395,104 @@ describe("NCPA server", () => {
       });
       await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
       nscp.start();
-      const deadline = Date.now() + 30_000;
-      while (
-        Date.now() < deadline &&
-        !nscp.capturedStdout().includes("NCPA listener has NOT been started")
-      ) {
-        await new Promise((r) => setTimeout(r, 250));
-      }
+      await waitForLog(nscp, "NCPA listener has NOT been started");
       expect(nscp.capturedStdout()).toContain(
         "refusing to start the NCPA listener in cleartext HTTP",
       );
       await expect(nscp.waitForPort(PORT, { timeoutMs: 2_000 })).rejects.toThrow();
+    });
+  });
+
+  describe("alongside the WEB server", () => {
+    let nscp: NscpInstance;
+    const WEB_PORT = 8443;
+
+    beforeAll(async () => {
+      // Two HTTP servers in one agent: each has its own listener, its own
+      // credentials and (on the mongoose backend) its own log routing.
+      nscp = await startNcpa(
+        { token: TOKEN },
+        {
+          "/modules": { NCPAServer: "enabled", CheckHelpers: "enabled", WEBServer: "enabled" },
+          "/settings/WEB/server/users/admin": { role: "full", password: "web-password" },
+        },
+        [WEB_PORT],
+      );
+      await nscp.waitForPort(WEB_PORT, { timeoutMs: 30_000 });
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("both answer, each with its own credentials", async () => {
+      const ncpa = get(`/api/plugins/check_ok?token=${TOKEN}&check=1`);
+      const web = request(`https://127.0.0.1:${WEB_PORT}`)
+        .get("/api/v2/info")
+        .auth("admin", "web-password")
+        .trustLocalhost(true);
+      const [n, w] = await Promise.all([ncpa, web]);
+      expect(n.body.returncode).toBe(0);
+      expect(w.status).toBe(200);
+      // The NCPA token opens nothing on the WEB server.
+      await request(`https://127.0.0.1:${WEB_PORT}`)
+        .get(`/api/v2/info?token=${TOKEN}`)
+        .trustLocalhost(true)
+        .expect(403);
+    });
+  });
+
+  describe("with a certificate that does not load", () => {
+    let nscp: NscpInstance | undefined;
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("refuses to fall back to cleartext", async () => {
+      // The file exists, so the old check (does the file exist?) passed, the
+      // certificate then failed to load and the listener served plain HTTP.
+      nscp = new NscpInstance();
+      const junk = path.join(nscp.workDir, "junk.pem");
+      fs.writeFileSync(junk, "this is not a certificate\n");
+      await nscp.configure({
+        "/modules": { NCPAServer: "enabled" },
+        "/settings/default": { "allowed hosts": "127.0.0.1" },
+        "/settings/NCPA/server": { token: TOKEN, certificate: junk },
+      });
+      await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
+      nscp.start();
+      await waitForLog(nscp, "NCPA listener has NOT been started");
+      expect(nscp.capturedStdout()).toContain(
+        "could not be loaded: refusing to start the NCPA listener in cleartext HTTP",
+      );
+      await expect(nscp.waitForPort(PORT, { timeoutMs: 2_000 })).rejects.toThrow();
+    });
+  });
+
+  describe("when the port is taken", () => {
+    let nscp: NscpInstance | undefined;
+    let squatter: net.Server | undefined;
+
+    afterAll(async () => {
+      await nscp?.stop();
+      await new Promise<void>((r) => (squatter ? squatter.close(() => r()) : r()));
+    });
+
+    it("says the listener did not start", async () => {
+      nscp = new NscpInstance();
+      await nscp.configure({
+        "/modules": { NCPAServer: "enabled" },
+        "/settings/default": { "allowed hosts": "127.0.0.1" },
+        "/settings/NCPA/server": { token: TOKEN },
+      });
+      await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
+      squatter = net.createServer();
+      await new Promise<void>((r) => squatter!.listen(PORT, "0.0.0.0", () => r()));
+      nscp.start();
+      // It used to log "listening on port 5693" here.
+      await waitForLog(nscp, "NCPA listener has NOT been started on port");
+      expect(nscp.capturedStdout()).not.toContain("NCPA: listening on port");
     });
   });
 });

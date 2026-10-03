@@ -9,6 +9,7 @@
 #include <list>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <utility>
 
@@ -91,13 +92,29 @@ bool ncpa_controller::authenticate(const Mongoose::Request &request, const ncpa:
 }
 
 void ncpa_controller::api(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+  // Caught here rather than left to the HTTP layer: what it does with an
+  // escaping exception goes through an error sink only the WEB server
+  // installs, so without the WEB server it would be a bare 500 with nothing
+  // in the log. The caller gets NCPA's error shape and no internals.
+  try {
+    handle(request, what, response);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("NCPA: request from " + request.getRemoteIp() + " failed: " + utf8::utf8_from_native(e.what()));
+    answer_json(response, ncpa::error_body("Internal error, see the agent log."));
+  } catch (...) {
+    NSC_LOG_ERROR("NCPA: request from " + request.getRemoteIp() + " failed with an unknown exception");
+    answer_json(response, ncpa::error_body("Internal error, see the agent log."));
+  }
+}
+
+void ncpa_controller::handle(Mongoose::Request &request, const boost::smatch &what, Mongoose::StreamResponse &response) {
   // Query string first, then a form body: NCPA reads both (Flask's
   // request.values), and the first value of a key wins.
   ncpa::form_vector args = request.getVariablesVector();
   if (request.getMethod() == "POST") {
     const std::string content_type = boost::algorithm::to_lower_copy(request.readHeader("Content-Type"));
     if (content_type.empty() || boost::algorithm::starts_with(content_type, "application/x-www-form-urlencoded")) {
-      const ncpa::form_vector body = ncpa::parse_form(request.getData());
+      const ncpa::form_vector body = Mongoose::Request::parseVariables(request.getData());
       args.insert(args.end(), body.begin(), body.end());
     }
   }
@@ -131,7 +148,7 @@ void ncpa_controller::api(Mongoose::Request &request, boost::smatch &what, Mongo
 std::vector<std::string> ncpa_controller::exposed_plugins() const {
   std::vector<std::string> names;
   for (const ncpa_sources::query_info &q : sources_->list_queries()) {
-    if (config_.plugins.allows(q.name, q.owner)) names.push_back(q.name);
+    if (config_.plugins.allows(q.name, q.module)) names.push_back(q.name);
   }
   std::sort(names.begin(), names.end());
   names.erase(std::unique(names.begin(), names.end()), names.end());
@@ -150,21 +167,18 @@ void ncpa_controller::plugins(const std::vector<std::string> &path, const ncpa::
   // A query that is not exposed answers exactly like one that does not exist,
   // so the plugins node cannot be used to map what else is registered.
   ncpa_sources::query_info info;
-  if (!sources_->describe_query(name, info) || !config_.plugins.allows(name, info.owner)) {
+  if (!sources_->describe_query(name, info) || !config_.plugins.allows(name, info.module)) {
     NSC_DEBUG_MSG("NCPA: " + remote + " asked for plugin '" + name + "', which is not registered or not exposed by 'plugins = " + config_.plugins.to_string() +
                   "'.");
     answer_json(response, check_mode ? ncpa::missing_node_check_body("plugin", name) : ncpa::missing_node_body(full_path, "plugin", name));
     return;
   }
 
-  // The arguments are the path segments after the name and every `args=`
-  // value, joined with spaces and split again the way a shell would - what
-  // NCPA itself does. It matters for check_ncpa.py: it tokenises -a with a
-  // non-POSIX shlex, which keeps the quotes, so -a '"filter=load > 80"'
-  // arrives as the one segment `"filter=load > 80"` and only this second split
-  // removes them.
-  std::vector<std::string> raw(path.begin() + 2, path.end());
-  for (const std::string &value : ncpa::form_values(args, "args")) raw.push_back(value);
+  // The arguments are every `args=` value and then the path segments after
+  // the name - NCPA's order - joined with spaces and split again (see
+  // ncpa::split_args for why the second split is needed).
+  std::vector<std::string> raw = ncpa::form_values(args, "args");
+  raw.insert(raw.end(), path.begin() + 2, path.end());
   const std::vector<std::string> tokens = ncpa::split_args(boost::algorithm::join(raw, " "));
   const std::list<std::string> arguments(tokens.begin(), tokens.end());
 

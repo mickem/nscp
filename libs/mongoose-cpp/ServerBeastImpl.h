@@ -40,11 +40,12 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   explicit ServerBeastImpl(WebLoggerPtr logger);
   ~ServerBeastImpl() override;
 
-  void start(const std::string& bind) override;
+  bool start(const std::string& bind) override;
   void stop() override;
   void registerController(Controller* controller) override;
-  void setSsl(std::string& certificate, std::string& key) override;
+  bool setSsl(std::string& certificate, std::string& key) override;
   void setBodyLimit(std::size_t bytes) override;
+  void setWorkerThreads(std::size_t threads) override;
   void setTlsOptions(const std::string& tls_version, const std::string& ciphers) override;
 
   /** Per-connection HTTP body cap. Default 1 MiB. */
@@ -111,7 +112,11 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_;
   std::unique_ptr<boost::asio::ssl::context> ssl_ctx_;
   std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
-  std::shared_ptr<boost::thread> thread_;
+  // The threads running ioc_; empty while stopped. More than one when
+  // setWorkerThreads() asked for it, so a handler that blocks holds up only
+  // the thread it runs on.
+  std::vector<std::shared_ptr<boost::thread>> threads_;
+  std::size_t worker_threads_ = 1;
   std::atomic<bool> stopping_{false};
 };
 

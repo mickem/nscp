@@ -16,14 +16,15 @@ class ncpa_sources {
  public:
   struct query_info {
     std::string name;
-    // The module that registered the query, as the registry reports it (its
-    // alias when it was loaded under one).
-    std::string owner;
+    // The module that registered the query: its name (CheckExternalScripts),
+    // never the alias it was loaded under, so a policy that names a module
+    // holds however that module is loaded.
+    std::string module;
   };
 
   ncpa_sources(const nscapi::core_wrapper *core, unsigned int plugin_id) : core_(core), plugin_id_(plugin_id) {}
 
-  // Every registered query.
+  // Every registered query and query alias.
   std::vector<query_info> list_queries() const;
   // The registration of one query; false when nothing is registered under
   // `name`.

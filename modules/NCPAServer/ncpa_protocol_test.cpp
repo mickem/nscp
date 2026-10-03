@@ -3,6 +3,7 @@
 
 #include "ncpa_protocol.hpp"
 
+#include <Request.h>
 #include <gtest/gtest.h>
 
 #include <boost/json.hpp>
@@ -41,19 +42,11 @@ TEST(NcpaPath, SpacesAndMountEncoding) {
   EXPECT_EQ(ncpa::split_path("disk/logical/C%3A%7C"), (strings{"disk", "logical", "C:|"}));
 }
 
-TEST(NcpaDecode, MalformedEscapesPassThrough) {
-  EXPECT_EQ(ncpa::percent_decode("100%", false), "100%");
-  EXPECT_EQ(ncpa::percent_decode("%zz", false), "%zz");
-  EXPECT_EQ(ncpa::percent_decode("%4", false), "%4");
-  EXPECT_EQ(ncpa::percent_decode("%41", false), "A");
-  EXPECT_EQ(ncpa::percent_decode("a+b", true), "a b");
-}
-
 // ---- Form ------------------------------------------------------------------
 
 TEST(NcpaForm, ParsesWhatCheckNcpaSends) {
   // urlencode() of check_ncpa's argument dict; None values are left out.
-  const ncpa::form_vector f = ncpa::parse_form("token=s3cr%26t&warning=80&critical=90&delta=False&check=1");
+  const ncpa::form_vector f = Mongoose::Request::parseVariables("token=s3cr%26t&warning=80&critical=90&delta=False&check=1");
   EXPECT_EQ(ncpa::form_value(f, "token"), "s3cr&t");
   EXPECT_EQ(ncpa::form_value(f, "check"), "1");
   EXPECT_EQ(ncpa::form_value(f, "delta"), "False");
@@ -63,7 +56,7 @@ TEST(NcpaForm, ParsesWhatCheckNcpaSends) {
 }
 
 TEST(NcpaForm, FirstValueWinsAndAllValuesAreKept) {
-  const ncpa::form_vector f = ncpa::parse_form("args=-w+10&args=-c%2020&flag&token=");
+  const ncpa::form_vector f = Mongoose::Request::parseVariables("args=-w+10&args=-c%2020&flag&token=");
   EXPECT_EQ(ncpa::form_value(f, "args"), "-w 10");
   EXPECT_EQ(ncpa::form_values(f, "args"), (strings{"-w 10", "-c 20"}));
   EXPECT_TRUE(ncpa::form_has(f, "flag"));
@@ -84,29 +77,39 @@ TEST(NcpaForm, Truthiness) {
 
 // ---- Arguments -------------------------------------------------------------
 
-TEST(NcpaArgs, SplitsLikeAShell) {
+TEST(NcpaArgs, SplitsOnWhitespace) {
   EXPECT_EQ(ncpa::split_args("-w 10 -c 20"), (strings{"-w", "10", "-c", "20"}));
   EXPECT_EQ(ncpa::split_args("  spaced   out  "), (strings{"spaced", "out"}));
-  EXPECT_EQ(ncpa::split_args("\"filter=used > 80\" 'top-syntax=${list}'"), (strings{"filter=used > 80", "top-syntax=${list}"}));
-  EXPECT_EQ(ncpa::split_args("a\\ b c"), (strings{"a b", "c"}));
+  EXPECT_EQ(ncpa::split_args(""), strings());
+}
+
+TEST(NcpaArgs, RemovesTheQuotesCheckNcpaLeavesAroundAToken) {
+  // check_ncpa.py's non-POSIX shlex keeps them: -a '"warning=load > 80" ...'.
+  EXPECT_EQ(ncpa::split_args("\"warning=load > 80\" \"critical=load > 90\""), (strings{"warning=load > 80", "critical=load > 90"}));
+  EXPECT_EQ(ncpa::split_args("'top-syntax=${list}'"), (strings{"top-syntax=${list}"}));
   EXPECT_EQ(ncpa::split_args("\"say \\\"hi\\\"\""), (strings{"say \"hi\""}));
   EXPECT_EQ(ncpa::split_args("''"), (strings{""}));
-  EXPECT_EQ(ncpa::split_args(""), strings());
+}
+
+TEST(NcpaArgs, KeepsBackslashes) {
+  // NCPA on Windows splits with posix=False, which keeps them; so must we.
+  EXPECT_EQ(ncpa::split_args("path=C:\\Windows\\Temp"), (strings{"path=C:\\Windows\\Temp"}));
+  EXPECT_EQ(ncpa::split_args("\"path=\\\\server\\share\\x y\""), (strings{"path=\\\\server\\share\\x y"}));
+  EXPECT_EQ(ncpa::split_args("path='C:\\Program Files\\app'"), (strings{"path=C:\\Program Files\\app"}));
+}
+
+TEST(NcpaArgs, KeepsAFiltersOwnQuotes) {
+  // The filter language quotes its strings; only a quote that opens a whole
+  // argument or a whole value groups.
+  EXPECT_EQ(ncpa::split_args("filter=core='total'"), (strings{"filter=core='total'"}));
+  EXPECT_EQ(ncpa::split_args("\"filter=name = 'my svc'\""), (strings{"filter=name = 'my svc'"}));
+  EXPECT_EQ(ncpa::split_args("filter='core = total'"), (strings{"filter=core = total"}));
+  EXPECT_EQ(ncpa::split_args("it's"), (strings{"it's"}));
 }
 
 TEST(NcpaArgs, UnterminatedQuoteKeepsWhatItCollected) { EXPECT_EQ(ncpa::split_args("\"open quote"), (strings{"open quote"})); }
 
 // ---- Token -----------------------------------------------------------------
-
-TEST(NcpaToken, ConstantTimeEquals) {
-  EXPECT_TRUE(ncpa::constant_time_equals("secret", "secret"));
-  EXPECT_FALSE(ncpa::constant_time_equals("secreT", "secret"));
-  EXPECT_FALSE(ncpa::constant_time_equals("secret-and-more", "secret"));
-  EXPECT_FALSE(ncpa::constant_time_equals("secre", "secret"));
-  EXPECT_FALSE(ncpa::constant_time_equals("", "secret"));
-  EXPECT_FALSE(ncpa::constant_time_equals("x", ""));
-  EXPECT_TRUE(ncpa::constant_time_equals("", ""));
-}
 
 TEST(NcpaToken, NothingIsAcceptedWithoutAConfiguredToken) {
   EXPECT_EQ(ncpa::check_token("", "", ""), ncpa::token_result::not_configured);
@@ -142,6 +145,8 @@ TEST(NcpaPolicy, ScriptsOnly) {
   ASSERT_TRUE(ncpa::plugin_policy::parse("scripts", p, error));
   EXPECT_TRUE(p.allows("my_script", "CheckExternalScripts"));
   EXPECT_TRUE(p.allows("my_script", "checkexternalscripts"));
+  // The module name, not the alias it was loaded under (ncpa_sources resolves it).
+  EXPECT_FALSE(p.allows("my_script", "scripts"));
   EXPECT_FALSE(p.allows("check_cpu", "CheckSystem"));
   EXPECT_FALSE(p.allows("check_cpu", ""));
 }

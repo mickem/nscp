@@ -3,10 +3,12 @@
 
 #include "ServerMongooseImpl.h"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
 #include <memory>
+#include <mutex>
 #include <nsclient/nsclient_exception.hpp>
 #include <sstream>
 #include <string>
@@ -21,45 +23,72 @@ using namespace Mongoose;
 
 boost::posix_time::ptime now() { return boost::get_system_time(); }
 
-std::string tmp_log;
-bool logged_cert_issue = false;
-void log_wrapper(char c, void *ptr) {
-  if (ptr == nullptr) {
+namespace {
+// mongoose has one log hook for the whole process, and more than one server
+// can run in it (the WEB server and the NCPA server, each with its own poll
+// thread). So the hook is installed once and never cleared, and each line is
+// routed by the thread that produced it: every thread that drives a server's
+// mongoose manager marks itself with that server's target for as long as it
+// does. A line from a thread that is not driving any server has nowhere to go
+// and is dropped, which is what clearing the hook used to do.
+thread_local ServerMongooseImpl::log_target *tl_log_target = nullptr;
+// The line being assembled: mongoose hands the hook one character at a time,
+// and two poll threads writing one shared buffer would corrupt it.
+thread_local std::string tl_log_line;
+
+struct scoped_log_target {
+  ServerMongooseImpl::log_target *previous;
+  explicit scoped_log_target(ServerMongooseImpl::log_target *target) : previous(tl_log_target) { tl_log_target = target; }
+  ~scoped_log_target() { tl_log_target = previous; }
+  scoped_log_target(const scoped_log_target &) = delete;
+  scoped_log_target &operator=(const scoped_log_target &) = delete;
+};
+
+void log_wrapper(char c, void *) {
+  if (c != '\n' && c != '\r') {
+    tl_log_line += c;
     return;
   }
-  if (c == '\n' || c == '\r') {
-    if (tmp_log.empty()) {
-      return;
+  if (tl_log_line.empty()) {
+    return;
+  }
+  std::string line;
+  line.swap(tl_log_line);
+  ServerMongooseImpl::log_target *target = tl_log_target;
+  if (target == nullptr || target->logger == nullptr) {
+    return;
+  }
+  if (boost::algorithm::contains(line, "alert certificate unknown")) {
+    if (!target->cert_issue_logged.exchange(true)) {
+      target->logger->log_error("This could be due to self-signed certificates: " + line);
     }
-    auto *logger = static_cast<WebLogger *>(ptr);
-    if (boost::algorithm::contains(tmp_log, "alert certificate unknown")) {
-      if (!logged_cert_issue) {
-        logger->log_error("This could be due to self-signed certificates: " + tmp_log);
-        logged_cert_issue = true;
-      }
-    } else if (boost::algorithm::contains(tmp_log, ":error:")) {
-      logger->log_error(tmp_log);
-    } else {
-      logger->log_info(tmp_log);
-    }
-
-    tmp_log = "";
+  } else if (boost::algorithm::contains(line, ":error:")) {
+    target->logger->log_error(line);
   } else {
-    tmp_log += c;
+    target->logger->log_info(line);
   }
 }
 
+std::once_flag log_hook_installed;
+void install_log_hook() {
+  std::call_once(log_hook_installed, [] {
+    mg_log_set_fn(&log_wrapper, nullptr);
+    mg_log_set(MG_LL_ERROR);
+  });
+}
+}  // namespace
+
 namespace Mongoose {
 ServerMongooseImpl::ServerMongooseImpl(WebLoggerPtr logger) : logger_(std::move(logger)), stop_thread_(false) {
-  mg_log_set_fn(&log_wrapper, logger_.get());
-  mg_log_set(MG_LL_ERROR);
+  install_log_hook();
+  log_target_.logger = logger_.get();
+  const scoped_log_target route(&log_target_);
   memset(&mgr, 0, sizeof(mg_mgr));
   mg_mgr_init(&mgr);
 }
 
 ServerMongooseImpl::~ServerMongooseImpl() {
   ServerMongooseImpl::stop();
-  mg_log_set_fn(&log_wrapper, nullptr);
 
   for (const auto &controller : controllers) {
     delete controller;
@@ -67,7 +96,7 @@ ServerMongooseImpl::~ServerMongooseImpl() {
   controllers.clear();
 }
 
-void ServerMongooseImpl::setSsl(std::string &new_certificate, std::string &new_key) {
+bool ServerMongooseImpl::setSsl(std::string &new_certificate, std::string &new_key) {
 #if MG_ENABLE_OPENSSL
   try {
     auto cert_and_key = cert_loader::load_certificates(new_certificate, new_key);
@@ -75,10 +104,21 @@ void ServerMongooseImpl::setSsl(std::string &new_certificate, std::string &new_k
     key = cert_and_key.second;
   } catch (const nsclient::nsclient_exception &e) {
     logger_->log_error("Failed to load certificates: " + e.reason());
+    return false;
   }
+  return !certificate.empty() && !key.empty();
 #else
   logger_->log_error("Not compiled with TLS");
+  return false;
 #endif
+}
+
+void ServerMongooseImpl::setWorkerThreads(const std::size_t threads) {
+  if (thread_) {
+    logger_->log_error("setWorkerThreads() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  worker_threads_ = threads == 0 ? 1 : threads;
 }
 
 void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std::string &ciphers) {
@@ -105,6 +145,7 @@ void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std
 }
 
 void ServerMongooseImpl::thread_proc() {
+  const scoped_log_target route(&log_target_);
   while (true) {
     mg_mgr_poll(&mgr, 1000);
     if (stop_thread_) {
@@ -114,13 +155,58 @@ void ServerMongooseImpl::thread_proc() {
   }
 }
 
-void ServerMongooseImpl::start(const std::string &bind) {
-  mg_http_listen(&mgr, bind.c_str(), event_handler, this);
+bool ServerMongooseImpl::start(const std::string &bind) {
+  const scoped_log_target route(&log_target_);
+  if (thread_) {
+    logger_->log_error("start() called on an already-started server — ignored");
+    return false;
+  }
+  use_workers_ = worker_threads_ > 1;
+  if (use_workers_ && !mg_wakeup_init(&mgr)) {
+    logger_->log_error("Failed to set up the request worker pool; answering every request on the poll thread instead.");
+    use_workers_ = false;
+  }
+  if (mg_http_listen(&mgr, bind.c_str(), event_handler, this) == nullptr) {
+    logger_->log_error("Failed to listen on " + bind + ". The listener has NOT been started.");
+    return false;
+  }
   const WebLoggerPtr log = logger_;
+  if (use_workers_) {
+    {
+      const std::lock_guard<std::mutex> lock(jobs_mutex_);
+      stop_workers_ = false;
+    }
+    for (std::size_t i = 0; i < worker_threads_; ++i) {
+      workers_.push_back(
+          threads::start_guarded_thread("web server worker", [this] { worker_proc(); }, [log](const std::string &message) { log->log_error(message); }));
+    }
+  }
   thread_ = threads::start_guarded_thread("web server", [this] { thread_proc(); }, [log](const std::string &message) { log->log_error(message); });
+  return true;
 }
 
 void ServerMongooseImpl::stop() {
+  // The workers go first: they hand their answers to the poll thread through
+  // mg_wakeup(), which needs the manager the poll thread frees when it stops.
+  // Queued requests are dropped; one already running is waited for.
+  if (!workers_.empty()) {
+    {
+      const std::lock_guard<std::mutex> lock(jobs_mutex_);
+      stop_workers_ = true;
+      jobs_.clear();
+    }
+    jobs_cv_.notify_all();
+    const bool from_worker = std::any_of(workers_.begin(), workers_.end(),
+                                         [](const std::shared_ptr<boost::thread> &worker) { return worker->get_id() == boost::this_thread::get_id(); });
+    for (const std::shared_ptr<boost::thread> &worker : workers_) {
+      if (from_worker) {
+        worker->detach();
+      } else {
+        worker->join();
+      }
+    }
+    workers_.clear();
+  }
   if (thread_) {
     stop_thread_ = true;
     // Stopping the server from the thread that runs it: a request handler took
@@ -142,9 +228,77 @@ void ServerMongooseImpl::stop() {
 
 void ServerMongooseImpl::registerController(Controller *controller) { controllers.push_back(controller); }
 
+void ServerMongooseImpl::worker_proc() {
+  while (true) {
+    job current;
+    {
+      std::unique_lock<std::mutex> lock(jobs_mutex_);
+      jobs_cv_.wait(lock, [this] { return stop_workers_ || !jobs_.empty(); });
+      if (stop_workers_) {
+        return;
+      }
+      current = std::move(jobs_.front());
+      jobs_.pop_front();
+    }
+    reply answer;
+    try {
+      const std::unique_ptr<Response> response(current.controller->handleRequest(*current.request));
+      answer = render(*response, current.is_ssl);
+    } catch (const std::exception &e) {
+      const std::unique_ptr<Response> response(Controller::internalErrorFromException(e.what()));
+      answer = render(*response, current.is_ssl);
+    } catch (...) {
+      const std::unique_ptr<Response> response(Controller::internalErrorFromException("Unknown error"));
+      answer = render(*response, current.is_ssl);
+    }
+    {
+      const std::lock_guard<std::mutex> lock(jobs_mutex_);
+      // Closed while we worked: nobody to answer.
+      if (waiting_.erase(current.connection_id) == 0) {
+        continue;
+      }
+      pending_reply &pending = replies_[current.connection_id];
+      pending.answer = std::move(answer);
+      pending.close = current.close;
+    }
+    if (!mg_wakeup(&mgr, current.connection_id, "r", 1)) {
+      logger_->log_error("Failed to hand a finished request back to the poll thread; the client will time out.");
+    }
+  }
+}
+
+void ServerMongooseImpl::deliver(mg_connection *connection) {
+  pending_reply pending;
+  {
+    const std::lock_guard<std::mutex> lock(jobs_mutex_);
+    const auto it = replies_.find(connection->id);
+    if (it == replies_.end()) {
+      return;
+    }
+    pending = std::move(it->second);
+    replies_.erase(it);
+  }
+  mg_http_reply(connection, pending.answer.code, pending.answer.headers.c_str(), "%s", pending.answer.body.c_str());
+  if (pending.close) {
+    connection->is_draining = 1;
+  }
+}
+
+void ServerMongooseImpl::forget(const unsigned long connection_id) {
+  const std::lock_guard<std::mutex> lock(jobs_mutex_);
+  waiting_.erase(connection_id);
+  replies_.erase(connection_id);
+}
+
 void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *ev_data) {
   if (connection->fn_data != nullptr) {
-    const auto *impl = static_cast<ServerMongooseImpl *>(connection->fn_data);
+    auto *impl = static_cast<ServerMongooseImpl *>(connection->fn_data);
+    if (ev == MG_EV_WAKEUP) {
+      impl->deliver(connection);
+    }
+    if (ev == MG_EV_CLOSE && impl->use_workers_) {
+      impl->forget(connection->id);
+    }
     if (ev == MG_EV_ACCEPT) {
 #if MG_ENABLE_OPENSSL
       impl->initTls(connection);
@@ -194,7 +348,69 @@ Request build_request(const std::string &ip, const mg_http_message *message, con
   return {ip, is_ssl, method, url, query, headers, data};
 }
 
-void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_message *message) const {
+ServerMongooseImpl::reply ServerMongooseImpl::render(Response &response, const bool is_ssl) {
+  // Applied here, on the way out, so every answer carries them: static
+  // files, API responses and the error pages a controller returns alike.
+  Helpers::add_security_headers(response, is_ssl);
+  std::stringstream headers;
+  bool has_content_type = false;
+  for (const Response::header_type::value_type &v : response.get_headers()) {
+    headers << v.first << ": " << v.second << "\r\n";
+    if (v.first == "Content-Type") {
+      has_content_type = true;
+    }
+  }
+  for (const auto &c : response.get_cookies()) {
+    const std::string &name = c.first;
+    const std::string &value = c.second.first;
+    const Response::cookie_attrs &a = c.second.second;
+    if (name.empty() || name.find_first_of("\r\n;= \t") != std::string::npos) {
+      continue;
+    }
+    if (value.find_first_of("\r\n;") != std::string::npos) {
+      continue;
+    }
+    // SameSite=None requires Secure per RFC 6265bis §5.4.7. Browsers will
+    // drop a SameSite=None cookie that lacks Secure, so emitting it would
+    // silently lose the session. Skip the cookie instead.
+    if (boost::algorithm::iequals(a.same_site, "None") && !(a.secure && is_ssl)) {
+      continue;
+    }
+    headers << "Set-Cookie: " << name << "=" << value << "; Path=" << (a.path.empty() ? "/" : a.path);
+    if (a.max_age >= 0) {
+      headers << "; Max-Age=" << a.max_age;
+    }
+    if (a.http_only) {
+      headers << "; HttpOnly";
+    }
+    if (a.secure && is_ssl) {
+      headers << "; Secure";
+    }
+    if (!a.same_site.empty()) {
+      headers << "; SameSite=" << a.same_site;
+    }
+    headers << "\r\n";
+  }
+  // No wildcard Access-Control-Allow-Origin. The bundled SPA is served
+  // from the same origin so it does not need CORS, and the wildcard meant
+  // any cross-origin page could read responses to authenticated requests
+  // that did not require credentials. Operators who need cross-origin
+  // access should put a reverse proxy in front and pin Origin there.
+  if (response.getCode() == 200 && !has_content_type) {
+    headers << "Content-Type: application/json\r\n";
+  }
+  if (response.getCode() > 299 && !has_content_type) {
+    headers << "Content-Type: text/plain\r\n";
+  }
+
+  reply out;
+  out.code = response.getCode();
+  out.headers = headers.str();
+  out.body = response.getBody();
+  return out;
+}
+
+void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_message *message) {
   bool is_ssl = connection->is_tls;
   auto url = std::string(message->uri.buf, message->uri.len);
   auto method = std::string(message->method.buf, message->method.len);
@@ -235,62 +451,28 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
       auto ip = std::string(buf);
       Request request = build_request(ip, message, is_ssl, method);
 
-      std::unique_ptr<Response> response(ctrl->handleRequest(request));
-      // Applied here, on the way out, so every answer carries them: static
-      // files, API responses and the error pages a controller returns alike.
-      Helpers::add_security_headers(*response, is_ssl);
-      std::stringstream headers;
-      bool has_content_type = false;
-      for (const Response::header_type::value_type &v : response->get_headers()) {
-        headers << v.first << ": " << v.second << "\r\n";
-        if (v.first == "Content-Type") {
-          has_content_type = true;
+      if (use_workers_) {
+        // Answered from a worker; mongoose keeps the connection marked as
+        // answering until deliver() replies, holding back anything pipelined
+        // behind this request.
+        job queued;
+        queued.connection_id = connection->id;
+        queued.controller = ctrl;
+        queued.request.reset(new Request(std::move(request)));
+        queued.is_ssl = is_ssl;
+        const mg_str *connection_header = mg_http_get_header(message, "Connection");
+        queued.close = connection_header != nullptr && mg_strcasecmp(*connection_header, mg_str("close")) == 0;
+        {
+          const std::lock_guard<std::mutex> lock(jobs_mutex_);
+          waiting_.insert(connection->id);
+          jobs_.push_back(std::move(queued));
         }
+        jobs_cv_.notify_one();
+        return;
       }
-      for (const auto &c : response->get_cookies()) {
-        const std::string &name = c.first;
-        const std::string &value = c.second.first;
-        const Response::cookie_attrs &a = c.second.second;
-        if (name.empty() || name.find_first_of("\r\n;= \t") != std::string::npos) {
-          continue;
-        }
-        if (value.find_first_of("\r\n;") != std::string::npos) {
-          continue;
-        }
-        // SameSite=None requires Secure per RFC 6265bis §5.4.7. Browsers will
-        // drop a SameSite=None cookie that lacks Secure, so emitting it would
-        // silently lose the session. Skip the cookie instead.
-        if (boost::algorithm::iequals(a.same_site, "None") && !(a.secure && is_ssl)) {
-          continue;
-        }
-        headers << "Set-Cookie: " << name << "=" << value << "; Path=" << (a.path.empty() ? "/" : a.path);
-        if (a.max_age >= 0) {
-          headers << "; Max-Age=" << a.max_age;
-        }
-        if (a.http_only) {
-          headers << "; HttpOnly";
-        }
-        if (a.secure && is_ssl) {
-          headers << "; Secure";
-        }
-        if (!a.same_site.empty()) {
-          headers << "; SameSite=" << a.same_site;
-        }
-        headers << "\r\n";
-      }
-      // No wildcard Access-Control-Allow-Origin. The bundled SPA is served
-      // from the same origin so it does not need CORS, and the wildcard meant
-      // any cross-origin page could read responses to authenticated requests
-      // that did not require credentials. Operators who need cross-origin
-      // access should put a reverse proxy in front and pin Origin there.
-      if (response->getCode() == 200 && !has_content_type) {
-        headers << "Content-Type: application/json\r\n";
-      }
-      if (response->getCode() > 299 && !has_content_type) {
-        headers << "Content-Type: text/plain\r\n";
-      }
-
-      mg_http_reply(connection, response->getCode(), headers.str().c_str(), "%s", response->getBody().c_str());
+      const std::unique_ptr<Response> response(ctrl->handleRequest(request));
+      const reply answer = render(*response, is_ssl);
+      mg_http_reply(connection, answer.code, answer.headers.c_str(), "%s", answer.body.c_str());
 
       return;
     }

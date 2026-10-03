@@ -14,14 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <cctype>
-#include <chrono>
-#include <memory>
-#include <mutex>
-#include <string>
-#include <thread>
-#include <vector>
-
+#include <atomic>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -30,11 +23,17 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
-
+#include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <mutex>
+#include <string>
 #include <system_error>
+#include <thread>
+#include <vector>
 
 #include "MatchController.h"
 #include "Request.h"
@@ -95,8 +94,12 @@ class FixedHandler : public RequestHandlerBase {
  public:
   FixedHandler(int code, std::string body) : code(code), body(std::move(body)) {}
   Response* process(Request& request) override {
-    last_method = request.getMethod();
-    last_url = request.getUrl();
+    {
+      // The worker-thread tests call one handler from several threads.
+      std::lock_guard<std::mutex> g(mu);
+      last_method = request.getMethod();
+      last_url = request.getUrl();
+    }
     auto* r = new StreamResponse(code);
     r->setCode(code, "OK");
     r->append(body);
@@ -106,6 +109,7 @@ class FixedHandler : public RequestHandlerBase {
   std::string body;
   std::string last_method;
   std::string last_url;
+  std::mutex mu;
 };
 
 class CookieHandler : public RequestHandlerBase {
@@ -1165,4 +1169,111 @@ TEST(ServerBeastImpl, RegisterControllerAfterStartIsThreadSafe) {
   done = true;
   registrar.join();
   fx.server->stop();
+}
+
+// ---- Start / TLS failure reporting -----------------------------------------
+
+TEST(ServerBeastImpl, StartReportsAPortThatIsTaken) {
+  const ServerFixture first;
+  auto* controller = new MatchController();
+  const int port = first.start(choose_port_base() + 60, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  const auto logger = std::make_shared<CollectingLogger>();
+  ServerBeastImpl second(logger);
+  // A caller that reports "listening" after this used to be lying: start()
+  // logged the bind failure and returned as if it had worked.
+  EXPECT_FALSE(second.start(bind_url(port)));
+  first.server->stop();
+}
+
+TEST(ServerBeastImpl, StartReportsSuccess) {
+  const auto logger = std::make_shared<CollectingLogger>();
+  ServerBeastImpl server(logger);
+  server.registerController(new MatchController());
+  int port = choose_port_base() + 61;
+  bool started = false;
+  for (int attempt = 0; attempt < 40 && !started; ++attempt) started = server.start(bind_url(++port));
+  EXPECT_TRUE(started);
+  server.stop();
+}
+
+TEST(ServerBeastImpl, SetSslReportsACertificateThatDidNotLoad) {
+  // Both backends serve TLS exactly when a certificate loaded, so a caller
+  // that must not fall back to cleartext needs to know.
+  const auto logger = std::make_shared<CollectingLogger>();
+  ServerBeastImpl server(logger);
+  std::string cert = "no-such-dir/no-such-certificate.pem";
+  std::string key;
+  EXPECT_FALSE(server.setSsl(cert, key));
+}
+
+// ---- Worker threads ---------------------------------------------------------
+
+namespace {
+class SlowHandler : public RequestHandlerBase {
+ public:
+  explicit SlowHandler(std::chrono::milliseconds delay) : delay(delay) {}
+  Response* process(Request& /*request*/) override {
+    std::this_thread::sleep_for(delay);
+    auto* r = new StreamResponse(200);
+    r->setCode(200, "OK");
+    r->append("slow");
+    return r;
+  }
+  std::chrono::milliseconds delay;
+};
+}  // namespace
+
+TEST(ServerBeastImpl, WorkerThreadsKeepOtherRequestsMovingPastASlowHandler) {
+  // One handler that blocks (a check, an external script) used to hold up
+  // every request on the server, because all of them ran on the one thread
+  // running the io_context.
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/slow", new SlowHandler(std::chrono::milliseconds(1500)));
+  controller->registerRoute("GET", "/fast", new FixedHandler(200, "fast"));
+  const ServerFixture fx;
+  fx.server->setWorkerThreads(4);
+  const int port = fx.start(choose_port_base() + 62, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  RawResponse slow;
+  std::thread slow_client([&] { slow = beast_fetch("127.0.0.1", port, "/slow"); });
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  const auto before = std::chrono::steady_clock::now();
+  const RawResponse fast = beast_fetch("127.0.0.1", port, "/fast");
+  const auto elapsed = std::chrono::steady_clock::now() - before;
+  slow_client.join();
+  fx.server->stop();
+
+  ASSERT_TRUE(fast.received);
+  EXPECT_EQ(fast.body, "fast");
+  EXPECT_LT(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(), 1000);
+  ASSERT_TRUE(slow.received);
+  EXPECT_EQ(slow.body, "slow");
+}
+
+TEST(ServerBeastImpl, WorkerThreadsServeManyConcurrentClients) {
+  // Several threads run the io_context; each connection lives on its own
+  // strand. Hammer it so a race shows up under the sanitizers.
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/x", new FixedHandler(200, "x"));
+  const ServerFixture fx;
+  fx.server->setWorkerThreads(4);
+  const int port = fx.start(choose_port_base() + 63, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  std::atomic<int> ok{0};
+  std::vector<std::thread> clients;
+  for (int t = 0; t < 8; ++t) {
+    clients.emplace_back([&] {
+      for (int i = 0; i < 16; ++i) {
+        const RawResponse r = beast_fetch("127.0.0.1", port, "/x");
+        if (r.received && r.body == "x") ++ok;
+      }
+    });
+  }
+  for (std::thread& c : clients) c.join();
+  fx.server->stop();
+  EXPECT_EQ(ok.load(), 8 * 16);
 }

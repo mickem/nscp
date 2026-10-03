@@ -3,8 +3,17 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/atomic/atomic.hpp>
 #include <boost/thread/mutex.hpp>
+#include <condition_variable>
+#include <cstddef>
+#include <deque>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <set>
+#include <string>
 #include <threads/queue.hpp>
 #include <vector>
 
@@ -37,7 +46,7 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   /**
    * Runs the Mongoose server
    */
-  void start(const std::string &bind) override;
+  bool start(const std::string &bind) override;
 
   /**
    * Stops the Mongoose server
@@ -60,7 +69,7 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
    */
   static void event_handler(mg_connection *connection, int ev, void *ev_data);
 
-  void onHttpRequest(mg_connection *connection, mg_http_message *message) const;
+  void onHttpRequest(mg_connection *connection, mg_http_message *message);
 
   /**
    * Process the request by controllers
@@ -80,7 +89,8 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
 #if MG_ENABLE_OPENSSL
   void initTls(mg_connection *connection) const;
 #endif
-  void setSsl(std::string &certificate, std::string &key) override;
+  bool setSsl(std::string &certificate, std::string &key) override;
+  void setWorkerThreads(std::size_t threads) override;
   void setTlsOptions(const std::string &tls_version, const std::string &ciphers) override;
 
   /**
@@ -89,6 +99,43 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   bool handles(std::string method, std::string url);
 
   void thread_proc();
+
+  // A finished answer, rendered to what mg_http_reply() takes.
+  struct reply {
+    int code = 0;
+    std::string headers;
+    std::string body;
+  };
+  // Render a controller's response (security headers, cookies, content type).
+  static reply render(Response &response, bool is_ssl);
+
+  // Where this server's mongoose log lines go, and whether the self-signed
+  // certificate hint has been given. Per server: mongoose's log hook is
+  // process-wide, so each poll thread routes its own lines (see log_wrapper).
+  struct log_target {
+    WebLogger *logger = nullptr;
+    std::atomic<bool> cert_issue_logged{false};
+  };
+
+ private:
+  // Worker pool (setWorkerThreads > 1): a request is handed to a worker with
+  // the connection still marked as answering (mongoose holds back pipelined
+  // requests meanwhile), and the worker's reply comes back to the poll thread
+  // through mg_wakeup(), the only thread that may write to a connection.
+  struct job {
+    unsigned long connection_id = 0;
+    Controller *controller = nullptr;
+    std::unique_ptr<Request> request;
+    bool is_ssl = false;
+    bool close = false;
+  };
+  struct pending_reply {
+    reply answer;
+    bool close = false;
+  };
+  void worker_proc();
+  void deliver(mg_connection *connection);
+  void forget(unsigned long connection_id);
 
  protected:
   WebLoggerPtr logger_;
@@ -101,5 +148,20 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   boost::atomic<bool> stop_thread_;
   boost::timed_mutex mutex_;
   std::shared_ptr<boost::thread> thread_;
+
+  log_target log_target_;
+
+  std::size_t worker_threads_ = 1;
+  bool use_workers_ = false;
+  std::vector<std::shared_ptr<boost::thread>> workers_;
+  std::mutex jobs_mutex_;
+  std::condition_variable jobs_cv_;
+  std::deque<job> jobs_;
+  bool stop_workers_ = false;
+  // Connections waiting for a worker's answer, and the answers not yet
+  // written. Both under jobs_mutex_; a connection that closes in between is
+  // dropped from the first, so a late answer is discarded rather than kept.
+  std::set<unsigned long> waiting_;
+  std::map<unsigned long, pending_reply> replies_;
 };
 }  // namespace Mongoose
