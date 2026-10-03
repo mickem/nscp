@@ -530,14 +530,29 @@ class settings_http : public settings::settings_interface_impl {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
     migrate_legacy_cache_file(remote_url, local_file);
     if (!cache_remote_file(remote_url, local_file.string())) return false;
-    clear_cache();
-    // Reassigning child_instance matters as much as adding the child:
-    // get_sections and get_keys below read it directly, and clear_cache has
-    // just dropped the instance it pointed at from children_. Leaving it on
-    // the old instance served the previous file's sections out of that
-    // instance's own cache for the rest of the process.
-    child_instance = add_child("remote_http_file", "ini://" + local_file.string());
-    fetch_attachments(child_instance);
+    // Build the new child first, then swap it in under the lock in one step.
+    // Emptying children_ (clear_cache) and adding the child back afterwards
+    // left a window in which every read on this store found no child - the
+    // whole remote configuration briefly read as defaults.
+    instance_raw_ptr child;
+    try {
+      child = get_core()->create_instance("remote_http_file", "ini://" + local_file.string());
+    } catch (const std::exception &e) {
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
+    }
+    {
+      MUTEX_GUARD();
+      clear_cached_values_unsafe();
+      children_.clear();
+      if (child) children_.push_back(child);
+      // Reassigning child_instance matters as much as replacing the child:
+      // get_sections and get_keys below read it directly. Leaving it on the
+      // old instance served the previous file's sections out of that
+      // instance's own cache for the rest of the process. Under the lock,
+      // because those readers hold it.
+      child_instance = child;
+    }
+    fetch_attachments(child);
     get_core()->set_reload(true);
     return true;
   }
