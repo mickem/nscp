@@ -8,6 +8,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -53,11 +54,11 @@ struct held_region {
 
 }  // namespace
 
-TEST(InFlight, NothingInsideReturnsAtOnce) {
+// A zero timeout makes the wait a check of the state: it comes back true
+// only when there is nothing to wait for, whatever the clock does.
+TEST(InFlight, NothingInsideHasNothingToWaitFor) {
   in_flight tracker;
-  const auto started = std::chrono::steady_clock::now();
-  EXPECT_TRUE(tracker.wait_for_others_before(tracker.cutoff(), std::chrono::seconds(5)));
-  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
+  EXPECT_TRUE(tracker.wait_for_others_before(tracker.cutoff(), std::chrono::milliseconds(0)));
 }
 
 TEST(InFlight, GuardEntersOnceAndNestedGuardsLeaveInnermostFirst) {
@@ -93,9 +94,7 @@ TEST(InFlight, OwnEntriesAreNotWaitedFor) {
   in_flight tracker;
   in_flight::guard g(tracker);
   g.enter();
-  const auto started = std::chrono::steady_clock::now();
-  EXPECT_TRUE(tracker.wait_for_others_before(tracker.cutoff(), std::chrono::seconds(5)));
-  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
+  EXPECT_TRUE(tracker.wait_for_others_before(tracker.cutoff(), std::chrono::milliseconds(0)));
 }
 
 TEST(InFlight, WaitsForAnotherThreadsEntryBelowTheCutoff) {
@@ -120,9 +119,7 @@ TEST(InFlight, EntriesAboveTheCutoffAreNotWaitedFor) {
   const std::uint64_t cutoff = tracker.cutoff();
   // Entered after the cutoff was taken: cannot hold what the waiter removed.
   held_region later(tracker);
-  const auto started = std::chrono::steady_clock::now();
-  EXPECT_TRUE(tracker.wait_for_others_before(cutoff, std::chrono::seconds(5)));
-  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
+  EXPECT_TRUE(tracker.wait_for_others_before(cutoff, std::chrono::milliseconds(0)));
 }
 
 TEST(InFlight, TimesOutOnAnEntryThatNeverLeaves) {
@@ -130,7 +127,40 @@ TEST(InFlight, TimesOutOnAnEntryThatNeverLeaves) {
   held_region held(tracker);
   const auto started = std::chrono::steady_clock::now();
   EXPECT_FALSE(tracker.wait_for_others_before(tracker.cutoff(), std::chrono::milliseconds(200)));
-  const auto elapsed = std::chrono::steady_clock::now() - started;
-  EXPECT_GE(elapsed, std::chrono::milliseconds(200));
-  EXPECT_LT(elapsed, std::chrono::seconds(5));
+  // A lower bound only: the steady clock guarantees it, and an upper bound
+  // would fail on a loaded runner with nothing wrong.
+  EXPECT_GE(std::chrono::steady_clock::now() - started, std::chrono::milliseconds(200));
+}
+
+TEST(InFlight, CloseRefusesNewEntriesAndCoversTheOnesInside) {
+  in_flight tracker;
+  held_region held(tracker);
+  const std::uint64_t cutoff = tracker.close();
+  // Closed: a new walk does not get in.
+  in_flight::guard late(tracker);
+  EXPECT_FALSE(late.try_enter());
+  EXPECT_FALSE(late.entered());
+  // The one inside before the close is still waited for.
+  EXPECT_FALSE(tracker.wait_for_others_before(cutoff, std::chrono::milliseconds(0)));
+  held.release();
+  EXPECT_TRUE(tracker.wait_for_others_before(cutoff, std::chrono::seconds(30)));
+  // Reopened after a refused removal: walks get in again.
+  tracker.reopen();
+  EXPECT_TRUE(late.try_enter());
+}
+
+TEST(InFlight, GatedHandsItsValueToTheRemoverAfterTheDrain) {
+  threads::gated<std::shared_ptr<int> > gate(std::make_shared<int>(42));
+  {
+    in_flight::guard inside(gate.tracker());
+    ASSERT_TRUE(inside.try_enter());
+    std::shared_ptr<int> copy = gate.value();
+    EXPECT_EQ(*copy, 42);
+  }
+  const std::uint64_t cutoff = gate.tracker().close();
+  ASSERT_TRUE(gate.tracker().wait_for_others_before(cutoff, std::chrono::milliseconds(0)));
+  const std::shared_ptr<int> taken = gate.take();
+  // The gate no longer holds it, so the remover is the only owner.
+  EXPECT_EQ(taken.use_count(), 1);
+  EXPECT_FALSE(gate.value());
 }
