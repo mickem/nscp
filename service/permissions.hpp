@@ -97,11 +97,6 @@ class permissions {
     add_rule_locked(subject_pattern, objects_csv);
   }
 
-  // Take over every rule and flag of `other` in one step. A reload builds
-  // the complete table in a local instance and publishes it here, so a
-  // caller of is_allowed() sees either the old table or the new one -
-  // never the empty or half-filled one in between, which with the policy
-  // enabled denied every call that arrived during the rebuild.
   // Settle the switches a reload failed before reading, in a table that is
   // about to be published anyway (see plugin_manager::load_permissions).
   // An `enabled` that was not read keeps the value currently in force
@@ -116,6 +111,11 @@ class permissions {
     if (!exec_read) state_.allow_exec = false;
   }
 
+  // Take over every rule and flag of `other` in one step. A reload builds
+  // the complete table in a local instance and publishes it here, so a
+  // caller of is_allowed() sees either the old table or the new one -
+  // never the empty or half-filled one in between, which with the policy
+  // enabled denied every call that arrived during the rebuild.
   void replace_with(const permissions& other) {
     if (&other == this) return;
     state copy;

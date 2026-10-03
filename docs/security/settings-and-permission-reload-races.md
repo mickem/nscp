@@ -30,19 +30,21 @@ with the threads still reading the configuration, or left it unreadable.
   arrived in between was denied. That failed closed, so nothing was let
   through, but every reload produced a burst of spurious denials. The table is
   now rebuilt aside and published in one step. A load that fails part-way
-  no longer keeps the previous table, whose rules the operator may just have
-  removed: under an enabled policy the rules read before the failure are
-  enforced, every other call is denied, and `allow exec` counts as `false`
-  unless it was read, until the policy loads. A failure before `enabled` is
-  read leaves the policy as it was - off on a host that never enabled it,
-  enforced on one that did - and at boot that means off until a reload reads
-  it.
+  used to leave whatever it had got to - usually an emptied table with the
+  previous `allow exec` still in force, or the whole previous table, rules
+  the operator had just removed included, when it failed while registering
+  the settings keys. Now, under an enabled policy, the rules read before the
+  failure are enforced, every other call is denied, and `allow exec` counts
+  as `false` unless it was read, until the policy loads; registering the keys
+  can no longer fail the load. A failure before `enabled` is read leaves the
+  policy as it was - off on a host that never enabled it, enforced on one
+  that did - and at boot that means off until a reload reads it.
 
 None is known to have been exploited. Beyond crashing the agent or denying a
 check, the only effect is the HTTP case above: settings read as their defaults
 after a plugin reload.
 
 **What to do:** nothing beyond upgrading, unless you enable the permission
-policy: a reload that fails part-way now denies calls (and exec) instead of
-keeping the previous rules, so watch for `permissions: failed to load` in the
+policy: a reload that fails part-way now denies exec as well as every call
+no rule read so far allows, so watch for `permissions: failed to load` in the
 log, which names the failure.
