@@ -47,6 +47,7 @@ import {
   WARNING,
   describeWithModules,
   executeQuery,
+  itIf,
   itOnUnix,
   messageOf,
   onWindows,
@@ -139,16 +140,17 @@ describeWithModules("PythonScript")("PythonScript API", () => {
 
     /** Ask the script to reload its own module, and wait until the core has. */
     async function reloadPython(): Promise<void> {
-      const before = reloads();
+      const inits = () => lifecycle(nscp).filter((l) => l === "init python pyapi").length;
+      const [reloadsBefore, initsBefore] = [reloads(), inits()];
       const r = await executeQuery(key, "py_module", { action: "reload", name: "PythonScript" });
       expect(r.result).toBe(OK);
       // From inside a dispatched call the core defers the reload to its own
-      // thread, so the answer arrives first and the reload after.
-      await until("PythonScript to reload", () => reloads() > before);
-      await until(
-        "py_echo to come back",
-        () => logLines(nscp, "pyapi fixture loaded as pyapi").length > before + 1,
-      );
+      // thread, so the answer arrives first and the reload after. Wait for the
+      // reload to start and then for this reload's own init() - the fixture
+      // writes that line last thing before it returns - rather than comparing
+      // counters that only line up while nothing else loads the script.
+      await until("PythonScript to reload", () => reloads() > reloadsBefore);
+      await until("the fixture to be initialised again", () => inits() > initsBefore);
     }
 
     beforeAll(async () => {
@@ -321,6 +323,18 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         expect(messageOf(r)).toBe("exec py_cli_echo: code=0 lines=cli: hello");
       });
 
+      it.each(["*", "all"])(
+        "simple_exec on the `%s` target runs the command wherever it is",
+        async (module) => {
+          const r = await executeQuery(key, "py_exec", {
+            module,
+            command: "py_cli_echo",
+            arg: "hi",
+          });
+          expect(messageOf(r)).toBe("exec py_cli_echo: code=0 lines=cli: hi");
+        },
+      );
+
       it("simple_submit lands on the channel it names", async () => {
         const r = await executeQuery(key, "py_submit", {
           channel: "PYRESULTS",
@@ -365,6 +379,18 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         expect(await queryNames(key)).toContain("check_ok");
       });
 
+      it("unload_module does not mistake `python` for the module the script runs in", async () => {
+        // A module loaded without an alias hands its scripts `python` as
+        // plugin_alias, but that is not a name it has in the core, so a
+        // script asking to unload `python` must not be refused as unloading
+        // itself. The core then answers for the name - and it unloads by
+        // module name only, so nothing is called `python` there.
+        const r = await executeQuery(key, "py_module", { action: "unload", name: "python" });
+        expect(messageOf(r)).toBe("unload python: False");
+        expect(logLines(nscp, "Refusing to unload python")).toEqual([]);
+        expect(logLines(nscp, "Module python was not found").length).toBeGreaterThan(0);
+      });
+
       it("unload_module refuses to unload the module the script runs in", async () => {
         const r = await executeQuery(key, "py_module", { action: "unload", name: "PythonScript" });
         expect(messageOf(r)).toBe("unload PythonScript: False");
@@ -391,6 +417,18 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         const seen = messageOf(await executeQuery(key, "py_seen", { submissions: "" }));
         // channel|source|command|code|message|perf
         expect(seen).toMatch(/^PYCHAN\|relay-host\|check_warning\|1\|via channel\|/m);
+      });
+
+      it("source is empty when the submission names none", async () => {
+        const res = await request(REST_URL)
+          .get("/api/v2/queries/check_and_forward/commands/execute")
+          .query({ command: "check_ok", channel: "PYCHAN", alias: "no_source_named" })
+          .set("Authorization", `Bearer ${key}`)
+          .trustLocalhost(true)
+          .expect(200);
+        expect(res.body).toMatchObject({ result: OK });
+        const seen = messageOf(await executeQuery(key, "py_seen", { submissions: "" }));
+        expect(seen).toMatch(/^PYCHAN\|\|check_ok\|0\|/m);
       });
 
       it("a handler that returns False fails the submission", async () => {
@@ -482,9 +520,21 @@ describeWithModules("PythonScript")("PythonScript API", () => {
 
       it("an event handler that raises is logged, and the other handlers keep getting events", async () => {
         await until(
-          "the event handler's traceback",
-          () => logLines(nscp, "boom from on_event").length > 0,
+          "a few of the event handler's tracebacks",
+          () => logLines(nscp, "Exception in system.cpu:py_rt_raise").length >= 3,
         );
+        // Each failure is logged with its own traceback and no other: the
+        // buffer the traceback is read from used to keep every earlier one
+        // too, so the log grew with the square of the failures. Read once, so
+        // a failure logged in between cannot skew the two counts.
+        const log = nscp.capturedStdout().split(/\r?\n/);
+        const failures = log.filter((l) =>
+          l.includes("Exception in system.cpu:py_rt_raise"),
+        ).length;
+        const tracebacks = log.filter((l) =>
+          l.startsWith("RuntimeError: boom from on_event"),
+        ).length;
+        expect(tracebacks).toBe(failures);
         const count = async () =>
           messageOf(await executeQuery(key, "py_seen", { events: "" }))
             .split("\n")
@@ -542,6 +592,15 @@ describeWithModules("PythonScript")("PythonScript API", () => {
     });
 
     describe("event delivery", () => {
+      it("never hands an event to a channel handler that shares its name", async () => {
+        // The fixture subscribes to a channel named exactly like the event it
+        // also listens for. Events must reach the event handlers only.
+        await pollQuery(key, "py_seen", { event_counts: "" }, (q) =>
+          /^pb=([3-9]|\d\d)/.test(messageOf(q)),
+        );
+        expect(messageOf(await executeQuery(key, "py_seen", { collisions: "" }))).toBe("none");
+      });
+
       it("hands event_pb each message once, and event each record of it once", async () => {
         // A real-time CPU filter sends one message with a record per core.
         // The core used to deliver that message once per record, and each
@@ -719,34 +778,40 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         expect(fs.readFileSync(file, "utf8")).toBe(before);
       });
 
-      itOnUnix("GET and DELETE do not follow a symlink out of the scripts folder", async () => {
-        const secret = path.join(nscp.workDir, "rest-secret.txt");
-        fs.writeFileSync(secret, "not a script\n");
-        const link = path.join(scripts, "python", "rest_leak.py");
-        fs.symlinkSync(secret, link);
-        try {
-          const show = await request(REST_URL)
-            .get("/api/v2/scripts/py/rest_leak.py")
-            .set(auth())
-            .buffer(true)
-            .parse(rawText)
-            .trustLocalhost(true);
-          expect(show.status).toBe(500);
-          expect(show.body).toContain("Not allowed outside");
-          expect(show.body).not.toContain("not a script");
+      itOnUnix(
+        "GET does not follow a symlink out of the scripts folder, DELETE removes only the link",
+        async () => {
+          const secret = path.join(nscp.workDir, "rest-secret.txt");
+          fs.writeFileSync(secret, "not a script\n");
+          const link = path.join(scripts, "python", "rest_leak.py");
+          fs.symlinkSync(secret, link);
+          try {
+            const show = await request(REST_URL)
+              .get("/api/v2/scripts/py/rest_leak.py")
+              .set(auth())
+              .buffer(true)
+              .parse(rawText)
+              .trustLocalhost(true);
+            expect(show.status).toBe(500);
+            expect(show.body).toContain("Not allowed outside");
+            expect(show.body).not.toContain("not a script");
 
-          const del = await request(REST_URL)
-            .delete("/api/v2/scripts/py/rest_leak.py")
-            .set(auth())
-            .buffer(true)
-            .parse(rawText)
-            .trustLocalhost(true);
-          expect(del.status).toBe(500);
-          expect(fs.readFileSync(secret, "utf8")).toBe("not a script\n");
-        } finally {
-          fs.rmSync(link, { force: true });
-        }
-      });
+            // Deleting the link is safe whatever it points at: the link goes,
+            // the file outside stays.
+            await request(REST_URL)
+              .delete("/api/v2/scripts/py/rest_leak.py")
+              .set(auth())
+              .buffer(true)
+              .parse(rawText)
+              .trustLocalhost(true)
+              .expect(200);
+            expect(fs.existsSync(link)).toBe(false);
+            expect(fs.readFileSync(secret, "utf8")).toBe("not a script\n");
+          } finally {
+            fs.rmSync(link, { force: true });
+          }
+        },
+      );
 
       it("an uploaded script that does not parse is logged and the module keeps serving", async () => {
         await request(REST_URL)
@@ -982,7 +1047,7 @@ describeWithModules("PythonScript")("PythonScript API", () => {
     });
 
     itOnUnix(
-      "`nscp py show` and `delete` do not follow a symlink out of the scripts folder",
+      "`nscp py show` does not follow a symlink out of the scripts folder, `delete` removes only the link",
       async () => {
         const outside = path.join(nscp.workDir, "outside");
         fs.mkdirSync(outside, { recursive: true });
@@ -992,14 +1057,21 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         fs.symlinkSync(secret, path.join(scripts, "python", "leak.py"));
         fs.symlinkSync(outside, path.join(scripts, "python", "linked"));
         try {
-          for (const name of ["leak.py", "linked/secret.py"]) {
-            for (const verb of ["show", "delete"]) {
-              const r = await py([verb, "--script", name]);
-              expect(r.all).toContain("Not allowed outside");
-              expect(r.all).not.toContain("# not yours");
-              expect(r.exitCode).not.toBe(0);
-            }
+          // Through the linked folder, nothing is reachable at all.
+          for (const verb of ["show", "delete"]) {
+            const r = await py([verb, "--script", "linked/secret.py"]);
+            expect(r.all).toContain("Not allowed outside");
+            expect(r.exitCode).not.toBe(0);
           }
+          // The link to a file outside cannot be read, but it can be deleted:
+          // that removes the link and never what it points at.
+          const show = await py(["show", "--script", "leak.py"]);
+          expect(show.all).toContain("Not allowed outside");
+          expect(show.all).not.toContain("# not yours");
+          expect(show.exitCode).not.toBe(0);
+          const del = await py(["delete", "--script", "leak.py"]);
+          expect(del.exitCode).toBe(0);
+          expect(fs.existsSync(path.join(scripts, "python", "leak.py"))).toBe(false);
           expect(fs.readFileSync(secret, "utf8")).toBe("# not yours\n");
         } finally {
           fs.rmSync(path.join(scripts, "python", "leak.py"), { force: true });
@@ -1020,6 +1092,70 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         expect(fs.existsSync(link)).toBe(false);
         expect(fs.readFileSync(target, "utf8")).toBe("# stays\n");
         fs.rmSync(target);
+      },
+    );
+
+    itOnUnix("`nscp py delete` removes a dangling symlink and a symlink to a folder", async () => {
+      const dangling = path.join(scripts, "python", "dangling.py");
+      fs.symlinkSync(path.join(nscp.workDir, "no-such-file.py"), dangling);
+      const folder = path.join(nscp.workDir, "a-folder");
+      fs.mkdirSync(folder, { recursive: true });
+      fs.writeFileSync(path.join(folder, "inside.py"), "# stays\n");
+      const folderLink = path.join(scripts, "python", "folder_link");
+      fs.symlinkSync(folder, folderLink);
+
+      for (const [name, link] of [
+        ["dangling.py", dangling],
+        ["folder_link", folderLink],
+      ]) {
+        const r = await py(["delete", "--script", name]);
+        expect(r.exitCode).toBe(0);
+        expect(fs.lstatSync(link, { throwIfNoEntry: false })).toBeUndefined();
+      }
+      expect(fs.readFileSync(path.join(folder, "inside.py"), "utf8")).toBe("# stays\n");
+    });
+
+    it("`nscp py delete` removes every entry that loads the script, however it is written", async () => {
+      const file = path.join(scripts, "python", "many_entries.py");
+      fs.copyFileSync(path.join(FIXTURES, "rest_added.py"), file);
+      // A bare `file =` entry, an absolute path, and a Windows-style relative
+      // one - next to one for another script that must survive.
+      const entries = [
+        "many_entries.py =",
+        `by_absolute_path = ${file}`,
+        "by_backslash = python\\many_entries.py",
+        "unrelated = api_fixture.py",
+      ];
+      const ini = fs.readFileSync(nscp.settingsFile, "utf8");
+      const header = "[/settings/python/scripts]";
+      expect(ini).toContain(header);
+      fs.writeFileSync(nscp.settingsFile, ini.replace(header, [header, ...entries].join("\n")));
+
+      const r = await py(["delete", "--script", "many_entries.py"]);
+      expect(r.stdout).toContain("and removed it from /settings/python/scripts");
+      expect(r.exitCode).toBe(0);
+      const after = fs.readFileSync(nscp.settingsFile, "utf8");
+      expect(after).not.toMatch(/many_entries/);
+      expect(after).not.toMatch(/by_absolute_path|by_backslash/);
+      expect(after).toMatch(/^unrelated\s*=\s*api_fixture\.py$/m);
+      expect(after).toMatch(/^pyapi\s*=\s*api_fixture\.py$/m);
+    });
+
+    // Root reads any file regardless of its mode, so this needs another user.
+    itIf(!onWindows && process.getuid?.() !== 0)(
+      "`nscp py show` of a script it cannot read is an error, not an empty script",
+      async () => {
+        const file = path.join(scripts, "python", "unreadable.py");
+        fs.writeFileSync(file, "# secret\n");
+        fs.chmodSync(file, 0o000);
+        try {
+          const r = await py(["show", "--script", "unreadable.py"]);
+          expect(r.all).toContain("Failed to read");
+          expect(r.exitCode).not.toBe(0);
+        } finally {
+          fs.chmodSync(file, 0o600);
+          fs.rmSync(file);
+        }
       },
     );
 

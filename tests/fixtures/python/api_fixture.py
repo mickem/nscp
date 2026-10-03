@@ -31,6 +31,9 @@ seen_metrics = {}
 # the test can tell a message delivered once from one delivered per record.
 event_records = {}
 event_pb_calls = [0]
+# Channel handlers registered under the same name as the event: they must
+# never be handed an event.
+channel_collisions = []
 
 
 def lifecycle(line):
@@ -143,6 +146,8 @@ def py_seen(args):
         return (status.OK, '\n'.join(seen_events) or 'none')
     if what == 'event_pb':
         return (status.OK, '\n'.join(seen_event_pb) or 'none')
+    if what == 'collisions':
+        return (status.OK, '\n'.join(channel_collisions) or 'none')
     if what == 'event_counts':
         # Read in one go, under the GIL, so the two numbers belong together.
         per_record = sorted(event_records.values())
@@ -164,6 +169,16 @@ def on_event(event, data):
 def on_event_pb(event, request):
     seen_event_pb.append('%s %s %d' % (event, type(request).__name__, len(request)))
     event_pb_calls[0] += 1
+
+
+def on_channel_named_like_event(channel, source, command, code, message, perf):
+    channel_collisions.append('simple:%s' % channel)
+    return True
+
+
+def on_raw_channel_named_like_event(channel, message):
+    channel_collisions.append('raw:%s' % channel)
+    return (True, b'')
 
 
 def fetch_metrics():
@@ -249,6 +264,10 @@ def init(pid, plugin_alias, script_alias):
 
     reg.event('system.cpu:py_rt', on_event)
     reg.event_pb('system.cpu:py_rt', on_event_pb)
+    # Registered after the event handlers, under the event's name: a channel
+    # and an event are different things that happen to share it.
+    reg.simple_subscription('system.cpu:py_rt', on_channel_named_like_event)
+    reg.subscription('system.cpu:py_rt', on_raw_channel_named_like_event)
 
     reg.fetch_metrics(fetch_metrics)
     reg.submit_metrics(submit_metrics)
