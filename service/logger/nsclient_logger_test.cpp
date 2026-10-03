@@ -260,6 +260,25 @@ TEST(NsclientLogger, AThrowingHandlerDoesNotStopTheOthers) {
   EXPECT_EQ(good->wait_for(2), (std::vector<std::string>{"one", "two"}));
 }
 
+// A module handing the console back sees every line logged while it held it
+// before the call returns (the CommandClient prompt closing).
+TEST(NsclientLogger, HandingTheConsoleBackFlushesTheHandlers) {
+  struct Slow : CapturingSubscriber {
+    void on_log_message(const std::string& payload) override {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      CapturingSubscriber::on_log_message(payload);
+    }
+  };
+  nsclient_logger logger;
+  auto sub = std::make_shared<Slow>();
+  logger.add_subscriber(sub);
+  logger.set_log_level("no-console");
+  for (const char* m : {"a", "b", "c", "d", "e"}) logger.do_log(line(m));
+  logger.set_log_level("console");
+  EXPECT_EQ(sub->snapshot(), (std::vector<std::string>{"a", "b", "c", "d", "e"}));
+  logger.set_log_level("no-console");
+}
+
 // ===== removal ===============================================================
 
 TEST(NsclientLogger, RemoveReportsWhetherTheSubscriberWasOnTheList) {

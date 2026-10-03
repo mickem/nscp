@@ -44,15 +44,31 @@ void nsclient_logger::set_log_level(const std::string level) {
     logger_impl::set_log_level(level);
     return;
   }
-  boost::lock_guard<boost::mutex> lock(sink_mutex_);
-  if (level == "console")
-    console_ = true;
-  else if (level == "no-console")
-    console_ = false;
-  else if (level == "oneline")
-    oneline_ = true;
-  else
-    no_std_err_ = true;
+  {
+    boost::lock_guard<boost::mutex> lock(sink_mutex_);
+    if (level == "console")
+      console_ = true;
+    else if (level == "no-console")
+      console_ = false;
+    else if (level == "oneline")
+      oneline_ = true;
+    else
+      no_std_err_ = true;
+  }
+  // A module handing the console back (the CommandClient prompt closing)
+  // still has to see the lines logged while it held it: the core did not
+  // print them, so they reach the screen through its handler or not at all.
+  if (level == "console") flush_handlers();
+}
+
+// Wait, bounded, until every queued line has been handed to the handlers.
+// Not on the worker itself, and never with sink_mutex_ held: a handler that
+// logs takes it.
+void nsclient_logger::flush_handlers() {
+  if (on_worker_thread()) return;
+  boost::unique_lock<boost::mutex> lock(delivery_->mutex);
+  delivery_->changed.timed_wait(lock, boost::posix_time::milliseconds(delivery_wait_.count()),
+                                [&]() { return delivery_->stopping || (delivery_->queue.empty() && !delivery_->current); });
 }
 
 void nsclient_logger::set_backend(const std::string backend) {
@@ -125,6 +141,7 @@ void nsclient_logger::deliver(const std::shared_ptr<delivery> d) {
       d->current.reset();
       d->changed.notify_all();
     }
+    d->changed.notify_all();
   }
 }
 

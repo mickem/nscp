@@ -85,6 +85,7 @@ class nsclient_logger : public logger_impl {
   bool wait_until_left(boost::unique_lock<boost::mutex> &lock, const logging_subscriber_instance &subscriber);
   static void deliver(std::shared_ptr<delivery> d);
   void write_sinks(const std::string &data);
+  void flush_handlers();
 
  public:
   nsclient_logger();
@@ -96,7 +97,8 @@ class nsclient_logger : public logger_impl {
 
   // Takes both severity names ("debug", "trace", ...) and console options
   // ("console", "no-console", "oneline", "no-std-err") - cli_parser pushes
-  // both onto the same list.
+  // both onto the same list. "console" also waits for the lines queued for
+  // the handlers, so a module handing the console back sees them first.
   void set_log_level(std::string level) override;
   static bool is_console_option(const std::string &key);
 
