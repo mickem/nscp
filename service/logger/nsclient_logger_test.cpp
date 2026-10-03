@@ -391,6 +391,38 @@ TEST(NsclientLogger, RemoveWaitsForADeliveryInFlightOnAnotherThread) {
   EXPECT_FALSE(blocking->entered);
 }
 
+TEST(NsclientLogger, RemoveReportsWhetherTheSubscriberWasOnTheList) {
+  auto logger = make_backendless_logger();
+  auto sub = std::make_shared<CapturingSubscriber>();
+  auto never_added = std::make_shared<CapturingSubscriber>();
+  logger->add_subscriber(sub);
+  EXPECT_FALSE(logger->remove_subscriber(never_added).removed);
+  const auto removed = logger->remove_subscriber(sub);
+  EXPECT_TRUE(removed.removed);
+  EXPECT_FALSE(removed.delivering);
+  EXPECT_FALSE(logger->remove_subscriber(sub).removed);
+}
+
+TEST(NsclientLogger, RemovingAnUnknownSubscriberDoesNotWaitForADelivery) {
+  // The plugin manager unsubscribes every module it unloads, handler or
+  // not, so a module that never subscribed must not be parked behind a
+  // slow handler on another thread.
+  auto logger = make_backendless_logger();
+  auto blocking = std::make_shared<BlockingSubscriber>();
+  auto never_added = std::make_shared<CapturingSubscriber>();
+  logger->add_subscriber(blocking);
+
+  std::thread delivery([&logger]() { logger->on_log_message("slow"); });
+  blocking->wait_until_entered();
+
+  const auto started = std::chrono::steady_clock::now();
+  EXPECT_FALSE(logger->remove_subscriber(never_added).removed);
+  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
+
+  blocking->release();
+  delivery.join();
+}
+
 TEST(NsclientLogger, RemoveAndClearReturnAtOnceWithNothingInFlight) {
   // Plain add / remove with nothing in flight returns at once.
   auto logger = make_backendless_logger();

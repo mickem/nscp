@@ -458,7 +458,12 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   // fact set from a module that is no longer running is worse than none.
   if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
   if (plugin) {
-    log_instance_->remove_subscriber(plugin);
+    // A purge cannot refuse: the module is being taken out whatever state it
+    // is in. A log line still inside it after the wait is worth a line of
+    // its own, since the unload below runs under it.
+    if (log_instance_->remove_subscriber(plugin).delivering) {
+      LOG_ERROR_CORE_STD("A log line is still being handled by " + plugin->get_alias_or_name() + " after 5 s; purging it regardless");
+    }
   }
   if (plugin && !inside) {
     try {
@@ -759,15 +764,27 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // is not a dispatch, so unload_plugin does not wait for one, and the
   // unloaded flag it sets only stops lines that have not reached the module
   // yet (dll_plugin::handleMessage). remove_subscriber waits for the
-  // deliveries in flight on other threads, so by the time the module is torn
-  // down no log line is still inside it. A refused unload gets the
-  // subscription back, so the module is left exactly as it was.
-  log_instance_->remove_subscriber(plugin);
+  // deliveries in flight on other threads, so a line another thread is
+  // still handing to the module has left it before the module is torn
+  // down; one that does not leave within the wait refuses the unload, as a
+  // dispatch that does not finish would. A refused unload gets the
+  // subscription back, so the module is left exactly as it was - only when
+  // this call took it, so a clear_subscribers() from shutdown in between is
+  // not undone. What this cannot see is the module unloading itself from
+  // inside its own log handler: that delivery is this thread's, and
+  // is_dispatching_on_this_thread() does not count log lines, so such a
+  // module is torn down under its handler as it always was.
+  const logging::unsubscribe_result unsubscribed = log_instance_->remove_subscriber(plugin);
+  if (unsubscribed.delivering) {
+    LOG_ERROR_CORE_STD("Refused to unload " + name + ": a log line is still being handled by it after 5 s");
+    log_instance_->add_subscriber(plugin);
+    return false;
+  }
   try {
     plugin->unload_plugin();
   } catch (const plugin_exception &e) {
     LOG_ERROR_CORE_STD("Failed to unload " + name + ": " + e.reason());
-    if (plugin->hasMessageHandler()) log_instance_->add_subscriber(plugin);
+    if (unsubscribed.removed) log_instance_->add_subscriber(plugin);
     return false;
   }
   plugin_list_.remove(plugin_id);
@@ -1407,13 +1424,26 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string
 struct metrics_fetcher {
   PB::Metrics::MetricsMessage result;
   std::string buffer;
-  metrics_fetcher() { result.add_payload(); }
+  nsclient::logging::logger_instance log_;
+  explicit metrics_fetcher(nsclient::logging::logger_instance log) : log_(std::move(log)) { result.add_payload(); }
 
   PB::Metrics::MetricsMessage::Response *get_root() { return result.mutable_payload(0); }
   void add_bundle(const PB::Metrics::MetricsBundle &b) { get_root()->add_bundles()->CopyFrom(b); }
+  // One module failing must not cost the round: the walk runs on a copy of
+  // the fetcher list, so a module unloaded since the copy was taken is still
+  // in it, and its fetchMetrics throws "Library is not loaded". Let that
+  // escape and every fetcher after it is skipped and no submitter runs.
   void fetch(nsclient::plugin_type p) {
     std::string local_buffer;
-    p->fetchMetrics(local_buffer);
+    try {
+      p->fetchMetrics(local_buffer);
+    } catch (const nsclient::core::plugin_exception &e) {
+      log_->error("core", __FILE__, __LINE__, "Failed to fetch metrics from " + p->get_alias_or_name() + ": " + e.reason());
+      return;
+    } catch (const std::exception &e) {
+      log_->error("core", __FILE__, __LINE__, "Failed to fetch metrics from " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
+      return;
+    }
     PB::Metrics::MetricsMessage payload;
     payload.ParseFromString(local_buffer);
     for (const PB::Metrics::MetricsMessage::Response &r : payload.payload()) {
@@ -1426,13 +1456,21 @@ struct metrics_fetcher {
     get_root()->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
     buffer = result.SerializeAsString();
   }
-  void digest(nsclient::plugin_type p) const { p->submitMetrics(buffer); }
+  void digest(nsclient::plugin_type p) const {
+    try {
+      p->submitMetrics(buffer);
+    } catch (const nsclient::core::plugin_exception &e) {
+      log_->error("core", __FILE__, __LINE__, "Failed to submit metrics to " + p->get_alias_or_name() + ": " + e.reason());
+    } catch (const std::exception &e) {
+      log_->error("core", __FILE__, __LINE__, "Failed to submit metrics to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
+    }
+  }
 };
 
 bool nsclient::core::plugin_manager::is_enabled(const std::string module) { return parse_plugin(module).enabled; }
 
 PB::Metrics::MetricsMessage nsclient::core::plugin_manager::process_metrics(PB::Metrics::MetricsBundle bundle) {
-  metrics_fetcher f;
+  metrics_fetcher f(log_instance_);
   metrics_fetchers_.do_all([&f](auto key) { return f.fetch(key); });
   f.get_root()->add_bundles()->CopyFrom(bundle);
   f.render();

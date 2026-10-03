@@ -53,7 +53,9 @@ void nsclient::logging::impl::nsclient_logger::destroy() { backend_.reset(); }
 // to, and the removing ones wait for the deliveries still on the old list.
 void nsclient::logging::impl::nsclient_logger::add_subscriber(const logging_subscriber_instance subscriber) { add(subscriber); }
 
-void nsclient::logging::impl::nsclient_logger::remove_subscriber(logging_subscriber_instance subscriber) { remove(subscriber); }
+nsclient::logging::unsubscribe_result nsclient::logging::impl::nsclient_logger::remove_subscriber(logging_subscriber_instance subscriber) {
+  return remove(subscriber);
+}
 void nsclient::logging::impl::nsclient_logger::clear_subscribers() { clear(); }
 bool nsclient::logging::impl::nsclient_logger::startup() {
   if (backend_) {

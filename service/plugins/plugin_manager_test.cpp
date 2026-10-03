@@ -87,7 +87,7 @@ class MockSubjectLogger : public nsclient::logging::logger {
   bool should_critical() const override { return false; }
   void raw(const std::string&) override {}
   void add_subscriber(nsclient::logging::logging_subscriber_instance) override {}
-  void remove_subscriber(nsclient::logging::logging_subscriber_instance) override {}
+  nsclient::logging::unsubscribe_result remove_subscriber(nsclient::logging::logging_subscriber_instance) override { return {}; }
   void clear_subscribers() override {}
   bool startup() override { return false; }
   bool shutdown() override { return false; }
