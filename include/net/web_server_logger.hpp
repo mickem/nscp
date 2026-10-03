@@ -18,6 +18,10 @@ namespace net {
 // `prefix` names the listener in the line ("NCPA: "), since both servers share
 // one HTTP library and its wording. Header-only: it logs through the plugin
 // singleton of whichever module includes it.
+//
+// Not a thread reporter: it rewords what it logs (the prefix), and the guard
+// line of a dying thread must reach the log as written. A server hands its
+// threads NSC_THREAD_REPORTER through Server::setThreadReporting().
 class web_server_logger : public Mongoose::WebLogger {
   bool log_errors_;
   bool log_info_;

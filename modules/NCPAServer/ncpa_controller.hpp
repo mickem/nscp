@@ -6,6 +6,7 @@
 #include <RegexController.h>
 
 #include <memory>
+#include <mutex>
 #include <net/auth_rate_limiter.hpp>
 #include <string>
 #include <vector>
@@ -50,4 +51,6 @@ class ncpa_controller : public Mongoose::RegexpController {
   const ncpa_config config_;
   std::shared_ptr<ncpa_sources> sources_;
   auth_rate_limiter rate_limiter_;
+  // Serialises authenticate(): see there.
+  std::mutex auth_mutex_;
 };

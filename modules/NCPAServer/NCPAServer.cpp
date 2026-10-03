@@ -5,6 +5,10 @@
 
 #include <boost/asio/ip/address.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/thread/thread.hpp>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <net/socket/allowed_hosts.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <net/web_server_logger.hpp>
@@ -14,6 +18,7 @@
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
+#include <threads/guarded_thread.hpp>
 
 #include "ncpa_controller.hpp"
 #include "ncpa_sources.hpp"
@@ -28,6 +33,40 @@ const char *const kDefaultPort = "5693";
 
 }  // namespace
 
+// `cache allowed hosts = false` asks for the host names in `allowed hosts` to
+// be resolved again rather than once. The allow-list is checked as each
+// connection is accepted, on the listener's I/O thread, where a DNS lookup per
+// connection would stall every other connection behind it - so the lookups
+// happen here instead, every kRefreshSeconds, and the accept check only ever
+// reads the resolved list.
+struct NCPAServer::host_refresher {
+  static constexpr int kRefreshSeconds = 60;
+  std::shared_ptr<socket_helpers::allowed_hosts_manager> hosts;
+  std::mutex mutex;
+  std::condition_variable cv;
+  bool stop = false;
+  std::shared_ptr<boost::thread> thread;
+
+  void run() {
+    std::unique_lock<std::mutex> lock(mutex);
+    while (!cv.wait_for(lock, std::chrono::seconds(kRefreshSeconds), [this] { return stop; })) {
+      lock.unlock();
+      std::list<std::string> errors;
+      hosts->refresh(errors);
+      NSC_LOG_ERROR_LISTS(errors);
+      lock.lock();
+    }
+  }
+  void halt() {
+    {
+      const std::lock_guard<std::mutex> lock(mutex);
+      stop = true;
+    }
+    cv.notify_all();
+    if (thread && thread->joinable()) thread->join();
+  }
+};
+
 NCPAServer::NCPAServer() = default;
 NCPAServer::~NCPAServer() {
   try {
@@ -41,6 +80,10 @@ void NCPAServer::stop_server() {
   if (server_) {
     server_->stop();
     server_.reset();
+  }
+  if (refresher_) {
+    refresher_->halt();
+    refresher_.reset();
   }
 }
 
@@ -191,13 +234,22 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     // `allowed hosts` decides who may connect at all, so it is applied as a
     // connection is accepted - before the TLS handshake, before a worker is
     // spent on it, and whatever the request turns out to be.
+    // The check itself never resolves anything (`cached` stays on): with
+    // `cache allowed hosts = false` the names are re-resolved in the
+    // background instead (host_refresher above).
     auto hosts = std::make_shared<socket_helpers::allowed_hosts_manager>();
-    hosts->cached = cache_allowed_hosts;
+    hosts->cached = true;
     hosts->set_source(allowed_hosts);
     {
       std::list<std::string> host_errors;
       hosts->refresh(host_errors);
       NSC_LOG_ERROR_LISTS(host_errors);
+    }
+    if (!cache_allowed_hosts) {
+      refresher_ = std::make_shared<host_refresher>();
+      refresher_->hosts = hosts;
+      const std::shared_ptr<host_refresher> refresher = refresher_;
+      refresher_->thread = threads::start_guarded_thread("ncpa allowed hosts", [refresher] { refresher->run(); }, NSC_THREAD_REPORTER);
     }
     server_->setAcceptFilter([hosts](const std::string &remote) {
       std::list<std::string> host_errors;
@@ -216,6 +268,9 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     // Checks run on a pool, so one slow check (an external script near its
     // timeout) does not hold up every other poll and TLS handshake.
     server_->setWorkerThreads(static_cast<std::size_t>(threads < 1 ? 1 : threads));
+    // Its own thread name, so "Thread 'ncpa server': terminated ..." says
+    // which listener died, and the guard line goes to the log unchanged.
+    server_->setThreadReporting("ncpa server", NSC_THREAD_REPORTER);
     // No error sink is installed: it is process-global and the WEB server owns
     // it. The controller catches and logs its own failures.
     server_->registerController(new ncpa_controller(config, std::make_shared<ncpa_sources>(get_core(), get_id())));

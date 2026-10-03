@@ -259,6 +259,15 @@ void ServerBeastImpl::setWorkerThreads(const std::size_t threads) {
   worker_threads_ = threads == 0 ? 1 : threads;
 }
 
+void ServerBeastImpl::setThreadReporting(const std::string& thread_name, thread_reporter reporter) {
+  if (!threads_.empty()) {
+    logger_->log_error("setThreadReporting() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  thread_name_ = thread_name;
+  thread_reporter_ = std::move(reporter);
+}
+
 void ServerBeastImpl::setAcceptFilter(accept_filter filter) {
   if (!threads_.empty()) {
     logger_->log_error("setAcceptFilter() called after start() — ignored; restart the server to apply");
@@ -502,11 +511,13 @@ bool ServerBeastImpl::start(const std::string& bind) {
   // With more than one thread every one of them runs the same io_context, so
   // a handler that blocks (a check, an external script) holds up only its own
   // thread; the accept loop and the other sessions keep going on the rest.
+  // The guard line is worded by the thread helpers and handed to the reporter
+  // as is; by default it goes to this server's logger.
   const WebLoggerPtr log = logger_;
+  const thread_reporter report = thread_reporter_ ? thread_reporter_ : thread_reporter([log](const std::string& message) { log->log_error(message); });
+  const std::string name = thread_name_;
   for (std::size_t i = 0; i < worker_threads_; ++i) {
-    threads_.push_back(threads::start_guarded_thread(
-        "web server", [this, log] { threads::run_io_context_guarded("web server", ioc_, [log](const std::string& message) { log->log_error(message); }); },
-        [log](const std::string& message) { log->log_error(message); }));
+    threads_.push_back(threads::start_guarded_thread(name, [this, name, report] { threads::run_io_context_guarded(name, ioc_, report); }, report));
   }
   return true;
 }

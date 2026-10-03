@@ -92,6 +92,7 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   bool setSsl(std::string &certificate, std::string &key) override;
   void setWorkerThreads(std::size_t threads) override;
   void setAcceptFilter(accept_filter filter) override;
+  void setThreadReporting(const std::string &thread_name, thread_reporter reporter) override;
   void setTlsOptions(const std::string &tls_version, const std::string &ciphers) override;
 
   /**
@@ -121,8 +122,8 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
  private:
   // Worker pool (setWorkerThreads > 1): a request is handed to a worker with
   // the connection still marked as answering (mongoose holds back pipelined
-  // requests meanwhile), and the worker's reply comes back to the poll thread
-  // through mg_wakeup(), the only thread that may write to a connection.
+  // requests meanwhile), and the worker's reply comes back to the poll thread,
+  // the only thread that may write to a connection.
   struct job {
     unsigned long connection_id = 0;
     Controller *controller = nullptr;
@@ -134,15 +135,44 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
     reply answer;
     bool close = false;
   };
-  void worker_proc();
+  // Everything the workers share with the server, held by shared_ptr so a
+  // worker never touches the server object itself: a stop() run on a worker
+  // thread detaches the workers and the server is freed under them, while the
+  // pool lives on until the last of them has gone.
+  struct worker_pool {
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::deque<job> jobs;
+    // No new jobs are queued and the workers leave once their current one
+    // returns.
+    bool stopping = false;
+    // The manager is gone (the poll thread has stopped): an answer finished
+    // now is dropped instead of being handed to mg_wakeup().
+    bool orphaned = false;
+    mg_mgr *mgr = nullptr;
+    // Connections waiting for a worker's answer, and the answers not yet
+    // written. A connection that closes in between is dropped from both, so a
+    // late answer is discarded rather than kept.
+    std::set<unsigned long> waiting;
+    std::map<unsigned long, pending_reply> replies;
+    // replies.size(), readable without the lock: mg_wakeup() can drop its
+    // datagram without saying so, so the poll loop sweeps whenever this is
+    // non-zero.
+    std::atomic<std::size_t> ready{0};
+  };
+  static void worker_proc(const std::shared_ptr<worker_pool> &pool);
   // Store a finished answer for the poll thread to write.
-  void hand_back(const job &finished, reply answer);
+  static void hand_back(worker_pool &pool, const job &finished, reply answer);
   bool admits(mg_connection *connection) const;
   // Answers handed back but not yet written, or written but not yet sent.
   // Poll thread only.
   bool has_unsent_answers() const;
   void deliver(mg_connection *connection);
+  // Write every answer that is ready (poll thread).
+  void deliver_ready();
   void forget(unsigned long connection_id);
+  // 503 "Server is stopping" and close (poll thread).
+  void reply_stopping(mg_connection *connection);
 
  protected:
   WebLoggerPtr logger_;
@@ -164,25 +194,16 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   log_target log_target_;
 
   std::size_t worker_threads_ = 1;
-  bool use_workers_ = false;
   accept_filter accept_filter_;
+  std::string thread_name_ = "web server";
+  thread_reporter thread_reporter_;
   // False until start() succeeds and again from the moment stop() begins: no
   // new connection is kept and no new request is taken while the server
   // drains, so nothing is accepted that no worker will run.
   std::atomic<bool> accepting_{false};
-  // How many finished answers wait in replies_. mg_wakeup() can drop its
-  // datagram (a burst bigger than the socket buffer) without saying so, so the
-  // poll thread also delivers on MG_EV_POLL whenever this is non-zero.
-  std::atomic<std::size_t> ready_replies_{0};
+  // Set while a worker pool runs; null when every request is answered on the
+  // poll thread.
+  std::shared_ptr<worker_pool> pool_;
   std::vector<std::shared_ptr<boost::thread>> workers_;
-  std::mutex jobs_mutex_;
-  std::condition_variable jobs_cv_;
-  std::deque<job> jobs_;
-  bool stop_workers_ = false;
-  // Connections waiting for a worker's answer, and the answers not yet
-  // written. Both under jobs_mutex_; a connection that closes in between is
-  // dropped from the first, so a late answer is discarded rather than kept.
-  std::set<unsigned long> waiting_;
-  std::map<unsigned long, pending_reply> replies_;
 };
 }  // namespace Mongoose

@@ -537,6 +537,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       Mongoose::Controller::setErrorSink([](const std::string &message) { NSC_LOG_ERROR(message); });
     }
     server.reset(Server::make_server(logger));
+    // The guard line of a dying server thread reaches the log as written.
+    server->setThreadReporting("web server", NSC_THREAD_REPORTER);
     // An untouched `tls version` is passed as empty rather than as its default
     // value: the mongoose backend cannot honour the setting and logs that it is
     // ignoring it, which on a stock agent would mean an error on every start
