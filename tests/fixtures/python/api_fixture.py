@@ -177,6 +177,15 @@ def py_settings(args):
         keys))
 
 
+def py_settings_bad(args):
+    """Typed reads of a value that is not of that type."""
+    s = Settings.get(plugin_id)
+    return (status.OK, 'int=%d bool=%s missing=%s' % (
+        s.get_int(SETTINGS_PATH, 'word', -1),
+        s.get_bool(SETTINGS_PATH, 'word', True),
+        s.get_string('/settings/pyapi/no such section', 'key', 'default')))
+
+
 # --- command line --------------------------------------------------------------------
 
 def py_cli_echo(args):
@@ -217,6 +226,7 @@ def init(pid, plugin_alias, script_alias):
     reg.simple_function('py_expand', py_expand, 'Core.expand_path')
     reg.simple_function('py_seen', py_seen, 'What the handlers recorded')
     reg.simple_function('py_settings', py_settings, 'Settings get/set/get_section')
+    reg.simple_function('py_settings_bad', py_settings_bad, 'Typed reads of the wrong type')
 
     reg.simple_cmdline('py_cli_echo', py_cli_echo)
     reg.simple_cmdline('py_cli_fail', py_cli_fail)

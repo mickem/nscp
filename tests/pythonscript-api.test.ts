@@ -154,6 +154,8 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         "api_fixture.py",
         "alias_probe.py",
         "broken_syntax.py",
+        "failing_handlers.py",
+        "init_raises.py",
       ]));
       key = await setupQueryNscp(nscp, "PythonScript", {
         "/modules": {
@@ -167,14 +169,25 @@ describeWithModules("PythonScript")("PythonScript API", () => {
           ms1: "alias_probe.py",
           ms2: "alias_probe.py",
           broken: "broken_syntax.py",
+          failing: "failing_handlers.py",
+          init_raises: "init_raises.py",
         },
-        "/settings/pyapi": { number: "42", flag: "true" },
+        "/settings/pyapi": { number: "42", flag: "true", word: "abc" },
+        // A caller who may read scripts but not add or delete them.
+        "/settings/WEB/server/roles": {
+          full: "*",
+          scripts_ro:
+            "public,login.get,scripts,scripts.lists.PythonScript,scripts.get.PythonScript",
+        },
+        "/settings/WEB/server/users/reader": { role: "scripts_ro", password: "reader-password" },
         "/settings/core": { "metrics interval": "1s" },
         "/settings/WEB/server/results": { enabled: "true", channel: "PYRESULTS" },
         // An always-matching real-time filter whose events the script
         // subscribes to by name.
-        [`${SYSTEM_PATH}/real-time/cpu`]: { py_rt: "load >= 0" },
+        [`${SYSTEM_PATH}/real-time/cpu`]: { py_rt: "load >= 0", py_rt_raise: "load >= 0" },
         [`${SYSTEM_PATH}/real-time/cpu/py_rt`]: { destination: "events" },
+        // The same events, to a handler in failing_handlers.py that raises.
+        [`${SYSTEM_PATH}/real-time/cpu/py_rt_raise`]: { destination: "events" },
       });
     });
 
@@ -380,6 +393,122 @@ describeWithModules("PythonScript")("PythonScript API", () => {
       });
     });
 
+    describe("negative paths", () => {
+      // What a script gets back when the call it makes cannot succeed. Each
+      // is an answer the script can act on, never an exception it did not
+      // ask for, and the agent keeps serving afterwards.
+
+      it("Core.simple_query of a command nobody registered answers UNKNOWN and names it", async () => {
+        const r = await executeQuery(key, "py_nested", { target: "no_such_check" });
+        expect(r.result).toBe(UNKNOWN);
+        expect(messageOf(r)).toBe("nested no_such_check: Unknown command(s): no_such_check");
+      });
+
+      it.each([
+        ["a module that is not loaded", "NoSuchModule", "x"],
+        ["a module with no such command", "PythonScript", "no_such_cmd"],
+        ["the target the docs used to suggest", "local", "py_cli_echo"],
+      ])("Core.simple_exec on %s answers UNKNOWN with a reason", async (_what, module, command) => {
+        const r = await executeQuery(key, "py_exec", { module, command });
+        // py_exec reports the code and lines simple_exec returned.
+        expect(messageOf(r)).toBe(
+          `exec ${command}: code=3 lines=Failed to execute ${command} on ${module}`,
+        );
+      });
+
+      it("Core.simple_submit on a channel nobody listens to returns False and why", async () => {
+        const r = await executeQuery(key, "py_submit", { channel: "NOBODY_LISTENS" });
+        expect(r.result).toBe(CRITICAL);
+        expect(messageOf(r)).toBe("submitted: False Failed to submit message: NOBODY_LISTENS");
+      });
+
+      it.each(["load", "unload"])(
+        "Core.%s_module of a module that does not exist returns False",
+        async (action) => {
+          const r = await executeQuery(key, "py_module", { action, name: "NoSuchModule" });
+          expect(messageOf(r)).toBe(`${action} NoSuchModule: False`);
+        },
+      );
+
+      it("typed Settings reads of a value of the wrong type, or of a missing section, behave as documented", async () => {
+        // word = abc. get_int falls back to the default; get_bool reads any
+        // value but true/1/yes as False and uses the default (True here) only
+        // for an unset key - which docs/extending/python.md now says.
+        const r = await executeQuery(key, "py_settings_bad");
+        expect(messageOf(r)).toBe("int=-1 bool=False missing=default");
+      });
+
+      it("an init() that raises is logged, keeps what it registered first, and the other scripts load", async () => {
+        expect(logLines(nscp, "boom from init").length).toBeGreaterThan(0);
+        expect(messageOf(await executeQuery(key, "py_before_raise"))).toBe(
+          "registered before the raise",
+        );
+        expect((await executeQuery(key, "py_echo")).result).toBe(OK);
+      });
+
+      it("a subscription handler that raises fails the submission and is logged", async () => {
+        const res = await request(REST_URL)
+          .get("/api/v2/queries/check_and_forward/commands/execute")
+          .query({ command: "check_ok", channel: "PYRAISE" })
+          .set("Authorization", `Bearer ${key}`)
+          .trustLocalhost(true)
+          .expect(200);
+        expect(res.body.result).toBe(UNKNOWN);
+        expect(messageOf(res.body)).toBe("Failed to submit to PYRAISE: Invalid response: PYRAISE");
+        await until(
+          "the traceback in the log",
+          () => logLines(nscp, "boom from on_submission").length > 0,
+        );
+        // The script's other channel is unaffected.
+        const ok = await request(REST_URL)
+          .get("/api/v2/queries/check_and_forward/commands/execute")
+          .query({ command: "check_ok", channel: "PYCHAN" })
+          .set("Authorization", `Bearer ${key}`)
+          .trustLocalhost(true)
+          .expect(200);
+        expect(ok.body.result).toBe(OK);
+      });
+
+      it("an event handler that raises is logged, and the other handlers keep getting events", async () => {
+        await until(
+          "the event handler's traceback",
+          () => logLines(nscp, "boom from on_event").length > 0,
+        );
+        const count = async () =>
+          messageOf(await executeQuery(key, "py_seen", { events: "" }))
+            .split("\n")
+            .filter((l) => l.startsWith("system.cpu:py_rt ")).length;
+        const before = await count();
+        const after = await pollQuery(
+          key,
+          "py_seen",
+          { events: "" },
+          (q) =>
+            messageOf(q)
+              .split("\n")
+              .filter((l) => l.startsWith("system.cpu:py_rt ")).length > before,
+        );
+        expect(
+          messageOf(after)
+            .split("\n")
+            .filter((l) => l.startsWith("system.cpu:py_rt ")).length,
+        ).toBeGreaterThan(before);
+      });
+
+      it("a metrics handler that raises is logged, and the other scripts' metrics still flow", async () => {
+        await until(
+          "fetch_metrics' traceback",
+          () => logLines(nscp, "boom from fetch_metrics").length > 0,
+        );
+        await until(
+          "submit_metrics' traceback",
+          () => logLines(nscp, "boom from submit_metrics").length > 0,
+        );
+        const r = await pollQuery(key, "py_seen", { metrics: "" }, (q) => messageOf(q) !== "none");
+        expect(messageOf(r)).toMatch(/pyapi\.fetched=7(\.0+)?$/m);
+      });
+    });
+
     describe("Registry.event / event_pb", () => {
       it("delivers a real-time filter's events to both handlers", async () => {
         const events = await pollQuery(
@@ -427,7 +556,7 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         // passes, which is what docs/extending/python.md says register_key is.
         const r = await executeQuery(key, "py_settings");
         expect(messageOf(r)).toMatch(
-          /^greeting=unset scratch=unset int=42 bool=True keys=flag,number$/,
+          /^greeting=unset scratch=unset int=42 bool=True keys=flag,number,word$/,
         );
 
         // A change through REST is what the script reads next, no reload.
@@ -526,6 +655,63 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         expect(res.body).toMatch(/Script not found: no_such_script\.py/);
       });
 
+      it("a caller without the add and delete grants can read a script but not change it", async () => {
+        const login = await request(REST_URL)
+          .get("/api/v2/login")
+          .auth("reader", "reader-password")
+          .trustLocalhost(true)
+          .expect(200);
+        const reader = { Authorization: `Bearer ${login.body.key as string}` };
+        const file = path.join(scripts, "python", "api_fixture.py");
+        const before = fs.readFileSync(file, "utf8");
+
+        const show = await request(REST_URL)
+          .get("/api/v2/scripts/py/api_fixture.py")
+          .set(reader)
+          .buffer(true)
+          .parse(rawText)
+          .trustLocalhost(true)
+          .expect(200);
+        expect(show.body).toBe(before);
+
+        await request(REST_URL)
+          .put("/api/v2/scripts/py/api_fixture.py")
+          .set(reader)
+          .set("Content-Type", "text/plain")
+          .send("raise SystemExit('replaced')\n")
+          .trustLocalhost(true)
+          .expect(403);
+        await request(REST_URL)
+          .delete("/api/v2/scripts/py/api_fixture.py")
+          .set(reader)
+          .trustLocalhost(true)
+          .expect(403);
+        expect(fs.readFileSync(file, "utf8")).toBe(before);
+      });
+
+      it("an uploaded script that does not parse is logged and the module keeps serving", async () => {
+        await request(REST_URL)
+          .put("/api/v2/scripts/py/rest_broken.py")
+          .set(auth())
+          .set("Content-Type", "text/plain")
+          .send("def init(plugin_id, plugin_alias, script_alias)\n    pass\n")
+          .buffer(true)
+          .parse(rawText)
+          .trustLocalhost(true);
+        await until("the parse error in the log", () =>
+          logLines(nscp, "Failed to load script:").some((l) => l.includes("rest_broken.py")),
+        );
+        expect((await executeQuery(key, "py_echo")).result).toBe(OK);
+        // Leave nothing behind for the reload test below.
+        await request(REST_URL)
+          .delete("/api/v2/scripts/py/rest_broken.py")
+          .buffer(true)
+          .parse(rawText)
+          .set(auth())
+          .trustLocalhost(true)
+          .expect(200);
+      });
+
       it.each(["..%2Fnsclient.ini", "python%2F..%2F..%2Fnsclient.ini", "%2Fetc%2Fpasswd"])(
         "refuses the path %s",
         async (name) => {
@@ -563,10 +749,14 @@ describeWithModules("PythonScript")("PythonScript API", () => {
     let scripts: string;
 
     beforeAll(async () => {
-      ({ nscp, scripts } = fixtureInstance("nscp-py-cli-", ["api_fixture.py", "alias_probe.py"]));
+      ({ nscp, scripts } = fixtureInstance("nscp-py-cli-", [
+        "api_fixture.py",
+        "alias_probe.py",
+        "failing_handlers.py",
+      ]));
       await nscp.configure({
         "/modules": { PythonScript: "enabled" },
-        "/settings/python/scripts": { pyapi: "api_fixture.py" },
+        "/settings/python/scripts": { pyapi: "api_fixture.py", failing: "failing_handlers.py" },
       });
     });
 
@@ -589,6 +779,81 @@ describeWithModules("PythonScript")("PythonScript API", () => {
       });
       expect(r.stdout).toContain("Exception in: py_cli_fail");
       expect(r.exitCode).not.toBe(0);
+    });
+
+    it.each([
+      ["returns None", "py_cli_none", "None"],
+      [
+        "returns something that is not a tuple",
+        "py_cli_bad_shape",
+        "Exception in: py_cli_bad_shape",
+      ],
+    ])("a simple_cmdline handler that %s fails the command", async (_what, command, text) => {
+      const r = await nscp.run(["client", "--module", "PythonScript", "--exec", command], {
+        allowFailure: true,
+      });
+      expect(r.stdout).toContain(text);
+      expect(r.exitCode).not.toBe(0);
+    });
+
+    it("`--exec` of a command no script registered names it and fails", async () => {
+      const r = await nscp.run(["client", "--module", "PythonScript", "--exec", "no_such_cmd"], {
+        allowFailure: true,
+      });
+      expect(r.all).toContain("Command not found: no_such_cmd");
+      expect(r.exitCode).not.toBe(0);
+    });
+
+    it("`nscp py add` refuses a script that does not exist, and changes nothing", async () => {
+      const before = fs.readFileSync(nscp.settingsFile, "utf8");
+      const r = await py(["add", "--script", "no_such_script.py"]);
+      expect(r.all).toContain("Script not found");
+      expect(r.exitCode).not.toBe(0);
+      expect(fs.readFileSync(nscp.settingsFile, "utf8")).toBe(before);
+    });
+
+    it("`nscp py add --import` will not overwrite a script without --replace", async () => {
+      const source = path.join(nscp.workDir, "import_me.py");
+      fs.copyFileSync(path.join(FIXTURES, "rest_added.py"), source);
+      const first = await py([
+        "add",
+        "--script",
+        "import_me.py",
+        "--import",
+        source,
+        "--no-config",
+      ]);
+      expect(first.exitCode).toBe(0);
+
+      fs.writeFileSync(source, "# a newer copy\n");
+      const again = await py([
+        "add",
+        "--script",
+        "import_me.py",
+        "--import",
+        source,
+        "--no-config",
+      ]);
+      expect(again.all).toContain("Script already exists, specify --replace to replace it");
+      expect(again.exitCode).not.toBe(0);
+      expect(fs.readFileSync(path.join(scripts, "python", "import_me.py"), "utf8")).not.toContain(
+        "a newer copy",
+      );
+
+      const replaced = await py([
+        "add",
+        "--script",
+        "import_me.py",
+        "--import",
+        source,
+        "--replace",
+        "--no-config",
+      ]);
+      expect(replaced.exitCode).toBe(0);
+      expect(fs.readFileSync(path.join(scripts, "python", "import_me.py"), "utf8")).toContain(
+        "a newer copy",
+      );
+      fs.rmSync(path.join(scripts, "python", "import_me.py"));
     });
 
     it("`nscp py execute` runs init, then __main__ with the arguments, then shutdown", async () => {
