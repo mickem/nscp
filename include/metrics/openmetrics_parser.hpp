@@ -57,8 +57,9 @@
 // line of its own failed (a second `# HELP`, trailing text, an over-long
 // line), as no family is. A typed block is kept as declared when the body ends
 // on a line boundary, when the body is cut in the middle of a line, or when
-// one of its own samples fails - as any family keeps what it read before the
-// parse stopped. A counter and a histogram or summary of one name both own `X_created`,
+// one of its own samples, or a blank or comment line inside it (an over-long
+// comment), fails - as any family keeps what it read before the parse
+// stopped. A counter and a histogram or summary of one name both own `X_created`,
 // and client_golang writes it for each when created timestamps are on, so
 // that one sample name may appear in both families of a pair.
 //
@@ -100,11 +101,13 @@
 // keeps only the touched part resident, while Windows commits all of it. And
 // while a list grows, its old buffer and the new one twice its size exist
 // together, so the peak during the parse is up to three times what the samples
-// use. With no limits, a body costs eleven to sixteen times its size when it
-// is label-heavy; when it is one family of short samples, twenty resident and
-// up to forty allocated once parsed, and up to sixty at the peak; and forty
-// to fifty when it is single-sample families with names a few characters
-// long. With the default
+// use. With no limits, a body costs, resident once parsed: eleven to fifteen
+// times its size when it is label-heavy, up to twenty-one allocated and
+// twenty-eight at the peak when each sample carries one short label; twenty-one
+// when it is one family of short samples, up to forty allocated and sixty at
+// the peak; and about fifty, allocated too, when it is single-sample families
+// with names a few characters long, up to eighty at the peak while the list of
+// families grows. With the default
 // limits, the worst body - 16-character label names and values up to
 // `max_labels` - costs about 350 MB beyond its text.
 //

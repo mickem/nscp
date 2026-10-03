@@ -467,6 +467,74 @@ TEST(OpenmetricsParser, OverLongMetadataLineFailsItsFamilyLikeAnyOther) {
   }
 }
 
+TEST(OpenmetricsParser, OverLongMetadataLineFailsTheBlockOfARepeatedName) {
+  // The typed block of a repeated name is a family being read like any other:
+  // an over-long line of its own metadata takes it out, and leaves the earlier
+  // family as it was.
+  om::limits bounds;
+  bounds.max_line_bytes = 20;
+  const om::result parsed = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\n# HELP x " + std::string(40, 'h') + "\n", openmetrics, bounds);
+  EXPECT_EQ(parsed.error_line, 4u) << parsed.error;
+  EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << parsed.error;
+  ASSERT_EQ(parsed.families.size(), 1u);
+  EXPECT_EQ(parsed.families.at(0).type, om::family_type::gauge);
+  EXPECT_EQ(parsed.families.at(0).samples.size(), 1u);
+}
+
+TEST(OpenmetricsParser, OverLongLineThatIsNotTheFamilysOwnMetadataKeepsIt) {
+  // Each part of "a metadata line of the family being read" on its own: a
+  // sample of the family, metadata of another family, metadata of a name that
+  // only starts with the family's, and a comment. None of them takes the
+  // family out, in either format.
+  om::limits bounds;
+  bounds.max_line_bytes = 20;
+  const std::string long_text(40, 'v');
+  for (const om::format f : {openmetrics, text}) {
+    for (const std::string &tail : {"y{a=\"" + long_text + "\"} 1\n", "y " + long_text + "\n", "# HELP z " + long_text + "\n", "# HELP y.z " + long_text + "\n",
+                                    "# HELP yy " + long_text + "\n", "# " + long_text + "\n"}) {
+      const om::result parsed = om::parse("# TYPE y gauge\n" + tail, f, bounds);
+      EXPECT_EQ(parsed.error_line, 2u) << tail << " -> " << parsed.error;
+      EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << tail << " -> " << parsed.error;
+      ASSERT_EQ(parsed.families.size(), 1u) << tail;
+      EXPECT_EQ(parsed.families.at(0).name, "y") << tail;
+      EXPECT_EQ(parsed.families.at(0).type, om::family_type::gauge) << tail;
+    }
+  }
+}
+
+TEST(OpenmetricsParser, OverLongCommentInsideAPairBlockKeepsTheBlock) {
+  // A comment belongs to no family, so an over-long one stops the parse with
+  // the typed block kept as declared, as the body ending there would.
+  om::limits bounds;
+  bounds.max_line_bytes = 20;
+  const om::result parsed = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\n# " + std::string(40, 'c') + "\n", openmetrics, bounds);
+  EXPECT_EQ(parsed.error_line, 4u) << parsed.error;
+  EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << parsed.error;
+  ASSERT_EQ(parsed.families.size(), 2u);
+  EXPECT_EQ(parsed.families.at(1).type, om::family_type::counter);
+  EXPECT_TRUE(parsed.families.at(1).samples.empty());
+}
+
+TEST(OpenmetricsParser, NothingAfterEofTakesBackWhatTheDocumentDeclared) {
+  // The document is complete at `# EOF`. Whatever a proxy appends - metadata
+  // for the last family included, over-long or not - is an error, and the
+  // families stay as the document declared them.
+  om::limits bounds;
+  bounds.max_line_bytes = 20;
+  for (const std::string &tail :
+       {"# HELP y " + std::string(40, 'h') + "\n", std::string("# HELP y a\n"), std::string("# TYPE y gauge\n"), std::string("# HELP y a\n# HELP y b\n"),
+        std::string("# UNIT y seconds and more\n"), "y_total " + std::string(40, '1') + "\n"}) {
+    const om::result parsed = om::parse("# TYPE y counter\n# EOF\n" + tail, openmetrics, bounds);
+    EXPECT_FALSE(parsed.ok()) << tail;
+    EXPECT_EQ(parsed.error_line, 3u) << tail << " -> " << parsed.error;
+    EXPECT_TRUE(parsed.saw_eof) << tail;
+    ASSERT_EQ(parsed.families.size(), 1u) << tail << " -> " << parsed.error;
+    EXPECT_EQ(parsed.families.at(0).name, "y") << tail;
+    EXPECT_EQ(parsed.families.at(0).type, om::family_type::counter) << tail;
+    EXPECT_TRUE(parsed.families.at(0).help.empty()) << tail;
+  }
+}
+
 TEST(OpenmetricsParser, LineLimitCountsTheLineAsServed) {
   // Carriage return and surrounding blanks included: the limit is on what
   // the exporter sent, not on what is left after trimming it.
@@ -477,6 +545,13 @@ TEST(OpenmetricsParser, LineLimitCountsTheLineAsServed) {
   const om::result padded = om::parse("    a 1     \r\n", text, bounds);
   EXPECT_FALSE(padded.ok());
   EXPECT_NE(padded.error.find("longer than 10 bytes"), std::string::npos) << padded.error;
+  // Over by one byte only because of the carriage return: ten bytes of line,
+  // eleven as served.
+  const om::result crlf = om::parse("a 12345678\r\n", text, bounds);
+  EXPECT_FALSE(crlf.ok());
+  EXPECT_NE(crlf.error.find("longer than 10 bytes"), std::string::npos) << crlf.error;
+  const om::result lf = om::parse("a 12345678\n", text, bounds);
+  EXPECT_TRUE(lf.ok()) << lf.error;
 }
 
 TEST(OpenmetricsParser, BodyEndingInsideTheSecondBlockOfAPairReadsAsTruncated) {
@@ -2020,6 +2095,66 @@ TEST(OpenmetricsParser, RandomBytesAreHandled) {
       return;
     }
   }
+}
+
+TEST(OpenmetricsParser, AnythingAfterEofNeverChangesTheFamilies) {
+  // Random complete documents, each with random lines appended after its
+  // `# EOF` - fragments of the grammar, metadata naming the families the
+  // document declared, over-long lines. The appended lines are an error, but
+  // the families must be exactly those of the document alone.
+  const char *const fragments[] = {"# TYPE h histogram\n",
+                                   "# TYPE h counter\n",
+                                   "# TYPE h gauge\n",
+                                   "# TYPE g gauge\n",
+                                   "# EOF\n",
+                                   "h_bucket{le=\"1\"} 1\n",
+                                   "h_total 1\n",
+                                   "h 1\n",
+                                   "g 2\n",
+                                   "h_count 2\n",
+                                   "h_sum 1\n",
+                                   "# HELP h x\n",
+                                   "# HELP g x\n",
+                                   "# UNIT h s\n",
+                                   "\n",
+                                   "# HELP h aaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+                                   "# HELP g aaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+                                   "# a comment\n",
+                                   "h_total{a=\"bbbbbbbbbbbbbbbbbbbb\"} 1\n"};
+  const std::size_t fragment_count = sizeof(fragments) / sizeof(fragments[0]);
+  om::limits bounds;
+  bounds.max_line_bytes = 24;
+  std::mt19937 random(1631);
+  std::uniform_int_distribution<std::size_t> pick_fragment(0, fragment_count - 1);
+  std::uniform_int_distribution<std::size_t> length(0, 6);
+  std::size_t complete = 0;
+  for (int round = 0; round < 40000; ++round) {
+    std::string document;
+    const std::size_t pieces = length(random);
+    for (std::size_t i = 0; i < pieces; ++i) document += fragments[pick_fragment(random)];
+    document += "# EOF\n";
+    const om::result alone = om::parse(document, openmetrics, bounds);
+    if (!alone.ok()) continue;
+    ++complete;
+    std::string tail;
+    const std::size_t extra = 1 + length(random);
+    for (std::size_t i = 0; i < extra; ++i) tail += fragments[pick_fragment(random)];
+    const om::result appended = om::parse(document + tail, openmetrics, bounds);
+    EXPECT_TRUE(appended.saw_eof);
+    ASSERT_EQ(appended.families.size(), alone.families.size()) << document << "--- appended:\n" << tail << " -> " << appended.error;
+    for (std::size_t i = 0; i < alone.families.size(); ++i) {
+      const om::family &want = alone.families.at(i);
+      const om::family &got = appended.families.at(i);
+      EXPECT_EQ(got.name, want.name) << document << "--- appended:\n" << tail;
+      EXPECT_EQ(got.type, want.type) << document << "--- appended:\n" << tail;
+      EXPECT_EQ(got.help, want.help) << document << "--- appended:\n" << tail;
+      EXPECT_EQ(got.unit, want.unit) << document << "--- appended:\n" << tail;
+      EXPECT_EQ(got.samples.size(), want.samples.size()) << document << "--- appended:\n" << tail;
+    }
+    if (::testing::Test::HasFailure()) return;
+  }
+  // The generator has to produce enough complete documents to mean anything.
+  EXPECT_GT(complete, 5000u);
 }
 
 TEST(OpenmetricsParser, RandomLinesSplicedIntoAValidBodyAreHandled) {

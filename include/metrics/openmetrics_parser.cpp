@@ -50,11 +50,13 @@ std::string_view trim_blanks(std::string_view text) {
   return text;
 }
 
-// A line as every check sees it: one trailing carriage return (a CRLF body)
-// dropped and the blanks around it trimmed. Everything `parser::read_line`
-// decides about a line - whether it may end the body without a line feed,
-// what kind of line it is - goes through this, so no two decisions can see a
-// different line.
+// A line as it is read: one trailing carriage return (a CRLF body) dropped and
+// the blanks around it trimmed. Every decision `parser::read_line` makes about
+// what a line says - whether it may end the body without a line feed, what
+// kind of line it is, the parse - goes through this, so no two of them can see
+// a different line. The one exception is deliberate: `max_line_bytes` is a
+// limit on the line as served, so it reads the raw line, carriage return and
+// blanks included.
 std::string_view normalise(std::string_view line) {
   if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
   return trim_blanks(line);
@@ -370,6 +372,9 @@ class parser {
   //      is all that is read of it, so an oversized line costs no more.
   //   3. A line over `max_line_bytes` is refused, unparsed.
   //   4. The line is parsed.
+  //
+  // Steps 3 and 4 fail a line alike: either way, a metadata line of the family
+  // being read, before `# EOF`, takes that family out with it.
   bool read_line(const std::string_view raw, const bool terminated) {
     const std::string_view text = normalise(raw);
     if (!terminated && !(format_ == format::openmetrics_1_0 && (is_eof_marker(text) || (out_.saw_eof && text.empty())))) {
@@ -377,10 +382,21 @@ class parser {
     }
     const line_shape shape = shape_of(text);
     if (!block_admits(shape)) return refuse_block();
+    // A metadata line of the family being read that fails - over-long, or
+    // anything `metadata_line` refuses - leaves that family incomplete, and
+    // `finish()` takes it out. After `# EOF` the document is complete, and
+    // nothing appended to it can take back what it declared. Only a metadata
+    // line has a whole name.
+    const bool own_metadata = !out_.saw_eof && shape.whole_name && in_own_block(shape.name);
+    if (read_shaped(raw, text, shape)) return true;
+    if (own_metadata) current_block_failed_ = true;
+    return false;
+  }
+
+  // Steps 3 and 4 of `read_line`.
+  bool read_shaped(const std::string_view raw, const std::string_view text, const line_shape &shape) {
+    // The limit is on the line as served, carriage return and blanks included.
     if (bounds_.max_line_bytes != 0 && raw.size() > bounds_.max_line_bytes) {
-      // An over-long metadata line of the family being read fails that family
-      // like any other failing line of its own metadata (see `metadata_line`).
-      if (shape.what == line_kind::metadata && shape.whole_name && in_own_block(shape.name)) current_block_failed_ = true;
       return fail("line longer than " + std::to_string(bounds_.max_line_bytes) + " bytes");
     }
     // Blank lines are not part of OpenMetrics, but the Prometheus text format
@@ -417,7 +433,10 @@ class parser {
   void finish() {
     // `read_line` refuses a tentative block at `# EOF`, so none is still open
     // when the body said it was complete.
-    assert(!(current_ != npos && state_[current_].tentative && out_.saw_eof && out_.ok()));
+    if (current_ != npos && state_[current_].tentative && out_.saw_eof && out_.ok()) {
+      invariant_broken("a repeated name's block was still open at '# EOF'");
+      current_block_failed_ = true;
+    }
     if (current_ == npos || current_ + 1 != out_.families.size() || !out_.families[current_].samples.empty()) return;
     family_state &seen = state_[current_];
     if (current_block_failed_ || (seen.tentative && !seen.type)) {
@@ -434,6 +453,15 @@ class parser {
     out_.error = why;
     out_.error_line = line;
     return false;
+  }
+
+  // An invariant the reading order is meant to keep did not hold. A body off
+  // the network must never take the agent down, nor be read on regardless:
+  // the parse stops here in every build, and a debug build stops where it
+  // broke as well.
+  bool invariant_broken(const std::string &what) {
+    assert(!"openmetrics parser invariant broken");
+    return fail("internal error: " + what);
   }
 
   static std::string declared_again(const std::string_view name) {
@@ -529,14 +557,9 @@ class parser {
     if (!shape.whole_name) return fail("invalid character in metric name '" + std::string(name) + std::string(c.token()) + "'");
     c.skip_blanks();
 
-    // A line that fails from here on belongs to the family it names. When that
-    // is the family being read and it has no samples yet, the failure leaves
-    // it incomplete, and `finish()` takes it out.
+    // A line that fails from here on, naming the family being read, fails
+    // that family (see `read_line`).
     const bool own_block = in_own_block(name);
-    const auto fail_block = [&](const std::string &why) {
-      if (own_block) current_block_failed_ = true;
-      return fail(why);
-    };
 
     // Read the whole line before touching any family: a line that fails here
     // must create nothing.
@@ -547,9 +570,9 @@ class parser {
     } else {
       payload = c.token();
       c.skip_blanks();
-      if (!c.done()) return fail_block(std::string("unexpected text after the ") + (unit ? "unit" : "type") + " of '" + std::string(name) + "'");
+      if (!c.done()) return fail(std::string("unexpected text after the ") + (unit ? "unit" : "type") + " of '" + std::string(name) + "'");
       if (type && !parse_type(payload, format_, declared_type)) {
-        return fail_block("unknown type '" + std::string(payload) + "' for '" + std::string(name) + "'");
+        return fail("unknown type '" + std::string(payload) + "' for '" + std::string(name) + "'");
       }
     }
 
@@ -585,7 +608,7 @@ class parser {
     } else {
       const family_state &seen = state_[at];
       if ((help && seen.help) || (type && seen.type) || (unit && seen.unit)) {
-        return fail_block("second '# " + std::string(keyword) + "' line for '" + std::string(name) + "'");
+        return fail("second '# " + std::string(keyword) + "' line for '" + std::string(name) + "'");
       }
     }
     if (type) {
@@ -602,7 +625,7 @@ class parser {
         scratch_.assign(name.data(), name.size());
         scratch_ += suffix;
         if (families_by_name_.find(scratch_) != families_by_name_.end()) {
-          return fail_block("'" + scratch_ + "' came before the '# TYPE' line of '" + std::string(name) + "'");
+          return fail("'" + scratch_ + "' came before the '# TYPE' line of '" + std::string(name) + "'");
         }
       }
     }
@@ -707,7 +730,10 @@ class parser {
       // The first sample after a repeated name decides: one of the block's own
       // makes it the second family of a pair. `read_line` refuses any other
       // sample before it gets here.
-      assert(state_[current_].type && owns(current_, name));
+      if (!state_[current_].type || !owns(current_, name)) {
+        invariant_broken("'" + std::string(name) + "' reached the block of a repeated name it does not belong to");
+        return npos;
+      }
       state_[current_].tentative = false;
       return current_;
     }
