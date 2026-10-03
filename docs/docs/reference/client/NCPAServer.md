@@ -72,7 +72,9 @@ double quote, put the value in single quotes.
     row from one address block it for a minute (`auth rate limit max failures`, `auth rate limit block seconds`).
 *   **`backup token`** - a second accepted token, so the token can be rotated without a window where pollers fail.
 *   **`allowed hosts`** - which addresses may connect at all, inherited from `[/settings/default]`. A connection from
-    a host outside the list is closed as soon as it is accepted, before the TLS handshake.
+    a host outside the list is closed as soon as it is accepted, before the TLS handshake. Host names in the list are
+    resolved when the listener starts; with `cache allowed hosts = false` they are resolved again every minute, in the
+    background, never while a connection waits.
 *   **`allow arguments`** - `false` by default, with the same meaning as the NRPE server's: a request to `plugins/`
     that carries arguments is refused with `UNKNOWN`. The caller can run the commands the agent defines but cannot
     shape what they do. Define an alias to give a check fixed arguments, or set `allow arguments = true`.

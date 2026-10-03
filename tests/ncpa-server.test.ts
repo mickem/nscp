@@ -8,11 +8,13 @@
  * there is no certificate.
  *
  * NCPA answers authentication and lookup failures with HTTP 200 and a JSON
- * body (check_ncpa.py turns `{"error": ...}` into CRITICAL); only a host
- * outside `allowed hosts` gets a bare HTTP 403.
+ * body (check_ncpa.py turns `{"error": ...}` into CRITICAL). A host outside
+ * `allowed hosts` gets no answer at all: its connection is dropped as it is
+ * accepted, before the TLS handshake.
  */
 import * as fs from "fs";
 import * as net from "net";
+import * as os from "os";
 import * as path from "path";
 import request from "supertest";
 import { NscpInstance, onWindows } from "@fixtures/index";
@@ -23,16 +25,29 @@ const PORT = 5693;
 const URL = `https://127.0.0.1:${PORT}`;
 const TOKEN = "ncpa-primary-token";
 const BACKUP = "ncpa-backup-token";
+// On Windows the external scripts are .bat files run as `cmd /c <path>`, as
+// in the other suites: a command line with no path in it is started with
+// CreateProcess("cmd ..."), which does not search PATH for `cmd`.
+const winScripts = onWindows ? fs.mkdtempSync(path.join(os.tmpdir(), "nscp-ncpa-")) : "";
+function winScript(name: string, body: string): string {
+  const file = path.join(winScripts, `${name}.bat`);
+  fs.writeFileSync(file, `@echo off\r\n${body}\r\n`);
+  return `cmd /c ${file}`;
+}
 const SCRIPT = "ncpa_echo";
-const SCRIPT_COMMAND = onWindows ? "cmd /c echo script-output" : "/bin/echo script-output";
+const SCRIPT_COMMAND = onWindows
+  ? winScript(SCRIPT, "echo script-output")
+  : "/bin/echo script-output";
 // Prints its first two arguments, to see what order they arrive in.
 const ARGS_SCRIPT = "ncpa_args";
 const ARGS_COMMAND = onWindows
-  ? "cmd /c echo first=$ARG1$ second=$ARG2$"
+  ? `${winScript(ARGS_SCRIPT, "echo first=%1 second=%2")} $ARG1$ $ARG2$`
   : "/bin/echo first=$ARG1$ second=$ARG2$";
 // Takes a few seconds, like an external script near its timeout.
 const SLOW_SCRIPT = "ncpa_slow";
-const SLOW_COMMAND = onWindows ? "cmd /c ping -n 4 127.0.0.1" : "/bin/sleep 3";
+const SLOW_COMMAND = onWindows
+  ? winScript(SLOW_SCRIPT, "ping -n 4 127.0.0.1 >nul")
+  : "/bin/sleep 3";
 const ALIAS = "ncpa_alias";
 
 type Settings = Record<string, Record<string, string | number | boolean>>;
@@ -335,6 +350,38 @@ describe("NCPA server", () => {
       expect(res.body.plugins).not.toContain("check_ok");
       const check = await get(`/api/plugins/${SCRIPT}?token=${TOKEN}&check=1`).expect(200);
       expect(check.body).toEqual({ returncode: 0, stdout: "script-output" });
+    });
+  });
+
+  describe("with the token rate limit on", () => {
+    let nscp: NscpInstance;
+
+    beforeAll(async () => {
+      nscp = await startNcpa({
+        token: TOKEN,
+        "auth rate limit max failures": 3,
+        "auth rate limit block seconds": 60,
+      });
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("counts parallel guesses one at a time", async () => {
+      // Answered by several workers at once, guesses used to all pass the block
+      // check before any of them was counted.
+      const answers = await Promise.all(
+        Array.from({ length: 10 }, (_, i) => get(`/api/plugins/check_ok?token=wrong-${i}&check=1`)),
+      );
+      const errors = answers.map((r) => r.body.error);
+      expect(errors.filter((e) => e === "Incorrect credentials given.")).toHaveLength(3);
+      expect(
+        errors.filter((e) => e === "Too many failed authentication attempts, try again later."),
+      ).toHaveLength(7);
+      // Blocked means blocked: the right token is refused too, for now.
+      const res = await get(`/api/plugins/check_ok?token=${TOKEN}&check=1`).expect(200);
+      expect(res.body.error).toBe("Too many failed authentication attempts, try again later.");
     });
   });
 

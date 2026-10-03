@@ -141,6 +141,15 @@ void ServerMongooseImpl::setAcceptFilter(accept_filter filter) {
   accept_filter_ = std::move(filter);
 }
 
+void ServerMongooseImpl::setThreadReporting(const std::string &thread_name, thread_reporter reporter) {
+  if (thread_) {
+    logger_->log_error("setThreadReporting() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  thread_name_ = thread_name;
+  thread_reporter_ = std::move(reporter);
+}
+
 void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std::string &ciphers) {
   // mongoose drives TLS through its own stack, which exposes neither a
   // protocol-version range nor a cipher list. Saying so is the point: an
@@ -168,6 +177,7 @@ void ServerMongooseImpl::thread_proc() {
   const scoped_log_target route(&log_target_);
   while (true) {
     mg_mgr_poll(&mgr, 1000);
+    deliver_ready();
     if (stop_thread_) {
       // Write out what is already answered before closing everything: stop()
       // has drained the workers, and their last answers may still be waiting
@@ -176,6 +186,7 @@ void ServerMongooseImpl::thread_proc() {
       // reads cannot hold a reload up.
       for (int i = 0; i < 40 && has_unsent_answers(); ++i) {
         mg_mgr_poll(&mgr, 50);
+        deliver_ready();
       }
       mg_mgr_free(&mgr);
       return;
@@ -184,7 +195,7 @@ void ServerMongooseImpl::thread_proc() {
 }
 
 bool ServerMongooseImpl::has_unsent_answers() const {
-  if (ready_replies_ > 0) {
+  if (pool_ && pool_->ready > 0) {
     return true;
   }
   for (const mg_connection *c = mgr.conns; c != nullptr; c = c->next) {
@@ -215,24 +226,24 @@ bool ServerMongooseImpl::start(const std::string &bind) {
     logger_->log_error("Failed to listen on " + bind + ". The listener has NOT been started.");
     return false;
   }
-  use_workers_ = worker_threads_ > 1;
-  if (use_workers_ && !mg_wakeup_init(&mgr)) {
-    logger_->log_error("Failed to set up the request worker pool; answering every request on the poll thread instead.");
-    use_workers_ = false;
+  // The guard line is worded by the thread helper and handed to the
+  // reporter as is; by default it goes to this server's logger.
+  const WebLoggerPtr log = logger_;
+  const thread_reporter report = thread_reporter_ ? thread_reporter_ : thread_reporter([log](const std::string &message) { log->log_error(message); });
+  if (worker_threads_ > 1) {
+    if (mg_wakeup_init(&mgr)) {
+      pool_ = std::make_shared<worker_pool>();
+      pool_->mgr = &mgr;
+      for (std::size_t i = 0; i < worker_threads_; ++i) {
+        const std::shared_ptr<worker_pool> pool = pool_;
+        workers_.push_back(threads::start_guarded_thread(thread_name_ + " worker", [pool] { worker_proc(pool); }, report));
+      }
+    } else {
+      logger_->log_error("Failed to set up the request worker pool; answering every request on the poll thread instead.");
+    }
   }
   accepting_ = true;
-  const WebLoggerPtr log = logger_;
-  if (use_workers_) {
-    {
-      const std::lock_guard<std::mutex> lock(jobs_mutex_);
-      stop_workers_ = false;
-    }
-    for (std::size_t i = 0; i < worker_threads_; ++i) {
-      workers_.push_back(
-          threads::start_guarded_thread("web server worker", [this] { worker_proc(); }, [log](const std::string &message) { log->log_error(message); }));
-    }
-  }
-  thread_ = threads::start_guarded_thread("web server", [this] { thread_proc(); }, [log](const std::string &message) { log->log_error(message); });
+  thread_ = threads::start_guarded_thread(thread_name_, [this] { thread_proc(); }, report);
   poll_thread_owns_mgr_ = true;
   return true;
 }
@@ -245,20 +256,24 @@ void ServerMongooseImpl::stop() {
   // their answers out - queued requests get a 503, one already running is
   // waited for. The poll thread goes last: mg_wakeup() needs its manager.
   accepting_ = false;
-  if (!workers_.empty()) {
+  if (pool_) {
     std::deque<job> abandoned;
     {
-      const std::lock_guard<std::mutex> lock(jobs_mutex_);
-      stop_workers_ = true;
-      abandoned.swap(jobs_);
+      const std::lock_guard<std::mutex> lock(pool_->mutex);
+      pool_->stopping = true;
+      abandoned.swap(pool_->jobs);
     }
-    jobs_cv_.notify_all();
+    pool_->cv.notify_all();
     for (const job &queued : abandoned) {
       StreamResponse unavailable;
       unavailable.setCode(HTTP_SERVICE_UNAVAILABLE, REASON_SERVICE_UNAVAILABLE);
       unavailable.append("Server is stopping");
-      hand_back(queued, render(unavailable, queued.is_ssl));
+      hand_back(*pool_, queued, render(unavailable, queued.is_ssl));
     }
+    // Called from a worker (a handler that stopped its own server, a backstop
+    // path): that worker cannot be joined, and the others may not be waited
+    // for either. They are detached; they only ever touch the pool, which
+    // they keep alive, so freeing this object under them is safe.
     const bool from_worker = std::any_of(workers_.begin(), workers_.end(),
                                          [](const std::shared_ptr<boost::thread> &worker) { return worker->get_id() == boost::this_thread::get_id(); });
     for (const std::shared_ptr<boost::thread> &worker : workers_) {
@@ -287,21 +302,31 @@ void ServerMongooseImpl::stop() {
     thread_->join();
   }
   thread_.reset();
+  if (pool_) {
+    // The manager is freed: a worker still finishing (detached above) must
+    // drop its answer rather than hand it to mg_wakeup().
+    {
+      const std::lock_guard<std::mutex> lock(pool_->mutex);
+      pool_->orphaned = true;
+      pool_->mgr = nullptr;
+    }
+    pool_.reset();
+  }
 }
 
 void ServerMongooseImpl::registerController(Controller *controller) { controllers.push_back(controller); }
 
-void ServerMongooseImpl::worker_proc() {
+void ServerMongooseImpl::worker_proc(const std::shared_ptr<worker_pool> &pool) {
   while (true) {
     job current;
     {
-      std::unique_lock<std::mutex> lock(jobs_mutex_);
-      jobs_cv_.wait(lock, [this] { return stop_workers_ || !jobs_.empty(); });
-      if (stop_workers_) {
+      std::unique_lock<std::mutex> lock(pool->mutex);
+      pool->cv.wait(lock, [&pool] { return pool->stopping || !pool->jobs.empty(); });
+      if (pool->stopping) {
         return;
       }
-      current = std::move(jobs_.front());
-      jobs_.pop_front();
+      current = std::move(pool->jobs.front());
+      pool->jobs.pop_front();
     }
     reply answer;
     try {
@@ -314,50 +339,89 @@ void ServerMongooseImpl::worker_proc() {
       const std::unique_ptr<Response> response(Controller::internalErrorFromException("Unknown error"));
       answer = render(*response, current.is_ssl);
     }
-    hand_back(current, std::move(answer));
+    hand_back(*pool, current, std::move(answer));
   }
 }
 
-void ServerMongooseImpl::hand_back(const job &finished, reply answer) {
-  {
-    const std::lock_guard<std::mutex> lock(jobs_mutex_);
-    // Closed while we worked: nobody to answer.
-    if (waiting_.erase(finished.connection_id) == 0) {
-      return;
-    }
-    pending_reply &pending = replies_[finished.connection_id];
-    pending.answer = std::move(answer);
-    pending.close = finished.close;
-    ++ready_replies_;
+void ServerMongooseImpl::hand_back(worker_pool &pool, const job &finished, reply answer) {
+  const std::lock_guard<std::mutex> lock(pool.mutex);
+  // Closed while we worked, or the server is gone: nobody to answer.
+  if (pool.orphaned || pool.waiting.erase(finished.connection_id) == 0) {
+    return;
   }
+  pending_reply &pending = pool.replies[finished.connection_id];
+  pending.answer = std::move(answer);
+  pending.close = finished.close;
+  pool.ready = pool.replies.size();
   // A nudge, not the delivery guarantee: mg_wakeup() reports success even
-  // when its datagram is dropped, so the poll thread also sweeps on
-  // MG_EV_POLL (event_handler) while ready_replies_ is non-zero.
-  mg_wakeup(&mgr, finished.connection_id, "r", 1);
+  // when its datagram is dropped, so the poll loop also sweeps (deliver_ready)
+  // while `ready` is non-zero. Under the lock, so `orphaned` cannot be set -
+  // and the manager freed - between the check above and this call.
+  mg_wakeup(pool.mgr, finished.connection_id, "r", 1);
 }
 
-void ServerMongooseImpl::deliver(mg_connection *connection) {
-  pending_reply pending;
-  {
-    const std::lock_guard<std::mutex> lock(jobs_mutex_);
-    const auto it = replies_.find(connection->id);
-    if (it == replies_.end()) {
-      return;
-    }
-    pending = std::move(it->second);
-    replies_.erase(it);
-    --ready_replies_;
-  }
-  mg_http_reply(connection, pending.answer.code, pending.answer.headers.c_str(), "%s", pending.answer.body.c_str());
-  if (pending.close) {
+namespace {
+void write_reply(mg_connection *connection, const ServerMongooseImpl::reply &answer, const bool close) {
+  mg_http_reply(connection, answer.code, answer.headers.c_str(), "%s", answer.body.c_str());
+  if (close) {
     connection->is_draining = 1;
   }
 }
+}  // namespace
+
+void ServerMongooseImpl::deliver(mg_connection *connection) {
+  if (!pool_) {
+    return;
+  }
+  pending_reply pending;
+  {
+    const std::lock_guard<std::mutex> lock(pool_->mutex);
+    const auto it = pool_->replies.find(connection->id);
+    if (it == pool_->replies.end()) {
+      return;
+    }
+    pending = std::move(it->second);
+    pool_->replies.erase(it);
+    pool_->ready = pool_->replies.size();
+  }
+  write_reply(connection, pending.answer, pending.close);
+}
+
+void ServerMongooseImpl::deliver_ready() {
+  // One lock per sweep, not per connection: take every ready answer, then
+  // walk the connections once.
+  if (!pool_ || pool_->ready == 0) {
+    return;
+  }
+  std::map<unsigned long, pending_reply> ready;
+  {
+    const std::lock_guard<std::mutex> lock(pool_->mutex);
+    ready.swap(pool_->replies);
+    pool_->ready = 0;
+  }
+  for (mg_connection *c = mgr.conns; c != nullptr && !ready.empty(); c = c->next) {
+    const auto it = ready.find(c->id);
+    if (it != ready.end()) {
+      write_reply(c, it->second.answer, it->second.close);
+      ready.erase(it);
+    }
+  }
+  // Whatever is left belongs to connections that have closed.
+}
 
 void ServerMongooseImpl::forget(const unsigned long connection_id) {
-  const std::lock_guard<std::mutex> lock(jobs_mutex_);
-  waiting_.erase(connection_id);
-  if (replies_.erase(connection_id) > 0) --ready_replies_;
+  if (!pool_) {
+    return;
+  }
+  const std::lock_guard<std::mutex> lock(pool_->mutex);
+  pool_->waiting.erase(connection_id);
+  pool_->replies.erase(connection_id);
+  pool_->ready = pool_->replies.size();
+}
+
+void ServerMongooseImpl::reply_stopping(mg_connection *connection) {
+  mg_http_reply(connection, HTTP_SERVICE_UNAVAILABLE, "Content-Type: text/plain\r\nConnection: close\r\n", "Server is stopping");
+  connection->is_draining = 1;
 }
 
 bool ServerMongooseImpl::admits(mg_connection *connection) const {
@@ -372,10 +436,10 @@ bool ServerMongooseImpl::admits(mg_connection *connection) const {
 void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *ev_data) {
   if (connection->fn_data != nullptr) {
     auto *impl = static_cast<ServerMongooseImpl *>(connection->fn_data);
-    if (ev == MG_EV_WAKEUP || (ev == MG_EV_POLL && impl->ready_replies_ > 0)) {
+    if (ev == MG_EV_WAKEUP) {
       impl->deliver(connection);
     }
-    if (ev == MG_EV_CLOSE && impl->use_workers_) {
+    if (ev == MG_EV_CLOSE) {
       impl->forget(connection->id);
     }
     if (ev == MG_EV_ACCEPT) {
@@ -393,8 +457,15 @@ void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *
     if (ev == MG_EV_HTTP_MSG) {
       if (!impl->accepting_) {
         // A keep-alive connection asking for more while the server stops.
-        mg_http_reply(connection, HTTP_SERVICE_UNAVAILABLE, "Content-Type: text/plain\r\nConnection: close\r\n", "Server is stopping");
-        connection->is_draining = 1;
+        // With a worker pool the stop can take a while (it waits for running
+        // checks), so the client is told; without one the poll thread is
+        // about to go and the connection is simply closed - a reset a client
+        // retries, as it always has been during a WEB settings reload.
+        if (impl->pool_) {
+          impl->reply_stopping(connection);
+        } else {
+          connection->is_closing = 1;
+        }
         return;
       }
       auto message = static_cast<struct mg_http_message *>(ev_data);
@@ -541,7 +612,7 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
       auto ip = std::string(buf);
       Request request = build_request(ip, message, is_ssl, method);
 
-      if (use_workers_) {
+      if (pool_) {
         // Answered from a worker; mongoose keeps the connection marked as
         // answering until deliver() replies, holding back anything pipelined
         // behind this request.
@@ -552,12 +623,23 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
         queued.is_ssl = is_ssl;
         const mg_str *connection_header = mg_http_get_header(message, "Connection");
         queued.close = connection_header != nullptr && mg_strcasecmp(*connection_header, mg_str("close")) == 0;
+        bool stopping = false;
         {
-          const std::lock_guard<std::mutex> lock(jobs_mutex_);
-          waiting_.insert(connection->id);
-          jobs_.push_back(std::move(queued));
+          // Checked under the pool's lock: stop() empties the queue under it,
+          // so a job queued after accepting_ was read but before stop() took
+          // the lock would otherwise sit in a queue no worker reads.
+          const std::lock_guard<std::mutex> lock(pool_->mutex);
+          stopping = pool_->stopping;
+          if (!stopping) {
+            pool_->waiting.insert(connection->id);
+            pool_->jobs.push_back(std::move(queued));
+          }
         }
-        jobs_cv_.notify_one();
+        if (stopping) {
+          reply_stopping(connection);
+          return;
+        }
+        pool_->cv.notify_one();
         return;
       }
       const std::unique_ptr<Response> response(ctrl->handleRequest(request));

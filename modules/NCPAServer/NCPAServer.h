@@ -24,5 +24,9 @@ class NCPAServer : public nscapi::impl::simple_plugin {
  private:
   void stop_server();
 
+  // Re-resolves the host names in `allowed hosts` in the background when
+  // `cache allowed hosts` is off (see NCPAServer.cpp).
+  struct host_refresher;
+  std::shared_ptr<host_refresher> refresher_;
   std::shared_ptr<Mongoose::Server> server_;
 };

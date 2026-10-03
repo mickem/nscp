@@ -47,6 +47,7 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   void setBodyLimit(std::size_t bytes) override;
   void setWorkerThreads(std::size_t threads) override;
   void setAcceptFilter(accept_filter filter) override;
+  void setThreadReporting(const std::string& thread_name, thread_reporter reporter) override;
   void setTlsOptions(const std::string& tls_version, const std::string& ciphers) override;
 
   /** Per-connection HTTP body cap. Default 1 MiB. */
@@ -121,6 +122,8 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   std::vector<std::shared_ptr<boost::thread>> threads_;
   std::size_t worker_threads_ = 1;
   accept_filter accept_filter_;
+  std::string thread_name_ = "web server";
+  thread_reporter thread_reporter_;
   std::atomic<bool> stopping_{false};
 };
 

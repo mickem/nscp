@@ -121,6 +121,20 @@ class NSCP_MONGOOSE_EXPORT Server {
   virtual void setAcceptFilter(accept_filter /*filter*/) {}
 
   /**
+   * Name the server's threads and say where their guard lines go.
+   *
+   * The threads are started through threads::start_guarded_thread, whose
+   * "Thread '<name>': terminated by an uncaught exception" line operators
+   * alert on, so the name is what tells two listeners apart ("web server",
+   * "ncpa server"; workers get " worker" appended). `reporter` receives that
+   * finished line and must not reword it - pass the module's
+   * NSC_THREAD_REPORTER. By default the threads are called "web server" and
+   * report through the server's WebLogger. Must be set before `start()`.
+   */
+  typedef std::function<void(const std::string &line)> thread_reporter;
+  virtual void setThreadReporting(const std::string & /*thread_name*/, thread_reporter /*reporter*/) {}
+
+  /**
    * Restrict the TLS versions and cipher suites the listener negotiates.
    *
    * `tls_version` uses the same vocabulary as the NRPE and NSCA listeners:

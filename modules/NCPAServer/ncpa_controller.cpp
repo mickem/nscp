@@ -47,6 +47,12 @@ bool ncpa_controller::authenticate(const Mongoose::Request &request, const ncpa:
   // `allowed hosts` is not checked here: the server refuses those peers as
   // it accepts them (NCPAServer's accept filter), before the handshake.
   const std::string &remote = request.getRemoteIp();
+  // One step under a lock: the block check, the comparison and the count.
+  // With several workers, parallel guesses from one host used to all pass
+  // is_blocked() before any of them was counted, getting about twice the
+  // documented number of tries per block. The comparison is in-memory and
+  // constant-time, so holding the lock across it costs nothing.
+  const std::lock_guard<std::mutex> auth_lock(auth_mutex_);
   if (rate_limiter_.is_blocked(remote)) {
     NSC_LOG_ERROR("NCPA: rejected request from " + remote + ": blocked after repeated failed tokens.");
     answer_json(response, ncpa::error_body(kBlocked));
