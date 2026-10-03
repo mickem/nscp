@@ -543,7 +543,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 
     const boost::optional<command_container> custom = find_command(command);
     if (custom) {
-      command = custom->command;
+      command = custom.value().command;
       custom_command = true;
       // TODO: Build argument vector here!
     }
@@ -729,7 +729,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 
     const boost::optional<command_container> custom = find_command(command);
     if (custom) {
-      command = custom->command;
+      command = custom.value().command;
       custom_command = true;
       // TODO: Build argument vector here!
     }
@@ -895,7 +895,7 @@ void client::configuration::i_do_submit(const destination_container &s, destinat
 
     const boost::optional<command_container> custom = find_command(command);
     if (custom) {
-      command = custom->command;
+      command = custom.value().command;
       // TODO: Build argument vector here!
     }
     if (command.substr(0, 8) == "forward_") {

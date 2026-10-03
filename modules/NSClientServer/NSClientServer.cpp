@@ -20,7 +20,7 @@
 namespace sh = nscapi::settings_helper;
 namespace ntc = check_nt_commands;
 
-NSClientServer::NSClientServer() : noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
+NSClientServer::NSClientServer() : noPerfData_(false) {}
 NSClientServer::~NSClientServer() {}
 
 bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -107,6 +107,13 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
     NSC_LOG_ERROR_STD(
         "NSClient legacy server (check_nt) has a password configured. The check_nt protocol carries the password in every request and offers "
         "no replay protection; an attacker on the wire can capture and reuse it. Consider switching to REST or NRPE.");
+  } else {
+    // Said once here, not once per request: with no password every request is
+    // refused, and a peer inside `allowed hosts` could otherwise grow the log
+    // by a line per packet for as long as it liked.
+    NSC_LOG_ERROR_STD(
+        "NSClient legacy server (check_nt) has no password configured, so every request will be refused. Set 'password' in this section (or "
+        "/settings/default) - or better yet switch to REST or NRPE.");
   }
   NSC_LOG_ERROR_LISTS(info_.validate());
 
@@ -173,9 +180,10 @@ bool NSClientServer::isPasswordOk(std::string remotePassword) {
   const std::string localPassword = get_password();
   // No password configured: refuse all requests. Previously the server allowed
   // any client that sent the literal word "None" through, which turned a
-  // forgotten password into an open listener.
+  // forgotten password into an open listener. The condition is reported once,
+  // at load; here it is only traced, so a peer cannot flood the log with it.
   if (localPassword.empty()) {
-    NSC_LOG_ERROR_STD("Using check_nt without a password is a security risk, please configure passwords (or better yet switch protocols).");
+    NSC_DEBUG_MSG("Refusing check_nt request: no password is configured");
     return false;
   }
   // The stored value is either the clear-text password or the hashed form that

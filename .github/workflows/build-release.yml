@@ -50,7 +50,7 @@ jobs:
       release: ${{ steps.detect.outputs.release }}
       version: ${{ steps.detect.outputs.version }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         # History and tags, to see what the push added and what is tagged.
         fetch-depth: 0

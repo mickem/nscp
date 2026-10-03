@@ -43,8 +43,6 @@ class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::serv
     // A reload may hand us a different password; the memo belongs to the old one.
     password_memo_.forget();
   }
-  virtual void set_allow_arguments(bool v) { allowArgs_ = v; }
-  virtual void set_allow_nasty_arguments(bool v) { allowNasty_ = v; }
   virtual void set_perf_data(bool v) { noPerfData_ = !v; }
   bool isPasswordOk(std::string remotePassword);
   std::string list_instance(std::string counter);
@@ -52,8 +50,6 @@ class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::serv
 
  private:
   bool noPerfData_;
-  bool allowNasty_;
-  bool allowArgs_;
 
   socket_helpers::connection_info info_;
   std::shared_ptr<check_nt::server::server> server_;

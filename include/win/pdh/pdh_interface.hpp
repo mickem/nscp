@@ -44,6 +44,11 @@ class pdh_error {
   bool is_more_data() const { return status_ == PDH_MORE_DATA; }
   bool is_invalid_data() const { return status_ == PDH_INVALID_DATA || status_ == PDH_CSTATUS_INVALID_DATA; }
   bool is_not_found() const { return status_ == PDH_CSTATUS_NO_OBJECT || status_ == PDH_CSTATUS_NO_COUNTER || status_ == PDH_CSTATUS_BAD_COUNTERNAME; }
+  // The object and counter exist but the object has no instances right now
+  // (W3SVC_W3WP once every IIS worker process has spun down). Distinct from
+  // is_not_found(): the counter set is installed, the set of instances is
+  // merely empty.
+  bool is_no_instance() const { return status_ == PDH_CSTATUS_NO_INSTANCE; }
 
   bool is_negative_denominator() const { return status_ == PDH_CALC_NEGATIVE_DENOMINATOR || status_ == PDH_CALC_NEGATIVE_VALUE; }
   bool is_invalid_argument() const { return status_ == PDH_INVALID_ARGUMENT; }
@@ -68,6 +73,17 @@ class pdh_exception : public std::exception {
   const char *what() const noexcept override { return error_ ? error_->c_str() : ""; }
 
   std::string reason() const { return error_ ? *error_ : std::string(); }
+};
+
+// Thrown by factory::create() for a wildcard counter whose object resolved
+// but has no instances at the moment. It is still a pdh_exception, so every
+// caller that treats a counter it cannot add as a failure (the collector's
+// boot-time retry, check_pdh) keeps doing exactly that; a caller for which an
+// empty object is a legitimate empty set (gather_object_instances) catches
+// this type ahead of pdh_exception.
+class pdh_no_instance_exception : public pdh_exception {
+ public:
+  explicit pdh_no_instance_exception(const std::string &error) : pdh_exception(error) {}
 };
 
 namespace types {
