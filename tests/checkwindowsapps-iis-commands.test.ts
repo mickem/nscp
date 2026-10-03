@@ -11,6 +11,9 @@
  * so a regression in either fails the test on every machine.
  * Client-query output is the raw Nagios message with no status-word prefix.
  */
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+
 import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -27,24 +30,36 @@ const expectIis = process.env.NSCP_EXPECT_IIS === "1";
 describeOnWindows("CheckWindowsApps IIS commands", () => {
   let nscp: NscpInstance;
 
-  /** Run a CheckWindowsApps query and return the combined output. */
-  async function query(command: string, args: string[] = []): Promise<string> {
+  /**
+   * Run a CheckWindowsApps query; returns the combined output and the exit
+   * code. The one-shot client prints only the Nagios message, so the status
+   * (0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN) lives in the exit code alone.
+   */
+  async function query(command: string, args: string[] = []): Promise<{ out: string; code: number }> {
     const r = await nscp.run(["client", "--module", "CheckWindowsApps", "--boot", "--query", command, ...args], {
       allowFailure: true,
     });
     const out = r.all ?? `${r.stdout}\n${r.stderr}`;
     if (expectIis) expect(out).not.toMatch(/not available/);
-    return out;
+    return { out, code: r.exitCode };
   }
 
   beforeAll(() => {
     nscp = new NscpInstance();
   });
 
+  /** Drive IIS' own appcmd (ships with the Web-Server role). */
+  function appcmd(...args: string[]): string {
+    const exe = path.join(process.env.windir ?? "C:\\Windows", "system32", "inetsrv", "appcmd.exe");
+    return execFileSync(exe, args, { encoding: "utf8", timeout: 20_000 });
+  }
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
   // --- check_iis_app_pools --------------------------------------------------
 
   it("check_iis_app_pools reports pool state or the documented no-IIS contract", async () => {
-    const out = await query("check_iis_app_pools");
+    const { out } = await query("check_iis_app_pools");
     if (NOT_AVAILABLE.test(out)) {
       expect(out).toMatch(/IIS performance counters \(APP_POOL_WAS\) not available/);
     } else if (expectIis) {
@@ -59,7 +74,7 @@ describeOnWindows("CheckWindowsApps IIS commands", () => {
 
   it("check_iis_app_pools accepts pinned REST-style thresholds as single tokens", async () => {
     // Pinned always-false thresholds: deterministic regardless of host state.
-    const out = await query("check_iis_app_pools", ["warning=recycles < 0", "critical=recycles < 0", "empty-state=ok"]);
+    const { out } = await query("check_iis_app_pools", ["warning=recycles < 0", "critical=recycles < 0", "empty-state=ok"]);
     expect(out).toMatch(/not available|OK|No application pools found/);
     expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
   });
@@ -70,7 +85,7 @@ describeOnWindows("CheckWindowsApps IIS commands", () => {
     // A bool_switch would reject `averages=true` with "does not take any
     // arguments" before ever reaching the counters; both accepted shapes
     // prove the option parsed.
-    const out = await query("check_iis_sites", ["averages=true", "warning=connections < 0", "critical=connections < 0", "empty-state=ok"]);
+    const { out } = await query("check_iis_sites", ["averages=true", "warning=connections < 0", "critical=connections < 0", "empty-state=ok"]);
     expect(out).not.toMatch(/does not take any arguments/);
     expect(out).toMatch(/not available|OK|No web sites found|connections/);
     // Provisioned IIS: the started default site is a real record with a
@@ -85,13 +100,13 @@ describeOnWindows("CheckWindowsApps IIS commands", () => {
   // Both host shapes must end on a documented message, never WARNING/CRITICAL.
 
   it("check_iis_app_pools with a filter that matches nothing takes the empty state", async () => {
-    const out = await query("check_iis_app_pools", ["filter=pool = 'nosuchpool-1499'", "empty-state=ok"]);
+    const { out } = await query("check_iis_app_pools", ["filter=pool = 'nosuchpool-1499'", "empty-state=ok"]);
     expect(out).toMatch(/not available|No application pools found/);
     expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
   });
 
   it("check_iis_sites with a filter that matches nothing takes the empty state", async () => {
-    const out = await query("check_iis_sites", ["filter=site = 'nosuchsite-1499'", "empty-state=ok"]);
+    const { out } = await query("check_iis_sites", ["filter=site = 'nosuchsite-1499'", "empty-state=ok"]);
     expect(out).toMatch(/not available|No web sites found/);
     expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
   });
@@ -100,15 +115,52 @@ describeOnWindows("CheckWindowsApps IIS commands", () => {
 
   it("check_iis_worker_processes reports workers or the documented contracts", async () => {
     // No workers is a normal state (idle pools spin down), so an IIS host may
-    // also answer with the empty-set OK message.
-    const out = await query("check_iis_worker_processes");
+    // also answer with the empty-set OK message. That holds in strict mode
+    // too: with no w3wp.exe alive the W3SVC_W3WP object has zero instances
+    // and PDH expands the wildcard to PDH_CSTATUS_NO_INSTANCE, which the
+    // gather must treat as an empty set - not as the role-not-installed
+    // fallback, which the query() helper rejects under NSCP_EXPECT_IIS.
+    const { out } = await query("check_iis_worker_processes");
     expect(out).toMatch(/not available|No IIS worker processes running|active requests/);
   });
+
+  it("check_iis_worker_processes reports an idle IIS as no workers, not as counters missing", async () => {
+    // Strict mode only: it needs a real IIS to stop. With DefaultAppPool
+    // stopped no w3wp.exe is alive, W3SVC_W3WP has zero instances and PDH
+    // answers the wildcard with PDH_CSTATUS_NO_INSTANCE. That is the empty
+    // set: OK with "No IIS worker processes running". The query() helper
+    // fails the test should it come back as the role-not-installed message
+    // instead (the shape that made this suite flaky once the primed worker
+    // had idled out).
+    if (!expectIis) return;
+    appcmd("stop", "apppool", "/apppool.name:DefaultAppPool");
+    try {
+      // WAS takes the worker down asynchronously. Each poll boots nscp from
+      // scratch, so bound the loop by wall clock rather than by attempts: a
+      // slow runner must not stretch it past the test's own timeout.
+      const deadline = Date.now() + 45_000;
+      let r = await query("check_iis_worker_processes");
+      while (!/No IIS worker processes running/.test(r.out) && Date.now() < deadline) {
+        await sleep(1000);
+        r = await query("check_iis_worker_processes");
+      }
+      expect(r.out).toMatch(/No IIS worker processes running/);
+      expect(r.code).toBe(0);
+    } finally {
+      // Hand the pool back warm for whatever queries IIS after this. The
+      // test timeout leaves room for this even when the poll ran out.
+      appcmd("start", "apppool", "/apppool.name:DefaultAppPool");
+      execFileSync("powershell", ["-NoProfile", "-Command", "Invoke-WebRequest -UseBasicParsing http://localhost/ | Out-Null"], {
+        encoding: "utf8",
+        timeout: 20_000,
+      });
+    }
+  }, 180_000);
 
   // --- check_iis_request_queues ---------------------------------------------
 
   it("check_iis_request_queues reports queues or the documented contracts", async () => {
-    const out = await query("check_iis_request_queues", ["warning=queue_length > 800", "critical=queue_length > 1000"]);
+    const { out } = await query("check_iis_request_queues", ["warning=queue_length > 800", "critical=queue_length > 1000"]);
     expect(out).toMatch(/not available|No HTTP.sys request queues found|queued/);
   });
 });

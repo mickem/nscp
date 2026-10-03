@@ -181,6 +181,10 @@ void PDHQuery::gatherData(const bool ignore_errors) {
   }
 }
 void PDHQuery::collect() const {
+  // PdhCollectQueryData on a query without counters fails with PDH_NO_DATA,
+  // which tells the caller nothing it did not already know; an empty query
+  // simply has nothing to sample.
+  if (counters_.empty()) return;
   const std::shared_ptr<impl_interface> impl = factory::get_impl();
   std::lock_guard<impl_interface> guard(*impl);
   const pdh_error status = impl->PdhCollectQueryData(hQuery_);
