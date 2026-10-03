@@ -33,21 +33,29 @@
 // Family names are kept exactly as the body declares them; nothing is renamed.
 // Both formats keep a family's lines together - metadata first, then its
 // samples - so a sample belongs to the family being read, or starts a new one
-// of unknown type named after it. A sample of a family that already gave way to
-// another, or metadata for a name already declared or sampled, is an error.
+// of unknown type named after it, and metadata for a name already declared or
+// sampled is an error. A sample of a family that already gave way to another
+// is an error in OpenMetrics, which forbids it outright. The Prometheus text
+// format asks for the same grouping, but its reference parser regroups such a
+// sample into its family, and some exporters rely on that; so does this
+// parser.
 //
-// One exception to that last rule: client_golang writes a counter `X_total` in
-// OpenMetrics as the family `X` (the suffix is stripped from its metadata
+// One exception to the metadata rule: client_golang writes a counter `X_total`
+// in OpenMetrics as the family `X` (the suffix is stripped from its metadata
 // lines), so a Go exporter serves the counter `X` beside any gauge, histogram
-// or summary of the same name. Both are kept, under the name `X`. In
-// OpenMetrics a family is therefore identified by its name and its type. A
-// counter is the only family that may share its name, with exactly one other
-// family that declared its type, and only when its own block declares its
-// type and carries a sample of its own; the lines after a repeated name are
-// read ahead to decide which it is. When they are not such a block, the error
-// is the line that repeated the name; a body that ends before they decide
-// reads as truncated. Where both own `X_created` (a counter and a histogram or
-// summary), only one of them may carry it.
+// or summary of the same name. Both are kept, under the name `X`, so in
+// OpenMetrics a family is identified by its name and its type. A counter is
+// the only family that may share its name, with exactly one other family that
+// declared its type. The block that repeats the name is read like any other,
+// every line held to the same rules, but tentatively: it becomes the second
+// family when it has declared a type that can pair and its first sample is
+// one of its own. Anything else first - another family, `# EOF`, a sample
+// that is not its own - makes the line that repeated the name a late line for
+// the earlier family, and that line is the error. A body that ends inside the
+// block before it has declared a type reads as truncated; the block is not
+// kept. A counter and a histogram or summary of one name both own `X_created`,
+// and client_golang writes it for each when created timestamps are on, so
+// that one sample name may appear in both families of a pair.
 //
 // The samples of a histogram or a summary (`_bucket`, `_sum`, `_count`,
 // `quantile`) belong to their family rather than starting families of their
@@ -67,12 +75,13 @@
 // Memory is the text of the body - a family name is held twice, by its family
 // and by the index - plus a fixed overhead for each family, sample and label,
 // which `limits` bounds. Measured with libstdc++ on x86-64: a family costs
-// about 350 bytes (with its first sample), each further sample about 100, a
-// label 64 beyond any text too long for the short-string buffer. With no
-// limits, that is about eleven times the body for one of label-heavy lines,
-// thirty for one of single-sample families, and fifty when their names are a
-// few characters long. The default limits hold the overhead to about 250 MB
-// whatever the body.
+// about 350 bytes with its first sample, each further sample about 85, a label
+// 64 plus 32 for each of its name and value too long for the short-string
+// buffer (15 bytes). With no limits, a body costs eleven to sixteen times its
+// size when it is label-heavy, twenty when it is one family of short samples,
+// and fifty when it is single-sample families with names a few characters
+// long. With the default limits, the worst body - 16-character label names
+// and values up to `max_labels` - costs about 350 MB beyond its text.
 //
 // Exemplars are skipped. What a sample means is not checked - that a
 // histogram's buckets are cumulative, that `le` is present - only whether the
@@ -132,8 +141,8 @@ struct family {
 // Every limit stops the parse at the first line over it and reports an error;
 // 0 means no limit. The defaults are far above what any exporter serves -
 // node_exporter is about a thousand series, a large kube-state-metrics a few
-// hundred thousand - and together hold what a parse can keep to about 250 MB
-// beyond the text of the body. A caller with a better idea of its targets
+// hundred thousand - and together hold what a parse can keep to about 350 MB
+// beyond the text of the body (see above). A caller with a better idea of its targets
 // sets its own.
 struct limits {
   // The most samples one body may carry.
@@ -153,8 +162,9 @@ struct limits {
 };
 
 struct result {
-  // In the order they appear in the body. Every sample name belongs to exactly
-  // one family, and no two families share both name and type.
+  // In the order they appear in the body. No two families share both name and
+  // type, and a sample name belongs to one family - apart from `X_created`,
+  // which both families of an OpenMetrics same-name pair may carry.
   std::vector<family> families;
   // Total samples across all families.
   std::size_t sample_count = 0;

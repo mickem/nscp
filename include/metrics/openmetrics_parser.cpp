@@ -302,13 +302,11 @@ struct family_state {
   bool help = false;
   bool type = false;
   bool unit = false;
-  // The other family of an OpenMetrics same-name pair (see `comment`), if this
-  // is one of them.
-  std::size_t partner = npos;
-  // Whether the family took its `_created` sample: a counter and a histogram
-  // or summary of one name both own `X_created`, and only one of them may
-  // have it.
-  bool took_created = false;
+  // The block a repeated OpenMetrics name opened, until its first sample says
+  // whether it is the second family of a same-name pair (see `comment`).
+  bool tentative = false;
+  // The line that repeated the name: where the error is when it is not.
+  std::size_t opened_on = 0;
 };
 
 // The families declared or sampled under one name: one, or the two of an
@@ -319,10 +317,6 @@ struct name_entry {
 };
 typedef std::map<std::string, name_entry, std::less<> > name_index;
 
-// What reading ahead through the block a repeated OpenMetrics name opens
-// found (see `pair_ahead`).
-enum class verdict { pair, not_a_pair, undecided };
-
 // The family that could own a sample name, by the name it was declared under
 // and the suffix the sample carries; and the family declared under the sample
 // name itself, whether or not it owns it.
@@ -331,28 +325,21 @@ struct match {
   std::size_t same_name = npos;
 };
 
+// Whether two families of one name are the pair client_golang writes: exactly
+// one of them a counter.
+bool pair_types(const family_type a, const family_type b) { return (a == family_type::counter) != (b == family_type::counter); }
+
 class parser {
  public:
-  parser(result &out, const std::string_view body, const format f, const limits &bounds) : out_(out), body_(body), format_(f), bounds_(bounds) {}
+  parser(result &out, const format f, const limits &bounds) : out_(out), format_(f), bounds_(bounds) {}
 
-  // `next` is where the line after this one starts, for reading ahead.
-  void begin_line(const std::size_t number, const std::size_t next) {
-    line_number_ = number;
-    next_line_ = next;
-  }
+  void begin_line(const std::size_t number) { line_number_ = number; }
 
-  // Whether the body was found to end inside a block that cannot be read
-  // without its rest (see `comment`): what follows is not read, and the result
-  // is what a body truncated there gives.
-  bool stopped() const { return stopped_; }
-
-  // The one way a parse stops: the reason and the line it stopped on are set
-  // together, so no error can be reported without its line, or with another.
-  bool fail(const std::string &why) {
-    out_.error = why;
-    out_.error_line = line_number_;
-    return false;
-  }
+  // How a parse stops: the reason and the line at fault are set together, so
+  // no error can be reported without its line. The line is the one being
+  // read, except for a repeated name, whose line is only found to be at fault
+  // by a later one (see `refuse_block`).
+  bool fail(const std::string &why) { return fail_on(why, line_number_); }
 
   // Reads one line, without its line feed.
   bool line(const std::string_view raw) {
@@ -370,23 +357,53 @@ class parser {
   }
 
   // After the last line read, whether the body ended there or a line failed.
-  // The family being read is taken out of the result when it has no samples
-  // and is not whole: a line of its own metadata failed, or it is the second
-  // of a same-name pair, which exists only for the samples it was read ahead
-  // to have. Everything else read is kept.
+  // A family read only as far as its metadata is kept like any other, except
+  // when it is not whole: a line of its own metadata failed, or it is the
+  // block of a repeated name that never said its type - which cannot be told
+  // apart from late lines for the earlier family, and is what a body cut
+  // there looks like.
   void finish() {
-    if (current_ == npos || !out_.families[current_].samples.empty()) return;
-    const family_state &seen = state_[current_];
-    if (current_block_failed_ || (seen.partner != npos && seen.partner < current_)) drop_current();
+    if (current_ != npos) out_.families[current_].samples.shrink_to_fit();
+    if (current_ == npos || current_ + 1 != out_.families.size() || !out_.families[current_].samples.empty()) return;
+    family_state &seen = state_[current_];
+    if (current_block_failed_ || (seen.tentative && !seen.type)) {
+      drop_current();
+      return;
+    }
+    // A repeated name that declared a type its earlier family can pair with,
+    // with the body ending before its sample: read as declared.
+    seen.tentative = false;
   }
 
  private:
+  bool fail_on(const std::string &why, const std::size_t line) {
+    out_.error = why;
+    out_.error_line = line;
+    return false;
+  }
+
   static std::string declared_again(const std::string_view name) {
     return "metadata for '" + std::string(name) + "' after that family was already declared or sampled";
   }
 
+  // The block of a repeated name turned out not to be the second family of a
+  // pair: its first line was a late line for the earlier family, and that is
+  // the line at fault - worded as the text format words it.
+  bool refuse_block() {
+    current_block_failed_ = true;
+    return fail_on(declared_again(out_.families[current_].name), state_[current_].opened_on);
+  }
+
+  // Before anything that is not the block's own next line: another family,
+  // or `# EOF`.
+  bool settle_block() {
+    if (current_ == npos || !state_[current_].tentative) return true;
+    return refuse_block();
+  }
+
   bool comment(const std::string_view text) {
     if (format_ == format::openmetrics_1_0 && is_eof_marker(text)) {
+      if (!settle_block()) return false;
       out_.saw_eof = true;
       return true;
     }
@@ -441,8 +458,9 @@ class parser {
     // a family's lines together and its metadata first, so a name already
     // declared or sampled is a second declaration - with one exception.
     std::size_t at = own_block ? current_ : npos;
-    std::size_t partner = npos;
+    bool repeated = false;
     if (at == npos) {
+      if (!settle_block()) return false;
       const match m = find(name);
       if (m.owner != npos && out_.families[m.owner].name != name) {
         return fail("'" + std::string(name) + "' is a sample of the family '" + out_.families[m.owner].name + "'");
@@ -455,24 +473,14 @@ class parser {
         // same name. Their full names differ, so the registry allows it, and
         // the reference parser takes it. That pair, and only that pair, may
         // share a name: the earlier family must have declared its type, and
-        // the later block must declare the other one and carry a sample.
-        // Whether it does is in the lines ahead, so they are read before this
-        // one is taken: a block that is not such a pair is a second
-        // declaration, reported here, on the line that makes it.
+        // the later block must declare the other one and carry a sample of its
+        // own. Until that sample, the block is read like any other - every
+        // line held to the same rules - but tentatively: anything else first
+        // makes this line a late line for the earlier family.
         const std::size_t earlier = taken->second.first;
         if (format_ != format::openmetrics_1_0 || taken->second.second != npos || !state_[earlier].type) return fail(declared_again(name));
-        switch (pair_ahead(name, out_.families[earlier].type, type, declared_type)) {
-          case verdict::not_a_pair:
-            return fail(declared_again(name));
-          case verdict::undecided:
-            // The body ends inside the block, which is what a cut there looks
-            // like: read as far as the block, no further.
-            stopped_ = true;
-            return true;
-          case verdict::pair:
-            break;
-        }
-        partner = earlier;
+        if (type && !pair_types(out_.families[earlier].type, declared_type)) return fail(declared_again(name));
+        repeated = true;
       }
       if (!room_for_family()) return false;
     } else {
@@ -493,9 +501,13 @@ class parser {
           return fail_block("'" + scratch_ + "' came before the '# TYPE' line of '" + std::string(name) + "'");
         }
       }
+      // The type of a repeated name's block decides whether it can pair.
+      if (at != npos && state_[at].tentative && !pair_types(out_.families[families_by_name_.find(name)->second.first].type, declared_type)) {
+        return refuse_block();
+      }
     }
 
-    if (at == npos) at = add_family(name, partner);
+    if (at == npos) at = add_family(name, repeated);
     family &target = out_.families[at];
     family_state &seen = state_[at];
     if (help) {
@@ -511,52 +523,8 @@ class parser {
     return true;
   }
 
-  // Reads ahead through the block a repeated OpenMetrics name opens, without
-  // taking anything from it, to the line that decides whether it is the second
-  // of a same-name pair: its `# HELP`, `# UNIT` and `# TYPE` lines must name it,
-  // its type must make exactly one of the two a counter, and its first sample
-  // must be one of the new family's own. Anything else - another family, a
-  // second `# TYPE`, `# EOF` - decides it is not. A body that ends first is
-  // undecided. The line being read opens the block, and is a `# TYPE` line
-  // when `typed`. Each block is read ahead once, so the whole parse stays one
-  // pass over the body.
-  verdict pair_ahead(const std::string_view name, const family_type earlier, bool typed, family_type declared) const {
-    if (typed && (earlier == family_type::counter) == (declared == family_type::counter)) return verdict::not_a_pair;
-    std::size_t start = next_line_;
-    while (start < body_.size()) {
-      const std::size_t end = body_.find('\n', start);
-      const bool terminated = end != std::string_view::npos;
-      const std::string_view text = normalise(body_.substr(start, (terminated ? end : body_.size()) - start));
-      start = terminated ? end + 1 : body_.size();
-      if (text.empty()) continue;
-      // An unterminated last line is a cut, unless it is the terminator.
-      if (!terminated && !is_eof_marker(text)) return verdict::undecided;
-      cursor c;
-      c.line = text;
-      if (text.front() == '#') {
-        if (is_eof_marker(text)) return verdict::not_a_pair;
-        c.at = 1;
-        c.skip_blanks();
-        const std::string_view keyword = c.token();
-        if (keyword != "HELP" && keyword != "TYPE" && keyword != "UNIT") continue;
-        c.skip_blanks();
-        if (metric_name(c) != name) return verdict::not_a_pair;
-        if (keyword != "TYPE") continue;
-        c.skip_blanks();
-        if (typed || !parse_type(c.token(), format_, declared)) return verdict::not_a_pair;
-        typed = true;
-        if ((earlier == family_type::counter) == (declared == family_type::counter)) return verdict::not_a_pair;
-        continue;
-      }
-      const std::string_view sampled = metric_name(c);
-      if (!typed || sampled.size() < name.size() || sampled.substr(0, name.size()) != name) return verdict::not_a_pair;
-      return owns_suffix(format_, declared, sampled.substr(name.size())) ? verdict::pair : verdict::not_a_pair;
-    }
-    return verdict::undecided;
-  }
-
   // The families that could own `name` as a sample, by every suffix the name
-  // could carry.
+  // could carry. A tentative block owns nothing yet.
   match find(const std::string_view name) const {
     match ret;
     for (const char *suffix : sample_suffixes) {
@@ -565,7 +533,7 @@ class parser {
       const name_index::const_iterator it = families_by_name_.find(name.substr(0, name.size() - tail.size()));
       if (it == families_by_name_.end()) continue;
       for (const std::size_t at : {it->second.first, it->second.second}) {
-        if (at != npos && owns(at, name)) {
+        if (at != npos && !state_[at].tentative && owns(at, name)) {
           ret.owner = at;
           return ret;
         }
@@ -582,32 +550,36 @@ class parser {
     return true;
   }
 
-  std::size_t add_family(const std::string_view name, const std::size_t partner) {
+  // The family being read gives way to another. Its samples list stops
+  // growing here, so it is trimmed to what it holds: a list grown by doubling
+  // would otherwise keep up to twice the memory its samples need.
+  void switch_to(const std::size_t at) {
+    if (current_ != npos && current_ != at) out_.families[current_].samples.shrink_to_fit();
+    current_ = at;
+    current_block_failed_ = false;
+  }
+
+  std::size_t add_family(const std::string_view name, const bool repeated) {
     family added;
     added.name = std::string(name);
     out_.families.push_back(std::move(added));
     family_state seen;
-    seen.partner = partner;
+    seen.tentative = repeated;
+    seen.opened_on = line_number_;
     state_.push_back(seen);
     const std::size_t at = out_.families.size() - 1;
     name_entry &entry = families_by_name_[out_.families[at].name];
-    if (partner == npos) {
-      entry.first = at;
-    } else {
-      entry.second = at;
-      state_[partner].partner = at;
-    }
-    current_ = at;
-    current_block_failed_ = false;
+    (repeated ? entry.second : entry.first) = at;
+    switch_to(at);
     return at;
   }
 
-  // The family being read is always the last one: families are contiguous.
+  // Only ever the last family: one without samples, which nothing switches
+  // back to.
   void drop_current() {
     const name_index::iterator it = families_by_name_.find(out_.families[current_].name);
     if (it->second.second == current_) {
       it->second.second = npos;
-      state_[it->second.first].partner = npos;
     } else {
       families_by_name_.erase(it);
     }
@@ -622,16 +594,37 @@ class parser {
     return owns_suffix(format_, target.type, name.substr(target.name.size()));
   }
 
-  // The family a sample of this name belongs to. Both formats keep a family's
-  // samples together, so it is the family being read, or a new one - of
-  // unknown type, named after the sample, which is what a sample without any
-  // metadata is in both. A sample some earlier family owns arrived after that
-  // family closed; a bare `h` inside the histogram `h` is not one of its
-  // samples. Either way the name would no longer say which family is meant.
+  // The family a sample of this name belongs to: the family being read, or a
+  // new one - of unknown type, named after the sample, which is what a sample
+  // without any metadata is in both formats. A bare `h` inside the histogram
+  // `h` is not one of its samples, and a second family `h` would make the
+  // name ambiguous.
+  //
+  // A sample some earlier family owns arrived after that family gave way to
+  // another. OpenMetrics forbids that outright, and it is where a same-name
+  // pair would make the sample ambiguous, so it is an error there. The
+  // Prometheus text format asks for the same grouping but has no pairs, and
+  // its reference parser regroups such a sample into its family, as some
+  // exporters rely on; so does this one.
   std::size_t family_for(const std::string_view name) {
-    if (current_ != npos && owns(current_, name)) return claim_created(current_, name) ? current_ : npos;
+    if (current_ != npos && state_[current_].tentative) {
+      // The first sample after a repeated name decides: one of the block's
+      // own makes it the second family of a pair, anything else makes the
+      // name's line a late line for the earlier family.
+      if (!state_[current_].type || !owns(current_, name)) {
+        refuse_block();
+        return npos;
+      }
+      state_[current_].tentative = false;
+      return current_;
+    }
+    if (current_ != npos && owns(current_, name)) return current_;
     const match m = find(name);
     if (m.owner != npos) {
+      if (format_ == format::prometheus_text_0_0_4) {
+        switch_to(m.owner);
+        return m.owner;
+      }
       fail("'" + std::string(name) + "' comes after another family, apart from the rest of the family '" + out_.families[m.owner].name + "'");
       return npos;
     }
@@ -640,22 +633,7 @@ class parser {
       return npos;
     }
     if (!room_for_family()) return npos;
-    return add_family(name, npos);
-  }
-
-  // The one sample name both families of a same-name pair own is `X_created`
-  // (a counter, and a histogram or summary): whichever takes it first has it.
-  // Recorded for every family, since the first of a pair takes its samples
-  // before it knows it has a partner.
-  bool claim_created(const std::size_t at, const std::string_view name) {
-    family_state &seen = state_[at];
-    if (name.size() != out_.families[at].name.size() + 8 || !ends_with(name, "_created")) return true;
-    if (seen.partner != npos && state_[seen.partner].took_created) {
-      return fail("'" + std::string(name) + "' is already a sample of the " + type_name(out_.families[seen.partner].type) + " family '" +
-                  out_.families[at].name + "'");
-    }
-    seen.took_created = true;
-    return true;
+    return add_family(name, false);
   }
 
   static std::string_view metric_name(cursor &c) {
@@ -807,13 +785,9 @@ class parser {
   }
 
   result &out_;
-  // The whole body, for reading ahead.
-  const std::string_view body_;
   const format format_;
   const limits &bounds_;
   std::size_t line_number_ = 0;
-  std::size_t next_line_ = 0;
-  bool stopped_ = false;
   // Family name -> the families declared or sampled under it. An ordered map
   // rather than a hash table: its worst case does not depend on names an
   // exporter chooses, and it looks a `string_view` up without copying it. It
@@ -872,7 +846,7 @@ void read_lines(const std::string_view text, const format body_format, const lim
   std::size_t number = 0;
   while (start < text.size()) {
     const std::size_t end = text.find('\n', start);
-    reader.begin_line(++number, end == std::string_view::npos ? text.size() : end + 1);
+    reader.begin_line(++number);
     const bool terminated = end != std::string_view::npos;
     const std::size_t length = (terminated ? end : text.size()) - start;
     if (bounds.max_line_bytes != 0 && length > bounds.max_line_bytes) {
@@ -896,7 +870,7 @@ void read_lines(const std::string_view text, const format body_format, const lim
         return;
       }
     }
-    if (!reader.line(line) || reader.stopped()) return;
+    if (!reader.line(line)) return;
     if (!terminated) return;
     start = end + 1;
   }
@@ -906,7 +880,7 @@ void read_lines(const std::string_view text, const format body_format, const lim
 
 result parse(const std::string &body, const format body_format, const limits &bounds) {
   result out;
-  parser reader(out, body, body_format, bounds);
+  parser reader(out, body_format, bounds);
   read_lines(body, body_format, bounds, reader, out);
   reader.finish();
   return out;
