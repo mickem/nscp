@@ -152,7 +152,12 @@ struct script_manager {
   typedef std::map<std::string, command_definition<script_trait> > command_list_type;
   script_list_type scripts_;
   command_list_type commands;
-  // Guards the two maps above and the dispatch bookkeeping below. Held only
+  // Scripts an unload_all() took out while another thread was still running
+  // one of them (see there): not reachable any more, not yet safe to free.
+  // The next unload_all() that finds nothing running frees them, as does the
+  // destructor.
+  script_list_type parked_;
+  // Guards the maps above and the dispatch bookkeeping below. Held only
   // for the lookups and mutations themselves, never across a running script.
   mutable boost::mutex mutex_;
   // The threads currently running a script, as a count rather than a reader
@@ -295,14 +300,21 @@ struct script_manager {
         }
       }
       commands.clear();
-      doomed.swap(scripts_);
       unloading_ = false;
-      // Another thread is still inside a script - a check that runs long, or
-      // load_all()/start_all() on a slow script - and freeing the scripts
-      // would pull them out from under it. Leak them instead: they are out of
-      // the maps, so nothing new can reach them, and a leaked interpreter
-      // state costs memory where a freed one costs the agent.
-      if (still_running) return;
+      if (still_running) {
+        // Another thread is still inside a script - a check that runs long,
+        // or load_all()/start_all() on a slow script - and freeing the
+        // scripts would pull them out from under it. Park them instead: they
+        // are out of scripts_, so nothing new reaches them (register_command
+        // ignores them too), and they are freed by the next unload_all() that
+        // finds nothing running.
+        parked_.insert(scripts_.begin(), scripts_.end());
+        scripts_.clear();
+        return;
+      }
+      doomed.swap(scripts_);
+      doomed.insert(parked_.begin(), parked_.end());
+      parked_.clear();
     }
     // Outside the lock: unload() runs script code, which can call back in.
     for (typename script_list_type::value_type &entry : doomed) {
@@ -316,6 +328,13 @@ struct script_manager {
                         typename script_trait::function_type function) {
     {
       boost::lock_guard<boost::mutex> lock(mutex_);
+      // A script that is no longer in scripts_ was unloaded (or parked) while
+      // still being loaded or started on another thread. Registering for it
+      // would refill the command map unload_all() just cleared, pointing at a
+      // script about to be freed, and register the command with the core
+      // after the unload.
+      const typename script_list_type::const_iterator current = scripts_.find(information->script_id);
+      if (current == scripts_.end() || current->second != information) return;
       command_definition<script_trait> cmd(information);
       cmd.function = function;
       cmd.command = command;
