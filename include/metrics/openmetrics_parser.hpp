@@ -30,19 +30,30 @@
 //     unrelated families, which client_golang serves by default
 //     (`go_memstats_alloc_bytes` beside `go_memstats_alloc_bytes_total`).
 //
-// Family names are kept as the body declares them in both; nothing is renamed.
+// Family names are kept as the body declares them, with one exception:
+// client_golang writes a counter `X_total` in OpenMetrics as the family `X`, so
+// a Go exporter serves a gauge `X` and a counter `X` side by side. The two own
+// different sample names, so both are kept, and the counter (or info family)
+// is named after its sample (`X_total`, `X_info`) - the name the Prometheus
+// text format gives it - so that every family name stays unique.
+//
 // The samples of a histogram or a summary (`_bucket`, `_sum`, `_count`,
 // `quantile`) belong to their family rather than starting families of their
 // own. `# UNIT` is read in both formats: the Prometheus text format predates it,
 // but the agent's own exposition carries it there too.
 //
 // The body comes off the network. Parsing is one pass, linear in the size of
-// the body: it never recurses or backtracks, and it stops at the first line it
+// the body: it never recurses or backtracks, keeps no hash table whose worst
+// case an exporter could choose names to reach, and stops at the first line it
 // cannot read, reporting which line and why rather than guessing at what was
 // meant. Families read before that line are kept, so a caller can choose
-// between discarding the scrape and using what arrived. What the result may
-// hold is bounded by `limits`; with every limit at 0 the only bound is the size
-// of the body, so a caller reading from the network sets them.
+// between discarding the scrape and using what arrived.
+//
+// What the result holds is the text of the body, copied once, plus a fixed
+// overhead per family, per sample and per label - so memory is bounded by the
+// body size together with `limits`. With every limit at 0 the overhead is
+// bounded only by how many of each the body can spell, which for labels is
+// about ten times the body size; a caller reading from the network sets them.
 //
 // Exemplars are skipped. What a sample means is not checked - that a
 // histogram's buckets are cumulative, that `le` is present - only whether the
@@ -88,7 +99,8 @@ struct sample {
 struct family {
   // The family name as declared: in OpenMetrics without the sample suffix
   // (`foo` for the counter sampled as `foo_total`), in the Prometheus text
-  // format the name its samples carry (`foo_total`).
+  // format the name its samples carry (`foo_total`). Unique within a result;
+  // see above for the one OpenMetrics family named after its sample instead.
   std::string name;
   family_type type = family_type::unknown;
   // `# HELP`, unescaped.
@@ -105,6 +117,12 @@ struct limits {
   // The most families one body may declare or sample, which is what bounds a
   // body of nothing but metadata lines. 0 means no limit.
   std::size_t max_families = 0;
+  // The most labels one sample may carry. 0 means no limit.
+  std::size_t max_labels_per_sample = 0;
+  // The most labels the whole body may carry, across every sample. Each one
+  // costs a fixed overhead beyond its text, so this is what bounds a body of
+  // short, label-heavy lines. 0 means no limit.
+  std::size_t max_labels = 0;
   // The longest line, in bytes, the parser will read. A line over it is
   // reported without being read. 0 means no limit.
   std::size_t max_line_bytes = 0;

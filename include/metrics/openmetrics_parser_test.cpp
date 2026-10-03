@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <clocale>
 #include <cmath>
 #include <initializer_list>
@@ -159,6 +160,110 @@ TEST(OpenmetricsParser, PrometheusTextGaugeAndTotalCounterAreTwoFamilies) {
     EXPECT_EQ(family_named(parsed, "go_memstats_alloc_bytes_total").type, om::family_type::counter);
     EXPECT_DOUBLE_EQ(family_named(parsed, "node_load1").samples.at(0).value, 0.5);
   }
+}
+
+// What client_golang serves when OpenMetrics is negotiated: it writes a counter
+// `X_total` as the family `X`, next to the gauge `X` every Go exporter has.
+const char *const client_golang_openmetrics =
+    "# HELP go_memstats_alloc_bytes Number of bytes allocated in heap and currently in use.\n"
+    "# TYPE go_memstats_alloc_bytes gauge\n"
+    "go_memstats_alloc_bytes 1.913168e+06\n"
+    "# HELP go_memstats_alloc_bytes Total number of bytes allocated in heap until now, even if released already.\n"
+    "# TYPE go_memstats_alloc_bytes counter\n"
+    "go_memstats_alloc_bytes_total 1.913168e+06\n"
+    "go_memstats_alloc_bytes_created 1.7e+09\n"
+    "# HELP go_threads Number of OS threads created.\n"
+    "# TYPE go_threads gauge\n"
+    "go_threads 7\n"
+    "# HELP process_cpu_seconds Total user and system CPU time spent in seconds.\n"
+    "# TYPE process_cpu_seconds counter\n"
+    "# UNIT process_cpu_seconds seconds\n"
+    "process_cpu_seconds_total 0.04\n"
+    "# EOF\n";
+
+TEST(OpenmetricsParser, ClientGolangOpenMetricsGaugeAndCounterOfOneNameAreBothKept) {
+  const om::result parsed = om::parse(client_golang_openmetrics, openmetrics);
+  ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
+  EXPECT_TRUE(parsed.saw_eof);
+  ASSERT_EQ(parsed.families.size(), 4u);
+  const om::family &gauge = family_named(parsed, "go_memstats_alloc_bytes");
+  EXPECT_EQ(gauge.type, om::family_type::gauge);
+  EXPECT_EQ(gauge.help, "Number of bytes allocated in heap and currently in use.");
+  ASSERT_EQ(gauge.samples.size(), 1u);
+  // The counter keeps its own help, and is named after its sample - the name
+  // the Prometheus text format gives it - so both families keep a name.
+  const om::family &counter = family_named(parsed, "go_memstats_alloc_bytes_total");
+  EXPECT_EQ(counter.type, om::family_type::counter);
+  EXPECT_EQ(counter.help, "Total number of bytes allocated in heap until now, even if released already.");
+  ASSERT_EQ(counter.samples.size(), 2u);
+  EXPECT_EQ(counter.samples.at(0).name, "go_memstats_alloc_bytes_total");
+  EXPECT_EQ(counter.samples.at(1).name, "go_memstats_alloc_bytes_created");
+  // Everything after the pair is still read.
+  EXPECT_DOUBLE_EQ(family_named(parsed, "go_threads").samples.at(0).value, 7);
+  EXPECT_EQ(family_named(parsed, "process_cpu_seconds").unit, "seconds");
+}
+
+TEST(OpenmetricsParser, OpenMetricsSameNamePairInEitherOrder) {
+  // The counter first: it is renamed when the gauge arrives, and samples of
+  // both still find their family.
+  const om::result parsed = om::parse(
+      "# TYPE x counter\n"
+      "x_total 5\n"
+      "# TYPE x gauge\n"
+      "x 1\n"
+      "x_total{again=\"yes\"} 6\n"
+      "# EOF\n",
+      openmetrics);
+  ASSERT_TRUE(parsed.ok()) << parsed.error;
+  ASSERT_EQ(parsed.families.size(), 2u);
+  EXPECT_EQ(parsed.families.at(0).name, "x_total");
+  EXPECT_EQ(parsed.families.at(0).type, om::family_type::counter);
+  EXPECT_EQ(parsed.families.at(0).samples.size(), 2u);
+  EXPECT_EQ(parsed.families.at(1).name, "x");
+  EXPECT_EQ(parsed.families.at(1).samples.size(), 1u);
+}
+
+TEST(OpenmetricsParser, OpenMetricsSameNameInfoBesideAGauge) {
+  const om::result parsed = om::parse("# TYPE build gauge\nbuild 1\n# TYPE build info\nbuild_info{v=\"1\"} 1\n# EOF\n", openmetrics);
+  ASSERT_TRUE(parsed.ok()) << parsed.error;
+  EXPECT_EQ(family_named(parsed, "build").type, om::family_type::gauge);
+  EXPECT_EQ(family_named(parsed, "build_info").type, om::family_type::info);
+}
+
+TEST(OpenmetricsParser, SameNamePairThatCannotStandSideBySideIsRefused) {
+  struct refused {
+    const char *body;
+    std::size_t line;
+    const char *fragment;
+  };
+  const refused cases[] = {
+      // Two gauges own the same sample name.
+      {"# TYPE x gauge\nx 1\n# TYPE x gauge\nx 2\n", 3, "already declared or sampled"},
+      // Neither is a counter or info family, so neither has a name of its own.
+      {"# TYPE x gauge\nx 1\n# TYPE x histogram\nx_bucket{le=\"+Inf\"} 1\n", 3, "already declared or sampled"},
+      // The counter's sample name is already a family.
+      {"# TYPE x_total gauge\nx_total 1\n# TYPE x gauge\nx 1\n# TYPE x counter\n", 5, "'x_total' came before the '# TYPE' line of 'x'"},
+      // A third family under the name.
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\nx_total 1\n# TYPE x info\n", 5, "already declared or sampled"},
+      // A same-name family that never says what it is: a sample, another
+      // family, or the end of the body comes first.
+      {"# TYPE x gauge\nx 1\n# HELP x again\nx 2\n", 3, "already declared or sampled"},
+      {"# TYPE x gauge\nx 1\n# HELP x again\n# TYPE y gauge\n", 3, "already declared or sampled"},
+      {"# TYPE x gauge\nx 1\n# HELP x again\n", 3, "already declared or sampled"},
+  };
+  for (const refused &c : cases) {
+    const om::result parsed = om::parse(c.body, openmetrics);
+    EXPECT_FALSE(parsed.ok()) << c.body;
+    EXPECT_EQ(parsed.error_line, c.line) << c.body << " -> " << parsed.error;
+    EXPECT_NE(parsed.error.find(c.fragment), std::string::npos) << c.body << " -> " << parsed.error;
+    // The family that was waiting is not left in the result.
+    for (const om::family &f : parsed.families) EXPECT_FALSE(f.name.empty()) << c.body;
+  }
+  // The Prometheus text format names every family after its sample, so it
+  // never writes a pair.
+  const om::result text_pair = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\nx 2\n", text);
+  EXPECT_FALSE(text_pair.ok());
+  EXPECT_EQ(text_pair.error_line, 3u);
 }
 
 TEST(OpenmetricsParser, PrometheusTextCounterWithoutTotal) {
@@ -628,7 +733,12 @@ INSTANTIATE_TEST_SUITE_P(Truncation, OpenmetricsParserMalformed,
                                            malformed{"MidMetadata", "foo 1\n# HE", 2, "middle of a line"},
                                            malformed{"MidEof", "foo 1\n# EO", 2, "middle of a line"},
                                            malformed{"MidComment", "foo 1\n# just a comment", 2, "middle of a line"},
-                                           malformed{"SingleLineNoFeed", "foo 1", 1, "middle of a line"}),
+                                           malformed{"SingleLineNoFeed", "foo 1", 1, "middle of a line"},
+                                           // A text body has no terminator: a last `# EOF` is a comment that may
+                                           // have been longer.
+                                           malformed{"TextCutAtEof", "foo 1\n# EOF", 2, "middle of a line", in::text_only},
+                                           malformed{"TextCutAtBlanks", "foo 1\n   ", 2, "middle of a line", in::text_only},
+                                           malformed{"OpenMetricsBlanksBeforeEof", "foo 1\n   ", 2, "middle of a line", in::openmetrics_only}),
                          case_name);
 
 TEST(OpenmetricsParser, ErrorKeepsTheFamiliesReadBeforeIt) {
@@ -731,6 +841,47 @@ TEST(OpenmetricsParser, LineOfAHundredThousandLabelsIsReadLinearly) {
   const om::result read = om::parse(accepted, text);
   ASSERT_TRUE(read.ok()) << read.error;
   EXPECT_EQ(only_family(read).samples.at(0).labels.size(), 100000u);
+}
+
+TEST(OpenmetricsParser, WideLineDoesNotSlowTheLinesAfterIt) {
+  // Nothing sized by one sample may outlive it: a structure that grew for a
+  // 100k-label line and is then cleared per sample makes every later sample
+  // pay for the wide one. Compared against the same short lines alone, with a
+  // margin wide enough for a loaded CI machine - the regression this guards
+  // against was a hundredfold.
+  std::string wide = "wide{";
+  for (int i = 0; i < 100000; ++i) wide += "l" + std::to_string(i) + "=\"v\",";
+  wide += "} 1\n";
+  std::string narrow;
+  for (int i = 0; i < 200000; ++i) narrow += "a{x=\"" + std::to_string(i % 7) + "\",y=\"1\"} 1\n";
+  const auto seconds = [](const std::string &body) {
+    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    const om::result parsed = om::parse(body, text);
+    EXPECT_TRUE(parsed.ok()) << parsed.error;
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  };
+  const double alone = seconds(narrow) + seconds(wide);
+  const double after = seconds(wide + narrow);
+  EXPECT_LT(after, 4 * alone + 0.25) << "wide line alone and short lines alone: " << alone << "s, together: " << after << "s";
+}
+
+TEST(OpenmetricsParser, LabelsCountAgainstTheirLimits) {
+  om::limits per_sample;
+  per_sample.max_labels_per_sample = 3;
+  const om::result wide = om::parse("ok{a=\"1\",b=\"2\",c=\"3\"} 1\nwide{a=\"1\",b=\"2\",c=\"3\",d=\"4\"} 1\n", text, per_sample);
+  EXPECT_FALSE(wide.ok());
+  EXPECT_EQ(wide.error_line, 2u);
+  EXPECT_NE(wide.error.find("more than 3 labels on 'wide'"), std::string::npos) << wide.error;
+
+  // The total is what bounds a body of short label-heavy lines, each within
+  // the per-sample limit.
+  om::limits total;
+  total.max_labels = 5;
+  const om::result many = om::parse("a{x=\"1\",y=\"2\"} 1\na{x=\"2\",y=\"2\"} 1\na{x=\"3\",y=\"2\"} 1\n", text, total);
+  EXPECT_FALSE(many.ok());
+  EXPECT_EQ(many.error_line, 3u);
+  EXPECT_NE(many.error.find("more than 5 labels"), std::string::npos) << many.error;
+  EXPECT_EQ(many.sample_count, 2u);
 }
 
 namespace {

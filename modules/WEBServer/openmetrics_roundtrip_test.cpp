@@ -308,11 +308,13 @@ TEST(OpenmetricsRoundTrip, EveryTruncationOfOurOwnBodyIsRefusedOrEndsOnALine) {
     ASSERT_TRUE(full.ok()) << full.error;
     for (std::size_t length = 0; length < body.size(); ++length) {
       const om::result parsed = om::parse(body.substr(0, length), format);
-      // `# EOF` without its line feed is the one unterminated line accepted.
-      const bool bare_eof = length == body.size() - 1;
+      // An OpenMetrics `# EOF` without its line feed is the one unterminated
+      // line accepted; in the Prometheus text format it is a comment that
+      // could have been cut from a longer one.
+      const bool bare_eof = length == body.size() - 1 && format == om::format::openmetrics_1_0;
       const bool on_a_line = length == 0 || body[length - 1] == '\n' || bare_eof;
       EXPECT_EQ(parsed.ok(), on_a_line) << "cut at " << length << ": " << parsed.error;
-      EXPECT_EQ(parsed.saw_eof, bare_eof && format == om::format::openmetrics_1_0) << "cut at " << length;
+      EXPECT_EQ(parsed.saw_eof, bare_eof) << "cut at " << length;
       EXPECT_LE(parsed.sample_count, full.sample_count);
     }
   }
