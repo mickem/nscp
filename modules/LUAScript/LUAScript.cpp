@@ -43,7 +43,7 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     }
     const std::shared_ptr<scripts::script_manager<lua::lua_traits> > previous =
         std::atomic_exchange(&scripts_, std::shared_ptr<scripts::script_manager<lua::lua_traits> >());
-    if (previous) previous->unload_all();
+    if (previous) previous->unload_all(true);
     root_ = get_core()->expand_path("${scripts}");
     nscp_runtime_ = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
     // The lua runtime builds package.path for require() from this folder's
@@ -76,7 +76,14 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // 			addAllScriptsFrom(scriptDirectory_);
     // 		}
 
-    std::atomic_load(&scripts_)->load_all();
+    // A script that fails to load is reported and the others load anyway; the
+    // first failure used to abort the walk and fail the whole module, taking
+    // every other script down with one that did not parse.
+    std::atomic_load(&scripts_)->load_all([](const std::string &, const std::string &error) { NSC_LOG_ERROR_STD(error); });
+    // The core starts a module once, so a reload never reaches startModule:
+    // the generation built above has to be started here, or no on_start runs
+    // again for as long as the agent lives.
+    if (started_) start_scripts();
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("load", e);
     return false;
@@ -90,7 +97,8 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 bool LUAScript::startModule() {
   try {
-    std::atomic_load(&scripts_)->start_all();
+    start_scripts();
+    started_ = true;
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("start", e);
     return false;
@@ -101,6 +109,12 @@ bool LUAScript::startModule() {
 
   return true;
 }
+void LUAScript::start_scripts() {
+  // One on_start that raises is reported; the other scripts start anyway.
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
+  if (scripts) scripts->start_all([](const std::string &, const std::string &error) { NSC_LOG_ERROR_STD(error); });
+}
+
 bool LUAScript::loadScript(std::string alias, std::string file) {
   try {
     if (file.empty()) {
@@ -172,7 +186,7 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
     command = "help";
   try {
     if (command == "help") {
-      nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [add|execute|list|install|delete] --help");
+      nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp lua [add|execute|list|show|install|delete] --help");
       return true;
     } else if (command == "execute" || command == "lua-script" || command == "lua-run") {
       execute_script(request, response);
@@ -195,11 +209,29 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
     }
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
+    return true;
   } catch (...) {
     nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
+    return true;
   }
 
-  return false;
+  return exec_script_command(request, response, request_message);
+}
+
+bool LUAScript::exec_script_command(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
+                                    const PB::Commands::ExecuteRequestMessage &request_message) {
+  // The handlers scripts register with Registry:simple_cmdline. They were
+  // registered, but nothing here ever looked them up, so `nscp client --exec`
+  // and Core:simple_exec could not reach a single one. Held the same way as a
+  // query: an unload on another thread must not delete the script under us.
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
+  if (!scripts) return false;
+  const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
+  if (!dispatch.entered()) return false;
+  boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::simple_exec_tag, request.command());
+  if (!cmd) return false;
+  lua_runtime_->on_exec(request.command(), cmd.value().information, cmd.value().function, true, request, response, request_message);
+  return true;
 }
 
 void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
