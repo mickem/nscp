@@ -16,11 +16,10 @@
 #include <nsclient/nsclient_exception.hpp>
 #include <rrd_buffer.hpp>
 #include <sampling_state.hpp>
+#include <set>
 #include <string>
 #include <threads/stop_signal.hpp>
 #include <vector>
-
-#include <set>
 
 #include "check_network.h"
 #include "check_process_history.h"

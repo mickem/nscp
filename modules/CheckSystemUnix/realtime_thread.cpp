@@ -6,9 +6,10 @@
 #include <poll.h>
 
 #include <algorithm>
+#include <atomic>
 #include <boost/algorithm/string.hpp>
-#include <boost/optional.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/optional.hpp>
 #include <cerrno>
 #include <chrono>
 #include <fstream>
@@ -19,6 +20,7 @@
 #include <stdexcept>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
+#include <thread>
 #include <threads/guarded_thread.hpp>
 
 #include "realtime_data.hpp"
@@ -26,6 +28,38 @@
 typedef parsers::where::realtime_filter_helper<checks::check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 typedef parsers::where::realtime_filter_helper<check_memory::check_mem_filter::runtime_data, filters::mem::filter_config_object> mem_filter_helper;
 typedef parsers::where::realtime_filter_helper<check_proc::check_proc_filter::runtime_data, filters::proc::filter_config_object> proc_filter_helper;
+
+namespace {
+// Wait out the second between samples on the stop signal, so stop() ends the
+// wait at once. Returns true when the collector should stop.
+//
+// Measured against steady_clock and polled for what is left of it: poll()'s
+// timeout is relative, so a step of the wall clock does not stretch the wait
+// (a condition variable's timed wait can, on libc++), and a signal that
+// interrupts poll() (EINTR) resumes the wait rather than taking the next
+// sample early, which would skew the per-second averages. Should poll()
+// itself fail, the rest of the second is slept out instead: the collector
+// keeps sampling - only a stop takes longer to notice - rather than ending
+// and leaving check_cpu and check_memory answering from a frozen buffer.
+bool wait_for_next_sample(const threads::stop_signal &stop_signal, const std::atomic<bool> &stop_requested) {
+  const std::chrono::steady_clock::time_point due = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+  while (!stop_requested) {
+    const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(due - std::chrono::steady_clock::now());
+    if (left.count() <= 0) return false;
+    struct pollfd stop_fd = {stop_signal.wait_fd(), POLLIN, 0};
+    const int ready = ::poll(&stop_fd, 1, static_cast<int>(left.count()));
+    if (ready > 0) return true;
+    if (ready == 0 || errno == EINTR) continue;
+    static std::atomic<bool> reported{false};
+    if (!reported.exchange(true)) {
+      NSC_LOG_ERROR("Failed to wait on the collector's stop signal, sleeping between samples instead: " + error::lookup::last_error(errno));
+    }
+    std::this_thread::sleep_for(left);
+    return stop_requested;
+  }
+  return true;
+}
+}  // namespace
 
 /**
  * Thread that collects the data every second and evaluates real-time filters.
@@ -96,17 +130,7 @@ void pdh_thread::thread_proc() {
   }
 
   while (!stop_requested_) {
-    // Wait out the second between samples on the stop signal, so stop() ends
-    // the wait at once. poll()'s timeout is relative, so a step of the wall
-    // clock does not stretch it (a condition variable's timed wait can, on
-    // libc++).
-    struct pollfd stop_fd = {stop_signal_.wait_fd(), POLLIN, 0};
-    const int ready = ::poll(&stop_fd, 1, 1000);
-    if (ready > 0 || stop_requested_) break;
-    if (ready < 0 && errno != EINTR) {
-      NSC_LOG_ERROR("Failed to wait for the next sample, the collector stops: " + error::lookup::last_error(errno));
-      break;
-    }
+    if (wait_for_next_sample(stop_signal_, stop_requested_)) break;
 
     // Each source is read and recorded on its own, so one unreadable file
     // (an empty or unreadable /proc/stat in a locked-down container) does

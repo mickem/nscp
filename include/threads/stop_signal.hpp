@@ -10,6 +10,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
+#include <fcntl.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -73,7 +74,24 @@ class stop_signal {
       return false;
     }
 #else
-    if (::pipe(fds_) == -1) {
+    // Close-on-exec from the moment the pipe exists, so a child the agent
+    // spawns (exec_command, an external script) inherits neither end: one
+    // that wrote to it would stop the worker for good. pipe2() sets the flag
+    // atomically where it exists; elsewhere (macOS) fcntl() closes the window
+    // as far as it can be closed, as execute_process_unix.cpp does.
+#if defined(__linux__) && defined(O_CLOEXEC)
+    int piped = ::pipe2(fds_, O_CLOEXEC);
+#else
+    int piped = ::pipe(fds_);
+    if (piped == 0 && (::fcntl(fds_[0], F_SETFD, FD_CLOEXEC) != 0 || ::fcntl(fds_[1], F_SETFD, FD_CLOEXEC) != 0)) {
+      const int saved_errno = errno;
+      ::close(fds_[0]);
+      ::close(fds_[1]);
+      errno = saved_errno;
+      piped = -1;
+    }
+#endif
+    if (piped == -1) {
       const int saved_errno = errno;
       // POSIX leaves the array unspecified on failure; put it back to a state
       // valid() and close() recognise as "nothing here".
