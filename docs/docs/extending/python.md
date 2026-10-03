@@ -36,9 +36,10 @@ The key is the script's alias, and `add` uses the file name unless you pass `--a
 | `nscp py install --add <file>` / `--remove <file>`    | Add or remove a configured script                                            |
 | `nscp py execute --script <file> [args...]`           | Run a script's `__main__` (see below)                                        |
 
-`show` and `delete` only reach files under `${scripts}/python`; a name that resolves anywhere else is
-refused, and so is a symlink (or a symlinked folder) that leads out of it. Deleting a symlink removes
-the link, not its target. A deleted script stays loaded until the module reloads. The same operations are available
+`show` and `delete` only reach `${scripts}/python`; a name that resolves anywhere else is refused, and
+so is a path through a symlinked folder that leads out of it. `show` reads a symlink only when its
+target is inside the folder too. `delete` removes the entry in the folder - a file, or a symlink
+itself, whatever it points at, dangling or not - and never what a link points to. A deleted script stays loaded until the module reloads. The same operations are available
 over REST under [`/api/v2/scripts/py`](../api/rest/scripts.md).
 
 ## Lifecycle functions
@@ -441,8 +442,8 @@ Subscribe to a channel with a simple per-payload callback.
 
 Callback signature: `(channel, source, command, status, message, perf) -> bool`. Return `True` (or
 nothing) to accept the submission; `False` fails it, and the submitter sees the error. `source` is the
-system the result is about, as the submitter named it (for example `check_and_forward`'s
-`source=`), and is empty when it named none.
+system the result is about: the result's own source when its producer set one, otherwise the source
+the submission names (for example `check_and_forward`'s `source=`). It is empty when neither does.
 
 **Example — suppress repeated NSCA submissions:**
 
@@ -720,8 +721,17 @@ def init(plugin_id, plugin_alias, script_alias):
 ```
 
 Execute a command-line command (one a script registered via `Registry.cmdline` /
-`Registry.simple_cmdline`, or one a module provides). `target` is the module to run it in, by name
-(`"PythonScript"`, `"CheckSystem"`), or `""` for every module that has the command. `results` is a
+`Registry.simple_cmdline`, or one a module provides). `target` picks the module to run it in:
+
+| `target`                       | Runs the command in                                                    |
+|--------------------------------|------------------------------------------------------------------------|
+| a module name or alias         | that module (`"PythonScript"`, `"CheckSystem"`)                         |
+| `"any"`                        | the first module that has the command                                  |
+| `"all"` or `"*"`               | every module that has the command                                      |
+
+The name is matched as a substring of each module's name, so `"Python"` also reaches
+`PythonScript`. Avoid `""`: it matches every module as though each had been named, and a module asked
+by name for a command it does not have may answer with an error rather than staying silent. `results` is a
 list of strings, one per module that answered.
 
 When nothing could run it - no such module, or no such command in it - `return_code` is
@@ -814,11 +824,12 @@ def init(plugin_id, plugin_alias, script_alias):
 #### `Core.unload_module`
 
 ```python
-Core.unload_module(module_or_alias)
+Core.unload_module(module)
 ```
 
-Unload a previously loaded module by name or alias. Returns `True` once it is unloaded, `False` if it
-was not loaded. A script cannot unload the module it runs in; that returns `False` and is logged.
+Unload a previously loaded module by its module name (`"CheckEventLog"`); an alias it was loaded under
+is not looked up. Returns `True` once it is unloaded, `False` if no module by that name is loaded. A
+script cannot unload the module it runs in; that returns `False` and is logged.
 
 ```python
 from NSCP import Core
