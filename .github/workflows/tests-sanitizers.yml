@@ -54,7 +54,19 @@ jobs:
           openssl libssl-dev libcrypto++-dev \
           liblua5.4-dev libdbus-1-dev \
           libzip-dev libtinyxml2-dev libmariadb-dev \
-          ccache zstd
+          ccache zstd locales
+
+    - name: Generate test locales
+      run: |
+        # The OpenMetrics parser reads numbers without the process locale; its
+        # tests prove it under one whose decimal point is a comma and one whose
+        # decimal point is two bytes. A stock image has neither, so they would
+        # skip here - NSCP_REQUIRE_TEST_LOCALES turns that skip into a failure,
+        # so this job always runs them.
+        echo "de_DE.UTF-8 UTF-8" >> /etc/locale.gen
+        echo "ps_AF UTF-8" >> /etc/locale.gen
+        locale-gen
+        echo "NSCP_REQUIRE_TEST_LOCALES=1" >> "$GITHUB_ENV"
 
     - uses: actions/checkout@v7
 

@@ -120,7 +120,7 @@ jobs:
         if [ "${{ matrix.dotnet }}" = "true" ]; then
           dotnet_packages="dotnet-sdk-8.0"
         fi
-        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd $dotnet_packages
+        retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd locales $dotnet_packages
 
     - uses: actions/checkout@v7
 
@@ -292,7 +292,14 @@ jobs:
       if: ${{ !inputs.extract-docs }}
       working-directory: tmp/nscp
       run: |
-        ctest --output-on-failure -C Release
+        # The OpenMetrics parser reads numbers without the process locale; its
+        # tests prove it under one whose decimal point is a comma and one whose
+        # decimal point is two bytes. A stock image has neither, so they would
+        # skip - NSCP_REQUIRE_TEST_LOCALES turns that skip into a failure, so
+        # every pull request runs them.
+        printf 'de_DE.UTF-8 UTF-8\nps_AF UTF-8\n' >> /etc/locale.gen
+        locale-gen
+        NSCP_REQUIRE_TEST_LOCALES=1 ctest --output-on-failure -C Release
 
     # The extractor is a Python script that runs inside nscp (PythonScript
     # introspects the loaded modules over protobuf), so it runs against the

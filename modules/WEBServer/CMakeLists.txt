@@ -149,6 +149,9 @@ NSCP_CREATE_TEST(
         metrics_handler_test.cpp
         openmetrics_renderer.cpp
         openmetrics_renderer_test.cpp
+        # The renderer's output read back through the scraper's parser.
+        openmetrics_roundtrip_test.cpp
+        ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser.cpp
         event_store.cpp
         event_store_test.cpp
         result_store.cpp
