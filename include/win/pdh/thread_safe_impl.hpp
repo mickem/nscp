@@ -10,17 +10,33 @@
 
 namespace PDH {
 class ThreadedSafePDH : public NativeExternalPDH {
-  // Serialises every call made through this object, reload() included, and
-  // guards subscribers_. Recursive because reload() holds it across the
-  // subscriber callbacks, which call straight back in, and because a
-  // PDHQuery holds it (lock()) across work that must not straddle a reload.
+  // Serialises every call made through any ThreadedSafePDH, reload()
+  // included, and guards subscribers_. Recursive because reload() holds it
+  // across the subscriber callbacks, which call straight back in, and
+  // because a PDHQuery holds it (lock()) across work that must not straddle
+  // a reload.
   //
-  // The proc table it orders access to is static and shared with every
-  // NativeExternalPDH, whose constructor and reload() write it without this
-  // lock: it covers the calls made through this object, nothing else.
-  boost::recursive_mutex mutex_;
+  // Shared by every instance, as the subscriber list is, because the proc
+  // table it orders access to is static: CheckSystem replaces the factory's
+  // instance on every module (re)load, and a query stays bound to the one it
+  // opened on. With a lock per instance, a reload through a newer one freed
+  // the table under its own lock only while older queries called through it
+  // under theirs, and never called those queries back. NativeExternalPDH's
+  // constructor and reload() still write the table without it.
+  //
+  // Allocated once and never freed: a query destroyed during static
+  // destruction can still reach them.
   typedef std::list<subscriber*> subscriber_list;
-  subscriber_list subscribers_;
+  static boost::recursive_mutex& shared_mutex() {
+    static boost::recursive_mutex* const mutex = new boost::recursive_mutex();
+    return *mutex;
+  }
+  static subscriber_list& shared_subscribers() {
+    static subscriber_list* const subscribers = new subscriber_list();
+    return *subscribers;
+  }
+  boost::recursive_mutex& mutex_ = shared_mutex();
+  subscriber_list& subscribers_ = shared_subscribers();
 
   pdh_error validate_path_locked(LPCWSTR szFullPathBuffer);
 

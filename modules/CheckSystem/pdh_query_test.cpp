@@ -3,9 +3,12 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
 #include <list>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/pdh/pdh_interface.hpp>
@@ -684,4 +687,31 @@ TEST(ThreadedSafePdh, ReloadCallsEverySubscriberBackAndReportsEveryFailure) {
   EXPECT_EQ(d.unloads, 1);
   EXPECT_EQ(d.reloads, 1);
   pdh.remove_listener(&d);
+}
+
+TEST(ThreadedSafePdh, InstancesShareTheLockAndTheSubscribers) {
+  // CheckSystem replaces the factory's instance on every module load, and a
+  // query stays bound to the one it opened on, while the proc table is
+  // static. A reload through the newer instance has to exclude, and call
+  // back, the queries on the older one.
+  PDH::ThreadedSafePDH older, newer;
+  recording_subscriber query("query");
+  older.add_listener(&query);
+  EXPECT_NO_THROW(newer.reload());
+  EXPECT_EQ(query.unloads, 1);
+  EXPECT_EQ(query.reloads, 1);
+  older.remove_listener(&query);
+
+  older.lock();
+  std::atomic<bool> acquired{false};
+  std::thread other([&] {
+    newer.lock();
+    acquired = true;
+    newer.unlock();
+  });
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  EXPECT_FALSE(acquired) << "the newer instance's lock did not exclude a holder of the older one's";
+  older.unlock();
+  other.join();
+  EXPECT_TRUE(acquired);
 }
