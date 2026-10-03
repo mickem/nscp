@@ -92,7 +92,13 @@ WEBServer::WEBServer()
       events_(new event_store()),
       results_(new result_store()),
       openmetrics_legacy_(false) {}
-WEBServer::~WEBServer() = default;
+WEBServer::~WEBServer() {
+  try {
+    if (releaser_ && releaser_->joinable() && releaser_->get_id() != boost::this_thread::get_id()) releaser_->join();
+  } catch (...) {
+    // A destructor must not throw.
+  }
+}
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // Construct once: neither object depends on settings, and a reload would
@@ -639,7 +645,7 @@ void WEBServer::prepareShutdown() {
 bool WEBServer::unloadModule() {
   bool ok = true;
   try {
-    Mongoose::stop_and_release(server, NSC_THREAD_REPORTER);
+    if (auto releaser = Mongoose::stop_and_release(server, NSC_THREAD_REPORTER)) releaser_ = releaser;
   } catch (...) {
     NSC_LOG_ERROR_EX("unload");
     ok = false;

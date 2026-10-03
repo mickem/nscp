@@ -1,8 +1,4 @@
-module: NCPAServer
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: A server that serves the Nagios NCPA HTTP API, so Nagios Core and XI can poll NSClient++
       with the stock check_ncpa.py plugin and the XI NCPA wizard.
@@ -241,3 +237,8 @@ unix:
             or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
           sample: false
           title: Timezone
+module: NCPAServer
+namespace: client
+platforms:
+- unix
+- windows

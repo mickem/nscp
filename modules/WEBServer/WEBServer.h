@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 #include <client/simple_client.hpp>
 #include <memory>
 #include <nscapi/plugin.hpp>
@@ -114,6 +115,9 @@ class WEBServer : public nscapi::impl::simple_plugin {
   // (staler) snapshot could be the one that lands.
   boost::mutex persist_sessions_mutex_;
   std::shared_ptr<Mongoose::Server> server;
+  // Set when the server was released from one of its own threads: that thread
+  // runs the controllers' destructors, so the destructor waits for it.
+  std::shared_ptr<boost::thread> releaser_;
 
   web_server::user_config users_;
 };

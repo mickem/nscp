@@ -26,6 +26,15 @@ struct ncpa_config {
   int auth_block_seconds = auth_rate_limiter::kDefaultBlockSeconds;
 };
 
+// The token rate limiter and the lock that makes its check-compare-count one
+// step. Owned by the module and handed to each controller, so a settings
+// reload - which builds a new controller - does not hand a blocked guesser a
+// fresh set of tries or reset its backoff.
+struct ncpa_auth_state {
+  std::mutex mutex;
+  auth_rate_limiter limiter;
+};
+
 // The one controller on /api. It authenticates the request, resolves the node
 // path and answers in the NCPA JSON shapes; the `plugins/` node hands the
 // request to the core as an ordinary query. Called from several worker
@@ -33,7 +42,7 @@ struct ncpa_config {
 // immutable or locks for itself.
 class ncpa_controller : public Mongoose::RegexpController {
  public:
-  ncpa_controller(ncpa_config config, std::shared_ptr<ncpa_sources> sources);
+  ncpa_controller(ncpa_config config, std::shared_ptr<ncpa_sources> sources, std::shared_ptr<ncpa_auth_state> auth);
 
   void api(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 
@@ -50,7 +59,6 @@ class ncpa_controller : public Mongoose::RegexpController {
 
   const ncpa_config config_;
   std::shared_ptr<ncpa_sources> sources_;
-  auth_rate_limiter rate_limiter_;
-  // Serialises authenticate(): see there.
-  std::mutex auth_mutex_;
+  // Shared with the module; see ncpa_auth_state.
+  std::shared_ptr<ncpa_auth_state> auth_;
 };

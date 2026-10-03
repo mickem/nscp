@@ -8,8 +8,8 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/thread/thread.hpp>
 #include <chrono>
-#include <condition_variable>
 #include <mutex>
+#include <net/connection_log_throttle.hpp>
 #include <net/socket/allowed_hosts.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <net/web_server_logger.hpp>
@@ -20,7 +20,7 @@
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
-#include <threads/guarded_thread.hpp>
+#include <str/xtos.hpp>
 
 #include "ncpa_controller.hpp"
 #include "ncpa_sources.hpp"
@@ -32,44 +32,22 @@ const char *const kDefaultPort = "5693";
 
 }  // namespace
 
-// `cache allowed hosts = false` asks for the host names in `allowed hosts` to
-// be resolved again rather than once. The allow-list is checked as each
-// connection is accepted, on the listener's I/O thread, where a DNS lookup per
-// connection would stall every other connection behind it - so the lookups
-// happen here instead, every kRefreshSeconds, and the accept check only ever
-// reads the resolved list.
-struct NCPAServer::host_refresher {
-  static constexpr int kRefreshSeconds = 60;
-  std::shared_ptr<socket_helpers::allowed_hosts_manager> hosts;
-  std::mutex mutex;
-  std::condition_variable cv;
-  bool stop = false;
-  std::shared_ptr<boost::thread> thread;
+namespace {
+// How often names in `allowed hosts` are re-resolved with `cache allowed
+// hosts = false`.
+constexpr int kHostRefreshSeconds = 60;
+}  // namespace
 
-  void run() {
-    std::unique_lock<std::mutex> lock(mutex);
-    while (!cv.wait_for(lock, std::chrono::seconds(kRefreshSeconds), [this] { return stop; })) {
-      lock.unlock();
-      std::list<std::string> errors;
-      hosts->refresh(errors);
-      NSC_LOG_ERROR_LISTS(errors);
-      lock.lock();
-    }
-  }
-  void halt() {
-    {
-      const std::lock_guard<std::mutex> lock(mutex);
-      stop = true;
-    }
-    cv.notify_all();
-    if (thread && thread->joinable()) thread->join();
-  }
-};
-
-NCPAServer::NCPAServer() = default;
+NCPAServer::NCPAServer() : auth_(std::make_shared<ncpa_auth_state>()) {}
 NCPAServer::~NCPAServer() {
   try {
     stop_server();
+    // A server released from one of its own threads is freed on a thread of
+    // its own, which runs this module's controller destructor: the module's
+    // code has to stay loaded until it is done.
+    for (const auto &thread : retired_) {
+      if (thread && thread->joinable() && thread->get_id() != boost::this_thread::get_id()) thread->join();
+    }
   } catch (...) {
     // A destructor must not throw; unloadModule has normally stopped it already.
   }
@@ -77,11 +55,15 @@ NCPAServer::~NCPAServer() {
 
 void NCPAServer::stop_server() {
   // Safe from any thread, a request thread of this very server included: the
-  // last reference is then dropped on a thread of its own.
-  Mongoose::stop_and_release(server_, NSC_THREAD_REPORTER);
-  if (refresher_) {
-    refresher_->halt();
-    refresher_.reset();
+  // last reference is then dropped on a thread of its own, kept here until
+  // the destructor can wait for it.
+  if (auto releaser = Mongoose::stop_and_release(server_, NSC_THREAD_REPORTER)) retired_.push_back(releaser);
+  retired_.remove_if([](const std::shared_ptr<boost::thread> &thread) { return !thread->joinable() || thread->try_join_for(boost::chrono::milliseconds(0)); });
+  // Not waited for: a round stuck in a slow resolver finishes on its own,
+  // in library code the core keeps loaded, and touches nothing of ours.
+  if (hosts_) {
+    hosts_->stop_background_refresh();
+    hosts_.reset();
   }
 }
 
@@ -207,12 +189,15 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   boost::algorithm::trim(bind_to);
   const std::string bind = bind_to.empty() ? "0.0.0.0:" + port : bind_to.find(':') != std::string::npos ? "[" + bind_to + "]:" + port : bind_to + ":" + port;
 
-  std::list<std::string> errors;
-  socket_helpers::validate_certificate(certificate, errors);
-  NSC_LOG_ERROR_LISTS(errors);
-  const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
-
   try {
+    // Inside the try: both touch the file system, and a certificate folder
+    // that cannot be read throws. Escaping loadModuleEx, that had the plugin
+    // manager unload the module for good, so no reload could bring it back.
+    std::list<std::string> errors;
+    socket_helpers::validate_certificate(certificate, errors);
+    NSC_LOG_ERROR_LISTS(errors);
+    const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
+
     Mongoose::WebLoggerPtr logger(new net::web_server_logger(log_errors, log_info, log_debug, "NCPA: "));
     server_.reset(Mongoose::Server::make_server(logger));
     net::apply_tls_options(*server_, tls_version, allowed_ciphers);
@@ -243,7 +228,7 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     // spent on it, and whatever the request turns out to be.
     // The check itself never resolves anything (`cached` stays on): with
     // `cache allowed hosts = false` the names are re-resolved in the
-    // background instead (host_refresher above).
+    // background instead (start_background_refresh below).
     auto hosts = std::make_shared<socket_helpers::allowed_hosts_manager>();
     hosts->cached = true;
     hosts->set_source(allowed_hosts);
@@ -252,7 +237,11 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
       hosts->refresh(host_errors);
       NSC_LOG_ERROR_LISTS(host_errors);
     }
-    server_->setAcceptFilter([hosts](const std::string &remote) {
+    // Any host that reaches the port can make it refuse a connection, so the
+    // refusals are logged through a throttle: one line per address per
+    // minute, counting the ones left out.
+    auto refusals = std::make_shared<net::connection_log_throttle>();
+    server_->setAcceptFilter([hosts, refusals](const std::string &remote) {
       std::list<std::string> host_errors;
       bool allowed = false;
       try {
@@ -260,9 +249,11 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
       } catch (const std::exception &e) {
         host_errors.push_back(std::string("unparsable peer address: ") + e.what());
       }
-      if (!allowed) {
+      std::size_t suppressed = 0;
+      if (!allowed && refusals->should_log(remote, suppressed)) {
         NSC_LOG_ERROR("NCPA: rejected connection from " + remote + (host_errors.empty() ? std::string() : " (" + str::utils::joinEx(host_errors, ", ") + ")") +
-                      ": not in 'allowed hosts'.");
+                      ": not in 'allowed hosts'." +
+                      (suppressed == 0 ? std::string() : " " + str::xtos(suppressed) + " more refused since the last report, not logged."));
       }
       return allowed;
     });
@@ -274,7 +265,7 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     server_->setThreadReporting("ncpa server", NSC_THREAD_REPORTER);
     // No error sink is installed: it is process-global and the WEB server owns
     // it. The controller catches and logs its own failures.
-    server_->registerController(new ncpa_controller(config, std::make_shared<ncpa_sources>(get_core(), get_id(), config.plugins.needs_module())));
+    server_->registerController(new ncpa_controller(config, std::make_shared<ncpa_sources>(get_core(), get_id(), config.plugins.needs_module()), auth_));
     if (!server_->start(bind)) {
       NSC_LOG_ERROR("NCPA: the NCPA listener has NOT been started on port " + port + " (" + bind + "; see the error above). Fix the configuration and reload.");
       server_.reset();
@@ -283,11 +274,11 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     // Only once the listener is up: a failed start leaves nothing re-resolving
     // names for a listener that does not exist.
     if (!cache_allowed_hosts) {
-      refresher_ = std::make_shared<host_refresher>();
-      refresher_->hosts = hosts;
-      const std::shared_ptr<host_refresher> refresher = refresher_;
-      refresher_->thread = threads::start_guarded_thread("ncpa allowed hosts", [refresher] { refresher->run(); }, NSC_THREAD_REPORTER);
+      hosts->start_background_refresh(std::chrono::seconds(kHostRefreshSeconds), [](const std::list<std::string> &host_errors) {
+        for (const std::string &e : host_errors) NSC_LOG_ERROR("NCPA: allowed hosts: " + e);
+      });
     }
+    hosts_ = hosts;
     NSC_DEBUG_MSG("NCPA: listening on " + bind + (tls ? " (https" : " (http") + ", plugins = " + config.plugins.to_string() + ")");
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("NCPA: the listener failed to start (the module stays loaded; fix the configuration and reload): " + utf8::utf8_from_native(e.what()));

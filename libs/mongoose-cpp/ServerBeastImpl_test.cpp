@@ -23,6 +23,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
+#include <boost/thread/thread.hpp>
 #include <cctype>
 #include <chrono>
 #include <cstdio>
@@ -1318,12 +1319,14 @@ struct release_state {
   std::shared_ptr<Mongoose::Server> server;
   std::atomic<bool> released{false};
   std::atomic<bool> finished{false};
+  // Written before `released` is set, read after it is seen.
+  std::shared_ptr<boost::thread> releaser;
 };
 class ReleaseServerHandler : public RequestHandlerBase {
  public:
   explicit ReleaseServerHandler(std::shared_ptr<release_state> state) : state_(std::move(state)) {}
   Response* process(Request& /*request*/) override {
-    Mongoose::stop_and_release(state_->server, {});
+    state_->releaser = Mongoose::stop_and_release(state_->server, {});
     state_->released = true;
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     auto* r = new StreamResponse(200);
@@ -1360,7 +1363,11 @@ TEST(ServerBeastImpl, AHandlerCanReleaseItsOwnServer) {
   beast_fetch("127.0.0.1", port, "/release");
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!watch.expired() && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  EXPECT_TRUE(state->released);
+  ASSERT_TRUE(state->released);
   EXPECT_TRUE(state->finished);
   EXPECT_TRUE(watch.expired()) << "the server is freed once its threads are done";
+  // Handed back so an owner can wait for it before unloading the code the
+  // controllers' destructors run.
+  ASSERT_TRUE(state->releaser);
+  state->releaser->join();
 }

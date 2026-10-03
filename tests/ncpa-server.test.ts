@@ -17,7 +17,7 @@ import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import request from "supertest";
-import { NscpInstance, onWindows } from "@fixtures/index";
+import { NscpInstance, OK, executeQuery, onWindows, setupQueryNscp } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -385,6 +385,72 @@ describe("NCPA server", () => {
     });
   });
 
+  describe("with the token rate limit on, across a settings reload", () => {
+    let nscp: NscpInstance;
+    let key: string;
+    // Reloads NCPAServer from a REST call: a blocked address cannot ask NCPA.
+    const LUA = `
+local function reload_ncpa(command, args)
+  Core():reload('NCPAServer')
+  return 'ok', 'reload requested'
+end
+Registry():simple_function('reload_ncpa', reload_ncpa, 'reload the NCPA server')
+`;
+    // Counts the listener coming up: once at start, once per reload.
+    const listens = () =>
+      nscp
+        .capturedStdout()
+        .split(/\r?\n/)
+        .filter((l) => l.includes("NCPA: listening on")).length;
+
+    beforeAll(async () => {
+      nscp = new NscpInstance();
+      const script = path.join(nscp.scratch("lua"), "reload_ncpa.lua");
+      fs.writeFileSync(script, LUA);
+      await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
+      key = await setupQueryNscp(nscp, "LUAScript", {
+        "/modules": {
+          LUAScript: "enabled",
+          WEBServer: "enabled",
+          NCPAServer: "enabled",
+          CheckHelpers: "enabled",
+        },
+        "/settings/lua/scripts": { reload_ncpa: script },
+        "/settings/NCPA/server": {
+          token: TOKEN,
+          "auth rate limit max failures": 3,
+          "auth rate limit block seconds": 600,
+        },
+      });
+      await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("keeps a blocked address blocked", async () => {
+      // The limiter belonged to the controller, which a reload rebuilds: every
+      // reload handed a blocked guesser a fresh set of tries.
+      for (let i = 0; i < 3; i++)
+        await get(`/api/plugins/check_ok?token=wrong-${i}&check=1`).expect(200);
+      const blocked = "Too many failed authentication attempts, try again later.";
+      expect((await get(`/api/plugins/check_ok?token=${TOKEN}&check=1`)).body.error).toBe(blocked);
+
+      const before = listens();
+      const r = await executeQuery(key, "reload_ncpa");
+      expect(r.result).toBe(OK);
+      const deadline = Date.now() + 60_000;
+      while (listens() <= before) {
+        if (Date.now() >= deadline) throw new Error("NCPAServer did not come back within 60s");
+        await new Promise((res) => setTimeout(res, 100));
+      }
+      // Answered by the new controller, which still refuses.
+      const res = await get(`/api/plugins/check_ok?token=${TOKEN}&check=1`).expect(200);
+      expect(res.body.error).toBe(blocked);
+    });
+  });
+
   describe("without a token", () => {
     let nscp: NscpInstance;
 
@@ -426,6 +492,19 @@ describe("NCPA server", () => {
         ).rejects.toThrow();
       }
       expect(nscp.capturedStdout()).toContain("not in 'allowed hosts'");
+    });
+
+    it("logs one line per refused address per minute, not one per connection", async () => {
+      // Anyone who can reach the port can make it refuse; logged unthrottled,
+      // that was a way to flood the log from the accept thread.
+      for (let i = 0; i < 10; i++) {
+        await expect(get(`/api/plugins?token=${TOKEN}`)).rejects.toThrow();
+      }
+      const lines = nscp
+        .capturedStdout()
+        .split(/\r?\n/)
+        .filter((l) => l.includes("NCPA: rejected connection from"));
+      expect(lines).toHaveLength(1);
     });
   });
 
@@ -627,6 +706,37 @@ describe("NCPA server", () => {
         socket.once("error", (e: NodeJS.ErrnoException) => resolve(e.code));
       });
       expect(code).toBe("ECONNREFUSED");
+    });
+  });
+
+  describe("with a certificate path the file system refuses", () => {
+    let nscp: NscpInstance | undefined;
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("reports it and keeps the module loaded", async () => {
+      // A symlink loop: looking at the path fails with an error (ELOOP) rather
+      // than "not found", the way an unreadable certificate folder does for a
+      // service account. The certificate checks ran outside the module's own
+      // error handling, so that error escaped loading and the plugin manager
+      // unloaded the module, where no reload could bring it back.
+      if (onWindows) return;
+      nscp = new NscpInstance();
+      const loop = path.join(nscp.workDir, "loop");
+      fs.symlinkSync(loop, loop);
+      await nscp.configure({
+        "/modules": { NCPAServer: "enabled" },
+        "/settings/default": { "allowed hosts": "127.0.0.1" },
+        "/settings/NCPA/server": { token: TOKEN, certificate: path.join(loop, "certificate.pem") },
+      });
+      await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
+      nscp.start();
+      await waitForLog(nscp, "NCPA: the listener failed to start (the module stays loaded");
+      expect(nscp.capturedStdout()).toContain(
+        "NCPA: the listener failed to start (the module stays loaded",
+      );
     });
   });
 

@@ -69,8 +69,12 @@ std::shared_ptr<const ncpa_sources::inventory_map> ncpa_sources::inventory() con
     }
   }
   const std::lock_guard<std::mutex> lock(cache_mutex_);
-  cache_ = fresh;
-  cache_time_ = now;
+  // A build that started after this one and finished first is the fresher
+  // one: keep it rather than overwrite it with an older view.
+  if (!cache_ || cache_time_ <= now) {
+    cache_ = fresh;
+    cache_time_ = now;
+  }
   return cache_;
 }
 
