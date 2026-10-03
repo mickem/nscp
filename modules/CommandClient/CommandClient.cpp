@@ -348,6 +348,12 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
     nscapi::protobuf::functions::set_response_good(*response, "Shutdown requested");
     return true;
   }
+  // The console is what `nscp test` asks for: a request aimed at this module
+  // with no command. Anything else is not ours. An untargeted request (the
+  // `all`, `*` and `any` targets, a script's Core.simple_exec) or one naming
+  // some other command used to start a second console loop on the caller's
+  // thread, and the call never returned.
+  if (target_mode != NSCAPI::target_module || !request.command().empty()) return false;
   if (is_running) {
     NSC_LOG_ERROR("Command client is already running!");
   }

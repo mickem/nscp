@@ -257,6 +257,14 @@ class settings_interface_impl : public settings_interface {
     if (it != settings_cache_.end()) {
       settings_cache_.erase(it);
     }
+    // Forget the name too. set_string() records every key it writes here so
+    // get_keys() can list it before a save; the staged deletion below masks it
+    // only until save() drops that marker, after which the key came back as
+    // one with no value.
+    key_cache_type::iterator kit = key_cache_.find(path);
+    if (kit != key_cache_.end()) {
+      kit->second.erase(key);
+    }
     settings_delete_cache_.insert(cache_key_type(path, key));
     get_core()->set_dirty(true);
   }
@@ -266,6 +274,9 @@ class settings_interface_impl : public settings_interface {
     if (it != path_cache_.end()) {
       path_cache_.erase(it);
     }
+    // The keys written to it at runtime go with it, for the reason remove_key()
+    // gives.
+    key_cache_.erase(path);
     settings_delete_path_cache_.insert(path);
     get_core()->set_dirty(true);
   }

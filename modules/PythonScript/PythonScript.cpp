@@ -3,6 +3,8 @@
 
 #include "PythonScript.h"
 
+#include <set>
+
 #include <boost/program_options.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -25,7 +27,15 @@ namespace po = boost::program_options;
 namespace py = boost::python;
 
 bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-  alias_ = alias;
+  // The alias the module answers to: what it was loaded as, or the default
+  // `python` its settings live under when it was loaded without one. Scripts
+  // get it as init()'s plugin_alias, which the docs tell them to key their own
+  // settings on - an empty one turned /settings/<script>/<plugin_alias>/...
+  // into a path with an empty segment.
+  alias_ = alias.empty() ? "python" : alias;
+  // The names this module answers to in the core, which is the alias it was
+  // loaded as - not the `python` stand-in above: a module loaded without an
+  // alias is not called `python` there, and another module may be.
   script_wrapper::command_wrapper::register_self(get_id(), "PythonScript", alias);
 
   if (mode == NSCAPI::reloadStart) {
@@ -266,9 +276,14 @@ void PythonScript::handleNotification(const std::string &channel, const PB::Comm
     }
   }
   if (inst->has_simple_message_handler(channel)) {
+    // A submission names the system it is about in its header (the sender, as
+    // check_and_forward's `source` and the passive receivers set it); a result
+    // only carries a source of its own when its producer filled one in. Hand
+    // the script whichever there is, as the WEB result cache does.
+    const std::string source = request.source().empty() ? request_message.header().sender_id() : request.source();
     for (::PB::Commands::QueryResponseMessage_Response_Line line : request.lines()) {
       std::string perf = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
-      if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) !=
+      if (inst->handle_simple_message(channel, source, request.command(), request.result(), line.message(), perf) !=
           NSCAPI::api_return_codes::isSuccess)
         return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
     }
@@ -282,11 +297,18 @@ void PythonScript::onEvent(const PB::Commands::EventMessage &request, const std:
   if (inst->has_event_handler("$$event$$")) {
     inst->on_event("$$event$$", buffer);
   }
+  // Registry.event_pb(name, fn) gets the whole message, so once per event
+  // name it carries - not once per line, which handed it the same message
+  // once for every record in it. Registry.event gets one record per call.
+  std::set<std::string> pb_delivered;
   for (const ::PB::Commands::EventMessage::Request &line : request.payload()) {
+    if (line.event() != "$$event$$" && pb_delivered.insert(line.event()).second && inst->has_event_handler(line.event())) {
+      inst->on_event(line.event(), buffer);
+    }
     if (inst->has_simple_event_handler(line.event())) {
-      boost::python::dict data;
+      std::vector<std::pair<std::string, std::string>> data;
       for (const PB::Common::KeyValue &e : line.data()) {
-        data[e.key()] = e.value();
+        data.emplace_back(e.key(), e.value());
       }
       inst->on_simple_event(line.event(), data);
     }

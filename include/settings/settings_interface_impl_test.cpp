@@ -201,6 +201,47 @@ TEST(settings_interface_impl, remove_key_after_set_drops_in_flight_change) {
   EXPECT_EQ(b.persisted_values.count({"/section", "key"}), 0u);
 }
 
+TEST(settings_interface_impl, a_key_set_at_runtime_stays_gone_from_get_keys_once_removed_and_saved) {
+  // set_string() remembers the key name so get_keys() lists it before it is
+  // saved. remove_key() has to forget that too: once save() has dropped the
+  // staged deletion, nothing else masks it, and the removed key came back as
+  // a key with no value - PythonScript then went looking for a script named
+  // after it on every reload.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/section", "key", "value");
+  b.set_string("/section", "kept", "value");
+  b.save(false);
+
+  b.remove_key("/section", "key");
+  b.save(false);
+
+  EXPECT_EQ(settings::settings_interface::string_list{"kept"}, b.get_keys("/section"));
+  EXPECT_FALSE(b.get_string("/section", "key").has_value());
+}
+
+TEST(settings_interface_impl, a_key_set_and_removed_before_any_save_stays_gone_from_get_keys) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/section", "key", "value");
+  b.remove_key("/section", "key");
+  b.save(false);
+
+  EXPECT_TRUE(b.get_keys("/section").empty());
+}
+
+TEST(settings_interface_impl, a_removed_path_takes_its_runtime_keys_with_it) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/dead", "key", "value");
+  b.save(false);
+
+  b.remove_path("/dead");
+  b.save(false);
+
+  EXPECT_TRUE(b.get_keys("/dead").empty());
+}
+
 // ============================================================================
 // add_path / has_section / get_sections
 // ============================================================================
