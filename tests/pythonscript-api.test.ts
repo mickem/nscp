@@ -949,7 +949,10 @@ describeWithModules("PythonScript")("PythonScript API", () => {
     let scripts: string;
 
     beforeAll(async () => {
-      ({ nscp, scripts } = fixtureInstance("nscp-py-cli-", [
+      // "lib" in the path: on a Linux package ${scripts} is
+      // /usr/lib/nsclient/scripts, and `list` used to drop every file whose
+      // path contained "lib" anywhere - which was all of them.
+      ({ nscp, scripts } = fixtureInstance("nscp-py-cli-lib-", [
         "api_fixture.py",
         "alias_probe.py",
         "failing_handlers.py",
@@ -1083,6 +1086,20 @@ describeWithModules("PythonScript")("PythonScript API", () => {
       expect(files).toEqual(
         expect.arrayContaining(["python/api_fixture.py", "python/alias_probe.py"]),
       );
+    });
+
+    it("`nscp py list` leaves out the helpers in lib unless --include-lib", async () => {
+      fs.mkdirSync(path.join(scripts, "python", "lib"), { recursive: true });
+      fs.writeFileSync(path.join(scripts, "python", "lib", "a_helper.py"), "# helper\n");
+      try {
+        const plain = (await py(["list"])).stdout.replace(/\\/g, "/");
+        expect(plain).toMatch(/^python\/api_fixture\.py$/m);
+        expect(plain).not.toContain("a_helper.py");
+        const all = (await py(["list", "--include-lib"])).stdout.replace(/\\/g, "/");
+        expect(all).toMatch(/^python\/lib\/a_helper\.py$/m);
+      } finally {
+        fs.rmSync(path.join(scripts, "python", "lib"), { recursive: true, force: true });
+      }
     });
 
     it("`nscp py add`, `show` and `delete` manage one script", async () => {

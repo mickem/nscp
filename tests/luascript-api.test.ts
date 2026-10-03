@@ -305,6 +305,9 @@ describeWithModules("LUAScript")("LUAScript API", () => {
         expect(messageOf(await executeQuery(key, "lua_before_raise"))).toBe(
           "registered before the raise",
         );
+        // It is not started half-loaded: its on_start never runs.
+        expect(lifecycle(trace)).toContain("start");
+        expect(lifecycle(trace)).not.toContain("start load_raises");
       });
 
       it("an on_start that raises is logged, and every script still starts", async () => {
@@ -769,7 +772,13 @@ describeWithModules("LUAScript")("LUAScript API", () => {
     let trace: string;
 
     beforeAll(async () => {
-      ({ nscp, scripts, trace } = fixtureInstance("nscp-lua-cli-", ["api_fixture.lua"]));
+      // "lib" in the path: on a Linux package ${scripts} is
+      // /usr/lib/nsclient/scripts, and `list` used to drop every file whose
+      // path contained "lib" anywhere - which was all of them.
+      ({ nscp, scripts, trace } = fixtureInstance("nscp-lua-cli-lib-", [
+        "api_fixture.lua",
+        "main_short.lua",
+      ]));
       await nscp.configure({
         "/modules": { LUAScript: "enabled" },
         "/settings/lua/scripts": { luaapi: "api_fixture.lua" },
@@ -821,6 +830,12 @@ describeWithModules("LUAScript")("LUAScript API", () => {
       expect(lifecycle(trace).filter((l) => l.startsWith("main"))).toEqual([
         "main install --root /tmp",
       ]);
+    });
+
+    it("`nscp lua execute` of a main that returns only a status has no message", async () => {
+      const r = await lua(["execute", "--script", "main_short.lua"]);
+      expect(r.exitCode).toBe(0);
+      expect(r.all).not.toContain("NIL");
     });
 
     it("`nscp lua execute` names a script it cannot find", async () => {
@@ -878,6 +893,21 @@ describeWithModules("LUAScript")("LUAScript API", () => {
         (f) => f.replace(/\\/g, "/"),
       );
       expect(files).toEqual(expect.arrayContaining(["lua/api_fixture.lua"]));
+    });
+
+    it("`nscp lua list` leaves out the helpers in lib unless --include-lib", async () => {
+      fs.mkdirSync(path.join(scripts, "lua", "lib"), { recursive: true });
+      fs.writeFileSync(path.join(scripts, "lua", "lib", "a_helper.lua"), "return {}\n");
+      try {
+        const plain = (await lua(["list"])).stdout.replace(/\\/g, "/");
+        expect(plain).toMatch(/^lua\/api_fixture\.lua$/m);
+        expect(plain).not.toContain("a_helper.lua");
+        const all = (await lua(["list", "--include-lib"])).stdout.replace(/\\/g, "/");
+        expect(all).toMatch(/^lua\/lib\/a_helper\.lua$/m);
+        expect(all).toMatch(/^lua\/api_fixture\.lua$/m);
+      } finally {
+        fs.rmSync(path.join(scripts, "lua", "lib"), { recursive: true, force: true });
+      }
     });
 
     it("`nscp lua add`, `show` and `delete` manage one script", async () => {
@@ -1014,6 +1044,47 @@ describeWithModules("LUAScript")("LUAScript API", () => {
       } finally {
         fs.rmSync(path.join(scripts, "lua", "installed.lua"), { force: true });
       }
+    });
+  });
+
+  describe("on_start after a service reload", () => {
+    // on_start is for work that needs other modules, and a reload of the
+    // service is how a module gets enabled on a running agent. The scripts
+    // used to be started from inside their own reload - ahead of the modules
+    // the same reload loaded - so this on_start found no CheckHelpers.
+    let nscp: NscpInstance;
+    let key: string;
+    let probe: string;
+
+    const starts = () => lifecycle(probe).filter((l) => l.startsWith("start "));
+
+    beforeAll(async () => {
+      let scripts: string;
+      ({ nscp, scripts } = fixtureInstance("nscp-lua-start-", ["start_probe.lua"]));
+      probe = path.join(nscp.workDir, "start-probe.log");
+      void scripts;
+      key = await setupQueryNscp(nscp, "LUAScript", {
+        "/modules": { LUAScript: "enabled", WEBServer: "enabled", CheckHelpers: "disabled" },
+        "/settings/lua/scripts": { probe: "start_probe.lua" },
+        "/settings/startprobe": { trace: probe },
+      });
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("runs once every module the reload enabled is loaded", async () => {
+      await until("the first on_start", () => starts().length === 1);
+      expect(starts()[0]).toMatch(/^start unknown /);
+
+      await putSettings(key, "/modules", { CheckHelpers: "enabled" });
+      expect(messageOf(await executeQuery(key, "probe_reload"))).toBe("service reload requested");
+      await until("on_start after the reload", () => starts().length === 2);
+      expect(starts()[1]).toBe("start ok probe");
+      // Once per reload, not once per module loaded.
+      await sleep(1000);
+      expect(starts()).toHaveLength(2);
     });
   });
 
