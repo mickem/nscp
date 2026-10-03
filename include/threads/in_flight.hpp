@@ -47,21 +47,37 @@ class in_flight {
   // enter() is separate from construction so the caller can take it under
   // the lock that orders it against a waiter's cutoff(); see on_log_message.
   class guard {
-    in_flight &owner_;
+    in_flight *owner_;
     bool entered_;
 
    public:
-    explicit guard(in_flight &owner) : owner_(owner), entered_(false) {}
-    ~guard() {
-      if (entered_) owner_.leave();
-    }
+    explicit guard(in_flight &owner) : owner_(&owner), entered_(false) {}
+    ~guard() { leave(); }
     guard(const guard &) = delete;
     guard &operator=(const guard &) = delete;
+    // Movable so a delivery can hold one per subscriber in a vector.
+    guard(guard &&other) noexcept : owner_(other.owner_), entered_(other.entered_) { other.entered_ = false; }
+    guard &operator=(guard &&other) noexcept {
+      if (this != &other) {
+        leave();
+        owner_ = other.owner_;
+        entered_ = other.entered_;
+        other.entered_ = false;
+      }
+      return *this;
+    }
 
     void enter() {
       if (entered_) return;
-      owner_.enter();
+      owner_->enter();
       entered_ = true;
+    }
+    // Leave before the guard goes, for a caller that is done with one
+    // region but still holds the guard. Idempotent.
+    void leave() {
+      if (!entered_) return;
+      owner_->leave();
+      entered_ = false;
     }
     bool entered() const { return entered_; }
   };
