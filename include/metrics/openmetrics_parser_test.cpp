@@ -24,6 +24,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <initializer_list>
+#include <limits>
 #include <map>
 #include <metrics/openmetrics_parser.hpp>
 #include <ostream>
@@ -561,6 +562,324 @@ TEST(OpenmetricsParser, OversizedLineInsideAPairBlockIsJudgedInTheDocumentedOrde
   const om::result own = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\nx_total{a=\"" + std::string(10000, 'y') + "\"} 1\n", openmetrics, bounds);
   EXPECT_EQ(own.error_line, 4u);
   EXPECT_NE(own.error.find("longer than 64 bytes"), std::string::npos) << own.error;
+}
+
+// What the official Prometheus Python client (prometheus_client 0.26.0)
+// serves for one of every metric type it has - counters with `_created`,
+// a gauge with a unit, a labelled histogram, a summary, an info family, an
+// enum (a stateset), the three non-finite values, and label values and help
+// text that need every escape - in both formats. The expected families are
+// what the client's own reference parsers read back from the same bodies, so
+// this is the one test here whose expectations no part of this parser wrote.
+// Regenerate both together from the client if either is changed.
+struct expected_sample {
+  const char *name;
+  std::vector<std::pair<std::string, std::string> > labels;
+  double value;
+};
+
+struct expected_family {
+  const char *name;
+  om::family_type type;
+  const char *help;
+  const char *unit;
+  std::vector<expected_sample> samples;
+};
+
+const char *const python_client_openmetrics =
+    "# HELP http_requests Requests served, by \\\"code\\\"\\nand path \\\\ root.\n"
+    "# TYPE http_requests counter\n"
+    "http_requests_total{code=\"200\",path=\"/a \\\"quoted\\\" \\\\path\\nnext\"} 1027.0\n"
+    "http_requests_created{code=\"200\",path=\"/a \\\"quoted\\\" \\\\path\\nnext\"} 1.791028073640996e+09\n"
+    "http_requests_total{code=\"500\",path=\"/\"} 3.0\n"
+    "http_requests_created{code=\"500\",path=\"/\"} 1.791028073641013e+09\n"
+    "# HELP queue_depth_bytes Bytes waiting.\n"
+    "# TYPE queue_depth_bytes gauge\n"
+    "# UNIT queue_depth_bytes bytes\n"
+    "queue_depth_bytes 1.5e+09\n"
+    "# HELP go_memstats_alloc_bytes Bytes in use.\n"
+    "# TYPE go_memstats_alloc_bytes gauge\n"
+    "go_memstats_alloc_bytes 1.913168e+06\n"
+    "# HELP rpc_latency_seconds RPC latency.\n"
+    "# TYPE rpc_latency_seconds histogram\n"
+    "rpc_latency_seconds_bucket{le=\"0.1\",method=\"get\"} 1.0\n"
+    "rpc_latency_seconds_bucket{le=\"0.5\",method=\"get\"} 2.0\n"
+    "rpc_latency_seconds_bucket{le=\"1.0\",method=\"get\"} 3.0\n"
+    "rpc_latency_seconds_bucket{le=\"+Inf\",method=\"get\"} 4.0\n"
+    "rpc_latency_seconds_count{method=\"get\"} 4.0\n"
+    "rpc_latency_seconds_sum{method=\"get\"} 3.95\n"
+    "rpc_latency_seconds_created{method=\"get\"} 1.7910280736411815e+09\n"
+    "# HELP job_duration_seconds Job duration.\n"
+    "# TYPE job_duration_seconds summary\n"
+    "job_duration_seconds_count 2.0\n"
+    "job_duration_seconds_sum 6.5\n"
+    "job_duration_seconds_created 1.7910280736412358e+09\n"
+    "# HELP build Build information.\n"
+    "# TYPE build info\n"
+    "build_info{revision=\"abc123\",version=\"0.12.5\"} 1.0\n"
+    "# HELP service_state Service state.\n"
+    "# TYPE service_state stateset\n"
+    "service_state{service_state=\"starting\"} 0.0\n"
+    "service_state{service_state=\"running\"} 1.0\n"
+    "service_state{service_state=\"stopped\"} 0.0\n"
+    "# HELP weird_values Non-finite values.\n"
+    "# TYPE weird_values gauge\n"
+    "weird_values{kind=\"nan\"} NaN\n"
+    "weird_values{kind=\"pinf\"} +Inf\n"
+    "weird_values{kind=\"ninf\"} -Inf\n"
+    "# EOF\n";
+
+const char *const python_client_text =
+    "# HELP http_requests_total Requests served, by \"code\"\\nand path \\\\ root.\n"
+    "# TYPE http_requests_total counter\n"
+    "http_requests_total{code=\"200\",path=\"/a \\\"quoted\\\" \\\\path\\nnext\"} 1027.0\n"
+    "http_requests_total{code=\"500\",path=\"/\"} 3.0\n"
+    "# HELP http_requests_created Requests served, by \"code\"\\nand path \\\\ root.\n"
+    "# TYPE http_requests_created gauge\n"
+    "http_requests_created{code=\"200\",path=\"/a \\\"quoted\\\" \\\\path\\nnext\"} 1.791028073640996e+09\n"
+    "http_requests_created{code=\"500\",path=\"/\"} 1.791028073641013e+09\n"
+    "# HELP queue_depth_bytes Bytes waiting.\n"
+    "# TYPE queue_depth_bytes gauge\n"
+    "queue_depth_bytes 1.5e+09\n"
+    "# HELP go_memstats_alloc_bytes Bytes in use.\n"
+    "# TYPE go_memstats_alloc_bytes gauge\n"
+    "go_memstats_alloc_bytes 1.913168e+06\n"
+    "# HELP rpc_latency_seconds RPC latency.\n"
+    "# TYPE rpc_latency_seconds histogram\n"
+    "rpc_latency_seconds_bucket{le=\"0.1\",method=\"get\"} 1.0\n"
+    "rpc_latency_seconds_bucket{le=\"0.5\",method=\"get\"} 2.0\n"
+    "rpc_latency_seconds_bucket{le=\"1.0\",method=\"get\"} 3.0\n"
+    "rpc_latency_seconds_bucket{le=\"+Inf\",method=\"get\"} 4.0\n"
+    "rpc_latency_seconds_count{method=\"get\"} 4.0\n"
+    "rpc_latency_seconds_sum{method=\"get\"} 3.95\n"
+    "# HELP rpc_latency_seconds_created RPC latency.\n"
+    "# TYPE rpc_latency_seconds_created gauge\n"
+    "rpc_latency_seconds_created{method=\"get\"} 1.7910280736411815e+09\n"
+    "# HELP job_duration_seconds Job duration.\n"
+    "# TYPE job_duration_seconds summary\n"
+    "job_duration_seconds_count 2.0\n"
+    "job_duration_seconds_sum 6.5\n"
+    "# HELP job_duration_seconds_created Job duration.\n"
+    "# TYPE job_duration_seconds_created gauge\n"
+    "job_duration_seconds_created 1.7910280736412358e+09\n"
+    "# HELP build_info Build information.\n"
+    "# TYPE build_info gauge\n"
+    "build_info{revision=\"abc123\",version=\"0.12.5\"} 1.0\n"
+    "# HELP service_state Service state.\n"
+    "# TYPE service_state gauge\n"
+    "service_state{service_state=\"starting\"} 0.0\n"
+    "service_state{service_state=\"running\"} 1.0\n"
+    "service_state{service_state=\"stopped\"} 0.0\n"
+    "# HELP weird_values Non-finite values.\n"
+    "# TYPE weird_values gauge\n"
+    "weird_values{kind=\"nan\"} NaN\n"
+    "weird_values{kind=\"pinf\"} +Inf\n"
+    "weird_values{kind=\"ninf\"} -Inf\n";
+
+const expected_family python_client_openmetrics_families[] = {
+    {"http_requests",
+     om::family_type::counter,
+     "Requests served, by \"code\"\nand path \\ root.",
+     "",
+     {{"http_requests_total", {{"code", "200"}, {"path", "/a \"quoted\" \\path\nnext"}}, 1027.0},
+      {"http_requests_created", {{"code", "200"}, {"path", "/a \"quoted\" \\path\nnext"}}, 1791028073.640996},
+      {"http_requests_total", {{"code", "500"}, {"path", "/"}}, 3.0},
+      {"http_requests_created", {{"code", "500"}, {"path", "/"}}, 1791028073.641013}}},
+    {"queue_depth_bytes", om::family_type::gauge, "Bytes waiting.", "bytes", {{"queue_depth_bytes", {}, 1500000000.0}}},
+    {"go_memstats_alloc_bytes", om::family_type::gauge, "Bytes in use.", "", {{"go_memstats_alloc_bytes", {}, 1913168.0}}},
+    {"rpc_latency_seconds",
+     om::family_type::histogram,
+     "RPC latency.",
+     "",
+     {{"rpc_latency_seconds_bucket", {{"le", "0.1"}, {"method", "get"}}, 1.0},
+      {"rpc_latency_seconds_bucket", {{"le", "0.5"}, {"method", "get"}}, 2.0},
+      {"rpc_latency_seconds_bucket", {{"le", "1.0"}, {"method", "get"}}, 3.0},
+      {"rpc_latency_seconds_bucket", {{"le", "+Inf"}, {"method", "get"}}, 4.0},
+      {"rpc_latency_seconds_count", {{"method", "get"}}, 4.0},
+      {"rpc_latency_seconds_sum", {{"method", "get"}}, 3.95},
+      {"rpc_latency_seconds_created", {{"method", "get"}}, 1791028073.6411815}}},
+    {"job_duration_seconds",
+     om::family_type::summary,
+     "Job duration.",
+     "",
+     {{"job_duration_seconds_count", {}, 2.0}, {"job_duration_seconds_sum", {}, 6.5}, {"job_duration_seconds_created", {}, 1791028073.6412358}}},
+    {"build", om::family_type::info, "Build information.", "", {{"build_info", {{"revision", "abc123"}, {"version", "0.12.5"}}, 1.0}}},
+    {"service_state",
+     om::family_type::stateset,
+     "Service state.",
+     "",
+     {{"service_state", {{"service_state", "starting"}}, 0.0},
+      {"service_state", {{"service_state", "running"}}, 1.0},
+      {"service_state", {{"service_state", "stopped"}}, 0.0}}},
+    {"weird_values",
+     om::family_type::gauge,
+     "Non-finite values.",
+     "",
+     {{"weird_values", {{"kind", "nan"}}, std::numeric_limits<double>::quiet_NaN()},
+      {"weird_values", {{"kind", "pinf"}}, std::numeric_limits<double>::infinity()},
+      {"weird_values", {{"kind", "ninf"}}, -std::numeric_limits<double>::infinity()}}}};
+
+const expected_family python_client_text_families[] = {
+    {"http_requests_total",
+     om::family_type::counter,
+     "Requests served, by \"code\"\nand path \\ root.",
+     "",
+     {{"http_requests_total", {{"code", "200"}, {"path", "/a \"quoted\" \\path\nnext"}}, 1027.0},
+      {"http_requests_total", {{"code", "500"}, {"path", "/"}}, 3.0}}},
+    {"http_requests_created",
+     om::family_type::gauge,
+     "Requests served, by \"code\"\nand path \\ root.",
+     "",
+     {{"http_requests_created", {{"code", "200"}, {"path", "/a \"quoted\" \\path\nnext"}}, 1791028073.640996},
+      {"http_requests_created", {{"code", "500"}, {"path", "/"}}, 1791028073.641013}}},
+    {"queue_depth_bytes", om::family_type::gauge, "Bytes waiting.", "", {{"queue_depth_bytes", {}, 1500000000.0}}},
+    {"go_memstats_alloc_bytes", om::family_type::gauge, "Bytes in use.", "", {{"go_memstats_alloc_bytes", {}, 1913168.0}}},
+    {"rpc_latency_seconds",
+     om::family_type::histogram,
+     "RPC latency.",
+     "",
+     {{"rpc_latency_seconds_bucket", {{"le", "0.1"}, {"method", "get"}}, 1.0},
+      {"rpc_latency_seconds_bucket", {{"le", "0.5"}, {"method", "get"}}, 2.0},
+      {"rpc_latency_seconds_bucket", {{"le", "1.0"}, {"method", "get"}}, 3.0},
+      {"rpc_latency_seconds_bucket", {{"le", "+Inf"}, {"method", "get"}}, 4.0},
+      {"rpc_latency_seconds_count", {{"method", "get"}}, 4.0},
+      {"rpc_latency_seconds_sum", {{"method", "get"}}, 3.95}}},
+    {"rpc_latency_seconds_created", om::family_type::gauge, "RPC latency.", "", {{"rpc_latency_seconds_created", {{"method", "get"}}, 1791028073.6411815}}},
+    {"job_duration_seconds", om::family_type::summary, "Job duration.", "", {{"job_duration_seconds_count", {}, 2.0}, {"job_duration_seconds_sum", {}, 6.5}}},
+    {"job_duration_seconds_created", om::family_type::gauge, "Job duration.", "", {{"job_duration_seconds_created", {}, 1791028073.6412358}}},
+    {"build_info", om::family_type::gauge, "Build information.", "", {{"build_info", {{"revision", "abc123"}, {"version", "0.12.5"}}, 1.0}}},
+    {"service_state",
+     om::family_type::gauge,
+     "Service state.",
+     "",
+     {{"service_state", {{"service_state", "starting"}}, 0.0},
+      {"service_state", {{"service_state", "running"}}, 1.0},
+      {"service_state", {{"service_state", "stopped"}}, 0.0}}},
+    {"weird_values",
+     om::family_type::gauge,
+     "Non-finite values.",
+     "",
+     {{"weird_values", {{"kind", "nan"}}, std::numeric_limits<double>::quiet_NaN()},
+      {"weird_values", {{"kind", "pinf"}}, std::numeric_limits<double>::infinity()},
+      {"weird_values", {{"kind", "ninf"}}, -std::numeric_limits<double>::infinity()}}}};
+
+void expect_families(const om::result &parsed, const expected_family *expected, const std::size_t count) {
+  ASSERT_EQ(parsed.families.size(), count);
+  for (std::size_t i = 0; i < count; ++i) {
+    const om::family &f = parsed.families.at(i);
+    const expected_family &e = expected[i];
+    EXPECT_EQ(f.name, e.name);
+    EXPECT_EQ(f.type, e.type) << e.name;
+    EXPECT_EQ(f.help, e.help) << e.name;
+    EXPECT_EQ(f.unit, e.unit) << e.name;
+    ASSERT_EQ(f.samples.size(), e.samples.size()) << e.name;
+    for (std::size_t j = 0; j < e.samples.size(); ++j) {
+      const om::sample &s = f.samples.at(j);
+      EXPECT_EQ(s.name, e.samples.at(j).name) << e.name;
+      EXPECT_EQ(s.labels, om::label_list(e.samples.at(j).labels.begin(), e.samples.at(j).labels.end())) << s.name;
+      if (std::isnan(e.samples.at(j).value)) {
+        EXPECT_TRUE(std::isnan(s.value)) << s.name;
+      } else {
+        EXPECT_EQ(s.value, e.samples.at(j).value) << s.name;
+      }
+      EXPECT_FALSE(s.timestamp.has_value()) << s.name;
+    }
+  }
+}
+
+TEST(OpenmetricsParser, PythonClientOpenMetricsReadsAsTheReferenceParserReadsIt) {
+  const om::result parsed = om::parse(python_client_openmetrics, openmetrics);
+  ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
+  EXPECT_TRUE(parsed.saw_eof);
+  expect_consistent(parsed, python_client_openmetrics, openmetrics);
+  expect_families(parsed, python_client_openmetrics_families, sizeof(python_client_openmetrics_families) / sizeof(python_client_openmetrics_families[0]));
+}
+
+TEST(OpenmetricsParser, PythonClientTextReadsAsTheReferenceParserReadsIt) {
+  const om::result parsed = om::parse(python_client_text, text);
+  ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
+  EXPECT_FALSE(parsed.saw_eof);
+  expect_consistent(parsed, python_client_text, text);
+  expect_families(parsed, python_client_text_families, sizeof(python_client_text_families) / sizeof(python_client_text_families[0]));
+}
+
+TEST(OpenmetricsParser, PythonClientBodiesSurviveEveryCut) {
+  // The same bodies cut at every byte: a cut on a line feed reads as the
+  // lines before it, any other cut is refused.
+  for (const std::pair<const char *, om::format> &entry : {std::make_pair(python_client_openmetrics, openmetrics), std::make_pair(python_client_text, text)}) {
+    const std::string body = entry.first;
+    for (std::size_t length = 0; length < body.size(); ++length) {
+      const std::string prefix = body.substr(0, length);
+      const om::result parsed = om::parse(prefix, entry.second);
+      expect_consistent(parsed, prefix, entry.second);
+      const bool on_a_line = prefix.empty() || prefix.back() == '\n' || (entry.second == openmetrics && length == body.size() - 1);
+      EXPECT_EQ(parsed.ok(), on_a_line) << "cut at " << length << ": " << parsed.error;
+    }
+  }
+}
+
+TEST(OpenmetricsParser, EveryTypeHasItsOpenMetricsName) {
+  const std::pair<om::family_type, const char *> names[] = {{om::family_type::unknown, "unknown"},
+                                                            {om::family_type::counter, "counter"},
+                                                            {om::family_type::gauge, "gauge"},
+                                                            {om::family_type::histogram, "histogram"},
+                                                            {om::family_type::gaugehistogram, "gaugehistogram"},
+                                                            {om::family_type::summary, "summary"},
+                                                            {om::family_type::info, "info"},
+                                                            {om::family_type::stateset, "stateset"}};
+  for (const std::pair<om::family_type, const char *> &n : names) EXPECT_STREQ(om::type_name(n.first), n.second);
+}
+
+TEST(OpenmetricsParser, EverySpellingOfTheNonFiniteValuesIsRead) {
+  // As Go's ParseFloat reads them: any case, an optional sign, and the long
+  // form of infinity.
+  struct spelling {
+    const char *text;
+    int sign;  // 0 for NaN
+  };
+  const spelling spellings[] = {{"NaN", 0},  {"nan", 0},   {"+NaN", 0},     {"-nan", 0},      {"Inf", 1},
+                                {"+inf", 1}, {"-INF", -1}, {"Infinity", 1}, {"+infinity", 1}, {"-Infinity", -1}};
+  for (const spelling &sp : spellings) {
+    const om::result parsed = om::parse(std::string("v ") + sp.text + "\n", text);
+    ASSERT_TRUE(parsed.ok()) << sp.text << ": " << parsed.error;
+    const double v = parsed.families.at(0).samples.at(0).value;
+    if (sp.sign == 0) {
+      EXPECT_TRUE(std::isnan(v)) << sp.text;
+    } else {
+      EXPECT_TRUE(std::isinf(v)) << sp.text;
+      EXPECT_EQ(v > 0, sp.sign > 0) << sp.text;
+    }
+  }
+}
+
+TEST(OpenmetricsParser, PrometheusTextTimestampSignsAndOpenMetricsExponents) {
+  const om::result signs = om::parse("a 1 +5\na 2 -5\n", text);
+  ASSERT_TRUE(signs.ok()) << signs.error;
+  EXPECT_DOUBLE_EQ(signs.families.at(0).samples.at(0).timestamp.value(), 5);
+  EXPECT_DOUBLE_EQ(signs.families.at(0).samples.at(1).timestamp.value(), -5);
+  for (const char *bad : {"a 1 +\n", "a 1 -\n", "a 1 1.5\n", "a 1 1e3\n"}) {
+    const om::result parsed = om::parse(bad, text);
+    EXPECT_NE(parsed.error.find("invalid timestamp"), std::string::npos) << bad << " -> " << parsed.error;
+  }
+  const om::result exponent = om::parse("a 1 1.7e9\n# EOF\n", openmetrics);
+  ASSERT_TRUE(exponent.ok()) << exponent.error;
+  EXPECT_DOUBLE_EQ(exponent.families.at(0).samples.at(0).timestamp.value(), 1.7e9);
+}
+
+TEST(OpenmetricsParser, OverLongLineOfAnotherFamilyLeavesTheFamilyBeingRead) {
+  // Only a metadata line of the family being read fails that family; an
+  // over-long sample, or metadata naming another family, stops the parse with
+  // the family as it was.
+  om::limits bounds;
+  bounds.max_line_bytes = 20;
+  for (const std::string &tail :
+       {"y_total{a=\"" + std::string(30, 'v') + "\"} 1\n", "# HELP other " + std::string(30, 'h') + "\n", "# HELP y.z " + std::string(30, 'h') + "\n"}) {
+    const om::result parsed = om::parse("# TYPE y counter\n" + tail, text, bounds);
+    EXPECT_EQ(parsed.error_line, 2u) << tail;
+    EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << parsed.error;
+    ASSERT_EQ(parsed.families.size(), 1u) << tail;
+    EXPECT_EQ(parsed.families.at(0).type, om::family_type::counter);
+  }
 }
 
 TEST(OpenmetricsParser, PrometheusTextCounterWithoutTotal) {
