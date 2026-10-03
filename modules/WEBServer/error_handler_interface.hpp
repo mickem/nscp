@@ -10,8 +10,9 @@
 struct error_handler_interface {
   virtual ~error_handler_interface() = default;
   struct log_entry {
-    unsigned long index;
-    int line;
+    // The store numbers the entry when it takes it (error_handler::add_message).
+    unsigned long index = 0;
+    int line = 0;
     std::string type;
     std::string file;
     std::string message;
