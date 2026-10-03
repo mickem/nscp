@@ -13,4 +13,9 @@ count, ElasticClient, scripts) are fed from one background thread in every
 mode, so a slow handler holds up no thread that logs - before, in `nscp test`
 and `nscp client`, every log call waited for every handler. `--log-backend
 file` and `--log-backend threaded-file` both still turn on the log file, so
-installed service units keep working unchanged.
+installed service units keep working unchanged; `file` now behaves exactly
+like `threaded-file`, which means it also writes the console and feeds the log
+handlers, where the old `file` backend did neither. The file is still opened
+and closed for every line, so log shippers and rotation tools never find it
+locked. With `max size` set, the cut back to the newest 70% now runs on the
+thread that crossed the limit, which waits for it.

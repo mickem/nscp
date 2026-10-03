@@ -421,7 +421,9 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
     // up: the core waits for the lines queued for our handler, which it did
     // not print itself, so they land in the prompt rather than nowhere. Then
     // drop the shared reference the logging thread reaches us through,
-    // before the editor is destroyed.
+    // before the editor is destroyed. A line logged during that wait is
+    // printed twice - by the core, whose console is back on, and through the
+    // prompt - which is deliberate: the other order loses lines instead.
     get_core()->set_log_option("console");
     set_editor(nullptr);
     editor.reset();
