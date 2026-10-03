@@ -3,7 +3,11 @@
 
 #pragma once
 
+#include <chrono>
 #include <list>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <string>
 #include <vector>
@@ -18,19 +22,21 @@ class ncpa_sources {
     std::string name;
     // The module that registered the query: its name (CheckExternalScripts),
     // never the alias it was loaded under, so a policy that names a module
-    // holds however that module is loaded.
+    // holds however that module is loaded. Empty unless the sources were
+    // built `with_module`.
     std::string module;
   };
 
-  ncpa_sources(const nscapi::core_wrapper *core, unsigned int plugin_id) : core_(core), plugin_id_(plugin_id) {}
+  // `with_module` resolves each query's module name, which costs a
+  // module-registry lookup per refresh; leave it off when nothing looks at
+  // query_info::module (only `plugins = scripts` does).
+  ncpa_sources(const nscapi::core_wrapper *core, unsigned int plugin_id, bool with_module) : core_(core), plugin_id_(plugin_id), with_module_(with_module) {}
 
-  // Every registered query and query alias. `with_module` resolves each
-  // query's module name, which costs a module-registry lookup; leave it off
-  // when the caller does not look at query_info::module.
-  std::vector<query_info> list_queries(bool with_module) const;
+  // Every registered query and query alias, sorted by name.
+  std::vector<query_info> list_queries() const;
   // The registration of one query; false when nothing is registered under
-  // `name`.
-  bool describe_query(const std::string &name, bool with_module, query_info &out) const;
+  // `name` (compared as the registry does, without regard to case).
+  bool describe_query(const std::string &name, query_info &out) const;
 
   // Run a query with each argument as one token, the way a REST caller passes
   // `key=value`. The caller identity (this module) is stamped on the request,
@@ -39,6 +45,19 @@ class ncpa_sources {
   int run_query(const std::string &name, const std::list<std::string> &arguments, std::string &message, std::string &perf) const;
 
  private:
+  typedef std::map<std::string, query_info> inventory_map;
+  // The registry's query list, kept for kRefreshSeconds. Every poll used to
+  // ask the registry whether its query exists (and, for `plugins = scripts`,
+  // rebuild the module list) before running it. Registrations do change at
+  // runtime - a script module registers commands, a module is loaded over
+  // REST - so this is a short-lived cache, not one kept until a reload.
+  static constexpr int kRefreshSeconds = 5;
+  std::shared_ptr<const inventory_map> inventory() const;
+
   const nscapi::core_wrapper *core_;
   unsigned int plugin_id_;
+  bool with_module_;
+  mutable std::mutex cache_mutex_;
+  mutable std::shared_ptr<const inventory_map> cache_;
+  mutable std::chrono::steady_clock::time_point cache_time_;
 };

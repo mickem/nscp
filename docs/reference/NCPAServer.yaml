@@ -29,9 +29,11 @@ unix:
         allow insecure:
           advanced: false
           default_value: 'false'
-          description: When false (the default) the listener refuses to start without a TLS certificate
-            rather than serve the token in clear. Set to true only behind a TLS-terminating proxy or on
-            loopback. Note that check_ncpa.py always connects with https.
+          description: 'When false (the default) the listener refuses to start unless its TLS certificate
+            loads, rather than serve the token in clear. A missing default certificate is generated, so
+            it never counts as missing: to serve plain HTTP - behind a TLS-terminating proxy, or on loopback
+            - set `certificate` to empty as well as this to true. Note that check_ncpa.py always connects
+            with https.'
           sample: false
           title: ALLOW INSECURE (CLEARTEXT HTTP)
         allowed ciphers:
@@ -69,6 +71,13 @@ unix:
             rotated without a window where pollers fail. Empty (the default) accepts only `token`.
           sample: false
           title: BACKUP TOKEN
+        bind to:
+          advanced: false
+          default_value: ''
+          description: Allows you to bind server to a specific local address. This has to be a dotted
+            ip address not a host name. Leaving this blank will bind to all available IP addresses.
+          sample: false
+          title: BIND TO ADDRESS
         cache allowed hosts:
           advanced: false
           default_value: 'true'

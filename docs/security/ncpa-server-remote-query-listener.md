@@ -33,6 +33,7 @@ How it is protected:
   here. Queries are attributed to `NCPAServer` in the core permission policy.
 
 **What to do:** nothing unless you enable `NCPAServer`. If you do, set a long
-random `token`, restrict `allowed hosts` to your Nagios servers, keep
+random `token`, restrict `allowed hosts` to your Nagios servers, set
+`bind to` if the listener belongs on one interface only, keep
 `allow arguments = false` unless you need it, and consider `plugins = scripts`
 or an explicit list.

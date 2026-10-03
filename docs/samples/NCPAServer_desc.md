@@ -76,7 +76,22 @@ The listener serves HTTPS with the same certificate as the WEB server (`${certif
 on first start when missing), so one certificate serves both. `check_ncpa.py` does not verify the certificate unless it
 is run with `-s`, so the generated self-signed one works out of the box; give it a real one and pass `-s` to have the
 monitoring server check it. Unless the certificate and its key actually load (and belong together), the listener
-refuses to start rather than send the token in clear, unless `allow insecure = true` is set.
+refuses to start rather than send the token in clear.
+
+To serve plain HTTP, for instance behind a TLS-terminating proxy, both settings are needed: an empty `certificate`
+(otherwise the default one is generated and used) and `allow insecure = true` (otherwise a missing certificate stops
+the listener):
+
+```
+[/settings/NCPA/server]
+certificate =
+allow insecure = true
+```
+
+#### Listening address
+
+The listener binds to `bind to`, set under `[/settings/NCPA/server]` or inherited from `[/settings/default]` like the
+NRPE and NSCA servers, and to every interface when that is empty. An IPv6 address is written bare (`bind to = ::1`).
 
 #### Concurrency
 

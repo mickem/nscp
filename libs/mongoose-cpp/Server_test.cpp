@@ -798,61 +798,54 @@ TEST(ServerImpl, AFailedStartLeavesNoSocketsBehind) {
 
 namespace {
 struct stop_state {
-  std::atomic<Server*> server{nullptr};
-  std::atomic<bool> stopped{false};
-  std::atomic<bool> may_return{false};
+  std::shared_ptr<Server> server;
+  std::atomic<bool> released{false};
+  std::atomic<bool> finished{false};
 };
-// Stops the server it is registered on, from inside a request, then returns
-// an answer. The backstop path: the core refuses a module unloading itself.
-// The handler object is deleted with the server while process() still runs,
-// so process() works on a copy of the shared state only.
-class StopServerHandler : public RequestHandlerBase {
+// Releases the server it runs on from inside a request - the backstop path of
+// a handler whose work ends up stopping its own listener - then keeps going
+// for a while, touching itself, the way a handler would.
+class ReleaseServerHandler : public RequestHandlerBase {
  public:
-  explicit StopServerHandler(std::shared_ptr<stop_state> state) : state_(std::move(state)) {}
+  explicit ReleaseServerHandler(std::shared_ptr<stop_state> state) : state_(std::move(state)) {}
   Response* process(Request& /*request*/) override {
-    const std::shared_ptr<stop_state> state = state_;
-    state->server.load()->stop();
-    state->stopped = true;
-    // Let the test free the server before this handler returns, so what the
-    // worker does next runs against a freed server object.
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    while (!state->may_return && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    Mongoose::stop_and_release(state_->server, {});
+    state_->released = true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    // `this` (owned by the server's controller) must still be alive here.
     auto* r = new StreamResponse(200);
     r->setCode(200, "OK");
-    r->append("stopped");
+    r->append(marker_);
+    state_->finished = true;
     return r;
   }
 
  private:
   std::shared_ptr<stop_state> state_;
+  std::string marker_ = "released";
 };
 }  // namespace
 
-TEST(ServerImpl, AWorkerThatStopsItsServerSurvivesTheServerBeingFreed) {
-  // stop() on a worker detaches the workers; the caller then frees the
-  // server. The worker used to go on to hand its answer back through the
-  // freed object (its mutex, its condition variable, its manager). It now
-  // only touches the pool it shares, which it keeps alive.
+TEST(ServerImpl, AHandlerCanReleaseItsOwnServer) {
+  // A worker that stops its server used to have the server freed under it
+  // (its controller included) while it was still running. stop_and_release()
+  // hands the server to a thread of its own, which frees it only after this
+  // handler has returned. Meaningful under ASan.
   const int port = choose_port_base() + 42;
   const auto state = std::make_shared<stop_state>();
   auto* controller = new MatchController();
-  controller->registerRoute("GET", "/stop", new StopServerHandler(state));
+  controller->registerRoute("GET", "/release", new ReleaseServerHandler(state));
   const auto logger = std::make_shared<CollectingLogger>();
-  std::unique_ptr<Server> server(Server::make_server(logger));
-  state->server = server.get();
-  server->setWorkerThreads(2);
-  server->registerController(controller);
-  ASSERT_TRUE(server->start(bind_url(port)));
+  state->server.reset(Server::make_server(logger));
+  const std::weak_ptr<Server> watch = state->server;
+  state->server->setWorkerThreads(2);
+  state->server->registerController(controller);
+  ASSERT_TRUE(state->server->start(bind_url(port)));
 
-  std::thread client([&] { raw_fetch(bind_url(port), make_get_request("/stop", port)); });
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-  while (!state->stopped && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(5));
-  ASSERT_TRUE(state->stopped);
-  state->may_return = true;  // the handler returns (after a moment)...
-  server.reset();            // ...while the server is freed under it
-  client.join();
-  // Give the detached worker time to finish against the freed server.
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
-  SUCCEED();  // passes by not crashing; meaningful under ASan
+  raw_fetch(bind_url(port), make_get_request("/release", port));
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!watch.expired() && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_TRUE(state->released);
+  EXPECT_TRUE(state->finished);
+  EXPECT_TRUE(watch.expired()) << "the server is freed once its threads are done";
 }

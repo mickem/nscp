@@ -11,6 +11,7 @@ why and does not start. Before, an unreadable certificate or key left it
 serving plain HTTP on 8443 (Linux), a mismatched key stopped it (Linux), and
 on Windows it listened with every TLS handshake failing. Fix the certificate
 (the default `${certificate-path}/certificate.pem` is generated when missing),
-or remove it and set `allow insecure = true` if cleartext HTTP is really what
-you want. See the
+or set `certificate` to empty and `allow insecure = true` if cleartext HTTP is
+really what you want (with only the latter, the default certificate is
+generated and served). See the
 [security notice](../security/notices.md#web-server-no-fallback-to-cleartext-http-when-the-certificate-does-not-load).

@@ -11,6 +11,7 @@
 #include <limits>
 #include <net/socket/socket_helpers.hpp>
 #include <net/web_server_logger.hpp>
+#include <net/web_server_tls.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -66,11 +67,6 @@ namespace {
 // table in session_persistence's format, replaced at every clean shutdown.
 constexpr const char *kSessionStorageContext = "web.sessions";
 constexpr const char *kSessionStorageKey = "sessions";
-
-// The stock `tls version`. Named because two places have to agree on it: the
-// setting's registered default, and the test below it for whether the operator
-// chose the value at all.
-const char *const kDefaultTlsVersion = "1.2+";
 
 // True if a WEB role's comma-separated grant string confers the bare `legacy`
 // permission - the token the deprecated /query/{name} query-dispatch route
@@ -241,7 +237,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_string("certificate", sh::path_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
                   "Ssl certificate to use for the ssl server")
       .add_string("certificate key", sh::path_key(&key), "TLS private key", "The private key for the certificate if not in the same file")
-      .add_string("tls version", sh::string_key(&tls_version, kDefaultTlsVersion), "TLS version to use",
+      .add_string("tls version", sh::string_key(&tls_version, net::kDefaultWebTlsVersion), "TLS version to use",
                   "Which TLS versions the listener will negotiate, in the same vocabulary as the NRPE and NSCA listeners: an exact version (1.0, 1.1, "
                   "1.2, 1.3), a trailing + for that version or later, or `any`. The default 1.2+ allows TLS 1.2 and TLS 1.3. `sslv3` is the one "
                   "spelling those listeners take that this one does not: the web listener never serves SSL 3.0, so pinning the range to it would accept no "
@@ -539,12 +535,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server.reset(Server::make_server(logger));
     // The guard line of a dying server thread reaches the log as written.
     server->setThreadReporting("web server", NSC_THREAD_REPORTER);
-    // An untouched `tls version` is passed as empty rather than as its default
-    // value: the mongoose backend cannot honour the setting and logs that it is
-    // ignoring it, which on a stock agent would mean an error on every start
-    // and reload about a setting nobody wrote. The beast backend applies the
-    // same default itself when handed an empty string.
-    server->setTlsOptions(tls_version == kDefaultTlsVersion ? std::string() : tls_version, allowed_ciphers);
+    net::apply_tls_options(*server, tls_version, allowed_ciphers);
     if (cert_missing) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {
@@ -649,10 +640,7 @@ void WEBServer::prepareShutdown() {
 bool WEBServer::unloadModule() {
   bool ok = true;
   try {
-    if (server) {
-      server->stop();
-      server.reset();
-    }
+    Mongoose::stop_and_release(server, NSC_THREAD_REPORTER);
   } catch (...) {
     NSC_LOG_ERROR_EX("unload");
     ok = false;

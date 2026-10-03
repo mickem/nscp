@@ -3,6 +3,9 @@
 
 #include "Server.h"
 
+#include <threads/guarded_thread.hpp>
+#include <utility>
+
 #ifdef NSCP_WEB_BACKEND_BEAST
 #include "ServerBeastImpl.h"
 #else
@@ -21,4 +24,26 @@ Mongoose::Server* Mongoose::Server::make_server(const WebLoggerPtr& logger) {
 #else
   return new ServerMongooseImpl(logger);
 #endif
+}
+
+void Mongoose::stop_and_release(std::shared_ptr<Server> &server, const Server::thread_reporter &reporter) {
+  std::shared_ptr<Server> owned;
+  owned.swap(server);
+  if (!owned) {
+    return;
+  }
+  if (!owned->isServerThread()) {
+    owned->stop();
+    return;  // freed here, with every thread joined
+  }
+  // On one of its own threads: see the declaration. The releasing thread holds
+  // the last reference, so the server outlives every thread it joins.
+  const auto releaser = threads::start_guarded_thread(
+      "web server release",
+      [owned]() mutable {
+        owned->stop();
+        owned.reset();
+      },
+      reporter ? reporter : Server::thread_reporter([](const std::string &) {}));
+  releaser->detach();
 }

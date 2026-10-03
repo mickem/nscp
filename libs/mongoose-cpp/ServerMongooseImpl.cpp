@@ -79,6 +79,23 @@ void install_log_hook() {
 }
 }  // namespace
 
+namespace {
+// The peer's address without brackets. mongoose prints IPv6 as
+// `[0:0:0:0:0:0:0:1]`, which make_address() refuses: an accept filter or a
+// session check would turn every IPv6 peer away on this backend only. The
+// unbracketed full form parses (beast hands out the short form, `::1`, which
+// is the same address).
+std::string remote_address(const mg_connection *connection) {
+  char buf[100];
+  mg_snprintf(buf, sizeof(buf), "%M", mg_print_ip, &connection->rem);
+  std::string text(buf);
+  if (text.size() >= 2 && text.front() == '[' && text.back() == ']') {
+    text = text.substr(1, text.size() - 2);
+  }
+  return text;
+}
+}  // namespace
+
 namespace Mongoose {
 ServerMongooseImpl::ServerMongooseImpl(WebLoggerPtr logger) : logger_(std::move(logger)), stop_thread_(false) {
   install_log_hook();
@@ -131,6 +148,14 @@ void ServerMongooseImpl::setWorkerThreads(const std::size_t threads) {
     return;
   }
   worker_threads_ = threads == 0 ? 1 : threads;
+}
+
+bool ServerMongooseImpl::isServerThread() const {
+  const auto self = boost::this_thread::get_id();
+  if (thread_ && thread_->get_id() == self) {
+    return true;
+  }
+  return std::any_of(workers_.begin(), workers_.end(), [self](const std::shared_ptr<boost::thread> &worker) { return worker->get_id() == self; });
 }
 
 void ServerMongooseImpl::setAcceptFilter(accept_filter filter) {
@@ -255,8 +280,12 @@ void ServerMongooseImpl::stop() {
   // will run. Then the workers, while the poll thread still runs to write
   // their answers out - queued requests get a 503, one already running is
   // waited for. The poll thread goes last: mg_wakeup() needs its manager.
-  accepting_ = false;
   if (pool_) {
+    // Only a server with workers stops accepting early: its stop can wait
+    // seconds for a running check. Without workers (the WEB server) the poll
+    // thread goes next and nothing is gained by turning clients away while it
+    // finishes its last poll - they are served until it exits, as before.
+    accepting_ = false;
     std::deque<job> abandoned;
     {
       const std::lock_guard<std::mutex> lock(pool_->mutex);
@@ -272,8 +301,11 @@ void ServerMongooseImpl::stop() {
     }
     // Called from a worker (a handler that stopped its own server, a backstop
     // path): that worker cannot be joined, and the others may not be waited
-    // for either. They are detached; they only ever touch the pool, which
-    // they keep alive, so freeing this object under them is safe.
+    // for either, so they are detached. Their own bookkeeping only touches the
+    // pool, which they keep alive - but one may still be inside a controller
+    // the server owns, so the server must not be freed until it returns. That
+    // is what stop_and_release() is for; a caller on a server thread uses it
+    // rather than stop() and a delete.
     const bool from_worker = std::any_of(workers_.begin(), workers_.end(),
                                          [](const std::shared_ptr<boost::thread> &worker) { return worker->get_id() == boost::this_thread::get_id(); });
     for (const std::shared_ptr<boost::thread> &worker : workers_) {
@@ -428,9 +460,7 @@ bool ServerMongooseImpl::admits(mg_connection *connection) const {
   if (!accept_filter_) {
     return true;
   }
-  char buf[100];
-  mg_snprintf(buf, sizeof(buf), "%M", mg_print_ip, &connection->rem);
-  return accept_filter_(std::string(buf));
+  return accept_filter_(remote_address(connection));
 }
 
 void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *ev_data) {
@@ -607,10 +637,7 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
 
   for (Controller *ctrl : controllers) {
     if (ctrl->handles(method, url)) {
-      char buf[100];
-      mg_snprintf(buf, sizeof(buf), "%M", mg_print_ip, &connection->rem);
-      auto ip = std::string(buf);
-      Request request = build_request(ip, message, is_ssl, method);
+      Request request = build_request(remote_address(connection), message, is_ssl, method);
 
       if (pool_) {
         // Answered from a worker; mongoose keeps the connection marked as

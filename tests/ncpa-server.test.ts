@@ -4,8 +4,8 @@
  * without Docker. Covers the token gate (primary, backup, wrong, missing, none
  * configured), the `plugins/` node (listing, dispatch, argument handling and
  * the `allow arguments` / `plugins` policies), the NCPA error shapes, a POST
- * form body, `allowed hosts`, and the refusal to serve the token in clear when
- * there is no certificate.
+ * form body, `allowed hosts`, `bind to`, and the refusal to serve the token in
+ * clear when there is no certificate (and plain HTTP when asked for it).
  *
  * NCPA answers authentication and lookup failures with HTTP 200 and a JSON
  * body (check_ncpa.py turns `{"error": ...}` into CRITICAL). A host outside
@@ -552,6 +552,84 @@ describe("NCPA server", () => {
     });
   });
 
+  describe("with no certificate configured and allow insecure", () => {
+    let nscp: NscpInstance | undefined;
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("serves plain HTTP, the documented setup behind a TLS-terminating proxy", async () => {
+      // An empty `certificate` is what keeps the default one from being
+      // generated; `allow insecure` alone would still serve HTTPS.
+      nscp = new NscpInstance();
+      await nscp.configure({
+        "/modules": { NCPAServer: "enabled", CheckHelpers: "enabled" },
+        "/settings/default": { "allowed hosts": "127.0.0.1" },
+        "/settings/NCPA/server": { token: TOKEN, certificate: "EMPTY", "allow insecure": true },
+      });
+      // `nscp settings --set ""` drops the key, so the empty value is written
+      // into the file the way an operator would.
+      const ini = fs.readFileSync(nscp.settingsFile, "utf8");
+      fs.writeFileSync(
+        nscp.settingsFile,
+        ini.replace(/^certificate\s*=\s*EMPTY$/m, "certificate = "),
+      );
+      await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
+      nscp.start();
+      await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
+      const res = await request(`http://127.0.0.1:${PORT}`)
+        .get(`/api/plugins/check_ok?token=${TOKEN}&check=1`)
+        .expect(200);
+      expect(res.body.returncode).toBe(0);
+      expect(nscp.capturedStdout()).toContain("no certificate is configured");
+    });
+  });
+
+  describe("with bind to", () => {
+    let nscp: NscpInstance;
+    // A local address other than loopback, when the host has one: allowed, so
+    // only the bind can keep it out.
+    const other = Object.values(os.networkInterfaces())
+      .flat()
+      .find((i) => i && i.family === "IPv4" && !i.internal)?.address;
+
+    beforeAll(async () => {
+      nscp = await startNcpa(
+        { token: TOKEN },
+        {
+          "/settings/default": {
+            "allowed hosts": other ? `127.0.0.1,${other}` : "127.0.0.1",
+            "bind to": "127.0.0.1",
+          },
+        },
+      );
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("answers on the address it is bound to", async () => {
+      const res = await get(`/api/plugins/check_ok?token=${TOKEN}&check=1`).expect(200);
+      expect(res.body.returncode).toBe(0);
+    });
+
+    it("does not listen on any other interface", async () => {
+      if (!other) return;
+      // Refused by the kernel, not accepted and dropped by the allow-list.
+      const code = await new Promise<string | undefined>((resolve) => {
+        const socket = net.connect(PORT, other);
+        socket.once("connect", () => {
+          socket.destroy();
+          resolve("connected");
+        });
+        socket.once("error", (e: NodeJS.ErrnoException) => resolve(e.code));
+      });
+      expect(code).toBe("ECONNREFUSED");
+    });
+  });
+
   describe("when the port is taken", () => {
     let nscp: NscpInstance | undefined;
     let squatter: net.Server | undefined;
@@ -574,7 +652,7 @@ describe("NCPA server", () => {
       nscp.start();
       // It used to log "listening on port 5693" here.
       await waitForLog(nscp, "NCPA listener has NOT been started on port");
-      expect(nscp.capturedStdout()).not.toContain("NCPA: listening on port");
+      expect(nscp.capturedStdout()).not.toContain("NCPA: listening on");
     });
   });
 });

@@ -92,6 +92,7 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   bool setSsl(std::string &certificate, std::string &key) override;
   void setWorkerThreads(std::size_t threads) override;
   void setAcceptFilter(accept_filter filter) override;
+  bool isServerThread() const override;
   void setThreadReporting(const std::string &thread_name, thread_reporter reporter) override;
   void setTlsOptions(const std::string &tls_version, const std::string &ciphers) override;
 
@@ -135,10 +136,11 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
     reply answer;
     bool close = false;
   };
-  // Everything the workers share with the server, held by shared_ptr so a
-  // worker never touches the server object itself: a stop() run on a worker
-  // thread detaches the workers and the server is freed under them, while the
-  // pool lives on until the last of them has gone.
+  // Everything the workers share with the server, held by shared_ptr so the
+  // workers' own bookkeeping never goes through the server object: a stop()
+  // run on a worker detaches them, and the pool lives on until the last of
+  // them has gone. (The controller a worker is running still belongs to the
+  // server; see stop_and_release() for freeing a server from its own thread.)
   struct worker_pool {
     std::mutex mutex;
     std::condition_variable cv;
