@@ -27,6 +27,15 @@
 namespace om = metrics::openmetrics;
 
 namespace {
+// Every parse in this file goes through here. The parser stops with an
+// `internal error` when one of its own invariants does not hold - in every
+// build, with no assert behind it - so this is what turns a broken invariant
+// into a failing test, wherever a test or a fuzz loop happens to reach it.
+om::result parse_checked(const std::string &body, const om::format f, const om::limits &bounds = om::limits()) {
+  om::result parsed = om::parse(body, f, bounds);
+  EXPECT_NE(parsed.error.rfind("internal error", 0), 0u) << parsed.error << " on line " << parsed.error_line << " of: " << body.substr(0, 400);
+  return parsed;
+}
 
 PB::Metrics::Metric *add(PB::Metrics::MetricsBundle *b, const std::string &key, const std::string &help = "", const std::string &unit = "") {
   PB::Metrics::Metric *m = b->add_value();
@@ -121,7 +130,7 @@ om::result parse(const openmetrics::dialect dialect) {
   std::vector<std::string> problems;
   const std::string body = openmetrics::render(snapshot(), dialect, &problems);
   EXPECT_TRUE(problems.empty()) << problems.front();
-  om::result parsed = om::parse(body, format_of(dialect));
+  om::result parsed = parse_checked(body, format_of(dialect));
   EXPECT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line << " of\n" << body;
   return parsed;
 }
@@ -304,10 +313,10 @@ TEST(OpenmetricsRoundTrip, EveryTruncationOfOurOwnBodyIsRefusedOrEndsOnALine) {
   for (const openmetrics::dialect dialect : {openmetrics::dialect::openmetrics_1_0, openmetrics::dialect::prometheus_text_0_0_4}) {
     const std::string body = openmetrics::render(snapshot(), dialect);
     const om::format format = format_of(dialect);
-    const om::result full = om::parse(body, format);
+    const om::result full = parse_checked(body, format);
     ASSERT_TRUE(full.ok()) << full.error;
     for (std::size_t length = 0; length < body.size(); ++length) {
-      const om::result parsed = om::parse(body.substr(0, length), format);
+      const om::result parsed = parse_checked(body.substr(0, length), format);
       // An OpenMetrics `# EOF` without its line feed is the one unterminated
       // line accepted; in the Prometheus text format it is a comment that
       // could have been cut from a longer one.

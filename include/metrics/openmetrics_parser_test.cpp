@@ -38,7 +38,18 @@ namespace om = metrics::openmetrics;
 namespace {
 
 const om::format openmetrics = om::format::openmetrics_1_0;
+
 const om::format text = om::format::prometheus_text_0_0_4;
+
+// Every parse in this file goes through here. The parser stops with an
+// `internal error` when one of its own invariants does not hold - in every
+// build, with no assert behind it - so this is what turns a broken invariant
+// into a failing test, wherever a test or a fuzz loop happens to reach it.
+om::result parse_checked(const std::string &body, const om::format f, const om::limits &bounds = om::limits()) {
+  om::result parsed = om::parse(body, f, bounds);
+  EXPECT_NE(parsed.error.rfind("internal error", 0), 0u) << parsed.error << " on line " << parsed.error_line << " of: " << body.substr(0, 400);
+  return parsed;
+}
 
 // The single family a body was expected to produce. A failed count is reported
 // and an empty family returned, so the test carries on to report what else is
@@ -98,7 +109,7 @@ void expect_stops_at_error(const om::result &parsed, const std::string &body, co
     const std::size_t end = body.find('\n', start);
     start = end == std::string::npos ? std::string::npos : end + 1;
   }
-  const om::result before = om::parse(start == std::string::npos ? body : body.substr(0, start), f, om::limits());
+  const om::result before = parse_checked(start == std::string::npos ? body : body.substr(0, start), f, om::limits());
   EXPECT_EQ(parsed.sample_count, before.sample_count) << body << " -> " << parsed.error;
   EXPECT_LE(parsed.families.size(), before.families.size()) << body << " -> " << parsed.error;
 }
@@ -119,7 +130,7 @@ TEST(OpenmetricsParser, FormatFollowsTheContentType) {
 
 TEST(OpenmetricsParser, ReadsAGaugeWithItsMetadata) {
   for (const om::format f : {openmetrics, text}) {
-    const om::result parsed = om::parse(
+    const om::result parsed = parse_checked(
         "# HELP node_memory_free_bytes Free memory.\n"
         "# TYPE node_memory_free_bytes gauge\n"
         "# UNIT node_memory_free_bytes bytes\n"
@@ -142,7 +153,7 @@ TEST(OpenmetricsParser, ReadsAGaugeWithItsMetadata) {
 
 TEST(OpenmetricsParser, OpenMetricsCounterIsNamedWithoutItsSuffix) {
   // OpenMetrics names the family and puts `_total` on the sample.
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "# TYPE http_requests counter\n"
       "http_requests_total{code=\"200\"} 1027\n"
       "http_requests_created{code=\"200\"} 1.7e9\n"
@@ -161,7 +172,7 @@ TEST(OpenmetricsParser, OpenMetricsCounterIsNamedWithoutItsSuffix) {
 TEST(OpenmetricsParser, PrometheusTextCounterIsNamedAsDeclared) {
   // The older format names the sample in every metadata line, so that is the
   // family name too. Nothing is renamed.
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "# HELP http_requests_total Requests served.\n"
       "# TYPE http_requests_total counter\n"
       "http_requests_total{code=\"200\"} 1027\n"
@@ -196,7 +207,7 @@ TEST(OpenmetricsParser, PrometheusTextGaugeAndTotalCounterAreTwoFamilies) {
       "# TYPE node_load1 gauge\n"
       "node_load1 0.5\n";
   for (const std::string &body : {gauge_first, counter_first}) {
-    const om::result parsed = om::parse(body, text);
+    const om::result parsed = parse_checked(body, text);
     ASSERT_TRUE(parsed.ok()) << parsed.error;
     ASSERT_EQ(parsed.families.size(), 3u);
     EXPECT_EQ(family_named(parsed, "go_memstats_alloc_bytes").type, om::family_type::gauge);
@@ -225,7 +236,7 @@ const char *const client_golang_openmetrics =
     "# EOF\n";
 
 TEST(OpenmetricsParser, ClientGolangOpenMetricsGaugeAndCounterOfOneNameAreBothKept) {
-  const om::result parsed = om::parse(client_golang_openmetrics, openmetrics);
+  const om::result parsed = parse_checked(client_golang_openmetrics, openmetrics);
   ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
   expect_consistent(parsed, client_golang_openmetrics, openmetrics);
   EXPECT_TRUE(parsed.saw_eof);
@@ -252,7 +263,7 @@ TEST(OpenmetricsParser, ClientGolangBodyCutAtAnyLineReadsAsTruncated) {
   const std::string body = client_golang_openmetrics;
   for (std::size_t end = body.find('\n'); end != std::string::npos; end = body.find('\n', end + 1)) {
     const std::string prefix = body.substr(0, end + 1);
-    const om::result parsed = om::parse(prefix, openmetrics);
+    const om::result parsed = parse_checked(prefix, openmetrics);
     EXPECT_TRUE(parsed.ok()) << "cut after byte " << end << ": " << parsed.error;
     EXPECT_EQ(parsed.saw_eof, end + 1 == body.size()) << "cut after byte " << end;
   }
@@ -272,7 +283,7 @@ TEST(OpenmetricsParser, OpenMetricsCounterBesideAHistogramOrSummaryOfItsName) {
                              "# TYPE after gauge\n"
                              "after 1\n"
                              "# EOF\n";
-    const om::result parsed = om::parse(body, openmetrics);
+    const om::result parsed = parse_checked(body, openmetrics);
     ASSERT_TRUE(parsed.ok()) << other << ": " << parsed.error;
     expect_consistent(parsed, body, openmetrics);
     ASSERT_EQ(parsed.families.size(), 3u) << other;
@@ -284,7 +295,7 @@ TEST(OpenmetricsParser, OpenMetricsCounterBesideAHistogramOrSummaryOfItsName) {
 }
 
 TEST(OpenmetricsParser, OpenMetricsSameNamePairInEitherOrder) {
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "# TYPE x counter\n"
       "x_total 5\n"
       "# TYPE x gauge\n"
@@ -359,7 +370,7 @@ TEST(OpenmetricsParser, SameNamePairThatCannotStandSideBySideIsRefused) {
       {"# TYPE x gauge\nx 1\n# TYPE x counter\nx_total 1\nx 2\n", 5, "apart from the rest of the family 'x'", 2},
   };
   for (const refused &c : cases) {
-    const om::result parsed = om::parse(c.body, openmetrics);
+    const om::result parsed = parse_checked(c.body, openmetrics);
     EXPECT_FALSE(parsed.ok()) << c.body;
     EXPECT_EQ(parsed.error_line, c.line) << c.body << " -> " << parsed.error;
     EXPECT_NE(parsed.error.find(c.fragment), std::string::npos) << c.body << " -> " << parsed.error;
@@ -369,7 +380,7 @@ TEST(OpenmetricsParser, SameNamePairThatCannotStandSideBySideIsRefused) {
   }
   // The Prometheus text format names every family after its sample, so it
   // never writes a pair.
-  const om::result text_pair = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\nx 2\n", text);
+  const om::result text_pair = parse_checked("# TYPE x gauge\nx 1\n# TYPE x counter\nx 2\n", text);
   EXPECT_FALSE(text_pair.ok());
   EXPECT_EQ(text_pair.error_line, 3u);
 }
@@ -388,8 +399,8 @@ TEST(OpenmetricsParser, FinalLineFeedAfterEofChangesNothing) {
   };
   const auto same = [](const std::string &whole) {
     const std::string cut = whole.substr(0, whole.size() - 1);
-    const om::result a = om::parse(whole, openmetrics);
-    const om::result b = om::parse(cut, openmetrics);
+    const om::result a = parse_checked(whole, openmetrics);
+    const om::result b = parse_checked(cut, openmetrics);
     EXPECT_EQ(a.ok(), b.ok()) << whole;
     EXPECT_EQ(a.error, b.error) << whole;
     EXPECT_EQ(a.error_line, b.error_line) << whole;
@@ -408,7 +419,7 @@ TEST(OpenmetricsParser, FinalLineFeedAfterEofChangesNothing) {
   };
   for (const char *body : cases) same(body);
   // The block's first two cases, by their result.
-  const om::result refused = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\n# EOF", openmetrics);
+  const om::result refused = parse_checked("# TYPE x gauge\nx 1\n# TYPE x counter\n# EOF", openmetrics);
   EXPECT_FALSE(refused.ok());
   EXPECT_EQ(refused.error_line, 3u);
   EXPECT_EQ(refused.families.size(), 1u);
@@ -431,6 +442,65 @@ TEST(OpenmetricsParser, FinalLineFeedAfterEofChangesNothing) {
   }
 }
 
+TEST(OpenmetricsParser, APairBlockTakesOnlyItsOwnSamples) {
+  // Every pair client_golang can write, against every sample name a block can
+  // meet first: the block's own, the earlier family's, and names that only
+  // start or end like them, short and long. Its own make it the second family;
+  // anything else makes the line that repeated the name the error.
+  struct pair_case {
+    const char *first;
+    const char *first_sample;
+    const char *second;
+    std::set<std::string> own;
+  };
+  const pair_case pairs[] = {
+      {"gauge", "x 1", "counter", {"x_total", "x_created"}},
+      {"histogram", "x_bucket{le=\"+Inf\"} 1", "counter", {"x_total", "x_created"}},
+      {"summary", "x_count 1", "counter", {"x_total", "x_created"}},
+      {"counter", "x_total 1", "gauge", {"x"}},
+      {"counter", "x_total 1", "histogram", {"x_bucket", "x_sum", "x_count", "x_created"}},
+      {"counter", "x_total 1", "summary", {"x", "x_sum", "x_count", "x_created"}},
+  };
+  const std::string long_tail(300, 'q');
+  const std::vector<std::string> candidates = {"x",
+                                               "x_total",
+                                               "x_created",
+                                               "x_bucket",
+                                               "x_sum",
+                                               "x_count",
+                                               "x_info",
+                                               "x_gcount",
+                                               "x_gsum",
+                                               "xx",
+                                               "x_totalx",
+                                               "x_total_total",
+                                               "x_" + long_tail,
+                                               "y",
+                                               "y_total",
+                                               "x_bucketx",
+                                               "a_x_total",
+                                               "x" + long_tail,
+                                               long_tail + "_total",
+                                               "x_total" + long_tail};
+  for (const pair_case &pc : pairs) {
+    for (const std::string &name : candidates) {
+      const std::string labels = std::string(pc.second) == "histogram" && name == "x_bucket" ? "{le=\"+Inf\"}" : "";
+      const std::string body = std::string("# TYPE x ") + pc.first + "\n" + pc.first_sample + "\n# TYPE x " + pc.second + "\n" + name + labels + " 1\n# EOF\n";
+      const om::result parsed = parse_checked(body, openmetrics);
+      expect_consistent(parsed, body, openmetrics);
+      if (pc.own.count(name) != 0) {
+        ASSERT_TRUE(parsed.ok()) << body << " -> " << parsed.error;
+        ASSERT_EQ(parsed.families.size(), 2u) << body;
+        EXPECT_EQ(parsed.families.at(1).samples.size(), 1u) << body;
+      } else {
+        EXPECT_EQ(parsed.error_line, 3u) << body << " -> " << parsed.error;
+        EXPECT_NE(parsed.error.find("already declared or sampled"), std::string::npos) << body << " -> " << parsed.error;
+        EXPECT_EQ(parsed.families.size(), 1u) << body;
+      }
+    }
+  }
+}
+
 TEST(OpenmetricsParser, BlankAndCommentLinesMayStandInsideAPairBlock) {
   // Neither belongs to another family, so neither decides the block.
   const std::string body =
@@ -443,7 +513,7 @@ TEST(OpenmetricsParser, BlankAndCommentLinesMayStandInsideAPairBlock) {
       "#another comment\n"
       "x_total 1\n"
       "# EOF\n";
-  const om::result parsed = om::parse(body, openmetrics);
+  const om::result parsed = parse_checked(body, openmetrics);
   ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
   ASSERT_EQ(parsed.families.size(), 2u);
   EXPECT_EQ(parsed.families.at(1).type, om::family_type::counter);
@@ -457,11 +527,11 @@ TEST(OpenmetricsParser, OverLongMetadataLineFailsItsFamilyLikeAnyOther) {
   om::limits bounds;
   bounds.max_line_bytes = 20;
   for (const om::format f : {openmetrics, text}) {
-    const om::result too_long = om::parse("# TYPE y counter\n# HELP y " + std::string(40, 'h') + "\n", f, bounds);
+    const om::result too_long = parse_checked("# TYPE y counter\n# HELP y " + std::string(40, 'h') + "\n", f, bounds);
     EXPECT_EQ(too_long.error_line, 2u) << too_long.error;
     EXPECT_NE(too_long.error.find("longer than 20 bytes"), std::string::npos) << too_long.error;
     EXPECT_TRUE(too_long.families.empty());
-    const om::result twice = om::parse("# TYPE y counter\n# HELP y a\n# HELP y b\n", f, bounds);
+    const om::result twice = parse_checked("# TYPE y counter\n# HELP y a\n# HELP y b\n", f, bounds);
     EXPECT_EQ(twice.error_line, 3u) << twice.error;
     EXPECT_TRUE(twice.families.empty());
   }
@@ -473,7 +543,7 @@ TEST(OpenmetricsParser, OverLongMetadataLineFailsTheBlockOfARepeatedName) {
   // family as it was.
   om::limits bounds;
   bounds.max_line_bytes = 20;
-  const om::result parsed = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\n# HELP x " + std::string(40, 'h') + "\n", openmetrics, bounds);
+  const om::result parsed = parse_checked("# TYPE x gauge\nx 1\n# TYPE x counter\n# HELP x " + std::string(40, 'h') + "\n", openmetrics, bounds);
   EXPECT_EQ(parsed.error_line, 4u) << parsed.error;
   EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << parsed.error;
   ASSERT_EQ(parsed.families.size(), 1u);
@@ -492,7 +562,7 @@ TEST(OpenmetricsParser, OverLongLineThatIsNotTheFamilysOwnMetadataKeepsIt) {
   for (const om::format f : {openmetrics, text}) {
     for (const std::string &tail : {"y{a=\"" + long_text + "\"} 1\n", "y " + long_text + "\n", "# HELP z " + long_text + "\n", "# HELP y.z " + long_text + "\n",
                                     "# HELP yy " + long_text + "\n", "# " + long_text + "\n"}) {
-      const om::result parsed = om::parse("# TYPE y gauge\n" + tail, f, bounds);
+      const om::result parsed = parse_checked("# TYPE y gauge\n" + tail, f, bounds);
       EXPECT_EQ(parsed.error_line, 2u) << tail << " -> " << parsed.error;
       EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << tail << " -> " << parsed.error;
       ASSERT_EQ(parsed.families.size(), 1u) << tail;
@@ -507,7 +577,7 @@ TEST(OpenmetricsParser, OverLongCommentInsideAPairBlockKeepsTheBlock) {
   // the typed block kept as declared, as the body ending there would.
   om::limits bounds;
   bounds.max_line_bytes = 20;
-  const om::result parsed = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\n# " + std::string(40, 'c') + "\n", openmetrics, bounds);
+  const om::result parsed = parse_checked("# TYPE x gauge\nx 1\n# TYPE x counter\n# " + std::string(40, 'c') + "\n", openmetrics, bounds);
   EXPECT_EQ(parsed.error_line, 4u) << parsed.error;
   EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << parsed.error;
   ASSERT_EQ(parsed.families.size(), 2u);
@@ -524,7 +594,7 @@ TEST(OpenmetricsParser, NothingAfterEofTakesBackWhatTheDocumentDeclared) {
   for (const std::string &tail :
        {"# HELP y " + std::string(40, 'h') + "\n", std::string("# HELP y a\n"), std::string("# TYPE y gauge\n"), std::string("# HELP y a\n# HELP y b\n"),
         std::string("# UNIT y seconds and more\n"), "y_total " + std::string(40, '1') + "\n"}) {
-    const om::result parsed = om::parse("# TYPE y counter\n# EOF\n" + tail, openmetrics, bounds);
+    const om::result parsed = parse_checked("# TYPE y counter\n# EOF\n" + tail, openmetrics, bounds);
     EXPECT_FALSE(parsed.ok()) << tail;
     EXPECT_EQ(parsed.error_line, 3u) << tail << " -> " << parsed.error;
     EXPECT_TRUE(parsed.saw_eof) << tail;
@@ -540,24 +610,24 @@ TEST(OpenmetricsParser, LineLimitCountsTheLineAsServed) {
   // the exporter sent, not on what is left after trimming it.
   om::limits bounds;
   bounds.max_line_bytes = 10;
-  const om::result fits = om::parse("  a 1    \r\n", text, bounds);
+  const om::result fits = parse_checked("  a 1    \r\n", text, bounds);
   EXPECT_TRUE(fits.ok()) << fits.error;
-  const om::result padded = om::parse("    a 1     \r\n", text, bounds);
+  const om::result padded = parse_checked("    a 1     \r\n", text, bounds);
   EXPECT_FALSE(padded.ok());
   EXPECT_NE(padded.error.find("longer than 10 bytes"), std::string::npos) << padded.error;
   // Over by one byte only because of the carriage return: ten bytes of line,
   // eleven as served.
-  const om::result crlf = om::parse("a 12345678\r\n", text, bounds);
+  const om::result crlf = parse_checked("a 12345678\r\n", text, bounds);
   EXPECT_FALSE(crlf.ok());
   EXPECT_NE(crlf.error.find("longer than 10 bytes"), std::string::npos) << crlf.error;
-  const om::result lf = om::parse("a 12345678\n", text, bounds);
+  const om::result lf = parse_checked("a 12345678\n", text, bounds);
   EXPECT_TRUE(lf.ok()) << lf.error;
   // A metadata line the same: at the limit before its carriage return.
   bounds.max_line_bytes = 19;
   for (const om::format f : {openmetrics, text}) {
-    const om::result help_crlf = om::parse("# HELP x aaaaaaaaaa\r\n", f, bounds);
+    const om::result help_crlf = parse_checked("# HELP x aaaaaaaaaa\r\n", f, bounds);
     EXPECT_NE(help_crlf.error.find("longer than 19 bytes"), std::string::npos) << help_crlf.error;
-    const om::result help_lf = om::parse("# HELP x aaaaaaaaaa\n", f, bounds);
+    const om::result help_lf = parse_checked("# HELP x aaaaaaaaaa\n", f, bounds);
     EXPECT_EQ(help_lf.error.find("longer"), std::string::npos) << help_lf.error;
     ASSERT_EQ(help_lf.families.size(), 1u);
     EXPECT_EQ(help_lf.families.at(0).help, "aaaaaaaaaa");
@@ -577,7 +647,7 @@ TEST(OpenmetricsParser, BodyEndingInsideTheSecondBlockOfAPairReadsAsTruncated) {
       {"# HELP x again\n", 1}, {"# HELP x again\n# UNIT x bytes\n", 1}, {"# HELP x again\n# TYPE x counter\n", 2}, {"# TYPE x counter\n# UNIT x bytes\n", 2}};
   for (const cut &c : cuts) {
     const std::string body = std::string("# TYPE x gauge\nx 1\n") + c.tail;
-    const om::result parsed = om::parse(body, openmetrics);
+    const om::result parsed = parse_checked(body, openmetrics);
     EXPECT_TRUE(parsed.ok()) << c.tail << " -> " << parsed.error;
     EXPECT_FALSE(parsed.saw_eof) << c.tail;
     ASSERT_EQ(parsed.families.size(), c.families) << c.tail;
@@ -588,8 +658,8 @@ TEST(OpenmetricsParser, BodyEndingInsideTheSecondBlockOfAPairReadsAsTruncated) {
 
 TEST(OpenmetricsParser, PairFamilyWithValidMetadataIsKeptWhenALaterLineFails) {
   // As any family is: what was read before the failing line stays.
-  const om::result paired = om::parse("# TYPE x gauge\nx 1\n# HELP x c\n# TYPE x counter\nx_total abc\n", openmetrics);
-  const om::result alone = om::parse("# HELP y c\n# TYPE y counter\ny_total abc\n", openmetrics);
+  const om::result paired = parse_checked("# TYPE x gauge\nx 1\n# HELP x c\n# TYPE x counter\nx_total abc\n", openmetrics);
+  const om::result alone = parse_checked("# HELP y c\n# TYPE y counter\ny_total abc\n", openmetrics);
   for (const om::result *parsed : {&paired, &alone}) {
     EXPECT_FALSE(parsed->ok());
     EXPECT_NE(parsed->error.find("invalid value 'abc'"), std::string::npos) << parsed->error;
@@ -615,7 +685,7 @@ TEST(OpenmetricsParser, BothFamiliesOfAPairMayCarryCreated) {
                              "# TYPE after gauge\n"
                              "after 1\n"
                              "# EOF\n";
-    const om::result parsed = om::parse(body, openmetrics);
+    const om::result parsed = parse_checked(body, openmetrics);
     ASSERT_TRUE(parsed.ok()) << other << ": " << parsed.error;
     expect_consistent(parsed, body, openmetrics);
     ASSERT_EQ(parsed.families.size(), 3u) << other;
@@ -637,7 +707,7 @@ TEST(OpenmetricsParser, LimitHitByAnotherFamilyInsideAPairBlockIsTheRepeatedName
   om::limits line_bytes;
   line_bytes.max_line_bytes = 20;
   for (const om::limits &bounds : {om::limits(), series, labels_per_sample, line_bytes}) {
-    const om::result parsed = om::parse(body, openmetrics, bounds);
+    const om::result parsed = parse_checked(body, openmetrics, bounds);
     EXPECT_FALSE(parsed.ok());
     EXPECT_EQ(parsed.error_line, 3u) << parsed.error;
     EXPECT_NE(parsed.error.find("already declared or sampled"), std::string::npos) << parsed.error;
@@ -652,15 +722,15 @@ TEST(OpenmetricsParser, OversizedLineInsideAPairBlockIsJudgedInTheDocumentedOrde
   // the block's own oversized sample is refused for its length.
   om::limits bounds;
   bounds.max_line_bytes = 64;
-  const om::result cut = om::parse("# TYPE x gauge\nx 1\n# HELP x again\n" + std::string(10000, 'y'), openmetrics, bounds);
+  const om::result cut = parse_checked("# TYPE x gauge\nx 1\n# HELP x again\n" + std::string(10000, 'y'), openmetrics, bounds);
   EXPECT_EQ(cut.error_line, 4u);
   EXPECT_NE(cut.error.find("middle of a line"), std::string::npos) << cut.error;
 
-  const om::result stranger = om::parse("# TYPE x gauge\nx 1\n# HELP x again\n" + std::string(10000, 'y') + "\n", openmetrics, bounds);
+  const om::result stranger = parse_checked("# TYPE x gauge\nx 1\n# HELP x again\n" + std::string(10000, 'y') + "\n", openmetrics, bounds);
   EXPECT_EQ(stranger.error_line, 3u);
   EXPECT_NE(stranger.error.find("already declared or sampled"), std::string::npos) << stranger.error;
 
-  const om::result own = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\nx_total{a=\"" + std::string(10000, 'y') + "\"} 1\n", openmetrics, bounds);
+  const om::result own = parse_checked("# TYPE x gauge\nx 1\n# TYPE x counter\nx_total{a=\"" + std::string(10000, 'y') + "\"} 1\n", openmetrics, bounds);
   EXPECT_EQ(own.error_line, 4u);
   EXPECT_NE(own.error.find("longer than 64 bytes"), std::string::npos) << own.error;
 }
@@ -939,7 +1009,7 @@ void expect_families(const om::result &parsed, const expected_family *expected, 
 }
 
 TEST(OpenmetricsParser, PythonClientOpenMetricsReadsAsTheReferenceParserReadsIt) {
-  const om::result parsed = om::parse(python_client_openmetrics, openmetrics);
+  const om::result parsed = parse_checked(python_client_openmetrics, openmetrics);
   ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
   EXPECT_TRUE(parsed.saw_eof);
   expect_consistent(parsed, python_client_openmetrics, openmetrics);
@@ -947,7 +1017,7 @@ TEST(OpenmetricsParser, PythonClientOpenMetricsReadsAsTheReferenceParserReadsIt)
 }
 
 TEST(OpenmetricsParser, PythonClientTextReadsAsTheReferenceParserReadsIt) {
-  const om::result parsed = om::parse(python_client_text, text);
+  const om::result parsed = parse_checked(python_client_text, text);
   ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
   EXPECT_FALSE(parsed.saw_eof);
   expect_consistent(parsed, python_client_text, text);
@@ -961,18 +1031,18 @@ TEST(OpenmetricsParser, PythonClientBodiesSurviveEveryCut) {
   // read as.
   for (const std::pair<const char *, om::format> &entry : {std::make_pair(python_client_openmetrics, openmetrics), std::make_pair(python_client_text, text)}) {
     const std::string body = entry.first;
-    const om::result whole = om::parse(body, entry.second);
+    const om::result whole = parse_checked(body, entry.second);
     ASSERT_TRUE(whole.ok()) << whole.error;
     for (std::size_t length = 0; length < body.size(); ++length) {
       const std::string prefix = body.substr(0, length);
-      const om::result parsed = om::parse(prefix, entry.second);
+      const om::result parsed = parse_checked(prefix, entry.second);
       expect_consistent(parsed, prefix, entry.second);
       const bool on_a_line = prefix.empty() || prefix.back() == '\n' || (entry.second == openmetrics && length == body.size() - 1);
       EXPECT_EQ(parsed.ok(), on_a_line) << "cut at " << length << ": " << parsed.error;
       if (on_a_line) {
         expect_prefix_of(parsed, whole, "cut at " + std::to_string(length));
       } else {
-        const om::result lines = om::parse(body.substr(0, prefix.rfind('\n') + 1), entry.second);
+        const om::result lines = parse_checked(body.substr(0, prefix.rfind('\n') + 1), entry.second);
         expect_same_families(parsed, lines, "cut at " + std::to_string(length));
       }
       if (::testing::Test::HasFailure()) return;
@@ -984,16 +1054,16 @@ TEST(OpenmetricsParser, NamesMayStartWithEveryLetterTheGrammarAllows) {
   // The ends of each range: `a` and `z`, `A` and `Z`, and the two
   // non-letters a metric name may start with.
   for (const char *name : {"a", "z", "A", "Z", "_x", ":x", "aZ09_:"}) {
-    const om::result parsed = om::parse(std::string(name) + " 1\n", text);
+    const om::result parsed = parse_checked(std::string(name) + " 1\n", text);
     ASSERT_TRUE(parsed.ok()) << name << ": " << parsed.error;
     EXPECT_EQ(parsed.families.at(0).name, name);
   }
-  const om::result labelled = om::parse("m{a=\"1\",z=\"2\",A=\"3\",Z=\"4\",_=\"5\",a_Z9=\"6\"} 1\n", text);
+  const om::result labelled = parse_checked("m{a=\"1\",z=\"2\",A=\"3\",Z=\"4\",_=\"5\",a_Z9=\"6\"} 1\n", text);
   ASSERT_TRUE(labelled.ok()) << labelled.error;
   EXPECT_EQ(labelled.families.at(0).samples.at(0).labels.size(), 6u);
   // And the characters either side of each range are not letters.
   for (const char *name : {"`x", "{x", "@x", "[x", "9x"}) {
-    EXPECT_FALSE(om::parse(std::string(name) + " 1\n", text).ok()) << name;
+    EXPECT_FALSE(parse_checked(std::string(name) + " 1\n", text).ok()) << name;
   }
 }
 
@@ -1001,11 +1071,11 @@ TEST(OpenmetricsParser, DigitsEndWhereTheGrammarSaysTheyDo) {
   // `0` and `9` are digits; the characters either side of them, `/` and `:`,
   // are not - `:` is a name character, but not a label-name one.
   for (const char *good : {"a0 1\n", "a9 1\n", "a{b0=\"1\",b9=\"2\"} 1\n", "a:b 1\n"}) {
-    const om::result parsed = om::parse(good, text);
+    const om::result parsed = parse_checked(good, text);
     EXPECT_TRUE(parsed.ok()) << good << " -> " << parsed.error;
   }
   for (const char *bad : {"a/b 1\n", "a{b/c=\"1\"} 1\n", "a{b:c=\"1\"} 1\n", "a 1/\n", "a 1:\n", "a 1 1/\n", "a 1 1:\n"}) {
-    const om::result parsed = om::parse(bad, text);
+    const om::result parsed = parse_checked(bad, text);
     EXPECT_FALSE(parsed.ok()) << bad;
     EXPECT_EQ(parsed.error_line, 1u) << bad;
     EXPECT_TRUE(parsed.families.empty()) << bad;
@@ -1015,18 +1085,18 @@ TEST(OpenmetricsParser, DigitsEndWhereTheGrammarSaysTheyDo) {
 TEST(OpenmetricsParser, OnlyACommentLineIsTheTerminator) {
   // `# EOF` is a comment line; a line that merely ends in the word is not.
   for (const char *line : {"XEOF", "a EOF", " EOF", "EOF"}) {
-    const om::result parsed = om::parse(std::string("a 1\n") + line + "\n", openmetrics);
+    const om::result parsed = parse_checked(std::string("a 1\n") + line + "\n", openmetrics);
     EXPECT_FALSE(parsed.ok()) << line;
     EXPECT_FALSE(parsed.saw_eof) << line;
     EXPECT_EQ(parsed.error_line, 2u) << line << " -> " << parsed.error;
   }
   // Nor, without its line feed, may it end the body: it is a cut line.
   for (const char *last : {"XEOF", "a EOF"}) {
-    const om::result parsed = om::parse(std::string("a 1\n") + last, openmetrics);
+    const om::result parsed = parse_checked(std::string("a 1\n") + last, openmetrics);
     EXPECT_NE(parsed.error.find("middle of a line"), std::string::npos) << last << " -> " << parsed.error;
   }
   // A blank last line without its line feed may follow `# EOF`.
-  const om::result blank = om::parse("a 1\n# EOF\n   ", openmetrics);
+  const om::result blank = parse_checked("a 1\n# EOF\n   ", openmetrics);
   EXPECT_TRUE(blank.ok()) << blank.error;
   EXPECT_TRUE(blank.saw_eof);
 }
@@ -1035,7 +1105,7 @@ TEST(OpenmetricsParser, HelpEndingInABackslashKeepsIt) {
   // A backslash with nothing after it escapes nothing, so it is kept as
   // served - with blanks or a carriage return after it in the body or not.
   for (const char *line : {"# HELP x end\\\n", "# HELP x end\\  \n", "# HELP x end\\\r\n"}) {
-    const om::result parsed = om::parse(std::string(line) + "x 1\n", text);
+    const om::result parsed = parse_checked(std::string(line) + "x 1\n", text);
     ASSERT_TRUE(parsed.ok()) << parsed.error;
     EXPECT_EQ(parsed.families.at(0).help, "end\\") << line;
   }
@@ -1049,7 +1119,7 @@ TEST(OpenmetricsParser, DecimalsEitherSideOfTheConversionBuffer) {
   // sanitizer would see it.
   for (const std::size_t length : {62u, 63u, 64u, 65u, 66u}) {
     const std::string value = "0." + std::string(length - 2, '5');
-    const om::result parsed = om::parse("v " + value + "\n", text);
+    const om::result parsed = parse_checked("v " + value + "\n", text);
     ASSERT_TRUE(parsed.ok()) << length << ": " << parsed.error;
     EXPECT_NEAR(parsed.families.at(0).samples.at(0).value, 0.5555555555555556, 1e-15) << length;
   }
@@ -1076,7 +1146,7 @@ TEST(OpenmetricsParser, EverySpellingOfTheNonFiniteValuesIsRead) {
   };
   for (const om::format f : {openmetrics, text}) {
     for (const char *signed_nan : {"+NaN", "-NaN", "+nan", "-nan", "+NAN"}) {
-      const om::result parsed = om::parse(std::string("v ") + signed_nan + "\n", f);
+      const om::result parsed = parse_checked(std::string("v ") + signed_nan + "\n", f);
       EXPECT_FALSE(parsed.ok()) << signed_nan;
       EXPECT_NE(parsed.error.find("invalid value"), std::string::npos) << signed_nan << " -> " << parsed.error;
     }
@@ -1084,7 +1154,7 @@ TEST(OpenmetricsParser, EverySpellingOfTheNonFiniteValuesIsRead) {
   const spelling spellings[] = {{"NaN", 0},      {"nan", 0},      {"Inf", 1},       {"+inf", 1},       {"-INF", -1}, {"NAN", 0},
                                 {"INFINITY", 1}, {"Infinity", 1}, {"+infinity", 1}, {"-Infinity", -1}, {"-inf", -1}, {"nAn", 0}};
   for (const spelling &sp : spellings) {
-    const om::result parsed = om::parse(std::string("v ") + sp.text + "\n", text);
+    const om::result parsed = parse_checked(std::string("v ") + sp.text + "\n", text);
     ASSERT_TRUE(parsed.ok()) << sp.text << ": " << parsed.error;
     const double v = parsed.families.at(0).samples.at(0).value;
     if (sp.sign == 0) {
@@ -1096,16 +1166,34 @@ TEST(OpenmetricsParser, EverySpellingOfTheNonFiniteValuesIsRead) {
   }
 }
 
+TEST(OpenmetricsParser, NsclientLegacyBodyIsNotAnExposition) {
+  // What `openmetrics format = legacy` serves, as its renderer test captures
+  // it: keys pasted in verbatim. It is refused from its first line, signed NaN
+  // or not, as Prometheus refuses it; the format is deprecated, and the
+  // default body is the one to scrape.
+  const om::result legacy = parse_checked(
+      "system_mem_commited.avail 1.25921e+10\n"
+      "system_mem_commited.% 73\n"
+      "system_cpu_core 0.idle 95\n",
+      text);
+  EXPECT_EQ(legacy.error_line, 1u) << legacy.error;
+  EXPECT_TRUE(legacy.families.empty());
+  for (const char *nan : {"-nan", "-nan(ind)", "nan(ind)"}) {
+    const om::result parsed = parse_checked(std::string("system_cpu_ratio ") + nan + "\n", text);
+    EXPECT_NE(parsed.error.find("invalid value"), std::string::npos) << nan << " -> " << parsed.error;
+  }
+}
+
 TEST(OpenmetricsParser, PrometheusTextTimestampSignsAndOpenMetricsExponents) {
-  const om::result signs = om::parse("a 1 +5\na 2 -5\n", text);
+  const om::result signs = parse_checked("a 1 +5\na 2 -5\n", text);
   ASSERT_TRUE(signs.ok()) << signs.error;
   EXPECT_DOUBLE_EQ(signs.families.at(0).samples.at(0).timestamp.value(), 5);
   EXPECT_DOUBLE_EQ(signs.families.at(0).samples.at(1).timestamp.value(), -5);
   for (const char *bad : {"a 1 +\n", "a 1 -\n", "a 1 1.5\n", "a 1 1e3\n"}) {
-    const om::result parsed = om::parse(bad, text);
+    const om::result parsed = parse_checked(bad, text);
     EXPECT_NE(parsed.error.find("invalid timestamp"), std::string::npos) << bad << " -> " << parsed.error;
   }
-  const om::result exponent = om::parse("a 1 1.7e9\n# EOF\n", openmetrics);
+  const om::result exponent = parse_checked("a 1 1.7e9\n# EOF\n", openmetrics);
   ASSERT_TRUE(exponent.ok()) << exponent.error;
   EXPECT_DOUBLE_EQ(exponent.families.at(0).samples.at(0).timestamp.value(), 1.7e9);
 }
@@ -1118,7 +1206,7 @@ TEST(OpenmetricsParser, OverLongLineOfAnotherFamilyLeavesTheFamilyBeingRead) {
   bounds.max_line_bytes = 20;
   for (const std::string &tail :
        {"y{a=\"" + std::string(30, 'v') + "\"} 1\n", "# HELP other " + std::string(30, 'h') + "\n", "# HELP y.z " + std::string(30, 'h') + "\n"}) {
-    const om::result parsed = om::parse("# TYPE y counter\n" + tail, text, bounds);
+    const om::result parsed = parse_checked("# TYPE y counter\n" + tail, text, bounds);
     EXPECT_EQ(parsed.error_line, 2u) << tail;
     EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << parsed.error;
     ASSERT_EQ(parsed.families.size(), 1u) << tail;
@@ -1128,14 +1216,14 @@ TEST(OpenmetricsParser, OverLongLineOfAnotherFamilyLeavesTheFamilyBeingRead) {
 
 TEST(OpenmetricsParser, PrometheusTextCounterWithoutTotal) {
   // Older exporters declare a counter and serve it under the bare name.
-  const om::result parsed = om::parse("# TYPE jobs counter\njobs 4\n", text);
+  const om::result parsed = parse_checked("# TYPE jobs counter\njobs 4\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(only_family(parsed).samples.at(0).name, "jobs");
 }
 
 TEST(OpenmetricsParser, PrometheusTextSampleBeforeItsTypeIsAnotherMetric) {
   // In the older format `foo_total` and the counter `foo` are unrelated names.
-  const om::result parsed = om::parse("foo_total 1\n# TYPE foo counter\nfoo 2\n", text);
+  const om::result parsed = parse_checked("foo_total 1\n# TYPE foo counter\nfoo 2\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   ASSERT_EQ(parsed.families.size(), 2u);
   EXPECT_EQ(parsed.families.at(1).type, om::family_type::counter);
@@ -1143,7 +1231,7 @@ TEST(OpenmetricsParser, PrometheusTextSampleBeforeItsTypeIsAnotherMetric) {
 
 TEST(OpenmetricsParser, HistogramSamplesAttachToTheirFamily) {
   for (const om::format f : {openmetrics, text}) {
-    const om::result parsed = om::parse(
+    const om::result parsed = parse_checked(
         "# HELP latency_seconds Request latency.\n"
         "# TYPE latency_seconds histogram\n"
         "latency_seconds_bucket{le=\"0.1\"} 3\n"
@@ -1165,7 +1253,7 @@ TEST(OpenmetricsParser, HistogramSamplesAttachToTheirFamily) {
 
 TEST(OpenmetricsParser, SummaryQuantilesSumAndCountAttachToTheirFamily) {
   for (const om::format f : {openmetrics, text}) {
-    const om::result parsed = om::parse(
+    const om::result parsed = parse_checked(
         "# TYPE rpc_duration summary\n"
         "rpc_duration{quantile=\"0.5\"} 0.2\n"
         "rpc_duration{quantile=\"0.99\"} 1.4\n"
@@ -1181,7 +1269,7 @@ TEST(OpenmetricsParser, SummaryQuantilesSumAndCountAttachToTheirFamily) {
 }
 
 TEST(OpenmetricsParser, OpenMetricsOnlyTypes) {
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "# TYPE build info\n"
       "build_info{version=\"0.12.5\",revision=\"abc\"} 1\n"
       "# TYPE queue gaugehistogram\n"
@@ -1206,7 +1294,7 @@ TEST(OpenmetricsParser, OpenMetricsOnlyTypes) {
 }
 
 TEST(OpenmetricsParser, PrometheusTextUntypedIsUnknown) {
-  const om::result parsed = om::parse("# TYPE legacy untyped\nlegacy 1\n", text);
+  const om::result parsed = parse_checked("# TYPE legacy untyped\nlegacy 1\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(only_family(parsed).type, om::family_type::unknown);
   EXPECT_STREQ(om::type_name(om::family_type::unknown), "unknown");
@@ -1215,7 +1303,7 @@ TEST(OpenmetricsParser, PrometheusTextUntypedIsUnknown) {
 TEST(OpenmetricsParser, SamplesWithoutMetadataAreFamiliesOfUnknownType) {
   // Nothing says `a_total` is a counter, so it is its own unknown family.
   for (const om::format f : {openmetrics, text}) {
-    const om::result parsed = om::parse("a{x=\"1\"} 1\na{x=\"2\"} 2\na_total 3\n", f);
+    const om::result parsed = parse_checked("a{x=\"1\"} 1\na{x=\"2\"} 2\na_total 3\n", f);
     ASSERT_TRUE(parsed.ok()) << parsed.error;
     ASSERT_EQ(parsed.families.size(), 2u);
     EXPECT_EQ(parsed.families.at(0).name, "a");
@@ -1229,7 +1317,7 @@ TEST(OpenmetricsParser, OpenMetricsSamplesOfAFamilyMustBeContiguous) {
   // OpenMetrics forbids a family's samples apart from each other; where a
   // same-name pair can follow, the name would not say which family is meant.
   for (const char *body : {"a 1\na_total 3\na 4\n", "# TYPE h histogram\nh_bucket{le=\"+Inf\"} 1\ng 1\nh_sum 2\n"}) {
-    const om::result parsed = om::parse(body, openmetrics);
+    const om::result parsed = parse_checked(body, openmetrics);
     EXPECT_FALSE(parsed.ok()) << body;
     EXPECT_NE(parsed.error.find("apart from the rest of the family"), std::string::npos) << body << " -> " << parsed.error;
     EXPECT_EQ(parsed.families.size(), 2u) << body;
@@ -1250,21 +1338,21 @@ TEST(OpenmetricsParser, PrometheusTextRegroupsAFamilySplitByAnother) {
       "h_bucket{le=\"+Inf\"} 1\n"
       "g 1\n"
       "h_sum 2\n";
-  const om::result parsed = om::parse(body, text);
+  const om::result parsed = parse_checked(body, text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   expect_consistent(parsed, body, text);
   ASSERT_EQ(parsed.families.size(), 4u);
   EXPECT_EQ(family_named(parsed, "foo").samples.size(), 2u);
   EXPECT_EQ(family_named(parsed, "h").samples.size(), 2u);
   // Metadata after the family's samples is still a second declaration.
-  const om::result late = om::parse("foo 1\nbar 1\n# HELP foo late\n", text);
+  const om::result late = parse_checked("foo 1\nbar 1\n# HELP foo late\n", text);
   EXPECT_FALSE(late.ok());
   EXPECT_EQ(late.error_line, 3u);
 }
 
 TEST(OpenmetricsParser, GaugeDoesNotSwallowASampleWithACounterSuffix) {
   for (const om::format f : {openmetrics, text}) {
-    const om::result parsed = om::parse("# TYPE temp gauge\ntemp 21\ntemp_total 4\n", f);
+    const om::result parsed = parse_checked("# TYPE temp gauge\ntemp 21\ntemp_total 4\n", f);
     ASSERT_TRUE(parsed.ok()) << parsed.error;
     ASSERT_EQ(parsed.families.size(), 2u);
     EXPECT_EQ(parsed.families.at(1).name, "temp_total");
@@ -1272,7 +1360,7 @@ TEST(OpenmetricsParser, GaugeDoesNotSwallowASampleWithACounterSuffix) {
 }
 
 TEST(OpenmetricsParser, HelpIsUnescaped) {
-  const om::result parsed = om::parse("# HELP g Line one\\nline two, a \\\\ and a \\\" and a stray \\d.\ng 1\n", text);
+  const om::result parsed = parse_checked("# HELP g Line one\\nline two, a \\\\ and a \\\" and a stray \\d.\ng 1\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(only_family(parsed).help, "Line one\nline two, a \\ and a \" and a stray \\d.");
 }
@@ -1280,13 +1368,13 @@ TEST(OpenmetricsParser, HelpIsUnescaped) {
 TEST(OpenmetricsParser, KeywordGluedToItsNameIsJustAComment) {
   // `# TYPEfoo` is not a `# TYPE` line, so it declares nothing - the sample
   // after it is an unknown family, not a gauge.
-  const om::result parsed = om::parse("# TYPEfoo gauge\nfoo 1\n", text);
+  const om::result parsed = parse_checked("# TYPEfoo gauge\nfoo 1\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(only_family(parsed).type, om::family_type::unknown);
 }
 
 TEST(OpenmetricsParser, OtherCommentsAndBlankLinesAreIgnored) {
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "# Exported by something.\n"
       "\n"
       "#nothing to see\n"
@@ -1299,7 +1387,7 @@ TEST(OpenmetricsParser, OtherCommentsAndBlankLinesAreIgnored) {
 }
 
 TEST(OpenmetricsParser, CrlfLineEndingsAreAccepted) {
-  const om::result parsed = om::parse("# TYPE g gauge\r\ng{a=\"b\"} 1\r\n# EOF\r\n", openmetrics);
+  const om::result parsed = parse_checked("# TYPE g gauge\r\ng{a=\"b\"} 1\r\n# EOF\r\n", openmetrics);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_TRUE(parsed.saw_eof);
   EXPECT_DOUBLE_EQ(only_family(parsed).samples.at(0).value, 1);
@@ -1310,7 +1398,7 @@ TEST(OpenmetricsParser, CrlfLineEndingsAreAccepted) {
 TEST(OpenmetricsParser, PrometheusTextEofIsJustAComment) {
   // The older format has no terminator; a comment that reads `# EOF` - or
   // starts with it - ends nothing.
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "# EOF of the header section\n"
       "a 1\n"
       "# EOF\n"
@@ -1322,7 +1410,7 @@ TEST(OpenmetricsParser, PrometheusTextEofIsJustAComment) {
 }
 
 TEST(OpenmetricsParser, OpenMetricsEofMayBeFollowedByBlankLinesOnly) {
-  const om::result trailing = om::parse("foo 1\n# EOF\n\n  \n", openmetrics);
+  const om::result trailing = parse_checked("foo 1\n# EOF\n\n  \n", openmetrics);
   EXPECT_TRUE(trailing.ok()) << trailing.error;
   EXPECT_TRUE(trailing.saw_eof);
 }
@@ -1331,7 +1419,7 @@ TEST(OpenmetricsParser, UnterminatedEofIsAcceptedInEveryShapeTheReaderAccepts) {
   // Whatever the line reader takes for `# EOF` when a line feed follows, it
   // must also take when the line feed was left off.
   for (const char *body : {"foo 1\n# EOF", "foo 1\n  # EOF  ", "foo 1\n#EOF", "foo 1\n# EOF\r", "foo 1\n# EOF\n   ", "foo 1\n# EOF\n\r"}) {
-    const om::result parsed = om::parse(body, openmetrics);
+    const om::result parsed = parse_checked(body, openmetrics);
     EXPECT_TRUE(parsed.ok()) << body << " -> " << parsed.error;
     EXPECT_TRUE(parsed.saw_eof) << body;
   }
@@ -1340,13 +1428,13 @@ TEST(OpenmetricsParser, UnterminatedEofIsAcceptedInEveryShapeTheReaderAccepts) {
 // --- samples ----------------------------------------------------------------
 
 TEST(OpenmetricsParser, LabelValuesAreUnescaped) {
-  const om::result parsed = om::parse("disk{path=\"\\\\Device\\\\HarddiskVolume1\",desc=\"a \\\"quoted\\\" name\\nsecond\"} 1\n", text);
+  const om::result parsed = parse_checked("disk{path=\"\\\\Device\\\\HarddiskVolume1\",desc=\"a \\\"quoted\\\" name\\nsecond\"} 1\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(only_family(parsed).samples.at(0).labels, labels({{"path", "\\Device\\HarddiskVolume1"}, {"desc", "a \"quoted\" name\nsecond"}}));
 }
 
 TEST(OpenmetricsParser, LabelSetsMayHaveBlanksATrailingCommaOrBeEmpty) {
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "a{ x = \"1\" , y=\"2\", } 1\n"
       "b{} 2\n"
       "c {z=\"#{}\"}\t3\n",
@@ -1360,7 +1448,7 @@ TEST(OpenmetricsParser, LabelSetsMayHaveBlanksATrailingCommaOrBeEmpty) {
 }
 
 TEST(OpenmetricsParser, NonFiniteValuesArePreserved) {
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "v{k=\"a\"} NaN\n"
       "v{k=\"b\"} +Inf\n"
       "v{k=\"c\"} -Inf\n"
@@ -1382,7 +1470,7 @@ TEST(OpenmetricsParser, NonFiniteValuesArePreserved) {
 TEST(OpenmetricsParser, ValuesBelowTheSmallestNormalAreReadOnEveryPlatform) {
   // A subnormal is what the renderer writes for one, and some C++ streams
   // refuse it while others read it. `strtod` reads it the same way everywhere.
-  const om::result parsed = om::parse("x{k=\"a\"} 5e-324\nx{k=\"b\"} 1e-400\nx{k=\"c\"} -2.2250738585072014e-309\n", text);
+  const om::result parsed = parse_checked("x{k=\"a\"} 5e-324\nx{k=\"b\"} 1e-400\nx{k=\"c\"} -2.2250738585072014e-309\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   const om::family &f = only_family(parsed);
   ASSERT_EQ(f.samples.size(), 3u);
@@ -1439,7 +1527,7 @@ TEST(OpenmetricsParser, DecimalPointDoesNotFollowTheProcessLocale) {
     if (locales_required()) FAIL() << "NSCP_REQUIRE_TEST_LOCALES is set, but no locale with a comma decimal point is installed";
     GTEST_SKIP() << "no locale with a comma decimal point is installed";
   }
-  const om::result parsed = om::parse("x 1.5\ny 2,5\n", text);
+  const om::result parsed = parse_checked("x 1.5\ny 2,5\n", text);
   EXPECT_FALSE(parsed.ok()) << comma.active();
   EXPECT_EQ(parsed.error_line, 2u) << parsed.error;
   EXPECT_DOUBLE_EQ(family_named(parsed, "x").samples.at(0).value, 1.5) << comma.active();
@@ -1457,7 +1545,7 @@ TEST(OpenmetricsParser, MultiByteDecimalPointDoesNotMatterEither) {
     if (locales_required()) FAIL() << "NSCP_REQUIRE_TEST_LOCALES is set, but no locale with a multi-byte decimal point is installed";
     GTEST_SKIP() << "no locale with a multi-byte decimal point is installed";
   }
-  const om::result parsed = om::parse("x 1.5\ny 5e-324\n", text);
+  const om::result parsed = parse_checked("x 1.5\ny 5e-324\n", text);
   ASSERT_TRUE(parsed.ok()) << wide.active() << ": " << parsed.error;
   EXPECT_DOUBLE_EQ(family_named(parsed, "x").samples.at(0).value, 1.5);
   EXPECT_GT(family_named(parsed, "y").samples.at(0).value, 0);
@@ -1466,13 +1554,13 @@ TEST(OpenmetricsParser, MultiByteDecimalPointDoesNotMatterEither) {
 TEST(OpenmetricsParser, LongDecimalIsRead) {
   // Longer than the stack buffer the conversion uses.
   const std::string digits(200, '1');
-  const om::result parsed = om::parse("x 0." + digits + "\n", text);
+  const om::result parsed = parse_checked("x 0." + digits + "\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_NEAR(only_family(parsed).samples.at(0).value, 0.1111111111, 1e-9);
 }
 
 TEST(OpenmetricsParser, OpenMetricsTimestampIsSecondsAndExemplarSkipped) {
-  const om::result parsed = om::parse(
+  const om::result parsed = parse_checked(
       "# TYPE lat histogram\n"
       "lat_bucket{le=\"1\"} 3 1700000000.5 # {trace_id=\"abc\"} 0.4 1700000000.1\n"
       "lat_bucket{le=\"+Inf\"} 4 # {trace_id=\"def\"} 2\n"
@@ -1489,20 +1577,20 @@ TEST(OpenmetricsParser, OpenMetricsTimestampIsSecondsAndExemplarSkipped) {
 }
 
 TEST(OpenmetricsParser, PrometheusTextTimestampIsIntegerMilliseconds) {
-  const om::result parsed = om::parse("foo 1 1700000000500\nfoo{a=\"b\"} 2 -5\n", text);
+  const om::result parsed = parse_checked("foo 1 1700000000500\nfoo{a=\"b\"} 2 -5\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_DOUBLE_EQ(only_family(parsed).samples.at(0).timestamp.value(), 1700000000500.0);
   EXPECT_DOUBLE_EQ(only_family(parsed).samples.at(1).timestamp.value(), -5.0);
 }
 
 TEST(OpenmetricsParser, ColonsAreAllowedInMetricNames) {
-  const om::result parsed = om::parse("job:requests:rate5m 12\n", text);
+  const om::result parsed = parse_checked("job:requests:rate5m 12\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(only_family(parsed).name, "job:requests:rate5m");
 }
 
 TEST(OpenmetricsParser, FindLabelReportsAMissingLabel) {
-  const om::result parsed = om::parse("a{x=\"1\"} 1\n", text);
+  const om::result parsed = parse_checked("a{x=\"1\"} 1\n", text);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   const om::sample &s = only_family(parsed).samples.at(0);
   EXPECT_EQ(om::find_label(s, "x").value(), "1");
@@ -1536,7 +1624,7 @@ TEST_P(OpenmetricsParserMalformed, IsReportedOnItsLine) {
     if (m.formats == in::openmetrics_only && f != openmetrics) continue;
     if (m.formats == in::text_only && f != text) continue;
     const char *label = f == openmetrics ? "openmetrics" : "text";
-    const om::result parsed = om::parse(m.body, f);
+    const om::result parsed = parse_checked(m.body, f);
     EXPECT_FALSE(parsed.ok()) << label << ": " << m.body;
     EXPECT_EQ(parsed.error_line, m.line) << label << ": " << m.body << " -> " << parsed.error;
     EXPECT_NE(parsed.error.find(m.fragment), std::string::npos) << label << ": " << m.body << " -> " << parsed.error;
@@ -1691,7 +1779,7 @@ INSTANTIATE_TEST_SUITE_P(Truncation, OpenmetricsParserMalformed,
                          case_name);
 
 TEST(OpenmetricsParser, ErrorKeepsTheFamiliesReadBeforeIt) {
-  const om::result parsed = om::parse("# TYPE good gauge\ngood 1\nbad{ 2\nlater 3\n", text);
+  const om::result parsed = parse_checked("# TYPE good gauge\ngood 1\nbad{ 2\nlater 3\n", text);
   EXPECT_FALSE(parsed.ok());
   EXPECT_EQ(parsed.error_line, 3u);
   ASSERT_EQ(parsed.families.size(), 1u);
@@ -1706,7 +1794,7 @@ TEST(OpenmetricsParser, FailedMetadataLineLeavesNoFamilyBehind) {
   for (const om::format f : {openmetrics, text}) {
     for (const char *tail : {"# TYPE foo sometimes\n", "# TYPE foo gauge extra\n", "# UNIT foo bytes extra\n", "# TYPE lat histogram\n",
                              "# HELP foo Help.\n# TYPE foo sometimes\n", "# HELP foo Help.\n# UNIT foo s\n# HELP foo again\n"}) {
-      const om::result parsed = om::parse(std::string("good 1\nlat_bucket{le=\"1\"} 1\n") + tail, f);
+      const om::result parsed = parse_checked(std::string("good 1\nlat_bucket{le=\"1\"} 1\n") + tail, f);
       EXPECT_FALSE(parsed.ok()) << tail;
       ASSERT_EQ(parsed.families.size(), 2u) << tail;
       EXPECT_EQ(parsed.families.at(0).name, "good");
@@ -1714,14 +1802,14 @@ TEST(OpenmetricsParser, FailedMetadataLineLeavesNoFamilyBehind) {
     }
   }
   // A family with samples is kept when a later line fails.
-  const om::result sampled = om::parse("# TYPE foo gauge\nfoo 1\n# HELP foo late\n", text);
+  const om::result sampled = parse_checked("# TYPE foo gauge\nfoo 1\n# HELP foo late\n", text);
   EXPECT_FALSE(sampled.ok());
   EXPECT_EQ(sampled.families.size(), 1u);
   // So is a whole declaration when the line that fails names something else:
   // `foo.bar` and `fo.o` are not `foo`, whatever they start with.
   for (const om::format f : {openmetrics, text}) {
     for (const char *other : {"# HELP foo.bar x\n", "# TYPE fo.o gauge\n", "# TYPE foo.bar gauge\n"}) {
-      const om::result parsed = om::parse(std::string("# HELP foo Help.\n# TYPE foo gauge\n") + other, f);
+      const om::result parsed = parse_checked(std::string("# HELP foo Help.\n# TYPE foo gauge\n") + other, f);
       EXPECT_FALSE(parsed.ok()) << other;
       ASSERT_EQ(parsed.families.size(), 1u) << other;
       EXPECT_EQ(parsed.families.at(0).name, "foo") << other;
@@ -1733,7 +1821,7 @@ TEST(OpenmetricsParser, FailedMetadataLineLeavesNoFamilyBehind) {
 TEST(OpenmetricsParser, FailingSampleIsNotAddedToItsFamily) {
   // The label set is read before the duplicate is found; none of it may leak
   // into the family the sample would have joined.
-  const om::result parsed = om::parse("# TYPE foo gauge\nfoo{a=\"1\"} 1\nfoo{a=\"2\",a=\"3\"} 2\n", text);
+  const om::result parsed = parse_checked("# TYPE foo gauge\nfoo{a=\"1\"} 1\nfoo{a=\"2\",a=\"3\"} 2\n", text);
   EXPECT_FALSE(parsed.ok());
   ASSERT_EQ(parsed.families.size(), 1u);
   EXPECT_EQ(parsed.families.at(0).samples.size(), 1u);
@@ -1741,20 +1829,20 @@ TEST(OpenmetricsParser, FailingSampleIsNotAddedToItsFamily) {
 }
 
 TEST(OpenmetricsParser, ErrorLineCountsBlankCommentAndCrlfLines) {
-  const om::result parsed = om::parse("# hello\r\n\r\n\nfoo 1\r\n   \nbar x\r\n", text);
+  const om::result parsed = parse_checked("# hello\r\n\r\n\nfoo 1\r\n   \nbar x\r\n", text);
   EXPECT_FALSE(parsed.ok());
   EXPECT_EQ(parsed.error_line, 6u) << parsed.error;
 }
 
 TEST(OpenmetricsParser, OnlyTheFirstErrorIsReported) {
-  const om::result parsed = om::parse("a 1\nb x\nc{ 3\n", text);
+  const om::result parsed = parse_checked("a 1\nb x\nc{ 3\n", text);
   EXPECT_EQ(parsed.error_line, 2u);
   EXPECT_NE(parsed.error.find("invalid value 'x'"), std::string::npos) << parsed.error;
 }
 
 TEST(OpenmetricsParser, EmptyBodyIsAnEmptyScrape) {
   for (const om::format f : {openmetrics, text}) {
-    const om::result parsed = om::parse("", f);
+    const om::result parsed = parse_checked("", f);
     EXPECT_TRUE(parsed.ok());
     EXPECT_TRUE(parsed.families.empty());
     EXPECT_FALSE(parsed.saw_eof);
@@ -1766,7 +1854,7 @@ TEST(OpenmetricsParser, EmptyBodyIsAnEmptyScrape) {
 TEST(OpenmetricsParser, TruncatedAtALineBoundaryIsMissingOnlyItsEof) {
   // Nothing in an OpenMetrics body cut on a line boundary can tell it apart
   // from a whole one except the missing terminator, which the caller checks.
-  const om::result parsed = om::parse("# TYPE foo gauge\nfoo 1\n", openmetrics);
+  const om::result parsed = parse_checked("# TYPE foo gauge\nfoo 1\n", openmetrics);
   EXPECT_TRUE(parsed.ok());
   EXPECT_FALSE(parsed.saw_eof);
 }
@@ -1776,7 +1864,7 @@ TEST(OpenmetricsParser, SixtyFourMegabyteLineIsReadInOnePass) {
   std::string body = "big{blob=\"";
   body.append(size, 'x');
   body += "\"} 1\n";
-  const om::result parsed = om::parse(body, text, unlimited());
+  const om::result parsed = parse_checked(body, text, unlimited());
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(only_family(parsed).samples.at(0).labels.at(0).second.size(), size);
 }
@@ -1787,7 +1875,7 @@ TEST(OpenmetricsParser, LineOverTheLimitIsRefusedUnread) {
   body += "\"} 1\n";
   om::limits bounds;
   bounds.max_line_bytes = 1024 * 1024;
-  const om::result parsed = om::parse(body, text, bounds);
+  const om::result parsed = parse_checked(body, text, bounds);
   EXPECT_FALSE(parsed.ok());
   EXPECT_EQ(parsed.error_line, 2u);
   EXPECT_NE(parsed.error.find("longer than 1048576 bytes"), std::string::npos) << parsed.error;
@@ -1801,12 +1889,12 @@ TEST(OpenmetricsParser, LineOfAHundredThousandLabelsIsReadLinearly) {
   std::string body = "wide{";
   for (int i = 0; i < 100000; ++i) body += "l" + std::to_string(i) + "=\"v\",";
   body += "l0=\"again\"} 1\n";
-  const om::result parsed = om::parse(body, text, unlimited());
+  const om::result parsed = parse_checked(body, text, unlimited());
   EXPECT_FALSE(parsed.ok());
   EXPECT_NE(parsed.error.find("label 'l0' twice"), std::string::npos) << parsed.error;
 
   const std::string accepted = body.substr(0, body.size() - std::string("l0=\"again\"} 1\n").size()) + "} 1\n";
-  const om::result read = om::parse(accepted, text, unlimited());
+  const om::result read = parse_checked(accepted, text, unlimited());
   ASSERT_TRUE(read.ok()) << read.error;
   EXPECT_EQ(only_family(read).samples.at(0).labels.size(), 100000u);
 }
@@ -1824,7 +1912,7 @@ TEST(OpenmetricsParser, WideLineDoesNotSlowTheLinesAfterIt) {
   for (int i = 0; i < 200000; ++i) narrow += "a{x=\"" + std::to_string(i % 7) + "\",y=\"1\"} 1\n";
   const auto seconds = [](const std::string &body) {
     const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-    const om::result parsed = om::parse(body, text, unlimited());
+    const om::result parsed = parse_checked(body, text, unlimited());
     EXPECT_TRUE(parsed.ok()) << parsed.error;
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
   };
@@ -1840,7 +1928,7 @@ TEST(OpenmetricsParser, DefaultLimitsStopABodyBuiltToExhaustMemory) {
   // long before it costs more than a few hundred MB.
   std::string families;
   for (int i = 0; i < 60000; ++i) families += "m" + std::to_string(i) + " 1\n";
-  const om::result many = om::parse(families, text);
+  const om::result many = parse_checked(families, text);
   EXPECT_FALSE(many.ok());
   EXPECT_NE(many.error.find("more than 50000 families"), std::string::npos) << many.error;
 
@@ -1848,13 +1936,13 @@ TEST(OpenmetricsParser, DefaultLimitsStopABodyBuiltToExhaustMemory) {
   std::string set;
   for (int i = 0; i < 200; ++i) set += "l" + std::to_string(i) + "=\"\",";
   for (int i = 0; i < 13000; ++i) labelled += "m{" + set + "n=\"" + std::to_string(i) + "\"} 1\n";
-  const om::result heavy = om::parse(labelled, text);
+  const om::result heavy = parse_checked(labelled, text);
   EXPECT_FALSE(heavy.ok());
   EXPECT_NE(heavy.error.find("more than 2500000 labels"), std::string::npos) << heavy.error;
 
   std::string wide = "w{";
   for (int i = 0; i < 300; ++i) wide += "l" + std::to_string(i) + "=\"\",";
-  const om::result too_wide = om::parse(wide + "} 1\n", text);
+  const om::result too_wide = parse_checked(wide + "} 1\n", text);
   EXPECT_NE(too_wide.error.find("more than 256 labels on 'w'"), std::string::npos) << too_wide.error;
 }
 
@@ -1870,7 +1958,7 @@ TEST(OpenmetricsParser, InterleavedTextFamiliesAreReadInLinearTime) {
     double best = 0;
     for (int round = 0; round < 3; ++round) {
       const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-      const om::result parsed = om::parse(body, text);
+      const om::result parsed = parse_checked(body, text);
       const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
       EXPECT_TRUE(parsed.ok()) << parsed.error;
       EXPECT_EQ(parsed.families.size(), families);
@@ -1902,7 +1990,7 @@ TEST(OpenmetricsParser, InterleavedTextFamiliesAreReadInLinearTime) {
 TEST(OpenmetricsParser, LabelsCountAgainstTheirLimits) {
   om::limits per_sample;
   per_sample.max_labels_per_sample = 3;
-  const om::result wide = om::parse("ok{a=\"1\",b=\"2\",c=\"3\"} 1\nwide{a=\"1\",b=\"2\",c=\"3\",d=\"4\"} 1\n", text, per_sample);
+  const om::result wide = parse_checked("ok{a=\"1\",b=\"2\",c=\"3\"} 1\nwide{a=\"1\",b=\"2\",c=\"3\",d=\"4\"} 1\n", text, per_sample);
   EXPECT_FALSE(wide.ok());
   EXPECT_EQ(wide.error_line, 2u);
   EXPECT_NE(wide.error.find("more than 3 labels on 'wide'"), std::string::npos) << wide.error;
@@ -1911,7 +1999,7 @@ TEST(OpenmetricsParser, LabelsCountAgainstTheirLimits) {
   // the per-sample limit.
   om::limits total;
   total.max_labels = 5;
-  const om::result many = om::parse("a{x=\"1\",y=\"2\"} 1\na{x=\"2\",y=\"2\"} 1\na{x=\"3\",y=\"2\"} 1\n", text, total);
+  const om::result many = parse_checked("a{x=\"1\",y=\"2\"} 1\na{x=\"2\",y=\"2\"} 1\na{x=\"3\",y=\"2\"} 1\n", text, total);
   EXPECT_FALSE(many.ok());
   EXPECT_EQ(many.error_line, 3u);
   EXPECT_NE(many.error.find("more than 5 labels"), std::string::npos) << many.error;
@@ -1932,7 +2020,7 @@ std::string many_series(const std::size_t count) {
 }  // namespace
 
 TEST(OpenmetricsParser, HundredThousandSeriesParse) {
-  const om::result parsed = om::parse(many_series(100000), openmetrics);
+  const om::result parsed = parse_checked(many_series(100000), openmetrics);
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(parsed.sample_count, 100000u);
   const om::family &f = only_family(parsed);
@@ -1943,7 +2031,7 @@ TEST(OpenmetricsParser, HundredThousandSeriesParse) {
 TEST(OpenmetricsParser, SeriesOverTheLimitStopTheParse) {
   om::limits bounds;
   bounds.max_series = 50000;
-  const om::result parsed = om::parse(many_series(100000), openmetrics, bounds);
+  const om::result parsed = parse_checked(many_series(100000), openmetrics, bounds);
   EXPECT_FALSE(parsed.ok());
   EXPECT_NE(parsed.error.find("more than 50000 series"), std::string::npos) << parsed.error;
   EXPECT_EQ(parsed.sample_count, 50000u);
@@ -1959,7 +2047,7 @@ TEST(OpenmetricsParser, MetadataOnlyFamiliesCountAgainstTheFamilyLimit) {
   om::limits bounds;
   bounds.max_series = 10;
   bounds.max_families = 1000;
-  const om::result parsed = om::parse(body, text, bounds);
+  const om::result parsed = parse_checked(body, text, bounds);
   EXPECT_FALSE(parsed.ok());
   EXPECT_NE(parsed.error.find("more than 1000 families"), std::string::npos) << parsed.error;
   EXPECT_EQ(parsed.error_line, 1001u);
@@ -1969,7 +2057,7 @@ TEST(OpenmetricsParser, MetadataOnlyFamiliesCountAgainstTheFamilyLimit) {
 TEST(OpenmetricsParser, SampledFamiliesCountAgainstTheFamilyLimit) {
   om::limits bounds;
   bounds.max_families = 2;
-  const om::result parsed = om::parse("a 1\na 2\nb 1\nc 1\n", text, bounds);
+  const om::result parsed = parse_checked("a 1\na 2\nb 1\nc 1\n", text, bounds);
   EXPECT_FALSE(parsed.ok());
   EXPECT_EQ(parsed.error_line, 4u);
   EXPECT_EQ(parsed.families.size(), 2u);
@@ -2012,6 +2100,9 @@ bool owned_suffix(const om::format f, const om::family_type type, const std::str
 }
 
 void expect_consistent(const om::result &parsed, const std::string &body, const om::format f) {
+  // A broken invariant is never a way for a body to fail, whichever parse
+  // produced the result.
+  EXPECT_NE(parsed.error.rfind("internal error", 0), 0u) << parsed.error << " on line " << parsed.error_line;
   std::size_t lines = 1;
   for (const char c : body) {
     if (c == '\n') ++lines;
@@ -2105,10 +2196,10 @@ TEST(OpenmetricsParser, EveryTruncationIsRefusedOrEndsOnALine) {
       "# TYPE x gauge\nx 1\n# HELP x Total.\n# TYPE x counter\n# UNIT x bytes\nx_total 2\nx_created 1.7e9\n"
       "# TYPE h histogram\nh_bucket{le=\"+Inf\"} 1\nh_sum 1\nh_count 1\nh_created 1\n# TYPE h counter\nh_total 1\nh_created 2\n# EOF\n";
   for (const std::string &body : {std::string(exposition), std::string(client_golang_openmetrics), pair_body}) {
-    ASSERT_TRUE(om::parse(body, openmetrics).ok());
+    ASSERT_TRUE(parse_checked(body, openmetrics).ok());
     for (std::size_t length = 0; length < body.size(); ++length) {
       const std::string prefix = body.substr(0, length);
-      const om::result parsed = om::parse(prefix, openmetrics);
+      const om::result parsed = parse_checked(prefix, openmetrics);
       expect_consistent(parsed, prefix, openmetrics);
       const bool bare_eof = length == body.size() - 1;
       const bool on_a_line = prefix.empty() || prefix[prefix.size() - 1] == '\n' || bare_eof;
@@ -2130,13 +2221,13 @@ TEST(OpenmetricsParser, EverySingleByteCorruptionIsHandled) {
   const std::pair<const char *, om::format> bodies[] = {{exposition, openmetrics}, {shared_exposition, openmetrics}, {shared_exposition, text}};
   for (const std::pair<const char *, om::format> &entry : bodies) {
     const std::string body = entry.first;
-    ASSERT_TRUE(om::parse(body, entry.second).ok());
+    ASSERT_TRUE(parse_checked(body, entry.second).ok());
     std::size_t failures = 0;
     for (std::size_t at = 0; at < body.size(); ++at) {
       for (const char replacement : replacements) {
         std::string corrupt = body;
         corrupt[at] = replacement;
-        const om::result parsed = om::parse(corrupt, entry.second);
+        const om::result parsed = parse_checked(corrupt, entry.second);
         expect_consistent(parsed, corrupt, entry.second);
         if (!parsed.ok()) ++failures;
       }
@@ -2183,7 +2274,7 @@ TEST(OpenmetricsParser, RandomBytesAreHandled) {
       }
     }
     for (const om::format f : {openmetrics, text}) {
-      const om::result parsed = om::parse(body, f);
+      const om::result parsed = parse_checked(body, f);
       expect_consistent(parsed, body, f);
     }
     if (::testing::Test::HasFailure()) {
@@ -2229,13 +2320,13 @@ TEST(OpenmetricsParser, AnythingAfterEofNeverChangesTheFamilies) {
     const std::size_t pieces = length(random);
     for (std::size_t i = 0; i < pieces; ++i) document += fragments[pick_fragment(random)];
     document += "# EOF\n";
-    const om::result alone = om::parse(document, openmetrics, bounds);
+    const om::result alone = parse_checked(document, openmetrics, bounds);
     if (!alone.ok()) continue;
     ++complete;
     std::string tail;
     const std::size_t extra = 1 + length(random);
     for (std::size_t i = 0; i < extra; ++i) tail += fragments[pick_fragment(random)];
-    const om::result appended = om::parse(document + tail, openmetrics, bounds);
+    const om::result appended = parse_checked(document + tail, openmetrics, bounds);
     EXPECT_TRUE(appended.saw_eof);
     ASSERT_EQ(appended.families.size(), alone.families.size()) << document << "--- appended:\n" << tail << " -> " << appended.error;
     for (std::size_t i = 0; i < alone.families.size(); ++i) {
@@ -2266,7 +2357,7 @@ TEST(OpenmetricsParser, RandomLinesSplicedIntoAValidBodyAreHandled) {
     for (std::size_t i = 0; i < size; ++i) line += alphabet[pick(random)];
     const std::string body = std::string("# TYPE kept gauge\nkept 1\n") + line + "\n";
     for (const om::format f : {openmetrics, text}) {
-      const om::result parsed = om::parse(body, f);
+      const om::result parsed = parse_checked(body, f);
       expect_consistent(parsed, body, f);
       ASSERT_FALSE(parsed.families.empty()) << line;
       EXPECT_EQ(parsed.families.at(0).name, "kept") << line;

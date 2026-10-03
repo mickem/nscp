@@ -191,6 +191,12 @@ bool to_double(const std::string_view raw, double &out) {
 // `ParseFloat` - which the reference parser and most exporters use - accepts
 // them in any case, so this does too: infinity with or without a sign, NaN
 // only without one. OpenMetrics allows no signed NaN either.
+//
+// The one body known to write a signed NaN is NSClient++'s own deprecated
+// `openmetrics format = legacy`, which streams a value as `-nan` (glibc) or
+// `-nan(ind)` (MSVC). Accepting `-nan` would not make that body readable: it
+// pastes its keys in verbatim, dots and spaces included, so it is not an
+// exposition Prometheus or this parser can read from its first line on.
 bool read_value(const std::string_view raw, double &out) {
   if (equals_word(raw, "nan")) {
     out = std::numeric_limits<double>::quiet_NaN();
