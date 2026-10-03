@@ -9,15 +9,19 @@
 
 namespace PDH {
 class ThreadedSafePDH : public NativeExternalPDH {
+  // Guards the PDH proc table and serialises every call through it.
   boost::shared_mutex mutex_;
   typedef std::list<subscriber*> subscriber_list;
+  // Guards subscribers_, and is held across the reload callbacks (see reload()).
+  boost::mutex subscribers_mutex_;
   subscriber_list subscribers_;
+
+  pdh_error validate_path_locked(LPCWSTR szFullPathBuffer);
 
  public:
   ThreadedSafePDH() {}
 
   bool reload() override;
-  bool reload_unsafe();
 
   void add_listener(subscriber* sub) override;
   void remove_listener(subscriber* sub) override;

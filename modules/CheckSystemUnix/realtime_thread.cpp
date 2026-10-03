@@ -16,7 +16,6 @@
 #include <stdexcept>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
-#include <thread>
 #include <threads/guarded_thread.hpp>
 
 #include "realtime_data.hpp"
@@ -94,9 +93,10 @@ void pdh_thread::thread_proc() {
   }
 
   while (!stop_requested_) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    if (stop_requested_) break;
+    {
+      std::unique_lock<std::mutex> lock(stop_mutex_);
+      if (stop_cv_.wait_for(lock, std::chrono::seconds(1), [this]() { return stop_requested_.load(); })) break;
+    }
 
     // Each source is read and recorded on its own, so one unreadable file
     // (an empty or unreadable /proc/stat in a locked-down container) does
@@ -348,7 +348,13 @@ bool pdh_thread::start() {
 }
 
 bool pdh_thread::stop() {
-  stop_requested_ = true;
+  {
+    // Set under the mutex so the collector cannot test the predicate, miss
+    // the store and then sleep through the notify.
+    std::lock_guard<std::mutex> lock(stop_mutex_);
+    stop_requested_ = true;
+  }
+  stop_cv_.notify_all();
   if (thread_) {
     thread_->join();
     // Idempotent: the destructor calls stop() again after unloadModule did.

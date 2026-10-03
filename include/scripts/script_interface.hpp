@@ -232,7 +232,13 @@ struct script_manager {
     info->plugin_id = plugin_id;
     info->script = script;
     info->script_alias = alias;
-    info->script_id = script_id++;
+    {
+      // Under the lock: two concurrent adds (`nscp lua execute` from two
+      // callers) could otherwise draw the same id, and the second insert
+      // would silently replace - and leak - the first script.
+      boost::lock_guard<boost::mutex> lock(mutex_);
+      info->script_id = script_id++;
+    }
     script_runtime->create_user_data(info);
     {
       boost::lock_guard<boost::mutex> lock(mutex_);
