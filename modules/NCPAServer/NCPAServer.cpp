@@ -3,6 +3,7 @@
 
 #include "NCPAServer.h"
 
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/thread/thread.hpp>
@@ -12,6 +13,7 @@
 #include <net/socket/allowed_hosts.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <net/web_server_logger.hpp>
+#include <net/web_server_tls.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -26,9 +28,6 @@
 namespace sh = nscapi::settings_helper;
 
 namespace {
-// The stock `tls version`, named because the registered default and the test
-// for "did the operator touch it" have to agree (see WEBServer.cpp).
-const char *const kDefaultTlsVersion = "1.2+";
 const char *const kDefaultPort = "5693";
 
 }  // namespace
@@ -77,10 +76,9 @@ NCPAServer::~NCPAServer() {
 }
 
 void NCPAServer::stop_server() {
-  if (server_) {
-    server_->stop();
-    server_.reset();
-  }
+  // Safe from any thread, a request thread of this very server included: the
+  // last reference is then dropped on a thread of its own.
+  Mongoose::stop_and_release(server_, NSC_THREAD_REPORTER);
   if (refresher_) {
     refresher_->halt();
     refresher_.reset();
@@ -107,6 +105,7 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   ncpa_config config;
   std::string allowed_hosts;
   bool cache_allowed_hosts = true;
+  std::string bind_to;
   std::string port;
   std::string plugins;
   std::string certificate;
@@ -152,15 +151,16 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
                "How many requests are answered at the same time. A check blocks the thread answering it until it returns, so a slow external "
                "script only delays the polls behind it once all threads are busy. Default 10.")
       .add_bool("allow insecure", sh::bool_key(&allow_insecure, false), "ALLOW INSECURE (CLEARTEXT HTTP)",
-                "When false (the default) the listener refuses to start without a TLS certificate rather than serve the token in clear. Set to true "
-                "only behind a TLS-terminating proxy or on loopback. Note that check_ncpa.py always connects with https.");
+                "When false (the default) the listener refuses to start unless its TLS certificate loads, rather than serve the token in clear. "
+                "A missing default certificate is generated, so it never counts as missing: to serve plain HTTP - behind a TLS-terminating "
+                "proxy, or on loopback - set `certificate` to empty as well as this to true. Note that check_ncpa.py always connects with https.");
   settings.alias()
       .add_key_to_settings()
       .add_string("certificate", sh::path_key(&certificate, "${certificate-path}/certificate.pem"), "TLS CERTIFICATE",
                   "The certificate the listener serves. The default is the same file the WEB server uses, so one certificate serves both; a default "
                   "one is generated when it is missing. check_ncpa.py only verifies it when run with -s.")
       .add_string("certificate key", sh::path_key(&key), "TLS PRIVATE KEY", "The private key for the certificate if it is not in the same file.")
-      .add_string("tls version", sh::string_key(&tls_version, kDefaultTlsVersion), "TLS VERSION",
+      .add_string("tls version", sh::string_key(&tls_version, net::kDefaultWebTlsVersion), "TLS VERSION",
                   "Which TLS versions the listener negotiates, in the same vocabulary as the WEB server: an exact version (1.0, 1.1, 1.2, 1.3), a "
                   "trailing + for that version or later, or `any`. Honoured on builds using the beast web backend (all Linux packages).")
       .add_string("allowed ciphers", sh::string_key(&allowed_ciphers), "ALLOWED CIPHERS",
@@ -173,6 +173,11 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   settings.alias()
       .add_parent("/settings/default")
       .add_key_to_settings()
+      // Same key, title and text as the other servers register under
+      // /settings/default: they share one entry in the reference.
+      .add_string("bind to", sh::string_key(&bind_to), "BIND TO ADDRESS",
+                  "Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind "
+                  "to all available IP addresses.")
       .add_string("allowed hosts", sh::string_key(&allowed_hosts, "127.0.0.1"), "Allowed hosts",
                   "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
       .add_bool("cache allowed hosts", sh::bool_key(&cache_allowed_hosts, true), "Cache list of allowed hosts",
@@ -197,6 +202,11 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     NSC_LOG_ERROR("NCPA: no token is configured under /settings/NCPA/server: every request will be refused until one is set.");
   }
 
+  // `bind to` limits the listener to one local address, as on the other
+  // servers; empty means every interface. An IPv6 address goes in brackets.
+  boost::algorithm::trim(bind_to);
+  const std::string bind = bind_to.empty() ? "0.0.0.0:" + port : bind_to.find(':') != std::string::npos ? "[" + bind_to + "]:" + port : bind_to + ":" + port;
+
   std::list<std::string> errors;
   socket_helpers::validate_certificate(certificate, errors);
   NSC_LOG_ERROR_LISTS(errors);
@@ -205,10 +215,7 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   try {
     Mongoose::WebLoggerPtr logger(new net::web_server_logger(log_errors, log_info, log_debug, "NCPA: "));
     server_.reset(Mongoose::Server::make_server(logger));
-    // An untouched `tls version` goes in as empty, for the reason WEBServer.cpp
-    // gives: the mongoose backend would otherwise log on every start that it
-    // ignores a setting nobody wrote.
-    server_->setTlsOptions(tls_version == kDefaultTlsVersion ? std::string() : tls_version, allowed_ciphers);
+    net::apply_tls_options(*server_, tls_version, allowed_ciphers);
     // Both backends serve TLS exactly when a certificate *loaded*, so the file
     // existing is not enough: a missing key or an unreadable file would leave
     // the listener on plain HTTP. What decides is whether setSsl() succeeded.
@@ -221,14 +228,14 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
         server_.reset();
         return true;
       }
-      NSC_LOG_ERROR("NCPA: no usable certificate at '" + certificate + "' and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port +
-                    ". The token travels in clear.");
+      const std::string why = certificate.empty() ? std::string("no certificate is configured") : "no usable certificate at '" + certificate + "'";
+      NSC_LOG_ERROR("NCPA: " + why + " and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port + ". The token travels in clear.");
       // A server whose setSsl() failed refuses to start (it never falls back
       // to cleartext on its own), so the explicit opt-in gets a fresh one that
       // was never asked for TLS.
       if (!cert_missing) {
         server_.reset(Mongoose::Server::make_server(logger));
-        server_->setTlsOptions(tls_version == kDefaultTlsVersion ? std::string() : tls_version, allowed_ciphers);
+        net::apply_tls_options(*server_, tls_version, allowed_ciphers);
       }
     }
     // `allowed hosts` decides who may connect at all, so it is applied as a
@@ -244,12 +251,6 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
       std::list<std::string> host_errors;
       hosts->refresh(host_errors);
       NSC_LOG_ERROR_LISTS(host_errors);
-    }
-    if (!cache_allowed_hosts) {
-      refresher_ = std::make_shared<host_refresher>();
-      refresher_->hosts = hosts;
-      const std::shared_ptr<host_refresher> refresher = refresher_;
-      refresher_->thread = threads::start_guarded_thread("ncpa allowed hosts", [refresher] { refresher->run(); }, NSC_THREAD_REPORTER);
     }
     server_->setAcceptFilter([hosts](const std::string &remote) {
       std::list<std::string> host_errors;
@@ -273,13 +274,21 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     server_->setThreadReporting("ncpa server", NSC_THREAD_REPORTER);
     // No error sink is installed: it is process-global and the WEB server owns
     // it. The controller catches and logs its own failures.
-    server_->registerController(new ncpa_controller(config, std::make_shared<ncpa_sources>(get_core(), get_id())));
-    if (!server_->start("0.0.0.0:" + port)) {
-      NSC_LOG_ERROR("NCPA: the NCPA listener has NOT been started on port " + port + " (see the error above). Fix the configuration and reload.");
+    server_->registerController(new ncpa_controller(config, std::make_shared<ncpa_sources>(get_core(), get_id(), config.plugins.needs_module())));
+    if (!server_->start(bind)) {
+      NSC_LOG_ERROR("NCPA: the NCPA listener has NOT been started on port " + port + " (" + bind + "; see the error above). Fix the configuration and reload.");
       server_.reset();
       return true;
     }
-    NSC_DEBUG_MSG("NCPA: listening on port " + port + (tls ? " (https" : " (http") + ", plugins = " + config.plugins.to_string() + ")");
+    // Only once the listener is up: a failed start leaves nothing re-resolving
+    // names for a listener that does not exist.
+    if (!cache_allowed_hosts) {
+      refresher_ = std::make_shared<host_refresher>();
+      refresher_->hosts = hosts;
+      const std::shared_ptr<host_refresher> refresher = refresher_;
+      refresher_->thread = threads::start_guarded_thread("ncpa allowed hosts", [refresher] { refresher->run(); }, NSC_THREAD_REPORTER);
+    }
+    NSC_DEBUG_MSG("NCPA: listening on " + bind + (tls ? " (https" : " (http") + ", plugins = " + config.plugins.to_string() + ")");
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("NCPA: the listener failed to start (the module stays loaded; fix the configuration and reload): " + utf8::utf8_from_native(e.what()));
     server_.reset();

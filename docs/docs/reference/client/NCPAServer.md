@@ -88,7 +88,22 @@ The listener serves HTTPS with the same certificate as the WEB server (`${certif
 on first start when missing), so one certificate serves both. `check_ncpa.py` does not verify the certificate unless it
 is run with `-s`, so the generated self-signed one works out of the box; give it a real one and pass `-s` to have the
 monitoring server check it. Unless the certificate and its key actually load (and belong together), the listener
-refuses to start rather than send the token in clear, unless `allow insecure = true` is set.
+refuses to start rather than send the token in clear.
+
+To serve plain HTTP, for instance behind a TLS-terminating proxy, both settings are needed: an empty `certificate`
+(otherwise the default one is generated and used) and `allow insecure = true` (otherwise a missing certificate stops
+the listener):
+
+```
+[/settings/NCPA/server]
+certificate =
+allow insecure = true
+```
+
+#### Listening address
+
+The listener binds to `bind to`, set under `[/settings/NCPA/server]` or inherited from `[/settings/default]` like the
+NRPE and NSCA servers, and to every interface when that is empty. An IPv6 address is written bare (`bind to = ::1`).
 
 #### Concurrency
 
@@ -131,6 +146,7 @@ Section for the NCPA (NCPAServer) protocol: the Nagios NCPA HTTP API, polled wit
 | [auth rate limit block seconds](#auth-rate-limit-block-seconds) | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS) |
 | [auth rate limit max failures](#auth-rate-limit-failures)       | 10                                  | AUTH RATE LIMIT (FAILURES)      |
 | [backup token](#backup-token)                                   |                                     | BACKUP TOKEN                    |
+| [bind to](#bind-to-address)                                     |                                     | BIND TO ADDRESS                 |
 | [cache allowed hosts](#cache-list-of-allowed-hosts)             | true                                | Cache list of allowed hosts     |
 | [certificate](#tls-certificate)                                 | ${certificate-path}/certificate.pem | TLS CERTIFICATE                 |
 | [certificate key](#tls-private-key)                             |                                     | TLS PRIVATE KEY                 |
@@ -179,7 +195,7 @@ allow arguments=false
 
 #### ALLOW INSECURE (CLEARTEXT HTTP) <a id="/settings/NCPA/server/allow insecure"></a>
 
-When false (the default) the listener refuses to start without a TLS certificate rather than serve the token in clear. Set to true only behind a TLS-terminating proxy or on loopback. Note that check_ncpa.py always connects with https.
+When false (the default) the listener refuses to start unless its TLS certificate loads, rather than serve the token in clear. A missing default certificate is generated, so it never counts as missing: to serve plain HTTP - behind a TLS-terminating proxy, or on loopback - set \`certificate\` to empty as well as this to true. Note that check_ncpa.py always connects with https.
 
 
 | Key            | Description                                     |
@@ -295,6 +311,26 @@ A second accepted token (NCPA's \`backup_community_string\`), so the token can b
 [/settings/NCPA/server]
 # BACKUP TOKEN
 backup token=
+```
+
+#### BIND TO ADDRESS <a id="/settings/NCPA/server/bind to"></a>
+
+Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/NCPA/server](#/settings/NCPA/server) |
+| Key:           | bind to                                         |
+| Default value: | _N/A_                                           |
+
+
+**Sample:**
+
+```
+[/settings/NCPA/server]
+# BIND TO ADDRESS
+bind to=
 ```
 
 #### Cache list of allowed hosts <a id="/settings/NCPA/server/cache allowed hosts"></a>

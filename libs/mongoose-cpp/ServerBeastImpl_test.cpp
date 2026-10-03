@@ -1310,3 +1310,57 @@ TEST(ServerBeastImpl, AcceptFilterDropsARefusedPeerBeforeAnyRequest) {
   EXPECT_FALSE(r.received);
   EXPECT_GE(asked.load(), 1);
 }
+
+// ---- Releasing a server from its own thread ------------------------------------
+
+namespace {
+struct release_state {
+  std::shared_ptr<Mongoose::Server> server;
+  std::atomic<bool> released{false};
+  std::atomic<bool> finished{false};
+};
+class ReleaseServerHandler : public RequestHandlerBase {
+ public:
+  explicit ReleaseServerHandler(std::shared_ptr<release_state> state) : state_(std::move(state)) {}
+  Response* process(Request& /*request*/) override {
+    Mongoose::stop_and_release(state_->server, {});
+    state_->released = true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    auto* r = new StreamResponse(200);
+    r->setCode(200, "OK");
+    r->append(marker_);
+    state_->finished = true;
+    return r;
+  }
+
+ private:
+  std::shared_ptr<release_state> state_;
+  std::string marker_ = "released";
+};
+}  // namespace
+
+TEST(ServerBeastImpl, AHandlerCanReleaseItsOwnServer) {
+  // With several io threads, a stop() on one of them detaches the others,
+  // which keep using the io_context, the acceptor and the TLS context - and
+  // the caller then freed the server under them. stop_and_release() frees it
+  // from a thread of its own once they have all finished. Meaningful under
+  // ASan.
+  const auto state = std::make_shared<release_state>();
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/release", new ReleaseServerHandler(state));
+  const auto logger = std::make_shared<CollectingLogger>();
+  auto* impl = new ServerBeastImpl(logger);
+  state->server.reset(impl);
+  const std::weak_ptr<Mongoose::Server> watch = state->server;
+  impl->setWorkerThreads(4);
+  impl->registerController(controller);
+  const int port = start_listening(*impl, logger, choose_port_base() + 66);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  beast_fetch("127.0.0.1", port, "/release");
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!watch.expired() && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_TRUE(state->released);
+  EXPECT_TRUE(state->finished);
+  EXPECT_TRUE(watch.expired()) << "the server is freed once its threads are done";
+}

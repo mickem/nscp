@@ -47,6 +47,7 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   void setBodyLimit(std::size_t bytes) override;
   void setWorkerThreads(std::size_t threads) override;
   void setAcceptFilter(accept_filter filter) override;
+  bool isServerThread() const override;
   void setThreadReporting(const std::string& thread_name, thread_reporter reporter) override;
   void setTlsOptions(const std::string& tls_version, const std::string& ciphers) override;
 

@@ -110,12 +110,23 @@ bool expand_wildcard_v4(const std::string &addr, std::string &out_addr, std::str
 void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &errors) {
   io_context io_service;
   tcp::resolver resolver(io_service);
-  // Rebuilt in place: hold the lock for the whole rebuild so no accepting
-  // thread walks a half-built list.
-  std::lock_guard<std::mutex> lock(entries_mutex_);
-  entries_v4.clear();
-  entries_v6.clear();
-  for (const std::string &record : sources) {
+  // Built off to the side and swapped in, so the lock is never held across a
+  // DNS lookup: is_allowed() takes the same lock on every accepted
+  // connection, and a slow resolver used to stall every one of them for the
+  // length of the rebuild. Readers see the old list or the new one, never a
+  // half-built one.
+  std::list<std::string> current_sources;
+  std::list<host_record_v4> previous_v4;
+  std::list<host_record_v6> previous_v6;
+  {
+    std::lock_guard<std::mutex> lock(entries_mutex_);
+    current_sources = sources;
+    previous_v4 = entries_v4;
+    previous_v6 = entries_v6;
+  }
+  std::list<host_record_v4> new_v4;
+  std::list<host_record_v6> new_v6;
+  for (const std::string &record : current_sources) {
     std::string::size_type pos = record.find('/');
     std::string addr, mask;
     if (pos == std::string::npos) {
@@ -160,9 +171,9 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
         continue;
       }
       if (a.is_v4()) {
-        entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
+        new_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
       } else if (a.is_v6()) {
-        entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
+        new_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
       } else {
         errors.push_back("Invalid address: " + record);
       }
@@ -172,18 +183,38 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
         for (const auto &entry : endpoints) {
           address a = entry.endpoint().address();
           if (a.is_v4()) {
-            entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
+            new_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
           } else if (a.is_v6()) {
-            entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
+            new_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
           } else {
             errors.emplace_back("Invalid address: " + record);
           }
         }
       } catch (const std::exception &e) {
-        errors.emplace_back("Failed to parse host " + record + ": " + utf8::utf8_from_native(e.what()));
+        // Keep what this name resolved to last time: a transient DNS failure
+        // used to empty its entries until the next refresh, refusing a host
+        // the list allows by name for a whole refresh interval.
+        bool kept = false;
+        for (const host_record_v4 &r : previous_v4) {
+          if (r.host == record) {
+            new_v4.push_back(r);
+            kept = true;
+          }
+        }
+        for (const host_record_v6 &r : previous_v6) {
+          if (r.host == record) {
+            new_v6.push_back(r);
+            kept = true;
+          }
+        }
+        errors.emplace_back("Failed to parse host " + record + ": " + utf8::utf8_from_native(e.what()) +
+                            (kept ? " (keeping the addresses it resolved to before)" : ""));
       }
     }
   }
+  std::lock_guard<std::mutex> lock(entries_mutex_);
+  entries_v4.swap(new_v4);
+  entries_v6.swap(new_v6);
 }
 
 void socket_helpers::allowed_hosts_manager::set_source(const std::string &source) {

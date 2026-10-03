@@ -51,30 +51,35 @@ bool ncpa_controller::authenticate(const Mongoose::Request &request, const ncpa:
   // With several workers, parallel guesses from one host used to all pass
   // is_blocked() before any of them was counted, getting about twice the
   // documented number of tries per block. The comparison is in-memory and
-  // constant-time, so holding the lock across it costs nothing.
-  const std::lock_guard<std::mutex> auth_lock(auth_mutex_);
-  if (rate_limiter_.is_blocked(remote)) {
-    NSC_LOG_ERROR("NCPA: rejected request from " + remote + ": blocked after repeated failed tokens.");
-    answer_json(response, ncpa::error_body(kBlocked));
-    return false;
+  // constant-time, so holding the lock across it costs nothing. The log line
+  // is only composed under it and written after: logging goes through the
+  // core and must not serialise every other request behind it.
+  std::string failure;
+  bool blocked = false;
+  {
+    const std::lock_guard<std::mutex> auth_lock(auth_mutex_);
+    if (rate_limiter_.is_blocked(remote)) {
+      blocked = true;
+      failure = "blocked after repeated failed tokens.";
+    } else {
+      switch (ncpa::check_token(ncpa::form_value(args, "token"), config_.token, config_.backup_token)) {
+        case ncpa::token_result::accepted:
+          rate_limiter_.record_success(remote);
+          return true;
+        case ncpa::token_result::not_configured:
+          // Not a guess, so it does not count towards the block: every
+          // request fails the same way until the operator sets a token.
+          failure = "no token is configured. Set 'token' under /settings/NCPA/server.";
+          break;
+        case ncpa::token_result::rejected:
+          rate_limiter_.record_failure(remote);
+          failure = (ncpa::form_has(args, "token") ? std::string("wrong token") : std::string("no token given")) + ".";
+          break;
+      }
+    }
   }
-
-  switch (ncpa::check_token(ncpa::form_value(args, "token"), config_.token, config_.backup_token)) {
-    case ncpa::token_result::accepted:
-      rate_limiter_.record_success(remote);
-      return true;
-    case ncpa::token_result::not_configured:
-      // Not a guess, so it does not count towards the block: every request
-      // fails the same way until the operator sets a token.
-      NSC_LOG_ERROR("NCPA: rejected request from " + remote + ": no token is configured. Set 'token' under /settings/NCPA/server.");
-      break;
-    case ncpa::token_result::rejected:
-      rate_limiter_.record_failure(remote);
-      NSC_LOG_ERROR("NCPA: rejected request from " + remote + ": " +
-                    (ncpa::form_has(args, "token") ? std::string("wrong token") : std::string("no token given")) + ".");
-      break;
-  }
-  answer_json(response, ncpa::error_body(kBadCredentials));
+  NSC_LOG_ERROR("NCPA: rejected request from " + remote + ": " + failure);
+  answer_json(response, ncpa::error_body(blocked ? kBlocked : kBadCredentials));
   return false;
 }
 
@@ -134,7 +139,7 @@ void ncpa_controller::handle(Mongoose::Request &request, const boost::smatch &wh
 
 std::vector<std::string> ncpa_controller::exposed_plugins() const {
   std::vector<std::string> names;
-  for (const ncpa_sources::query_info &q : sources_->list_queries(config_.plugins.needs_module())) {
+  for (const ncpa_sources::query_info &q : sources_->list_queries()) {
     if (config_.plugins.allows(q.name, q.module)) names.push_back(q.name);
   }
   std::sort(names.begin(), names.end());
@@ -154,7 +159,7 @@ void ncpa_controller::plugins(const std::vector<std::string> &path, const ncpa::
   // A query that is not exposed answers exactly like one that does not exist,
   // so the plugins node cannot be used to map what else is registered.
   ncpa_sources::query_info info;
-  if (!sources_->describe_query(name, config_.plugins.needs_module(), info) || !config_.plugins.allows(name, info.module)) {
+  if (!sources_->describe_query(name, info) || !config_.plugins.allows(name, info.module)) {
     NSC_DEBUG_MSG("NCPA: " + remote + " asked for plugin '" + name + "', which is not registered or not exposed by 'plugins = " + config_.plugins.to_string() +
                   "'.");
     answer_json(response, check_mode ? ncpa::missing_node_check_body("plugin", name) : ncpa::missing_node_body(full_path, "plugin", name));

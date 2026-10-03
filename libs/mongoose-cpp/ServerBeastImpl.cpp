@@ -62,9 +62,9 @@ struct BindEndpoint {
 };
 
 // Parse the mongoose-style bind URL ("https://0.0.0.0:8443",
-// "http://127.0.0.1:8080" or a bare "host:port"). IPv6 bracket syntax
-// is not supported — the existing wrapper never emits it. Throws
-// nsclient_exception on malformed input (caller catches and logs).
+// "http://127.0.0.1:8080", a bare "host:port", or an IPv6 address in
+// brackets: "[::1]:5693", as mongoose takes it). Throws nsclient_exception on
+// malformed input (caller catches and logs).
 BindEndpoint parse_bind(const std::string& bind) {
   BindEndpoint ep;
   std::string s = bind;
@@ -78,6 +78,15 @@ BindEndpoint parse_bind(const std::string& bind) {
   }
   const auto slash = s.find('/');
   if (slash != std::string::npos) s.erase(slash);
+  std::string bracketed_host;
+  if (!s.empty() && s[0] == '[') {
+    const auto close = s.find(']');
+    if (close == std::string::npos) throw nsclient::nsclient_exception("Invalid bind '" + bind + "': unterminated '['");
+    bracketed_host = s.substr(1, close - 1);
+    if (bracketed_host.empty()) throw nsclient::nsclient_exception("Invalid bind '" + bind + "': empty address in brackets");
+    s.erase(0, close + 1);
+    if (!s.empty() && s[0] != ':') throw nsclient::nsclient_exception("Invalid bind '" + bind + "': expected ':' after ']'");
+  }
   const auto colon = s.rfind(':');
   if (colon == std::string::npos) {
     ep.host = s;
@@ -103,6 +112,7 @@ BindEndpoint parse_bind(const std::string& bind) {
     }
     ep.port = static_cast<unsigned short>(port_value);
   }
+  if (!bracketed_host.empty()) ep.host = bracketed_host;
   if (ep.host.empty()) ep.host = "0.0.0.0";
   return ep;
 }
@@ -266,6 +276,11 @@ void ServerBeastImpl::setThreadReporting(const std::string& thread_name, thread_
   }
   thread_name_ = thread_name;
   thread_reporter_ = std::move(reporter);
+}
+
+bool ServerBeastImpl::isServerThread() const {
+  return std::any_of(threads_.begin(), threads_.end(),
+                     [](const std::shared_ptr<boost::thread>& thread) { return thread->get_id() == boost::this_thread::get_id(); });
 }
 
 void ServerBeastImpl::setAcceptFilter(accept_filter filter) {
@@ -696,8 +711,9 @@ void ServerBeastImpl::stop() {
   if (from_own_thread) {
     // Leave acceptor_ and ssl_ctx_ alone: the other threads are still running
     // the io_context, and a session accepted just before the acceptor closed
-    // would otherwise build its TLS stream on a null context. They are released
-    // with this object.
+    // would otherwise build its TLS stream on a null context. The object itself
+    // must outlive those threads too, which is why a caller on a server thread
+    // frees it through stop_and_release() rather than a delete.
     for (const std::shared_ptr<boost::thread>& thread : threads_) thread->detach();
     threads_.clear();
     return;

@@ -115,10 +115,23 @@ class NSCP_MONGOOSE_EXPORT Server {
    * per request, a refused host can still complete handshakes and occupy the
    * request handlers, and a request no controller routes is answered before
    * the check runs. Must be set before `start()`; called from the server's
-   * I/O thread(s), so it must be thread-safe and quick.
+   * I/O thread(s), so it must be thread-safe and quick. `remote_ip` is a bare
+   * address that boost::asio::ip::make_address() parses - never in brackets
+   * (an IPv6 peer may come in the short or the full form depending on the
+   * backend).
+   *
+   * Pure virtual on purpose: an allow-list enforced only here must not be
+   * silently ignored by a backend that forgot it.
    */
   typedef std::function<bool(const std::string &remote_ip)> accept_filter;
-  virtual void setAcceptFilter(accept_filter /*filter*/) {}
+  virtual void setAcceptFilter(accept_filter filter) = 0;
+
+  /**
+   * Whether the calling thread is one of this server's own (an I/O thread or
+   * a request worker) - that is, whether the caller is inside a request
+   * handler of this server.
+   */
+  virtual bool isServerThread() const = 0;
 
   /**
    * Name the server's threads and say where their guard lines go.
@@ -152,4 +165,19 @@ class NSCP_MONGOOSE_EXPORT Server {
    */
   virtual void setTlsOptions(const std::string & /*tls_version*/, const std::string & /*ciphers*/) {}
 };
+
+/**
+ * Stop `server` and free it, from any thread; `server` is empty afterwards.
+ *
+ * From outside the server this is stop() and then the destructor. From one of
+ * the server's own threads - a request handler whose work ended up stopping
+ * its own listener - neither can run there: the thread cannot join itself,
+ * and the other threads are still inside sessions and handlers that use the
+ * server's state (its io_context, acceptor, TLS context, controllers). So the
+ * server is handed to a guarded thread of its own, which stops it the normal
+ * way - joining every thread, the caller's included once its handler has
+ * returned - and only then frees it. `reporter` takes that thread's guard
+ * line (pass the module's NSC_THREAD_REPORTER).
+ */
+NSCP_MONGOOSE_EXPORT void stop_and_release(std::shared_ptr<Server> &server, const Server::thread_reporter &reporter);
 }  // namespace Mongoose

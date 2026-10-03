@@ -3,6 +3,7 @@
 
 #include "ncpa_sources.hpp"
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <map>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
@@ -42,37 +43,49 @@ std::map<std::string, std::string> module_names(const nscapi::core_wrapper *core
   return out;
 }
 
-std::vector<ncpa_sources::query_info> queries(const nscapi::core_wrapper *core, const std::string &name, const bool with_module) {
-  std::vector<PB::Registry::ItemType> types{PB::Registry::ItemType::QUERY};
-  // The registry lists the aliases separately; a lookup by name finds both.
-  if (name.empty()) types.push_back(PB::Registry::ItemType::QUERY_ALIAS);
-  const PB::Registry::RegistryResponseMessage response = registry_inventory(core, name, types);
-  const std::map<std::string, std::string> modules = with_module ? module_names(core) : std::map<std::string, std::string>();
-  std::vector<ncpa_sources::query_info> out;
+std::string lower(const std::string &value) { return boost::algorithm::to_lower_copy(value); }
+}  // namespace
+
+std::shared_ptr<const ncpa_sources::inventory_map> ncpa_sources::inventory() const {
+  const auto now = std::chrono::steady_clock::now();
+  {
+    const std::lock_guard<std::mutex> lock(cache_mutex_);
+    if (cache_ && now - cache_time_ < std::chrono::seconds(kRefreshSeconds)) return cache_;
+  }
+  // Built outside the lock: two requests that both find the cache stale build
+  // it twice, which is cheaper than making every request wait on one build.
+  const PB::Registry::RegistryResponseMessage response = registry_inventory(core_, "", {PB::Registry::ItemType::QUERY, PB::Registry::ItemType::QUERY_ALIAS});
+  const std::map<std::string, std::string> modules = with_module_ ? module_names(core_) : std::map<std::string, std::string>();
+  auto fresh = std::make_shared<inventory_map>();
   for (const auto &r : response.payload()) {
     for (const auto &i : r.inventory()) {
-      ncpa_sources::query_info info;
+      query_info info;
       info.name = i.name();
-      if (with_module && i.info().plugin_size() > 0) {
+      if (with_module_ && i.info().plugin_size() > 0) {
         const auto it = modules.find(i.info().plugin(0));
         info.module = it == modules.end() ? i.info().plugin(0) : it->second;
       }
-      out.push_back(info);
+      (*fresh)[lower(info.name)] = info;
     }
   }
+  const std::lock_guard<std::mutex> lock(cache_mutex_);
+  cache_ = fresh;
+  cache_time_ = now;
+  return cache_;
+}
+
+std::vector<ncpa_sources::query_info> ncpa_sources::list_queries() const {
+  std::vector<query_info> out;
+  for (const auto &entry : *inventory()) out.push_back(entry.second);
   return out;
 }
-}  // namespace
 
-std::vector<ncpa_sources::query_info> ncpa_sources::list_queries(const bool with_module) const { return queries(core_, "", with_module); }
-
-bool ncpa_sources::describe_query(const std::string &name, const bool with_module, query_info &out) const {
-  if (name.empty()) return false;
-  for (const query_info &info : queries(core_, name, with_module)) {
-    out = info;
-    return true;
-  }
-  return false;
+bool ncpa_sources::describe_query(const std::string &name, query_info &out) const {
+  const std::shared_ptr<const inventory_map> map = inventory();
+  const auto it = map->find(lower(name));
+  if (it == map->end()) return false;
+  out = it->second;
+  return true;
 }
 
 int ncpa_sources::run_query(const std::string &name, const std::list<std::string> &arguments, std::string &message, std::string &perf) const {

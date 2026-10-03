@@ -188,3 +188,30 @@ TEST(AllowedHostsTest, AnUnparseableNumericAddressIsReportedNotThrown) {
   // The good entry in the same list still works.
   EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
 }
+
+TEST(AllowedHostsTest, AFailedLookupKeepsWhatTheNameResolvedToBefore) {
+  // A name that resolved once and then fails a lookup (a DNS hiccup) keeps
+  // its addresses: the list used to be emptied first and rebuilt, so the host
+  // was refused until the next successful refresh.
+  allowed_hosts_manager manager;
+  manager.set_source("no-such-host.invalid");
+  manager.entries_v4.emplace_back("no-such-host.invalid", make_address("192.0.2.7").to_v4().to_bytes(), allowed_hosts_manager::addr_v4{{255, 255, 255, 255}});
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  ASSERT_FALSE(errors.empty());
+  EXPECT_NE(errors.front().find("keeping the addresses it resolved to before"), std::string::npos) << errors.front();
+  std::list<std::string> check_errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("192.0.2.7"), check_errors));
+}
+
+TEST(AllowedHostsTest, ARemovedNameDoesNotLinger) {
+  // Only a failed lookup keeps old entries; a name taken out of the list is
+  // gone at the next refresh.
+  allowed_hosts_manager manager;
+  manager.set_source("127.0.0.1");
+  manager.entries_v4.emplace_back("no-such-host.invalid", make_address("192.0.2.7").to_v4().to_bytes(), allowed_hosts_manager::addr_v4{{255, 255, 255, 255}});
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_FALSE(manager.is_allowed(make_address("192.0.2.7"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("127.0.0.1"), errors));
+}
