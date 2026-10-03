@@ -78,7 +78,19 @@ void nsclient::logging::impl::nsclient_logger::configure() {
 }
 
 void nsclient::logging::impl::nsclient_logger::do_log(const std::string data) {
+  // A line logged while this thread is delivering one is a handler's: tag
+  // it so it is not fanned out again when it comes back (see
+  // handler_lines_). It still goes to the backend, so it reaches the
+  // console or file like any other.
+  if (delivery_depth() > 0) remember_handler_line(data);
   if (backend_) {
     backend_->do_log(data);
   }
+}
+
+void nsclient::logging::impl::nsclient_logger::use_backend(log_driver_instance backend) {
+  if (!backend) return;
+  if (backend_) backend->set_config(backend_);
+  backend->startup();
+  backend_.swap(backend);
 }

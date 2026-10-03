@@ -4,13 +4,12 @@
 #pragma once
 
 #include <atomic>
-#include <boost/chrono/duration.hpp>
 #include <boost/thread/lock_guard.hpp>
-#include <boost/thread/lock_types.hpp>
 #include <boost/thread/mutex.hpp>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
-#include <list>
+#include <deque>
 #include <memory>
 #include <nsclient/logger/log_driver_interface_impl.hpp>
 #include <nsclient/logger/logger.hpp>
@@ -36,39 +35,49 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   // common case - no log-handler module loaded, as in every CLI mode - costs
   // a log line no lock at all.
   std::atomic<bool> has_subscribers_{false};
-  // Guards subscribers_ and the ordering between a delivery entering
-  // deliveries_ and a removal taking its cutoff. Held for those few lines
-  // only, never across a subscriber's on_log_message, so a plain blocking
-  // mutex is safe. It used to be a 5 s timed mutex held across the whole
-  // fan-out: a subscriber that logged from inside its handler re-entered on
-  // the same thread, waited the 5 s and lost the line, and a remove()
-  // arriving during a slow delivery gave up after 5 s and left the plugin's
-  // shared_ptr in the list - the static-destruction hazard
-  // plugin_manager.hpp documents.
+  // Guards subscribers_, handler_lines_ and the ordering between a delivery
+  // entering deliveries_ and a removal taking its cutoff. Held for those few
+  // lines only, never across a subscriber's on_log_message, so a plain
+  // blocking mutex is safe. It used to be a 5 s timed mutex held across the
+  // whole fan-out: a subscriber that logged from inside its handler
+  // re-entered on the same thread, waited the 5 s and lost the line, a
+  // remove() arriving during a slow delivery gave up after 5 s and left the
+  // plugin's shared_ptr in the list - the static-destruction hazard
+  // plugin_manager.hpp documents - and one stuck handler cost every other
+  // thread 5 s per line. Handlers run concurrently now, on the console
+  // backend; the threaded backend still delivers from its one worker.
   mutable boost::mutex mutex_;
-  // Serialises the fan-out across threads. The console backend delivers on
-  // whichever thread logged, and the handlers were written against the
-  // one-at-a-time delivery the old mutex gave them: WEBServer numbers each
-  // line before it takes its own lock, and the web UI's live log skips a
-  // lower number that arrives after a higher one. Timed, as before: a line
-  // that cannot get in within 5 s because a handler is stuck is dropped
-  // from the fan-out (it has already reached the console or file), rather
-  // than queued behind the stuck one. The wait is a duration on the steady
-  // clock (try_lock_for), so a stepped wall clock neither stretches it nor
-  // fails it at once.
-  boost::timed_mutex delivery_mutex_;
   // The threads inside a delivery, so remove() / clear() can wait for the
   // ones that may still hold the subscriber they just took off the list.
   threads::in_flight deliveries_;
-  // How long a line waits for the delivery lock, and a removal for the
-  // deliveries in flight: 5 s in the service, like dll_plugin's wait for its
-  // dispatchers. Settable so a test can see the timed-out path in less.
+  // How long a removal waits for the deliveries in flight: 5 s in the
+  // service, like dll_plugin's wait for its dispatchers. Settable so a test
+  // can see the timed-out path in less.
   std::chrono::milliseconds delivery_wait_{5000};
 
-  // How many deliveries the calling thread is inside, for the nested-line
-  // check on the fan-out path. Thread-local rather than a lookup in
-  // deliveries_ so the check costs no lock; the process has one
-  // nsclient_logger, so one counter per thread is enough.
+  // Lines a handler logged from inside a delivery, waiting to come back
+  // through on_log_message. Such a line is not fanned out to the handlers
+  // again: a handler that logged once per line it was handed would
+  // otherwise feed itself forever - as a stack overflow on the console
+  // backend, where its line arrives here synchronously on the same thread,
+  // and as a queue that never drains on the threaded backend, where the
+  // worker delivers the line it queued next. The line has already reached
+  // the console or file by then; only the handlers do not see it, which is
+  // what the generated module glue has always promised them ("loggers cant
+  // log"). Tagging the line here, at do_log, is what covers both backends:
+  // a check on the delivering thread's depth alone sees only the
+  // synchronous one. Guarded by mutex_; the counter lets the delivery path
+  // skip the lock while nothing is pending, which is almost always.
+  std::deque<std::string> handler_lines_;
+  std::atomic<unsigned> handler_lines_pending_{0};
+  // A backend that drops lines (a full queue) would leave their tags behind
+  // for good, so the oldest goes when this many are waiting.
+  static const std::size_t max_handler_lines_ = 1024;
+
+  // How many deliveries the calling thread is inside: a line logged while it
+  // is above zero was produced by a handler. Thread-local so do_log can tell
+  // without a lock; the process has one nsclient_logger, so one counter per
+  // thread is enough.
   static unsigned &delivery_depth() {
     static thread_local unsigned depth = 0;
     return depth;
@@ -91,8 +100,11 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
     subscribers_ = next;
     has_subscribers_ = true;
   }
-  // For tests: how long the bounded waits run (see delivery_wait_).
+  // For tests: how long the bounded wait runs (see delivery_wait_).
   void set_delivery_wait(std::chrono::milliseconds wait) { delivery_wait_ = wait; }
+  // For tests: install a backend built by the caller, as set_backend(name)
+  // would install one of its own.
+  void use_backend(log_driver_instance backend);
 
   // Take every subscriber off the list and wait for the deliveries that
   // started on the old list to finish. Nothing in flight can hold what was
@@ -146,26 +158,16 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   // mutex_ released: a subscriber is module code (handleMessage), and it may
   // unload modules - itself included - from inside its handler. The copy
   // keeps every subscriber alive for this delivery even if it is removed
-  // meanwhile; remove() then waits for the delivery before returning.
-  //
-  // A thread already inside a delivery does not fan out again. On the
-  // console backend a handler's own log line arrives here synchronously on
-  // the same thread, and a handler that logged once per line it was handed
-  // would otherwise recurse until the stack ran out (the old mutex stopped
-  // that after a 5 s stall per line). The nested line has already reached
-  // the console or file; only the handlers do not see it, which is what the
-  // generated module glue has always promised them ("loggers cant log").
+  // meanwhile; remove() then waits for the delivery before returning. A
+  // line a handler logged (see handler_lines_) is not delivered at all.
   void on_log_message(const std::string &data) override {
+    if (handler_lines_pending_.load(std::memory_order_acquire) > 0 && consume_handler_line(data)) return;
     if (!has_subscribers_.load(std::memory_order_acquire)) return;
-    if (delivery_depth() > 0) return;
-    boost::unique_lock<boost::timed_mutex> serial(delivery_mutex_, boost::defer_lock);
-    if (!serial.try_lock_for(boost::chrono::milliseconds(delivery_wait_.count()))) return;
     // Both guards are declared before the snapshot, so that the snapshot -
     // and with it the last reference a removed subscriber may have - is
     // released while this thread still counts as delivering and before the
     // tracker wakes a waiting remove(). A plugin destroyed by that release
-    // may log from its teardown: with the depth still up, that line returns
-    // at the top instead of waiting on the delivery lock this thread holds.
+    // may log from its teardown; that line is then a handler line too.
     threads::in_flight::guard delivering(deliveries_);
     const depth_guard nested;
     subscribers_ptr snapshot;
@@ -222,6 +224,30 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
     const bool clean = deliveries_.wait_for_others_before(cutoff, delivery_wait_);
     previous.reset();
     return clean;
+  }
+
+  // Called from do_log on a thread inside a delivery: the line is a
+  // handler's, and must not be fanned out when it comes back.
+  void remember_handler_line(const std::string &data) {
+    boost::lock_guard<boost::mutex> lock(mutex_);
+    if (handler_lines_.size() >= max_handler_lines_) {
+      handler_lines_.pop_front();
+      handler_lines_pending_.fetch_sub(1, std::memory_order_acq_rel);
+    }
+    handler_lines_.push_back(data);
+    handler_lines_pending_.fetch_add(1, std::memory_order_acq_rel);
+  }
+  // Whether `data` is a remembered handler line; forgets it if so.
+  bool consume_handler_line(const std::string &data) {
+    boost::lock_guard<boost::mutex> lock(mutex_);
+    for (std::deque<std::string>::iterator it = handler_lines_.begin(); it != handler_lines_.end(); ++it) {
+      if (*it == data) {
+        handler_lines_.erase(it);
+        handler_lines_pending_.fetch_sub(1, std::memory_order_acq_rel);
+        return true;
+      }
+    }
+    return false;
   }
 };
 }  // namespace impl

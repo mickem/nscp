@@ -33,6 +33,8 @@
 #include <thread>
 #include <vector>
 
+#include "threaded_logger.hpp"
+
 using nsclient::logging::log_message_factory;
 using nsclient::logging::logging_subscriber;
 using nsclient::logging::impl::nsclient_logger;
@@ -227,14 +229,14 @@ TEST(NsclientLogger, DriverOptionsDoNotDisturbTheSeverityLevel) {
 // re-entered on the same thread, waited out the 5 s and lost the line, and a
 // remove() during a slow delivery gave up after 5 s and left the subscriber
 // in the list. Delivery now runs on a snapshot with the lock released, and a
-// thread already delivering does not fan out again.
+// line a handler logs from inside a delivery is not fanned out again.
 
 namespace {
 
-// Logs again from inside its handler on every line it is handed, the way a
-// log-handler module that reports each line it processes does. Unbounded:
-// if the nested line were fanned out again, this would recurse until the
-// stack ran out.
+// Logs again from inside its handler on every line it is handed, through the
+// logger's own do_log as a module's log call would, the way a log-handler
+// module that reports each line it processes does. Unbounded: if the nested
+// line were fanned out again, this would feed itself forever.
 class ReentrantSubscriber : public logging_subscriber {
  public:
   explicit ReentrantSubscriber(nsclient_logger* logger) : logger_(logger) {}
@@ -243,7 +245,7 @@ class ReentrantSubscriber : public logging_subscriber {
       std::lock_guard<std::mutex> g(mu);
       payloads.push_back(payload);
     }
-    logger_->on_log_message("nested:" + payload);
+    logger_->do_log("nested:" + payload);
   }
   std::vector<std::string> snapshot() {
     std::lock_guard<std::mutex> g(mu);
@@ -266,11 +268,62 @@ class SelfRemovingSubscriber : public logging_subscriber, public std::enable_sha
   std::atomic<int> calls{0};
 };
 
+// The console backend's shape: do_log hands the line straight back to the
+// subscriber manager on the calling thread.
+class SynchronousBackend : public nsclient::logging::log_driver_interface_impl {
+ public:
+  explicit SynchronousBackend(logging_subscriber* manager) : manager_(manager) {}
+  void do_log(std::string data) override {
+    {
+      std::lock_guard<std::mutex> g(mu);
+      logged.push_back(data);
+    }
+    manager_->on_log_message(data);
+  }
+  void synch_configure() override {}
+  void asynch_configure() override {}
+  using log_driver_interface_impl::set_config;
+  void set_config(const std::string&) override {}
+  std::vector<std::string> snapshot() {
+    std::lock_guard<std::mutex> g(mu);
+    return logged;
+  }
+  logging_subscriber* manager_;
+  std::mutex mu;
+  std::vector<std::string> logged;
+};
+
+// A sink for the threaded backend: records what reaches it.
+class RecordingBackend : public nsclient::logging::log_driver_interface_impl {
+ public:
+  void do_log(std::string data) override {
+    std::lock_guard<std::mutex> g(mu);
+    logged.push_back(std::move(data));
+  }
+  void synch_configure() override {}
+  void asynch_configure() override {}
+  using log_driver_interface_impl::set_config;
+  void set_config(const std::string&) override {}
+  std::vector<std::string> snapshot() {
+    std::lock_guard<std::mutex> g(mu);
+    return logged;
+  }
+  std::size_t size() {
+    std::lock_guard<std::mutex> g(mu);
+    return logged.size();
+  }
+  std::mutex mu;
+  std::vector<std::string> logged;
+};
+
 // Blocks inside its handler until released, so a test can hold a delivery
 // open on one thread while another calls remove().
 class BlockingSubscriber : public logging_subscriber {
  public:
-  void on_log_message(const std::string&) override {
+  // With block_on set, only that line blocks; every other passes through.
+  std::string block_on;
+  void on_log_message(const std::string& payload) override {
+    if (!block_on.empty() && payload != block_on) return;
     std::unique_lock<std::mutex> lock(mu);
     entered = true;
     cv.notify_all();
@@ -297,48 +350,74 @@ class BlockingSubscriber : public logging_subscriber {
 
 }  // namespace
 
-TEST(NsclientLogger, SubscriberLoggingFromItsHandlerNeitherStallsNorRecurses) {
+TEST(NsclientLogger, SubscriberLoggingFromItsHandlerOnTheConsoleBackendNeitherStallsNorRecurses) {
   auto logger = make_backendless_logger();
+  auto backend = std::make_shared<SynchronousBackend>(logger.get());
+  logger->use_backend(backend);
   auto reentrant = std::make_shared<ReentrantSubscriber>(logger.get());
   auto other = std::make_shared<CapturingSubscriber>();
   logger->add_subscriber(reentrant);
   logger->add_subscriber(other);
 
   const auto started = std::chrono::steady_clock::now();
-  logger->on_log_message("outer");
+  logger->do_log("outer");
   const auto elapsed = std::chrono::steady_clock::now() - started;
 
-  // The line reaches both subscribers once. The handler's own line is not
-  // fanned out to the handlers (it has already reached the backend by the
-  // time it gets here), and the nested delivery did not sit out a lock
-  // timeout first.
+  // The line reaches both subscribers once. The handler's own line reaches
+  // the backend but is not fanned out to the handlers again, and nothing
+  // sat out a lock timeout.
   EXPECT_EQ(reentrant->snapshot(), (std::vector<std::string>{"outer"}));
   EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"outer"}));
+  EXPECT_EQ(backend->snapshot(), (std::vector<std::string>{"outer", "nested:outer"}));
   EXPECT_LT(elapsed, std::chrono::seconds(2));
+  logger->destroy();
 }
 
-TEST(NsclientLogger, DeliveriesAreSerialisedAcrossThreads) {
-  // The console backend delivers on whichever thread logged, and handlers
-  // were written against one-at-a-time delivery: a second line must not
-  // enter a handler while the first is still inside it.
+TEST(NsclientLogger, SubscriberLoggingFromItsHandlerOnTheThreadedBackendDoesNotFeedItself) {
+  // On the threaded backend the handler's line is queued and delivered by
+  // the same worker next. Without the tag taken at do_log, the handler
+  // would be handed its own line, log again, and the queue would never
+  // drain.
+  auto logger = make_backendless_logger();
+  auto sink = std::make_shared<RecordingBackend>();
+  auto threaded = std::make_shared<nsclient::logging::impl::threaded_logger>(logger.get(), sink);
+  threaded->set_join_timeout_for_test(boost::posix_time::seconds(2));
+  logger->use_backend(threaded);
+  auto reentrant = std::make_shared<ReentrantSubscriber>(logger.get());
+  logger->add_subscriber(reentrant);
+
+  logger->do_log("outer");
+  // Both lines reach the sink: the handler's own line is still logged.
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (sink->size() < 2 && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  // And then nothing more: the handler was handed "outer" once.
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  EXPECT_EQ(sink->snapshot(), (std::vector<std::string>{"outer", "nested:outer"}));
+  EXPECT_EQ(reentrant->snapshot(), (std::vector<std::string>{"outer"}));
+  logger->destroy();
+}
+
+TEST(NsclientLogger, DeliveriesRunConcurrentlyAcrossThreads) {
+  // One stuck handler no longer parks every other thread that logs behind
+  // it: a second line reaches the other handlers while the first is still
+  // inside the blocking one.
   auto logger = make_backendless_logger();
   auto blocking = std::make_shared<BlockingSubscriber>();
   auto other = std::make_shared<CapturingSubscriber>();
   logger->add_subscriber(blocking);
   logger->add_subscriber(other);
 
+  blocking->block_on = "first";
   std::thread first([&logger]() { logger->on_log_message("first"); });
   blocking->wait_until_entered();
+  // Only "first" blocks in that handler; "second" runs straight through it.
   std::thread second([&logger]() { logger->on_log_message("second"); });
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  // "first" is still inside the blocking handler, so "second" has not
-  // reached any handler yet.
-  EXPECT_TRUE(other->snapshot().empty());
+  second.join();
+  EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"second"}));
 
   blocking->release();
   first.join();
-  second.join();
-  EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"first", "second"}));
+  EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"second", "first"}));
 }
 
 TEST(NsclientLogger, SubscriberMayRemoveItselfFromInsideItsHandler) {

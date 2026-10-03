@@ -418,9 +418,6 @@ NSCP_CREATE_TEST(
         ${EXTRA_LIBS}
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
-        # nsclient_logger's delivery lock waits with try_lock_for, which Boost
-        # implements on boost::chrono::steady_clock.
-        ${Boost_CHRONO_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_REGEX_LIBRARY}
     INCLUDES
