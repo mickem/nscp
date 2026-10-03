@@ -238,8 +238,9 @@ TEST_F(SimplePluginsListTest, DoAllCallbackMayRemoveAndAddPlugins) {
 }
 
 // A removal on another thread still waits for a walk that may be calling the
-// removed plugin, as the held lock used to make it: the plugin manager
-// unloads the module, and drops what it contributed, right after.
+// removed plugin, as the held lock used to make it: the plugin manager drops
+// what the module contributed right after. A removal of an id that is not
+// in the list has nothing to wait for and returns at once.
 TEST_F(SimplePluginsListTest, RemovePluginWaitsForAWalkOnAnotherThread) {
   const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
   list_->add_plugin(plugin1);
@@ -260,6 +261,11 @@ TEST_F(SimplePluginsListTest, RemovePluginWaitsForAWalkOnAnotherThread) {
     std::unique_lock<std::mutex> lock(mu);
     cv.wait(lock, [&]() { return entered; });
   }
+
+  // Not in this list: returns while the walk is still inside the callback.
+  const auto started = std::chrono::steady_clock::now();
+  list_->remove_plugin(42);
+  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
 
   std::atomic<bool> removed{false};
   std::thread remover([&]() {
