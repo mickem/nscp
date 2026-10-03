@@ -69,13 +69,13 @@ def init(pid, plugin_alias, script_alias):
     conf.register_path('/settings/cool script', "Sample script config", "This is a sample script which demonstrates how to interact with NSClient++")
     conf.register_key('/settings/cool script', 'world', 'string', "A key", "Never ever change this key: or the world will break", "safe")
 
-    world_status = conf.get_string('/settings/cool script', 'world', 'true')
+    world_status = conf.get_string('/settings/cool script', 'world', 'safe')
     if world_status != 'safe':
         log('My god: its full of stars: %s'%world_status)
     
     log('Adding a simple function/cmd line')
     reg = Registry.get(plugin_id)
-    reg.simple_cmdline('help', get_help)
+    reg.simple_cmdline('world_help', get_help)
 
     reg.simple_function('check_world', check_world, 'Check if the world is safe')
     reg.simple_function('break_world', break_world, 'Break the world')
