@@ -33,6 +33,11 @@ std::shared_ptr<lua::core_provider> get_core(lua::lua_wrapper &instance) {
 }
 //////////////////////////////////////////////////////////////////////////
 // Core Wrapper
+//
+// Every method below is called as obj:method(...), so the object itself is
+// the first stack slot and a call with N arguments has N + 1 on the stack.
+// The syntax checks used to count N, which let a call one argument short
+// through and then popped the object as its first argument.
 
 struct CoreData {
   const static std::string tag;
@@ -45,7 +50,7 @@ int lua::core_wrapper::create_pb_query(lua_State *L) {
     lua_instance.get_user_object_instance<CoreData>();
     std::list<std::string> arguments;
     int arg_count = lua_instance.size();
-    if (arg_count < 2) return lua_instance.error("Incorrect syntax: create_pb_query(command, args)");
+    if (arg_count < 3) return lua_instance.error("Incorrect syntax: create_pb_query(command, args)");
     if (lua_instance.is_table()) {
       std::list<std::string> table = lua_instance.pop_array();
       arguments.insert(arguments.begin(), table.begin(), table.end());
@@ -68,7 +73,7 @@ int lua::core_wrapper::simple_query(lua_State *L) {
     lua_instance.get_user_object_instance<CoreData>();
     std::list<std::string> arguments;
     const int arg_count = lua_instance.size();
-    if (arg_count < 2) return lua_instance.error("Incorrect syntax: simple_query(command, args)");
+    if (arg_count < 3) return lua_instance.error("Incorrect syntax: simple_query(command, args)");
     if (lua_instance.is_table()) {
       std::list<std::string> table = lua_instance.pop_array();
       arguments.insert(arguments.begin(), table.begin(), table.end());
@@ -97,7 +102,7 @@ int lua::core_wrapper::query_target(lua_State *L) {
   lua_wrapper lua_instance(L);
   try {
     lua_instance.get_user_object_instance<CoreData>();
-    if (lua_instance.size() < 3) return lua_instance.error("Incorrect syntax: query_target(target, command, args)");
+    if (lua_instance.size() < 4) return lua_instance.error("Incorrect syntax: query_target(target, command, args)");
     std::list<std::string> arguments;
     if (lua_instance.is_table()) {
       std::list<std::string> table = lua_instance.pop_array();
@@ -126,7 +131,7 @@ int lua::core_wrapper::query_forward(lua_State *L) {
   lua_wrapper lua_instance(L);
   try {
     lua_instance.get_user_object_instance<CoreData>();
-    if (lua_instance.size() < 4) return lua_instance.error("Incorrect syntax: query_forward(forward_command, target, command, args)");
+    if (lua_instance.size() < 5) return lua_instance.error("Incorrect syntax: query_forward(forward_command, target, command, args)");
     std::list<std::string> arguments;
     if (lua_instance.is_table()) {
       std::list<std::string> table = lua_instance.pop_array();
@@ -156,7 +161,7 @@ int lua::core_wrapper::query(lua_State *L) {
   lua_wrapper lua_instance(L);
   try {
     lua_instance.get_user_object_instance<CoreData>();
-    if (lua_instance.size() < 1) return lua_instance.error("Incorrect syntax: query(data)");
+    if (lua_instance.size() < 2) return lua_instance.error("Incorrect syntax: query(data)");
     std::string data = lua_instance.pop_string();
     std::string response;
     bool ok;
@@ -168,14 +173,14 @@ int lua::core_wrapper::query(lua_State *L) {
     lua_instance.push_raw_string(response);
     return 2;
   } catch (...) {
-    return lua_instance.error("Unknown exception in: simple_query");
+    return lua_instance.error("Unknown exception in: query");
   }
 }
 int lua::core_wrapper::simple_exec(lua_State *L) {
   lua_wrapper lua_instance(L);
   try {
     lua_instance.get_user_object_instance<CoreData>();
-    if (lua_instance.size() < 3) return lua_instance.error("Incorrect syntax: simple_exec(target, command, arguments)");
+    if (lua_instance.size() < 4) return lua_instance.error("Incorrect syntax: simple_exec(target, command, arguments)");
     const std::list<std::string> arguments = lua_instance.pop_array();
     const std::string command = lua_instance.pop_string();
     const std::string target = lua_instance.pop_string();
@@ -189,19 +194,19 @@ int lua::core_wrapper::simple_exec(lua_State *L) {
     lua_instance.push_array(result);
     return 2;
   } catch (...) {
-    return lua_instance.error("Unknown exception in: simple_query");
+    return lua_instance.error("Unknown exception in: simple_exec");
   }
 }
 int lua::core_wrapper::exec(lua_State *L) {
   lua_wrapper lua_instance(L);
-  NSC_LOG_ERROR_STD("Unsupported API called: exec");
-  return lua_instance.error("Unsupported API called: exec");
+  lua_instance.get_user_object_instance<CoreData>();
+  return lua_instance.error("Unsupported API called: Core:exec");
 }
 int lua::core_wrapper::simple_submit(lua_State *L) {
   lua_wrapper lua_instance(L);
   try {
     lua_instance.get_user_object_instance<CoreData>();
-    if (lua_instance.size() < 5) return lua_instance.error("Incorrect syntax: simple_submit(channel, command, code, message, perf)");
+    if (lua_instance.size() < 6) return lua_instance.error("Incorrect syntax: simple_submit(channel, command, code, message, perf)");
     const std::string perf = lua_instance.pop_string();
     const std::string message = lua_instance.pop_string();
     const NSCAPI::nagiosReturn code = lua_instance.pop_code();
@@ -217,19 +222,18 @@ int lua::core_wrapper::simple_submit(lua_State *L) {
     lua_instance.push_string(result);
     return 2;
   } catch (...) {
-    return lua_instance.error("Unknown exception in: simple_query");
+    return lua_instance.error("Unknown exception in: simple_submit");
   }
 }
 int lua::core_wrapper::submit(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<CoreData>();
-  NSC_LOG_ERROR_STD("Unsupported API called: submit");
-  return lua_instance.error("Unsupported API called: submit");
+  return lua_instance.error("Unsupported API called: Core:submit");
 }
 int lua::core_wrapper::reload(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<CoreData>();
-  if (lua_instance.size() < 1) return lua_instance.error("Incorrect syntax: reload([<module>]);");
+  if (lua_instance.size() < 2) return lua_instance.error("Incorrect syntax: reload(module)");
   std::string module = "module";
   const std::string target = lua_instance.pop_string();
   lua::lua_gil::release unlocked;
@@ -240,7 +244,7 @@ int lua::core_wrapper::log(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<CoreData>();
   // log([level], message)
-  if (lua_instance.size() < 2) return lua_instance.error("Incorrect syntax: log(<level>, <message>);");
+  if (lua_instance.size() < 3) return lua_instance.error("Incorrect syntax: log(level, message)");
   const std::string message = lua_instance.pop_string();
   const std::string level = lua_instance.pop_string();
   // Report the location of the log() call in the Lua script rather than this C++ file.
@@ -289,7 +293,7 @@ boost::optional<int> read_registration(std::string name, lua::lua_wrapper &lua_i
   std::string funname;
   const std::string invalid_syntax = "Incorrect syntax: " + name + "(name, function, description): ";
   const int count = lua_instance.size();
-  if (count < 3) return lua_instance.error(invalid_syntax + "To few parameters");
+  if (count < 4) return lua_instance.error(invalid_syntax + "Too few parameters");
   if (!lua_instance.pop_string(description)) return lua_instance.error(invalid_syntax + "Failed to parse description");
   if (!lua_instance.pop_function_ref(fun.function_ref)) return lua_instance.error(invalid_syntax + "Failed to parse function");
   if (!lua_instance.is_string()) {
@@ -326,8 +330,7 @@ int lua::registry_wrapper::register_simple_function(lua_State *L) {
 int lua::registry_wrapper::register_cmdline(lua_State *L) {
   lua::lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<RegistryData>();
-  NSC_LOG_ERROR_STD("Unsupported API called: exec");
-  return lua_instance.error("Unsupported API called: exec");
+  return lua_instance.error("Unsupported API called: Registry:cmdline");
 }
 int lua::registry_wrapper::register_simple_cmdline(lua_State *L) {
   std::string command, description;
@@ -342,8 +345,7 @@ int lua::registry_wrapper::register_simple_cmdline(lua_State *L) {
 int lua::registry_wrapper::subscription(lua_State *L) {
   lua::lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<RegistryData>();
-  NSC_LOG_ERROR_STD("Unsupported API called: exec");
-  return lua_instance.error("Unsupported API called: exec");
+  return lua_instance.error("Unsupported API called: Registry:subscription");
 }
 int lua::registry_wrapper::simple_subscription(lua_State *L) {
   std::string command, description;
@@ -391,7 +393,7 @@ std::shared_ptr<lua::settings_provider> get_settings(lua::lua_wrapper &instance)
 int lua::settings_wrapper::get_section(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
-  if (lua_instance.size() < 1) return lua_instance.error("Invalid syntax: get_section([section])");
+  if (lua_instance.size() < 2) return lua_instance.error("Invalid syntax: get_section(section)");
 
   const std::string v = lua_instance.pop_string();
   try {
@@ -404,7 +406,7 @@ int lua::settings_wrapper::get_section(lua_State *L) {
 int lua::settings_wrapper::get_string(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
-  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: get_string(section, key, value)");
+  if (lua_instance.size() < 4) return lua_instance.error("Invalid syntax: get_string(section, key, default)");
   std::string v = lua_instance.pop_string();
   std::string k = lua_instance.pop_string();
   std::string s = lua_instance.pop_string();
@@ -418,7 +420,7 @@ int lua::settings_wrapper::get_string(lua_State *L) {
 int lua::settings_wrapper::set_string(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
-  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: set_string(section, key, value)");
+  if (lua_instance.size() < 4) return lua_instance.error("Invalid syntax: set_string(section, key, value)");
   std::string v = lua_instance.pop_string();
   std::string k = lua_instance.pop_string();
   std::string s = lua_instance.pop_string();
@@ -432,12 +434,12 @@ int lua::settings_wrapper::set_string(lua_State *L) {
 int lua::settings_wrapper::get_bool(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
-  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: get_bool(section, key, [value])");
+  if (lua_instance.size() < 4) return lua_instance.error("Invalid syntax: get_bool(section, key, default)");
   bool v = lua_instance.pop_boolean();
   std::string k = lua_instance.pop_string();
   std::string s = lua_instance.pop_string();
   try {
-    lua_instance.push_boolean(get_settings(lua_instance)->get_int(s, k, v ? 1 : 0) == 1);
+    lua_instance.push_boolean(get_settings(lua_instance)->get_bool(s, k, v));
   } catch (...) {
     return lua_instance.error("Unknown exception");
   }
@@ -446,12 +448,12 @@ int lua::settings_wrapper::get_bool(lua_State *L) {
 int lua::settings_wrapper::set_bool(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
-  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: set_bool(section, key, value)");
+  if (lua_instance.size() < 4) return lua_instance.error("Invalid syntax: set_bool(section, key, value)");
   bool v = lua_instance.pop_boolean();
   std::string k = lua_instance.pop_string();
   std::string s = lua_instance.pop_string();
   try {
-    get_settings(lua_instance)->set_int(s, k, v ? 1 : 0);
+    get_settings(lua_instance)->set_bool(s, k, v);
   } catch (...) {
     return lua_instance.error("Unknown exception");
   }
@@ -460,7 +462,7 @@ int lua::settings_wrapper::set_bool(lua_State *L) {
 int lua::settings_wrapper::get_int(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
-  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: get_int(section, key, [value])");
+  if (lua_instance.size() < 4) return lua_instance.error("Invalid syntax: get_int(section, key, default)");
   int v = lua_instance.pop_int();
   std::string k = lua_instance.pop_string();
   std::string s = lua_instance.pop_string();
@@ -474,7 +476,7 @@ int lua::settings_wrapper::get_int(lua_State *L) {
 int lua::settings_wrapper::set_int(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
-  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: set_int(section, key, value)");
+  if (lua_instance.size() < 4) return lua_instance.error("Invalid syntax: set_int(section, key, value)");
   int v = lua_instance.pop_int();
   std::string k = lua_instance.pop_string();
   std::string s = lua_instance.pop_string();
@@ -498,7 +500,7 @@ int lua::settings_wrapper::save(lua_State *L) {
 int lua::settings_wrapper::register_path(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
-  if (lua_instance.size() < 3) return lua_instance.error("Invalid syntax: register_path(path, title, description)");
+  if (lua_instance.size() < 4) return lua_instance.error("Invalid syntax: register_path(path, title, description)");
   std::string description = lua_instance.pop_string();
   std::string title = lua_instance.pop_string();
   std::string path = lua_instance.pop_string();
@@ -514,7 +516,7 @@ int lua::settings_wrapper::register_key(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
 
-  if (lua_instance.size() < 5) return lua_instance.error("Invalid syntax: register_key(path, key, type, title, description, default)");
+  if (lua_instance.size() < 7) return lua_instance.error("Invalid syntax: register_key(path, key, type, title, description, default)");
   std::string defaultValue = lua_instance.pop_string();
   std::string description = lua_instance.pop_string();
   std::string title = lua_instance.pop_string();

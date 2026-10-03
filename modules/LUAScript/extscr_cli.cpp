@@ -6,11 +6,15 @@
 #include <config.h>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include <file_helpers.hpp>
+#include <fstream>
+#include <iterator>
+#include <list>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -154,17 +158,114 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
   nscapi::protobuf::functions::set_response_good(*response, resp);
 }
 
-void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
-  namespace po = boost::program_options;
-  namespace pf = nscapi::protobuf::functions;
+namespace {
+enum class sandbox_use { read, remove };
+
+bool exists_entry(const fs::path &p) {
+  boost::system::error_code ec;
+  return fs::exists(fs::symlink_status(p, ec));
+}
+
+// The entry a `--script` name refers to, resolved only inside `root`
+// (`${scripts}/lua`). Unlike script_provider::find_file() this does not try
+// the name as given - relative to the working directory, or absolute - so a
+// name cannot reach a file outside the scripts folder. `lua/foo.lua` (the
+// form `list` and the REST listing print) and `foo.lua` / `foo` (the form a
+// script is configured by) both resolve. `outside` is set when a name only
+// resolves to something outside `root`, so the caller can say why it refused.
+//
+// Containment is decided on real paths, symlinks resolved: a lexical test
+// alone lets a symlink inside the folder (or a symlinked sub-folder) reach any
+// file the service account can. A path that cannot be resolved counts as
+// outside. This is PythonScript's resolver with the Lua extension.
+//
+// - read: a regular file whose real path - the link's target, for a link - is
+//   inside the folder.
+// - remove: a regular file or a symlink (dangling, or to a directory, too)
+//   that itself sits in the folder once any symlinked folder above it is
+//   resolved. What a link points at does not matter, since removing a link
+//   never touches its target; a real directory is never a candidate.
+//
+// The path returned is the one inside the folder, so delete removes a link,
+// never its target.
+boost::optional<fs::path> resolve_in_sandbox(const fs::path &root, const std::string &script, const sandbox_use use, bool &outside) {
+  outside = false;
+  if (script.empty()) return boost::none;
+  boost::system::error_code ec;
+  const fs::path real_root = fs::weakly_canonical(root, ec);
+  if (ec) return boost::none;
+  const fs::path parent = root.parent_path();
+  const std::list<fs::path> candidates = {root / script, root / (script + ".lua"), parent / script, parent / (script + ".lua")};
+  for (const fs::path &c : candidates) {
+    const fs::path candidate = c.lexically_normal();
+    if (!exists_entry(candidate)) continue;
+    if (!file_helpers::checks::path_contains_file(root, candidate)) {
+      outside = true;
+      continue;
+    }
+    const bool is_link = fs::is_symlink(fs::symlink_status(candidate, ec));
+    const bool is_file = fs::is_regular_file(candidate, ec);
+    if (use == sandbox_use::read ? !is_file : !(is_file || is_link)) continue;
+    // Where the entry itself lives, any symlinked folder above it resolved.
+    const fs::path real_parent = fs::weakly_canonical(candidate.parent_path(), ec);
+    if (ec || !file_helpers::checks::path_contains_file(real_root, real_parent / candidate.filename())) {
+      outside = true;
+      continue;
+    }
+    if (use == sandbox_use::read) {
+      const fs::path real = fs::weakly_canonical(candidate, ec);
+      if (ec || !file_helpers::checks::path_contains_file(real_root, real)) {
+        outside = true;
+        continue;
+      }
+    }
+    return candidate;
+  }
+  return boost::none;
+}
+
+// The file a configured entry loads, found the way the loader finds it
+// (lua_script::find_script(): as written - absolute, or relative to the
+// working directory - then under ${scripts}/lua and ${scripts}, each with and
+// without `.lua`). Also tried with any ${...} expanded and with `\` read as a
+// separator, so an entry written for another platform or with a path variable
+// still matches the file it names.
+boost::optional<fs::path> configured_file(nscapi::core_wrapper *core, const fs::path &scripts, const std::string &configured) {
+  std::list<std::string> forms = {configured, core->expand_path(configured)};
+  for (const std::string &f : std::list<std::string>(forms)) forms.push_back(boost::algorithm::replace_all_copy(f, "\\", "/"));
+  for (const std::string &f : forms) {
+    for (const fs::path &c : {fs::path(f), fs::path(f + ".lua"), scripts / "lua" / f, scripts / "lua" / (f + ".lua"), scripts / f, scripts / (f + ".lua")}) {
+      if (exists_entry(c)) return c;
+    }
+  }
+  return boost::none;
+}
+
+bool same_entry(const fs::path &a, const fs::path &b) {
+  boost::system::error_code ec;
+  if (fs::absolute(a).lexically_normal() == fs::absolute(b).lexically_normal()) return true;
+  return fs::equivalent(a, b, ec) && !ec;
+}
+
+// The script's contents, or nothing when it cannot be read - an unreadable
+// file must not pass for an empty one.
+boost::optional<std::string> read_file(const fs::path &file) {
+  std::ifstream in(file.string().c_str(), std::ios::in | std::ios::binary);
+  if (!in.is_open()) return boost::none;
+  std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  if (in.bad()) return boost::none;
+  return data;
+}
+
+bool parse_script_option(const char *what, const PB::Commands::ExecuteRequestMessage::Request &request,
+                         PB::Commands::ExecuteResponseMessage::Response *response, std::string &script) {
   po::variables_map vm;
   po::options_description desc;
-  std::string script;
 
   // clang-format off
   desc.add_options()
     ("help", "Show help.")
-    ("script", po::value<std::string>(&script), "Script to show.")
+    ("script", po::value<std::string>(&script), what)
   ;
   // clang-format on
 
@@ -176,46 +277,105 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
     po::store(parsed, vm);
     po::notify(vm);
   } catch (const std::exception &e) {
-    return npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+    npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+    return false;
   }
 
   if (vm.count("help")) {
     nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
+    return false;
+  }
+  if (script.empty()) {
+    nscapi::protobuf::functions::set_response_bad(*response, "No script specified add --script");
+    return false;
+  }
+  return true;
+}
+}  // namespace
+
+// Both verbs used to parse their options and then do nothing, so `nscp lua
+// show` printed nothing and `nscp lua delete` deleted nothing - and GET and
+// DELETE on /api/v2/scripts/lua/<name>, which run them, answered an empty 200.
+void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+  std::string script;
+  if (!parse_script_option("Script to show.", request, response, script)) return;
+
+  const fs::path root = provider_->get_root();
+  bool outside = false;
+  const boost::optional<fs::path> file = resolve_in_sandbox(root, script, sandbox_use::read, outside);
+  if (!file) {
+    nscapi::protobuf::functions::set_response_bad(*response, outside ? "Not allowed outside: " + root.string() : "Script not found: " + script);
     return;
   }
+  const boost::optional<std::string> data = read_file(file.value());
+  if (!data) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to read " + file.value().string());
+    return;
+  }
+  nscapi::protobuf::functions::set_response_good(*response, data.value());
 }
 
 void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
-  namespace po = boost::program_options;
-  namespace pf = nscapi::protobuf::functions;
-  po::variables_map vm;
-  po::options_description desc;
   std::string script;
+  if (!parse_script_option("Script to delete.", request, response, script)) return;
 
-  // clang-format off
-  desc.add_options()
-    ("help", "Show help.")
-
-    ("script", po::value<std::string>(&script),
-    "Script to delete.")
-    ;
-  // clang-format on
-
-  try {
-    npo::basic_command_line_parser cmd(request);
-    cmd.options(desc);
-
-    po::parsed_options parsed = cmd.run();
-    po::store(parsed, vm);
-    po::notify(vm);
-  } catch (const std::exception &e) {
-    return npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-  }
-
-  if (vm.count("help")) {
-    nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
+  const fs::path root = provider_->get_root();
+  bool outside = false;
+  const boost::optional<fs::path> file = resolve_in_sandbox(root, script, sandbox_use::remove, outside);
+  if (!file) {
+    nscapi::protobuf::functions::set_response_bad(*response, outside ? "Not allowed outside: " + root.string() : "Script not found: " + script);
     return;
   }
+  const fs::path target = file.value();
+
+  // Drop every configured alias that loads this file, so the next reload does
+  // not log a script it can no longer find. Resolved before the file goes, as
+  // resolving needs it to exist. list_configured() walks the store itself:
+  // list() answers from the registry, which reports a key with an empty value
+  // - the bare `foo.lua =` form - without its key.
+  pf::settings_query q(provider_->get_id());
+  q.list_configured(SCRIPT_PATH, false, false);
+  provider_->get_core()->settings_query(q.request(), q.response());
+  if (!q.validate_response()) {
+    nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+    return;
+  }
+  const fs::path scripts = root.parent_path();
+  std::list<std::string> aliases;
+  for (const pf::settings_query::key_values &val : q.get_query_key_response()) {
+    if (!val.matches(std::string(SCRIPT_PATH)) || val.key().empty()) continue;
+    // `alias = file`, or a bare `file =` whose key is the script - the loader
+    // reads them the same way.
+    std::string configured = val.get_string();
+    if (configured.empty()) configured = val.key();
+    const boost::optional<fs::path> loaded = configured_file(provider_->get_core(), scripts, configured);
+    if (loaded && same_entry(loaded.value(), target)) aliases.push_back(val.key());
+  }
+
+  boost::system::error_code ec;
+  fs::remove(target, ec);
+  if (ec) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to delete " + target.string() + ": " + ec.message());
+    return;
+  }
+
+  if (!aliases.empty()) {
+    pf::settings_query s(provider_->get_id());
+    for (const std::string &alias : aliases) s.erase(SCRIPT_PATH, alias);
+    s.save();
+    provider_->get_core()->settings_query(s.request(), s.response());
+    if (!s.validate_response()) {
+      nscapi::protobuf::functions::set_response_bad(*response,
+                                                    "Deleted " + target.string() + " but failed to update the configuration: " + s.get_response_error());
+      return;
+    }
+  }
+  std::string msg = "Deleted " + target.string();
+  if (!aliases.empty()) msg += " and removed it from " SCRIPT_PATH;
+  // The instance already loaded keeps running until the module reloads; say
+  // so rather than leave a caller wondering why its commands still answer.
+  msg += ", it stays loaded until LUAScript is reloaded";
+  nscapi::protobuf::functions::set_response_good(*response, msg);
 }
 
 void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
@@ -279,7 +439,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
       if (replace) {
         fs::remove(file);
       } else {
-        nscapi::protobuf::functions::set_response_bad(*response, "Script already exists specify --overwrite to replace the script");
+        nscapi::protobuf::functions::set_response_bad(*response, "Script already exists, specify --replace to replace it");
         return;
       }
     }

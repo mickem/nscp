@@ -46,13 +46,30 @@ void scripts::nscp::nscp_runtime_impl::register_command(const std::string type, 
   }
 }
 
+void scripts::nscp::nscp_runtime_impl::unregister_command(const std::string type, const std::string &command) {
+  if (type == tags::query_tag || type == tags::simple_query_tag) {
+    nscapi::core_helper proxy(core_, plugin_id);
+    proxy.unregister_command(command);
+  }
+  if (type == tags::submit_tag || type == tags::simple_submit_tag) {
+    nscapi::core_helper proxy(core_, plugin_id);
+    proxy.unregister_channel(command);
+  }
+}
+
 bool scripts::nscp::core_provider_impl::submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code,
                                                               const std::string &message, const std::string &perf, std::string &result) {
   std::string request, response;
   nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
-  bool ret = core_->submit_message(channel, request, response);
+  // A channel nobody listens to leaves no response to parse, and parsing the
+  // empty one threw - out of a Lua call as an error instead of the (false, why)
+  // the script is told to expect. Answered the way core_helper answers it.
+  if (!core_->submit_message(channel, request, response)) {
+    result = "Failed to submit message: " + channel;
+    return false;
+  }
   nscapi::protobuf::functions::parse_simple_submit_response(response, result);
-  return ret;
+  return true;
 }
 
 NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::string &command, const std::list<std::string> &argument, std::string &msg,
@@ -109,12 +126,15 @@ NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::query_forward(const std:
   return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, nscapi::protobuf::functions::no_truncation);
 }
 
-bool scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
-                                                            std::list<std::string> &result) {
+NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command,
+                                                                            const std::list<std::string> &argument, std::list<std::string> &result) {
   std::string request, response;
   nscapi::protobuf::functions::create_simple_exec_request(target, command, argument, request);
+  // Returned as a status: this used to be declared bool, so the UNKNOWN below
+  // reached the caller as `true` - 1, WARNING - and a call nothing could run
+  // read as a warning. Worded as PythonScript words it.
   if (!core_->exec_command(target, request, response)) {
-    result.push_back("Command failed.");
+    result.push_back("Failed to execute " + command + " on " + target);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   return nscapi::protobuf::functions::parse_simple_exec_response(response, result);
