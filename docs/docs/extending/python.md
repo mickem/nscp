@@ -19,8 +19,26 @@ This produces:
 PythonScript = enabled
 
 [/settings/python/scripts]
-my_script = my_script.py
+my_script.py = my_script.py
 ```
+
+The key is the script's alias, and `add` uses the file name unless you pass `--alias my_script`.
+
+## Managing scripts
+
+| Command                                               | What it does                                                                 |
+|-------------------------------------------------------|------------------------------------------------------------------------------|
+| `nscp py list [--json]`                               | List the files under `${scripts}/python` (helpers in `lib` are left out)      |
+| `nscp py add --script <file> [--alias <name>]`        | Configure a script and enable the module; `--no-config` loads it without saving |
+| `nscp py add --script <file> --import <path> [--replace]` | Copy a script into `${scripts}/python` first; an existing file is only overwritten with `--replace` |
+| `nscp py show --script <file>`                        | Print a script                                                               |
+| `nscp py delete --script <file>`                      | Delete a script and every `[/settings/python/scripts]` entry that loads it   |
+| `nscp py install --add <file>` / `--remove <file>`    | Add or remove a configured script                                            |
+| `nscp py execute --script <file> [args...]`           | Run a script's `__main__` (see below)                                        |
+
+`show` and `delete` only reach files under `${scripts}/python`; a name that resolves anywhere else is
+refused. A deleted script stays loaded until the module reloads. The same operations are available
+over REST under [`/api/v2/scripts/py`](../api/rest/scripts.md).
 
 ## Lifecycle functions
 
@@ -56,6 +74,10 @@ Output:
 nscp py execute --script my_script.py install --root /tmp
 L     python My arguments are: ['install', '--root', '/tmp']
 ```
+
+`nscp py execute` loads the script as a fresh instance of its own: it calls `init(plugin_id, "", "")`
+(no aliases, since nothing configured it), then `__main__(args)`, then `shutdown()`. The scripts in
+`[/settings/python/scripts]` are loaded alongside it as usual.
 
 ### `init`
 
@@ -109,10 +131,14 @@ This loads the same script four times with the following arguments:
 
 | plugin_id | plugin_alias | script_alias |
 |-----------|--------------|--------------|
-| 1         | ps1          | ms1          |
-| 1         | ps1          | ms2          |
-| 2         | ps2          | ms1          |
-| 2         | ps2          | ms2          |
+| 0         | ps1          | ms1          |
+| 0         | ps1          | ms2          |
+| 1         | ps2          | ms1          |
+| 1         | ps2          | ms2          |
+
+The `plugin_id` values are assigned by the agent as it loads modules; only rely on them being the
+same for every script of one module instance. A module loaded without an alias
+(`PythonScript = enabled`) passes `python` as `plugin_alias`.
 
 If a script may legitimately be loaded multiple times, store its configuration under a path that
 includes both aliases, e.g. `/settings/<script_name>/<plugin_alias>/<script_alias>/`.
@@ -125,8 +151,9 @@ includes both aliases, e.g. `/settings/<script_name>/<plugin_alias>/<script_alia
 
 ### `shutdown`
 
-`shutdown` is invoked when NSClient++ stops or when the PythonScript module is unloaded. It takes
-**no arguments**:
+`shutdown` is invoked when NSClient++ stops, when the PythonScript module is unloaded, and when it is
+reloaded - a reload calls `shutdown` on every script and then loads them again, calling `init` anew. It
+takes **no arguments**:
 
 ```python
 from NSCP import log
@@ -194,6 +221,22 @@ log_debug("It is now one second later")
 | WARNING  | 1     | Nagios warning             |
 | CRITICAL | 2     | Nagios critical            |
 | UNKNOWN  | 3     | Nagios unknown             |
+
+### Errors in handlers
+
+A handler that raises does not take the agent down. The traceback goes to the NSClient++ log, and the
+caller gets an answer it can act on:
+
+| Handler                          | Raises, or returns the wrong shape                    | Returns `None`                    |
+|----------------------------------|-------------------------------------------------------|-----------------------------------|
+| `simple_function` (a check)      | `UNKNOWN` with the message `Exception in: <command>`  | `UNKNOWN` with the message `None` |
+| `simple_cmdline`                 | the message `Exception in: <command>`, non-zero exit  | the message `None`, non-zero exit |
+| `simple_subscription`            | the submission fails                                  | the submission succeeds           |
+| `event`, `event_pb`, metrics     | logged; the other scripts' handlers still run         | ignored                           |
+
+A tuple shorter than documented is accepted: `(status.WARNING,)` is a warning with an empty message.
+A script that does not parse, or whose `init` raises, is logged and skipped; the other scripts load
+regardless, and whatever `init` registered before it raised stays registered.
 
 ### Registry
 
@@ -297,9 +340,9 @@ def init(plugin_id, plugin_alias, script_alias):
 Registry.cmdline(command_name, function)
 ```
 
-Register a **command-line command** (invoked via `nscp client --command ...` or
-`nscp ext --command ...`) with a protobuf-based callback. Use `simple_cmdline` unless you need raw
-access.
+Register a **command-line command** with a protobuf-based callback. Use `simple_cmdline` unless you
+need raw access. A command-line command is run with `nscp client --module PythonScript --exec <command>
+[arguments...]`, or from a script with [`Core.simple_exec`](#coresimple_exec).
 
 | Option         | Description                                                       |
 |----------------|-------------------------------------------------------------------|
@@ -332,7 +375,11 @@ Registry.simple_cmdline(command_name, function)
 ```
 
 Register a command-line command with a simple callback. The callback receives the arguments as a
-list of strings and returns a 2-tuple `(exit_code, message)`:
+list of strings and returns a 2-tuple `(exit_code, message)`. Run it with:
+
+```
+nscp client --module PythonScript --exec do_something first second
+```
 
 ```python
 def my_function(args):
@@ -391,8 +438,10 @@ Subscribe to a channel with a simple per-payload callback.
 | `channel` | The channel name to subscribe to     |
 | `function`| Callback invoked per submitted check |
 
-Callback signature: `(channel, source, command, status, message, perf) -> bool`. Return `True` to
-indicate success.
+Callback signature: `(channel, source, command, status, message, perf) -> bool`. Return `True` (or
+nothing) to accept the submission; `False` fails it, and the submitter sees the error. `source` is the
+system the result is about, as the submitter named it (for example `check_and_forward`'s
+`source=`), and is empty when it named none.
 
 **Example — suppress repeated NSCA submissions:**
 
@@ -454,8 +503,11 @@ Register a handler for a named event. The two variants differ in how the event p
 to the callback:
 
 - `event` — payload is delivered as a Python `dict`. Callback signature: `(event_name, data) -> None`.
-- `event_pb` — payload is delivered as a raw bytes buffer (serialized protobuf). Callback signature:
+- `event_pb` — payload is delivered as `bytes`: a serialized `EventMessage`. Callback signature:
   `(event_name, request_bytes)`. The return value is ignored.
+
+An event is named `<source>:<alias>`; a real-time CPU filter called `high_cpu` raises
+`system.cpu:high_cpu`.
 
 **Example (`event`):**
 
@@ -623,6 +675,8 @@ Run a check command by name with a list of argument strings.
 | `message`   | Resulting message                    |
 | `perf`      | Resulting performance data           |
 
+A query nobody has registered answers `UNKNOWN` with the message `Unknown command(s): <query>`.
+
 ```python
 from NSCP import Core, log
 
@@ -660,9 +714,23 @@ def init(plugin_id, plugin_alias, script_alias):
 (return_code, results) = Core.simple_exec(target, command, arguments)
 ```
 
-Execute a command-line command (registered via `Registry.cmdline` / `Registry.simple_cmdline`)
-against `target` (a remote NSClient++ instance or `"local"`/`""` for in-process). Returns the result
-as a list of strings.
+Execute a command-line command (one a script registered via `Registry.cmdline` /
+`Registry.simple_cmdline`, or one a module provides). `target` is the module to run it in, by name
+(`"PythonScript"`, `"CheckSystem"`), or `""` for every module that has the command. `results` is a
+list of strings, one per module that answered.
+
+When nothing could run it - no such module, or no such command in it - `return_code` is
+`status.UNKNOWN` and `results` holds the reason, `Failed to execute <command> on <target>`.
+
+```python
+from NSCP import Core, log
+
+def init(plugin_id, plugin_alias, script_alias):
+    core = Core.get(plugin_id)
+    (code, lines) = core.simple_exec("PythonScript", "do_something", ["first"])
+    for line in lines:
+        log(line)
+```
 
 #### `Core.exec`
 
@@ -678,7 +746,8 @@ Raw protobuf variant of `simple_exec`.
 (success, response) = Core.simple_submit(channel, command, code, message, perf)
 ```
 
-Submit a passive check result on a channel.
+Submit a passive check result on a channel. When nothing listens on the channel, `success` is
+`False` and `response` says why (`Failed to submit message: <channel>`).
 
 | Option     | Description                                       |
 |------------|---------------------------------------------------|
@@ -714,6 +783,11 @@ Core.reload(module)
 Reload the given module by name (e.g. `"CheckEventLog"`). Pass `"service"` to reload the entire
 service.
 
+Called from inside a handler - a check, a subscription, an event - the reload cannot run on that
+thread, so it is queued and runs shortly after: `reload` returns `True` as soon as it is queued, before
+the module has reloaded, and before anyone knows whether the module exists. A script may reload its
+own module this way; its `shutdown` runs, then its `init` again.
+
 #### `Core.load_module`
 
 ```python
@@ -721,7 +795,8 @@ Core.load_module(module, alias)
 ```
 
 Load a module into the running NSClient++ instance. `alias` lets you load the same module multiple
-times under different names; pass `""` for the default.
+times under different names; pass `""` for the default. Returns `True` once the module is loaded,
+`False` if it could not be (for example, no module by that name).
 
 ```python
 from NSCP import Core
@@ -737,7 +812,8 @@ def init(plugin_id, plugin_alias, script_alias):
 Core.unload_module(module_or_alias)
 ```
 
-Unload a previously loaded module by name or alias.
+Unload a previously loaded module by name or alias. Returns `True` once it is unloaded, `False` if it
+was not loaded. A script cannot unload the module it runs in; that returns `False` and is logged.
 
 ```python
 from NSCP import Core
@@ -766,8 +842,8 @@ def init(plugin_id, plugin_alias, script_alias):
 
 ### Settings
 
-`Settings` wraps the configuration store. Read and write are supported; written values are
-**in-memory only** until `save()` is called.
+`Settings` wraps the configuration store. Read and write are supported. A written value is seen by
+the next read at once, but is **in-memory only** until `save()` is called.
 
 #### `Settings.get`
 
@@ -837,7 +913,8 @@ value = Settings.get_bool(path, key, default_value)
 Settings.set_bool(path, key, value)
 ```
 
-Read or write a boolean.
+Read or write a boolean. `true`, `1` and `yes` (in any case) read as `True` and any other value as
+`False`; `default_value` is returned only when the key is not set.
 
 ```python
 from NSCP import Settings
@@ -855,7 +932,7 @@ value = Settings.get_int(path, key, default_value)
 Settings.set_int(path, key, value)
 ```
 
-Read or write an integer.
+Read or write an integer. A value that is not a number reads as `default_value`.
 
 ```python
 from NSCP import Settings, log
