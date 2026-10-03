@@ -793,6 +793,7 @@ if(NOT WIN32)
             ${NSCP_INCLUDEDIR}/process/execute_process_unix.cpp
         LIBRARIES
             GTest::gtest_main
+            ${Boost_THREAD_LIBRARY}
         INCLUDES
             ${NSCP_INCLUDEDIR}
     )
