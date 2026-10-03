@@ -3,6 +3,7 @@
 
 #include "nsclient_logger.hpp"
 
+#include <nscapi/protobuf/log.hpp>
 #include <nsclient/logger/logger.hpp>
 
 #include "simple_console_logger.hpp"
@@ -56,7 +57,7 @@ void nsclient::logging::impl::nsclient_logger::add_subscriber(const logging_subs
 nsclient::logging::unsubscribe_result nsclient::logging::impl::nsclient_logger::remove_subscriber(logging_subscriber_instance subscriber) {
   return remove(subscriber);
 }
-nsclient::logging::unsubscribe_result nsclient::logging::impl::nsclient_logger::clear_subscribers() { return clear(); }
+std::vector<nsclient::logging::logging_subscriber_instance> nsclient::logging::impl::nsclient_logger::clear_subscribers() { return clear(); }
 bool nsclient::logging::impl::nsclient_logger::startup() {
   if (backend_) {
     return backend_->startup();
@@ -78,14 +79,35 @@ void nsclient::logging::impl::nsclient_logger::configure() {
 }
 
 void nsclient::logging::impl::nsclient_logger::do_log(const std::string data) {
-  // A line logged while this thread is delivering one is a handler's: tag
-  // it so it is not fanned out again when it comes back (see
-  // handler_lines_). It still goes to the backend, so it reaches the
-  // console or file like any other.
-  if (delivery_depth() > 0) remember_handler_line(data);
-  if (backend_) {
+  if (!backend_) return;
+  // A line logged while this thread is delivering one is a handler's: mark
+  // it in the line itself, so it is not fanned out again when it comes back
+  // through on_log_message - synchronously on this thread on the console
+  // backend, from the worker's queue on the threaded one. It still goes to
+  // the backend, so it reaches the console or file like any other.
+  if (delivery_depth() > 0) {
+    backend_->do_log(tag_handler_line(data));
+  } else {
     backend_->do_log(data);
   }
+}
+
+std::string nsclient::logging::impl::nsclient_logger::tag_handler_line(const std::string &data) {
+  PB::Log::LogEntry message;
+  // A line that is not a LogEntry cannot be tagged; it goes out as it is and
+  // is delivered as any other, which is what happened to it before.
+  if (!message.ParseFromString(data)) return data;
+  for (PB::Log::LogEntry::Entry &entry : *message.mutable_entry()) entry.set_from_log_handler(true);
+  return message.SerializeAsString();
+}
+
+bool nsclient::logging::impl::nsclient_logger::is_handler_line(const std::string &data) {
+  PB::Log::LogEntry message;
+  if (!message.ParseFromString(data)) return false;
+  for (const PB::Log::LogEntry::Entry &entry : message.entry()) {
+    if (entry.from_log_handler()) return true;
+  }
+  return false;
 }
 
 void nsclient::logging::impl::nsclient_logger::use_backend(log_driver_instance backend) {

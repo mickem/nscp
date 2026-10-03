@@ -30,11 +30,9 @@ class TestLogger : public nsclient::logging::logger_impl {
     subscribers_.erase(std::remove(subscribers_.begin(), subscribers_.end(), subscriber), subscribers_.end());
     return result;
   }
-  nsclient::logging::unsubscribe_result clear_subscribers() override {
-    nsclient::logging::unsubscribe_result result;
-    result.removed = !subscribers_.empty();
+  std::vector<nsclient::logging::logging_subscriber_instance> clear_subscribers() override {
     subscribers_.clear();
-    return result;
+    return {};
   }
 
   bool startup() override { return true; }
