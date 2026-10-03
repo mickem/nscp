@@ -5,7 +5,12 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #include "plugin_interface.hpp"
@@ -230,6 +235,49 @@ TEST_F(SimplePluginsListTest, DoAllCallbackMayRemoveAndAddPlugins) {
   });
   EXPECT_EQ(count, 1);
   EXPECT_EQ(remaining, (std::vector<unsigned int>{3}));
+}
+
+// A removal on another thread still waits for a walk that may be calling the
+// removed plugin, as the held lock used to make it: the plugin manager
+// unloads the module, and drops what it contributed, right after.
+TEST_F(SimplePluginsListTest, RemovePluginWaitsForAWalkOnAnotherThread) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  list_->add_plugin(plugin1);
+
+  std::mutex mu;
+  std::condition_variable cv;
+  bool entered = false;
+  bool released = false;
+  std::thread walk([&]() {
+    list_->do_all([&](nsclient::plugin_type) {
+      std::unique_lock<std::mutex> lock(mu);
+      entered = true;
+      cv.notify_all();
+      cv.wait(lock, [&]() { return released; });
+    });
+  });
+  {
+    std::unique_lock<std::mutex> lock(mu);
+    cv.wait(lock, [&]() { return entered; });
+  }
+
+  std::atomic<bool> removed{false};
+  std::thread remover([&]() {
+    list_->remove_plugin(1);
+    removed = true;
+  });
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  EXPECT_FALSE(removed.load());
+
+  {
+    std::lock_guard<std::mutex> lock(mu);
+    released = true;
+  }
+  cv.notify_all();
+  remover.join();
+  walk.join();
+  EXPECT_TRUE(removed.load());
+  EXPECT_TRUE(list_->empty());
 }
 
 // ============================================================================

@@ -5,6 +5,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread.hpp>
+#include <chrono>
 #include <exception>
 #include <memory>
 #include <nsclient/logger/logger.hpp>
@@ -12,6 +13,7 @@
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
+#include <threads/in_flight.hpp>
 #include <utility>
 
 #include "plugin_interface.hpp"
@@ -33,6 +35,10 @@ struct simple_plugins_list : boost::noncopyable {
   typedef std::list<plugin_type> simple_plugin_list_type;
   simple_plugin_list_type plugins_;
   boost::shared_mutex mutex_;
+  // The threads inside a do_all() walk, so remove_plugin() / remove_all()
+  // can wait for the walks that may still be calling the plugin they just
+  // took out - see do_all.
+  threads::in_flight walks_;
   logging::log_client_accessor logger_;
 
   explicit simple_plugins_list(logging::log_client_accessor logger) : logger_(std::move(logger)) {}
@@ -77,21 +83,31 @@ struct simple_plugins_list : boost::noncopyable {
   }
 
   void remove_all() {
-    const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
-    if (!has_valid_lock_log(writeLock, "plugins_list::remove_all")) return;
-    plugins_.clear();
+    std::uint64_t cutoff = 0;
+    {
+      const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
+      if (!has_valid_lock_log(writeLock, "plugins_list::remove_all")) return;
+      plugins_.clear();
+      cutoff = walks_.cutoff();
+    }
+    wait_for_walks(cutoff, std::chrono::seconds(30), "plugins_list::remove_all");
   }
 
   void remove_plugin(unsigned long id) {
-    const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
-    if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id))) return;
-    auto it = plugins_.begin();
-    while (it != plugins_.end()) {
-      if ((*it)->get_id() == id)
-        it = plugins_.erase(it);
-      else
-        ++it;
+    std::uint64_t cutoff = 0;
+    {
+      const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+      if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id))) return;
+      auto it = plugins_.begin();
+      while (it != plugins_.end()) {
+        if ((*it)->get_id() == id)
+          it = plugins_.erase(it);
+        else
+          ++it;
+      }
+      cutoff = walks_.cutoff();
     }
+    wait_for_walks(cutoff, std::chrono::seconds(10), "plugins_list::remove_plugin" + str::xtos(id));
   }
 
   // Whether anything is registered here. A failed lock reads as empty: the
@@ -112,12 +128,22 @@ struct simple_plugins_list : boost::noncopyable {
   // dropped registration. Holding it across the calls also parked every
   // web unload behind a slow metrics tick. The copies keep each plugin alive
   // for its own call even if it is removed meanwhile.
+  //
+  // The walk is still a barrier for a removal on another thread, as the
+  // held lock used to be: remove_plugin() waits for the walks that started
+  // before it, because its callers unload the plugin, or drop what it
+  // contributed, right after - the plugin manager erases a module's fact
+  // sets after deregistering it, and a walk still inside that module's
+  // fetchFacts would otherwise store them again, owned by a dead id. Only a
+  // removal from inside the walk's own callback does not wait.
   void do_all(const boost::function<void(plugin_type)> &fun) {
+    threads::in_flight::guard walking(walks_);
     simple_plugin_list_type snapshot;
     {
       const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
       if (!has_valid_lock_log(readLock, "plugins_list::list")) return;
       snapshot = plugins_;
+      walking.enter();
     }
     for (const plugin_type &p : snapshot) {
       fun(p);
@@ -138,6 +164,15 @@ struct simple_plugins_list : boost::noncopyable {
   void log_error(const char *file, int line, std::string error) { logger_->error("plugin", file, line, error); }
   void log_error(const char *file, int line, std::string error, std::string key) {
     logger_->error("plugin", file, line, error + " for " + utf8::cvt<std::string>(key));
+  }
+
+ private:
+  // With the list already changed: wait for the do_all() walks that started
+  // before the change, which may still be calling the removed plugin. The
+  // bound matches what the write lock used to wait for the walk to let go.
+  void wait_for_walks(std::uint64_t cutoff, std::chrono::seconds timeout, const std::string &key) {
+    if (!walks_.wait_for_others_before(cutoff, timeout))
+      log_error(__FILE__, __LINE__, "A walk over the plugins is still running after " + str::xtos(timeout.count()) + "s", key);
   }
 };
 
