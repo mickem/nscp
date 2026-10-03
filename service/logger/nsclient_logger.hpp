@@ -3,74 +3,55 @@
 
 #pragma once
 
-#include <boost/thread/condition_variable.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/lock_guard.hpp>
+#include <boost/thread/lock_types.hpp>
 #include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
+#include <chrono>
 #include <list>
 #include <memory>
 #include <nsclient/logger/log_driver_interface_impl.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <nsclient/logger/logger_impl.hpp>
-#include <set>
 #include <string>
+#include <threads/in_flight.hpp>
+#include <vector>
 
 namespace nsclient {
 namespace logging {
 namespace impl {
 class nsclient_logger : public logger_impl, public logging_subscriber {
-  typedef std::list<logging_subscriber_instance> subscribers_type;
+  typedef std::vector<logging_subscriber_instance> subscribers_type;
+  typedef std::shared_ptr<const subscribers_type> subscribers_ptr;
 
   log_driver_instance backend_;
-  subscribers_type subscribers_;
-  // Guards subscribers_ and the delivery bookkeeping below. It is held for
-  // the list operations only, never across a subscriber's on_log_message, so
-  // a plain blocking mutex is safe here. It used to be a 5 s timed mutex
-  // held across the whole fan-out: a subscriber that logged from inside its
-  // handler re-entered on the same thread, waited the 5 s and lost the line,
-  // and a remove() arriving during a slow delivery gave up after 5 s and
-  // left the plugin's shared_ptr in the list - the static-destruction hazard
+  // Copy-on-write: add() / remove() / clear() publish a new vector, and a
+  // delivery holds the one it started with. The list changes on module
+  // load and unload only, so a log line costs one shared_ptr copy rather
+  // than a node per subscriber.
+  subscribers_ptr subscribers_;
+  // Guards subscribers_ and the ordering between a delivery entering
+  // deliveries_ and a removal taking its cutoff. Held for those few lines
+  // only, never across a subscriber's on_log_message, so a plain blocking
+  // mutex is safe. It used to be a 5 s timed mutex held across the whole
+  // fan-out: a subscriber that logged from inside its handler re-entered on
+  // the same thread, waited the 5 s and lost the line, and a remove()
+  // arriving during a slow delivery gave up after 5 s and left the plugin's
+  // shared_ptr in the list - the static-destruction hazard
   // plugin_manager.hpp documents.
   mutable boost::mutex mutex_;
-  // The threads currently inside a delivery, one entry per nested delivery,
-  // and the condition remove() / clear() wait on for them to finish.
-  mutable std::multiset<boost::thread::id> dispatchers_;
-  mutable boost::condition_variable idle_;
-
-  // Marks this thread as delivering for as long as it lives.
-  class delivery_guard {
-    const nsclient_logger &owner_;
-
-   public:
-    explicit delivery_guard(const nsclient_logger &owner) : owner_(owner) {}
-    ~delivery_guard() {
-      {
-        boost::lock_guard<boost::mutex> lock(owner_.mutex_);
-        // One entry, not every entry for this thread: a nested delivery
-        // leaves the outer one still running.
-        const std::multiset<boost::thread::id>::iterator it = owner_.dispatchers_.find(boost::this_thread::get_id());
-        if (it != owner_.dispatchers_.end()) owner_.dispatchers_.erase(it);
-      }
-      owner_.idle_.notify_all();
-    }
-    delivery_guard(const delivery_guard &) = delete;
-    delivery_guard &operator=(const delivery_guard &) = delete;
-  };
-
-  // With mutex_ held: wait until no other thread is inside a delivery that
-  // may still be calling a subscriber this thread just took off the list,
-  // so the caller can tear it down afterwards. This thread's own deliveries
-  // are not waited for - a log-handler module that unloads a module from
-  // inside its handler arrives here from one, and it only ends when this
-  // returns. Bounded like dll_plugin's wait for its dispatchers: a handler
-  // that has been running for five seconds is not going to finish because
-  // we keep waiting, and an unbounded wait would stall the unload behind it.
-  void wait_for_other_deliveries(boost::unique_lock<boost::mutex> &lock) const {
-    const boost::thread::id self = boost::this_thread::get_id();
-    const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(5);
-    while (dispatchers_.size() != dispatchers_.count(self)) {
-      if (!idle_.timed_wait(lock, deadline)) return;
-    }
-  }
+  // Serialises the fan-out across threads. The console backend delivers on
+  // whichever thread logged, and the handlers were written against the
+  // one-at-a-time delivery the old mutex gave them: WEBServer numbers each
+  // line before it takes its own lock, and the web UI's live log skips a
+  // lower number that arrives after a higher one. Timed, as before: a line
+  // that cannot get in within 5 s because a handler is stuck is dropped
+  // from the fan-out (it has already reached the console or file), rather
+  // than queued behind the stuck one.
+  boost::timed_mutex delivery_mutex_;
+  // The threads inside a delivery, so remove() / clear() can wait for the
+  // ones that may still hold the subscriber they just took off the list.
+  threads::in_flight deliveries_;
 
  public:
   nsclient_logger();
@@ -78,36 +59,55 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
 
   void add(const logging_subscriber_instance &subscriber) {
     boost::lock_guard<boost::mutex> lock(mutex_);
-    subscribers_.push_back(subscriber);
+    std::shared_ptr<subscribers_type> next = subscribers_ ? std::make_shared<subscribers_type>(*subscribers_) : std::make_shared<subscribers_type>();
+    next->push_back(subscriber);
+    subscribers_ = next;
   }
   void clear() {
-    boost::unique_lock<boost::mutex> lock(mutex_);
-    subscribers_.clear();
-    wait_for_other_deliveries(lock);
+    replace_and_wait([](const subscribers_type &) { return std::make_shared<subscribers_type>(); });
   }
   void remove(const logging_subscriber_instance &subscriber) {
-    boost::unique_lock<boost::mutex> lock(mutex_);
-    subscribers_.remove(subscriber);
-    wait_for_other_deliveries(lock);
+    replace_and_wait([&subscriber](const subscribers_type &current) {
+      std::shared_ptr<subscribers_type> next = std::make_shared<subscribers_type>();
+      for (const logging_subscriber_instance &s : current) {
+        if (s != subscriber) next->push_back(s);
+      }
+      return next;
+    });
   }
 
-  // Deliver to a snapshot of the list taken under the lock, with the lock
-  // released: a subscriber is module code (handleMessage), and it may log
-  // again, or load and unload modules, from inside its handler. The copies
-  // keep each subscriber alive for this delivery even if it is removed
+  // Deliver to the subscriber list as it was when the line arrived, with
+  // mutex_ released: a subscriber is module code (handleMessage), and it may
+  // unload modules - itself included - from inside its handler. The copy
+  // keeps every subscriber alive for this delivery even if it is removed
   // meanwhile; remove() then waits for the delivery before returning.
+  //
+  // A thread already inside a delivery does not fan out again. On the
+  // console backend a handler's own log line arrives here synchronously on
+  // the same thread, and a handler that logged once per line it was handed
+  // would otherwise recurse until the stack ran out (the old mutex stopped
+  // that after a 5 s stall per line). The nested line has already reached
+  // the console or file; only the handlers do not see it, which is what the
+  // generated module glue has always promised them ("loggers cant log").
   void on_log_message(const std::string &data) override {
-    subscribers_type snapshot;
+    if (deliveries_.on_this_thread()) return;
+    boost::unique_lock<boost::timed_mutex> serial(delivery_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!serial.owns_lock()) return;
+    // Declared before the snapshot so that the snapshot - and with it the
+    // last reference a removed subscriber may have - is released before the
+    // guard wakes a waiting remove().
+    threads::in_flight::guard delivering(deliveries_);
+    subscribers_ptr snapshot;
     {
       boost::lock_guard<boost::mutex> lock(mutex_);
-      if (subscribers_.empty()) return;
+      if (!subscribers_ || subscribers_->empty()) return;
       snapshot = subscribers_;
-      dispatchers_.insert(boost::this_thread::get_id());
+      delivering.enter();
     }
-    const delivery_guard delivering(*this);
-    for (logging_subscriber_instance &s : snapshot) {
+    for (const logging_subscriber_instance &s : *snapshot) {
       s->on_log_message(data);
     }
+    snapshot.reset();
   }
 
   // Takes both severity names ("debug", "trace", ...) and log-driver options
@@ -136,6 +136,30 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   bool startup() override;
   bool shutdown() override;
   void configure() override;
+
+ private:
+  // Publish the list `rebuild` returns in place of the current one, then
+  // wait for the deliveries that started on the old list to finish, so the
+  // caller can tear the removed subscriber down. The old list is released
+  // only after mutex_ is: if it held the last reference to a plugin, the
+  // destructor unmaps the library, whose static destructors may log - and a
+  // log line takes mutex_. The wait excludes this thread's own delivery (a
+  // handler unsubscribing itself) and is bounded like dll_plugin's wait for
+  // its dispatchers: a handler that has been running for five seconds is
+  // not going to finish because we keep waiting.
+  template <class Rebuild>
+  void replace_and_wait(Rebuild rebuild) {
+    subscribers_ptr previous;
+    std::uint64_t cutoff = 0;
+    {
+      boost::lock_guard<boost::mutex> lock(mutex_);
+      previous = subscribers_;
+      if (previous) subscribers_ = rebuild(*previous);
+      cutoff = deliveries_.cutoff();
+    }
+    deliveries_.wait_for_others_before(cutoff, std::chrono::seconds(5));
+    previous.reset();
+  }
 };
 }  // namespace impl
 }  // namespace logging

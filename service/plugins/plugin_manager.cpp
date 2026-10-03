@@ -754,12 +754,20 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // answering nothing, gone from every registry, no longer findable by name to
   // retry, and still listed as loaded in the cache because the throw skipped
   // that line. Unloading first leaves the module exactly as it was.
-  // The module stops receiving log messages the moment unload_plugin sets its
-  // unloaded flag, so the subscription below need not be dropped first.
+  //
+  // The log subscription is the one registration dropped first: a log line
+  // is not a dispatch, so unload_plugin does not wait for one, and the
+  // unloaded flag it sets only stops lines that have not reached the module
+  // yet (dll_plugin::handleMessage). remove_subscriber waits for the
+  // deliveries in flight on other threads, so by the time the module is torn
+  // down no log line is still inside it. A refused unload gets the
+  // subscription back, so the module is left exactly as it was.
+  log_instance_->remove_subscriber(plugin);
   try {
     plugin->unload_plugin();
   } catch (const plugin_exception &e) {
     LOG_ERROR_CORE_STD("Failed to unload " + name + ": " + e.reason());
+    if (plugin->hasMessageHandler()) log_instance_->add_subscriber(plugin);
     return false;
   }
   plugin_list_.remove(plugin_id);
@@ -772,9 +780,6 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // Whatever this module contributed to the inventory goes with it: a frozen
   // fact set from a module that is no longer running is worse than none.
   if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
-  // Drop the log subscription: the logger otherwise keeps the plugin alive and
-  // the next log line calls into a module whose instance has been torn down.
-  log_instance_->remove_subscriber(plugin);
   plugin_cache_.remove_plugin(plugin_id);
   return true;
 }

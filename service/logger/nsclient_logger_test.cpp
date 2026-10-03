@@ -226,12 +226,15 @@ TEST(NsclientLogger, DriverOptionsDoNotDisturbTheSeverityLevel) {
 // the whole fan-out. A subscriber that logged from inside its handler then
 // re-entered on the same thread, waited out the 5 s and lost the line, and a
 // remove() during a slow delivery gave up after 5 s and left the subscriber
-// in the list. Delivery now runs on a snapshot with the lock released.
+// in the list. Delivery now runs on a snapshot with the lock released, and a
+// thread already delivering does not fan out again.
 
 namespace {
 
-// Logs again from inside its handler, once, the way a log-handler module
-// that reports a problem with the line it was handed does.
+// Logs again from inside its handler on every line it is handed, the way a
+// log-handler module that reports each line it processes does. Unbounded:
+// if the nested line were fanned out again, this would recurse until the
+// stack ran out.
 class ReentrantSubscriber : public logging_subscriber {
  public:
   explicit ReentrantSubscriber(nsclient_logger* logger) : logger_(logger) {}
@@ -240,7 +243,7 @@ class ReentrantSubscriber : public logging_subscriber {
       std::lock_guard<std::mutex> g(mu);
       payloads.push_back(payload);
     }
-    if (payload == "outer") logger_->on_log_message("inner");
+    logger_->on_log_message("nested:" + payload);
   }
   std::vector<std::string> snapshot() {
     std::lock_guard<std::mutex> g(mu);
@@ -294,7 +297,7 @@ class BlockingSubscriber : public logging_subscriber {
 
 }  // namespace
 
-TEST(NsclientLogger, SubscriberMayLogFromInsideItsHandler) {
+TEST(NsclientLogger, SubscriberLoggingFromItsHandlerNeitherStallsNorRecurses) {
   auto logger = make_backendless_logger();
   auto reentrant = std::make_shared<ReentrantSubscriber>(logger.get());
   auto other = std::make_shared<CapturingSubscriber>();
@@ -305,11 +308,37 @@ TEST(NsclientLogger, SubscriberMayLogFromInsideItsHandler) {
   logger->on_log_message("outer");
   const auto elapsed = std::chrono::steady_clock::now() - started;
 
-  // Both lines reach both subscribers, and the nested delivery did not sit
-  // out a lock timeout first.
-  EXPECT_EQ(reentrant->snapshot(), (std::vector<std::string>{"outer", "inner"}));
-  EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"inner", "outer"}));
+  // The line reaches both subscribers once. The handler's own line is not
+  // fanned out to the handlers (it has already reached the backend by the
+  // time it gets here), and the nested delivery did not sit out a lock
+  // timeout first.
+  EXPECT_EQ(reentrant->snapshot(), (std::vector<std::string>{"outer"}));
+  EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"outer"}));
   EXPECT_LT(elapsed, std::chrono::seconds(2));
+}
+
+TEST(NsclientLogger, DeliveriesAreSerialisedAcrossThreads) {
+  // The console backend delivers on whichever thread logged, and handlers
+  // were written against one-at-a-time delivery: a second line must not
+  // enter a handler while the first is still inside it.
+  auto logger = make_backendless_logger();
+  auto blocking = std::make_shared<BlockingSubscriber>();
+  auto other = std::make_shared<CapturingSubscriber>();
+  logger->add_subscriber(blocking);
+  logger->add_subscriber(other);
+
+  std::thread first([&logger]() { logger->on_log_message("first"); });
+  blocking->wait_until_entered();
+  std::thread second([&logger]() { logger->on_log_message("second"); });
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // "first" is still inside the blocking handler, so "second" has not
+  // reached any handler yet.
+  EXPECT_TRUE(other->snapshot().empty());
+
+  blocking->release();
+  first.join();
+  second.join();
+  EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"first", "second"}));
 }
 
 TEST(NsclientLogger, SubscriberMayRemoveItselfFromInsideItsHandler) {

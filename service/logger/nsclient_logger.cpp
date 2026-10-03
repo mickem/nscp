@@ -48,10 +48,9 @@ nsclient::logging::impl::nsclient_logger::~nsclient_logger() { nsclient_logger::
 
 void nsclient::logging::impl::nsclient_logger::destroy() { backend_.reset(); }
 
-// Route through the mutex-protected add()/remove()/clear() helpers:
-// on_log_message() snapshots subscribers_ under mutex_ on the logging
-// thread, so mutating the list without that lock (during plugin load /
-// shutdown) is a data race that can free list nodes mid-copy.
+// Route through the add()/remove()/clear() helpers: they publish a new list
+// under mutex_, which is where on_log_message() picks up the one it delivers
+// to, and the removing ones wait for the deliveries still on the old list.
 void nsclient::logging::impl::nsclient_logger::add_subscriber(const logging_subscriber_instance subscriber) { add(subscriber); }
 
 void nsclient::logging::impl::nsclient_logger::remove_subscriber(logging_subscriber_instance subscriber) { remove(subscriber); }
