@@ -40,9 +40,14 @@
 // OpenMetrics as the family `X` (the suffix is stripped from its metadata
 // lines), so a Go exporter serves the counter `X` beside any gauge, histogram
 // or summary of the same name. Both are kept, under the name `X`. In
-// OpenMetrics a family is therefore identified by its name and its type, and
-// a counter is the only family that may share its name, with exactly one other
-// family that declared its type first.
+// OpenMetrics a family is therefore identified by its name and its type. A
+// counter is the only family that may share its name, with exactly one other
+// family that declared its type, and only when its own block declares its
+// type and carries a sample of its own; the lines after a repeated name are
+// read ahead to decide which it is. When they are not such a block, the error
+// is the line that repeated the name; a body that ends before they decide
+// reads as truncated. Where both own `X_created` (a counter and a histogram or
+// summary), only one of them may carry it.
 //
 // The samples of a histogram or a summary (`_bucket`, `_sum`, `_count`,
 // `quantile`) belong to their family rather than starting families of their
@@ -61,12 +66,13 @@
 //
 // Memory is the text of the body - a family name is held twice, by its family
 // and by the index - plus a fixed overhead for each family, sample and label,
-// all of which `limits` bounds. Measured with libstdc++ on x86-64: a label
-// costs 64 bytes beyond any text too long for the short-string buffer, a
-// sample about 80, and a family with its index entry about 300. With no limits
-// a 20 MB body of short labels costs about ten times its size, and one of
-// single-sample families nearly twenty. A caller reading from the network sets
-// the limits.
+// which `limits` bounds. Measured with libstdc++ on x86-64: a family costs
+// about 350 bytes (with its first sample), each further sample about 100, a
+// label 64 beyond any text too long for the short-string buffer. With no
+// limits, that is about eleven times the body for one of label-heavy lines,
+// thirty for one of single-sample families, and fifty when their names are a
+// few characters long. The default limits hold the overhead to about 250 MB
+// whatever the body.
 //
 // Exemplars are skipped. What a sample means is not checked - that a
 // histogram's buckets are cumulative, that `le` is present - only whether the
@@ -123,22 +129,27 @@ struct family {
   std::vector<sample> samples;
 };
 
+// Every limit stops the parse at the first line over it and reports an error;
+// 0 means no limit. The defaults are far above what any exporter serves -
+// node_exporter is about a thousand series, a large kube-state-metrics a few
+// hundred thousand - and together hold what a parse can keep to about 250 MB
+// beyond the text of the body. A caller with a better idea of its targets
+// sets its own.
 struct limits {
-  // The most samples one body may carry. The parse stops at the first sample
-  // over it and reports an error. 0 means no limit.
-  std::size_t max_series = 0;
+  // The most samples one body may carry.
+  std::size_t max_series = 500000;
   // The most families one body may declare or sample, which is what bounds a
-  // body of nothing but metadata lines. 0 means no limit.
-  std::size_t max_families = 0;
-  // The most labels one sample may carry. 0 means no limit.
-  std::size_t max_labels_per_sample = 0;
+  // body of nothing but metadata lines, or of single-sample families.
+  std::size_t max_families = 50000;
+  // The most labels one sample may carry.
+  std::size_t max_labels_per_sample = 256;
   // The most labels the whole body may carry, across every sample. Each one
   // costs a fixed overhead beyond its text, so this is what bounds a body of
-  // short, label-heavy lines. 0 means no limit.
-  std::size_t max_labels = 0;
+  // short, label-heavy lines.
+  std::size_t max_labels = 2500000;
   // The longest line, in bytes, the parser will read. A line over it is
-  // reported without being read. 0 means no limit.
-  std::size_t max_line_bytes = 0;
+  // reported without being read.
+  std::size_t max_line_bytes = 1024 * 1024;
 };
 
 struct result {

@@ -22,6 +22,7 @@
 #include <chrono>
 #include <clocale>
 #include <cmath>
+#include <cstdlib>
 #include <initializer_list>
 #include <metrics/openmetrics_parser.hpp>
 #include <ostream>
@@ -58,6 +59,18 @@ const om::family &family_named(const om::result &parsed, const std::string &name
   return none;
 }
 
+// No limits at all, for the tests about what the parser does when it has to
+// read everything.
+om::limits unlimited() {
+  om::limits none;
+  none.max_series = 0;
+  none.max_families = 0;
+  none.max_labels_per_sample = 0;
+  none.max_labels = 0;
+  none.max_line_bytes = 0;
+  return none;
+}
+
 const om::family &family_typed(const om::result &parsed, const std::string &name, const om::family_type type) {
   static const om::family none;
   for (const om::family &f : parsed.families) {
@@ -68,6 +81,10 @@ const om::family &family_typed(const om::result &parsed, const std::string &name
 }
 
 om::label_list labels(std::initializer_list<std::pair<std::string, std::string> > items) { return om::label_list(items); }
+
+// What every result promises whatever the input; defined with the hostile-input
+// tests below.
+void expect_consistent(const om::result &parsed, const std::string &body);
 
 }  // namespace
 
@@ -193,6 +210,7 @@ const char *const client_golang_openmetrics =
 TEST(OpenmetricsParser, ClientGolangOpenMetricsGaugeAndCounterOfOneNameAreBothKept) {
   const om::result parsed = om::parse(client_golang_openmetrics, openmetrics);
   ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
+  expect_consistent(parsed, client_golang_openmetrics);
   EXPECT_TRUE(parsed.saw_eof);
   ASSERT_EQ(parsed.families.size(), 4u);
   // Both keep the name they were declared under; the type tells them apart.
@@ -224,28 +242,27 @@ TEST(OpenmetricsParser, ClientGolangBodyCutAtAnyLineReadsAsTruncated) {
 }
 
 TEST(OpenmetricsParser, OpenMetricsCounterBesideAHistogramOrSummaryOfItsName) {
-  // Both own a `_created` sample; each gets its own, because a sample belongs
-  // to the family being read.
+  // Both own the sample name `rpc_created`, which only one of them may carry
+  // (the refusal is in the next test); here the counter has it.
   for (const char *other : {"histogram", "summary"}) {
     const std::string first = std::string(other) == "histogram" ? "rpc_bucket{le=\"+Inf\"} 4\n" : "rpc{quantile=\"0.5\"} 0.2\n";
-    const om::result parsed = om::parse(std::string("# TYPE rpc ") + other + "\n" + first +
-                                            "rpc_sum 1.5\n"
-                                            "rpc_count 4\n"
-                                            "rpc_created 1.7e9\n"
-                                            "# TYPE rpc counter\n"
-                                            "rpc_total 3\n"
-                                            "rpc_created 1.6e9\n"
-                                            "# TYPE after gauge\n"
-                                            "after 1\n"
-                                            "# EOF\n",
-                                        openmetrics);
+    const std::string body = std::string("# TYPE rpc ") + other + "\n" + first +
+                             "rpc_sum 1.5\n"
+                             "rpc_count 4\n"
+                             "# TYPE rpc counter\n"
+                             "rpc_total 3\n"
+                             "rpc_created 1.6e9\n"
+                             "# TYPE after gauge\n"
+                             "after 1\n"
+                             "# EOF\n";
+    const om::result parsed = om::parse(body, openmetrics);
     ASSERT_TRUE(parsed.ok()) << other << ": " << parsed.error;
+    expect_consistent(parsed, body);
     ASSERT_EQ(parsed.families.size(), 3u) << other;
-    EXPECT_EQ(parsed.families.at(0).samples.size(), 4u) << other;
-    EXPECT_DOUBLE_EQ(parsed.families.at(0).samples.at(3).value, 1.7e9) << other;
+    EXPECT_EQ(parsed.families.at(0).samples.size(), 3u) << other;
     const om::family &counter = family_typed(parsed, "rpc", om::family_type::counter);
     ASSERT_EQ(counter.samples.size(), 2u) << other;
-    EXPECT_DOUBLE_EQ(counter.samples.at(1).value, 1.6e9) << other;
+    EXPECT_EQ(counter.samples.at(1).name, "rpc_created") << other;
   }
 }
 
@@ -270,42 +287,71 @@ TEST(OpenmetricsParser, SameNamePairThatCannotStandSideBySideIsRefused) {
     const char *body;
     std::size_t line;
     const char *fragment;
+    // What is left: the families before the refused line, and no family the
+    // refused line began.
+    std::size_t families;
   };
   const char *const declared = "already declared or sampled";
-  const char *const untyped = "'x' was declared a second time without a '# TYPE' line";
   const refused cases[] = {
       // Only a counter may share its name, and only with one non-counter.
-      {"# TYPE x gauge\nx 1\n# TYPE x gauge\nx 2\n", 3, declared},
-      {"# TYPE x gauge\nx 1\n# TYPE x histogram\nx_bucket{le=\"+Inf\"} 1\n", 3, declared},
-      {"# TYPE x gauge\nx 1\n# TYPE x info\nx_info 1\n", 3, declared},
-      {"# TYPE x counter\nx_total 1\n# TYPE x counter\nx_total 2\n", 3, declared},
-      {"# TYPE x histogram\nx_count 1\n# TYPE x summary\nx_count 2\n", 3, declared},
-      {"# TYPE x gauge\nx 1\n# TYPE x counter\nx_total 1\n# TYPE x info\n", 5, declared},
+      {"# TYPE x gauge\nx 1\n# TYPE x gauge\nx 2\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x histogram\nx_bucket{le=\"+Inf\"} 1\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x info\nx_info 1\n", 3, declared, 1},
+      {"# TYPE x counter\nx_total 1\n# TYPE x counter\nx_total 2\n", 3, declared, 1},
+      {"# TYPE x histogram\nx_count 1\n# TYPE x summary\nx_count 2\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\nx_total 1\n# TYPE x info\n", 5, declared, 2},
       // The earlier family has to have said what it is: a family named only by
       // its `# HELP` line, or only by its samples, is a declaration that is
       // being repeated.
-      {"# HELP x first\n# TYPE y gauge\ny 1\n# TYPE x counter\nx_total 1\n", 4, declared},
-      {"x 2\n# TYPE x counter\nx_total 1\n", 2, declared},
+      {"# HELP x first\n# TYPE y gauge\ny 1\n# TYPE x counter\nx_total 1\n", 4, declared, 2},
+      {"x 2\n# TYPE x counter\nx_total 1\n", 2, declared, 1},
+      // The later block has to declare its type and then carry a sample of
+      // its own. A `# HELP`, or a `# TYPE` followed by anything else, is a late
+      // line for the earlier family, and reported where it is.
+      {"# TYPE x gauge\nx 1\n# HELP x again\nx 2\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# HELP x again\n# UNIT x bytes\n# TYPE y gauge\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\n# TYPE y gauge\ny 1\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\n# EOF\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\nx 2\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\n# TYPE x counter\nx_total 1\n", 3, declared, 1},
       // The counter's sample name is already a family.
-      {"# TYPE x_total gauge\nx_total 1\n# TYPE x gauge\nx 1\n# TYPE x counter\n", 5, "'x_total' came before the '# TYPE' line of 'x'"},
-      // A second family that has not said what it is takes a sample, or gives
-      // way to another family: reported on that line, not the earlier one.
-      {"# TYPE x gauge\nx 1\n# HELP x again\nx 2\n", 4, untyped},
-      {"# TYPE x gauge\nx 1\n# HELP x again\n# UNIT x bytes\n# TYPE y gauge\n", 5, untyped},
+      {"# TYPE x_total gauge\nx_total 1\n# TYPE x gauge\nx 1\n# TYPE x counter\nx_total 2\n", 5, "'x_total' came before the '# TYPE' line of 'x'", 2},
       // A sample of the earlier family after the later one began.
-      {"# TYPE x gauge\nx 1\n# TYPE x counter\nx_total 1\nx 2\n", 5, "apart from the rest of the family 'x'"},
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\nx_total 1\nx 2\n", 5, "apart from the rest of the family 'x'", 2},
+      // A counter and a histogram or summary both own `X_created`; only one of
+      // them may have it.
+      {"# TYPE x histogram\nx_created 1\n# TYPE x counter\nx_created 2\n", 4, "'x_created' is already a sample of the histogram family 'x'", 1},
+      {"# TYPE x counter\nx_total 1\nx_created 1\n# TYPE x summary\nx_count 1\nx_created 2\n", 6, "'x_created' is already a sample of the counter family 'x'",
+       2},
   };
   for (const refused &c : cases) {
     const om::result parsed = om::parse(c.body, openmetrics);
     EXPECT_FALSE(parsed.ok()) << c.body;
     EXPECT_EQ(parsed.error_line, c.line) << c.body << " -> " << parsed.error;
     EXPECT_NE(parsed.error.find(c.fragment), std::string::npos) << c.body << " -> " << parsed.error;
+    EXPECT_EQ(parsed.families.size(), c.families) << c.body;
+    expect_consistent(parsed, c.body);
   }
   // The Prometheus text format names every family after its sample, so it
   // never writes a pair.
   const om::result text_pair = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\nx 2\n", text);
   EXPECT_FALSE(text_pair.ok());
   EXPECT_EQ(text_pair.error_line, 3u);
+}
+
+TEST(OpenmetricsParser, BodyEndingInsideTheSecondBlockOfAPairReadsAsTruncated) {
+  // Up to the sample that would decide it, the second block of a pair cannot
+  // be told apart from a late line for the first family - and neither can a
+  // cut there. Read as far as the block, no further, and say so by the
+  // missing `# EOF`.
+  for (const char *tail : {"# HELP x again\n", "# HELP x again\n# TYPE x counter\n", "# TYPE x counter\n# UNIT x bytes\n", "# TYPE x counter\nx_to"}) {
+    const std::string body = std::string("# TYPE x gauge\nx 1\n") + tail;
+    const om::result parsed = om::parse(body, openmetrics);
+    EXPECT_TRUE(parsed.ok()) << tail << " -> " << parsed.error;
+    EXPECT_FALSE(parsed.saw_eof) << tail;
+    ASSERT_EQ(parsed.families.size(), 1u) << tail;
+    EXPECT_EQ(parsed.families.at(0).type, om::family_type::gauge) << tail;
+  }
 }
 
 TEST(OpenmetricsParser, PrometheusTextCounterWithoutTotal) {
@@ -553,9 +599,11 @@ TEST(OpenmetricsParser, ValuesBelowTheSmallestNormalAreReadOnEveryPlatform) {
 namespace {
 
 // Switches LC_NUMERIC to the first installed locale whose decimal point
-// satisfies `wanted`, for the life of the object. Stock CI images ship few
-// locales - Ubuntu's none beyond C and C.UTF-8 - so a test using one skips
-// where none is installed; Windows and macOS runners have them.
+// satisfies `wanted`, for the life of the object. Stock Linux images ship no
+// locale beyond C and C.UTF-8, so a test using one skips where none is
+// installed - except where `NSCP_REQUIRE_TEST_LOCALES` is set, as the
+// sanitizer job sets it after generating them, which turns the skip into a
+// failure so that one job always runs these tests.
 class numeric_locale {
  public:
   template <typename Predicate>
@@ -578,6 +626,11 @@ class numeric_locale {
   const char *active_ = nullptr;
 };
 
+bool locales_required() {
+  const char *required = std::getenv("NSCP_REQUIRE_TEST_LOCALES");
+  return required != nullptr && *required != '\0' && std::string(required) != "0";
+}
+
 }  // namespace
 
 TEST(OpenmetricsParser, DecimalPointDoesNotFollowTheProcessLocale) {
@@ -586,7 +639,10 @@ TEST(OpenmetricsParser, DecimalPointDoesNotFollowTheProcessLocale) {
   const numeric_locale comma({"de_DE.UTF-8", "de_DE.utf8", "de_DE", "fr_FR.UTF-8", "fr_FR", "sv_SE.UTF-8", "ru_RU.UTF-8", "pt_BR.UTF-8", "German_Germany.1252",
                               "de-DE", "German", "fr-FR"},
                              [](const std::string &point) { return point == ","; });
-  if (comma.active() == nullptr) GTEST_SKIP() << "no locale with a comma decimal point is installed";
+  if (comma.active() == nullptr) {
+    if (locales_required()) FAIL() << "NSCP_REQUIRE_TEST_LOCALES is set, but no locale with a comma decimal point is installed";
+    GTEST_SKIP() << "no locale with a comma decimal point is installed";
+  }
   const om::result parsed = om::parse("x 1.5\ny 2,5\n", text);
   EXPECT_FALSE(parsed.ok()) << comma.active();
   EXPECT_EQ(parsed.error_line, 2u) << parsed.error;
@@ -596,9 +652,14 @@ TEST(OpenmetricsParser, DecimalPointDoesNotFollowTheProcessLocale) {
 TEST(OpenmetricsParser, MultiByteDecimalPointDoesNotMatterEither) {
   // A decimal point no single character can stand in for, such as the Arabic
   // decimal separator.
-  const numeric_locale wide({"ps_AF.UTF-8", "ps_AF.utf8", "fa_IR.UTF-8", "fa_IR.utf8", "ar_EG.UTF-8", "ps-AF", "fa-IR"},
+  // Pashto writes it as U+066B. Windows refuses a Unicode-only locale under
+  // an ANSI code page, so it is asked for with its UTF-8 code page there.
+  const numeric_locale wide({"ps_AF.UTF-8", "ps_AF.utf8", "ps_AF", "ps-AF.UTF-8", "ps-AF.utf8", "ps_AF.65001"},
                             [](const std::string &point) { return point.size() > 1; });
-  if (wide.active() == nullptr) GTEST_SKIP() << "no locale with a multi-byte decimal point is installed";
+  if (wide.active() == nullptr) {
+    if (locales_required()) FAIL() << "NSCP_REQUIRE_TEST_LOCALES is set, but no locale with a multi-byte decimal point is installed";
+    GTEST_SKIP() << "no locale with a multi-byte decimal point is installed";
+  }
   const om::result parsed = om::parse("x 1.5\ny 5e-324\n", text);
   ASSERT_TRUE(parsed.ok()) << wide.active() << ": " << parsed.error;
   EXPECT_DOUBLE_EQ(family_named(parsed, "x").samples.at(0).value, 1.5);
@@ -775,7 +836,7 @@ INSTANTIATE_TEST_SUITE_P(
         malformed{"HelpWithoutName", "# HELP\n", 1, "expected a metric name after '# HELP'"},
         malformed{"UnitWithoutName", "# UNIT\n", 1, "expected a metric name after '# UNIT'"},
         malformed{"NameLeadingDigit", "# UNIT 9foo bytes\n", 1, "expected a metric name"},
-        malformed{"NameWithDot", "# TYPE foo.bar gauge\n", 1, "invalid character in metric name 'foo'"},
+        malformed{"NameWithDot", "# TYPE foo.bar gauge\n", 1, "invalid character in metric name 'foo.bar'"},
         malformed{"UnitTrailingText", "# UNIT foo bytes extra\n", 1, "unexpected text after the unit of 'foo'"},
         malformed{"SecondType", "# TYPE foo gauge\n# TYPE foo gauge\n", 2, "second '# TYPE' line for 'foo'"},
         malformed{"SecondHelp", "# HELP foo a\n# HELP foo b\n", 2, "second '# HELP' line for 'foo'"},
@@ -784,13 +845,13 @@ INSTANTIATE_TEST_SUITE_P(
         malformed{"HelpAfterSamples", "# TYPE foo gauge\nfoo 1\n# HELP foo late\n", 3, "already declared or sampled", in::text_only},
         malformed{"FamilySplitInTwo", "# TYPE foo gauge\nfoo 1\n# TYPE bar gauge\nbar 1\n# HELP foo late\n", 5, "already declared or sampled", in::text_only},
         // In OpenMetrics a `# HELP` for a typed family may begin the second of
-        // a same-name pair (see the pair tests), so the late line is an error
-        // once the family it opens does not say it is a counter: at `# EOF`,
-        // or at the next family. Without either the body reads as truncated.
-        malformed{"HelpAfterSamplesThenEof", "# TYPE foo gauge\nfoo 1\n# HELP foo late\n# EOF\n", 4, "'foo' was declared a second time without a '# TYPE' line",
-                  in::openmetrics_only},
-        malformed{"FamilySplitInTwoThenNext", "# TYPE foo gauge\nfoo 1\n# TYPE bar gauge\nbar 1\n# HELP foo late\nbaz 1\n", 6,
-                  "'foo' was declared a second time without a '# TYPE' line", in::openmetrics_only},
+        // a same-name pair (see the pair tests). The lines after it decide, and
+        // when they do not make it one the error is the late line itself,
+        // worded as in the text format. A body that ends before they decide
+        // reads as truncated.
+        malformed{"HelpAfterSamplesThenSample", "# TYPE foo gauge\nfoo{a=\"1\"} 1\n# HELP foo late\nfoo{a=\"2\"} 2\n", 3, "already declared or sampled"},
+        malformed{"HelpAfterSamplesThenEof", "# TYPE foo gauge\nfoo 1\n# HELP foo late\n# EOF\n", 3, "already declared or sampled", in::openmetrics_only},
+        malformed{"FamilySplitInTwoThenNext", "# TYPE foo gauge\nfoo 1\n# TYPE bar gauge\nbar 1\n# HELP foo late\nbaz 1\n", 5, "already declared or sampled"},
         malformed{"BucketBeforeType", "lat_bucket{le=\"1\"} 1\n# TYPE lat histogram\n", 2, "'lat_bucket' came before the '# TYPE' line of 'lat'"},
         malformed{"CountBeforeType", "rpc_count 1\n# TYPE rpc summary\n", 2, "'rpc_count' came before the '# TYPE' line of 'rpc'"},
         malformed{"TotalBeforeType", "foo_total 1\n# TYPE foo counter\n", 2, "'foo_total' came before the '# TYPE' line of 'foo'", in::openmetrics_only},
@@ -843,9 +904,8 @@ TEST(OpenmetricsParser, FailedMetadataLineLeavesNoFamilyBehind) {
   // whose own metadata line fails before it has any samples is taken out, so
   // the families left after a failure are the ones read before it.
   for (const om::format f : {openmetrics, text}) {
-    for (const char *tail :
-         {"# TYPE foo sometimes\n", "# TYPE foo gauge extra\n", "# UNIT foo bytes extra\n", "# TYPE lat histogram\n",
-          "# HELP foo Help.\n# TYPE foo sometimes\n", "# HELP foo Help.\n# UNIT foo s\n# HELP foo again\n", "# TYPE foo gauge\n# TYPE foo.bar gauge\n"}) {
+    for (const char *tail : {"# TYPE foo sometimes\n", "# TYPE foo gauge extra\n", "# UNIT foo bytes extra\n", "# TYPE lat histogram\n",
+                             "# HELP foo Help.\n# TYPE foo sometimes\n", "# HELP foo Help.\n# UNIT foo s\n# HELP foo again\n"}) {
       const om::result parsed = om::parse(std::string("good 1\nlat_bucket{le=\"1\"} 1\n") + tail, f);
       EXPECT_FALSE(parsed.ok()) << tail;
       ASSERT_EQ(parsed.families.size(), 2u) << tail;
@@ -857,6 +917,17 @@ TEST(OpenmetricsParser, FailedMetadataLineLeavesNoFamilyBehind) {
   const om::result sampled = om::parse("# TYPE foo gauge\nfoo 1\n# HELP foo late\n", text);
   EXPECT_FALSE(sampled.ok());
   EXPECT_EQ(sampled.families.size(), 1u);
+  // So is a whole declaration when the line that fails names something else:
+  // `foo.bar` and `fo.o` are not `foo`, whatever they start with.
+  for (const om::format f : {openmetrics, text}) {
+    for (const char *other : {"# HELP foo.bar x\n", "# TYPE fo.o gauge\n", "# TYPE foo.bar gauge\n"}) {
+      const om::result parsed = om::parse(std::string("# HELP foo Help.\n# TYPE foo gauge\n") + other, f);
+      EXPECT_FALSE(parsed.ok()) << other;
+      ASSERT_EQ(parsed.families.size(), 1u) << other;
+      EXPECT_EQ(parsed.families.at(0).name, "foo") << other;
+      EXPECT_EQ(parsed.families.at(0).type, om::family_type::gauge) << other;
+    }
+  }
 }
 
 TEST(OpenmetricsParser, FailingSampleIsNotAddedToItsFamily) {
@@ -905,7 +976,7 @@ TEST(OpenmetricsParser, SixtyFourMegabyteLineIsReadInOnePass) {
   std::string body = "big{blob=\"";
   body.append(size, 'x');
   body += "\"} 1\n";
-  const om::result parsed = om::parse(body, text);
+  const om::result parsed = om::parse(body, text, unlimited());
   ASSERT_TRUE(parsed.ok()) << parsed.error;
   EXPECT_EQ(only_family(parsed).samples.at(0).labels.at(0).second.size(), size);
 }
@@ -924,18 +995,18 @@ TEST(OpenmetricsParser, LineOverTheLimitIsRefusedUnread) {
 }
 
 TEST(OpenmetricsParser, LineOfAHundredThousandLabelsIsReadLinearly) {
-  // A repeated label name is looked up through a hash set once a sample has
-  // more than a handful, so this is one pass rather than five billion
-  // comparisons. The repeat at the end proves the set is the one consulted.
+  // A repeated label name is found by sorting the sample's label names and
+  // comparing neighbours, so this is n log n rather than five billion
+  // comparisons. The repeat at the end proves the check still runs.
   std::string body = "wide{";
   for (int i = 0; i < 100000; ++i) body += "l" + std::to_string(i) + "=\"v\",";
   body += "l0=\"again\"} 1\n";
-  const om::result parsed = om::parse(body, text);
+  const om::result parsed = om::parse(body, text, unlimited());
   EXPECT_FALSE(parsed.ok());
   EXPECT_NE(parsed.error.find("label 'l0' twice"), std::string::npos) << parsed.error;
 
   const std::string accepted = body.substr(0, body.size() - std::string("l0=\"again\"} 1\n").size()) + "} 1\n";
-  const om::result read = om::parse(accepted, text);
+  const om::result read = om::parse(accepted, text, unlimited());
   ASSERT_TRUE(read.ok()) << read.error;
   EXPECT_EQ(only_family(read).samples.at(0).labels.size(), 100000u);
 }
@@ -953,13 +1024,37 @@ TEST(OpenmetricsParser, WideLineDoesNotSlowTheLinesAfterIt) {
   for (int i = 0; i < 200000; ++i) narrow += "a{x=\"" + std::to_string(i % 7) + "\",y=\"1\"} 1\n";
   const auto seconds = [](const std::string &body) {
     const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-    const om::result parsed = om::parse(body, text);
+    const om::result parsed = om::parse(body, text, unlimited());
     EXPECT_TRUE(parsed.ok()) << parsed.error;
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
   };
   const double alone = seconds(narrow) + seconds(wide);
   const double after = seconds(wide + narrow);
   EXPECT_LT(after, 4 * alone + 0.25) << "wide line alone and short lines alone: " << alone << "s, together: " << after << "s";
+}
+
+TEST(OpenmetricsParser, DefaultLimitsStopABodyBuiltToExhaustMemory) {
+  // The bodies that cost the most per byte: single-sample families with short
+  // names (about fifty times the body), and short labels (about eleven). The
+  // defaults stop each long before it costs more than a few hundred MB.
+  std::string families;
+  for (int i = 0; i < 60000; ++i) families += "m" + std::to_string(i) + " 1\n";
+  const om::result many = om::parse(families, text);
+  EXPECT_FALSE(many.ok());
+  EXPECT_NE(many.error.find("more than 50000 families"), std::string::npos) << many.error;
+
+  std::string labelled;
+  std::string set;
+  for (int i = 0; i < 200; ++i) set += "l" + std::to_string(i) + "=\"\",";
+  for (int i = 0; i < 13000; ++i) labelled += "m{" + set + "n=\"" + std::to_string(i) + "\"} 1\n";
+  const om::result heavy = om::parse(labelled, text);
+  EXPECT_FALSE(heavy.ok());
+  EXPECT_NE(heavy.error.find("more than 2500000 labels"), std::string::npos) << heavy.error;
+
+  std::string wide = "w{";
+  for (int i = 0; i < 300; ++i) wide += "l" + std::to_string(i) + "=\"\",";
+  const om::result too_wide = om::parse(wide + "} 1\n", text);
+  EXPECT_NE(too_wide.error.find("more than 256 labels on 'w'"), std::string::npos) << too_wide.error;
 }
 
 TEST(OpenmetricsParser, LabelsCountAgainstTheirLimits) {
@@ -1169,9 +1264,21 @@ TEST(OpenmetricsParser, RandomBytesAreHandled) {
   // including the names that clash (`h`, `h_bucket`, `h_total`). Fixed seed: a
   // failure here reproduces.
   const std::string alphabet = "h_{}=,\"\\ \t#\n\r.019eE+-InfNa\xff";
-  const char *const fragments[] = {
-      "# TYPE h histogram\n", "# TYPE h counter\n", "# TYPE h summary\n", "# TYPE h_total gauge\n", "# EOF\n", "h_bucket{le=\"1\"} 1\n", "h_total 1\n", "h 1\n",
-      "h_count 2\n",          "# HELP h x\n"};
+  const char *const fragments[] = {"# TYPE h histogram\n",
+                                   "# TYPE h counter\n",
+                                   "# TYPE h summary\n",
+                                   "# TYPE h gauge\n",
+                                   "# TYPE h_total gauge\n",
+                                   "# EOF\n",
+                                   "h_bucket{le=\"1\"} 1\n",
+                                   "h_total 1\n",
+                                   "h 1\n",
+                                   "h_count 2\n",
+                                   "h_created 1\n",
+                                   "h_sum 1\n",
+                                   "# HELP h x\n",
+                                   "# UNIT h s\n",
+                                   "h{quantile=\"0.5\"} 1\n"};
   std::mt19937 random(1499);
   std::uniform_int_distribution<std::size_t> pick(0, alphabet.size() - 1);
   std::uniform_int_distribution<std::size_t> pick_fragment(0, sizeof(fragments) / sizeof(fragments[0]) - 1);
