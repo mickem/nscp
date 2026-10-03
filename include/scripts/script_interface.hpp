@@ -232,16 +232,14 @@ struct script_manager {
     info->plugin_id = plugin_id;
     info->script = script;
     info->script_alias = alias;
-    {
-      // Under the lock: two concurrent adds (`nscp lua execute` from two
-      // callers) could otherwise draw the same id, and the second insert
-      // would silently replace - and leak - the first script.
-      boost::lock_guard<boost::mutex> lock(mutex_);
-      info->script_id = script_id++;
-    }
     script_runtime->create_user_data(info);
     {
+      // The id is drawn under the same lock as the insert: two concurrent
+      // adds (`nscp lua execute` from two callers) could otherwise draw the
+      // same id, and the second insert would silently replace - and leak -
+      // the first script.
       boost::lock_guard<boost::mutex> lock(mutex_);
+      info->script_id = script_id++;
       scripts_[info->script_id] = info;
     }
     return info;
@@ -253,15 +251,20 @@ struct script_manager {
     return instance;
   }
 
+  // A copy of scripts_ taken under the lock, for the walks that run script
+  // code: add() inserts concurrently, and load() / start() call back in
+  // (register_command takes mutex_), so they cannot run with it held.
+  script_list_type snapshot_scripts() const {
+    boost::lock_guard<boost::mutex> lock(mutex_);
+    return scripts_;
+  }
   void load_all() {
-    // TODO: locked
-    for (typename script_list_type::value_type &entry : scripts_) {
+    for (typename script_list_type::value_type &entry : snapshot_scripts()) {
       script_runtime->load(entry.second);
     }
   }
   void start_all() {
-    // TODO: locked
-    for (typename script_list_type::value_type &entry : scripts_) {
+    for (typename script_list_type::value_type &entry : snapshot_scripts()) {
       script_runtime->start(entry.second);
     }
   }
