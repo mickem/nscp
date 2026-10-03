@@ -197,7 +197,7 @@ describeWithModules("LUAScript")("LUAScript API", () => {
           load_raises: "load_raises.lua",
           start_raises: "start_raises.lua",
         },
-        "/settings/luaapi": { trace, number: "42", flag: "true", word: "abc" },
+        "/settings/luaapi": { trace, number: "42", flag: "true", word: "abc", "load delay": "500" },
         // A caller who may read scripts but not add or delete them.
         "/settings/WEB/server/roles": {
           full: "*",
@@ -452,6 +452,25 @@ describeWithModules("LUAScript")("LUAScript API", () => {
         expect(messageOf(r)).toBe("submitted: false Failed to submit message: NOBODY_LISTENS");
       });
 
+      it("simple_submit that a handler rejects returns false and the handler's reason", async () => {
+        // It used to report true: the channel was found, whatever it answered.
+        const r = await executeQuery(key, "lua_submit", { channel: "LUAREJECT" });
+        expect(r.result).toBe(CRITICAL);
+        expect(messageOf(r)).toBe("submitted: false rejected by lua");
+      });
+
+      it("log with only a message logs it at info", async () => {
+        const r = await executeQuery(key, "lua_log", { message: "lua-one-arg-marker" });
+        expect(messageOf(r)).toBe("logged");
+        await until("the line in the log", () => logLines(nscp, "lua-one-arg-marker").length > 0);
+        expect(
+          nscp
+            .capturedStdout()
+            .split(/\r?\n/)
+            .some((l) => /^L\s+lua lua-one-arg-marker$/.test(l)),
+        ).toBe(true);
+      });
+
       it("log, nscp.info, nscp.print and nscp.error reach the agent's log", async () => {
         const r = await executeQuery(key, "lua_log", { level: "error", message: "lua-log-marker" });
         expect(messageOf(r)).toBe("logged");
@@ -529,7 +548,7 @@ describeWithModules("LUAScript")("LUAScript API", () => {
         expect(messageOf(r)).toMatch(
           /^greeting=unset scratch=unset int=42 bool=true counter=-1 switch=false keys=/,
         );
-        expect(messageOf(r)).toMatch(/keys=flag,number,trace,word$/);
+        expect(messageOf(r)).toMatch(/keys=flag,load delay,number,trace,word$/);
 
         // A change through REST is what the script reads next, no reload.
         await putSettings(key, "/settings/luaapi", { greeting: "hi" });
@@ -763,6 +782,27 @@ describeWithModules("LUAScript")("LUAScript API", () => {
         // The script's state is new: what the old one recorded is gone.
         expect(messageOf(await executeQuery(key, "lua_seen"))).toBe("none");
       });
+
+      it("keeps answering the script's checks while it runs, never Unknown command", async () => {
+        // The old generation's queries used to be unregistered before the new
+        // one registered them again, and a check arriving in between got
+        // `Unknown command`. They stay registered now, so a check that lands
+        // mid-reload waits for it instead. The fixture's `load delay` holds
+        // the reload in that gap for half a second.
+        let reloading = true;
+        const answers: string[] = [];
+        const hammer = (async () => {
+          while (reloading) {
+            const r = await executeQuery(key, "lua_echo", { during: "reload" });
+            answers.push(`${r.result} ${messageOf(r)}`);
+          }
+        })();
+        await reloadLua();
+        reloading = false;
+        await hammer;
+        expect(answers.length).toBeGreaterThan(0);
+        expect(answers.filter((a) => a !== "0 args: during=reload")).toEqual([]);
+      });
     });
   });
 
@@ -974,6 +1014,43 @@ describeWithModules("LUAScript")("LUAScript API", () => {
         } finally {
           fs.rmSync(path.join(scripts, "lua", "leak.lua"), { force: true });
           fs.rmSync(path.join(scripts, "lua", "linked"), { force: true });
+        }
+      },
+    );
+
+    itOnUnix(
+      "`nscp lua delete` of a symlink inside the folder removes the link and its entry, not its target's",
+      async () => {
+        const target = path.join(scripts, "lua", "real_target.lua");
+        fs.writeFileSync(target, "-- stays\n");
+        const link = path.join(scripts, "lua", "inner_link.lua");
+        fs.symlinkSync(target, link);
+        const ini = fs.readFileSync(nscp.settingsFile, "utf8");
+        const header = "[/settings/lua/scripts]";
+        fs.writeFileSync(
+          nscp.settingsFile,
+          ini.replace(
+            header,
+            [header, "by_link = inner_link.lua", "by_target = real_target.lua"].join("\n"),
+          ),
+        );
+        try {
+          const r = await lua(["delete", "--script", "inner_link.lua"]);
+          expect(r.exitCode).toBe(0);
+          expect(fs.existsSync(link)).toBe(false);
+          expect(fs.readFileSync(target, "utf8")).toBe("-- stays\n");
+          // The link's own entry goes; the target's, which deleting a link
+          // used to take with it, stays.
+          const after = fs.readFileSync(nscp.settingsFile, "utf8");
+          expect(after).not.toMatch(/^by_link\s*=/m);
+          expect(after).toMatch(/^by_target\s*=\s*real_target\.lua$/m);
+        } finally {
+          fs.rmSync(target, { force: true });
+          fs.rmSync(link, { force: true });
+          fs.writeFileSync(
+            nscp.settingsFile,
+            fs.readFileSync(nscp.settingsFile, "utf8").replace(/^by_(link|target)\s*=.*\n?/gm, ""),
+          );
         }
       },
     );
