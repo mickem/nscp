@@ -583,6 +583,16 @@ else()
     set(NSCP_SOCKET_LIBS "")
 endif()
 
+# On Windows stop_signal::create() formats a failed CreateEvent through
+# error::lookup, which lives in error_w32.cpp (and uses utf8.cpp).
+set(THREADS_TEST_PLATFORM_SOURCES)
+if(WIN32)
+    set(THREADS_TEST_PLATFORM_SOURCES
+        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    )
+endif()
+
 NSCP_CREATE_TEST(
     threads_test
     SOURCES
@@ -591,6 +601,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/threads/scoped_thread_group_test.cpp
         ${NSCP_INCLUDEDIR}/threads/guarded_thread_test.cpp
         ${NSCP_INCLUDEDIR}/threads/stop_signal_test.cpp
+        ${THREADS_TEST_PLATFORM_SOURCES}
     LIBRARIES
         GTest::gtest_main
         ${Boost_THREAD_LIBRARY}
