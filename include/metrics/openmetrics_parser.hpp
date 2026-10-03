@@ -63,25 +63,33 @@
 // but the agent's own exposition carries it there too.
 //
 // The body comes off the network. Parsing is one pass that never recurses or
-// backtracks, and stops at the first line it cannot read, reporting that line
-// and why rather than guessing at what was meant. Families read before it are
-// kept, so a caller can choose between discarding the scrape and using what
-// arrived; a family whose own metadata line failed, with no samples yet, is
-// not. Time is linear in the body for the lines of a family; each family that
-// starts costs a few lookups in an ordered index of the names seen so far,
-// logarithmic in their number. No hash table is involved whose worst case an
-// exporter could choose names to reach.
+// backtracks, and stops at the first line it cannot read, reporting the first
+// line at fault and why rather than guessing at what was meant. That is the
+// line being read, except inside the block of a repeated OpenMetrics name,
+// where a line that is not the block's own makes the repeated name the fault,
+// reported ahead of anything else wrong with the later line. Families read
+// before it are kept, so a caller can choose between discarding the scrape and
+// using what arrived; a family whose own metadata line failed with no samples
+// yet, and a repeated name's block that never became a pair, are not.
+//
+// Time is linear in the body: a sample appends to the family being read, or -
+// in the Prometheus text format - to the family it is regrouped into, at the
+// same cost. Each time the family being read changes costs a few lookups in an
+// ordered index of the names seen so far, logarithmic in their number. No hash
+// table is involved whose worst case an exporter could choose names to reach.
 //
 // Memory is the text of the body - a family name is held twice, by its family
 // and by the index - plus a fixed overhead for each family, sample and label,
 // which `limits` bounds. Measured with libstdc++ on x86-64: a family costs
-// about 350 bytes with its first sample, each further sample about 85, a label
-// 64 plus 32 for each of its name and value too long for the short-string
-// buffer (15 bytes). With no limits, a body costs eleven to sixteen times its
-// size when it is label-heavy, twenty when it is one family of short samples,
-// and fifty when it is single-sample families with names a few characters
-// long. With the default limits, the worst body - 16-character label names
-// and values up to `max_labels` - costs about 350 MB beyond its text.
+// 250 to 330 bytes with its first sample, each further sample about 85 (a
+// family's list grows by doubling, so it may reserve up to as much again,
+// mostly never touched), a label 64 plus 32 for each of its name and value
+// too long for the short-string buffer (15 bytes). With no limits, a body
+// costs eleven to sixteen times its size when it is label-heavy, twenty when
+// it is one family of short samples, and forty to fifty when it is
+// single-sample families with names a few characters long. With the default
+// limits, the worst body - 16-character label names and values up to
+// `max_labels` - costs about 350 MB beyond its text.
 //
 // Exemplars are skipped. What a sample means is not checked - that a
 // histogram's buckets are cumulative, that `le` is present - only whether the

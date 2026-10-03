@@ -318,7 +318,16 @@ TEST(OpenmetricsParser, SameNamePairThatCannotStandSideBySideIsRefused) {
       // where it is: the repeated name was fine as far as it went.
       {"# TYPE x gauge\nx 1\n# TYPE x counter\n# TYPE x counter\nx_total 1\n", 4, "second '# TYPE' line for 'x'", 1},
       {"# TYPE x gauge\nx 2\n# UNIT x s\n# UNIT x s\n", 4, "second '# UNIT' line for 'x'", 1},
-      {"# TYPE x gauge\nx 2\n# HELP x again\n# HELP x.y z\n", 4, "invalid character in metric name 'x.y'", 1},
+      // A line that is not the block's own is reported as the repeated name,
+      // the first line at fault, before whatever else is wrong with it - its
+      // name, its value, a limit, its length.
+      {"# TYPE x gauge\nx 2\n# HELP x again\n# HELP x.y z\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\ny abc\n", 3, declared, 1},
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\n# TYPE y sometimes\n", 3, declared, 1},
+      // The type decides whether the block can pair at all, before anything
+      // that type would claim: the same body with and without a `# HELP`.
+      {"# TYPE x gauge\nx_info 6\n# TYPE x info\n", 3, declared, 2},
+      {"# TYPE x gauge\nx_info 6\n# HELP x h1\n# TYPE x info\n", 3, declared, 2},
       {"# TYPE x histogram\nx_total 3\n# TYPE x counter\n", 3, "'x_total' came before the '# TYPE' line of 'x'", 2},
       // So is the end of the body: one cut mid-line is refused like any other.
       {"# TYPE x gauge\nx 1\n# HELP x again\nfoo 1", 4, "the body ends in the middle of a line", 1},
@@ -402,6 +411,28 @@ TEST(OpenmetricsParser, BothFamiliesOfAPairMayCarryCreated) {
     ASSERT_EQ(parsed.families.size(), 3u) << other;
     EXPECT_DOUBLE_EQ(parsed.families.at(0).samples.back().value, 1.6e9) << other;
     EXPECT_DOUBLE_EQ(family_typed(parsed, "x", om::family_type::counter).samples.back().value, 1.7e9) << other;
+  }
+}
+
+TEST(OpenmetricsParser, LimitHitByAnotherFamilyInsideAPairBlockIsTheRepeatedName) {
+  // With or without a limit the line after the block belongs to another
+  // family, so the block was never a pair: the same line is reported, and the
+  // block is not kept.
+  // Line 4 is the only one over 20 bytes.
+  const std::string body = "# TYPE x gauge\nx 1\n# TYPE x counter\ny{a=\"1\",b=\"2\",c=\"3\"} 1\n";
+  om::limits series;
+  series.max_series = 1;
+  om::limits labels_per_sample;
+  labels_per_sample.max_labels_per_sample = 1;
+  om::limits line_bytes;
+  line_bytes.max_line_bytes = 20;
+  for (const om::limits &bounds : {om::limits(), series, labels_per_sample, line_bytes}) {
+    const om::result parsed = om::parse(body, openmetrics, bounds);
+    EXPECT_FALSE(parsed.ok());
+    EXPECT_EQ(parsed.error_line, 3u) << parsed.error;
+    EXPECT_NE(parsed.error.find("already declared or sampled"), std::string::npos) << parsed.error;
+    ASSERT_EQ(parsed.families.size(), 1u) << parsed.error;
+    EXPECT_EQ(parsed.families.at(0).type, om::family_type::gauge);
   }
 }
 
@@ -1140,6 +1171,35 @@ TEST(OpenmetricsParser, DefaultLimitsStopABodyBuiltToExhaustMemory) {
   for (int i = 0; i < 300; ++i) wide += "l" + std::to_string(i) + "=\"\",";
   const om::result too_wide = om::parse(wide + "} 1\n", text);
   EXPECT_NE(too_wide.error.find("more than 256 labels on 'w'"), std::string::npos) << too_wide.error;
+}
+
+TEST(OpenmetricsParser, InterleavedTextFamiliesAreReadInLinearTime) {
+  // Regrouping a sample into a family read earlier must cost what appending
+  // to the family being read costs: two families alternating line by line
+  // against the same lines grouped. A per-switch reallocation made this
+  // quadratic - minutes at the default series limit.
+  std::string interleaved;
+  std::string grouped_a;
+  std::string grouped_b;
+  // 20k per family: linear, a few milliseconds; quadratic, seconds - large
+  // enough to fail clearly, small enough not to stall CI when it does.
+  for (int i = 0; i < 20000; ++i) {
+    const std::string a = "a{i=\"" + std::to_string(i) + "\"} 1\n";
+    const std::string b = "b{i=\"" + std::to_string(i) + "\"} 1\n";
+    interleaved += a + b;
+    grouped_a += a;
+    grouped_b += b;
+  }
+  const auto seconds = [](const std::string &body) {
+    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    const om::result parsed = om::parse(body, text);
+    EXPECT_TRUE(parsed.ok()) << parsed.error;
+    EXPECT_EQ(parsed.families.size(), 2u);
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  };
+  const double grouped = seconds(grouped_a + grouped_b);
+  const double alternating = seconds(interleaved);
+  EXPECT_LT(alternating, 4 * grouped + 0.25) << "grouped: " << grouped << "s, interleaved: " << alternating << "s";
 }
 
 TEST(OpenmetricsParser, LabelsCountAgainstTheirLimits) {

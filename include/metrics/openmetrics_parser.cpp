@@ -305,8 +305,6 @@ struct family_state {
   // The block a repeated OpenMetrics name opened, until its first sample says
   // whether it is the second family of a same-name pair (see `comment`).
   bool tentative = false;
-  // The line that repeated the name: where the error is when it is not.
-  std::size_t opened_on = 0;
 };
 
 // The families declared or sampled under one name: one, or the two of an
@@ -356,6 +354,36 @@ class parser {
     return sample_line(text);
   }
 
+  // Called for every whole line before anything else is read from it. While a
+  // repeated name's block is tentative, a line that is not one of the block's
+  // own - its metadata, then its first sample, a comment or a blank - means the
+  // block was never the second family of a pair, so the line that repeated the
+  // name is the first line at fault, and it is reported before anything that
+  // might also be wrong with this one (a bad value, a limit, its length). Only
+  // the name is read, so an oversized line is classified as cheaply as any.
+  bool block_takes(const std::string_view raw) {
+    if (current_ == npos || !state_[current_].tentative) return true;
+    const std::string_view text = normalise(raw);
+    if (text.empty()) return true;
+    const std::string &name = out_.families[current_].name;
+    cursor c;
+    c.line = text;
+    if (text.front() == '#') {
+      if (is_eof_marker(text)) return refuse_block();
+      c.at = 1;
+      c.skip_blanks();
+      const std::string_view keyword = c.token();
+      if (keyword != "HELP" && keyword != "TYPE" && keyword != "UNIT") return true;
+      c.skip_blanks();
+      const std::string_view named = metric_name(c);
+      if (named == name && (c.done() || is_blank(c.peek()))) return true;
+      return refuse_block();
+    }
+    const std::string_view sampled = metric_name(c);
+    if (state_[current_].type && !sampled.empty() && owns(current_, sampled)) return true;
+    return refuse_block();
+  }
+
   // After the last line read, whether the body ended there or a line failed.
   // A family read only as far as its metadata is kept like any other, except
   // when it is not whole: a line of its own metadata failed, or it is the
@@ -363,7 +391,6 @@ class parser {
   // apart from late lines for the earlier family, and is what a body cut
   // there looks like.
   void finish() {
-    if (current_ != npos) out_.families[current_].samples.shrink_to_fit();
     if (current_ == npos || current_ + 1 != out_.families.size() || !out_.families[current_].samples.empty()) return;
     family_state &seen = state_[current_];
     if (current_block_failed_ || (seen.tentative && !seen.type)) {
@@ -391,19 +418,11 @@ class parser {
   // the line at fault - worded as the text format words it.
   bool refuse_block() {
     current_block_failed_ = true;
-    return fail_on(declared_again(out_.families[current_].name), state_[current_].opened_on);
-  }
-
-  // Before anything that is not the block's own next line: another family,
-  // or `# EOF`.
-  bool settle_block() {
-    if (current_ == npos || !state_[current_].tentative) return true;
-    return refuse_block();
+    return fail_on(declared_again(out_.families[current_].name), block_opened_on_);
   }
 
   bool comment(const std::string_view text) {
     if (format_ == format::openmetrics_1_0 && is_eof_marker(text)) {
-      if (!settle_block()) return false;
       out_.saw_eof = true;
       return true;
     }
@@ -460,7 +479,6 @@ class parser {
     std::size_t at = own_block ? current_ : npos;
     bool repeated = false;
     if (at == npos) {
-      if (!settle_block()) return false;
       const match m = find(name);
       if (m.owner != npos && out_.families[m.owner].name != name) {
         return fail("'" + std::string(name) + "' is a sample of the family '" + out_.families[m.owner].name + "'");
@@ -490,6 +508,11 @@ class parser {
       }
     }
     if (type) {
+      // The type of a repeated name's block decides whether it can pair at
+      // all, which comes before anything the type would then claim.
+      if (at != npos && state_[at].tentative && !pair_types(out_.families[families_by_name_.find(name)->second.first].type, declared_type)) {
+        return refuse_block();
+      }
       // Samples that arrived before this line under a name the type now claims
       // (`lat_bucket` before `# TYPE lat histogram`) would be split off into a
       // family of their own.
@@ -500,10 +523,6 @@ class parser {
         if (families_by_name_.find(scratch_) != families_by_name_.end()) {
           return fail_block("'" + scratch_ + "' came before the '# TYPE' line of '" + std::string(name) + "'");
         }
-      }
-      // The type of a repeated name's block decides whether it can pair.
-      if (at != npos && state_[at].tentative && !pair_types(out_.families[families_by_name_.find(name)->second.first].type, declared_type)) {
-        return refuse_block();
       }
     }
 
@@ -524,7 +543,7 @@ class parser {
   }
 
   // The families that could own `name` as a sample, by every suffix the name
-  // could carry. A tentative block owns nothing yet.
+  // could carry.
   match find(const std::string_view name) const {
     match ret;
     for (const char *suffix : sample_suffixes) {
@@ -533,7 +552,7 @@ class parser {
       const name_index::const_iterator it = families_by_name_.find(name.substr(0, name.size() - tail.size()));
       if (it == families_by_name_.end()) continue;
       for (const std::size_t at : {it->second.first, it->second.second}) {
-        if (at != npos && !state_[at].tentative && owns(at, name)) {
+        if (at != npos && owns(at, name)) {
           ret.owner = at;
           return ret;
         }
@@ -550,11 +569,7 @@ class parser {
     return true;
   }
 
-  // The family being read gives way to another. Its samples list stops
-  // growing here, so it is trimmed to what it holds: a list grown by doubling
-  // would otherwise keep up to twice the memory its samples need.
   void switch_to(const std::size_t at) {
-    if (current_ != npos && current_ != at) out_.families[current_].samples.shrink_to_fit();
     current_ = at;
     current_block_failed_ = false;
   }
@@ -565,7 +580,7 @@ class parser {
     out_.families.push_back(std::move(added));
     family_state seen;
     seen.tentative = repeated;
-    seen.opened_on = line_number_;
+    if (repeated) block_opened_on_ = line_number_;
     state_.push_back(seen);
     const std::size_t at = out_.families.size() - 1;
     name_entry &entry = families_by_name_[out_.families[at].name];
@@ -608,13 +623,8 @@ class parser {
   // exporters rely on; so does this one.
   std::size_t family_for(const std::string_view name) {
     if (current_ != npos && state_[current_].tentative) {
-      // The first sample after a repeated name decides: one of the block's
-      // own makes it the second family of a pair, anything else makes the
-      // name's line a late line for the earlier family.
-      if (!state_[current_].type || !owns(current_, name)) {
-        refuse_block();
-        return npos;
-      }
+      // `block_takes()` let this sample through, so it is one of the block's
+      // own: the block is the second family of a pair.
       state_[current_].tentative = false;
       return current_;
     }
@@ -788,6 +798,8 @@ class parser {
   const format format_;
   const limits &bounds_;
   std::size_t line_number_ = 0;
+  // The line that repeated the name of the tentative block, if one is open.
+  std::size_t block_opened_on_ = 0;
   // Family name -> the families declared or sampled under it. An ordered map
   // rather than a hash table: its worst case does not depend on names an
   // exporter chooses, and it looks a `string_view` up without copying it. It
@@ -849,6 +861,9 @@ void read_lines(const std::string_view text, const format body_format, const lim
     reader.begin_line(++number);
     const bool terminated = end != std::string_view::npos;
     const std::size_t length = (terminated ? end : text.size()) - start;
+    // A line cut mid-way cannot be trusted even for its name, so only a whole
+    // one is classified.
+    if (terminated && !reader.block_takes(text.substr(start, length))) return;
     if (bounds.max_line_bytes != 0 && length > bounds.max_line_bytes) {
       reader.fail("line longer than " + std::to_string(bounds.max_line_bytes) + " bytes");
       return;
