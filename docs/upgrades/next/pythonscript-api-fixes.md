@@ -18,6 +18,14 @@ turned up these, now fixed:
 - A `Registry.simple_subscription` handler is given the submission's source
   (for example `check_and_forward`'s `source=`); it used to receive an empty
   string unless the result carried one of its own.
+- `Core.simple_exec` reports a call nothing could run - an unknown module, or
+  a command the module does not have - as `(status.UNKNOWN, ["Failed to
+  execute <command> on <target>"])`. It used to return `(0, [])`, which reads
+  as success, or `(False, <text>)` when the call threw. Check your scripts if
+  one tests the code for `0` or `False`. The docs also wrongly offered
+  `"local"` as a target; use the module name, or `""` for every module.
+- `nscp py add --import` asked for `--overwrite` when the file already
+  existed. The option is `--replace`, and the message now says so.
 - `nscp py show --script <name>` prints the script and `nscp py delete --script
   <name>` deletes it and removes it from `/settings/python/scripts`. Both
   answered with nothing before, so `GET` and `DELETE` on

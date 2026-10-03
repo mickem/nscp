@@ -362,7 +362,7 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
       if (replace) {
         fs::remove(file);
       } else {
-        nscapi::protobuf::functions::set_response_bad(*response, "Script already exists specify --overwrite to replace the script");
+        nscapi::protobuf::functions::set_response_bad(*response, "Script already exists, specify --replace to replace it");
         return;
       }
     }

@@ -1035,22 +1035,33 @@ py::tuple script_wrapper::command_wrapper::query(std::string command, py::object
 }
 
 py::tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::string command, py::list args) {
+  // Always (code, [lines]), the shape the docs give, failures included: a
+  // failed call used to come back as (0, []) - OK with nothing to say - when no
+  // module took the target, and as (False, text) when the call threw.
+  const auto failed = [](const std::string &why) {
+    py::list lines;
+    lines.append(why);
+    return py::make_tuple(static_cast<int>(NSCAPI::query_return_codes::returnUNKNOWN), lines);
+  };
   try {
     std::list<std::string> result;
-    int ret = 0;
-    nscapi::core_helper ch(core, plugin_id);
     const std::list<std::string> arguments = convert(args);
+    std::string request, response;
+    nscapi::protobuf::functions::create_simple_exec_request(target, command, arguments, request);
+    bool ok = false;
     {
       thread_unlocker unlocker;
-      ret = ch.exec_simple_command(target, command, arguments, result);
+      ok = core->exec_command(target, request, response);
     }
-    return make_tuple(ret, convert(result));
+    if (!ok) return failed("Failed to execute " + command + " on " + target);
+    const int ret = nscapi::protobuf::functions::parse_simple_exec_response(response, result);
+    return py::make_tuple(ret, convert(result));
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to execute " + command, e);
-    return py::make_tuple(false, utf8::utf8_from_native(e.what()));
+    return failed("Failed to execute " + command + ": " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     NSC_LOG_ERROR_EX("Failed to execute " + command);
-    return py::make_tuple(false, command);
+    return failed("Failed to execute " + command);
   }
 }
 py::tuple script_wrapper::command_wrapper::exec(std::string target, std::string request) {
