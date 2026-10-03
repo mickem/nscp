@@ -5,6 +5,7 @@
 
 #include <config.h>
 
+#include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/unordered_map.hpp>
 #include <file_helpers.hpp>
@@ -536,6 +537,15 @@ void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
   }
 }
 
+// Plugins stop_plugins could not tear down because a log line was still being
+// handled inside them. Allocated once and never freed on purpose: a static
+// list would destroy its plugins at exit, after their libraries' own statics
+// are gone - the crash on process exit plugin_manager.hpp describes.
+std::list<nsclient::plugin_type> &nsclient::core::plugin_manager::abandoned_plugins() {
+  static std::list<plugin_type> *const abandoned = new std::list<plugin_type>();
+  return *abandoned;
+}
+
 /**
  * Unload all plug-ins
  */
@@ -547,9 +557,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   // which goes here) or not started (and then this clear has already waited
   // for the deliveries, so the module it finds nothing left to drop for has
   // no line inside it either).
-  if (log_instance_->clear_subscribers().delivering) {
-    LOG_ERROR_CORE("A log line is still being handled by a log-handler module after 5 s; stopping the modules regardless");
-  }
+  const std::vector<logging::logging_subscriber_instance> still_handling = log_instance_->clear_subscribers();
   commands_.remove_all();
   channels_.remove_all();
   event_subscribers_.remove_all();
@@ -559,6 +567,20 @@ void nsclient::core::plugin_manager::stop_plugins() {
   for (const plugin_type &p : plugin_list_.get_plugins()) {
     try {
       if (p) {
+        if (std::find(still_handling.begin(), still_handling.end(), p) != still_handling.end()) {
+          // A log line is still being handled inside this module after the
+          // wait. remove_plugin refuses exactly this; shutdown cannot, but it
+          // need not tear the module down under the line either. Neither
+          // unloaded nor released: unloading would run the teardown under
+          // the handler, and the last reference going would unmap the
+          // library under it. The instance is handed to a holder that is
+          // never freed, so the library stays mapped until the process ends
+          // - the same leak unload_plugin chooses for a call that will not
+          // come back.
+          LOG_ERROR_CORE_STD("Leaving " + p->get_alias_or_name() + " loaded at shutdown: a log line is still being handled by it after 5 s");
+          abandoned_plugins().push_back(p);
+          continue;
+        }
         LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
         p->unload_plugin();
       }
@@ -782,13 +804,16 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // copy call an unloaded module, log "Library is not loaded" for it, and on
   // the facts path mark it failing and later fixed. Membership of these is
   // the module's static capability, so a refused unload simply re-adds it.
-  metrics_fetchers_.remove_plugin(plugin_id);
-  metrics_submitters_.remove_plugin(plugin_id);
-  facts_fetchers_.remove_plugin(plugin_id);
-  const auto restore_walks = [this, &plugin]() {
-    if (plugin->hasMetricsFetcher()) metrics_fetchers_.add_plugin(plugin);
-    if (plugin->hasMetricsSubmitter()) metrics_submitters_.add_plugin(plugin);
-    if (plugin->hasFactsFetcher()) facts_fetchers_.add_plugin(plugin);
+  // Only what was actually taken out is put back on a refusal: a list that
+  // could not get its write lock still holds the module, and re-adding it
+  // there would log "Duplicate plugin id".
+  const bool was_metrics_fetcher = metrics_fetchers_.remove_plugin(plugin_id);
+  const bool was_metrics_submitter = metrics_submitters_.remove_plugin(plugin_id);
+  const bool was_facts_fetcher = facts_fetchers_.remove_plugin(plugin_id);
+  const auto restore_walks = [&]() {
+    if (was_metrics_fetcher) metrics_fetchers_.add_plugin(plugin);
+    if (was_metrics_submitter) metrics_submitters_.add_plugin(plugin);
+    if (was_facts_fetcher) facts_fetchers_.add_plugin(plugin);
   };
   // A log line is not a dispatch, so unload_plugin does not wait for one,
   // and the unloaded flag it sets only stops lines that have not reached the

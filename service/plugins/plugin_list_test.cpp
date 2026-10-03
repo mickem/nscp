@@ -262,14 +262,15 @@ TEST_F(SimplePluginsListTest, RemovePluginWaitsForAWalkOnAnotherThread) {
     cv.wait(lock, [&]() { return entered; });
   }
 
-  // Not in this list: returns while the walk is still inside the callback.
+  // Not in this list: says so, and returns while the walk is still inside
+  // the callback.
   const auto started = std::chrono::steady_clock::now();
-  list_->remove_plugin(42);
+  EXPECT_FALSE(list_->remove_plugin(42));
   EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
 
   std::atomic<bool> removed{false};
   std::thread remover([&]() {
-    list_->remove_plugin(1);
+    EXPECT_TRUE(list_->remove_plugin(1));
     removed = true;
   });
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -528,7 +529,7 @@ TEST(PluginsListListenersImplTest, RemovePluginLeavesNoStaleId) {
 
   impl.remove_plugin(1);
 
-  for (const auto &entry : impl.listeners_) {
+  for (const auto& entry : impl.listeners_) {
     EXPECT_TRUE(entry.second.count(1) == 0) << "stale id left in channel " << entry.first;
   }
 }

@@ -13,6 +13,8 @@ a log-handler module after 5 s`; the module stays loaded and serving, and the
 unload can be retried. A module whose reload failed while such a line was
 still being handled is taken out of service and unloaded at shutdown instead,
 with `Removing <module> after its failed reload; it is unloaded at shutdown,
-…` in the log. A log line a log-handler module itself writes is no longer
+…` in the log. At shutdown, a module a log line is still being handled in
+after five seconds is left loaded rather than torn down under it, with
+`Leaving <module> loaded at shutdown: …`. A log line a log-handler module itself writes is no longer
 handed to the log handlers again, on any log backend; it still reaches the
 console or the log file.

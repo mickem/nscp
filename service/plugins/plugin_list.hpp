@@ -15,6 +15,7 @@
 #include <str/xtos.hpp>
 #include <threads/in_flight.hpp>
 #include <utility>
+#include <vector>
 
 #include "plugin_interface.hpp"
 
@@ -99,12 +100,13 @@ struct simple_plugins_list : boost::noncopyable {
   // module that was never in this one has nothing a walk could still be
   // calling, so parking its unload behind a slow metrics or facts round
   // would be the stall do_all was changed to avoid.
-  void remove_plugin(unsigned long id) {
+  // Returns whether the plugin was in this list (and so has been taken out).
+  bool remove_plugin(unsigned long id) {
     std::uint64_t cutoff = 0;
     bool erased = false;
     {
       const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
-      if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id))) return;
+      if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id))) return false;
       auto it = plugins_.begin();
       while (it != plugins_.end()) {
         if ((*it)->get_id() == id) {
@@ -114,10 +116,11 @@ struct simple_plugins_list : boost::noncopyable {
           ++it;
         }
       }
-      if (!erased) return;
+      if (!erased) return false;
       cutoff = walks_.cutoff();
     }
     wait_for_walks(cutoff, std::chrono::seconds(10), "plugins_list::remove_plugin" + str::xtos(id));
+    return true;
   }
 
   // Whether anything is registered here. A failed lock reads as empty: the
@@ -151,11 +154,13 @@ struct simple_plugins_list : boost::noncopyable {
   // plugin; metrics_fetcher still catches per plugin as a backstop.
   void do_all(const boost::function<void(plugin_type)> &fun) {
     threads::in_flight::guard walking(walks_);
-    simple_plugin_list_type snapshot;
+    // A vector, as master_plugin_list::get_plugins returns: one allocation
+    // per walk rather than a node per plugin.
+    std::vector<plugin_type> snapshot;
     {
       const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
       if (!has_valid_lock_log(readLock, "plugins_list::list")) return;
-      snapshot = plugins_;
+      snapshot.assign(plugins_.begin(), plugins_.end());
       walking.enter();
     }
     for (const plugin_type &p : snapshot) {
