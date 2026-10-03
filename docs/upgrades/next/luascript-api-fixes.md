@@ -25,8 +25,13 @@ check your scripts against the ones marked *check*:
   integer, so `true` came back as the default. `Settings:set_bool` writes `true`/`false`.
 - *Check:* `Core:simple_exec` returns `"unknown"` and `Failed to execute <command> on <target>` when
   nothing could run the command; it returned `"warning"` and `Command failed.`.
-- *Check:* `Core:simple_submit` on a channel nobody listens to returns `false` and
-  `Failed to submit message: <channel>`; it raised a Lua error.
+- *Check:* `Core:simple_submit` returns `false` with the handler's message when a handler rejects
+  the result; it returned `true` whenever the channel had a listener. On a channel nobody listens to
+  it returns `false` and `Failed to submit message: <channel>`, and an answer from several listeners
+  no longer raises a Lua error.
+- Lua checks kept answering `Unknown command` for as long as a reload of LUAScript took: their
+  registrations were withdrawn before the reloaded scripts made them again. They stay registered
+  now, and a check that arrives during the reload waits for it.
 - `main` that returns only a status no longer prints `NIL` for the missing message.
 - A check handler that returns no status answers `unknown` with
   `Invalid return from <command>: expected (code, message, perf)`; a missing message or performance
@@ -38,7 +43,8 @@ check your scripts against the ones marked *check*:
 - `Core:exec`, `Core:submit`, `Registry:cmdline` and `Registry:subscription` are still not
   implemented; the error they raise now names the call (`Unsupported API called: Core:exec`).
 - `nscp lua show --script <name>` prints the script and `nscp lua delete --script <name>` deletes it
-  and removes every `/settings/lua/scripts` entry that loads it. Both answered with nothing before,
+  and removes every `/settings/lua/scripts` entry that loads it - for a symlink, the entries that load
+  the link, never those of the file it points at. Both answered with nothing before,
   so `GET` and `DELETE` on `/api/v2/scripts/lua/<name>` returned an empty `200` and changed nothing.
   They act on files under `${scripts}/lua` only, symlinks resolved. Review custom roles that hold
   `scripts.get.LUAScript`, `scripts.delete.LUAScript` or `scripts.*`; see the

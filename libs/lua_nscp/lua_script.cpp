@@ -245,10 +245,13 @@ int lua::core_wrapper::reload(lua_State *L) {
 int lua::core_wrapper::log(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<CoreData>();
-  // log([level], message)
-  if (method_args(lua_instance) < 2) return lua_instance.error("Incorrect syntax: log(level, message)");
+  // log([level], message): the level is optional and defaults to info. With
+  // one argument the old count let the call through and parsed the Core object
+  // as the level, so scripts call it that way; keep that working, on purpose.
+  const int args = method_args(lua_instance);
+  if (args < 1) return lua_instance.error("Incorrect syntax: log([level], message)");
   const std::string message = lua_instance.pop_string();
-  const std::string level = lua_instance.pop_string();
+  const std::string level = args >= 2 ? lua_instance.pop_string() : "info";
   // Report the location of the log() call in the Lua script rather than this C++ file.
   std::string file = __FILE__;
   int line = __LINE__;

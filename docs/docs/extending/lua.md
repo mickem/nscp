@@ -336,7 +336,8 @@ Submit a passive check result on a channel (e.g. `"NSCA"`, `"NRDP"`).
 | `message` | Message text                                     |
 | `perf`    | Performance data string                          |
 
-`ok` is `true` when the channel took the result and `response` is what it answered. A channel nobody
+`ok` is `true` when every handler on the channel accepted the result, and `response` is what it
+answered. A handler that rejects it makes `ok` `false`, with the handler's message; a channel nobody
 listens on returns `false` and `Failed to submit message: <channel>`.
 
 ```lua
@@ -356,10 +357,11 @@ the call has returned, and the script then starts over as described under [Lifec
 #### `Core:log`
 
 ```lua
-core:log(level, message)
+core:log([level], message)
 ```
 
-Log a message at the specified level. `level` is a string: `"info"`, `"error"`, `"debug"`, etc. The
+Log a message at the specified level, or at `"info"` when only the message is given. `level` is a
+string: `"info"`, `"error"`, `"debug"`, etc. The
 line is attributed to the script and the line that called `log`. `nscp.info()` / `nscp.error()` are
 usually more convenient.
 

@@ -68,8 +68,11 @@ bool scripts::nscp::core_provider_impl::submit_simple_message(const std::string 
     result = "Failed to submit message: " + channel;
     return false;
   }
-  nscapi::protobuf::functions::parse_simple_submit_response(response, result);
-  return true;
+  // Whether every handler accepted it, not merely whether one was found: a
+  // handler that rejected the message used to read as a successful submit.
+  // The multi parser also takes the answer of a channel with several
+  // listeners, or none, where the single one threw.
+  return nscapi::protobuf::functions::parse_multi_submit_response(response, result);
 }
 
 NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::string &command, const std::list<std::string> &argument, std::string &msg,

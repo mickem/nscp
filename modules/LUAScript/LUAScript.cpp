@@ -43,7 +43,11 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     }
     const std::shared_ptr<scripts::script_manager<lua::lua_traits> > previous =
         std::atomic_exchange(&scripts_, std::shared_ptr<scripts::script_manager<lua::lua_traits> >());
-    if (previous) previous->unload_all(true);
+    // The previous generation's registrations stay in the core until this one
+    // has loaded: a call arriving meanwhile then waits for the reload instead
+    // of being told the command does not exist.
+    scripts::script_manager<lua::lua_traits>::registration_list registered;
+    if (previous) registered = previous->unload_all();
     root_ = get_core()->expand_path("${scripts}");
     const auto nscp_runtime = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
     // The lua runtime builds package.path for require() from this folder's
@@ -83,7 +87,9 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // A script that fails to load is reported and the others load anyway; the
     // first failure used to abort the walk and fail the whole module, taking
     // every other script down with one that did not parse.
-    std::atomic_load(&scripts_)->load_all([](const std::string &, const std::string &error) { NSC_LOG_ERROR_STD(error); });
+    const std::shared_ptr<scripts::script_manager<lua::lua_traits> > loaded = std::atomic_load(&scripts_);
+    loaded->load_all([](const std::string &, const std::string &error) { NSC_LOG_ERROR_STD(error); });
+    loaded->unregister_stale(registered);
     // Not started here: the core calls startModule once every module this
     // load (or reload) brings in is loaded, so on_start can rely on them.
   } catch (const std::exception &e) {
