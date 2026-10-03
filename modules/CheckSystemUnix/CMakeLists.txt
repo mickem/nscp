@@ -191,6 +191,12 @@ NSCP_CREATE_TEST(
         network_facts_unix_test.cpp
         collector_calc.cpp
         collector_calc_test.cpp
+        realtime_thread.cpp
+        realtime_thread_test.cpp
+        realtime_data.cpp
+        filter_config_object.cpp
+        check_cpu.cpp
+        check_memory.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
         ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
         ${NSCP_INCLUDEDIR}/facts/software_facts.cpp
