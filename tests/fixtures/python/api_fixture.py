@@ -27,6 +27,10 @@ seen_submissions = []
 seen_events = []
 seen_event_pb = []
 seen_metrics = {}
+# Deliveries per record (keyed by the record's `core`), and event_pb calls, so
+# the test can tell a message delivered once from one delivered per record.
+event_records = {}
+event_pb_calls = [0]
 
 
 def lifecycle(line):
@@ -139,6 +143,12 @@ def py_seen(args):
         return (status.OK, '\n'.join(seen_events) or 'none')
     if what == 'event_pb':
         return (status.OK, '\n'.join(seen_event_pb) or 'none')
+    if what == 'event_counts':
+        # Read in one go, under the GIL, so the two numbers belong together.
+        per_record = sorted(event_records.values())
+        return (status.OK, 'pb=%d records=%d min=%d max=%d' % (
+            event_pb_calls[0], len(per_record), per_record[0] if per_record else 0,
+            per_record[-1] if per_record else 0))
     if what == 'metrics':
         return (status.OK, '\n'.join('%s=%s' % (k, v) for k, v in sorted(seen_metrics.items())
                                      if 'pyapi' in k) or 'none')
@@ -147,10 +157,13 @@ def py_seen(args):
 
 def on_event(event, data):
     seen_events.append('%s keys=%d' % (event, len(data)))
+    record = data.get('core', '')
+    event_records[record] = event_records.get(record, 0) + 1
 
 
 def on_event_pb(event, request):
     seen_event_pb.append('%s %s %d' % (event, type(request).__name__, len(request)))
+    event_pb_calls[0] += 1
 
 
 def fetch_metrics():

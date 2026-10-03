@@ -47,11 +47,13 @@ import {
   WARNING,
   describeWithModules,
   executeQuery,
+  itOnUnix,
   messageOf,
   onWindows,
   perfOf,
   pollQuery,
   putSettings,
+  QueryResult,
   setupQueryNscp,
 } from "@fixtures/index";
 
@@ -310,6 +312,15 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         expect(messageOf(r)).toBe("exec py_cli_echo: code=0 lines=cli: hello");
       });
 
+      it("simple_exec on the `any` target reports the module that ran it as a success", async () => {
+        const r = await executeQuery(key, "py_exec", {
+          module: "any",
+          command: "py_cli_echo",
+          arg: "hello",
+        });
+        expect(messageOf(r)).toBe("exec py_cli_echo: code=0 lines=cli: hello");
+      });
+
       it("simple_submit lands on the channel it names", async () => {
         const r = await executeQuery(key, "py_submit", {
           channel: "PYRESULTS",
@@ -530,6 +541,25 @@ describeWithModules("PythonScript")("PythonScript API", () => {
       });
     });
 
+    describe("event delivery", () => {
+      it("hands event_pb each message once, and event each record of it once", async () => {
+        // A real-time CPU filter sends one message with a record per core.
+        // The core used to deliver that message once per record, and each
+        // delivery walked every record: N records arrived N² times.
+        const parse = (q: QueryResult) => {
+          const m = /^pb=(\d+) records=(\d+) min=(\d+) max=(\d+)$/.exec(messageOf(q));
+          if (!m) throw new Error(`unexpected event_counts: ${messageOf(q)}`);
+          return { pb: Number(m[1]), records: Number(m[2]), min: Number(m[3]), max: Number(m[4]) };
+        };
+        const q = await pollQuery(key, "py_seen", { event_counts: "" }, (r) => parse(r).pb >= 3);
+        const c = parse(q);
+        expect(c.records).toBeGreaterThan(0);
+        // Read mid-message, the records not yet delivered lag by one.
+        expect(c.max).toBeLessThanOrEqual(c.pb);
+        expect(c.min).toBeGreaterThanOrEqual(c.pb - 1);
+      });
+    });
+
     describe("Registry.fetch_metrics / submit_metrics", () => {
       it("hands the script's own metric back to its submit handler", async () => {
         const r = await pollQuery(key, "py_seen", { metrics: "" }, (q) => messageOf(q) !== "none");
@@ -687,6 +717,35 @@ describeWithModules("PythonScript")("PythonScript API", () => {
           .trustLocalhost(true)
           .expect(403);
         expect(fs.readFileSync(file, "utf8")).toBe(before);
+      });
+
+      itOnUnix("GET and DELETE do not follow a symlink out of the scripts folder", async () => {
+        const secret = path.join(nscp.workDir, "rest-secret.txt");
+        fs.writeFileSync(secret, "not a script\n");
+        const link = path.join(scripts, "python", "rest_leak.py");
+        fs.symlinkSync(secret, link);
+        try {
+          const show = await request(REST_URL)
+            .get("/api/v2/scripts/py/rest_leak.py")
+            .set(auth())
+            .buffer(true)
+            .parse(rawText)
+            .trustLocalhost(true);
+          expect(show.status).toBe(500);
+          expect(show.body).toContain("Not allowed outside");
+          expect(show.body).not.toContain("not a script");
+
+          const del = await request(REST_URL)
+            .delete("/api/v2/scripts/py/rest_leak.py")
+            .set(auth())
+            .buffer(true)
+            .parse(rawText)
+            .trustLocalhost(true);
+          expect(del.status).toBe(500);
+          expect(fs.readFileSync(secret, "utf8")).toBe("not a script\n");
+        } finally {
+          fs.rmSync(link, { force: true });
+        }
       });
 
       it("an uploaded script that does not parse is logged and the module keeps serving", async () => {
@@ -921,6 +980,48 @@ describeWithModules("PythonScript")("PythonScript API", () => {
       }
       expect(fs.existsSync(nscp.settingsFile)).toBe(true);
     });
+
+    itOnUnix(
+      "`nscp py show` and `delete` do not follow a symlink out of the scripts folder",
+      async () => {
+        const outside = path.join(nscp.workDir, "outside");
+        fs.mkdirSync(outside, { recursive: true });
+        const secret = path.join(outside, "secret.py");
+        fs.writeFileSync(secret, "# not yours\n");
+        // A link to a file, and a linked folder with the file inside it.
+        fs.symlinkSync(secret, path.join(scripts, "python", "leak.py"));
+        fs.symlinkSync(outside, path.join(scripts, "python", "linked"));
+        try {
+          for (const name of ["leak.py", "linked/secret.py"]) {
+            for (const verb of ["show", "delete"]) {
+              const r = await py([verb, "--script", name]);
+              expect(r.all).toContain("Not allowed outside");
+              expect(r.all).not.toContain("# not yours");
+              expect(r.exitCode).not.toBe(0);
+            }
+          }
+          expect(fs.readFileSync(secret, "utf8")).toBe("# not yours\n");
+        } finally {
+          fs.rmSync(path.join(scripts, "python", "leak.py"), { force: true });
+          fs.rmSync(path.join(scripts, "python", "linked"), { force: true });
+        }
+      },
+    );
+
+    itOnUnix(
+      "`nscp py delete` of a symlink inside the folder removes the link, not its target",
+      async () => {
+        const target = path.join(scripts, "python", "real_target.py");
+        fs.writeFileSync(target, "# stays\n");
+        const link = path.join(scripts, "python", "inner_link.py");
+        fs.symlinkSync(target, link);
+        const r = await py(["delete", "--script", "inner_link.py"]);
+        expect(r.exitCode).toBe(0);
+        expect(fs.existsSync(link)).toBe(false);
+        expect(fs.readFileSync(target, "utf8")).toBe("# stays\n");
+        fs.rmSync(target);
+      },
+    );
 
     it("`nscp py install` adds and removes configured scripts", async () => {
       const add = await py(["install", "--add", "alias_probe.py"]);
