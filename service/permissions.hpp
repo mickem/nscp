@@ -97,15 +97,6 @@ class permissions {
     add_rule_locked(subject_pattern, objects_csv);
   }
 
-  // Drop all rules. Used on settings reload before re-registering the
-  // policies tree. Other settings (enabled / log_*) survive because they
-  // are set via separate keys that the registry rebinds before the
-  // policies are re-added.
-  void clear_rules() {
-    std::lock_guard<std::mutex> lk(mutex_);
-    rules_.clear();
-  }
-
   std::size_t rule_count() const {
     std::lock_guard<std::mutex> lk(mutex_);
     return rules_.size();
@@ -115,10 +106,12 @@ class permissions {
   // `staged`'s in one step under the mutex. A reload builds the new policy
   // into a local permissions object and swaps it in through this, so a
   // request arriving mid-reload sees either the old table or the new one.
-  // Rebuilding in place (clear_rules(), then set_*, then one add_rule() per
-  // policy) left a window where enabled_ was true and rules_ empty, and
+  // Rebuilding in place (clearing the table, then set_*, then one add_rule()
+  // per policy) left a window where enabled_ was true and rules_ empty, and
   // every call in it was denied: a burst of 'permissions: denied' UNKNOWNs
-  // on every settings reload while checks were flowing.
+  // on every settings reload while checks were flowing. There is no way to
+  // clear the live table on its own for that reason; a reload that cannot
+  // build its replacement leaves the previous policy in force.
   //
   // `staged` is left empty (no rules, flags at their defaults).
   void replace(permissions& staged) {
