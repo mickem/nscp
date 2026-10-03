@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <scripts/script_interface.hpp>
@@ -64,4 +65,29 @@ TEST(script_manager, concurrent_adds_get_distinct_ids_and_are_all_unloaded) {
   EXPECT_EQ(static_cast<std::size_t>(threads * per_thread), ids.size());
   manager.unload_all();
   EXPECT_EQ(threads * per_thread, runtime->unloaded.load());
+}
+
+TEST(script_manager, unload_all_leaks_rather_than_frees_scripts_still_running) {
+  // unload_all() waits 5 s for other threads to leave their scripts. One
+  // that is still inside after that used to have the script deleted under
+  // it; the scripts are now left allocated (and not unloaded) instead.
+  auto runtime = std::make_shared<counting_runtime>();
+  scripts::script_manager<fake_traits> manager(runtime, std::make_shared<fake_nscp_runtime>(), 1, "test");
+  manager.add("alias", "script");
+
+  std::promise<void> entered, release;
+  std::thread runner([&] {
+    scripts::script_manager<fake_traits>::dispatch_guard guard(manager);
+    ASSERT_TRUE(guard.entered());
+    entered.set_value();
+    release.get_future().wait();
+  });
+  entered.get_future().wait();
+
+  manager.unload_all();
+  EXPECT_EQ(0, runtime->unloaded.load()) << "a script another thread is still running was unloaded and freed";
+  EXPECT_TRUE(manager.empty()) << "the scripts are out of the manager either way";
+
+  release.set_value();
+  runner.join();
 }

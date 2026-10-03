@@ -287,12 +287,22 @@ struct script_manager {
       unloading_ = true;
       const boost::thread::id self = boost::this_thread::get_id();
       const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(5);
+      bool still_running = false;
       while (dispatchers_.size() != dispatchers_.count(self)) {
-        if (!idle_.timed_wait(lock, deadline)) break;
+        if (!idle_.timed_wait(lock, deadline)) {
+          still_running = dispatchers_.size() != dispatchers_.count(self);
+          break;
+        }
       }
       commands.clear();
       doomed.swap(scripts_);
       unloading_ = false;
+      // Another thread is still inside a script - a check that runs long, or
+      // load_all()/start_all() on a slow script - and freeing the scripts
+      // would pull them out from under it. Leak them instead: they are out of
+      // the maps, so nothing new can reach them, and a leaked interpreter
+      // state costs memory where a freed one costs the agent.
+      if (still_running) return;
     }
     // Outside the lock: unload() runs script code, which can call back in.
     for (typename script_list_type::value_type &entry : doomed) {
