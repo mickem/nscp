@@ -174,6 +174,12 @@ void script_wrapper::log_exception(const std::string &file, const int line, std:
       return;
     }
     std::string err_text = py::extract<std::string>(err.attr("getvalue")());
+    // Empty the buffer once it is logged. It is a StringIO that only a script
+    // load ever replaced, so every exception used to be logged together with
+    // every traceback before it: a handler that raised on each event grew the
+    // log quadratically.
+    err.attr("seek")(0);
+    err.attr("truncate")(0);
     NSC_LOG_ERROR_STD("Error from python script: " + err_text);
     PyErr_Clear();
   } catch (const std::exception &e) {
@@ -323,7 +329,7 @@ py::tuple script_wrapper::function_wrapper::register_event_pb(std::string event,
     nscapi::core_helper ch(core, plugin_id);
     ch.register_event(event);
     py::handle<> h(py::borrowed(callable));
-    functions::get()->normal_handler[event] = h;
+    functions::get()->pb_event_handler[event] = h;
     return py::make_tuple(true, "");
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Query failed: ", e);
@@ -339,7 +345,7 @@ py::tuple script_wrapper::function_wrapper::register_event(std::string event, Py
     nscapi::core_helper ch(core, plugin_id);
     ch.register_event(event);
     py::handle<> h(py::borrowed(callable));
-    functions::get()->simple_handler[event] = h;
+    functions::get()->simple_event_handler[event] = h;
     return py::make_tuple(true, "");
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Query failed: ", e);
@@ -615,12 +621,12 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 bool script_wrapper::function_wrapper::has_event_handler(const std::string channel) {
   // Same maps as the dispatch paths: read them under the GIL.
   thread_locker locker;
-  return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
+  return functions::get()->pb_event_handler.find(channel) != functions::get()->pb_event_handler.end();
 }
 bool script_wrapper::function_wrapper::has_simple_event_handler(const std::string channel) {
   // Same maps as the dispatch paths: read them under the GIL.
   thread_locker locker;
-  return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
+  return functions::get()->simple_event_handler.find(channel) != functions::get()->simple_event_handler.end();
 }
 
 void script_wrapper::function_wrapper::on_event(const std::string event, const std::string &request) const {
@@ -630,8 +636,8 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
     // from Python, so the GIL is what keeps the two apart.
     thread_locker locker;
     const std::shared_ptr<functions> fns = functions::get();
-    functions::function_map_type::iterator it = fns->normal_handler.find(event);
-    if (it == fns->normal_handler.end()) {
+    functions::function_map_type::iterator it = fns->pb_event_handler.find(event);
+    if (it == fns->pb_event_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + event);
       return;
     }
@@ -657,8 +663,8 @@ void script_wrapper::function_wrapper::on_simple_event(const std::string event, 
     // from Python, so the GIL is what keeps the two apart.
     thread_locker locker;
     const std::shared_ptr<functions> fns = functions::get();
-    functions::function_map_type::iterator it = fns->simple_handler.find(event);
-    if (it == fns->simple_handler.end()) {
+    functions::function_map_type::iterator it = fns->simple_event_handler.find(event);
+    if (it == fns->simple_event_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + event);
       return;
     }

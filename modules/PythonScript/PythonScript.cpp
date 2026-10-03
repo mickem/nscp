@@ -33,7 +33,10 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   // settings on - an empty one turned /settings/<script>/<plugin_alias>/...
   // into a path with an empty segment.
   alias_ = alias.empty() ? "python" : alias;
-  script_wrapper::command_wrapper::register_self(get_id(), "PythonScript", alias_);
+  // The names this module answers to in the core, which is the alias it was
+  // loaded as - not the `python` stand-in above: a module loaded without an
+  // alias is not called `python` there, and another module may be.
+  script_wrapper::command_wrapper::register_self(get_id(), "PythonScript", alias);
 
   if (mode == NSCAPI::reloadStart) {
     nscapi::core_helper ch(get_core(), get_id());

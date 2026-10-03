@@ -90,6 +90,11 @@ struct functions {
 
   function_map_type simple_handler;
   function_map_type normal_handler;
+  // Event handlers, apart from the channel handlers above: an event and a
+  // channel may share a name, and a channel handler must never be handed an
+  // event (nor an event handler a submission) because of it.
+  function_map_type simple_event_handler;
+  function_map_type pb_event_handler;
 
   function_list_type submit_metrics;
   function_list_type fetch_metrics;
