@@ -258,12 +258,19 @@ struct script_manager {
     boost::lock_guard<boost::mutex> lock(mutex_);
     return scripts_;
   }
+  // The snapshot holds raw pointers, so each walk also holds a dispatch_guard:
+  // unload_all() waits for it before deleting anything, and a walk that starts
+  // once an unload is under way does nothing.
   void load_all() {
+    const dispatch_guard guard(*this);
+    if (!guard.entered()) return;
     for (typename script_list_type::value_type &entry : snapshot_scripts()) {
       script_runtime->load(entry.second);
     }
   }
   void start_all() {
+    const dispatch_guard guard(*this);
+    if (!guard.entered()) return;
     for (typename script_list_type::value_type &entry : snapshot_scripts()) {
       script_runtime->start(entry.second);
     }
