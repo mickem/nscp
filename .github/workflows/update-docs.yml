@@ -92,9 +92,9 @@ jobs:
       PR_BRANCH: docs/reference-${{ github.ref_name }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -108,7 +108,7 @@ jobs:
     # a directory, each slice lands in its own folder under
     # $RUNNER_TEMP/docs-slices.
     - name: Download the extracted documentation from the three builds
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         pattern: docs-reference-*
         path: ${{ runner.temp }}/docs-slices
