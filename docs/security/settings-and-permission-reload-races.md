@@ -3,7 +3,7 @@ title: "Settings reload races: included settings stores and the permission table
 fixed_in: next
 severity: "Low; Medium where an HTTP settings source enables the permission policy"
 modules: [core]
-action: none
+action: conditional
 ---
 A concurrency review of the core found places where a settings reload raced
 with the threads still reading the configuration, or left it unreadable.
@@ -20,22 +20,29 @@ with the threads still reading the configuration, or left it unreadable.
 - A plugin reload cleared every included settings store, and an HTTP store
   never rebuilt what it held: from then on every value it supplied read as its
   default - security settings included, such as a permission policy the
-  remote file enabled - until the remote file next changed. It now rebuilds
-  on its cached copy. A copy that cannot be loaded (antivirus still holding
-  the file just downloaded, say) no longer replaces the previous one, and is
+  remote file enabled - until the remote file next changed. It now keeps
+  the configuration it has across the reload. A newly downloaded copy that
+  cannot be loaded (antivirus still holding the file, say), or that times out
+  waiting for the store's lock, no longer replaces the previous one, and is
   tried again on the next pass.
 - With the [permission policy](../concepts/permissions.md) enabled, a reload
   cleared the rule table and refilled it one rule at a time, so a check that
   arrived in between was denied. That failed closed, so nothing was let
   through, but every reload produced a burst of spurious denials. The table is
   now rebuilt aside and published in one step. A load that fails part-way
-  still fails closed: the rules read before the failure are enforced, every
-  other call is denied, and `allow exec` counts as `false` unless it was read,
-  until the policy loads. Only an `enabled = false` that was actually read
-  turns the policy off.
+  no longer keeps the previous table, whose rules the operator may just have
+  removed: under an enabled policy the rules read before the failure are
+  enforced, every other call is denied, and `allow exec` counts as `false`
+  unless it was read, until the policy loads. A failure before `enabled` is
+  read leaves the policy as it was - off on a host that never enabled it,
+  enforced on one that did - and at boot that means off until a reload reads
+  it.
 
 None is known to have been exploited. Beyond crashing the agent or denying a
 check, the only effect is the HTTP case above: settings read as their defaults
 after a plugin reload.
 
-**What to do:** nothing beyond upgrading.
+**What to do:** nothing beyond upgrading, unless you enable the permission
+policy: a reload that fails part-way now denies calls (and exec) instead of
+keeping the previous rules, so watch for `permissions: failed to load` in the
+log, which names the failure.
