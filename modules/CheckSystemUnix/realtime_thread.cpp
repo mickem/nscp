@@ -3,7 +3,6 @@
 
 #include "realtime_thread.hpp"
 
-#include <poll.h>
 
 #include <algorithm>
 #include <atomic>
@@ -33,31 +32,27 @@ namespace {
 // Wait out the second between samples on the stop signal, so stop() ends the
 // wait at once. Returns true when the collector should stop.
 //
-// Measured against steady_clock and polled for what is left of it: poll()'s
-// timeout is relative, so a step of the wall clock does not stretch the wait
-// (a condition variable's timed wait can, on libc++), and a signal that
-// interrupts poll() (EINTR) resumes the wait rather than taking the next
-// sample early, which would skew the per-second averages. Should poll()
-// itself fail, the rest of the second is slept out instead: the collector
-// keeps sampling - only a stop takes longer to notice - rather than ending
-// and leaving check_cpu and check_memory answering from a frozen buffer.
+// stop_signal::wait_for() keeps to the second whatever the wall clock or a
+// signal handler does (see there). Should the wait itself fail, the rest of
+// the second is slept out instead: the collector keeps sampling - only a stop
+// takes longer to notice - rather than ending and leaving check_cpu and
+// check_memory answering from a frozen buffer.
 bool wait_for_next_sample(const threads::stop_signal &stop_signal, const std::atomic<bool> &stop_requested) {
   const std::chrono::steady_clock::time_point due = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-  while (!stop_requested) {
-    const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(due - std::chrono::steady_clock::now());
-    if (left.count() <= 0) return false;
-    struct pollfd stop_fd = {stop_signal.wait_fd(), POLLIN, 0};
-    const int ready = ::poll(&stop_fd, 1, static_cast<int>(left.count()));
-    if (ready > 0) return true;
-    if (ready == 0 || errno == EINTR) continue;
-    static std::atomic<bool> reported{false};
-    if (!reported.exchange(true)) {
-      NSC_LOG_ERROR("Failed to wait on the collector's stop signal, sleeping between samples instead: " + error::lookup::last_error(errno));
-    }
-    std::this_thread::sleep_for(left);
-    return stop_requested;
+  switch (stop_signal.wait_for(std::chrono::seconds(1))) {
+    case threads::stop_signal::wait_result::signalled:
+      return true;
+    case threads::stop_signal::wait_result::timed_out:
+      return stop_requested;
+    case threads::stop_signal::wait_result::failed:
+      break;
   }
-  return true;
+  static std::atomic<bool> reported{false};
+  if (!reported.exchange(true)) {
+    NSC_LOG_ERROR("Failed to wait on the collector's stop signal, sleeping between samples instead: " + error::lookup::last_error(errno));
+  }
+  std::this_thread::sleep_until(due);
+  return stop_requested;
 }
 }  // namespace
 

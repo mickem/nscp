@@ -3,13 +3,17 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <set>
 #include <string>
+#include <thread>
 #include <threads/stop_signal.hpp>
 
 #ifndef WIN32
 #include <fcntl.h>
 #include <poll.h>
+#include <pthread.h>
+#include <signal.h>
 #endif
 
 namespace {
@@ -71,5 +75,62 @@ TEST(stop_signal, pipe_is_not_inherited_by_child_processes) {
   ASSERT_EQ(opened.size(), 2u);
   EXPECT_EQ(opened.count(signal.wait_fd()), 1u);
   for (const int fd : opened) EXPECT_NE(::fcntl(fd, F_GETFD) & FD_CLOEXEC, 0) << "descriptor " << fd;
+}
+#endif
+
+TEST(stop_signal, wait_for_times_out_when_not_signalled) {
+  threads::stop_signal signal;
+  std::string error;
+  ASSERT_TRUE(signal.create(error)) << error;
+  const auto before = std::chrono::steady_clock::now();
+  EXPECT_EQ(threads::stop_signal::wait_result::timed_out, signal.wait_for(std::chrono::milliseconds(50)));
+  EXPECT_GE(std::chrono::steady_clock::now() - before, std::chrono::milliseconds(50));
+}
+
+TEST(stop_signal, wait_for_returns_as_soon_as_signalled) {
+  threads::stop_signal signal;
+  std::string error;
+  ASSERT_TRUE(signal.create(error)) << error;
+  std::thread signaller([&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    signal.signal();
+  });
+  const auto before = std::chrono::steady_clock::now();
+  EXPECT_EQ(threads::stop_signal::wait_result::signalled, signal.wait_for(std::chrono::seconds(30)));
+  EXPECT_LT(std::chrono::steady_clock::now() - before, std::chrono::seconds(10));
+  signaller.join();
+}
+
+TEST(stop_signal, wait_for_fails_on_a_signal_that_was_never_created) {
+  const threads::stop_signal signal;
+  EXPECT_EQ(threads::stop_signal::wait_result::failed, signal.wait_for(std::chrono::milliseconds(10)));
+}
+
+#ifndef WIN32
+namespace {
+void ignore_signal(int) {}
+}  // namespace
+
+TEST(stop_signal, wait_for_resumes_after_an_interrupting_signal) {
+  // A signal handler interrupts poll() with EINTR. That used to count as the
+  // wait being over, so the collector took its next sample early.
+  struct sigaction action = {};
+  action.sa_handler = ignore_signal;  // no SA_RESTART: poll() returns EINTR
+  struct sigaction previous = {};
+  ASSERT_EQ(0, ::sigaction(SIGUSR1, &action, &previous));
+
+  threads::stop_signal signal;
+  std::string error;
+  ASSERT_TRUE(signal.create(error)) << error;
+  const pthread_t waiter = ::pthread_self();
+  std::thread interrupter([waiter] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ::pthread_kill(waiter, SIGUSR1);
+  });
+  const auto before = std::chrono::steady_clock::now();
+  EXPECT_EQ(threads::stop_signal::wait_result::timed_out, signal.wait_for(std::chrono::milliseconds(300)));
+  EXPECT_GE(std::chrono::steady_clock::now() - before, std::chrono::milliseconds(300));
+  interrupter.join();
+  ::sigaction(SIGUSR1, &previous, nullptr);
 }
 #endif

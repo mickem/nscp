@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <exception>
 #include <string>
 
@@ -11,6 +12,7 @@
 #include <windows.h>
 #else
 #include <fcntl.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -138,6 +140,40 @@ class stop_signal {
       fd = -1;
     }
 #endif
+  }
+
+  enum class wait_result { signalled, timed_out, failed };
+
+  // Block for up to `timeout`, or until signal() is called. `failed` leaves
+  // the OS error in errno (GetLastError() on Windows) for the caller to
+  // report; a signal that was never created fails too.
+  //
+  // The deadline is measured on steady_clock and each wait asks for what is
+  // left of it, so neither a step of the wall clock (which stretches a
+  // condition variable's timed wait on libc++) nor a signal handler
+  // interrupting poll() (EINTR) changes how long it waits: an interrupted
+  // wait resumes rather than ending early.
+  wait_result wait_for(std::chrono::milliseconds timeout) const {
+    if (!valid()) return wait_result::failed;
+    const std::chrono::steady_clock::time_point due = std::chrono::steady_clock::now() + timeout;
+    for (;;) {
+      const auto remaining = due - std::chrono::steady_clock::now();
+      if (remaining <= std::chrono::steady_clock::duration::zero()) return wait_result::timed_out;
+      // Rounded up: truncating would end the wait up to a millisecond early.
+      const auto left = std::chrono::ceil<std::chrono::milliseconds>(remaining);
+#ifdef WIN32
+      const DWORD rc = ::WaitForSingleObject(handle_, static_cast<DWORD>(left.count()));
+      if (rc == WAIT_OBJECT_0) return wait_result::signalled;
+      if (rc == WAIT_TIMEOUT) continue;
+      return wait_result::failed;
+#else
+      struct pollfd fd = {fds_[0], POLLIN, 0};
+      const int ready = ::poll(&fd, 1, static_cast<int>(left.count()));
+      if (ready > 0) return wait_result::signalled;
+      if (ready == 0 || errno == EINTR) continue;
+      return wait_result::failed;
+#endif
+    }
   }
 
 #ifdef WIN32
