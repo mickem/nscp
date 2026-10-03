@@ -936,8 +936,8 @@ describeWithModules("PythonScript")("PythonScript API", () => {
       expect(messageOf(off)).toBe("Metrics displayed disabled");
     });
 
-    it("its help command answers `nscp client --exec`", async () => {
-      const r = await nscp.run(["client", "--module", "PythonScript", "--exec", "help"], {
+    it("its world_help command answers `nscp client --exec`", async () => {
+      const r = await nscp.run(["client", "--module", "PythonScript", "--exec", "world_help"], {
         allowFailure: true,
       });
       expect(r.stdout).toContain("Need help? Sorry, Im not help full my friend...");
