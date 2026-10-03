@@ -101,13 +101,18 @@
 // keeps only the touched part resident, while Windows commits all of it. And
 // while a list grows, its old buffer and the new one twice its size exist
 // together, so the peak during the parse is up to three times what the samples
-// use. With no limits, a body costs, resident once parsed: eleven to fifteen
-// times its size when it is label-heavy, up to twenty-one allocated and
-// twenty-eight at the peak when each sample carries one short label; twenty-one
-// when it is one family of short samples, up to forty allocated and sixty at
-// the peak; and about fifty, allocated too, when it is single-sample families
-// with names a few characters long, up to eighty at the peak while the list of
-// families grows. With the default
+// use. With no limits, a body costs, as a multiple of its size - retained once
+// parsed, and at the peak during the parse:
+//
+//   * label-heavy, many labels a sample: 11 retained, 11 at the peak;
+//   * one short label a sample: 14 to 21 retained, up to 28 at the peak;
+//   * one family of short samples: 21 to 40 retained (21 resident), up to 60
+//     at the peak;
+//   * single-sample families: 22 to 50 retained - the shorter the names, the
+//     more - and up to 80 at the peak, while the list of families grows.
+//
+// Where in a range a body falls depends on where its last list doubling
+// landed. With the default
 // limits, the worst body - 16-character label names and values up to
 // `max_labels` - costs about 350 MB beyond its text.
 //

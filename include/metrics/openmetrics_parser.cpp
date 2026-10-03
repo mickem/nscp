@@ -4,7 +4,7 @@
 #include <locale.h>
 
 #include <algorithm>
-#include <cassert>
+#include <array>
 #include <clocale>
 #include <cmath>
 #include <cstdlib>
@@ -168,12 +168,14 @@ double c_strtod(const char *text, char **end) {
 // stream would refuse it on some and read it on others. Overflow is refused:
 // the non-finite values have their own spellings, and `1e400` is not one.
 bool to_double(const std::string_view raw, double &out) {
-  char buffer[64];
+  // `at` rather than `[]` for the terminator: a bound off by one here throws
+  // in every build, instead of writing past the buffer unseen.
+  std::array<char, 64> buffer;
   std::string spill;
-  char *text = buffer;
-  if (raw.size() < sizeof(buffer)) {
-    std::memcpy(buffer, raw.data(), raw.size());
-    buffer[raw.size()] = '\0';
+  char *text = buffer.data();
+  if (raw.size() < buffer.size()) {
+    std::memcpy(buffer.data(), raw.data(), raw.size());
+    buffer.at(raw.size()) = '\0';
   } else {
     spill.assign(raw);
     text = &spill[0];
@@ -187,9 +189,10 @@ bool to_double(const std::string_view raw, double &out) {
 
 // A sample value. Both formats spell the non-finite values in words, and Go's
 // `ParseFloat` - which the reference parser and most exporters use - accepts
-// them in any case, so this does too.
+// them in any case, so this does too: infinity with or without a sign, NaN
+// only without one. OpenMetrics allows no signed NaN either.
 bool read_value(const std::string_view raw, double &out) {
-  if (equals_word(raw, "nan") || equals_word(raw, "+nan") || equals_word(raw, "-nan")) {
+  if (equals_word(raw, "nan")) {
     out = std::numeric_limits<double>::quiet_NaN();
     return true;
   }
@@ -456,13 +459,10 @@ class parser {
   }
 
   // An invariant the reading order is meant to keep did not hold. A body off
-  // the network must never take the agent down, nor be read on regardless:
-  // the parse stops here in every build, and a debug build stops where it
-  // broke as well.
-  bool invariant_broken(const std::string &what) {
-    assert(!"openmetrics parser invariant broken");
-    return fail("internal error: " + what);
-  }
+  // the network must never take the agent down - not even a debug build - nor
+  // be read on regardless: the parse stops here, in every build, with an error
+  // that names what broke.
+  bool invariant_broken(const std::string &what) { return fail("internal error: " + what); }
 
   static std::string declared_again(const std::string_view name) {
     return "metadata for '" + std::string(name) + "' after that family was already declared or sampled";

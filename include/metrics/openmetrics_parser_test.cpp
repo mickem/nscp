@@ -552,6 +552,16 @@ TEST(OpenmetricsParser, LineLimitCountsTheLineAsServed) {
   EXPECT_NE(crlf.error.find("longer than 10 bytes"), std::string::npos) << crlf.error;
   const om::result lf = om::parse("a 12345678\n", text, bounds);
   EXPECT_TRUE(lf.ok()) << lf.error;
+  // A metadata line the same: at the limit before its carriage return.
+  bounds.max_line_bytes = 19;
+  for (const om::format f : {openmetrics, text}) {
+    const om::result help_crlf = om::parse("# HELP x aaaaaaaaaa\r\n", f, bounds);
+    EXPECT_NE(help_crlf.error.find("longer than 19 bytes"), std::string::npos) << help_crlf.error;
+    const om::result help_lf = om::parse("# HELP x aaaaaaaaaa\n", f, bounds);
+    EXPECT_EQ(help_lf.error.find("longer"), std::string::npos) << help_lf.error;
+    ASSERT_EQ(help_lf.families.size(), 1u);
+    EXPECT_EQ(help_lf.families.at(0).help, "aaaaaaaaaa");
+  }
 }
 
 TEST(OpenmetricsParser, BodyEndingInsideTheSecondBlockOfAPairReadsAsTruncated) {
@@ -661,8 +671,58 @@ TEST(OpenmetricsParser, OversizedLineInsideAPairBlockIsJudgedInTheDocumentedOrde
 // enum (a stateset), the three non-finite values, and label values and help
 // text that need every escape - in both formats. The expected families are
 // what the client's own reference parsers read back from the same bodies, so
-// this is the one test here whose expectations no part of this parser wrote.
-// Regenerate both together from the client if either is changed.
+// this is the one test here whose expectations no part of this parser wrote -
+// with one deliberate difference. The client's text parser renames a counter
+// after the OpenMetrics family (`http_requests_total` read back as
+// `http_requests`); this parser keeps every Prometheus text family under the
+// name its samples carry, so the text expectations say
+// `http_requests_total`, and the same for every counter. Regenerate both
+// bodies together from the client if either is changed, and keep that
+// difference when copying the client's families into the text expectations.
+bool same_value(const double a, const double b) { return (std::isnan(a) && std::isnan(b)) || a == b; }
+
+void expect_same_sample(const om::sample &got, const om::sample &want, const std::string &where) {
+  EXPECT_EQ(got.name, want.name) << where;
+  EXPECT_EQ(got.labels, want.labels) << where << " " << got.name;
+  EXPECT_TRUE(same_value(got.value, want.value)) << where << " " << got.name << ": " << got.value << " != " << want.value;
+  EXPECT_EQ(got.timestamp, want.timestamp) << where << " " << got.name;
+}
+
+// `got` is what reading `want`'s body up to a line boundary gives: the same
+// families in the same order, the last one perhaps not yet complete - fewer
+// samples, or metadata still to come before its first sample.
+void expect_prefix_of(const om::result &got, const om::result &want, const std::string &where) {
+  ASSERT_LE(got.families.size(), want.families.size()) << where;
+  for (std::size_t i = 0; i < got.families.size(); ++i) {
+    const om::family &g = got.families.at(i);
+    const om::family &w = want.families.at(i);
+    const bool last = i + 1 == got.families.size();
+    EXPECT_EQ(g.name, w.name) << where;
+    if (!last || !g.samples.empty()) {
+      EXPECT_EQ(g.type, w.type) << where << " " << g.name;
+      EXPECT_EQ(g.help, w.help) << where << " " << g.name;
+      EXPECT_EQ(g.unit, w.unit) << where << " " << g.name;
+    }
+    if (last) {
+      ASSERT_LE(g.samples.size(), w.samples.size()) << where << " " << g.name;
+    } else {
+      ASSERT_EQ(g.samples.size(), w.samples.size()) << where << " " << g.name;
+    }
+    for (std::size_t j = 0; j < g.samples.size(); ++j) expect_same_sample(g.samples.at(j), w.samples.at(j), where);
+  }
+}
+
+void expect_same_families(const om::result &got, const om::result &want, const std::string &where) {
+  ASSERT_EQ(got.families.size(), want.families.size()) << where;
+  expect_prefix_of(got, want, where);
+  for (std::size_t i = 0; i < got.families.size(); ++i) {
+    EXPECT_EQ(got.families.at(i).type, want.families.at(i).type) << where;
+    EXPECT_EQ(got.families.at(i).help, want.families.at(i).help) << where;
+    EXPECT_EQ(got.families.at(i).unit, want.families.at(i).unit) << where;
+    EXPECT_EQ(got.families.at(i).samples.size(), want.families.at(i).samples.size()) << where;
+  }
+}
+
 struct expected_sample {
   const char *name;
   std::vector<std::pair<std::string, std::string> > labels;
@@ -896,15 +956,26 @@ TEST(OpenmetricsParser, PythonClientTextReadsAsTheReferenceParserReadsIt) {
 
 TEST(OpenmetricsParser, PythonClientBodiesSurviveEveryCut) {
   // The same bodies cut at every byte: a cut on a line feed reads as the
-  // lines before it, any other cut is refused.
+  // lines before it - each family as the whole body has it, up to the cut -
+  // and any other cut is refused, keeping exactly what the lines before it
+  // read as.
   for (const std::pair<const char *, om::format> &entry : {std::make_pair(python_client_openmetrics, openmetrics), std::make_pair(python_client_text, text)}) {
     const std::string body = entry.first;
+    const om::result whole = om::parse(body, entry.second);
+    ASSERT_TRUE(whole.ok()) << whole.error;
     for (std::size_t length = 0; length < body.size(); ++length) {
       const std::string prefix = body.substr(0, length);
       const om::result parsed = om::parse(prefix, entry.second);
       expect_consistent(parsed, prefix, entry.second);
       const bool on_a_line = prefix.empty() || prefix.back() == '\n' || (entry.second == openmetrics && length == body.size() - 1);
       EXPECT_EQ(parsed.ok(), on_a_line) << "cut at " << length << ": " << parsed.error;
+      if (on_a_line) {
+        expect_prefix_of(parsed, whole, "cut at " + std::to_string(length));
+      } else {
+        const om::result lines = om::parse(body.substr(0, prefix.rfind('\n') + 1), entry.second);
+        expect_same_families(parsed, lines, "cut at " + std::to_string(length));
+      }
+      if (::testing::Test::HasFailure()) return;
     }
   }
 }
@@ -923,6 +994,21 @@ TEST(OpenmetricsParser, NamesMayStartWithEveryLetterTheGrammarAllows) {
   // And the characters either side of each range are not letters.
   for (const char *name : {"`x", "{x", "@x", "[x", "9x"}) {
     EXPECT_FALSE(om::parse(std::string(name) + " 1\n", text).ok()) << name;
+  }
+}
+
+TEST(OpenmetricsParser, DigitsEndWhereTheGrammarSaysTheyDo) {
+  // `0` and `9` are digits; the characters either side of them, `/` and `:`,
+  // are not - `:` is a name character, but not a label-name one.
+  for (const char *good : {"a0 1\n", "a9 1\n", "a{b0=\"1\",b9=\"2\"} 1\n", "a:b 1\n"}) {
+    const om::result parsed = om::parse(good, text);
+    EXPECT_TRUE(parsed.ok()) << good << " -> " << parsed.error;
+  }
+  for (const char *bad : {"a/b 1\n", "a{b/c=\"1\"} 1\n", "a{b:c=\"1\"} 1\n", "a 1/\n", "a 1:\n", "a 1 1/\n", "a 1 1:\n"}) {
+    const om::result parsed = om::parse(bad, text);
+    EXPECT_FALSE(parsed.ok()) << bad;
+    EXPECT_EQ(parsed.error_line, 1u) << bad;
+    EXPECT_TRUE(parsed.families.empty()) << bad;
   }
 }
 
@@ -957,8 +1043,10 @@ TEST(OpenmetricsParser, HelpEndingInABackslashKeepsIt) {
 
 TEST(OpenmetricsParser, DecimalsEitherSideOfTheConversionBuffer) {
   // Values are copied into a 64-byte buffer for conversion, longer ones onto
-  // the heap: 62 to 66 characters cover the boundary, where an off-by-one is a
-  // one-byte stack overflow only a sanitizer would see.
+  // the heap: 62 to 66 characters cover the boundary. The terminator is
+  // written through `std::array::at`, so an off-by-one in the bound throws
+  // here in every build rather than overflowing the stack where only a
+  // sanitizer would see it.
   for (const std::size_t length : {62u, 63u, 64u, 65u, 66u}) {
     const std::string value = "0." + std::string(length - 2, '5');
     const om::result parsed = om::parse("v " + value + "\n", text);
@@ -980,14 +1068,21 @@ TEST(OpenmetricsParser, EveryTypeHasItsOpenMetricsName) {
 }
 
 TEST(OpenmetricsParser, EverySpellingOfTheNonFiniteValuesIsRead) {
-  // As Go's ParseFloat reads them: any case, an optional sign, and the long
-  // form of infinity.
+  // As Go's ParseFloat reads them: any case, the long form of infinity, and
+  // a sign on infinity but not on NaN - which Go refuses, as OpenMetrics does.
   struct spelling {
     const char *text;
     int sign;  // 0 for NaN
   };
-  const spelling spellings[] = {{"NaN", 0},   {"nan", 0}, {"+NaN", 0},     {"-nan", 0},     {"Inf", 1},       {"+inf", 1},
-                                {"-INF", -1}, {"NAN", 0}, {"INFINITY", 1}, {"Infinity", 1}, {"+infinity", 1}, {"-Infinity", -1}};
+  for (const om::format f : {openmetrics, text}) {
+    for (const char *signed_nan : {"+NaN", "-NaN", "+nan", "-nan", "+NAN"}) {
+      const om::result parsed = om::parse(std::string("v ") + signed_nan + "\n", f);
+      EXPECT_FALSE(parsed.ok()) << signed_nan;
+      EXPECT_NE(parsed.error.find("invalid value"), std::string::npos) << signed_nan << " -> " << parsed.error;
+    }
+  }
+  const spelling spellings[] = {{"NaN", 0},      {"nan", 0},      {"Inf", 1},       {"+inf", 1},       {"-INF", -1}, {"NAN", 0},
+                                {"INFINITY", 1}, {"Infinity", 1}, {"+infinity", 1}, {"-Infinity", -1}, {"-inf", -1}, {"nAn", 0}};
   for (const spelling &sp : spellings) {
     const om::result parsed = om::parse(std::string("v ") + sp.text + "\n", text);
     ASSERT_TRUE(parsed.ok()) << sp.text << ": " << parsed.error;
@@ -1022,7 +1117,7 @@ TEST(OpenmetricsParser, OverLongLineOfAnotherFamilyLeavesTheFamilyBeingRead) {
   om::limits bounds;
   bounds.max_line_bytes = 20;
   for (const std::string &tail :
-       {"y_total{a=\"" + std::string(30, 'v') + "\"} 1\n", "# HELP other " + std::string(30, 'h') + "\n", "# HELP y.z " + std::string(30, 'h') + "\n"}) {
+       {"y{a=\"" + std::string(30, 'v') + "\"} 1\n", "# HELP other " + std::string(30, 'h') + "\n", "# HELP y.z " + std::string(30, 'h') + "\n"}) {
     const om::result parsed = om::parse("# TYPE y counter\n" + tail, text, bounds);
     EXPECT_EQ(parsed.error_line, 2u) << tail;
     EXPECT_NE(parsed.error.find("longer than 20 bytes"), std::string::npos) << parsed.error;
@@ -1740,8 +1835,9 @@ TEST(OpenmetricsParser, WideLineDoesNotSlowTheLinesAfterIt) {
 
 TEST(OpenmetricsParser, DefaultLimitsStopABodyBuiltToExhaustMemory) {
   // The bodies that cost the most per byte: single-sample families with short
-  // names (forty to fifty times the body), and short labels (eleven to sixteen). The
-  // defaults stop each long before it costs more than a few hundred MB.
+  // names (up to fifty times the body retained, eighty at the peak), and short
+  // labels (up to twenty-one, twenty-eight at the peak). The defaults stop each
+  // long before it costs more than a few hundred MB.
   std::string families;
   for (int i = 0; i < 60000; ++i) families += "m" + std::to_string(i) + " 1\n";
   const om::result many = om::parse(families, text);
