@@ -281,14 +281,17 @@ struct script_manager {
       run_reported(report, entry.second, [&] { script_runtime->start(entry.second); });
     }
   }
-  // With `unregister`, every query and channel the scripts registered is
-  // taken back from the core as well. A reload needs that: the generation
-  // that follows registers what its scripts still declare, and anything a
-  // removed script declared would otherwise stay listed in the core, routed
-  // to a command this manager no longer has.
-  void unload_all(const bool unregister = false) {
+  // What a generation registered with the core: (type, name) pairs.
+  typedef std::list<std::pair<std::string, std::string> > registration_list;
+
+  // Unloads every script. The registrations stay in the core and are
+  // returned, so a reload can hand them to the next generation's
+  // unregister_stale(): taking them back here instead left a window in
+  // which the core answered `Unknown command` for every script query, where
+  // a call that finds the command registered waits for the reload to finish.
+  registration_list unload_all() {
     script_list_type doomed;
-    command_list_type dropped;
+    registration_list dropped;
     {
       boost::unique_lock<boost::mutex> lock(mutex_);
       // Close the door, then wait for the scripts that are running to finish -
@@ -302,24 +305,36 @@ struct script_manager {
       while (dispatchers_.size() != dispatchers_.count(self)) {
         if (!idle_.timed_wait(lock, deadline)) break;
       }
-      dropped.swap(commands);
+      for (const typename command_list_type::value_type &entry : commands) dropped.emplace_back(entry.second.type, entry.second.command);
+      commands.clear();
       doomed.swap(scripts_);
       failed_loads_.clear();
       started_.clear();
       unloading_ = false;
     }
-    // Outside the lock: both call into the core, and unload() runs script
-    // code, which can call back in.
-    if (unregister) {
-      for (const typename command_list_type::value_type &entry : dropped) {
-        nscp_runtime->unregister_command(entry.second.type, entry.second.command);
-      }
-    }
+    // Outside the lock: unload() runs script code, which can call back in.
     for (typename script_list_type::value_type &entry : doomed) {
       script_information<script_trait> *info = entry.second;
       script_runtime->unload(info);
       delete info;
     }
+    return dropped;
+  }
+
+  // Takes back from the core what a previous generation registered and this
+  // one does not: the queries and channels of a script that was removed or
+  // changed. Called once this generation has loaded, so everything it still
+  // declares stayed registered throughout.
+  void unregister_stale(const registration_list &previous) {
+    std::list<std::pair<std::string, std::string> > stale;
+    {
+      boost::lock_guard<boost::mutex> lock(mutex_);
+      for (const auto &r : previous) {
+        if (commands.find(r.first + "$$" + r.second) == commands.end()) stale.push_back(r);
+      }
+    }
+    // Outside the lock: this calls into the core.
+    for (const auto &r : stale) nscp_runtime->unregister_command(r.first, r.second);
   }
 
   void register_command(script_information<script_trait> *information, const std::string type, const std::string &command, const std::string &description,

@@ -110,10 +110,28 @@ inline boost::optional<fs::path> configured_file(const fs::path &scripts, const 
   return boost::none;
 }
 
-inline bool same_entry(const fs::path &a, const fs::path &b) {
+// The directory entry `p` names: any symlinked folder above it resolved, the
+// entry itself not followed - a link is its own entry, not its target's.
+inline fs::path entry_identity(const fs::path &p) {
+  const fs::path abs = fs::absolute(p).lexically_normal();
   boost::system::error_code ec;
-  if (fs::absolute(a).lexically_normal() == fs::absolute(b).lexically_normal()) return true;
-  return fs::equivalent(a, b, ec) && !ec;
+  const fs::path parent = fs::weakly_canonical(abs.parent_path(), ec);
+  if (ec) return abs;
+  return parent / abs.filename();
+}
+
+// Whether two spellings name the same directory entry. This used to fall back
+// to fs::equivalent(), which follows symlinks: a link and the file it points
+// at compared equal, so deleting a link inside the folder also dropped the
+// configuration entry of its target. Windows compares without regard to
+// case, which is what equivalent() was covering there.
+inline bool same_entry(const fs::path &a, const fs::path &b) {
+#ifdef WIN32
+  fs::path ia = entry_identity(a), ib = entry_identity(b);
+  return boost::algorithm::iequals(ia.make_preferred().string(), ib.make_preferred().string());
+#else
+  return entry_identity(a) == entry_identity(b);
+#endif
 }
 
 // The script's contents, or nothing when it cannot be read - an unreadable
