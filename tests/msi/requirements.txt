@@ -1,4 +1,4 @@
 pyyaml==6.0.3
 # For the own-certificates case: generates the throwaway CA + server pair the
 # CERTIFICATE/CERTIFICATE_KEY/CERTIFICATE_CA properties are tested with.
-cryptography>=44.0.0
+cryptography>=50.0.1
