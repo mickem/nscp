@@ -113,11 +113,15 @@ PB::Metrics::MetricsMessage snapshot() {
   return message;
 }
 
+// The format a scraper would read the body as, by way of the `Content-Type` the
+// endpoint answers with - the same negotiation a real scrape goes through.
+om::format format_of(const openmetrics::dialect dialect) { return om::format_for_content_type(openmetrics::content_type_for(dialect)); }
+
 om::result parse(const openmetrics::dialect dialect) {
   std::vector<std::string> problems;
   const std::string body = openmetrics::render(snapshot(), dialect, &problems);
   EXPECT_TRUE(problems.empty()) << problems.front();
-  om::result parsed = om::parse(body);
+  om::result parsed = om::parse(body, format_of(dialect));
   EXPECT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line << " of\n" << body;
   return parsed;
 }
@@ -157,7 +161,7 @@ TEST(OpenmetricsRoundTrip, GaugeKeepsHelpUnitAndValue) {
   EXPECT_EQ(f.unit, "bytes");
   ASSERT_EQ(f.samples.size(), 1u);
   // The renderer writes the shortest exact form, so nothing is lost.
-  EXPECT_EQ(f.samples[0].value, 16554000000.0);
+  EXPECT_EQ(f.samples.at(0).value, 16554000000.0);
 }
 
 TEST(OpenmetricsRoundTrip, CountersFoldBackOntoTheirFamily) {
@@ -165,8 +169,8 @@ TEST(OpenmetricsRoundTrip, CountersFoldBackOntoTheirFamily) {
   const om::family &jobs = family(parsed, "system_jobs_run");
   EXPECT_EQ(jobs.type, om::family_type::counter);
   ASSERT_EQ(jobs.samples.size(), 1u);
-  EXPECT_EQ(jobs.samples[0].name, "system_jobs_run_total");
-  EXPECT_EQ(jobs.samples[0].value, 42);
+  EXPECT_EQ(jobs.samples.at(0).name, "system_jobs_run_total");
+  EXPECT_EQ(jobs.samples.at(0).value, 42);
 
   // The renderer took `_total` off the family name; the parser must not see
   // `system_requests_total` as the family.
@@ -174,7 +178,7 @@ TEST(OpenmetricsRoundTrip, CountersFoldBackOntoTheirFamily) {
   EXPECT_EQ(requests.type, om::family_type::counter);
   EXPECT_EQ(requests.help, "Requests served");
   ASSERT_EQ(requests.samples.size(), 1u);
-  EXPECT_EQ(requests.samples[0].name, "system_requests_total");
+  EXPECT_EQ(requests.samples.at(0).name, "system_requests_total");
   EXPECT_EQ(find(parsed, "system_requests_total"), nullptr);
 }
 
@@ -189,10 +193,10 @@ TEST(OpenmetricsRoundTrip, LabelledSeriesShareOneFamily) {
   EXPECT_EQ(f.help, "Idle time per core");
   EXPECT_EQ(f.unit, "percent");
   ASSERT_EQ(f.samples.size(), 2u);
-  EXPECT_EQ(f.samples[0].labels, labels({{"core", "0"}}));
-  EXPECT_EQ(f.samples[0].value, 97.5);
-  EXPECT_EQ(f.samples[1].labels, labels({{"core", "1"}}));
-  EXPECT_EQ(f.samples[1].value, 12.25);
+  EXPECT_EQ(f.samples.at(0).labels, labels({{"core", "0"}}));
+  EXPECT_EQ(f.samples.at(0).value, 97.5);
+  EXPECT_EQ(f.samples.at(1).labels, labels({{"core", "1"}}));
+  EXPECT_EQ(f.samples.at(1).value, 12.25);
 }
 
 TEST(OpenmetricsRoundTrip, EscapedLabelValuesAndHelpComeBackVerbatim) {
@@ -200,7 +204,7 @@ TEST(OpenmetricsRoundTrip, EscapedLabelValuesAndHelpComeBackVerbatim) {
   const om::family &f = family(parsed, "system_disk_free_bytes");
   EXPECT_EQ(f.help, "Free space\non a \\ volume");
   ASSERT_EQ(f.samples.size(), 1u);
-  EXPECT_EQ(f.samples[0].labels, labels({{"path", "\\Device\\HarddiskVolume1 \"system\"\nreserved"}}));
+  EXPECT_EQ(f.samples.at(0).labels, labels({{"path", "\\Device\\HarddiskVolume1 \"system\"\nreserved"}}));
 }
 
 TEST(OpenmetricsRoundTrip, NonFiniteValuesSurvive) {
@@ -216,9 +220,9 @@ TEST(OpenmetricsRoundTrip, StringsComeBackAsAnInfoFamily) {
   EXPECT_EQ(f.type, om::family_type::info);
   EXPECT_EQ(f.help, "What this host is");
   ASSERT_EQ(f.samples.size(), 1u);
-  EXPECT_EQ(f.samples[0].name, "system_info");
-  EXPECT_EQ(f.samples[0].labels, labels({{"hostname", "web-01"}, {"os", "linux"}}));
-  EXPECT_EQ(f.samples[0].value, 1);
+  EXPECT_EQ(f.samples.at(0).name, "system_info");
+  EXPECT_EQ(f.samples.at(0).labels, labels({{"hostname", "web-01"}, {"os", "linux"}}));
+  EXPECT_EQ(f.samples.at(0).value, 1);
 }
 
 TEST(OpenmetricsRoundTrip, SummaryKeepsQuantilesSumAndCount) {
@@ -227,14 +231,14 @@ TEST(OpenmetricsRoundTrip, SummaryKeepsQuantilesSumAndCount) {
   EXPECT_EQ(f.type, om::family_type::summary);
   EXPECT_EQ(f.unit, "seconds");
   ASSERT_EQ(f.samples.size(), 4u);
-  EXPECT_EQ(om::find_label(f.samples[0], "quantile").value(), "0.5");
-  EXPECT_EQ(f.samples[0].value, 0.2);
-  EXPECT_EQ(om::find_label(f.samples[1], "quantile").value(), "0.99");
-  EXPECT_EQ(f.samples[1].value, 1.4);
-  EXPECT_EQ(f.samples[2].name, "system_rpc_duration_seconds_sum");
-  EXPECT_EQ(f.samples[2].value, 120);
-  EXPECT_EQ(f.samples[3].name, "system_rpc_duration_seconds_count");
-  EXPECT_EQ(f.samples[3].value, 400);
+  EXPECT_EQ(om::find_label(f.samples.at(0), "quantile").value(), "0.5");
+  EXPECT_EQ(f.samples.at(0).value, 0.2);
+  EXPECT_EQ(om::find_label(f.samples.at(1), "quantile").value(), "0.99");
+  EXPECT_EQ(f.samples.at(1).value, 1.4);
+  EXPECT_EQ(f.samples.at(2).name, "system_rpc_duration_seconds_sum");
+  EXPECT_EQ(f.samples.at(2).value, 120);
+  EXPECT_EQ(f.samples.at(3).name, "system_rpc_duration_seconds_count");
+  EXPECT_EQ(f.samples.at(3).value, 400);
 }
 
 TEST(OpenmetricsRoundTrip, HistogramKeepsBucketsSumAndCount) {
@@ -243,29 +247,36 @@ TEST(OpenmetricsRoundTrip, HistogramKeepsBucketsSumAndCount) {
   EXPECT_EQ(f.type, om::family_type::histogram);
   EXPECT_EQ(f.help, "Request latency");
   ASSERT_EQ(f.samples.size(), 5u);
-  EXPECT_EQ(f.samples[0].name, "system_latency_seconds_bucket");
-  EXPECT_EQ(om::find_label(f.samples[0], "le").value(), "0.1");
-  EXPECT_EQ(f.samples[0].value, 3);
-  EXPECT_EQ(om::find_label(f.samples[2], "le").value(), "+Inf");
-  EXPECT_EQ(f.samples[2].value, 8);
-  EXPECT_EQ(f.samples[3].value, 4.25);
-  EXPECT_EQ(f.samples[4].value, 8);
+  EXPECT_EQ(f.samples.at(0).name, "system_latency_seconds_bucket");
+  EXPECT_EQ(om::find_label(f.samples.at(0), "le").value(), "0.1");
+  EXPECT_EQ(f.samples.at(0).value, 3);
+  EXPECT_EQ(om::find_label(f.samples.at(2), "le").value(), "+Inf");
+  EXPECT_EQ(f.samples.at(2).value, 8);
+  EXPECT_EQ(f.samples.at(3).value, 4.25);
+  EXPECT_EQ(f.samples.at(4).value, 8);
 }
 
-TEST(OpenmetricsRoundTrip, PrometheusTextDialectLandsOnTheSameFamilies) {
-  // The older dialect names the sample in every metadata line and has no
-  // `info` type, so the info family arrives as the gauge every exporter
-  // served before the type existed. Everything else is the same family.
+TEST(OpenmetricsRoundTrip, PrometheusTextDialectNamesTheSameFamiliesByTheirSamples) {
+  // The older format names a family by its sample in every metadata line, so
+  // a counter comes back under `_total`, and it has no `info` type, so the
+  // info family arrives as the gauge every exporter served before the type
+  // existed. Every other family, and every sample, is the same.
   const om::result om_parsed = parse(openmetrics::dialect::openmetrics_1_0);
   const om::result text_parsed = parse(openmetrics::dialect::prometheus_text_0_0_4);
-  EXPECT_TRUE(text_parsed.saw_eof);
+  // The renderer writes `# EOF` in both bodies; only OpenMetrics reads it as
+  // the terminator.
+  EXPECT_TRUE(om_parsed.saw_eof);
+  EXPECT_FALSE(text_parsed.saw_eof);
   ASSERT_EQ(text_parsed.families.size(), om_parsed.families.size());
   for (std::size_t i = 0; i < om_parsed.families.size(); ++i) {
-    const om::family &a = om_parsed.families[i];
-    const om::family &b = text_parsed.families[i];
+    const om::family &a = om_parsed.families.at(i);
+    const om::family &b = text_parsed.families.at(i);
     if (a.type == om::family_type::info) {
       EXPECT_EQ(b.name, a.name + "_info");
       EXPECT_EQ(b.type, om::family_type::gauge);
+    } else if (a.type == om::family_type::counter) {
+      EXPECT_EQ(b.name, a.name + "_total");
+      EXPECT_EQ(b.type, om::family_type::counter);
     } else {
       EXPECT_EQ(b.name, a.name);
       EXPECT_EQ(b.type, a.type) << a.name;
@@ -274,12 +285,12 @@ TEST(OpenmetricsRoundTrip, PrometheusTextDialectLandsOnTheSameFamilies) {
     EXPECT_EQ(b.unit, a.unit) << a.name;
     ASSERT_EQ(b.samples.size(), a.samples.size()) << a.name;
     for (std::size_t s = 0; s < a.samples.size(); ++s) {
-      EXPECT_EQ(b.samples[s].name, a.samples[s].name);
-      EXPECT_EQ(b.samples[s].labels, a.samples[s].labels);
-      if (std::isnan(a.samples[s].value)) {
-        EXPECT_TRUE(std::isnan(b.samples[s].value));
+      EXPECT_EQ(b.samples.at(s).name, a.samples.at(s).name);
+      EXPECT_EQ(b.samples.at(s).labels, a.samples.at(s).labels);
+      if (std::isnan(a.samples.at(s).value)) {
+        EXPECT_TRUE(std::isnan(b.samples.at(s).value));
       } else {
-        EXPECT_EQ(b.samples[s].value, a.samples[s].value) << a.samples[s].name;
+        EXPECT_EQ(b.samples.at(s).value, a.samples.at(s).value) << a.samples.at(s).name;
       }
     }
   }
@@ -292,15 +303,16 @@ TEST(OpenmetricsRoundTrip, EveryTruncationOfOurOwnBodyIsRefusedOrEndsOnALine) {
   // family with more samples than the full body had.
   for (const openmetrics::dialect dialect : {openmetrics::dialect::openmetrics_1_0, openmetrics::dialect::prometheus_text_0_0_4}) {
     const std::string body = openmetrics::render(snapshot(), dialect);
-    const om::result full = om::parse(body);
+    const om::format format = format_of(dialect);
+    const om::result full = om::parse(body, format);
     ASSERT_TRUE(full.ok()) << full.error;
     for (std::size_t length = 0; length < body.size(); ++length) {
-      const om::result parsed = om::parse(body.substr(0, length));
+      const om::result parsed = om::parse(body.substr(0, length), format);
       // `# EOF` without its line feed is the one unterminated line accepted.
       const bool bare_eof = length == body.size() - 1;
       const bool on_a_line = length == 0 || body[length - 1] == '\n' || bare_eof;
       EXPECT_EQ(parsed.ok(), on_a_line) << "cut at " << length << ": " << parsed.error;
-      EXPECT_EQ(parsed.saw_eof, bare_eof) << "cut at " << length;
+      EXPECT_EQ(parsed.saw_eof, bare_eof && format == om::format::openmetrics_1_0) << "cut at " << length;
       EXPECT_LE(parsed.sample_count, full.sample_count);
     }
   }
