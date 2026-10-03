@@ -137,7 +137,12 @@ end
 
 local function lua_log(command, args)
 	local o = kv(args)
-	Core():log(o.level or 'info', o.message or 'core log line')
+	-- Without level= the level is left out: log(message) logs at info.
+	if o.level then
+		Core():log(o.level, o.message or 'core log line')
+	else
+		Core():log(o.message or 'core log line')
+	end
 	nscp.info('nscp.info: ' .. (o.message or ''))
 	nscp.print('nscp.print: ' .. (o.message or ''))
 	nscp.error('nscp.error: ' .. (o.message or ''))
@@ -255,6 +260,11 @@ function main(args)
 end
 
 -- --- registration (the top-level code) --------------------------------------------------
+
+-- A pause before anything is registered, so a reload spends long enough
+-- between unloading the old generation and registering the new one for a
+-- check to arrive in that gap.
+nscp.sleep(tonumber(nscp.getSetting(SETTINGS_PATH, 'load delay', '0')) or 0)
 
 local s = Settings()
 s:register_path(SETTINGS_PATH, 'Lua API fixture', 'Settings the luascript-api fixture registers')
