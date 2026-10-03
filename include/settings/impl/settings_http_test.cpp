@@ -956,10 +956,23 @@ class flaky_child_core : public chaining_http_core {
   using chaining_http_core::chaining_http_core;
   bool fail_children = false;
 
+  std::atomic<int> ini_children_built{0};
+
   settings::instance_raw_ptr create_instance(std::string alias, std::string key) override {
-    if (fail_children && net::parse(key).protocol == "ini") throw settings::settings_exception(__FILE__, __LINE__, "mock: cached copy is locked");
+    if (net::parse(key).protocol == "ini") {
+      if (fail_children) throw settings::settings_exception(__FILE__, __LINE__, "mock: cached copy is locked");
+      ++ini_children_built;
+    }
     return chaining_http_core::create_instance(alias, key);
   }
+};
+
+// Lets a test hold the store's own lock, as a slow reload on another thread
+// would.
+class lockable_http : public settings::settings_http {
+ public:
+  using settings::settings_http::settings_http;
+  boost::timed_mutex &store_mutex() { return mutex_; }
 };
 }  // namespace
 
@@ -1024,5 +1037,82 @@ TEST(settings_http, a_child_that_cannot_be_rebuilt_keeps_the_previous_config_and
 
   EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "enabled");
   EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  EXPECT_TRUE(core.needs_reload());
+}
+
+TEST(settings_http, a_cleared_cache_reuses_the_child_and_asks_for_no_reload) {
+  // The cached copy only changes through reload_data(), which builds its own
+  // child, so a cache clear puts the current child back instead of building
+  // (and loading, nested includes and all) a second one under the lock - and
+  // the next unchanged pass must not ask the agent for a reload.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  ASSERT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  const int built = core.ini_children_built;
+
+  s.clear_cache();
+  core.set_reload(false);
+  s.house_keeping();
+
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  EXPECT_EQ(core.ini_children_built, built) << "neither the clear nor the unchanged pass builds a child";
+  EXPECT_FALSE(core.needs_reload());
+}
+
+TEST(settings_http, a_pending_rebuild_survives_a_cache_clear) {
+  // A download whose child could not be built is retried by house_keeping().
+  // A cache clear in between (a plugin reload) must not forget that.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\nNRDPClient = enabled\n");
+  core.fail_children = true;
+  s.house_keeping();
+  s.clear_cache();
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "") << "the previous copy is still served";
+
+  core.fail_children = false;
+  s.house_keeping();
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "enabled");
+  EXPECT_TRUE(core.needs_reload());
+}
+
+TEST(settings_http, a_download_whose_install_times_out_is_retried) {
+  // reload_data() installs the new child under the 5 s timed lock. If that
+  // times out, the download is already in place and the next pass finds its
+  // hash matching; the pending flag is what makes it try again, so it must
+  // not be cleared before the install.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  lockable_http s(&core, "test", server.url(kRootPath));
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\nNRDPClient = enabled\n");
+
+  {
+    std::promise<void> locked, release;
+    std::thread holder([&] {
+      boost::unique_lock<boost::timed_mutex> lock(s.store_mutex());
+      locked.set_value();
+      release.get_future().wait();
+    });
+    locked.get_future().wait();
+    EXPECT_THROW(s.house_keeping(), settings::settings_exception);
+    release.set_value();
+    holder.join();
+  }
+  core.set_reload(false);
+
+  s.house_keeping();
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "enabled");
   EXPECT_TRUE(core.needs_reload());
 }
