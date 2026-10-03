@@ -3,10 +3,13 @@
 
 #include "realtime_thread.hpp"
 
+#include <poll.h>
+
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <cerrno>
 #include <chrono>
 #include <fstream>
 #include <nscapi/macros.hpp>
@@ -93,9 +96,16 @@ void pdh_thread::thread_proc() {
   }
 
   while (!stop_requested_) {
-    {
-      std::unique_lock<std::mutex> lock(stop_mutex_);
-      if (stop_cv_.wait_for(lock, std::chrono::seconds(1), [this]() { return stop_requested_.load(); })) break;
+    // Wait out the second between samples on the stop signal, so stop() ends
+    // the wait at once. poll()'s timeout is relative, so a step of the wall
+    // clock does not stretch it (a condition variable's timed wait can, on
+    // libc++).
+    struct pollfd stop_fd = {stop_signal_.wait_fd(), POLLIN, 0};
+    const int ready = ::poll(&stop_fd, 1, 1000);
+    if (ready > 0 || stop_requested_) break;
+    if (ready < 0 && errno != EINTR) {
+      NSC_LOG_ERROR("Failed to wait for the next sample, the collector stops: " + error::lookup::last_error(errno));
+      break;
     }
 
     // Each source is read and recorded on its own, so one unreadable file
@@ -342,24 +352,28 @@ process_history_check::history_type pdh_thread::get_process_history() const {
 }
 
 bool pdh_thread::start() {
+  // See threads::stop_signal for why a failure here must not start a thread.
+  std::string error;
+  if (!stop_signal_.create(error)) {
+    NSC_LOG_ERROR("Failed to create stop signal, the collector is disabled: " + error);
+    return false;
+  }
   stop_requested_ = false;
   thread_ = threads::start_guarded_thread("checksystem collector", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
   return true;
 }
 
 bool pdh_thread::stop() {
-  {
-    // Set under the mutex so the collector cannot test the predicate, miss
-    // the store and then sleep through the notify.
-    std::lock_guard<std::mutex> lock(stop_mutex_);
-    stop_requested_ = true;
-  }
-  stop_cv_.notify_all();
+  stop_requested_ = true;
+  stop_signal_.signal();
   if (thread_) {
     thread_->join();
     // Idempotent: the destructor calls stop() again after unloadModule did.
     thread_.reset();
   }
+  // Released after the join, so a stop/start cycle gets a fresh signal
+  // instead of leaking a pipe per cycle.
+  stop_signal_.close();
   return true;
 }
 

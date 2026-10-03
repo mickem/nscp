@@ -7,18 +7,17 @@
 #include <boost/circular_buffer.hpp>
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
-#include <condition_variable>
 #include <error/error.hpp>
 #include <functional>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <rrd_buffer.hpp>
 #include <sampling_state.hpp>
 #include <string>
+#include <threads/stop_signal.hpp>
 #include <vector>
 
 #include <set>
@@ -147,10 +146,9 @@ class pdh_thread {
   mutable boost::shared_mutex mutex_;
   // Set by stop() on the module thread, polled by the collector thread.
   std::atomic<bool> stop_requested_;
-  // Wake the collector out of its one-second wait as soon as stop() is
+  // Wakes the collector out of its one-second wait as soon as stop() is
   // called, so a stop (and so every reload) does not wait out the sleep.
-  std::mutex stop_mutex_;
-  std::condition_variable stop_cv_;
+  threads::stop_signal stop_signal_;
 
   nscapi::core_wrapper *core_;
   int plugin_id_;
