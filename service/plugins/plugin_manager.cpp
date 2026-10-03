@@ -843,14 +843,14 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // because the throw skipped that line.
   //
   // The walk lists (metrics fetchers and submitters, facts fetchers) and the
-  // log subscription are the exception, and go first: their gates close, so
+  // log subscription are the exception, and go first: they are closed, so
   // no round or log line reaches into the module after it is unloaded, and
   // the waits see out the ones already inside it. Unloading first let a
   // round call an unloaded module, log "Library is not loaded" for it, and
   // on the facts path mark it failing and later fixed. The waits are per
   // module - a round stuck in another module, or blocked on the lifecycle
   // lock this call holds, is not inside this one and is not waited for -
-  // and the three lists share one deadline. A refusal reopens the gates,
+  // and the three lists share one deadline. A refusal reopens them,
   // so the module keeps its place in every list.
   const std::vector<walk_closing> walks = close_walks(plugin_id);
   const auto restore_walks = [&walks]() {
@@ -864,19 +864,19 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   }
   // A log line is not a dispatch, so unload_plugin does not wait for one,
   // and the unloaded flag it sets only stops lines that have not reached the
-  // module yet (dll_plugin::handleMessage). close_subscriber closes its
-  // gate in place and waits for the lines another thread is still handing
-  // to it, so they have left before the module is torn down; one that does
-  // not leave within the wait refuses the unload, as a dispatch that does
-  // not finish would. A refusal reopens the gate where it was, before the
-  // refusal is logged, so the module - still loaded, and still serving -
-  // sees that line too, and its place in the fan-out is kept. A line still
-  // inside keeps the gate closed in place, so a retried unload - or a purge,
-  // or shutdown - waits for that line again rather than finding an empty
-  // gate. What this cannot see is the module unloading itself from inside
-  // its own log handler: that delivery is this thread's, and
-  // is_dispatching_on_this_thread() does not count log lines, so such a
-  // module is torn down under its handler as it always was.
+  // module yet (dll_plugin::handleMessage). close_subscriber closes the
+  // module's subscription in place and waits until the logger's delivery
+  // thread is no longer inside it, so the line has left before the module
+  // is torn down; one that does not leave within the wait refuses the
+  // unload, as a dispatch that does not finish would. A refusal reopens the
+  // subscription where it was, before the refusal is logged, so the module -
+  // still loaded, and still serving - sees that line too, and its place in
+  // the fan-out is kept. A refused close leaves it closed in place, so a
+  // retried unload - or a purge, or shutdown - waits for that line again.
+  // What this cannot see is the module unloading itself from inside its own
+  // log handler: the unload then runs on the delivery thread, which does not
+  // wait for itself, and is_dispatching_on_this_thread() does not count log
+  // lines, so such a module is torn down under its handler as it always was.
   // clear_subscribers() at shutdown runs under lifecycle_mutex_
   // (stop_plugins), so it cannot slip in between.
   const logging::unsubscribe_result unsubscribed = log_instance_->close_subscriber(plugin);

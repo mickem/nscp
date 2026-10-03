@@ -98,72 +98,84 @@ void simple_file_logger::truncate_to_tail(const std::string &file, const std::ui
   boost::filesystem::resize_file(file, keep);
 }
 
-void simple_file_logger::do_log(const std::string data) {
+// One line costs one open, one write and one close: the file is not held
+// open between lines, so nothing else on the host - a log shipper, an
+// operator deleting it, a rotation tool - ever finds it locked, and there is
+// no buffer to lose. The size comes from the stream itself (opened at the
+// end), not from separate exists/file_size calls.
+void simple_file_logger::do_log(const std::string &data) {
   if (file_.empty()) return;
   try {
-    if (max_size_ != 0 && boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
-      // Keep the newest 70%, moved to the front of the file through a fixed
-      // buffer and then cut off with resize_file. Holding the tail in memory
-      // made a large max size (a few GiB on x86) throw bad_alloc on every
-      // line, and 70% computed through an int was undefined past INT_MAX.
-      // In place, so the file keeps the mode it was created with.
-      const std::uintmax_t size = boost::filesystem::file_size(file_.c_str());
-      const std::uintmax_t keep = static_cast<std::uintmax_t>(max_size_ / 10 * 7);
-      try {
-        if (keep < size) truncate_to_tail(file_, size, keep);
-      } catch (...) {
-        logger_helper::log_fatal("Failed to truncate log file: " + file_);
-      }
-    }
-    if (!boost::filesystem::exists(file_.c_str())) {
-      boost::filesystem::path parent = file_helpers::meta::get_path(file_);
-      if (!parent.empty()) {
-        if (!boost::filesystem::exists(parent.string())) {
-          try {
-            boost::filesystem::create_directories(parent);
-          } catch (...) {
-            if (!reported_mkdir_failure) {
-              reported_mkdir_failure = true;
-              logger_helper::log_fatal("Failed to create log directory: " + parent.string());
-            }
-          }
-        }
-      }
-    }
-    std::string date = logger_helper::get_formated_date(format_);
-
     PB::Log::LogEntry message;
     if (!message.ParseFromString(data)) {
       logger_helper::log_fatal("Failed to parse message: " + str::format::strip_ctrl_chars(data));
-    } else {
-      std::stringstream tmp;
-      for (int i = 0; i < message.entry_size(); i++) {
-        const auto &msg = message.entry(i);
-        // Strip control characters from every field that originated outside
-        // this process (file, message). Without this, a plugin / remote
-        // command whose output contains "\n<forged log line>\n" would inject
-        // arbitrary lines into the agent's log file - confusing audit and
-        // breaking log shippers that key on line position.
-        const std::string safe_file = str::format::strip_ctrl_chars(msg.file());
-        const std::string safe_message = str::format::strip_ctrl_chars(msg.message());
-        tmp << date << (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level())) << (":") << safe_file << (":") << msg.line()
-            << (": ") << safe_message << "\n";
-      }
-      try {
-        if (!boost::filesystem::exists(file_.c_str())) create_log_file_with_mode(file_);
-        std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
-        if (!stream) {
-          if (!reported_log_failure) {
-            reported_log_failure = true;
-            logger_helper::log_fatal("Failed to open log file: " + file_);
+      return;
+    }
+    const std::string date = logger_helper::get_formated_date(format_);
+    std::stringstream tmp;
+    for (int i = 0; i < message.entry_size(); i++) {
+      const auto &msg = message.entry(i);
+      // Strip control characters from every field that originated outside
+      // this process (file, message). Without this, a plugin / remote
+      // command whose output contains "\n<forged log line>\n" would inject
+      // arbitrary lines into the agent's log file - confusing audit and
+      // breaking log shippers that key on line position.
+      const std::string safe_file = str::format::strip_ctrl_chars(msg.file());
+      const std::string safe_message = str::format::strip_ctrl_chars(msg.message());
+      tmp << date << (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level())) << (":") << safe_file << (":") << msg.line()
+          << (": ") << safe_message << "\n";
+    }
+    try {
+      // A no-op (one failed O_EXCL open) when the file exists.
+      create_log_file_with_mode(file_);
+      std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
+      if (!stream) {
+        // Most likely the folder is missing: create it, once, and retry.
+        const boost::filesystem::path parent = file_helpers::meta::get_path(file_);
+        if (!parent.empty()) {
+          boost::system::error_code ec;
+          boost::filesystem::create_directories(parent, ec);
+          if (ec && !reported_mkdir_failure) {
+            reported_mkdir_failure = true;
+            logger_helper::log_fatal("Failed to create log directory: " + parent.string());
           }
-          logger_helper::log_fatal(tmp.str());
-        } else {
-          stream << tmp.str();
         }
-      } catch (std::exception &e) {
-        logger_helper::log_fatal("Failed to write log: " + tmp.str() + ": " + e.what());
+        create_log_file_with_mode(file_);
+        stream.clear();
+        stream.open(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
       }
+      if (stream && max_size_ != 0) {
+        const std::streamoff at = stream.tellp();
+        if (at > 0 && static_cast<std::uintmax_t>(at) > max_size_) {
+          // Keep the newest 70%, moved to the front of the file through a
+          // fixed buffer and then cut off with resize_file. Holding the tail
+          // in memory made a large max size (a few GiB on x86) throw
+          // bad_alloc on every line, and 70% computed through an int was
+          // undefined past INT_MAX. In place, so the file keeps the mode it
+          // was created with.
+          stream.close();
+          const std::uintmax_t size = static_cast<std::uintmax_t>(at);
+          const std::uintmax_t keep = static_cast<std::uintmax_t>(max_size_ / 10 * 7);
+          try {
+            if (keep < size) truncate_to_tail(file_, size, keep);
+          } catch (...) {
+            logger_helper::log_fatal("Failed to truncate log file: " + file_);
+          }
+          stream.clear();
+          stream.open(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
+        }
+      }
+      if (!stream) {
+        if (!reported_log_failure) {
+          reported_log_failure = true;
+          logger_helper::log_fatal("Failed to open log file: " + file_);
+        }
+        logger_helper::log_fatal(tmp.str());
+      } else {
+        stream << tmp.str();
+      }
+    } catch (std::exception &e) {
+      logger_helper::log_fatal("Failed to write log: " + tmp.str() + ": " + e.what());
     }
   } catch (std::exception &e) {
     logger_helper::log_fatal("Failed to parse data from: " + str::format::strip_ctrl_chars(data) + ": " + e.what());
@@ -196,6 +208,11 @@ simple_file_logger::config_data simple_file_logger::do_config(const bool log_fau
 
     settings.register_all();
     settings.notify();
+    // The key is registered as a path rooted at ${log-path}, so a bare name is
+    // already absolute by here. An unset value still needs the default name,
+    // and it is rooted the same way rather than left to the working directory.
+    // Resolved here rather than in apply(), which runs under the logger's lock.
+    if (ret.file.empty()) ret.file = settings_manager::get_proxy()->resolve_path("nsclient.log", "${log-path}");
     // Nothing more to do to ret.file: the key is registered as a path_key rooted
     // at ${log-path}, so notify() has already expanded its tokens and rooted a
     // bare name.
@@ -226,26 +243,26 @@ void simple_file_logger::synch_configure() { do_config(true); }
 
 void simple_file_logger::asynch_configure() {
   try {
-    config_data config = do_config(false);
-
-    format_ = config.format;
-    max_size_ = config.max_size;
-    // `none` switches file logging off, and is tested before anything joins a
-    // directory onto it - the rooting below would otherwise turn the sentinel
-    // into a real file called `none` inside the log folder.
-    if (nscp::paths::is_no_path(config.file)) {
-      file_ = "";
-      return;
-    }
-    // The key is registered as a path rooted at ${log-path}, so a bare name is
-    // already absolute by here. An unset value still needs the default name,
-    // and it is rooted the same way rather than left to the working directory.
-    file_ = config.file.empty() ? settings_manager::get_proxy()->resolve_path("nsclient.log", "${log-path}") : config.file;
+    apply(do_config(false));
   } catch (const std::exception &) {
     // ignored, since this might be after shutdown...
   } catch (...) {
     // ignored, since this might be after shutdown...
   }
+}
+
+void simple_file_logger::apply(const config_data &config) {
+  format_ = config.format;
+  max_size_ = config.max_size;
+  // `none` switches file logging off, and is tested before anything joins a
+  // directory onto it - the rooting below would otherwise turn the sentinel
+  // into a real file called `none` inside the log folder.
+  if (nscp::paths::is_no_path(config.file)) {
+    file_ = "";
+    return;
+  }
+  // Empty only when the settings could not be read at all: keep the file.
+  if (!config.file.empty()) file_ = config.file;
 }
 }  // namespace impl
 }  // namespace logging

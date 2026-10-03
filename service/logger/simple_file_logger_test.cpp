@@ -18,9 +18,12 @@
 
 #include "simple_file_logger.hpp"
 
+#include "nsclient_logger.hpp"
+
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <chrono>
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <iterator>
@@ -32,6 +35,7 @@
 #include <sstream>
 #include <str/utils.hpp>
 #include <string>
+#include <thread>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 
@@ -114,9 +118,13 @@ std::string make_entry(PB::Log::LogEntry::Entry::Level level, const std::string&
 
 }  // namespace
 
-TEST(SimpleFileLogger, ShutdownReturnsTrue) {
-  simple_file_logger logger(unique_name("shutdown"));
-  EXPECT_TRUE(logger.shutdown());
+// What do_config hands apply() when the settings cannot be read at all: no
+// truncation, a dated line, and the file left as it was.
+TEST(SimpleFileLogger, ConfigDefaultsKeepTheFileUntruncated) {
+  const simple_file_logger::config_data defaults;
+  EXPECT_EQ(defaults.max_size, 0u);
+  EXPECT_EQ(defaults.format, "%Y-%m-%d %H:%M:%S");
+  EXPECT_TRUE(defaults.file.empty());
 }
 
 TEST(SimpleFileLogger, BasePathOnPosixIsEmpty) {
@@ -537,4 +545,37 @@ TEST_F(SimpleFileLoggerSettingsTest, ARotatedTargetThatIsADirectoryIsSurvived) {
   simple_file_logger logger(unique_name("dir-target"));
   logger.asynch_configure();
   EXPECT_NO_THROW(logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 1, "contained")));
+}
+
+// A line a log handler writes from inside its handler is handed to no other
+// handler (see nsclient_logger), but it is still written to the log file:
+// the sinks are written before the line is considered for the handlers.
+TEST_F(SimpleFileLoggerSettingsTest, ALineLoggedFromInsideAHandlerStillReachesTheLogFile) {
+  const boost::filesystem::path target = dir_.path() / "handler.log";
+  boot_with("[/settings/log]\nfile name = " + target.generic_string() + "\n");
+
+  struct LoggingHandler : nsclient::logging::logging_subscriber {
+    explicit LoggingHandler(nsclient::logging::impl::nsclient_logger *logger) : logger_(logger) {}
+    void on_log_message(const std::string &) override {
+      logger_->do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_ERROR, "t", "f", 2, "from-inside-the-handler"));
+      handled = true;
+    }
+    nsclient::logging::impl::nsclient_logger *logger_;
+    std::atomic<bool> handled{false};
+  };
+
+  nsclient::logging::impl::nsclient_logger logger;
+  logger.set_backend("file");
+  logger.configure();
+  auto handler = std::make_shared<LoggingHandler>(&logger);
+  logger.add_subscriber(handler);
+  logger.do_log(make_entry(PB::Log::LogEntry_Entry_Level_LOG_INFO, "t", "f", 1, "outer-line"));
+  for (int i = 0; i < 500 && !handler->handled; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  ASSERT_TRUE(handler->handled);
+  // Joins the delivery thread, so the handler's line has been written.
+  ASSERT_TRUE(logger.shutdown());
+
+  const std::string contents = read_all(target);
+  EXPECT_NE(contents.find("outer-line"), std::string::npos) << contents;
+  EXPECT_NE(contents.find("from-inside-the-handler"), std::string::npos) << contents;
 }

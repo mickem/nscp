@@ -4,133 +4,128 @@
 #pragma once
 
 #include <atomic>
-#include <boost/thread/lock_guard.hpp>
+#include <boost/thread/condition_variable.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <memory>
-#include <nsclient/logger/log_driver_interface_impl.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <nsclient/logger/logger_impl.hpp>
 #include <string>
-#include <threads/in_flight.hpp>
+#include <utility>
 #include <vector>
+
+#include "simple_file_logger.hpp"
 
 namespace nsclient {
 namespace logging {
 namespace impl {
-class nsclient_logger : public logger_impl, public logging_subscriber {
-  // One subscriber behind its own gate (threads::gated). A delivery enters
-  // a subscriber's gate only around the call into that subscriber, so
-  // closing one waits for the lines inside *it* and for nothing else: a line
-  // stuck in ElasticClient neither refuses the unload of WEBServer nor holds
-  // a reference to it. And the gate, not the delivery, owns the subscriber,
-  // so whoever drops it is its last holder and a module's destructor never
-  // runs on the logging thread.
-  //
-  // A closed subscriber keeps its place in the list until it is dropped, the
-  // shape the plugin manager's walk lists have: a refused unload reopens it
-  // where it was, and a line still inside it keeps it closed there, so a
-  // retried unload, a purge or shutdown waits for that line again rather
-  // than finding an empty gate and tearing the module down under it.
-  typedef threads::gated<logging_subscriber_instance> gate_type;
+
+// The core's one logger. A line is written to the console and the log file
+// on the calling thread, under one lock, so it is on disk before do_log
+// returns and in order with whatever the caller prints next. Log-handler
+// modules (subscribers) are fed from a single worker thread instead, so a
+// slow or stuck handler costs the threads that log nothing.
+//
+// One delivery thread is what keeps the subscriber side small:
+//  - unloading a module waits until the worker is not inside *that* module,
+//    which is one pointer compare, not a gate per subscriber;
+//  - a line logged on the worker thread - from inside a handler - goes to
+//    the console and the file but is not handed to any subscriber, so a
+//    handler that logs once per line it receives cannot feed itself or
+//    another handler.
+class nsclient_logger : public logger_impl {
+  // Everything the worker touches. Shared with it, so a worker abandoned at
+  // shutdown (stuck in a handler) returns to live state, never to a
+  // destroyed logger.
   struct entry {
-    // Names the subscriber in a handler line's chain (see do_log).
     std::uint64_t id;
-    std::shared_ptr<gate_type> gate;
+    logging_subscriber_instance subscriber;
+    // Closed by close_subscriber: kept in its place, but handed no lines.
+    bool open;
   };
-  typedef std::vector<entry> subscribers_type;
-  typedef std::shared_ptr<const subscribers_type> subscribers_ptr;
+  typedef std::vector<entry> entries;
+  struct delivery {
+    boost::mutex mutex;
+    boost::condition_variable changed;
+    std::deque<std::string> queue;
+    entries subscribers;
+    std::uint64_t next_id = 1;
+    // Lines ever queued, and lines handed to every handler (or dropped):
+    // a flush waits for `done` to reach what `queued` was when it began.
+    std::uint64_t queued = 0;
+    std::uint64_t done = 0;
+    // The subscriber the worker is calling right now, or null.
+    logging_subscriber_instance current;
+    bool started = false;
+    bool stopping = false;
+    // Lines dropped because the queue was full, since the last report.
+    std::uint64_t dropped = 0;
+  };
 
-  log_driver_instance backend_;
-  // Copy-on-write: the mutators publish a new vector, and a delivery walks
-  // the one it started with. The list changes on module load and unload
-  // only, so a log line costs one shared_ptr copy.
-  subscribers_ptr subscribers_;
-  std::uint64_t next_id_ = 1;
-  // Mirrors "subscribers_ is non-empty", maintained under mutex_, so the
-  // common case - no log-handler module loaded, as in every CLI mode - costs
-  // a log line no lock at all.
+  // Guards the sink state below. Held while a line is written, never while
+  // settings are read or a subscriber is called.
+  boost::mutex sink_mutex_;
+  bool console_ = false;
+  bool oneline_ = false;
+  bool no_std_err_ = false;
+  std::unique_ptr<simple_file_logger> file_;
+
+  std::shared_ptr<delivery> delivery_;
+  std::shared_ptr<boost::thread> worker_;
+  // Mirrors "delivery_->subscribers is non-empty", so a log line costs no
+  // second lock when no log-handler module is loaded (every CLI mode).
   std::atomic<bool> has_subscribers_{false};
-  // Guards subscribers_ and next_id_. Held for those few lines only, never
-  // across a subscriber's on_log_message or a wait, so a plain blocking
-  // mutex is safe. It used to be a 5 s timed mutex held across the whole
-  // fan-out: a subscriber that logged from inside its handler re-entered on
-  // the same thread, waited the 5 s and lost the line, a removal arriving
-  // during a slow delivery gave up after 5 s and left the plugin's
-  // shared_ptr in the list - the static-destruction hazard
-  // plugin_manager.hpp documents - and one stuck handler cost every other
-  // thread 5 s per line. Handlers run concurrently now, on the console
-  // backend; the threaded backend still delivers from its one worker.
-  mutable boost::mutex mutex_;
-  // How long closing a subscriber waits for the lines inside it: 5 s in the
-  // service, like dll_plugin's wait for its dispatchers. Settable so a test
-  // can see the timed-out path in less.
+  // How long a removal waits for the worker to leave the subscriber: 5 s in
+  // the service, like dll_plugin's wait for its dispatchers.
   std::chrono::milliseconds delivery_wait_{5000};
+  std::chrono::milliseconds join_wait_{10000};
+  // How many lines may wait for the handlers. A handler that is stuck, or
+  // slower than the agent logs, would otherwise grow the queue without
+  // bound; past this the oldest lines are dropped.
+  std::size_t queue_limit_ = 10000;
 
-  // The delivery the calling thread is inside, for do_log: the chain of
-  // handlers the line being delivered already came through, and the one
-  // being called now. Thread-local, so do_log reads it without a lock; the
-  // process has one nsclient_logger, so one slot per thread is enough.
-  struct delivery_context {
-    const log_handler_chain *chain;
-    std::uint64_t handler;
-  };
-  static delivery_context *&current_delivery() {
-    static thread_local delivery_context *context = nullptr;
-    return context;
-  }
+  static bool &on_worker_thread();
+  // Under delivery_->mutex: the subscriber's entry, or end().
+  entries::iterator find(const logging_subscriber_instance &subscriber);
+  // Under delivery_->mutex: wait until the worker is not inside `subscriber`;
+  // false when the wait ran out.
+  bool wait_until_left(boost::unique_lock<boost::mutex> &lock, const logging_subscriber_instance &subscriber);
+  static void deliver(std::shared_ptr<delivery> d);
+  void write_sinks(const std::string &data);
+  void flush_handlers();
+  // Under delivery_->mutex: wait until the lines queued so far have been
+  // handed out, or `deadline` passes. Not on the worker itself.
+  void wait_for_queued(boost::unique_lock<boost::mutex> &lock, const boost::system_time &deadline);
+  // Under delivery_->mutex: drop what is queued and count it as done.
+  void drop_queued();
 
  public:
   nsclient_logger();
   ~nsclient_logger() override;
 
-  // For tests: how long the bounded wait runs (see delivery_wait_).
+  // For tests: shorten the bounded waits.
   void set_delivery_wait(std::chrono::milliseconds wait) { delivery_wait_ = wait; }
-  // Install a backend: set_backend(name) builds one and hands it here, and
-  // a test hands its own.
-  void use_backend(log_driver_instance backend);
+  void set_join_wait(std::chrono::milliseconds wait) { join_wait_ = wait; }
+  void set_queue_limit(std::size_t limit) { queue_limit_ = limit; }
 
-  // A line from the backend: delivered to every subscriber. A line a
-  // handler wrote comes back through on_handler_log_message instead, with
-  // the chain of handlers it came through, and skips those. Each call goes
-  // through the subscriber's gate; one closed since the list was read is
-  // skipped.
-  void on_log_message(const std::string &data) override;
-  void on_handler_log_message(const std::string &data, const log_handler_chain &chain) override;
-
-  // Takes both severity names ("debug", "trace", ...) and log-driver options
+  // Takes both severity names ("debug", "trace", ...) and console options
   // ("console", "no-console", "oneline", "no-std-err") - cli_parser pushes
-  // both onto the same list. Only "console" used to be routed to the backend,
-  // so --no-stderr and oneline reached log_level::set(), which does not know
-  // them, and logged "Invalid log level: no-std-err" instead of taking effect.
-  void set_log_level(const std::string level) override {
-    if (log_driver_interface_impl::is_driver_option(level)) {
-      if (backend_) {
-        backend_->set_config(level);
-      }
-    } else {
-      logger_impl::set_log_level(level);
-    }
-  }
+  // both onto the same list. "console" also waits for the lines queued for
+  // the handlers, so a module handing the console back sees them first.
+  void set_log_level(std::string level) override;
+  static bool is_console_option(const std::string &key);
 
-  // A line logged from inside a handler names that handler and the chain of
-  // the line it was handed, and the backend carries the chain alongside the
-  // line - never in it - back to on_handler_log_message, which hands it to
-  // none of them. It still reaches the console, the file and every other
-  // handler: a failure ElasticClient logs from its handler shows in the web
-  // UI's live log and in check_nscp's error tally. A handler that logged
-  // once per line would otherwise feed itself forever, and two that did
-  // would feed each other; the chain grows by one handler per hop, so no
-  // line goes round more than once per subscriber. A module that hands
-  // lines to a thread of its own and logs from there is outside any
-  // delivery and carries no chain: it has to filter by sender, as
-  // ElasticClient and DotnetPlugins do.
   void do_log(std::string data) override;
 
+  // "file" and "threaded-file" (the old name, still in installed service
+  // units) turn the log file on; anything else turns it off.
   void set_backend(std::string backend) override;
   void destroy() override;
 
+  // Adding one that is already on the list reopens it in its place.
   void add_subscriber(logging_subscriber_instance) override;
   unsubscribe_result close_subscriber(logging_subscriber_instance subscriber) override;
   void reopen_subscriber(logging_subscriber_instance subscriber) override;
@@ -140,11 +135,6 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   bool startup() override;
   bool shutdown() override;
   void configure() override;
-
- private:
-  void deliver(const std::string &data, const log_handler_chain &chain);
-  // Under mutex_: the entry for `subscriber`, or null.
-  const entry *find_locked(const logging_subscriber_instance &subscriber) const;
 };
 }  // namespace impl
 }  // namespace logging

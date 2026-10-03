@@ -131,7 +131,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
-        ${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface_impl_test.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_impl_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
