@@ -54,7 +54,7 @@ def __main__(args):
 def submit_metrics(list, request):
     global show_metrics
     if show_metrics:
-        for k,v in list.iteritems():
+        for k,v in list.items():
             log("Got metrics: %s = %s"%(k,v))
 
 def fetch_metrics():
