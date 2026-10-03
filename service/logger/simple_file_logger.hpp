@@ -36,10 +36,12 @@ class simple_file_logger {
   static void truncate_to_tail(const std::string &file, std::uintmax_t size, std::uintmax_t keep);
 
   void do_log(const std::string &data);
+  // Defaults are what apply() gets when the settings cannot be read at all:
+  // keep the file, date the lines, and never truncate.
   struct config_data {
     std::string file;
-    std::string format;
-    std::size_t max_size;
+    std::string format = "%Y-%m-%d %H:%M:%S";
+    std::size_t max_size = 0;
   };
   // Registers the keys and reads them; touches nothing on this object, so
   // it can run without the caller's lock (reading settings may log).

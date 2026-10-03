@@ -118,6 +118,15 @@ std::string make_entry(PB::Log::LogEntry::Entry::Level level, const std::string&
 
 }  // namespace
 
+// What do_config hands apply() when the settings cannot be read at all: no
+// truncation, a dated line, and the file left as it was.
+TEST(SimpleFileLogger, ConfigDefaultsKeepTheFileUntruncated) {
+  const simple_file_logger::config_data defaults;
+  EXPECT_EQ(defaults.max_size, 0u);
+  EXPECT_EQ(defaults.format, "%Y-%m-%d %H:%M:%S");
+  EXPECT_TRUE(defaults.file.empty());
+}
+
 TEST(SimpleFileLogger, BasePathOnPosixIsEmpty) {
 #ifndef WIN32
   simple_file_logger logger("dummy");
