@@ -110,19 +110,14 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     scheduler_.set_handler(this);
     scheduler_.start();
   }
-  // On a normal boot the startup runs wait for startModule, which the core
-  // calls once every plugin is loaded - firing them here would query commands
-  // that later modules have not registered yet. A reload (or a module loaded
-  // into an already running agent) has no such problem and gets no second
-  // startModule, so fire them right away instead.
-  if (started_ && (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart)) {
-    scheduler_.run_startup_tasks(startup_window_);
-  }
+  // The startup runs wait for startModule, which the core calls once every
+  // plugin is loaded - on boot, on a module loaded into a running agent, and
+  // after a reload (firing them here would query commands that modules the
+  // same reload enables have not registered yet).
   return true;
 }
 
 bool Scheduler::startModule() {
-  started_ = true;
   scheduler_.run_startup_tasks(startup_window_);
   return true;
 }

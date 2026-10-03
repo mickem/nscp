@@ -98,15 +98,15 @@ void lua::lua_runtime::exec_main(script_information *information, const std::vec
   lua_wrapper lua(prep_function(information, "main"));
   lua.push_array(opts);
   if (lua.pcall(1, 2, 0) != 0) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command main: " + lua.pop_string());
-  NSCAPI::nagiosReturn ret = NSCAPI::exec_return_codes::returnERROR;
-  if (lua.size() < 2) {
-    NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
-    nscapi::protobuf::functions::append_simple_exec_response_payload(response, "", NSCAPI::exec_return_codes::returnERROR, "Invalid return");
+  const std::string msg = pop_optional_string(lua);
+  if (top_is_nil(lua)) {
+    lua.pop();
+    const std::string error = "Invalid return from main: expected (code, message)";
+    NSC_LOG_ERROR_STD(error);
+    nscapi::protobuf::functions::append_simple_exec_response_payload(response, "", NSCAPI::exec_return_codes::returnERROR, error);
     return;
   }
-  std::string msg;
-  msg = lua.pop_string();
-  ret = lua.pop_code();
+  const NSCAPI::nagiosReturn ret = lua.pop_code();
   lua.gc(LUA_GCCOLLECT, 0);
   nscapi::protobuf::functions::append_simple_exec_response_payload(response, "", ret, msg);
 }
@@ -207,7 +207,14 @@ void lua::lua_runtime::on_submit(std::string channel, script_information *inform
 
 void lua::lua_runtime::create_user_data(scripts::script_information<lua_traits> *info) { info->user_data.base_path_ = base_path; }
 
+// load, start and unload run script code too - the top-level code, on_start,
+// the plugins' unload hooks - so they hold the GIL like every other entry
+// into Lua. They used not to, and the Core calls release the GIL around the
+// core call they make: an on_start that queried anything unlocked a mutex its
+// thread did not hold and then took it for good, and every Lua call after
+// that waited forever.
 void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
+  lua_gil::guard gil;
   const std::string &script_base_path = info->user_data.base_path_;
   lua_wrapper lua_instance(info->user_data.L);
   lua_instance.set_userdata(lua::lua_traits::user_data_tag, info);
@@ -226,6 +233,7 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
   lua_instance.gc(LUA_GCCOLLECT, 0);
 }
 void lua::lua_runtime::start(scripts::script_information<lua_traits> *info) {
+  lua_gil::guard gil;
   lua_wrapper lua_instance(info->user_data.L);
   lua_instance.getglobal("on_start");
   if (lua_instance.is_function()) {
@@ -237,6 +245,7 @@ void lua::lua_runtime::start(scripts::script_information<lua_traits> *info) {
 }
 
 void lua::lua_runtime::unload(scripts::script_information<lua_traits> *info) {
+  lua_gil::guard gil;
   lua_wrapper lua_instance(info->user_data.L);
   for (lua_runtime_plugin_type &plugin : plugins) {
     plugin->unload(lua_instance);
