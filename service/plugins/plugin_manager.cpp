@@ -276,8 +276,11 @@ void nsclient::core::plugin_manager::load_permissions() {
   // Build the table aside and publish it in one step: checks keep flowing
   // on the server pools during a reload, and filling permissions_ rule by
   // rule left it empty (deny-all, with the policy enabled) in between.
-  // Declared outside the try so a failed load can still publish it (below).
+  // Declared outside the try so a failed load can still publish it (below),
+  // with the two switches it may not have got as far as reading.
   nsclient::core::permissions fresh;
+  bool enabled_read = false;
+  bool exec_read = false;
   try {
     const std::string section = "/settings/permissions";
     const std::string policies_section = section + "/policies";
@@ -304,9 +307,11 @@ void nsclient::core::plugin_manager::load_permissions() {
 
     const std::string enabled = settings->get_string(section, "enabled", "false");
     fresh.set_enabled(enabled == "true" || enabled == "1");
+    enabled_read = true;
     fresh.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
     fresh.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
     fresh.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
+    exec_read = true;
 
     for (const std::string &subject : settings->get_keys(policies_section)) {
       const std::string objects = settings->get_string(policies_section, subject, "");
@@ -314,18 +319,24 @@ void nsclient::core::plugin_manager::load_permissions() {
     }
     permissions_.replace_with(fresh);
     LOG_DEBUG_CORE_STD("permissions: loaded " + str::xtos(permissions_.rule_count()) + " rule(s), enabled=" + (permissions_.is_enabled() ? "true" : "false"));
+    return;
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("permissions: failed to load: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     LOG_ERROR_CORE("permissions: failed to load (unknown error)");
   }
-  // A load that failed after reading enabled=true over a disabled policy
-  // still publishes what it read: a partial table fails closed, whereas
-  // keeping the disabled one would silently leave enforcement off. A policy
-  // that was already enabled keeps its previous, complete table.
-  if (fresh.is_enabled() && !permissions_.is_enabled()) {
-    LOG_ERROR_CORE("permissions: enforcing the partially loaded policy table");
-    permissions_.replace_with(fresh);
+  // A load that failed part-way fails closed. Keeping the previous table
+  // kept every rule the operator had just removed (and the old exec switch)
+  // in force, and at boot left a policy that is enabled in the configuration
+  // disabled. Instead, what was read is enforced and everything that was not
+  // takes its strict value: the policy enabled, exec denied, no further
+  // rules. Only an `enabled = false` that was actually read turns it off.
+  if (!enabled_read) fresh.set_enabled(true);
+  if (!exec_read) fresh.set_allow_exec(false);
+  permissions_.replace_with(fresh);
+  if (fresh.is_enabled()) {
+    LOG_ERROR_CORE_STD("permissions: enforcing the " + str::xtos(fresh.rule_count()) +
+                       " rule(s) read before the failure; every other call is denied until the policy loads");
   }
 }
 
