@@ -4,23 +4,6 @@ set(TARGET NCPAServer)
 
 project(${TARGET})
 
-# NCPAServer serves HTTPS through nscp_mongoose, the library the WEB server
-# uses, which is only built when the selected web backend's dependencies are
-# satisfied (see NSCP_MONGOOSE_AVAILABLE in build/cmake/dependencies.cmake).
-# Fail with a clear message here instead of a cryptic "target nscp_mongoose not
-# found" later. Disable this module with -DBUILD_MODULE_NCPAServer=OFF if you
-# cannot provide the backend.
-if(NOT TARGET nscp_mongoose)
-    message(
-        FATAL_ERROR
-        "NCPAServer requires the nscp_mongoose library, which was not built "
-        "because the NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' web backend's "
-        "dependencies are not satisfied. Provide the backend dependencies "
-        "(mongoose source, or OpenSSL for beast), switch NSCP_WEB_BACKEND, "
-        "or disable this module with -DBUILD_MODULE_NCPAServer=OFF."
-    )
-endif()
-
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS
@@ -79,8 +62,9 @@ target_link_libraries(
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
-# The wire contract (path splitting, form parsing, the token check, the plugin
-# policy and the JSON bodies) is dispatch-free, so it tests without a core.
+# The wire contract (path splitting, argument splitting, the token check, the
+# plugin policy and the JSON bodies) is dispatch-free, so it tests without a
+# core. It decodes with the HTTP layer's own helpers, hence nscp_mongoose.
 NSCP_CREATE_TEST(
     ${TARGET}_test
     SOURCES
@@ -89,7 +73,9 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         nscp_json
+        nscp_mongoose
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/mongoose-cpp
 )

@@ -82,6 +82,7 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   std::string tls_version;
   std::string allowed_ciphers;
   bool allow_insecure = false;
+  int threads = 10;
   bool log_errors = true;
   bool log_info = false;
   bool log_debug = false;
@@ -115,6 +116,9 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
                "AUTH RATE LIMIT (BLOCK SECONDS)",
                "How long a blocked address stays blocked. Default 60 s, doubling for an address that keeps guessing at machine speed, up to an "
                "hour - the same limiter the WEB server uses.")
+      .add_int("threads", sh::int_key(&threads, 10), "WORKER THREADS",
+               "How many requests are answered at the same time. A check blocks the thread answering it until it returns, so a slow external "
+               "script only delays the polls behind it once all threads are busy. Default 10.")
       .add_bool("allow insecure", sh::bool_key(&allow_insecure, false), "ALLOW INSECURE (CLEARTEXT HTTP)",
                 "When false (the default) the listener refuses to start without a TLS certificate rather than serve the token in clear. Set to true "
                 "only behind a TLS-terminating proxy or on loopback. Note that check_ncpa.py always connects with https.");
@@ -165,12 +169,6 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   socket_helpers::validate_certificate(certificate, errors);
   NSC_LOG_ERROR_LISTS(errors);
   const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
-  if (cert_missing && !allow_insecure) {
-    NSC_LOG_ERROR("NCPA: certificate not found at '" + certificate +
-                  "': refusing to start the NCPA listener in cleartext HTTP, which would send the token in clear. Provide a certificate, or set "
-                  "'allow insecure = true' under /settings/NCPA/server. The NCPA listener has NOT been started.");
-    return true;
-  }
 
   try {
     Mongoose::WebLoggerPtr logger(new ncpa_web_logger(log_errors, log_info, log_debug));
@@ -179,17 +177,33 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     // gives: the mongoose backend would otherwise log on every start that it
     // ignores a setting nobody wrote.
     server_->setTlsOptions(tls_version == kDefaultTlsVersion ? std::string() : tls_version, allowed_ciphers);
-    if (cert_missing) {
-      NSC_LOG_ERROR("NCPA: certificate not found at '" + certificate + "' and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port +
+    // Both backends serve TLS exactly when a certificate *loaded*, so the file
+    // existing is not enough: a missing key or an unreadable file would leave
+    // the listener on plain HTTP. What decides is whether setSsl() succeeded.
+    const bool tls = !cert_missing && server_->setSsl(certificate, key);
+    if (!tls) {
+      if (!allow_insecure) {
+        NSC_LOG_ERROR("NCPA: the certificate at '" + certificate +
+                      "' (or its key) could not be loaded: refusing to start the NCPA listener in cleartext HTTP, which would send the token in clear. "
+                      "Fix the certificate, or set 'allow insecure = true' under /settings/NCPA/server. The NCPA listener has NOT been started.");
+        server_.reset();
+        return true;
+      }
+      NSC_LOG_ERROR("NCPA: no usable certificate at '" + certificate + "' and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port +
                     ". The token travels in clear.");
-    } else {
-      server_->setSsl(certificate, key);
     }
+    // Checks run on a pool, so one slow check (an external script near its
+    // timeout) does not hold up every other poll and TLS handshake.
+    server_->setWorkerThreads(static_cast<std::size_t>(threads < 1 ? 1 : threads));
     // No error sink is installed: it is process-global and the WEB server owns
-    // it, and every handler here answers its own failures.
+    // it. The controller catches and logs its own failures.
     server_->registerController(new ncpa_controller(config, std::make_shared<ncpa_sources>(get_core(), get_id())));
-    server_->start("0.0.0.0:" + port);
-    NSC_DEBUG_MSG("NCPA: listening on port " + port + " (plugins = " + config.plugins.to_string() + ")");
+    if (!server_->start("0.0.0.0:" + port)) {
+      NSC_LOG_ERROR("NCPA: the NCPA listener has NOT been started on port " + port + " (see the error above). Fix the configuration and reload.");
+      server_.reset();
+      return true;
+    }
+    NSC_DEBUG_MSG("NCPA: listening on port " + port + (tls ? " (https" : " (http") + ", plugins = " + config.plugins.to_string() + ")");
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("NCPA: the listener failed to start (the module stays loaded; fix the configuration and reload): " + utf8::utf8_from_native(e.what()));
     server_.reset();
@@ -218,9 +232,4 @@ bool NCPAServer::unloadModule() {
     return false;
   }
   return true;
-}
-
-void NCPAServer::submitMetrics(const PB::Metrics::MetricsMessage &response) {
-  const boost::mutex::scoped_lock lock(metrics_mutex_);
-  metrics_.CopyFrom(response);
 }

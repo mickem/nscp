@@ -3,10 +3,13 @@
 
 #include "ncpa_protocol.hpp"
 
+#include <Helpers.h>
+
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/json.hpp>
 #include <cctype>
+#include <str/constant_time.hpp>
 
 namespace json = boost::json;
 
@@ -14,59 +17,13 @@ namespace ncpa {
 
 const char *const kScriptsModule = "CheckExternalScripts";
 
-namespace {
-int hex_value(const char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
-  if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
-  return -1;
-}
-}  // namespace
-
-std::string percent_decode(const std::string &in, const bool plus_is_space) {
-  std::string out;
-  out.reserve(in.size());
-  for (std::size_t i = 0; i < in.size(); ++i) {
-    const char c = in[i];
-    if (c == '+' && plus_is_space) {
-      out.push_back(' ');
-    } else if (c == '%' && i + 2 < in.size() && hex_value(in[i + 1]) >= 0 && hex_value(in[i + 2]) >= 0) {
-      out.push_back(static_cast<char>((hex_value(in[i + 1]) << 4) | hex_value(in[i + 2])));
-      i += 2;
-    } else {
-      out.push_back(c);
-    }
-  }
-  return out;
-}
-
 std::vector<std::string> split_path(const std::string &raw) {
   std::vector<std::string> out;
   std::size_t start = 0;
   while (start <= raw.size()) {
     std::size_t end = raw.find('/', start);
     if (end == std::string::npos) end = raw.size();
-    if (end > start) out.push_back(percent_decode(raw.substr(start, end - start), false));
-    start = end + 1;
-  }
-  return out;
-}
-
-form_vector parse_form(const std::string &encoded) {
-  form_vector out;
-  std::size_t start = 0;
-  while (start < encoded.size()) {
-    std::size_t end = encoded.find('&', start);
-    if (end == std::string::npos) end = encoded.size();
-    if (end > start) {
-      const std::string pair = encoded.substr(start, end - start);
-      const std::size_t eq = pair.find('=');
-      if (eq == std::string::npos) {
-        out.emplace_back(percent_decode(pair, true), std::string());
-      } else {
-        out.emplace_back(percent_decode(pair.substr(0, eq), true), percent_decode(pair.substr(eq + 1), true));
-      }
-    }
+    if (end > start) out.push_back(Mongoose::Helpers::url_decode(raw.substr(start, end - start), false));
     start = end + 1;
   }
   return out;
@@ -95,63 +52,55 @@ std::vector<std::string> split_args(const std::string &value) {
   std::vector<std::string> out;
   std::string current;
   bool in_token = false;
-  char quote = 0;
+  std::size_t equals = 0;  // unquoted '=' seen in the current token
+  const auto flush = [&]() {
+    if (in_token) out.push_back(current);
+    current.clear();
+    in_token = false;
+    equals = 0;
+  };
   for (std::size_t i = 0; i < value.size(); ++i) {
     const char c = value[i];
-    if (quote == '\'') {
-      if (c == '\'')
-        quote = 0;
-      else
-        current.push_back(c);
-    } else if (quote == '"') {
-      if (c == '"') {
-        quote = 0;
-      } else if (c == '\\' && i + 1 < value.size() && (value[i + 1] == '"' || value[i + 1] == '\\')) {
-        current.push_back(value[++i]);
-      } else {
-        current.push_back(c);
-      }
-    } else if (c == '\'' || c == '"') {
-      quote = c;
-      in_token = true;
-    } else if (c == '\\' && i + 1 < value.size()) {
-      current.push_back(value[++i]);
-      in_token = true;
-    } else if (std::isspace(static_cast<unsigned char>(c))) {
-      if (in_token) {
-        out.push_back(current);
-        current.clear();
-        in_token = false;
-      }
-    } else {
-      current.push_back(c);
-      in_token = true;
+    if (std::isspace(static_cast<unsigned char>(c))) {
+      flush();
+      continue;
     }
+    if (c == '"') {
+      // Only \" is an escape: every other backslash is the character itself,
+      // so "C:\Temp" and "\\server\share" arrive as written.
+      in_token = true;
+      for (++i; i < value.size() && value[i] != '"'; ++i) {
+        if (value[i] == '\\' && i + 1 < value.size() && value[i + 1] == '"') ++i;
+        current.push_back(value[i]);
+      }
+      continue;
+    }
+    // A single quote only groups where a whole argument or a whole value
+    // starts, as at the interactive prompt (str::utils::parse_prompt_command):
+    // 'a b' and path='C:\x y' group, filter=core='total' keeps its quotes for
+    // the filter language.
+    const bool value_start = !in_token || (equals == 1 && !current.empty() && current.back() == '=');
+    if (c == '\'' && value_start) {
+      in_token = true;
+      for (++i; i < value.size() && value[i] != '\''; ++i) current.push_back(value[i]);
+      continue;
+    }
+    in_token = true;
+    if (c == '=') ++equals;
+    current.push_back(c);
   }
   // An unterminated quote keeps what it collected rather than failing the
   // request: the token is still the caller's intent, and the check it reaches
   // validates its own arguments.
-  if (in_token) out.push_back(current);
+  flush();
   return out;
-}
-
-bool constant_time_equals(const std::string &given, const std::string &expected) {
-  // Walk `given` in full whatever `expected` holds, folding every difference
-  // (including the length) into one accumulator, so neither the position of
-  // the first mismatch nor the length of the secret shows in the timing.
-  unsigned char diff = given.size() == expected.size() ? 0 : 1;
-  for (std::size_t i = 0; i < given.size(); ++i) {
-    const unsigned char e = expected.empty() ? 0 : static_cast<unsigned char>(expected[i % expected.size()]);
-    diff |= static_cast<unsigned char>(given[i]) ^ e;
-  }
-  return diff == 0;
 }
 
 token_result check_token(const std::string &given, const std::string &primary, const std::string &backup) {
   if (primary.empty()) return token_result::not_configured;
   // An empty token never matches, even against an empty backup.
-  const bool primary_ok = constant_time_equals(given, primary);
-  const bool backup_ok = !backup.empty() && constant_time_equals(given, backup);
+  const bool primary_ok = str::constant_time_eq(given, primary);
+  const bool backup_ok = !backup.empty() && str::constant_time_eq(given, backup);
   if (given.empty()) return token_result::rejected;
   return (primary_ok || backup_ok) ? token_result::accepted : token_result::rejected;
 }
@@ -182,12 +131,12 @@ bool plugin_policy::parse(const std::string &value, plugin_policy &out, std::str
   return true;
 }
 
-bool plugin_policy::allows(const std::string &name, const std::string &owner) const {
+bool plugin_policy::allows(const std::string &name, const std::string &module) const {
   switch (mode) {
     case mode_type::any:
       return true;
     case mode_type::scripts:
-      return boost::algorithm::iequals(owner, kScriptsModule);
+      return boost::algorithm::iequals(module, kScriptsModule);
     case mode_type::list:
       return names.count(boost::algorithm::to_lower_copy(name)) > 0;
   }

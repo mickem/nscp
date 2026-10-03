@@ -18,22 +18,16 @@
 //   agent/listener/pluginnodes.py (github.com/NagiosEnterprises/ncpa).
 namespace ncpa {
 
+// The request parameters, query string then form body, in order and with
+// repeats: what Mongoose::Request::getVariablesVector() and
+// Mongoose::Request::parseVariables() return.
 typedef std::vector<std::pair<std::string, std::string> > form_vector;
-
-// Decode %XX escapes. `plus_is_space` is the form-encoding rule (query string,
-// POST body); a path segment keeps a literal '+'. A malformed escape is copied
-// through verbatim.
-std::string percent_decode(const std::string &in, bool plus_is_space);
 
 // Split the raw (still percent-encoded) path below /api into its segments:
 // split on '/' first, then decode each segment, so an argument check_ncpa sent
 // with an escaped slash (`%2F`) stays one segment. Empty segments are dropped,
 // which also absorbs the trailing '/' check_ncpa always puts after the metric.
 std::vector<std::string> split_path(const std::string &raw);
-
-// Parse `a=1&b=2` (a query string or an application/x-www-form-urlencoded
-// body). Order and repeats are kept; a bare `key` has an empty value.
-form_vector parse_form(const std::string &encoded);
 
 // First value of `key`, or `fallback` when it is absent.
 std::string form_value(const form_vector &form, const std::string &key, const std::string &fallback = "");
@@ -42,16 +36,20 @@ bool form_has(const form_vector &form, const std::string &key);
 // Every value of `key`, in order.
 std::vector<std::string> form_values(const form_vector &form, const std::string &key);
 
-// Split one `args=` value the way a shell would: whitespace separates tokens,
-// single and double quotes group (and are removed), a backslash escapes the
-// next character outside single quotes. This is what NCPA does to its
-// plugin arguments (shlex in posix mode), after joining the path segments and
-// the `args` values with spaces.
+// Split the plugin arguments into tokens. NCPA joins the `args=` values and
+// the path segments with spaces and splits the result again with shlex; this
+// does the same split, with the quoting rules the rest of the agent uses:
+//   - whitespace separates tokens;
+//   - "..." groups and is removed; inside it only \" is an escape;
+//   - '...' groups and is removed only at the start of a token or right after
+//     its first '=' (`'a b'`, `path='C:\x y'`); anywhere else it is kept, so a
+//     filter's own quotes survive (`filter=core='total'`);
+//   - a backslash outside double quotes is an ordinary character, so Windows
+//     paths survive (`path=C:\Windows\Temp`).
+// check_ncpa.py needs the second split: it tokenises -a with a non-POSIX
+// shlex that keeps the quotes, so -a '"filter=load > 80"' arrives as the one
+// segment `"filter=load > 80"`.
 std::vector<std::string> split_args(const std::string &value);
-
-// Length-independent comparison: the time taken depends only on the length of
-// `given`, never on how many leading characters match.
-bool constant_time_equals(const std::string &given, const std::string &expected);
 
 enum class token_result {
   accepted,
@@ -61,8 +59,8 @@ enum class token_result {
   rejected
 };
 // Check `given` against the primary token and, when one is set, the backup
-// token. Both comparisons always run, so the time taken does not say which
-// one matched.
+// token, with str::constant_time_eq. Both comparisons always run, so the time
+// taken does not say which one matched.
 token_result check_token(const std::string &given, const std::string &primary, const std::string &backup);
 
 // Which registered queries `plugins/` exposes.
@@ -85,8 +83,9 @@ struct plugin_policy {
   // is never what an operator who writes it means).
   static bool parse(const std::string &value, plugin_policy &out, std::string &error);
 
-  // Whether the query `name`, registered by the module `owner`, is exposed.
-  bool allows(const std::string &name, const std::string &owner) const;
+  // Whether the query `name`, registered by the module `module` (its name,
+  // not the alias it was loaded under), is exposed.
+  bool allows(const std::string &name, const std::string &module) const;
 
   std::string to_string() const;
 };

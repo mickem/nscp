@@ -23,8 +23,8 @@ allowed hosts = 127.0.0.1,192.168.0.10
 
 #### Running checks with check_ncpa.py
 
-The `-a` string is split like a shell command line, and each resulting token is passed to the check as one argument,
-the way the REST API passes `key=value`. Quote a token that contains spaces:
+The `-a` string is split into tokens, and each token is passed to the check as one argument, the way the REST API
+passes `key=value`. Quote a token that contains spaces:
 
 ```
 check_ncpa.py -H agent.example.com -t '<token>' -M plugins/check_cpu
@@ -36,7 +36,19 @@ The answer is the check's own output, unchanged: the Nagios exit code becomes `r
 `|` and the performance data, becomes `stdout`. The `-w`, `-c`, `-u` and `-n` options of `check_ncpa.py` do not
 apply to `plugins/`: the thresholds belong in the check's own arguments.
 
-`check_ncpa.py -M plugins -l` lists the queries the server exposes.
+`check_ncpa.py -M plugins -l` lists the queries the server exposes, aliases included.
+
+The arguments are split the way NCPA splits them: any `args=` parameters first, then the path segments after the query
+name, joined with spaces and split again. The quoting rules are those of the NSClient++ prompt:
+
+| Written                       | Reaches the check as        | Why                                                         |
+|-------------------------------|-----------------------------|-------------------------------------------------------------|
+| `"warning=load > 80"`         | `warning=load > 80`         | double quotes group and are removed                         |
+| `path='C:\Program Filespp'` | `path=C:\Program Filespp` | a single quote groups where a whole value starts            |
+| `filter=core='total'`         | `filter=core='total'`       | a single quote anywhere else is kept, for the filter syntax |
+| `path=C:\Windows\Temp`        | `path=C:\Windows\Temp`      | a backslash is an ordinary character                        |
+
+Inside double quotes only `\"` is an escape.
 
 #### Securing the server
 
@@ -60,8 +72,13 @@ apply to `plugins/`: the thresholds belong in the check's own arguments.
 The listener serves HTTPS with the same certificate as the WEB server (`${certificate-path}/certificate.pem`, generated
 on first start when missing), so one certificate serves both. `check_ncpa.py` does not verify the certificate unless it
 is run with `-s`, so the generated self-signed one works out of the box; give it a real one and pass `-s` to have the
-monitoring server check it. Without a certificate the listener refuses to start rather than send the token in clear,
-unless `allow insecure = true` is set.
+monitoring server check it. Unless the certificate and its key actually load (and belong together), the listener
+refuses to start rather than send the token in clear, unless `allow insecure = true` is set.
+
+#### Concurrency
+
+Up to `threads` requests (default 10) are answered at the same time, so a slow check - an external script close to its
+timeout - only delays the polls behind it once every thread is busy.
 
 The NCPA server and the WEB server are separate listeners with separate credentials and allow-lists, so either can run
 without the other.

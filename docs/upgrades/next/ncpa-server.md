@@ -1,7 +1,7 @@
 ---
-icon: "🆕"
+icon: "🆕 🔒"
 modules: [NCPAServer]
-action: none
+action: conditional
 ---
 **New, experimental `NCPAServer` module: poll NSClient++ with Nagios'
 `check_ncpa.py`.** Nothing changes for existing installs; the module is off
@@ -12,6 +12,9 @@ serves the `plugins/` node, which runs any NSClient++ check, alias or external
 script (`check_ncpa.py -M plugins/check_cpu`) and returns its output
 unchanged; the built-in NCPA node tree (`cpu/`, `memory/`, `disk/`, ...)
 follows. Arguments are refused unless `allow arguments = true`, as with NRPE.
-The listener uses the WEB server's certificate and refuses to start without
-one. On Windows it is the new *NCPA support* installer feature. See the
-[NCPAServer reference](../reference/client/NCPAServer.md).
+The listener uses the WEB server's certificate and refuses to start unless it
+loads, and answers up to `threads` requests at once (default 10). On Windows it
+is the new *NCPA support* installer feature. See the
+[NCPAServer reference](../reference/client/NCPAServer.md) and the
+[security notice](../security/notices.md#ncpa-server-a-new-listener-that-runs-queries-for-token-holders)
+for what enabling it exposes.

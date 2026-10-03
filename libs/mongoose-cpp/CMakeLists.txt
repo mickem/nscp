@@ -99,6 +99,9 @@ endif()
 
 if(OPENSSL_FOUND)
     include_directories("${OPENSSL_INCLUDE_DIR}")
+    # cert_loader checks that a certificate and key parse (and match) before a
+    # server reports TLS as configured.
+    add_definitions(-DNSCP_CERT_LOADER_OPENSSL)
     if(NSCP_WEB_BACKEND STREQUAL "mongoose")
         add_definitions(-DMG_ENABLE_OPENSSL=1)
         add_definitions(-DMG_DISABLE_PFS=1)

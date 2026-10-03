@@ -30,7 +30,9 @@ struct ncpa_config {
 
 // The one controller on /api. It authenticates the request, resolves the node
 // path and answers in the NCPA JSON shapes; the `plugins/` node hands the
-// request to the core as an ordinary query.
+// request to the core as an ordinary query. Called from several worker
+// threads at once (setWorkerThreads), so everything it holds is either
+// immutable or locks for itself.
 class ncpa_controller : public Mongoose::RegexpController {
  public:
   ncpa_controller(ncpa_config config, std::shared_ptr<ncpa_sources> sources);
@@ -38,6 +40,7 @@ class ncpa_controller : public Mongoose::RegexpController {
   void api(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 
  private:
+  void handle(Mongoose::Request &request, const boost::smatch &what, Mongoose::StreamResponse &response);
   // Whether the request may go on. On false the response has been written.
   bool authenticate(const Mongoose::Request &request, const ncpa::form_vector &args, Mongoose::StreamResponse &response);
 
