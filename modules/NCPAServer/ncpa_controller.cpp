@@ -29,10 +29,15 @@ void answer_json(Mongoose::StreamResponse &response, const std::string &body) {
 std::string join_path(const std::vector<std::string> &path) { return "/api/" + boost::algorithm::join(path, "/"); }
 }  // namespace
 
-ncpa_controller::ncpa_controller(ncpa_config config, std::shared_ptr<ncpa_sources> sources)
-    : RegexpController("/api"), config_(std::move(config)), sources_(std::move(sources)) {
-  rate_limiter_.set_max_failures(config_.auth_max_failures);
-  rate_limiter_.set_block_seconds(config_.auth_block_seconds);
+ncpa_controller::ncpa_controller(ncpa_config config, std::shared_ptr<ncpa_sources> sources, std::shared_ptr<ncpa_auth_state> auth)
+    : RegexpController("/api"), config_(std::move(config)), sources_(std::move(sources)), auth_(std::move(auth)) {
+  {
+    // The limiter outlives this controller (and its settings): only its
+    // limits follow the new configuration, the record of who failed stays.
+    const std::lock_guard<std::mutex> auth_lock(auth_->mutex);
+    auth_->limiter.set_max_failures(config_.auth_max_failures);
+    auth_->limiter.set_block_seconds(config_.auth_block_seconds);
+  }
 
   // `/api`, `/api/` and `/api/<anything>`, but not `/apifoo`: the prefix match
   // the base class does on its own would take that too. The capture is the
@@ -57,14 +62,14 @@ bool ncpa_controller::authenticate(const Mongoose::Request &request, const ncpa:
   std::string failure;
   bool blocked = false;
   {
-    const std::lock_guard<std::mutex> auth_lock(auth_mutex_);
-    if (rate_limiter_.is_blocked(remote)) {
+    const std::lock_guard<std::mutex> auth_lock(auth_->mutex);
+    if (auth_->limiter.is_blocked(remote)) {
       blocked = true;
       failure = "blocked after repeated failed tokens.";
     } else {
       switch (ncpa::check_token(ncpa::form_value(args, "token"), config_.token, config_.backup_token)) {
         case ncpa::token_result::accepted:
-          rate_limiter_.record_success(remote);
+          auth_->limiter.record_success(remote);
           return true;
         case ncpa::token_result::not_configured:
           // Not a guess, so it does not count towards the block: every
@@ -72,7 +77,7 @@ bool ncpa_controller::authenticate(const Mongoose::Request &request, const ncpa:
           failure = "no token is configured. Set 'token' under /settings/NCPA/server.";
           break;
         case ncpa::token_result::rejected:
-          rate_limiter_.record_failure(remote);
+          auth_->limiter.record_failure(remote);
           failure = (ncpa::form_has(args, "token") ? std::string("wrong token") : std::string("no token given")) + ".";
           break;
       }

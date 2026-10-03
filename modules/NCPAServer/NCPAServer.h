@@ -5,8 +5,15 @@
 
 #include <Server.h>
 
+#include <boost/thread/thread.hpp>
+#include <list>
 #include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
+
+struct ncpa_auth_state;
+namespace socket_helpers {
+struct allowed_hosts_manager;
+}
 
 // Serves the Nagios NCPA HTTP API (port 5693) so Nagios Core and XI can poll
 // the agent with the stock check_ncpa.py plugin and the XI NCPA wizard. The
@@ -24,9 +31,13 @@ class NCPAServer : public nscapi::impl::simple_plugin {
  private:
   void stop_server();
 
-  // Re-resolves the host names in `allowed hosts` in the background when
-  // `cache allowed hosts` is off (see NCPAServer.cpp).
-  struct host_refresher;
-  std::shared_ptr<host_refresher> refresher_;
   std::shared_ptr<Mongoose::Server> server_;
+  // The listener's allow-list, kept to stop its background refresh.
+  std::shared_ptr<socket_helpers::allowed_hosts_manager> hosts_;
+  // The token rate limiter. Created once and handed to every controller, so a
+  // settings reload does not reset it.
+  std::shared_ptr<ncpa_auth_state> auth_;
+  // Threads freeing a server released from one of its own threads: they run
+  // the controller's destructor, so the destructor waits for them.
+  std::list<std::shared_ptr<boost::thread>> retired_;
 };

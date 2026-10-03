@@ -26,24 +26,27 @@ Mongoose::Server* Mongoose::Server::make_server(const WebLoggerPtr& logger) {
 #endif
 }
 
-void Mongoose::stop_and_release(std::shared_ptr<Server> &server, const Server::thread_reporter &reporter) {
+std::shared_ptr<boost::thread> Mongoose::stop_and_release(std::shared_ptr<Server> &server, const Server::thread_reporter &reporter) {
   std::shared_ptr<Server> owned;
   owned.swap(server);
   if (!owned) {
-    return;
+    return nullptr;
   }
   if (!owned->isServerThread()) {
     owned->stop();
-    return;  // freed here, with every thread joined
+    return nullptr;  // freed here, with every thread joined
   }
   // On one of its own threads: see the declaration. The releasing thread holds
-  // the last reference, so the server outlives every thread it joins.
-  const auto releaser = threads::start_guarded_thread(
+  // the last reference, so the server outlives every thread it joins. Through
+  // one shared holder: the thread keeps copies of its body for as long as the
+  // thread object lives, and a reference in each copy would keep the server
+  // (and the caller's controllers) alive until the caller joined.
+  const auto holder = std::make_shared<std::shared_ptr<Server>>(std::move(owned));
+  return threads::start_guarded_thread(
       "web server release",
-      [owned]() mutable {
-        owned->stop();
-        owned.reset();
+      [holder]() {
+        (*holder)->stop();
+        holder->reset();
       },
       reporter ? reporter : Server::thread_reporter([](const std::string &) {}));
-  releaser->detach();
 }

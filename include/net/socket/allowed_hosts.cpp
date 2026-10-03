@@ -3,13 +3,17 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/thread/thread.hpp>
+#include <condition_variable>
 #include <mutex>
 #include <net/socket/allowed_hosts.hpp>
+#include <set>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <threads/guarded_thread.hpp>
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
@@ -107,26 +111,35 @@ bool expand_wildcard_v4(const std::string &addr, std::string &out_addr, std::str
 }
 }  // namespace
 
-void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &errors) {
+namespace {
+typedef socket_helpers::allowed_hosts_manager manager;
+
+// What one refresh works from, taken under the lock in one go.
+struct refresh_snapshot {
+  std::list<std::string> sources;
+  std::list<manager::host_record_v4> previous_v4;
+  std::list<manager::host_record_v6> previous_v6;
+  std::uint64_t sequence = 0;
+};
+
+refresh_snapshot take_snapshot(manager &hosts) {
+  refresh_snapshot snap;
+  std::lock_guard<std::mutex> lock(hosts.entries_mutex_);
+  snap.sources = hosts.sources;
+  snap.previous_v4 = hosts.entries_v4;
+  snap.previous_v6 = hosts.entries_v6;
+  snap.sequence = ++hosts.refresh_started_;
+  return snap;
+}
+
+// Resolves the snapshot's sources without touching the manager, so it runs
+// with no lock held and can outlive the manager it was taken from.
+void resolve(const refresh_snapshot &snap, std::list<manager::host_record_v4> &new_v4, std::list<manager::host_record_v6> &new_v6,
+             std::list<std::string> &errors) {
   io_context io_service;
   tcp::resolver resolver(io_service);
-  // Built off to the side and swapped in, so the lock is never held across a
-  // DNS lookup: is_allowed() takes the same lock on every accepted
-  // connection, and a slow resolver used to stall every one of them for the
-  // length of the rebuild. Readers see the old list or the new one, never a
-  // half-built one.
-  std::list<std::string> current_sources;
-  std::list<host_record_v4> previous_v4;
-  std::list<host_record_v6> previous_v6;
-  {
-    std::lock_guard<std::mutex> lock(entries_mutex_);
-    current_sources = sources;
-    previous_v4 = entries_v4;
-    previous_v6 = entries_v6;
-  }
-  std::list<host_record_v4> new_v4;
-  std::list<host_record_v6> new_v6;
-  for (const std::string &record : current_sources) {
+  std::set<std::string> restored;
+  for (const std::string &record : snap.sources) {
     std::string::size_type pos = record.find('/');
     std::string addr, mask;
     if (pos == std::string::npos) {
@@ -171,9 +184,9 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
         continue;
       }
       if (a.is_v4()) {
-        new_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
+        new_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<manager::addr_v4>(mask));
       } else if (a.is_v6()) {
-        new_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
+        new_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<manager::addr_v6>(mask));
       } else {
         errors.push_back("Invalid address: " + record);
       }
@@ -183,9 +196,9 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
         for (const auto &entry : endpoints) {
           address a = entry.endpoint().address();
           if (a.is_v4()) {
-            new_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
+            new_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<manager::addr_v4>(mask));
           } else if (a.is_v6()) {
-            new_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
+            new_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<manager::addr_v6>(mask));
           } else {
             errors.emplace_back("Invalid address: " + record);
           }
@@ -194,17 +207,21 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
         // Keep what this name resolved to last time: a transient DNS failure
         // used to empty its entries until the next refresh, refusing a host
         // the list allows by name for a whole refresh interval.
+        // Once per name: a name listed twice used to have its old entries
+        // copied once per listing, doubling the list on every failed round.
         bool kept = false;
-        for (const host_record_v4 &r : previous_v4) {
-          if (r.host == record) {
-            new_v4.push_back(r);
-            kept = true;
+        if (restored.insert(record).second) {
+          for (const manager::host_record_v4 &r : snap.previous_v4) {
+            if (r.host == record) {
+              new_v4.push_back(r);
+              kept = true;
+            }
           }
-        }
-        for (const host_record_v6 &r : previous_v6) {
-          if (r.host == record) {
-            new_v6.push_back(r);
-            kept = true;
+          for (const manager::host_record_v6 &r : snap.previous_v6) {
+            if (r.host == record) {
+              new_v6.push_back(r);
+              kept = true;
+            }
           }
         }
         errors.emplace_back("Failed to parse host " + record + ": " + utf8::utf8_from_native(e.what()) +
@@ -212,18 +229,126 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
       }
     }
   }
-  std::lock_guard<std::mutex> lock(entries_mutex_);
-  entries_v4.swap(new_v4);
-  entries_v6.swap(new_v6);
+}
+
+// Swaps the result in, unless a refresh that started later has already
+// published, or set_source() has replaced the sources since: that list is the
+// newer one.
+void publish(manager &hosts, const std::uint64_t sequence, std::list<manager::host_record_v4> &new_v4, std::list<manager::host_record_v6> &new_v6) {
+  std::lock_guard<std::mutex> lock(hosts.entries_mutex_);
+  if (sequence < hosts.refresh_published_) return;
+  hosts.refresh_published_ = sequence;
+  hosts.entries_v4.swap(new_v4);
+  hosts.entries_v6.swap(new_v6);
+}
+}  // namespace
+
+void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &errors) {
+  // Built off to the side and swapped in, so the lock is never held across a
+  // DNS lookup: is_allowed() takes the same lock on every accepted
+  // connection, and a slow resolver used to stall every one of them for the
+  // length of the rebuild. Readers see the old list or the new one, never a
+  // half-built one.
+  const refresh_snapshot snap = take_snapshot(*this);
+  std::list<host_record_v4> new_v4;
+  std::list<host_record_v6> new_v6;
+  resolve(snap, new_v4, new_v6, errors);
+  publish(*this, snap.sequence, new_v4, new_v6);
+}
+
+struct socket_helpers::allowed_hosts_manager::background_refresh {
+  std::mutex mutex;
+  std::condition_variable cv;
+  bool stop = false;
+  // Both cleared by stop_background_refresh(), under `mutex`: from then on the
+  // thread touches neither the manager nor the owner's reporter.
+  allowed_hosts_manager *owner = nullptr;
+  error_reporter report;
+  std::chrono::seconds interval{60};
+  std::shared_ptr<boost::thread> thread;
+
+  void run() {
+    std::unique_lock<std::mutex> lock(mutex);
+    while (!cv.wait_for(lock, interval, [this] { return stop; })) {
+      const refresh_snapshot snap = take_snapshot(*owner);
+      lock.unlock();
+      // The lookups run unlocked, so stopping never waits for the resolver.
+      std::list<host_record_v4> new_v4;
+      std::list<host_record_v6> new_v6;
+      std::list<std::string> errors;
+      resolve(snap, new_v4, new_v6, errors);
+      lock.lock();
+      if (stop) break;
+      publish(*owner, snap.sequence, new_v4, new_v6);
+      if (!errors.empty() && report) report(errors);
+    }
+  }
+};
+
+namespace {
+// Stops `bg` and hands its thread out. Idempotent.
+std::shared_ptr<boost::thread> halt(manager::background_refresh &bg) {
+  std::shared_ptr<boost::thread> thread;
+  {
+    const std::lock_guard<std::mutex> lock(bg.mutex);
+    bg.stop = true;
+    bg.owner = nullptr;
+    bg.report = nullptr;
+    // Handed out rather than kept: the thread's body holds the state, so the
+    // state holding the thread would keep both alive for good.
+    thread.swap(bg.thread);
+  }
+  bg.cv.notify_all();
+  return thread;
+}
+}  // namespace
+
+void socket_helpers::allowed_hosts_manager::start_background_refresh(const std::chrono::seconds interval, error_reporter report) {
+  stop_background_refresh();
+  auto bg = std::make_shared<background_refresh>();
+  bg->owner = this;
+  bg->report = std::move(report);
+  bg->interval = interval;
+  {
+    const std::lock_guard<std::mutex> lock(bg->mutex);
+    bg->thread = threads::start_guarded_thread(
+        "allowed hosts refresh", [bg] { bg->run(); },
+        [bg](const std::string &line) {
+          const std::lock_guard<std::mutex> report_lock(bg->mutex);
+          if (!bg->stop && bg->report) bg->report({line});
+        });
+  }
+  // The manager's handle stops the refresh when it is dropped - by
+  // stop_background_refresh() or by the manager's destructor - while the
+  // thread holds the state itself and so outlives it safely.
+  background_ = std::shared_ptr<background_refresh>(bg.get(), [bg](background_refresh *) {
+    try {
+      halt(*bg);
+    } catch (...) {
+      // Runs from a destructor: must not throw.
+    }
+  });
+}
+
+std::shared_ptr<boost::thread> socket_helpers::allowed_hosts_manager::stop_background_refresh() {
+  std::shared_ptr<background_refresh> handle;
+  handle.swap(background_);
+  if (!handle) return nullptr;
+  return halt(*handle);
 }
 
 void socket_helpers::allowed_hosts_manager::set_source(const std::string &source) {
   std::lock_guard<std::mutex> lock(entries_mutex_);
   sources.clear();
+  std::set<std::string> seen;
   for (std::string s : str::utils::split_lst(source, std::string(","))) {
     boost::trim(s);
-    if (!s.empty()) sources.push_back(s);
+    // A name listed twice is looked up once.
+    if (!s.empty() && seen.insert(s).second) sources.push_back(s);
   }
+  // A refresh already under way resolved the old sources: it must not
+  // publish over whatever the next one makes of these.
+  refresh_published_ = ++refresh_started_;
 }
 
 std::string socket_helpers::allowed_hosts_manager::to_string() const {

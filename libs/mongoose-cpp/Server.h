@@ -12,6 +12,10 @@
 #include "Controller.h"
 #include "dll_defines.hpp"
 
+namespace boost {
+class thread;
+}
+
 /**
  * Wrapper for the Mongoose server
  */
@@ -178,6 +182,11 @@ class NSCP_MONGOOSE_EXPORT Server {
  * way - joining every thread, the caller's included once its handler has
  * returned - and only then frees it. `reporter` takes that thread's guard
  * line (pass the module's NSC_THREAD_REPORTER).
+ *
+ * Returns that thread, or null when the server was stopped and freed right
+ * here. The thread runs the controllers' destructors, which are the caller's
+ * code: a module joins it before it can be unloaded (its destructor is the
+ * place - by then no handler of its own is running).
  */
-NSCP_MONGOOSE_EXPORT void stop_and_release(std::shared_ptr<Server> &server, const Server::thread_reporter &reporter);
+NSCP_MONGOOSE_EXPORT std::shared_ptr<boost::thread> stop_and_release(std::shared_ptr<Server> &server, const Server::thread_reporter &reporter);
 }  // namespace Mongoose

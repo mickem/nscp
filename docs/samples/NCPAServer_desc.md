@@ -57,12 +57,14 @@ double quote, put the value in single quotes.
     plugin passes it with `-t`, and it travels in the query string, so it is only as private as the connection: keep
     TLS on. The token is compared in constant time and never logged. A wrong or missing token is answered with
     `{"error": "Incorrect credentials given."}`, which `check_ncpa.py` reports as `CRITICAL`, and ten wrong tokens in a
-    row from one address block it for a minute (`auth rate limit max failures`, `auth rate limit block seconds`).
+    row from one address block it for a minute (`auth rate limit max failures`, `auth rate limit block seconds`). A
+    block survives a settings reload.
 *   **`backup token`** - a second accepted token, so the token can be rotated without a window where pollers fail.
 *   **`allowed hosts`** - which addresses may connect at all, inherited from `[/settings/default]`. A connection from
-    a host outside the list is closed as soon as it is accepted, before the TLS handshake. Host names in the list are
-    resolved when the listener starts; with `cache allowed hosts = false` they are resolved again every minute, in the
-    background, never while a connection waits.
+    a host outside the list is closed as soon as it is accepted, before the TLS handshake, and logged - once a minute
+    per address, with a count of the refusals left out in between. Host names in the list are resolved when the
+    listener starts; with `cache allowed hosts = false` they are resolved again every minute, in the background, never
+    while a connection waits. A name that fails to resolve keeps the addresses it had.
 *   **`allow arguments`** - `false` by default, with the same meaning as the NRPE server's: a request to `plugins/`
     that carries arguments is refused with `UNKNOWN`. The caller can run the commands the agent defines but cannot
     shape what they do. Define an alias to give a check fixed arguments, or set `allow arguments = true`.

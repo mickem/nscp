@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <boost/thread/thread.hpp>
 #include <cctype>
 #include <chrono>
 #include <memory>
@@ -801,6 +802,8 @@ struct stop_state {
   std::shared_ptr<Server> server;
   std::atomic<bool> released{false};
   std::atomic<bool> finished{false};
+  // Written before `released` is set, read after it is seen.
+  std::shared_ptr<boost::thread> releaser;
 };
 // Releases the server it runs on from inside a request - the backstop path of
 // a handler whose work ends up stopping its own listener - then keeps going
@@ -809,7 +812,7 @@ class ReleaseServerHandler : public RequestHandlerBase {
  public:
   explicit ReleaseServerHandler(std::shared_ptr<stop_state> state) : state_(std::move(state)) {}
   Response* process(Request& /*request*/) override {
-    Mongoose::stop_and_release(state_->server, {});
+    state_->releaser = Mongoose::stop_and_release(state_->server, {});
     state_->released = true;
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     // `this` (owned by the server's controller) must still be alive here.
@@ -845,7 +848,11 @@ TEST(ServerImpl, AHandlerCanReleaseItsOwnServer) {
   raw_fetch(bind_url(port), make_get_request("/release", port));
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!watch.expired() && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  EXPECT_TRUE(state->released);
+  ASSERT_TRUE(state->released);
   EXPECT_TRUE(state->finished);
   EXPECT_TRUE(watch.expired()) << "the server is freed once its threads are done";
+  // Handed back so an owner can wait for it before unloading the code the
+  // controllers' destructors run.
+  ASSERT_TRUE(state->releaser);
+  state->releaser->join();
 }
