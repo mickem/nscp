@@ -58,27 +58,30 @@ TEST(InFlight, NothingInsideReturnsAtOnce) {
   const auto started = std::chrono::steady_clock::now();
   EXPECT_TRUE(tracker.wait_for_others_before(tracker.cutoff(), std::chrono::seconds(5)));
   EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
-  EXPECT_FALSE(tracker.on_this_thread());
 }
 
-TEST(InFlight, GuardMarksThisThreadUntilItGoes) {
+TEST(InFlight, GuardEntersOnceAndNestedGuardsLeaveInnermostFirst) {
   in_flight tracker;
   {
     in_flight::guard g(tracker);
     EXPECT_FALSE(g.entered());
-    EXPECT_FALSE(tracker.on_this_thread());
     g.enter();
+    g.enter();  // idempotent
     EXPECT_TRUE(g.entered());
-    EXPECT_TRUE(tracker.on_this_thread());
     {
       in_flight::guard nested(tracker);
       nested.enter();
-      EXPECT_TRUE(tracker.on_this_thread());
     }
-    // The outer entry is still there after the nested one left.
-    EXPECT_TRUE(tracker.on_this_thread());
+    // The outer entry is still there after the nested one left: a waiter on
+    // another thread still sees it.
+    const std::uint64_t cutoff = tracker.cutoff();
+    std::atomic<bool> timed_out{false};
+    std::thread waiter([&]() { timed_out = !tracker.wait_for_others_before(cutoff, std::chrono::milliseconds(100)); });
+    waiter.join();
+    EXPECT_TRUE(timed_out.load());
   }
-  EXPECT_FALSE(tracker.on_this_thread());
+  // And gone once the outer guard went.
+  EXPECT_TRUE(tracker.wait_for_others_before(tracker.cutoff(), std::chrono::milliseconds(100)));
 }
 
 TEST(InFlight, OwnEntriesAreNotWaitedFor) {
