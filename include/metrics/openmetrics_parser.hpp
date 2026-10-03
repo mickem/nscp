@@ -30,30 +30,43 @@
 //     unrelated families, which client_golang serves by default
 //     (`go_memstats_alloc_bytes` beside `go_memstats_alloc_bytes_total`).
 //
-// Family names are kept as the body declares them, with one exception:
-// client_golang writes a counter `X_total` in OpenMetrics as the family `X`, so
-// a Go exporter serves a gauge `X` and a counter `X` side by side. The two own
-// different sample names, so both are kept, and the counter (or info family)
-// is named after its sample (`X_total`, `X_info`) - the name the Prometheus
-// text format gives it - so that every family name stays unique.
+// Family names are kept exactly as the body declares them; nothing is renamed.
+// Both formats keep a family's lines together - metadata first, then its
+// samples - so a sample belongs to the family being read, or starts a new one
+// of unknown type named after it. A sample of a family that already gave way to
+// another, or metadata for a name already declared or sampled, is an error.
+//
+// One exception to that last rule: client_golang writes a counter `X_total` in
+// OpenMetrics as the family `X` (the suffix is stripped from its metadata
+// lines), so a Go exporter serves the counter `X` beside any gauge, histogram
+// or summary of the same name. Both are kept, under the name `X`. In
+// OpenMetrics a family is therefore identified by its name and its type, and
+// a counter is the only family that may share its name, with exactly one other
+// family that declared its type first.
 //
 // The samples of a histogram or a summary (`_bucket`, `_sum`, `_count`,
 // `quantile`) belong to their family rather than starting families of their
 // own. `# UNIT` is read in both formats: the Prometheus text format predates it,
 // but the agent's own exposition carries it there too.
 //
-// The body comes off the network. Parsing is one pass, linear in the size of
-// the body: it never recurses or backtracks, keeps no hash table whose worst
-// case an exporter could choose names to reach, and stops at the first line it
-// cannot read, reporting which line and why rather than guessing at what was
-// meant. Families read before that line are kept, so a caller can choose
-// between discarding the scrape and using what arrived.
+// The body comes off the network. Parsing is one pass that never recurses or
+// backtracks, and stops at the first line it cannot read, reporting that line
+// and why rather than guessing at what was meant. Families read before it are
+// kept, so a caller can choose between discarding the scrape and using what
+// arrived; a family whose own metadata line failed, with no samples yet, is
+// not. Time is linear in the body for the lines of a family; each family that
+// starts costs a few lookups in an ordered index of the names seen so far,
+// logarithmic in their number. No hash table is involved whose worst case an
+// exporter could choose names to reach.
 //
-// What the result holds is the text of the body, copied once, plus a fixed
-// overhead per family, per sample and per label - so memory is bounded by the
-// body size together with `limits`. With every limit at 0 the overhead is
-// bounded only by how many of each the body can spell, which for labels is
-// about ten times the body size; a caller reading from the network sets them.
+// Memory is the text of the body - a family name is held twice, by its family
+// and by the index - plus a fixed overhead for each family, sample and label,
+// all of which `limits` bounds. Measured with libstdc++ on x86-64: a label
+// costs 64 bytes beyond any text too long for the short-string buffer, a
+// sample about 80, and a family with its index entry about 300. With no limits
+// a 20 MB body of short labels costs about ten times its size, and one of
+// single-sample families nearly twenty. A caller reading from the network sets
+// the limits.
 //
 // Exemplars are skipped. What a sample means is not checked - that a
 // histogram's buckets are cumulative, that `le` is present - only whether the
@@ -99,8 +112,8 @@ struct sample {
 struct family {
   // The family name as declared: in OpenMetrics without the sample suffix
   // (`foo` for the counter sampled as `foo_total`), in the Prometheus text
-  // format the name its samples carry (`foo_total`). Unique within a result;
-  // see above for the one OpenMetrics family named after its sample instead.
+  // format the name its samples carry (`foo_total`). With `type`, unique
+  // within a result; see above for the one name two families may share.
   std::string name;
   family_type type = family_type::unknown;
   // `# HELP`, unescaped.
@@ -129,7 +142,8 @@ struct limits {
 };
 
 struct result {
-  // In the order they were first declared or sampled. Names are unique.
+  // In the order they appear in the body. Every sample name belongs to exactly
+  // one family, and no two families share both name and type.
   std::vector<family> families;
   // Total samples across all families.
   std::size_t sample_count = 0;
