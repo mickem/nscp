@@ -113,6 +113,17 @@ TEST(PluginsListExceptionTest, ThrowAndCatchAsStdException) {
 // simple_plugins_list tests
 // ============================================================================
 
+// What the plugin manager does to take a module out of one walk list: close
+// its slot, wait for the rounds inside it, and finish on that outcome.
+enum class removal { absent, removed, still_walking };
+removal remove_from(nsclient::simple_plugins_list& list, const unsigned long id, const std::chrono::milliseconds timeout = std::chrono::seconds(10)) {
+  const nsclient::simple_plugins_list::closing c = list.close_plugin(id);
+  if (!c) return removal::absent;
+  const bool drained = nsclient::simple_plugins_list::drain_each({c}, timeout)[0];
+  c.finish(drained);
+  return drained ? removal::removed : removal::still_walking;
+}
+
 class SimplePluginsListTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -169,7 +180,7 @@ TEST_F(SimplePluginsListTest, RemovePlugin) {
   list_->add_plugin(plugin1);
   list_->add_plugin(plugin2);
 
-  list_->remove_plugin(1);
+  remove_from(*list_, 1);
 
   const std::string result = list_->to_string();
   EXPECT_TRUE(result.find("Module1") == std::string::npos);
@@ -181,7 +192,7 @@ TEST_F(SimplePluginsListTest, RemoveNonExistentPlugin) {
   list_->add_plugin(plugin);
 
   // Removing non-existent plugin should not crash
-  list_->remove_plugin(999);
+  remove_from(*list_, 999);
 
   EXPECT_EQ(list_->to_string(), "Module");
 }
@@ -220,7 +231,7 @@ TEST_F(SimplePluginsListTest, DoAllCallbackMayRemoveAndAddPlugins) {
   std::vector<unsigned int> seen;
   list_->do_all([&](nsclient::plugin_type p) {
     seen.push_back(p->get_id());
-    list_->remove_plugin(p->get_id());
+    remove_from(*list_, p->get_id());
     if (p->get_id() == 1) list_->add_plugin(plugin3);
   });
 
@@ -263,11 +274,11 @@ TEST_F(SimplePluginsListTest, RemovePluginWaitsForAWalkOnAnotherThread) {
   }
 
   // Not in this list: nothing to close or wait for.
-  EXPECT_EQ(list_->remove_plugin(42), nsclient::simple_plugins_list::removal::absent);
+  EXPECT_EQ(remove_from(*list_, 42), removal::absent);
 
   std::atomic<bool> removed{false};
   std::thread remover([&]() {
-    EXPECT_EQ(list_->remove_plugin(1), nsclient::simple_plugins_list::removal::removed);
+    EXPECT_EQ(remove_from(*list_, 1), removal::removed);
     removed = true;
   });
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -316,9 +327,9 @@ TEST_F(SimplePluginsListTest, RemovingAModuleDoesNotWaitForARoundInsideAnother) 
 
   // The round is inside module 1. Removing module 2 has nothing to wait for:
   // with no wait allowed at all, it still comes back removed.
-  EXPECT_EQ(list_->remove_plugin(2, std::chrono::milliseconds(0)), nsclient::simple_plugins_list::removal::removed);
+  EXPECT_EQ(remove_from(*list_, 2, std::chrono::milliseconds(0)), removal::removed);
   // Removing module 1 is what the round holds up.
-  EXPECT_EQ(list_->remove_plugin(1, std::chrono::milliseconds(0)), nsclient::simple_plugins_list::removal::still_walking);
+  EXPECT_EQ(remove_from(*list_, 1, std::chrono::milliseconds(0)), removal::still_walking);
 
   {
     std::lock_guard<std::mutex> lock(mu);
@@ -353,7 +364,7 @@ TEST_F(SimplePluginsListTest, TheRemoverHoldsTheLastReference) {
   auto plugin = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
   list_->add_plugin(plugin);
   list_->do_all([](nsclient::plugin_type) {});
-  EXPECT_EQ(list_->remove_plugin(1), nsclient::simple_plugins_list::removal::removed);
+  EXPECT_EQ(remove_from(*list_, 1), removal::removed);
   EXPECT_EQ(plugin.use_count(), 1);
 }
 
@@ -390,6 +401,22 @@ TEST_F(SimplePluginsListTest, RemoveAllNamesTheModulesARoundIsStillInside) {
   }
   cv.notify_all();
   walk.join();
+}
+
+// A module whose slot cannot be taken out keeps its module: finish() never
+// empties a gate whose slot is still listed.
+TEST_F(SimplePluginsListTest, FinishLeavesAStuckSlotHoldingItsModule) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  list_->add_plugin(plugin1);
+  const nsclient::simple_plugins_list::closing c = list_->close_plugin(1);
+  ASSERT_TRUE(static_cast<bool>(c));
+  // Not drained: nothing handed back, the slot stays, closed, with its module.
+  EXPECT_FALSE(c.finish(false));
+  EXPECT_EQ(c.plugin(), plugin1);
+  EXPECT_EQ(list_->to_string(), "Module1");
+  // Drained: out of the list and handed back.
+  EXPECT_EQ(c.finish(true), plugin1);
+  EXPECT_TRUE(list_->empty());
 }
 
 // ============================================================================

@@ -127,6 +127,17 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // are gone — a crash on process exit.
   void purge_broken_plugin(unsigned long plugin_id);
 
+  // A module's slot in one of the walk lists (metrics fetchers and
+  // submitters, facts fetchers), closed, with whether the rounds inside it
+  // left within the wait. close_walks closes the module in all three and
+  // drains them within one shared deadline; remove_plugin and
+  // purge_broken_plugin then reopen or finish each slot on its own outcome.
+  struct walk_closing {
+    simple_plugins_list::closing slot;
+    bool drained;
+  };
+  std::vector<walk_closing> close_walks(unsigned long plugin_id);
+
  public:
   void prepare_shutdown_plugins();
   void stop_plugins();

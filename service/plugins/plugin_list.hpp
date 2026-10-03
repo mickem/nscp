@@ -65,31 +65,40 @@ struct simple_plugins_list : boost::noncopyable {
     closing() : list_(nullptr), cutoff_(0) {}
     closing(simple_plugins_list *list, std::shared_ptr<gate_type> gate, const std::uint64_t cutoff) : list_(list), gate_(std::move(gate)), cutoff_(cutoff) {}
     explicit operator bool() const { return gate_ != nullptr; }
+    // The module, for a caller that has no other handle on it. Present
+    // until finish() takes it.
+    plugin_type plugin() const { return gate_ ? gate_->value() : plugin_type(); }
     // Wait for the rounds inside the module when it was closed.
     bool drain(const std::chrono::milliseconds timeout) const { return !gate_ || gate_->tracker().wait_for_others_before(cutoff_, timeout); }
     // Let rounds call the module again, in its old place.
     void reopen() const {
       if (gate_) gate_->tracker().reopen();
     }
-    // Done with the module. Drained: out of the list, and handed back so the
-    // caller is its last holder. Not drained: it stays in the list, closed,
-    // so remove_all() waits for it again at shutdown and reports it.
+    // Done with the module. Drained and taken out of the list: handed back
+    // so the caller is its last holder. Not drained - or not taken out,
+    // because the list's lock could not be had - it stays in the list,
+    // closed and still holding the module, so remove_all() waits for it
+    // again at shutdown and reports it. The gate is never left empty while
+    // its slot is still listed.
     plugin_type finish(const bool drained) const {
       if (!gate_ || !drained) return plugin_type();
-      list_->erase_slot(gate_);
+      if (!list_->erase_slot(gate_)) return plugin_type();
       return gate_->take();
     }
   };
 
-  // Drain several closings within one deadline, rather than one bound each.
-  static bool drain_all(const std::vector<closing> &closings, const std::chrono::milliseconds timeout) {
+  // Drain several closings within one deadline, rather than one bound each,
+  // and report each one's own outcome: a round stuck in one list says
+  // nothing about the others.
+  static std::vector<bool> drain_each(const std::vector<closing> &closings, const std::chrono::milliseconds timeout) {
     const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + timeout;
-    bool drained = true;
+    std::vector<bool> drained;
+    drained.reserve(closings.size());
     for (const closing &c : closings) {
       const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
       const std::chrono::milliseconds remaining =
           now < deadline ? std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now) : std::chrono::milliseconds(0);
-      if (!c.drain(remaining)) drained = false;
+      drained.push_back(c.drain(remaining));
     }
     return drained;
   }
@@ -130,19 +139,6 @@ struct simple_plugins_list : boost::noncopyable {
       if (s.id == id) return closing(this, s.gate, s.gate->tracker().close());
     }
     return closing();
-  }
-
-  enum class removal { absent, removed, still_walking };
-  // Close, drain and take out one module - for a caller that cannot refuse
-  // (a purge). A module a round is still inside after `timeout` stays in the
-  // list, closed; see closing::finish.
-  removal remove_plugin(const unsigned long id, const std::chrono::milliseconds timeout = std::chrono::seconds(10)) {
-    const closing c = close_plugin(id);
-    if (!c) return removal::absent;
-    const bool drained = c.drain(timeout);
-    if (!drained) log_error(__FILE__, __LINE__, "A metrics or facts round is still running inside the module", "plugins_list::remove_plugin" + str::xtos(id));
-    const plugin_type released = c.finish(drained);
-    return drained ? removal::removed : removal::still_walking;
   }
 
   // Close and drain every module at once, within one deadline, and empty the
@@ -231,10 +227,14 @@ struct simple_plugins_list : boost::noncopyable {
   }
 
  private:
-  void erase_slot(const std::shared_ptr<gate_type> &gate) {
+  // Whether the slot was found and taken out.
+  bool erase_slot(const std::shared_ptr<gate_type> &gate) {
     const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
-    if (!has_valid_lock_log(writeLock, "plugins_list::erase")) return;
-    plugins_.erase(std::remove_if(plugins_.begin(), plugins_.end(), [&gate](const slot &s) { return s.gate == gate; }), plugins_.end());
+    if (!has_valid_lock_log(writeLock, "plugins_list::erase")) return false;
+    const std::vector<slot>::iterator end = std::remove_if(plugins_.begin(), plugins_.end(), [&gate](const slot &s) { return s.gate == gate; });
+    const bool erased = end != plugins_.end();
+    plugins_.erase(end, plugins_.end());
+    return erased;
   }
 };
 
