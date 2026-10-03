@@ -53,6 +53,10 @@ class nsclient_logger : public logger_impl {
     std::deque<std::string> queue;
     entries subscribers;
     std::uint64_t next_id = 1;
+    // Lines ever queued, and lines handed to every handler (or dropped):
+    // a flush waits for `done` to reach what `queued` was when it began.
+    std::uint64_t queued = 0;
+    std::uint64_t done = 0;
     // The subscriber the worker is calling right now, or null.
     logging_subscriber_instance current;
     bool started = false;
@@ -86,6 +90,11 @@ class nsclient_logger : public logger_impl {
   static void deliver(std::shared_ptr<delivery> d);
   void write_sinks(const std::string &data);
   void flush_handlers();
+  // Under delivery_->mutex: wait until the lines queued so far have been
+  // handed out, or `deadline` passes. Not on the worker itself.
+  void wait_for_queued(boost::unique_lock<boost::mutex> &lock, const boost::system_time &deadline);
+  // Under delivery_->mutex: drop what is queued and count it as done.
+  void drop_queued();
 
  public:
   nsclient_logger();

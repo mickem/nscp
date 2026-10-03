@@ -393,6 +393,41 @@ TEST(NsclientLogger, ARetriedCloseWaitsForTheSameLineAgain) {
   EXPECT_FALSE(logger.close_subscriber(stuck).removed);
 }
 
+// The last lines before stop_plugins reach the handlers: clear hands out
+// what is already queued before it takes the list away.
+TEST(NsclientLogger, ClearDeliversTheLinesAlreadyQueued) {
+  struct Slow : CapturingSubscriber {
+    void on_log_message(const std::string& payload) override {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      CapturingSubscriber::on_log_message(payload);
+    }
+  };
+  nsclient_logger logger;
+  auto sub = std::make_shared<Slow>();
+  logger.add_subscriber(sub);
+  for (int i = 0; i < 10; ++i) logger.do_log(line("line-" + std::to_string(i)));
+  EXPECT_TRUE(logger.clear_subscribers().empty());
+  EXPECT_EQ(sub->snapshot().size(), 10u);
+}
+
+// A flush waits only for the lines queued when it began, so one that keeps
+// arriving from other threads does not hold it to the deadline.
+TEST(NsclientLogger, AFlushIsNotHeldUpByLinesQueuedAfterIt) {
+  nsclient_logger logger;
+  logger.set_delivery_wait(std::chrono::seconds(5));
+  auto sub = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(sub);
+  std::atomic<bool> stop{false};
+  std::thread chatter([&]() {
+    while (!stop) logger.do_log(line("chatter"));
+  });
+  const auto start = std::chrono::steady_clock::now();
+  EXPECT_TRUE(logger.clear_subscribers().empty());
+  EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(4));
+  stop = true;
+  chatter.join();
+}
+
 TEST(NsclientLogger, ClearNamesTheSubscriberStillDelivering) {
   nsclient_logger logger;
   logger.set_delivery_wait(std::chrono::milliseconds(50));

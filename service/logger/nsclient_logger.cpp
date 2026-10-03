@@ -67,8 +67,21 @@ void nsclient_logger::set_log_level(const std::string level) {
 void nsclient_logger::flush_handlers() {
   if (on_worker_thread()) return;
   boost::unique_lock<boost::mutex> lock(delivery_->mutex);
-  delivery_->changed.timed_wait(lock, boost::posix_time::milliseconds(delivery_wait_.count()),
-                                [&]() { return delivery_->stopping || (delivery_->queue.empty() && !delivery_->current); });
+  wait_for_queued(lock, boost::get_system_time() + boost::posix_time::milliseconds(delivery_wait_.count()));
+}
+
+// Only the lines already queued are waited for, so a flush ends even while
+// other threads keep logging.
+void nsclient_logger::wait_for_queued(boost::unique_lock<boost::mutex> &lock, const boost::system_time &deadline) {
+  if (on_worker_thread()) return;
+  const std::uint64_t target = delivery_->queued;
+  delivery_->changed.timed_wait(lock, deadline, [&]() { return delivery_->stopping || delivery_->done >= target; });
+}
+
+void nsclient_logger::drop_queued() {
+  delivery_->done += delivery_->queue.size();
+  delivery_->queue.clear();
+  delivery_->changed.notify_all();
 }
 
 void nsclient_logger::set_backend(const std::string backend) {
@@ -103,6 +116,7 @@ void nsclient_logger::do_log(const std::string data) {
     boost::lock_guard<boost::mutex> lock(delivery_->mutex);
     if (delivery_->stopping || delivery_->subscribers.empty()) return;
     delivery_->queue.push_back(data);
+    ++delivery_->queued;
   }
   delivery_->changed.notify_all();
 }
@@ -141,6 +155,7 @@ void nsclient_logger::deliver(const std::shared_ptr<delivery> d) {
       d->current.reset();
       d->changed.notify_all();
     }
+    ++d->done;
     d->changed.notify_all();
   }
 }
@@ -228,11 +243,16 @@ std::vector<logging_subscriber_instance> nsclient_logger::clear_subscribers() {
   entries taken;
   {
     boost::unique_lock<boost::mutex> lock(delivery_->mutex);
+    // One deadline for both waits: first hand out the lines already queued,
+    // so the last lines before the modules stop reach their handlers, then
+    // take the list and wait for the worker to leave the one it is in.
+    const boost::system_time deadline = boost::get_system_time() + boost::posix_time::milliseconds(delivery_wait_.count());
+    wait_for_queued(lock, deadline);
     taken.swap(delivery_->subscribers);
-    delivery_->queue.clear();
+    drop_queued();
     has_subscribers_ = false;
     if (on_worker_thread()) return still_delivering;
-    if (!delivery_->changed.timed_wait(lock, boost::posix_time::milliseconds(delivery_wait_.count()), [&]() { return !delivery_->current; })) {
+    if (!delivery_->changed.timed_wait(lock, deadline, [&]() { return !delivery_->current; })) {
       still_delivering.push_back(delivery_->current);
     }
   }
@@ -248,7 +268,7 @@ bool nsclient_logger::shutdown() {
   {
     boost::lock_guard<boost::mutex> lock(delivery_->mutex);
     delivery_->stopping = true;
-    delivery_->queue.clear();
+    drop_queued();
     taken.swap(delivery_->subscribers);
   }
   delivery_->changed.notify_all();
