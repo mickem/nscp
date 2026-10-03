@@ -113,20 +113,16 @@ class permissions {
   // clear the live table on its own for that reason; a reload that cannot
   // build its replacement leaves the previous policy in force.
   //
-  // `staged` is left empty (no rules, flags at their defaults).
+  // `staged` receives the previous policy in exchange; the one caller
+  // discards it.
   void replace(permissions& staged) {
     if (&staged == this) return;
     std::scoped_lock lk(mutex_, staged.mutex_);
-    enabled_ = staged.enabled_;
-    allow_exec_ = staged.allow_exec_;
-    log_denials_ = staged.log_denials_;
-    log_allows_ = staged.log_allows_;
+    std::swap(enabled_, staged.enabled_);
+    std::swap(allow_exec_, staged.allow_exec_);
+    std::swap(log_denials_, staged.log_denials_);
+    std::swap(log_allows_, staged.log_allows_);
     rules_.swap(staged.rules_);
-    staged.rules_.clear();
-    staged.enabled_ = false;
-    staged.allow_exec_ = true;
-    staged.log_denials_ = true;
-    staged.log_allows_ = false;
   }
 
   // The policy decision. `subject` is `module[:principal]` (use

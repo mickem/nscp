@@ -276,20 +276,24 @@ TEST(Permissions, replace_swaps_rules_and_flags_in_one_step) {
   EXPECT_FALSE(live.is_allowed("X", "A.old"));
 }
 
-TEST(Permissions, replace_leaves_staged_empty_and_at_defaults) {
+TEST(Permissions, replace_hands_the_previous_policy_back_in_staged) {
   permissions live;
+  live.set_enabled(true);
+  live.set_log_allows(true);
+  live.add_rule("X", "A.old");
   permissions staged;
-  staged.set_enabled(true);
   staged.set_allow_exec(false);
-  staged.add_rule("X", "A.b");
+  staged.add_rule("Y", "B.new");
 
   live.replace(staged);
 
-  EXPECT_EQ(0u, staged.rule_count());
-  EXPECT_FALSE(staged.is_enabled());
+  // What live had is now in staged, untouched: the caller may discard it.
+  EXPECT_EQ(1u, staged.rule_count());
+  EXPECT_TRUE(staged.is_enabled());
+  EXPECT_TRUE(staged.should_log_allows());
   EXPECT_TRUE(staged.is_exec_allowed());
-  EXPECT_TRUE(staged.should_log_denials());
-  EXPECT_FALSE(staged.should_log_allows());
+  EXPECT_TRUE(staged.is_allowed("X", "A.old"));
+  EXPECT_FALSE(staged.is_allowed("Y", "B.new"));
 }
 
 TEST(Permissions, replace_with_disabled_policy_turns_enforcement_off) {
