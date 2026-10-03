@@ -239,6 +239,17 @@ void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Req
 void PythonScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                   const PB::Commands::QueryRequestMessage &request_message) {
   std::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+  // The core asks a command for its parameters by running it with the single
+  // argument `help-pb` (behind /api/v2/queries/<name>/help). A
+  // simple_function handler has none to declare and cannot tell that request
+  // from a real one, so handing it over ran the check - side effects and all -
+  // only to have its answer discarded. Answer it here: no parameters. A raw
+  // Registry.function handler sees the whole request and can answer it itself.
+  if (request.arguments_size() == 1 && request.arguments(0) == "help-pb" && !inst->has_function(request.command()) && inst->has_simple(request.command())) {
+    response->set_command(request.command());
+    response->set_result(PB::Common::ResultCode::OK);
+    return;
+  }
   if (inst->has_function(request.command())) {
     std::string buffer;
     if (inst->handle_query(request.command(), request_message.SerializeAsString(), buffer) != NSCAPI::query_return_codes::returnOK) {

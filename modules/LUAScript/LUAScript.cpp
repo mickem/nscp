@@ -43,19 +43,27 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     }
     const std::shared_ptr<scripts::script_manager<lua::lua_traits> > previous =
         std::atomic_exchange(&scripts_, std::shared_ptr<scripts::script_manager<lua::lua_traits> >());
-    if (previous) previous->unload_all();
+    // The previous generation's registrations stay in the core until this one
+    // has loaded: a call arriving meanwhile then waits for the reload instead
+    // of being told the command does not exist.
+    scripts::script_manager<lua::lua_traits>::registration_list registered;
+    if (previous) registered = previous->unload_all();
     root_ = get_core()->expand_path("${scripts}");
-    nscp_runtime_ = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
+    const auto nscp_runtime = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
     // The lua runtime builds package.path for require() from this folder's
     // lua/lib and lua subfolders.
-    lua_runtime_ = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(root_.string()));
+    const auto lua_runtime = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(root_.string()));
     // Published atomically, and read the same way everywhere below: a check
-    // thread copying this member while a reload replaces it is a data race on
-    // the shared_ptr itself, not merely on what it points at. The reload
+    // thread copying these members while a reload replaces them is a data race
+    // on the shared_ptr itself, not merely on what it points at. The reload
     // barrier in dll_plugin serialises the two today, but the barrier is a
-    // property of the caller - this makes the member safe on its own terms.
+    // property of the caller - this makes the members safe on their own terms.
+    // The runtime goes first, so a dispatch that finds the new manager finds
+    // the runtime that goes with it.
+    std::atomic_store(&nscp_runtime_, nscp_runtime);
+    std::atomic_store(&lua_runtime_, lua_runtime);
     std::atomic_store(&scripts_,
-                      std::make_shared<scripts::script_manager<lua::lua_traits> >(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
+                      std::make_shared<scripts::script_manager<lua::lua_traits> >(lua_runtime, nscp_runtime, get_id(), utf8::cvt<std::string>(alias)));
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "lua");
@@ -76,7 +84,14 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // 			addAllScriptsFrom(scriptDirectory_);
     // 		}
 
-    std::atomic_load(&scripts_)->load_all();
+    // A script that fails to load is reported and the others load anyway; the
+    // first failure used to abort the walk and fail the whole module, taking
+    // every other script down with one that did not parse.
+    const std::shared_ptr<scripts::script_manager<lua::lua_traits> > loaded = std::atomic_load(&scripts_);
+    loaded->load_all([](const std::string &, const std::string &error) { NSC_LOG_ERROR_STD(error); });
+    loaded->unregister_stale(registered);
+    // Not started here: the core calls startModule once every module this
+    // load (or reload) brings in is loaded, so on_start can rely on them.
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("load", e);
     return false;
@@ -90,7 +105,9 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 bool LUAScript::startModule() {
   try {
-    std::atomic_load(&scripts_)->start_all();
+    // Called on boot and again after every reload; start_all starts only the
+    // scripts of the current generation that have not been started yet.
+    start_scripts();
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("start", e);
     return false;
@@ -101,6 +118,12 @@ bool LUAScript::startModule() {
 
   return true;
 }
+void LUAScript::start_scripts() {
+  // One on_start that raises is reported; the other scripts start anyway.
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
+  if (scripts) scripts->start_all([](const std::string &, const std::string &error) { NSC_LOG_ERROR_STD(error); });
+}
+
 bool LUAScript::loadScript(std::string alias, std::string file) {
   try {
     if (file.empty()) {
@@ -142,6 +165,25 @@ bool LUAScript::unloadModule() {
   return true;
 }
 
+namespace {
+// The core asks a command for its parameters by running it with the single
+// argument `help-pb` (registry_query_handler::inventory_queries, behind
+// /api/v2/queries/<name>/help). A simple_query handler has no parameters to
+// declare and cannot tell that request from a real one, so handing it over ran
+// the check - side effects and all - only to have its answer discarded. A raw
+// Registry:query handler sees the whole request and can answer it itself, so
+// it still gets it.
+bool is_help_request(const PB::Commands::QueryRequestMessage::Request &request) { return request.arguments_size() == 1 && request.arguments(0) == "help-pb"; }
+
+// Answer it for the simple handler instead: no parameters.
+void answer_help_request(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  response->set_command(request.command());
+  // An empty ParameterDetails, which serialises to nothing at all.
+  response->set_data("");
+  response->set_result(PB::Common::ResultCode::OK);
+}
+}  // namespace
+
 void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                const PB::Commands::QueryRequestMessage &request_message) {
   // Hold our own reference and register as a dispatcher for the whole call:
@@ -152,13 +194,15 @@ void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request 
   if (!scripts) return nscapi::protobuf::functions::set_response_bad(*response, "Module is not loaded");
   const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
   if (!dispatch.entered()) return nscapi::protobuf::functions::set_response_bad(*response, "Module is unloading");
+  const std::shared_ptr<lua::lua_runtime> runtime = std::atomic_load(&lua_runtime_);
   boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::query_tag, request.command());
   if (!cmd) {
     cmd = scripts->find_command(scripts::nscp::tags::simple_query_tag, request.command());
     if (!cmd) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to find command: " + request.command());
-    return lua_runtime_->on_query(request.command(), cmd.value().information, cmd.value().function, true, request, response, request_message);
+    if (is_help_request(request)) return answer_help_request(request, response);
+    return runtime->on_query(request.command(), cmd.value().information, cmd.value().function, true, request, response, request_message);
   }
-  return lua_runtime_->on_query(request.command(), cmd.value().information, cmd.value().function, false, request, response, request_message);
+  return runtime->on_query(request.command(), cmd.value().information, cmd.value().function, false, request, response, request_message);
 }
 
 bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
@@ -172,14 +216,18 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
     command = "help";
   try {
     if (command == "help") {
-      nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [add|execute|list|install|delete] --help");
+      nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp lua [add|execute|list|show|install|delete] --help");
       return true;
     } else if (command == "execute" || command == "lua-script" || command == "lua-run") {
       execute_script(request, response);
       return true;
+    } else if (!extscr_cli::handles(command)) {
+      // Not a verb of ours, so it is a script's command (or nobody's): skip
+      // building the CLI helpers for it. Checked by name, so the verbs stay
+      // reserved - a script command named `list` is never reached.
+      return exec_script_command(request, response, request_message);
     }
 
-    sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     // ${scripts}, not ${base-path}. The two are the same folder apart on
     // Windows, where ${scripts} is ${exe-path}/scripts - so appending
     // "scripts/lua" to the install base happened to land in the right place
@@ -190,16 +238,30 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
     auto provider = std::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${scripts}"));
 
     extscr_cli client(provider);
-    if (client.run(command, request, response)) {
-      return true;
-    }
+    return client.run(command, request, response);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
+    return true;
   } catch (...) {
     nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
+    return true;
   }
+}
 
-  return false;
+bool LUAScript::exec_script_command(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
+                                    const PB::Commands::ExecuteRequestMessage &request_message) {
+  // The handlers scripts register with Registry:simple_cmdline. They were
+  // registered, but nothing here ever looked them up, so `nscp client --exec`
+  // and Core:simple_exec could not reach a single one. Held the same way as a
+  // query: an unload on another thread must not delete the script under us.
+  const std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts = std::atomic_load(&scripts_);
+  if (!scripts) return false;
+  const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
+  if (!dispatch.entered()) return false;
+  boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::simple_exec_tag, request.command());
+  if (!cmd) return false;
+  std::atomic_load(&lua_runtime_)->on_exec(request.command(), cmd.value().information, cmd.value().function, true, request, response, request_message);
+  return true;
 }
 
 void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
@@ -247,9 +309,10 @@ void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Reques
     return;
   }
   scripts::script_information<lua::lua_traits> *info = scripts->add("", ofile.value().string());
-  lua_runtime_->load(info);
+  const std::shared_ptr<lua::lua_runtime> runtime = std::atomic_load(&lua_runtime_);
+  runtime->load(info);
   std::vector<std::string> opts(script_options.begin(), script_options.end());
-  lua_runtime_->exec_main(info, opts, response);
+  runtime->exec_main(info, opts, response);
 }
 
 void LUAScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
@@ -258,13 +321,14 @@ void LUAScript::handleNotification(const std::string &channel, const PB::Command
   if (!scripts) return;
   const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
   if (!dispatch.entered()) return;
+  const std::shared_ptr<lua::lua_runtime> runtime = std::atomic_load(&lua_runtime_);
   boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::submit_tag, channel);
   if (cmd) {
-    lua_runtime_->on_submit(channel, cmd.value().information, cmd.value().function, false, request, response);
+    runtime->on_submit(channel, cmd.value().information, cmd.value().function, false, request, response);
     return;
   }
   cmd = scripts->find_command(scripts::nscp::tags::simple_submit_tag, channel);
   if (cmd) {
-    lua_runtime_->on_submit(channel, cmd.value().information, cmd.value().function, true, request, response);
+    runtime->on_submit(channel, cmd.value().information, cmd.value().function, true, request, response);
   }
 }

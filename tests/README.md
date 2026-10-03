@@ -135,7 +135,8 @@ Docker-free scenarios (always run, including in no-docker CI pipelines):
 | `tests/rest-queries-v1.test.ts`         | queries × execute × json/nagios/text                                                         |
 | `tests/rest-queries-v2.test.ts`         | queries v2 of the above                                                                      |
 | `tests/rest-settings.test.ts`           | settings GET / PUT / DELETE                                                                  |
-| `tests/pythonscript-api.test.ts`        | Every documented PythonScript API, `/api/v2/scripts/py` and the `nscp py` verbs              |
+| `tests/pythonscript-api.test.ts`        | Every documented PythonScript API, `/api/v2/scripts/py`, the `nscp py` verbs and `sample.py` |
+| `tests/luascript-api.test.ts`           | Every documented LUAScript API, `/api/v2/scripts/lua`, the `nscp lua` verbs and the lua.md example |
 | `tests/scripting-unit-python.test.ts`   | `scripts/python/test_*.py` through `nscp unit`; replaces `acceptance-tests.sh` / `.bat`      |
 | `tests/scripting-unit-lua.test.ts`      | `nscp unit --language lua` with `${scripts}` off the install base, `--case`, `--show-all`    |
 

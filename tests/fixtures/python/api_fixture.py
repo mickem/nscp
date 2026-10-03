@@ -64,6 +64,15 @@ def py_status(args):
     return (code, 'status: ' + o.get('status', 'ok'), "'value'=%s;5;8" % o.get('value', '1'))
 
 
+calls = [0]
+
+
+def py_calls(args):
+    """Counts its own calls, so the test can tell whether something ran it."""
+    calls[0] += 1
+    return (status.OK, 'calls=%d' % calls[0])
+
+
 # --- error paths ------------------------------------------------------------------
 
 def py_raise(args):
@@ -243,6 +252,7 @@ def init(pid, plugin_alias, script_alias):
     reg = Registry.get(plugin_id)
     reg.simple_function('py_echo', py_echo, 'Echo the arguments back')
     reg.simple_function('py_status', py_status, 'Return the status named by status=')
+    reg.simple_function('py_calls', py_calls, 'Count the calls made to it')
     reg.simple_function('py_raise', py_raise, 'Raise from a handler')
     reg.simple_function('py_none', py_none, 'Return None from a handler')
     reg.simple_function('py_bad_shape', py_bad_shape, 'Return a string instead of a tuple')

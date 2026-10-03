@@ -3,14 +3,16 @@
 
 #pragma once
 
-#include <boost/thread/condition_variable.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
 #include <NSCAPI.h>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/optional.hpp>
+#include <boost/thread/condition_variable.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
+#include <exception>
+#include <functional>
 #include <list>
 #include <map>
 #include <memory>
@@ -65,8 +67,8 @@ struct core_provider {
   // receives them. Returns the flattened (code, msg, perf) of the relayed response.
   virtual NSCAPI::nagiosReturn query_forward(const std::string &forward_command, const std::string &target, const std::string &command,
                                              const std::list<std::string> &argument, std::string &msg, std::string &perf) = 0;
-  virtual bool exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
-                                   std::list<std::string> &result) = 0;
+  virtual NSCAPI::nagiosReturn exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
+                                                   std::list<std::string> &result) = 0;
   virtual bool exec_command(const std::string target, const std::string &request, std::string &response) = 0;
   virtual bool query(const std::string &request, std::string &response) = 0;
   virtual bool submit(const std::string target, const std::string &request, std::string &response) = 0;
@@ -98,6 +100,9 @@ struct script_runtime_interface {
 
 struct nscp_runtime_interface {
   virtual void register_command(const std::string type, const std::string &command, const std::string &description) = 0;
+  // Takes back what register_command published. A no-op by default, for
+  // runtimes whose registrations never outlive the module.
+  virtual void unregister_command(const std::string /*type*/, const std::string & /*command*/) {}
   virtual std::shared_ptr<settings_provider> get_settings_provider() = 0;
   virtual std::shared_ptr<core_provider> get_core_provider() = 0;
 };
@@ -151,6 +156,10 @@ struct script_manager {
   typedef std::map<int, script_information<script_trait> *> script_list_type;
   typedef std::map<std::string, command_definition<script_trait> > command_list_type;
   script_list_type scripts_;
+  // By script id: the scripts whose load failed, which are never started, and
+  // the ones start_all has started, which are not started a second time.
+  std::set<int> failed_loads_;
+  std::set<int> started_;
   command_list_type commands;
   // Guards the two maps above and the dispatch bookkeeping below. Held only
   // for the lookups and mutations themselves, never across a running script.
@@ -247,20 +256,42 @@ struct script_manager {
     return instance;
   }
 
-  void load_all() {
+  // Called with the script and what went wrong when loading or starting one
+  // script fails.
+  typedef std::function<void(const std::string &script, const std::string &error)> error_reporter;
+
+  // Without a reporter the first script that fails stops the walk and the
+  // exception reaches the caller. With one, a failure is reported and the
+  // remaining scripts are loaded (or started) anyway: one script that does not
+  // parse must not take every other script of the module down with it.
+  void load_all(const error_reporter &report = error_reporter()) {
     // TODO: locked
     for (typename script_list_type::value_type &entry : scripts_) {
-      script_runtime->load(entry.second);
+      if (!run_reported(report, entry.second, [&] { script_runtime->load(entry.second); })) failed_loads_.insert(entry.first);
     }
   }
-  void start_all() {
+  // Starts each script once: one whose load failed is skipped - what its
+  // top-level code registered before the error stays, but it is not started
+  // half-loaded - and one already started is left alone, so a second call
+  // (the core starts a module again after a reload) starts only what is new.
+  void start_all(const error_reporter &report = error_reporter()) {
     // TODO: locked
     for (typename script_list_type::value_type &entry : scripts_) {
-      script_runtime->start(entry.second);
+      if (failed_loads_.count(entry.first) > 0 || !started_.insert(entry.first).second) continue;
+      run_reported(report, entry.second, [&] { script_runtime->start(entry.second); });
     }
   }
-  void unload_all() {
+  // What a generation registered with the core: (type, name) pairs.
+  typedef std::list<std::pair<std::string, std::string> > registration_list;
+
+  // Unloads every script. The registrations stay in the core and are
+  // returned, so a reload can hand them to the next generation's
+  // unregister_stale(): taking them back here instead left a window in
+  // which the core answered `Unknown command` for every script query, where
+  // a call that finds the command registered waits for the reload to finish.
+  registration_list unload_all() {
     script_list_type doomed;
+    registration_list dropped;
     {
       boost::unique_lock<boost::mutex> lock(mutex_);
       // Close the door, then wait for the scripts that are running to finish -
@@ -274,8 +305,11 @@ struct script_manager {
       while (dispatchers_.size() != dispatchers_.count(self)) {
         if (!idle_.timed_wait(lock, deadline)) break;
       }
+      for (const typename command_list_type::value_type &entry : commands) dropped.emplace_back(entry.second.type, entry.second.command);
       commands.clear();
       doomed.swap(scripts_);
+      failed_loads_.clear();
+      started_.clear();
       unloading_ = false;
     }
     // Outside the lock: unload() runs script code, which can call back in.
@@ -284,6 +318,23 @@ struct script_manager {
       script_runtime->unload(info);
       delete info;
     }
+    return dropped;
+  }
+
+  // Takes back from the core what a previous generation registered and this
+  // one does not: the queries and channels of a script that was removed or
+  // changed. Called once this generation has loaded, so everything it still
+  // declares stayed registered throughout.
+  void unregister_stale(const registration_list &previous) {
+    std::list<std::pair<std::string, std::string> > stale;
+    {
+      boost::lock_guard<boost::mutex> lock(mutex_);
+      for (const auto &r : previous) {
+        if (commands.find(r.first + "$$" + r.second) == commands.end()) stale.push_back(r);
+      }
+    }
+    // Outside the lock: this calls into the core.
+    for (const auto &r : stale) nscp_runtime->unregister_command(r.first, r.second);
   }
 
   void register_command(script_information<script_trait> *information, const std::string type, const std::string &command, const std::string &description,
@@ -317,6 +368,24 @@ struct script_manager {
                           nscp_runtime->execute(type, command, description);
                   }
   */
+  // Whether the step ran through; without a reporter a failure throws.
+  template <class F>
+  static bool run_reported(const error_reporter &report, const script_information<script_trait> *info, F step) {
+    if (!report) {
+      step();
+      return true;
+    }
+    try {
+      step();
+      return true;
+    } catch (const std::exception &e) {
+      report(info->script, e.what());
+    } catch (...) {
+      report(info->script, "Unknown exception");
+    }
+    return false;
+  }
+
   bool empty() const {
     boost::lock_guard<boost::mutex> lock(mutex_);
     return scripts_.empty();
