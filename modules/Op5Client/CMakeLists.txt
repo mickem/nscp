@@ -52,6 +52,9 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    # op5_client's timed locks wait with try_lock_for, which Boost implements
+    # on boost::chrono::steady_clock.
+    ${Boost_CHRONO_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
 )

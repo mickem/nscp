@@ -8,6 +8,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/asio.hpp>
+#include <boost/chrono/duration.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
 #include <boost/optional.hpp>
@@ -101,7 +102,8 @@ http::response op5_client::do_call(const char *verb, const std::string &url, con
   std::string verify_mode;
   std::string ca;
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+    lock.try_lock_for(boost::chrono::seconds(5));
     if (!lock.owns_lock()) {
       NSC_LOG_ERROR("Failed to read config");
       return http::response();
@@ -331,7 +333,8 @@ void op5_client::deregister_host(std::string host) {
 
 void op5_client::add_check(std::string key, std::string arg) {
   try {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+    lock.try_lock_for(boost::chrono::seconds(5));
     if (!lock.owns_lock()) {
       NSC_LOG_ERROR("Failed to add check: " + key);
       return;
@@ -358,7 +361,12 @@ void op5_client::thread_proc() {
   bool deregister = false;
   unsigned long long interval = 3600;
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    // A duration on the steady clock, here and at every other timed lock in
+    // this file: the absolute deadline these used to take was on the wall
+    // clock, so a clock step backwards made the lock wait for the length of
+    // the step - and stop(), joining this thread, waited with it.
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+    lock.try_lock_for(boost::chrono::seconds(5));
     if (!lock.owns_lock()) {
       NSC_LOG_ERROR("Failed to start thread");
       return;
@@ -383,12 +391,12 @@ void op5_client::thread_proc() {
       // Skip this round's checks (copy stays empty) when the config cannot be
       // read, but still fall through to the stop check and the sleep below. A
       // `continue` here jumped past both, and while the lock stayed
-      // unobtainable (a wall-clock step - the timed lock uses system time - or
-      // a stuck logger) the thread hot-looped re-sending the host check, with
-      // nothing for stop() to interrupt: timed_lock is not an interruption
-      // point, so join() waited until the lock came back.
+      // unobtainable (a stuck logger, say) the thread hot-looped re-sending
+      // the host check, with nothing for stop() to interrupt: a timed lock is
+      // not an interruption point, so join() waited until the lock came back.
       {
-        boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+        boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+        lock.try_lock_for(boost::chrono::seconds(5));
         if (lock.owns_lock()) {
           interval = config_.interval;
           copy = config_.checks;
@@ -447,7 +455,8 @@ void op5_client::thread_proc() {
 bool op5_client::send_a_check(const std::string &alias, int result, std::string message, std::string &status) {
   std::string hostname;
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+    lock.try_lock_for(boost::chrono::seconds(5));
     if (!lock.owns_lock()) {
       status = "failed to fetch host name";
       return false;
