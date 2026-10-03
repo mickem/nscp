@@ -35,7 +35,7 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
     lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
     lua_runtime_->register_plugin(std::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
-    handler_->scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
+    handler_->set_scripts(std::make_shared<scripts::script_manager<lua::lua_traits> >(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias("check_mk", alias, "client");
@@ -68,14 +68,14 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
 
-    if (handler_->scripts_->empty()) {
+    if (handler_->scripts()->empty()) {
       add_script("default", "default_check_mk.lua");
     }
 
     nscapi::core_helper core(get_core(), get_id());
     core.register_channel(channel_);
 
-    handler_->scripts_->load_all();
+    handler_->scripts()->load_all();
   } catch (nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
     return false;
@@ -101,7 +101,9 @@ bool CheckMKClient::add_script(std::string alias, std::string file) {
       NSC_LOG_ERROR("Failed to find script: " + file);
       return false;
     }
-    handler_->scripts_->add(alias, ofile.value().string());
+    const auto scripts = handler_->scripts();
+    if (!scripts) return false;
+    scripts->add(alias, ofile.value().string());
     return true;
   } catch (...) {
     NSC_LOG_ERROR("Could not load script: " + file);
@@ -142,7 +144,9 @@ void CheckMKClient::add_command(std::string key, std::string arg) {
  */
 bool CheckMKClient::unloadModule() {
   client_.clear();
-  handler_->scripts_.reset();
+  // A send() still running keeps its own reference; the manager (and its
+  // scripts) go when that call returns.
+  handler_->set_scripts(nullptr);
   lua_runtime_.reset();
   nscp_runtime_.reset();
   return true;

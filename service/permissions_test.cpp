@@ -5,6 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <thread>
+
 using nsclient::core::permissions;
 
 // ===== disabled / no-rules stance =========================================
@@ -244,77 +247,104 @@ TEST(Permissions, exec_toggle_does_not_affect_query_is_allowed) {
   EXPECT_FALSE(p.is_allowed("WEBServer:guest", "CheckSystem.check_cpu"));
 }
 
-// ===== replace (atomic reload) ============================================
-//
-// load_permissions() builds the new policy into a staging object and swaps
-// it in with replace(), so a request arriving mid-reload sees either the
-// old table or the new one - never an enabled policy with an empty table.
+TEST(Permissions, replace_with_takes_over_rules_and_flags) {
+  permissions fresh;
+  fresh.set_enabled(true);
+  fresh.set_allow_exec(false);
+  fresh.set_log_denials(false);
+  fresh.set_log_allows(true);
+  fresh.add_rule("NRPEServer", "CheckSystem.check_cpu");
 
-TEST(Permissions, replace_swaps_rules_and_flags_in_one_step) {
-  permissions live;
-  live.set_enabled(true);
-  live.add_rule("X", "A.old");
+  permissions p;
+  p.add_rule("WEBServer", "*");
+  p.replace_with(fresh);
 
-  permissions staged;
-  staged.set_enabled(true);
-  staged.set_allow_exec(false);
-  staged.set_log_denials(false);
-  staged.set_log_allows(true);
-  staged.add_rule("X", "A.new");
-  staged.add_rule("Y", "B.*");
-
-  live.replace(staged);
-
-  EXPECT_TRUE(live.is_enabled());
-  EXPECT_FALSE(live.is_exec_allowed());
-  EXPECT_FALSE(live.should_log_denials());
-  EXPECT_TRUE(live.should_log_allows());
-  EXPECT_EQ(2u, live.rule_count());
-  EXPECT_TRUE(live.is_allowed("X", "A.new"));
-  EXPECT_TRUE(live.is_allowed("Y", "B.anything"));
-  // The rule the old table had and the new one does not is gone.
-  EXPECT_FALSE(live.is_allowed("X", "A.old"));
-}
-
-TEST(Permissions, replace_hands_the_previous_policy_back_in_staged) {
-  permissions live;
-  live.set_enabled(true);
-  live.set_log_allows(true);
-  live.add_rule("X", "A.old");
-  permissions staged;
-  staged.set_allow_exec(false);
-  staged.add_rule("Y", "B.new");
-
-  live.replace(staged);
-
-  // What live had is now in staged, untouched: the caller may discard it.
-  EXPECT_EQ(1u, staged.rule_count());
-  EXPECT_TRUE(staged.is_enabled());
-  EXPECT_TRUE(staged.should_log_allows());
-  EXPECT_TRUE(staged.is_exec_allowed());
-  EXPECT_TRUE(staged.is_allowed("X", "A.old"));
-  EXPECT_FALSE(staged.is_allowed("Y", "B.new"));
-}
-
-TEST(Permissions, replace_with_disabled_policy_turns_enforcement_off) {
-  permissions live;
-  live.set_enabled(true);
-  live.add_rule("X", "A.b");
-
-  permissions staged;  // enabled defaults to false, no rules
-  live.replace(staged);
-
-  EXPECT_FALSE(live.is_enabled());
-  EXPECT_EQ(0u, live.rule_count());
-  EXPECT_TRUE(live.is_allowed("anyone", "anything"));
+  EXPECT_TRUE(p.is_enabled());
+  EXPECT_FALSE(p.is_exec_allowed());
+  EXPECT_FALSE(p.should_log_denials());
+  EXPECT_TRUE(p.should_log_allows());
+  EXPECT_EQ(1u, p.rule_count());
+  EXPECT_TRUE(p.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  // The old rule is gone, not merged.
+  EXPECT_FALSE(p.is_allowed("WEBServer", "CheckSystem.check_cpu"));
 }
 
 TEST(Permissions, replace_with_self_is_a_no_op) {
-  permissions live;
-  live.set_enabled(true);
-  live.add_rule("X", "A.b");
-  live.replace(live);
-  EXPECT_TRUE(live.is_enabled());
-  EXPECT_EQ(1u, live.rule_count());
-  EXPECT_TRUE(live.is_allowed("X", "A.b"));
+  permissions p;
+  p.set_enabled(true);
+  p.add_rule("NRPEServer", "*");
+  p.replace_with(p);
+  EXPECT_EQ(1u, p.rule_count());
+  EXPECT_TRUE(p.is_allowed("NRPEServer", "check_cpu"));
+}
+
+TEST(Permissions, reader_never_sees_an_empty_table_during_replace) {
+  // A settings reload republishes the table while checks keep flowing.
+  // Rebuilding in place (clearing the rules, then re-adding them) left a
+  // window in which an enabled policy had no rules and denied everything;
+  // replace_with must not have one.
+  permissions p;
+  p.set_enabled(true);
+  p.add_rule("NRPEServer", "CheckSystem.*");
+
+  std::atomic<bool> done{false};
+  std::atomic<int> denied{0};
+  std::thread reader([&] {
+    while (!done) {
+      if (!p.is_allowed("NRPEServer", "CheckSystem.check_cpu")) ++denied;
+    }
+  });
+  for (int i = 0; i < 2000; ++i) {
+    permissions fresh;
+    fresh.set_enabled(true);
+    fresh.add_rule("NRPEServer", "CheckSystem.*");
+    p.replace_with(fresh);
+  }
+  done = true;
+  reader.join();
+  EXPECT_EQ(0, denied.load());
+}
+
+// ===== failed reload ======================================================
+
+TEST(Permissions, failed_load_before_enabled_keeps_a_disabled_policy_off) {
+  // A default install (no [/settings/permissions]) whose reload times out
+  // before `enabled` is read must not start refusing every query.
+  permissions fresh;
+  fresh.complete_failed_load(/*enabled_read=*/false, /*exec_read=*/false, /*previously_enabled=*/false);
+  EXPECT_FALSE(fresh.is_enabled());
+  EXPECT_TRUE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_TRUE(fresh.is_exec_allowed());
+}
+
+TEST(Permissions, failed_load_before_enabled_keeps_an_enabled_policy_closed) {
+  permissions fresh;
+  fresh.complete_failed_load(/*enabled_read=*/false, /*exec_read=*/false, /*previously_enabled=*/true);
+  EXPECT_TRUE(fresh.is_enabled());
+  EXPECT_FALSE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_FALSE(fresh.is_exec_allowed());
+}
+
+TEST(Permissions, failed_load_honours_an_enabled_value_it_read) {
+  // `enabled` was read; it decides, whatever was in force before.
+  permissions turned_on;
+  turned_on.set_enabled(true);
+  turned_on.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/false, /*previously_enabled=*/false);
+  EXPECT_TRUE(turned_on.is_enabled());
+  EXPECT_FALSE(turned_on.is_exec_allowed());
+
+  permissions turned_off;
+  turned_off.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/false, /*previously_enabled=*/true);
+  EXPECT_FALSE(turned_off.is_enabled());
+}
+
+TEST(Permissions, failed_load_keeps_rules_and_exec_switch_it_read) {
+  permissions fresh;
+  fresh.set_enabled(true);
+  fresh.set_allow_exec(true);
+  fresh.add_rule("NRPEServer", "CheckSystem.*");
+  fresh.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/true, /*previously_enabled=*/false);
+  EXPECT_TRUE(fresh.is_exec_allowed());
+  EXPECT_TRUE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_FALSE(fresh.is_allowed("NRPEServer", "CheckDisk.check_drivesize"));
 }

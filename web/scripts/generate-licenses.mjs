@@ -56,6 +56,10 @@ function normalizeLicense(pkg) {
 }
 
 function normalizeRepoUrl(url) {
+  if (typeof url !== "string") return "";
+  // npm's shorthand for a GitHub repository ("owner/repo"), which otherwise
+  // ends up as a relative link.
+  if (/^[\w.-]+\/[\w.-]+$/.test(url)) return `https://github.com/${url}`;
   return url
     .replace(/^git\+/, "")
     .replace(/^git:\/\//, "https://")
@@ -63,12 +67,32 @@ function normalizeRepoUrl(url) {
     .replace(/\.git$/, "");
 }
 
+// The About page renders this as a link, so it is the one DOM sink in the UI
+// fed by data nobody on this project wrote: the homepage/repository fields of
+// every bundled npm package. React only warns on a javascript: href, so a
+// compromised dependency could otherwise plant one. Accept only http(s) URLs
+// that parse; anything else falls back to the package's npmjs.com page.
+function isHttpUrl(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function homepage(pkg) {
-  if (pkg.homepage) return pkg.homepage;
+  const fallback = `https://www.npmjs.com/package/${pkg.name}`;
+  const candidates = [];
+  if (pkg.homepage) candidates.push(pkg.homepage);
   const repo = pkg.repository;
-  if (typeof repo === "string") return normalizeRepoUrl(repo);
-  if (repo && repo.url) return normalizeRepoUrl(repo.url);
-  return `https://www.npmjs.com/package/${pkg.name}`;
+  if (typeof repo === "string") candidates.push(normalizeRepoUrl(repo));
+  else if (repo && typeof repo.url === "string") candidates.push(normalizeRepoUrl(repo.url));
+  for (const candidate of candidates) {
+    if (isHttpUrl(candidate)) return candidate;
+  }
+  return fallback;
 }
 
 const rootPkg = readJson(join(webRoot, "package.json"));

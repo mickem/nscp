@@ -92,16 +92,18 @@ class settings_interface_impl : public settings_interface {
   /// Notice this does not save so anhy "active" values will be flushed and new ones read from file.
   void clear_cache() {
     MUTEX_GUARD();
-    {
-      settings_cache_.clear();
-      settings_delete_cache_.clear();
-      path_cache_.clear();
-      settings_delete_path_cache_.clear();
-      key_cache_.clear();
-      children_.clear();
-    }
+    clear_cached_values_unsafe();
+    children_.clear();
     real_clear_cache();
     get_core()->set_reload(false);
+  }
+  // Drop every cached value and staged change. The caller holds mutex_.
+  void clear_cached_values_unsafe() {
+    settings_cache_.clear();
+    settings_delete_cache_.clear();
+    path_cache_.clear();
+    settings_delete_path_cache_.clear();
+    key_cache_.clear();
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -118,30 +120,58 @@ class settings_interface_impl : public settings_interface {
   }
   nsclient::logging::logger_instance get_logger() const { return core_->get_logger(); }
 
-  instance_raw_ptr add_child(std::string alias, std::string context) {
+  // A child store for `context`, or null (logged) when it cannot be created -
+  // an include that cannot be read, a cached copy antivirus still holds. The
+  // one place children are created, so every path logs the same way. The
+  // context is logged as written (operators and the integration tests look
+  // for the include's own name), less any query string: an http include is
+  // free to carry a token there, as net::url::to_log_safe_string() explains.
+  instance_raw_ptr create_child(const std::string &alias, const std::string &context) {
     try {
-      instance_raw_ptr child = get_core()->create_instance(alias, context);
-      {
-        MUTEX_GUARD();
-        children_.push_back(child);
-      }
-      return child;
+      return get_core()->create_instance(alias, context);
     } catch (const std::exception &e) {
-      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
+      get_logger()->error("settings", __FILE__, __LINE__,
+                          "Failed to load child " + context.substr(0, context.find('?')) + ": " + utf8::utf8_from_native(e.what()));
     }
     return instance_raw_ptr();
   }
 
-  void add_child_unsafe(std::string alias, std::string context) {
+  instance_raw_ptr add_child(std::string alias, std::string context) {
+    instance_raw_ptr child = create_child(alias, context);
+    if (!child) return child;
     try {
-      instance_raw_ptr child = get_core()->create_instance(alias, context);
+      MUTEX_GUARD();
       children_.push_back(child);
     } catch (const std::exception &e) {
-      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child " + context + ": " + utf8::utf8_from_native(e.what()));
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to attach child: " + utf8::utf8_from_native(e.what()));
+      return instance_raw_ptr();
     }
+    return child;
   }
 
-  virtual std::list<std::shared_ptr<settings_interface>> get_children() { return children_; }
+  void add_child_unsafe(std::string alias, std::string context) {
+    instance_raw_ptr child = create_child(alias, context);
+    if (child) children_.push_back(child);
+  }
+
+  // children_ is cleared and refilled under mutex_ by clear_cache() (a
+  // settings reload) while other threads walk it. The walks that only recurse
+  // (get_children, to_string, house_keeping, get_changes) take a copy under
+  // the lock and recurse after releasing it, so a slow child - an http
+  // include downloading in house_keeping() - does not hold this store's lock
+  // meanwhile; the copy holds shared_ptrs, so the children it names stay alive
+  // even if a reload drops them. The lookups (getter, setter, get_sections,
+  // get_keys, save) still consult children_ under mutex_.
+  //
+  // Untimed, unlike MUTEX_GUARD: these walks never threw before they took the
+  // lock, and a reload may hold it for longer than 5 s (clear_cache() on an
+  // INI store builds its http includes, which download).
+  parent_list_type snapshot_children() {
+    boost::unique_lock<boost::timed_mutex> lock(mutex_);
+    return children_;
+  }
+
+  virtual std::list<std::shared_ptr<settings_interface>> get_children() { return snapshot_children(); }
 
   template <class T>
   typename T::op_type getter(std::string path, std::string key) {
@@ -257,6 +287,14 @@ class settings_interface_impl : public settings_interface {
     if (it != settings_cache_.end()) {
       settings_cache_.erase(it);
     }
+    // Forget the name too. set_string() records every key it writes here so
+    // get_keys() can list it before a save; the staged deletion below masks it
+    // only until save() drops that marker, after which the key came back as
+    // one with no value.
+    key_cache_type::iterator kit = key_cache_.find(path);
+    if (kit != key_cache_.end()) {
+      kit->second.erase(key);
+    }
     settings_delete_cache_.insert(cache_key_type(path, key));
     get_core()->set_dirty(true);
   }
@@ -266,6 +304,9 @@ class settings_interface_impl : public settings_interface {
     if (it != path_cache_.end()) {
       path_cache_.erase(it);
     }
+    // The keys written to it at runtime go with it, for the reason remove_key()
+    // gives.
+    key_cache_.erase(path);
     settings_delete_path_cache_.insert(path);
     get_core()->set_dirty(true);
   }
@@ -682,9 +723,10 @@ class settings_interface_impl : public settings_interface {
 
   virtual std::string to_string() {
     std::string ret = get_info();
-    if (!children_.empty()) {
+    const parent_list_type children = snapshot_children();
+    if (!children.empty()) {
       ret += "parents = [";
-      for (parent_list_type::value_type i : children_) {
+      for (parent_list_type::value_type i : children) {
         ret += i->to_string();
       }
       ret += "]";
@@ -695,7 +737,7 @@ class settings_interface_impl : public settings_interface {
   inline std::string make_skey(std::string path, std::string key) { return path + "." + key; }
 
   virtual void house_keeping() {
-    for (parent_list_type::value_type i : children_) {
+    for (parent_list_type::value_type i : snapshot_children()) {
       i->house_keeping();
     }
   }
@@ -782,7 +824,7 @@ class settings_interface_impl : public settings_interface {
     }
 
     // Recurse into child stores (e.g. included config files)
-    for (parent_list_type::value_type i : children_) {
+    for (parent_list_type::value_type i : snapshot_children()) {
       change_list child_changes = i->get_changes();
       result.insert(result.end(), child_changes.begin(), child_changes.end());
     }

@@ -263,8 +263,8 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 
 // Read /settings/permissions{,/policies} into permissions_. Idempotent:
 // safe to call from both the boot path and from do_reload("settings"). The
-// policy is built into a staging object from scratch, so deleted rules
-// disappear, and swapped into permissions_ in one step. The four global
+// whole table is rebuilt aside and published in one step, so deleted rules
+// disappear without a window in which there are none. The four global
 // switches use register_key + get_string so the settings UI / docs see the
 // keys even when the operator hasn't customised them. See
 // docs/design/core-permissions.md for the wire format.
@@ -275,9 +275,12 @@ void nsclient::core::plugin_manager::load_permissions() {
     LOG_ERROR_CORE("permissions: settings not available, skipping load");
     return;
   }
+  const std::string section = "/settings/permissions";
+  const std::string policies_section = section + "/policies";
+  // Documentation metadata for the settings UI and the reference docs. It
+  // does not decide the policy, so failing to register it (a registry-lock
+  // timeout) must not count as a failed load.
   try {
-    const std::string section = "/settings/permissions";
-    const std::string policies_section = section + "/policies";
     core->register_path(0xffff, section, "Core permissions",
                         "Optional policy layer that gates which commands a calling module / user may execute. "
                         "Disabled by default - see docs/reference/core-permissions.md.",
@@ -298,30 +301,56 @@ void nsclient::core::plugin_manager::load_permissions() {
                         "Rule table. Each key is a subject pattern (module[:principal]); the value is a comma-separated list of "
                         "object patterns (module.command). Rules merge additively.",
                         true, false);
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("permissions: failed to register the settings keys: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("permissions: failed to register the settings keys (unknown error)");
+  }
 
-    // Build the new policy aside and swap it in whole: is_allowed() runs on
-    // the NRPE and web workers throughout, and rebuilding permissions_ in
-    // place (clear, then one add_rule per policy) denied every call that
-    // landed between the clear and the last add. A settings error part-way
-    // through now leaves the previous policy in force instead of a table
-    // that was cleared and never refilled.
-    permissions staged;
+  // Build the table aside and publish it in one step: checks keep flowing
+  // on the server pools during a reload, and filling permissions_ rule by
+  // rule left it empty (deny-all, with the policy enabled) in between.
+  // Declared outside the try so a failed load can still publish it (below),
+  // with the two switches it may not have got as far as reading.
+  nsclient::core::permissions fresh;
+  bool enabled_read = false;
+  bool exec_read = false;
+  try {
     const std::string enabled = settings->get_string(section, "enabled", "false");
-    staged.set_enabled(enabled == "true" || enabled == "1");
-    staged.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
-    staged.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
-    staged.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
+    fresh.set_enabled(enabled == "true" || enabled == "1");
+    enabled_read = true;
+    fresh.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
+    fresh.set_log_allows(settings->get_string(section, "log allows", "false") == "true");
+    fresh.set_allow_exec(settings->get_string(section, "allow exec", "true") != "false");
+    exec_read = true;
 
     for (const std::string &subject : settings->get_keys(policies_section)) {
       const std::string objects = settings->get_string(policies_section, subject, "");
-      staged.add_rule(subject, objects);
+      fresh.add_rule(subject, objects);
     }
-    permissions_.replace(staged);
+    permissions_.replace_with(fresh);
     LOG_DEBUG_CORE_STD("permissions: loaded " + str::xtos(permissions_.rule_count()) + " rule(s), enabled=" + (permissions_.is_enabled() ? "true" : "false"));
+    return;
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("permissions: failed to load: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     LOG_ERROR_CORE("permissions: failed to load (unknown error)");
+  }
+  // A load that failed part-way publishes what it read rather than keeping
+  // the previous table, which kept every rule the operator had just removed
+  // (and the old exec switch) in force. An enabled policy fails closed: exec
+  // denied unless it was read, and no rule that was not read. Whether the
+  // policy is on at all is taken from what was read, or else left as it is:
+  // a host that never enabled it is not turned into deny-all by a transient
+  // settings-lock timeout. At boot that means a policy whose `enabled` could
+  // not be read stays off until a reload reads it.
+  fresh.complete_failed_load(enabled_read, exec_read, permissions_.is_enabled());
+  permissions_.replace_with(fresh);
+  if (fresh.is_enabled()) {
+    LOG_ERROR_CORE_STD("permissions: enforcing the " + str::xtos(fresh.rule_count()) +
+                       " rule(s) read before the failure; every other call is denied until the policy loads");
+  } else if (!enabled_read) {
+    LOG_ERROR_CORE("permissions: could not read whether the policy is enabled; it stays disabled until the policy loads");
   }
 }
 
@@ -1390,7 +1419,11 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char *ra
             found = true;
             if (match_any) {
               response = respbuffer;
-              return NSCAPI::exec_return_codes::returnOK;
+              // isSuccess, as every other handled request below: this used to
+              // be exec_return_codes::returnOK, which is 0 - hasFailed in this
+              // API - so a caller asking `any` module read its success as a
+              // failure.
+              return NSCAPI::cmd_return_codes::isSuccess;
             }
             responses.push_back(respbuffer);
           }
@@ -1497,34 +1530,51 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
   return NSCAPI::api_return_codes::isSuccess;
 }
 
+std::list<nsclient::core::plugin_manager::plugin_type> nsclient::core::plugin_manager::event_subscribers_for(
+    const PB::Commands::EventMessage &message, const std::function<std::list<plugin_type>(const std::string &)> &lookup,
+    std::list<std::string> *unmatched) {
+  std::list<plugin_type> ret;
+  std::set<unsigned int> seen;
+  for (const PB::Commands::EventMessage::Request &r : message.payload()) {
+    bool matched = false;
+    for (const plugin_type &p : lookup(r.event())) {
+      if (!p) continue;
+      matched = true;
+      if (seen.insert(p->get_id()).second) ret.push_back(p);
+    }
+    if (!matched && unmatched) unmatched->push_back(r.event());
+  }
+  return ret;
+}
+
 NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string &request) {
   PB::Commands::EventMessage em;
   em.ParseFromString(request);
-  for (const PB::Commands::EventMessage::Request &r : em.payload()) {
-    bool has_matched = false;
+  std::list<plugin_type> subscribers;
+  std::list<std::string> unmatched;
+  try {
+    subscribers = event_subscribers_for(em, [this](const std::string &event) { return event_subscribers_.get(event); }, &unmatched);
+  } catch (nsclient::plugins_list_exception &e) {
+    LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
+    return NSCAPI::api_return_codes::hasFailed;
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
+    return NSCAPI::api_return_codes::hasFailed;
+  } catch (...) {
+    LOG_ERROR_CORE("No handler for event");
+    return NSCAPI::api_return_codes::hasFailed;
+  }
+  for (const std::string &event : unmatched) {
+    LOG_DEBUG_CORE("No handler for event: " + event);
+  }
+  // Once per subscriber: each one gets the whole message and walks its lines.
+  for (const plugin_type &p : subscribers) {
     try {
-      for (const nsclient::plugin_type &p : event_subscribers_.get(r.event())) {
-        try {
-          p->on_event(request);
-          has_matched = true;
-        } catch (const std::exception &e) {
-          LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
-        } catch (...) {
-          LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": UNKNOWN EXCEPTION");
-        }
-      }
-    } catch (nsclient::plugins_list_exception &e) {
-      LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
-      return NSCAPI::api_return_codes::hasFailed;
+      p->on_event(request);
     } catch (const std::exception &e) {
-      LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
-      return NSCAPI::api_return_codes::hasFailed;
+      LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
     } catch (...) {
-      LOG_ERROR_CORE("No handler for event");
-      return NSCAPI::api_return_codes::hasFailed;
-    }
-    if (!has_matched) {
-      LOG_DEBUG_CORE("No handler for event: " + r.event());
+      LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": UNKNOWN EXCEPTION");
     }
   }
   return NSCAPI::api_return_codes::isSuccess;

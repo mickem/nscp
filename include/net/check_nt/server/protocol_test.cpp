@@ -32,8 +32,6 @@ class MockCheckNtHandler : public check_nt::server::handler {
   void log_debug(std::string, std::string, int, std::string msg) const override { debug_msgs.push_back(msg); }
   void log_error(std::string, std::string, int, std::string msg) const override { error_msgs.push_back(msg); }
 
-  void set_allow_arguments(bool) override {}
-  void set_allow_nasty_arguments(bool) override {}
   void set_perf_data(bool) override {}
   void set_password(std::string password) override { password_ = password; }
   std::string get_password() const override { return password_; }

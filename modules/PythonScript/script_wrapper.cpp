@@ -174,6 +174,12 @@ void script_wrapper::log_exception(const std::string &file, const int line, std:
       return;
     }
     std::string err_text = py::extract<std::string>(err.attr("getvalue")());
+    // Empty the buffer once it is logged. It is a StringIO that only a script
+    // load ever replaced, so every exception used to be logged together with
+    // every traceback before it: a handler that raised on each event grew the
+    // log quadratically.
+    err.attr("seek")(0);
+    err.attr("truncate")(0);
     NSC_LOG_ERROR_STD("Error from python script: " + err_text);
     PyErr_Clear();
   } catch (const std::exception &e) {
@@ -323,7 +329,7 @@ py::tuple script_wrapper::function_wrapper::register_event_pb(std::string event,
     nscapi::core_helper ch(core, plugin_id);
     ch.register_event(event);
     py::handle<> h(py::borrowed(callable));
-    functions::get()->normal_handler[event] = h;
+    functions::get()->pb_event_handler[event] = h;
     return py::make_tuple(true, "");
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Query failed: ", e);
@@ -339,7 +345,7 @@ py::tuple script_wrapper::function_wrapper::register_event(std::string event, Py
     nscapi::core_helper ch(core, plugin_id);
     ch.register_event(event);
     py::handle<> h(py::borrowed(callable));
-    functions::get()->simple_handler[event] = h;
+    functions::get()->simple_event_handler[event] = h;
     return py::make_tuple(true, "");
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Query failed: ", e);
@@ -615,12 +621,12 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 bool script_wrapper::function_wrapper::has_event_handler(const std::string channel) {
   // Same maps as the dispatch paths: read them under the GIL.
   thread_locker locker;
-  return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
+  return functions::get()->pb_event_handler.find(channel) != functions::get()->pb_event_handler.end();
 }
 bool script_wrapper::function_wrapper::has_simple_event_handler(const std::string channel) {
   // Same maps as the dispatch paths: read them under the GIL.
   thread_locker locker;
-  return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
+  return functions::get()->simple_event_handler.find(channel) != functions::get()->simple_event_handler.end();
 }
 
 void script_wrapper::function_wrapper::on_event(const std::string event, const std::string &request) const {
@@ -630,14 +636,17 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
     // from Python, so the GIL is what keeps the two apart.
     thread_locker locker;
     const std::shared_ptr<functions> fns = functions::get();
-    functions::function_map_type::iterator it = fns->normal_handler.find(event);
-    if (it == fns->normal_handler.end()) {
+    functions::function_map_type::iterator it = fns->pb_event_handler.find(event);
+    if (it == fns->pb_event_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + event);
       return;
     }
     {
       try {
-        py::call<py::object>(py::object(it->second).ptr(), event, request);
+        // The payload is a serialised protobuf, so it goes in as bytes: as a
+        // std::string boost.python would decode it as UTF-8 and raise on the
+        // first byte that is not, before the handler ever ran.
+        py::call<py::object>(py::object(it->second).ptr(), event, pybuf(request));
       } catch (py::error_already_set &) {
         log_exception(__FILE__, __LINE__, event);
       }
@@ -648,20 +657,22 @@ void script_wrapper::function_wrapper::on_event(const std::string event, const s
     NSC_LOG_ERROR_EX(event);
   }
 }
-void script_wrapper::function_wrapper::on_simple_event(const std::string event, const py::dict &data) const {
+void script_wrapper::function_wrapper::on_simple_event(const std::string event, const std::vector<std::pair<std::string, std::string>> &data) const {
   try {
     // Under the GIL for the lookup too: registration inserts into this map
     // from Python, so the GIL is what keeps the two apart.
     thread_locker locker;
     const std::shared_ptr<functions> fns = functions::get();
-    functions::function_map_type::iterator it = fns->simple_handler.find(event);
-    if (it == fns->simple_handler.end()) {
+    functions::function_map_type::iterator it = fns->simple_event_handler.find(event);
+    if (it == fns->simple_event_handler.end()) {
       NSC_LOG_ERROR_STD("Failed to find python handler: " + event);
       return;
     }
     {
       try {
-        py::call<void>(py::object(it->second).ptr(), event, data);
+        py::dict dict;
+        for (const std::pair<std::string, std::string> &kv : data) dict[kv.first] = kv.second;
+        py::call<void>(py::object(it->second).ptr(), event, dict);
       } catch (py::error_already_set &) {
         log_exception(__FILE__, __LINE__, event);
       }
@@ -1030,22 +1041,33 @@ py::tuple script_wrapper::command_wrapper::query(std::string command, py::object
 }
 
 py::tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::string command, py::list args) {
+  // Always (code, [lines]), the shape the docs give, failures included: a
+  // failed call used to come back as (0, []) - OK with nothing to say - when no
+  // module took the target, and as (False, text) when the call threw.
+  const auto failed = [](const std::string &why) {
+    py::list lines;
+    lines.append(why);
+    return py::make_tuple(static_cast<int>(NSCAPI::query_return_codes::returnUNKNOWN), lines);
+  };
   try {
     std::list<std::string> result;
-    int ret = 0;
-    nscapi::core_helper ch(core, plugin_id);
     const std::list<std::string> arguments = convert(args);
+    std::string request, response;
+    nscapi::protobuf::functions::create_simple_exec_request(target, command, arguments, request);
+    bool ok = false;
     {
       thread_unlocker unlocker;
-      ret = ch.exec_simple_command(target, command, arguments, result);
+      ok = core->exec_command(target, request, response);
     }
-    return make_tuple(ret, convert(result));
+    if (!ok) return failed("Failed to execute " + command + " on " + target);
+    const int ret = nscapi::protobuf::functions::parse_simple_exec_response(response, result);
+    return py::make_tuple(ret, convert(result));
   } catch (const std::exception &e) {
     NSC_LOG_ERROR_EXR("Failed to execute " + command, e);
-    return py::make_tuple(false, utf8::utf8_from_native(e.what()));
+    return failed("Failed to execute " + command + ": " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     NSC_LOG_ERROR_EX("Failed to execute " + command);
-    return py::make_tuple(false, command);
+    return failed("Failed to execute " + command);
   }
 }
 py::tuple script_wrapper::command_wrapper::exec(std::string target, std::string request) {

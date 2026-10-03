@@ -122,9 +122,9 @@ jobs:
           fi
           retry dnf install -y --allowerasing --nobest $packages
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact-name }}
           path: .

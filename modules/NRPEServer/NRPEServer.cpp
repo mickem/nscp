@@ -5,6 +5,7 @@
 
 #include <config.h>
 
+#include <net/socket/socket_helpers.hpp>
 #include <net/socket/socket_settings_helper.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -260,10 +261,12 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
   // Trace incoming requests so the log shows what the upstream server actually
   // asked for (previously only the connection IP appeared in the log; the
   // command name + argument blob were invisible). Gated because building the
-  // string traverses the payload and does string concatenation.
+  // string traverses the payload and does string concatenation. Both fields
+  // are raw wire bytes that have not been through the metachar filter yet, so
+  // they are escaped: a CR/LF in either would otherwise forge a log line.
   NSC_TRACE_ENABLED() {
-    NSC_TRACE_MSG("NRPE request: command='" + cmd.first + "' args='" + cmd.second + "' (payload_length=" + str::xtos(p.get_payload_length()) +
-                  ", peer_identity='" + peer_identity + "')");
+    NSC_TRACE_MSG("NRPE request: command='" + socket_helpers::escape_for_log(cmd.first) + "' args='" + socket_helpers::escape_for_log(cmd.second) +
+                  "' (payload_length=" + str::xtos(p.get_payload_length()) + ", peer_identity='" + peer_identity + "')");
   }
   if (cmd.first == "_NRPE_CHECK") {
     // The ping reply is unauthenticated (it precedes the argument and
@@ -371,14 +374,16 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
     // response NSClient++ produced — actually getting it to the client is the
     // connection layer's job; if the upstream has already disconnected, the
     // socket write will fail and that is logged separately by the connection.
+    // cmd.first is raw wire bytes from the peer: escape it so a command name
+    // carrying CR/LF cannot forge a second log line.
     NSC_TRACE_ENABLED() {
-      NSC_TRACE_MSG("NRPE response: command='" + cmd.first + "' rc=" + str::xtos(ret) + " message_bytes=" + str::xtos(wmsg.size()) +
-                    " perf_bytes=" + str::xtos(wperf.size()) + " packets=" + str::xtos(packets.size()));
+      NSC_TRACE_MSG("NRPE response: command='" + socket_helpers::escape_for_log(cmd.first) + "' rc=" + str::xtos(ret) +
+                    " message_bytes=" + str::xtos(wmsg.size()) + " perf_bytes=" + str::xtos(wperf.size()) + " packets=" + str::xtos(packets.size()));
     }
   } catch (...) {
     packets.push_back(
         nrpe::packet::create_response(p.getVersion(), NSCAPI::query_return_codes::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length()));
-    NSC_LOG_ERROR("NRPE response: command='" + cmd.first + "' produced internal exception, returning UNKNOWN");
+    NSC_LOG_ERROR("NRPE response: command='" + socket_helpers::escape_for_log(cmd.first) + "' produced internal exception, returning UNKNOWN");
     return packets;
   }
 

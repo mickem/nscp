@@ -203,13 +203,13 @@
       "name": "clsx",
       "version": "2.1.1",
       "license": "MIT",
-      "url": "lukeed/clsx"
+      "url": "https://github.com/lukeed/clsx"
     },
     {
       "name": "cookie-es",
       "version": "3.1.1",
       "license": "MIT",
-      "url": "unjs/cookie-es"
+      "url": "https://github.com/unjs/cookie-es"
     },
     {
       "name": "csstype",
@@ -317,7 +317,7 @@
       "name": "js-tokens",
       "version": "4.0.0",
       "license": "MIT",
-      "url": "lydell/js-tokens"
+      "url": "https://github.com/lydell/js-tokens"
     },
     {
       "name": "loose-envify",
@@ -329,7 +329,7 @@
       "name": "object-assign",
       "version": "4.1.1",
       "license": "MIT",
-      "url": "sindresorhus/object-assign"
+      "url": "https://github.com/sindresorhus/object-assign"
     },
     {
       "name": "prop-types",

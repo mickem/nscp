@@ -8,6 +8,8 @@
 #include <boost/optional.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
+#include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
@@ -275,6 +277,16 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // plugin id is missing or unresolved, so a strict allow-list catches
   // the unknown-caller case explicitly.
   static std::string extract_subject_from_header(const PB::Common::Header &header, plugin_cache *cache);
+
+  // The subscribers an event message is delivered to: each one that listens
+  // for any line's event, once, in the order first seen. A message carries a
+  // line per record (a real-time filter sends one per CPU core, say) and every
+  // module's onEvent() walks all of them, so delivering it once per matching
+  // line handed each subscriber N copies of N lines. `lookup` is the listener
+  // table for one event name; it may throw, which the caller reports.
+  static std::list<plugin_type> event_subscribers_for(const PB::Commands::EventMessage &message,
+                                                      const std::function<std::list<plugin_type>(const std::string &)> &lookup,
+                                                      std::list<std::string> *unmatched = nullptr);
 
   static bool is_module(const boost::filesystem::path &file) {
 #ifdef WIN32

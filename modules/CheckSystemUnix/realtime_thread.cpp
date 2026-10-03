@@ -3,10 +3,13 @@
 
 #include "realtime_thread.hpp"
 
+
 #include <algorithm>
+#include <atomic>
 #include <boost/algorithm/string.hpp>
-#include <boost/optional.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/optional.hpp>
+#include <cerrno>
 #include <chrono>
 #include <fstream>
 #include <nscapi/macros.hpp>
@@ -24,6 +27,35 @@
 typedef parsers::where::realtime_filter_helper<checks::check_cpu_filter::runtime_data, filters::cpu::filter_config_object> cpu_filter_helper;
 typedef parsers::where::realtime_filter_helper<check_memory::check_mem_filter::runtime_data, filters::mem::filter_config_object> mem_filter_helper;
 typedef parsers::where::realtime_filter_helper<check_proc::check_proc_filter::runtime_data, filters::proc::filter_config_object> proc_filter_helper;
+
+namespace {
+// Wait out the second between samples on the stop signal, so stop() ends the
+// wait at once. Returns true when the collector should stop.
+//
+// stop_signal::wait_for() keeps to the second whatever the wall clock or a
+// signal handler does (see there). Should the wait itself fail, the rest of
+// the second is slept out instead: the collector keeps sampling - only a stop
+// takes longer to notice - rather than ending and leaving check_cpu and
+// check_memory answering from a frozen buffer.
+bool wait_for_next_sample(const threads::stop_signal &stop_signal, const std::atomic<bool> &stop_requested) {
+  const std::chrono::steady_clock::time_point due = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+  switch (stop_signal.wait_for(std::chrono::seconds(1))) {
+    case threads::stop_signal::wait_result::signalled:
+      return true;
+    case threads::stop_signal::wait_result::timed_out:
+      return stop_requested;
+    case threads::stop_signal::wait_result::failed:
+      break;
+  }
+  // A signal start() could not create fails every wait; it already said so.
+  static std::atomic<bool> reported{false};
+  if (stop_signal.valid() && !reported.exchange(true)) {
+    NSC_LOG_ERROR("Failed to wait on the collector's stop signal, sleeping between samples instead: " + error::lookup::last_error(errno));
+  }
+  std::this_thread::sleep_until(due);
+  return stop_requested;
+}
+}  // namespace
 
 /**
  * Thread that collects the data every second and evaluates real-time filters.
@@ -94,11 +126,7 @@ void pdh_thread::thread_proc() {
   }
 
   while (!stop_requested_) {
-    // Sleep until the next sample, waking early if stop() was requested.
-    {
-      std::unique_lock<std::mutex> lock(stop_mutex_);
-      if (stop_cv_.wait_for(lock, std::chrono::seconds(1), [this]() { return stop_requested_.load(); })) break;
-    }
+    if (wait_for_next_sample(stop_signal_, stop_requested_)) break;
 
     // Each source is read and recorded on its own, so one unreadable file
     // (an empty or unreadable /proc/stat in a locked-down container) does
@@ -344,22 +372,32 @@ process_history_check::history_type pdh_thread::get_process_history() const {
 }
 
 bool pdh_thread::start() {
+  // Unlike the collectors that block on their stop signal indefinitely (see
+  // threads::stop_signal), this one wakes every second and checks
+  // stop_requested_, so it can run without one - at the fd limit, say. A stop
+  // then waits out the current second. Refusing to start instead left
+  // check_cpu and check_memory answering from an empty collector until the
+  // next reload, and nothing looks at what start() returns.
+  std::string error;
+  if (!stop_signal_.create(error)) {
+    NSC_LOG_ERROR("Failed to create the collector's stop signal, stopping it may take up to a second: " + error);
+  }
   stop_requested_ = false;
   thread_ = threads::start_guarded_thread("checksystem collector", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
   return true;
 }
 
 bool pdh_thread::stop() {
-  {
-    std::lock_guard<std::mutex> lock(stop_mutex_);
-    stop_requested_ = true;
-  }
-  stop_cv_.notify_all();
+  stop_requested_ = true;
+  stop_signal_.signal();
   if (thread_) {
     thread_->join();
     // Idempotent: the destructor calls stop() again after unloadModule did.
     thread_.reset();
   }
+  // Released after the join, so a stop/start cycle gets a fresh signal
+  // instead of leaking a pipe per cycle.
+  stop_signal_.close();
   return true;
 }
 

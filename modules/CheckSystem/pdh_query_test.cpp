@@ -3,9 +3,18 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <list>
 #include <memory>
+#include <string>
+#include <thread>
+#include <utility>
+#include <win/pdh/pdh_enumerations.hpp>
 #include <win/pdh/pdh_interface.hpp>
+#include <win/pdh/pdh_object_gather.hpp>
 #include <win/pdh/pdh_query.hpp>
+#include <win/pdh/thread_safe_impl.hpp>
 
 namespace {
 
@@ -19,6 +28,7 @@ class MockPdh : public PDH::impl_interface {
   PDH_STATUS add_counter_status = ERROR_SUCCESS;
   PDH_STATUS remove_counter_status = ERROR_SUCCESS;
   PDH_STATUS formatted_value_status = ERROR_SUCCESS;
+  PDH_STATUS expand_wild_card_status = ERROR_SUCCESS;
   bool throw_on_add_listener = false;
 
   // Observables
@@ -30,13 +40,27 @@ class MockPdh : public PDH::impl_interface {
   int add_counter_calls = 0;
   int add_english_counter_calls = 0;
   int remove_counter_calls = 0;
+  int collect_calls = 0;
+  int expand_wild_card_calls = 0;
 
   // The "open handle count" we track to assert no leaks.
   int open_handles = 0;
   int open_counter_handles = 0;
 
+  // The thread-safe implementation's lock is what keeps a reload from
+  // interleaving with a query, so every call a query makes has to arrive
+  // with it held. Dropping a guard shows up here as an unlocked call.
+  int lock_depth = 0;
+  int unlocked_calls = 0;
+  void lock() override { ++lock_depth; }
+  void unlock() override { --lock_depth; }
+  void note_call() {
+    if (lock_depth == 0) ++unlocked_calls;
+  }
+
   PDH::pdh_error PdhOpenQuery(LPCWSTR, DWORD_PTR, PDH::PDH_HQUERY *phQuery) override {
     ++open_calls;
+    note_call();
     if (open_status != ERROR_SUCCESS) {
       *phQuery = nullptr;
       return {open_status};
@@ -48,12 +72,14 @@ class MockPdh : public PDH::impl_interface {
   }
   PDH::pdh_error PdhCloseQuery(PDH::PDH_HQUERY) override {
     ++close_calls;
+    note_call();
     if (close_status != ERROR_SUCCESS) return {close_status};
     --open_handles;
     return {};
   }
   PDH::pdh_error PdhAddCounter(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
     ++add_counter_calls;
+    note_call();
     if (add_counter_status != ERROR_SUCCESS) {
       *phCounter = nullptr;
       return {add_counter_status};
@@ -67,6 +93,7 @@ class MockPdh : public PDH::impl_interface {
   // existing "add fails" tests still fail through both paths.
   PDH::pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
     ++add_english_counter_calls;
+    note_call();
     if (add_counter_status != ERROR_SUCCESS) {
       *phCounter = nullptr;
       return {add_counter_status};
@@ -77,19 +104,26 @@ class MockPdh : public PDH::impl_interface {
   }
   PDH::pdh_error PdhRemoveCounter(PDH::PDH_HCOUNTER) override {
     ++remove_counter_calls;
+    note_call();
     if (remove_counter_status != ERROR_SUCCESS) return {remove_counter_status};
     --open_counter_handles;
     return {};
   }
-  PDH::pdh_error PdhCollectQueryData(PDH::PDH_HQUERY) override { return {}; }
+  PDH::pdh_error PdhCollectQueryData(PDH::PDH_HQUERY) override {
+    ++collect_calls;
+    note_call();
+    return {};
+  }
 
   void add_listener(PDH::subscriber *) override {
     ++add_listener_calls;
+    note_call();
     if (throw_on_add_listener) throw PDH::pdh_exception("mock: add_listener refused");
     ++listener_count;
   }
   void remove_listener(PDH::subscriber *) override {
     ++remove_listener_calls;
+    note_call();
     --listener_count;
   }
   bool reload() override { return true; }
@@ -100,11 +134,26 @@ class MockPdh : public PDH::impl_interface {
   PDH::pdh_error PdhExpandCounterPath(LPCTSTR, LPTSTR, LPDWORD) override { return {}; }
   PDH::pdh_error PdhGetCounterInfo(PDH::PDH_HCOUNTER, BOOLEAN, LPDWORD, PDH_COUNTER_INFO *) override { return {}; }
   PDH::pdh_error PdhGetRawCounterValue(PDH::PDH_HCOUNTER, LPDWORD, PPDH_RAW_COUNTER) override { return {}; }
-  PDH::pdh_error PdhGetFormattedCounterValue(PDH::PDH_HCOUNTER, DWORD, LPDWORD, PPDH_FMT_COUNTERVALUE) override { return {formatted_value_status}; }
+  PDH::pdh_error PdhGetFormattedCounterValue(PDH::PDH_HCOUNTER, DWORD, LPDWORD, PPDH_FMT_COUNTERVALUE) override {
+    note_call();
+    return {formatted_value_status};
+  }
   PDH::pdh_error PdhValidatePath(LPCWSTR, bool) override { return {}; }
   PDH::pdh_error PdhEnumObjects(LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, DWORD, BOOL) override { return {}; }
   PDH::pdh_error PdhEnumObjectItems(LPCWSTR, LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, LPWSTR, LPDWORD, DWORD, DWORD) override { return {}; }
-  PDH::pdh_error PdhExpandWildCardPath(LPCTSTR, LPCTSTR, LPWSTR, LPDWORD, DWORD) override { return {}; }
+  // Expansion is driven by expand_wild_card_status: on success the list is
+  // left empty (an empty, zero-terminated buffer), which is all the tests
+  // here need.
+  PDH::pdh_error PdhExpandWildCardPath(LPCTSTR, LPCTSTR, LPWSTR mszExpandedPathList, LPDWORD pcchPathListLength, DWORD) override {
+    ++expand_wild_card_calls;
+    if (expand_wild_card_status != ERROR_SUCCESS) return {expand_wild_card_status};
+    if (mszExpandedPathList != nullptr && pcchPathListLength != nullptr && *pcchPathListLength >= 2) {
+      mszExpandedPathList[0] = L'\0';
+      mszExpandedPathList[1] = L'\0';
+      *pcchPathListLength = 2;
+    }
+    return {};
+  }
 };
 
 class PdhQueryLifecycleTest : public ::testing::Test {
@@ -360,4 +409,309 @@ TEST_F(PdhQueryLifecycleTest, GatherDataStillThrowsOnNegativeDenominatorByDefaul
   mock->formatted_value_status = PDH_CALC_NEGATIVE_DENOMINATOR;
   EXPECT_THROW(q.gatherData(false), PDH::pdh_exception);
   q.close();
+}
+
+// ----------------------------------------------------------------------------
+// Wildcard expansion of an object that currently has no instances
+// ----------------------------------------------------------------------------
+
+// PDH_CSTATUS_NO_INSTANCE means the object resolved but has nothing to list
+// right now (W3SVC_W3WP once the idle worker has spun down). The expansion
+// reports it through its flag, not as an error: the IIS checks must answer
+// "No IIS worker processes running", never "counters not available - is the
+// role installed?". The collector, on the other hand, must keep seeing a
+// failed counter so its boot-time retry (#634) is not cut short.
+
+namespace {
+// A $INSTANCE$ counter as the collector and the gather build it.
+PDH::pdh_object wildcard_object(const std::string &alias, const std::string &path) {
+  PDH::pdh_object obj;
+  obj.set_alias(alias);
+  obj.set_counter(path);
+  obj.set_instances("true");
+  obj.set_strategy_static();
+  obj.set_type("double");
+  obj.set_resolution("auto");
+  return obj;
+}
+}  // namespace
+
+TEST_F(PdhQueryLifecycleTest, ExpandWildCardWithNoInstancesIsEmptyNotError) {
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  std::string err;
+  bool no_instances = false;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\W3SVC_W3WP(*)\\Active Requests", err, no_instances);
+  EXPECT_TRUE(paths.empty());
+  EXPECT_EQ(err, "") << "an empty instance set must not surface as an expansion error";
+  EXPECT_TRUE(no_instances);
+  EXPECT_EQ(mock->expand_wild_card_calls, 1) << "no locale fallback is attempted for an object that resolved";
+  EXPECT_EQ(mock->open_calls, 0);
+  EXPECT_EQ(mock->add_counter_calls, 0);
+  EXPECT_EQ(mock->add_english_counter_calls, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, ExpandWildCardWithNoInstancesOnLocalizedHostIsEmptyNotError) {
+  // A localized host: the English path does not expand directly, so the
+  // code resolves it through a temporary query, and the English-name add is
+  // where the empty object first shows (NO_INSTANCE). That must come out the
+  // same as the direct case, with the temporary query released.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_COUNTER;
+  mock->add_counter_status = PDH_CSTATUS_NO_INSTANCE;
+  std::string err;
+  bool no_instances = false;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\W3SVC_W3WP(*)\\Active Requests", err, no_instances);
+  EXPECT_TRUE(paths.empty());
+  EXPECT_EQ(err, "");
+  EXPECT_TRUE(no_instances);
+  EXPECT_EQ(mock->expand_wild_card_calls, 1);
+  EXPECT_EQ(mock->open_calls, 1) << "the fallback goes through one temporary query";
+  EXPECT_EQ(mock->add_english_counter_calls, 1);
+  EXPECT_EQ(mock->close_calls, 1);
+  EXPECT_EQ(mock->open_handles, 0) << "the temporary query must be released";
+  EXPECT_EQ(mock->open_counter_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, ExpandWildCardStillReportsMissingCounter) {
+  // Guard the boundary: an object PDH cannot resolve at all stays an error
+  // after the English-name fallback (which the mock also refuses), and the
+  // temporary query of that fallback is released.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_OBJECT;
+  mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
+  std::string err;
+  bool no_instances = false;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\NoSuchObject(*)\\Counter", err, no_instances);
+  EXPECT_TRUE(paths.empty());
+  EXPECT_NE(err, "");
+  EXPECT_FALSE(no_instances);
+  EXPECT_EQ(mock->expand_wild_card_calls, 1);
+  EXPECT_EQ(mock->open_calls, 1) << "the is_not_found() fallback must still try the English name";
+  EXPECT_EQ(mock->add_english_counter_calls, 1);
+  EXPECT_EQ(mock->close_calls, 1);
+  EXPECT_EQ(mock->open_handles, 0);
+  EXPECT_EQ(mock->open_counter_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, ExpandWildCardTwoArgumentFormReportsNoInstancesAsError) {
+  // Callers without the flag cannot tell an empty object from a missing one
+  // and must keep getting the PDH status text.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  std::string err;
+  const std::list<std::string> paths = PDH::Enumerations::expand_wild_card_path("\\W3SVC_W3WP(*)\\Active Requests", err);
+  EXPECT_TRUE(paths.empty());
+  EXPECT_NE(err.find("0x800007D1"), std::string::npos) << err;
+}
+
+TEST_F(PdhQueryLifecycleTest, FactoryCreateOnEmptyObjectThrowsNoInstance) {
+  // The collector treats a counter it cannot create as not-yet-available and
+  // retries with back-off; a childless container would instead count as
+  // success and leave the counter publishing nothing for good.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  const PDH::pdh_object obj = wildcard_object("workers", "\\W3SVC_W3WP($INSTANCE$)\\Active Requests");
+  EXPECT_THROW(PDH::factory::create(obj), PDH::pdh_no_instance_exception);
+  try {
+    PDH::factory::create(obj);
+    FAIL() << "expected pdh_no_instance_exception";
+  } catch (const PDH::pdh_exception &e) {
+    // Caught through the base, as the collector's catch (std::exception) does.
+    EXPECT_NE(e.reason().find("no instances"), std::string::npos) << e.reason();
+    EXPECT_NE(e.reason().find("W3SVC_W3WP"), std::string::npos) << e.reason();
+  }
+}
+
+TEST_F(PdhQueryLifecycleTest, FactoryCreateOnMissingObjectThrowsPlainPdhException) {
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_OBJECT;
+  mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
+  const PDH::pdh_object obj = wildcard_object("nothing", "\\NoSuchObject($INSTANCE$)\\Counter");
+  EXPECT_THROW(PDH::factory::create(obj), PDH::pdh_exception);
+  try {
+    PDH::factory::create(obj);
+  } catch (const PDH::pdh_no_instance_exception &) {
+    FAIL() << "a missing object is not an empty one";
+  } catch (const PDH::pdh_exception &) {
+  }
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherObjectInstancesWithNoInstancesIsEmptyMap) {
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  PDH::object_instance_values out;
+  EXPECT_NO_THROW(out = PDH::gather_object_instances("W3SVC_W3WP", {"Active Requests", "Total HTTP Requests Served"}, false));
+  EXPECT_TRUE(out.empty());
+  // Nothing to sample, so no query is opened and nothing is collected.
+  EXPECT_EQ(mock->open_calls, 0);
+  EXPECT_EQ(mock->collect_calls, 0);
+  EXPECT_EQ(mock->open_handles, 0);
+  EXPECT_EQ(mock->listener_count, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherObjectInstancesOnMissingObjectStillThrows) {
+  // The role-not-installed contract of the IIS checks rides on this throw.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_OBJECT;
+  mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
+  EXPECT_THROW(PDH::gather_object_instances("W3SVC_W3WP", {"Active Requests"}, false), PDH::pdh_exception);
+  EXPECT_EQ(mock->open_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, CollectOnQueryWithoutCountersIsANoOp) {
+  // PdhCollectQueryData on a counter-less query fails with PDH_NO_DATA; an
+  // empty query has nothing to sample, so neither collect() nor gatherData()
+  // asks PDH.
+  PDH::PDHQuery q;
+  q.open();
+  EXPECT_NO_THROW(q.collect());
+  EXPECT_NO_THROW(q.gatherData(false));
+  EXPECT_EQ(mock->collect_calls, 0);
+  q.close();
+  EXPECT_EQ(mock->open_handles, 0);
+}
+
+// ----------------------------------------------------------------------------
+// Reload safety
+// ----------------------------------------------------------------------------
+
+TEST_F(PdhQueryLifecycleTest, EveryQueryCallIsMadeUnderTheImplementationLock) {
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar"));
+  q.addCounter(make_counter("b", "\\Foo\\Baz", "english"));
+  q.open();
+  q.gatherData(false);
+  q.close();
+  EXPECT_EQ(mock->add_counter_calls, 1);
+  EXPECT_EQ(mock->add_english_counter_calls, 1);
+  EXPECT_GT(mock->collect_calls, 0);
+  EXPECT_EQ(mock->unlocked_calls, 0) << "a query call made without the lock races a concurrent reload";
+  EXPECT_EQ(mock->lock_depth, 0) << "every lock taken was released";
+}
+
+TEST_F(PdhQueryLifecycleTest, QueryLeftClosedByAFailedReloadReopensOnNextGather) {
+  // What ThreadedSafePDH::reload() does to a subscriber, with the reopen
+  // failing: the query is closed but still subscribed. It must recover on
+  // its own once PDH works again, not fail every sample until the next reload.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar"));
+  q.open();
+  q.on_unload();
+  mock->open_status = PDH_CSTATUS_NO_OBJECT;
+  EXPECT_THROW(q.on_reload(), PDH::pdh_exception);
+  EXPECT_FALSE(q.is_open());
+
+  mock->open_status = ERROR_SUCCESS;
+  EXPECT_NO_THROW(q.gatherData(false));
+  EXPECT_TRUE(q.is_open());
+  EXPECT_EQ(mock->open_handles, 1);
+  EXPECT_EQ(mock->open_counter_handles, 1);
+  q.close();
+  EXPECT_EQ(mock->open_handles, 0);
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  EXPECT_EQ(mock->listener_count, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, ACounterThatFailedToRemoveDoesNotWedgeTheReopen) {
+  // A reload closes every query (on_unload) and reopens it; on_unload carries
+  // on past a counter whose remove fails. That counter used to keep its
+  // handle, so re-adding it refused ("already opened") and the reopened
+  // query failed on every sample from then on.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar"));
+  q.open();
+  mock->remove_counter_status = PDH_INVALID_HANDLE;
+  q.on_unload();
+  mock->remove_counter_status = ERROR_SUCCESS;
+
+  EXPECT_NO_THROW(q.gatherData(false));
+  EXPECT_TRUE(q.is_open());
+  q.close();
+  EXPECT_EQ(mock->open_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, CloseWithACounterThatFailsToRemoveDoesNotThrowFromADestructor) {
+  // close() clears the counters after on_unload() has given up on one; the
+  // counter's destructor then removed the stale handle again, and a throw
+  // out of a destructor aborts the agent.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar"));
+  q.open();
+  mock->remove_counter_status = PDH_INVALID_HANDLE;
+  EXPECT_NO_THROW(q.close());
+  EXPECT_FALSE(q.is_open());
+}
+
+namespace {
+// Counts its callbacks and can be told to fail one of them.
+struct recording_subscriber : PDH::subscriber {
+  std::string name;
+  int unloads = 0;
+  int reloads = 0;
+  bool fail_unload = false;
+  bool fail_reload = false;
+  explicit recording_subscriber(std::string name) : name(std::move(name)) {}
+  void on_unload() override {
+    ++unloads;
+    if (fail_unload) throw PDH::pdh_exception(name + " unload failed");
+  }
+  void on_reload() override {
+    ++reloads;
+    if (fail_reload) throw PDH::pdh_exception(name + " reload failed");
+  }
+};
+}  // namespace
+
+TEST(ThreadedSafePdh, ReloadCallsEverySubscriberBackAndReportsEveryFailure) {
+  // Stopping at the first failure left the subscribers already unloaded
+  // closed, with nothing to reopen them, and dropped the other errors.
+  PDH::ThreadedSafePDH pdh;
+  recording_subscriber a("a"), b("b"), c("c");
+  a.fail_unload = true;
+  c.fail_reload = true;
+  pdh.add_listener(&a);
+  pdh.add_listener(&b);
+  pdh.add_listener(&c);
+  try {
+    pdh.reload();
+    ADD_FAILURE() << "expected the callback failures to be reported";
+  } catch (const PDH::pdh_exception &e) {
+    EXPECT_NE(e.reason().find("a unload failed"), std::string::npos) << e.reason();
+    EXPECT_NE(e.reason().find("c reload failed"), std::string::npos) << e.reason();
+  }
+  for (const recording_subscriber *s : {&a, &b, &c}) {
+    EXPECT_EQ(s->unloads, 1) << s->name;
+    EXPECT_EQ(s->reloads, 1) << s->name;
+  }
+  pdh.remove_listener(&a);
+  pdh.remove_listener(&b);
+  pdh.remove_listener(&c);
+
+  // With nothing failing, a reload is quiet.
+  recording_subscriber d("d");
+  pdh.add_listener(&d);
+  EXPECT_NO_THROW(pdh.reload());
+  EXPECT_EQ(d.unloads, 1);
+  EXPECT_EQ(d.reloads, 1);
+  pdh.remove_listener(&d);
+}
+
+TEST(ThreadedSafePdh, InstancesShareTheLockAndTheSubscribers) {
+  // CheckSystem replaces the factory's instance on every module load, and a
+  // query stays bound to the one it opened on, while the proc table is
+  // static. A reload through the newer instance has to exclude, and call
+  // back, the queries on the older one.
+  PDH::ThreadedSafePDH older, newer;
+  recording_subscriber query("query");
+  older.add_listener(&query);
+  EXPECT_NO_THROW(newer.reload());
+  EXPECT_EQ(query.unloads, 1);
+  EXPECT_EQ(query.reloads, 1);
+  older.remove_listener(&query);
+
+  older.lock();
+  std::atomic<bool> acquired{false};
+  std::thread other([&] {
+    newer.lock();
+    acquired = true;
+    newer.unlock();
+  });
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  EXPECT_FALSE(acquired) << "the newer instance's lock did not exclude a holder of the older one's";
+  older.unlock();
+  other.join();
+  EXPECT_TRUE(acquired);
 }

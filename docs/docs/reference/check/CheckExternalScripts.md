@@ -217,7 +217,7 @@ allow nasty characters=false
 
 #### Kill process tree <a id="/settings/external scripts/kill tree"></a>
 
-Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process).
+Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process). On Linux the script then runs in a session of its own, and the whole process group is signalled when it times out or the module unloads, so helpers it backgrounds die with it; a script that calls setsid() itself gets EPERM, as it already leads its session.
 
 
 | Key            | Description                                               |

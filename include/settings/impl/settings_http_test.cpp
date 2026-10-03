@@ -742,6 +742,13 @@ class serving_http {
     bodies_[path] = body;
   }
 
+  // Answer 404 for `path` from now on - the settings server down, as far as
+  // the agent can tell.
+  void unserve(const std::string &path) {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    bodies_.erase(path);
+  }
+
   // How many times this path has been asked for since the server started.
   int hits(const std::string &path) {
     const std::lock_guard<std::mutex> lock(mutex_);
@@ -942,4 +949,243 @@ TEST(settings_http, an_attachment_is_refetched_when_the_top_level_file_is_unchan
   s.house_keeping();
 
   EXPECT_EQ(file_helpers::read_file_as_string(written), "@echo second\n");
+}
+
+// ============================================================================
+// The child store survives a cache clear and a failed rebuild
+// ============================================================================
+
+namespace {
+// A core whose INI children can be made to fail to build - antivirus still
+// holding the copy that was just renamed into place, say.
+class flaky_child_core : public chaining_http_core {
+ public:
+  using chaining_http_core::chaining_http_core;
+  bool fail_children = false;
+
+  std::atomic<int> ini_children_built{0};
+
+  settings::instance_raw_ptr create_instance(std::string alias, std::string key) override {
+    if (net::parse(key).protocol == "ini") {
+      if (fail_children) throw settings::settings_exception(__FILE__, __LINE__, "mock: cached copy is locked");
+      ++ini_children_built;
+    }
+    return chaining_http_core::create_instance(alias, key);
+  }
+};
+
+// Lets a test hold the store's own lock, as a slow reload on another thread
+// would.
+class lockable_http : public settings::settings_http {
+ public:
+  using settings::settings_http::settings_http;
+  boost::timed_mutex &store_mutex() { return mutex_; }
+};
+}  // namespace
+
+TEST(settings_http, a_cleared_cache_still_reads_the_remote_configuration) {
+  // clear_cache() runs on every settings reload. It drops the child store
+  // along with the cached values, and an empty real_clear_cache() never put
+  // it back: from then on every value read as its default, and reload_data()
+  // only rebuilds when the downloaded file changes, so it stayed that way.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  chaining_http_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  ASSERT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+
+  s.clear_cache();
+
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  EXPECT_EQ(server.hits(kRootPath), 1) << "the child is rebuilt on the cached copy, without downloading";
+}
+
+TEST(settings_http, a_cleared_cache_keeps_the_previous_child_when_it_cannot_be_rebuilt) {
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  ASSERT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+
+  core.fail_children = true;
+  s.clear_cache();
+
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled") << "a child that cannot be rebuilt must not take the configuration with it";
+}
+
+TEST(settings_http, a_child_that_cannot_be_rebuilt_keeps_the_previous_config_and_is_retried) {
+  // A changed file whose child cannot be built used to leave the store with
+  // no child at all, and ask the agent to reload against all-defaults. The
+  // next pass found the hash matching and never tried again.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  ASSERT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\nNRDPClient = enabled\n");
+  core.fail_children = true;
+  s.house_keeping();
+
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled") << "the previous copy keeps being served";
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "");
+  EXPECT_FALSE(core.needs_reload()) << "nothing new was loaded, so nothing should reload against it";
+
+  // The file is unchanged since the last download, so only the pending
+  // rebuild makes this pass pick it up.
+  core.fail_children = false;
+  s.house_keeping();
+
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "enabled");
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  EXPECT_TRUE(core.needs_reload());
+}
+
+TEST(settings_http, a_cleared_cache_reuses_the_child_and_asks_for_no_reload) {
+  // The cached copy only changes through reload_data(), which builds its own
+  // child, so a cache clear puts the current child back instead of building
+  // (and loading, nested includes and all) a second one under the lock - and
+  // the next unchanged pass must not ask the agent for a reload.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  ASSERT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  const int built = core.ini_children_built;
+
+  s.clear_cache();
+  core.set_reload(false);
+  s.house_keeping();
+
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  EXPECT_EQ(core.ini_children_built, built) << "neither the clear nor the unchanged pass builds a child";
+  EXPECT_FALSE(core.needs_reload());
+}
+
+TEST(settings_http, a_pending_rebuild_survives_a_cache_clear) {
+  // A download whose child could not be built is retried by house_keeping().
+  // A cache clear in between (a plugin reload) must not forget that.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\nNRDPClient = enabled\n");
+  core.fail_children = true;
+  s.house_keeping();
+  s.clear_cache();
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "") << "the previous copy is still served";
+
+  core.fail_children = false;
+  s.house_keeping();
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "enabled");
+  EXPECT_TRUE(core.needs_reload());
+}
+
+TEST(settings_http, a_download_whose_install_times_out_is_retried) {
+  // reload_data() installs the new child under the 5 s timed lock. If that
+  // times out, the download is already in place and the next pass finds its
+  // hash matching; the pending flag is what makes it try again, so it must
+  // not be cleared before the install.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  lockable_http s(&core, "test", server.url(kRootPath));
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\nNRDPClient = enabled\n");
+
+  {
+    std::promise<void> locked, release;
+    std::thread holder([&] {
+      boost::unique_lock<boost::timed_mutex> lock(s.store_mutex());
+      locked.set_value();
+      release.get_future().wait();
+    });
+    locked.get_future().wait();
+    EXPECT_THROW(s.house_keeping(), settings::settings_exception);
+    release.set_value();
+    holder.join();
+  }
+  core.set_reload(false);
+
+  s.house_keeping();
+  EXPECT_EQ(s.get_string("/modules", "NRDPClient", ""), "enabled");
+  EXPECT_TRUE(core.needs_reload());
+}
+
+TEST(settings_http, a_child_built_by_a_cache_clear_after_a_failed_initial_load_asks_for_no_extra_reload) {
+  // The initial child could not be built, so a rebuild is pending. A cache
+  // clear (a plugin reload) builds it from the same cached copy; the pending
+  // rebuild is then satisfied, and the next pass must not build that file a
+  // second time and reload the whole agent.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  core.fail_children = true;
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "");
+
+  core.fail_children = false;
+  s.clear_cache();
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  const int built = core.ini_children_built;
+
+  core.set_reload(false);
+  s.house_keeping();
+  EXPECT_EQ(core.ini_children_built, built) << "the same cached copy was built again";
+  EXPECT_FALSE(core.needs_reload());
+}
+
+TEST(settings_http, a_first_download_after_an_offline_boot_is_picked_up) {
+  // Booted with the settings server down and nothing cached: the store runs
+  // on defaults. The first download that succeeds has to count as a change,
+  // or it is renamed into place and never read until the file changes again.
+  serving_http server;  // nothing served yet: every fetch is a 404
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "");
+
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+  core.set_reload(false);
+  s.house_keeping();
+
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled");
+  EXPECT_TRUE(core.needs_reload());
+}
+
+TEST(settings_http, an_outage_with_a_cached_copy_does_not_reload_every_pass) {
+  // A failed download falls back to the cached copy, which is what the store
+  // already reads. Reporting that as a change rebuilt the child and reloaded
+  // the whole agent on every settings pass for as long as the outage lasted.
+  serving_http server;
+  server.serve(kRootPath, "[/modules]\nCheckSystem = enabled\n");
+
+  temp_dir cache, shared;
+  flaky_child_core core(cache.path(), shared.path());
+  settings::settings_http s(&core, "test", server.url(kRootPath));
+  const int built = core.ini_children_built;
+
+  server.unserve(kRootPath);
+  core.set_reload(false);
+  s.house_keeping();
+  s.house_keeping();
+
+  EXPECT_EQ(s.get_string("/modules", "CheckSystem", ""), "enabled") << "the cached copy keeps being served";
+  EXPECT_EQ(core.ini_children_built, built);
+  EXPECT_FALSE(core.needs_reload());
 }

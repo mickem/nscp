@@ -836,3 +836,50 @@ TEST(settings_ini, load_error_on_reload_names_the_file) {
   }
 }
 #endif
+
+// The in-memory view after a runtime removal has to match what the file then
+// holds: a key that comes back from get_keys() but not from the file is a key
+// the agent invents, with no value, on its next reload.
+TEST(settings_ini, a_removed_key_stays_gone_from_the_store_and_the_file) {
+  temp_dir dir;
+  auto file = dir.file("a.ini");
+  write_file(file, "");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.set_string("/scripts", "gone.py", "gone.py");
+  s.set_string("/scripts", "kept.py", "kept.py");
+  s.save(false);
+
+  s.remove_key("/scripts", "gone.py");
+  s.save(false);
+
+  EXPECT_EQ((settings::settings_interface::string_list{"kept.py"}), s.get_keys("/scripts"));
+  settings::INISettings reread(&core, "reread", ini_context(file));
+  EXPECT_EQ((settings::settings_interface::string_list{"kept.py"}), reread.get_keys("/scripts"));
+}
+
+TEST(settings_ini, removing_a_path_leaves_its_sub_sections_as_stored) {
+  // A section is a flat name in the file: removing [/dead] does not remove
+  // [/dead/sub], so its keys - and their values - are still there, both in the
+  // store and in the file. Forgetting them in memory would only make the two
+  // disagree.
+  temp_dir dir;
+  auto file = dir.file("a.ini");
+  write_file(file, "");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.set_string("/dead", "key", "value");
+  s.set_string("/dead/sub", "nested", "still here");
+  s.save(false);
+
+  s.remove_path("/dead");
+  s.save(false);
+
+  EXPECT_TRUE(s.get_keys("/dead").empty());
+  EXPECT_EQ((settings::settings_interface::string_list{"nested"}), s.get_keys("/dead/sub"));
+  EXPECT_EQ("still here", s.get_string("/dead/sub", "nested").value());
+
+  settings::INISettings reread(&core, "reread", ini_context(file));
+  EXPECT_TRUE(reread.get_keys("/dead").empty());
+  EXPECT_EQ((settings::settings_interface::string_list{"nested"}), reread.get_keys("/dead/sub"));
+}

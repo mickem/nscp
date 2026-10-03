@@ -32,23 +32,23 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - id: python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           architecture: ${{ inputs.architecture }}
           cache-dependency-path: 'build/python/requirements.txt'
           cache: 'pip'
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: 'web/package-lock.json'
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact-name }}
           path: .
@@ -105,11 +105,16 @@ jobs:
       # failure). Web-Scripting-Tools brings the root\WebAdministration WMI
       # provider the app-pool check uses for auto_start enrichment, and the
       # priming request starts DefaultAppPool so its counter instances exist
-      # before the suite queries them.
+      # before the suite queries them. The pool's idle timeout is switched
+      # off first: the suite takes well over IIS' default 20 minutes to reach
+      # the IIS cases, and once the primed w3wp.exe has spun down the worker
+      # check can only report the (valid, but less interesting) empty set.
       - name: Enable IIS (live target for CheckWindowsApps)
         shell: powershell
         run: |
           Install-WindowsFeature -Name Web-Server, Web-Scripting-Tools | Out-Null
+          & "$env:windir\system32\inetsrv\appcmd.exe" set apppool "DefaultAppPool" /processModel.idleTimeout:00:00:00
+          if ($LASTEXITCODE -ne 0) { throw "appcmd could not switch off the DefaultAppPool idle timeout (exit $LASTEXITCODE)" }
           Start-Service W3SVC
           Invoke-WebRequest -UseBasicParsing http://localhost/ | Out-Null
 

@@ -10,6 +10,7 @@
 #include <settings/settings_interface_impl.hpp>
 #include <settings/test_helpers.hpp>
 #include <string>
+#include <thread>
 #include <utility>
 
 using settings_test::mock_settings_core;
@@ -83,6 +84,12 @@ class memory_backend : public settings::settings_interface_impl {
   void ensure_exists() override {}
   void enable_credentials() override {}
   bool supports_updates() override { return true; }
+
+  // Attach a child the way add_child() does, without going through the core.
+  void push_child(settings::instance_raw_ptr child) {
+    boost::unique_lock<boost::timed_mutex> lock(mutex_);
+    children_.push_back(child);
+  }
 };
 
 // Compose a (path,key) pair.  Wrapping the brace-list in a function call lets
@@ -199,6 +206,47 @@ TEST(settings_interface_impl, remove_key_after_set_drops_in_flight_change) {
   b.remove_key("/section", "key");
   b.save(false);
   EXPECT_EQ(b.persisted_values.count({"/section", "key"}), 0u);
+}
+
+TEST(settings_interface_impl, a_key_set_at_runtime_stays_gone_from_get_keys_once_removed_and_saved) {
+  // set_string() remembers the key name so get_keys() lists it before it is
+  // saved. remove_key() has to forget that too: once save() has dropped the
+  // staged deletion, nothing else masks it, and the removed key came back as
+  // a key with no value - PythonScript then went looking for a script named
+  // after it on every reload.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/section", "key", "value");
+  b.set_string("/section", "kept", "value");
+  b.save(false);
+
+  b.remove_key("/section", "key");
+  b.save(false);
+
+  EXPECT_EQ(settings::settings_interface::string_list{"kept"}, b.get_keys("/section"));
+  EXPECT_FALSE(b.get_string("/section", "key").has_value());
+}
+
+TEST(settings_interface_impl, a_key_set_and_removed_before_any_save_stays_gone_from_get_keys) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/section", "key", "value");
+  b.remove_key("/section", "key");
+  b.save(false);
+
+  EXPECT_TRUE(b.get_keys("/section").empty());
+}
+
+TEST(settings_interface_impl, a_removed_path_takes_its_runtime_keys_with_it) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/dead", "key", "value");
+  b.save(false);
+
+  b.remove_path("/dead");
+  b.save(false);
+
+  EXPECT_TRUE(b.get_keys("/dead").empty());
 }
 
 // ============================================================================
@@ -732,4 +780,50 @@ TEST(settings_interface_impl, has_key_finds_a_key_set_again_after_a_deletion) {
   b.set_string("/section", "key", "reborn");
 
   EXPECT_TRUE(b.has_key("/section", "key"));
+}
+
+// ============================================================================
+// children_ under concurrent reload
+// ============================================================================
+
+TEST(settings_interface_impl, children_can_be_walked_while_a_reload_replaces_them) {
+  // clear_cache() (a settings reload) empties and refills children_ while the
+  // web and scheduler threads walk it through get_children(), house_keeping(),
+  // to_string() and get_changes(). Those used to iterate the live list
+  // unlocked, so a node could be freed under the iterator; they now walk a
+  // copy taken under the lock. Run under ThreadSanitizer this reports the
+  // race on the old code; without it the old code only fails by an occasional
+  // crash, so a pass here is not proof on its own.
+  mock_settings_core core;
+  memory_backend parent(&core, "parent", "memory://parent");
+  parent.push_child(std::make_shared<memory_backend>(&core, "child", "memory://child"));
+
+  // Both sides catch: clear_cache() and get_changes() take the timed
+  // MUTEX_GUARD, and an exception escaping either side with the thread still
+  // joinable would std::terminate the whole binary instead of failing here.
+  std::string reloader_error, walker_error;
+  std::thread reloader([&] {
+    try {
+      for (int i = 0; i < 500; ++i) {
+        parent.clear_cache();
+        parent.push_child(std::make_shared<memory_backend>(&core, "child", "memory://child"));
+      }
+    } catch (const std::exception &e) {
+      reloader_error = e.what();
+    }
+  });
+  try {
+    for (int i = 0; i < 500; ++i) {
+      for (const auto &child : parent.get_children()) EXPECT_TRUE(child);
+      parent.house_keeping();
+      EXPECT_FALSE(parent.to_string().empty());
+      parent.get_changes();
+    }
+  } catch (const std::exception &e) {
+    walker_error = e.what();
+  }
+  reloader.join();
+  EXPECT_EQ("", reloader_error);
+  EXPECT_EQ("", walker_error);
+  EXPECT_EQ(1u, parent.get_children().size());
 }

@@ -582,6 +582,16 @@ else()
     set(NSCP_SOCKET_LIBS "")
 endif()
 
+# On Windows stop_signal::create() formats a failed CreateEvent through
+# error::lookup, which lives in error_w32.cpp (and uses utf8.cpp).
+set(THREADS_TEST_PLATFORM_SOURCES)
+if(WIN32)
+    set(THREADS_TEST_PLATFORM_SOURCES
+        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    )
+endif()
+
 NSCP_CREATE_TEST(
     threads_test
     SOURCES
@@ -590,6 +600,8 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/threads/scoped_thread_group_test.cpp
         ${NSCP_INCLUDEDIR}/threads/guarded_thread_test.cpp
         ${NSCP_INCLUDEDIR}/threads/in_flight_test.cpp
+        ${NSCP_INCLUDEDIR}/threads/stop_signal_test.cpp
+        ${THREADS_TEST_PLATFORM_SOURCES}
     LIBRARIES
         GTest::gtest_main
         ${Boost_THREAD_LIBRARY}
@@ -598,6 +610,19 @@ NSCP_CREATE_TEST(
         # guarded_io_context_test posts to a real io_context, and boost::asio
         # pulls in the platform socket library even when nothing opens a socket.
         ${NSCP_SOCKET_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    scripts_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/scripts/script_interface_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -793,6 +818,7 @@ if(NOT WIN32)
             ${NSCP_INCLUDEDIR}/process/execute_process_unix.cpp
         LIBRARIES
             GTest::gtest_main
+            ${Boost_THREAD_LIBRARY}
         INCLUDES
             ${NSCP_INCLUDEDIR}
     )

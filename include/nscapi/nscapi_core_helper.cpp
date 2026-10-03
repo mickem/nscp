@@ -115,7 +115,7 @@ bool nscapi::core_helper::unload_module(std::string name) {
     if (response_payload.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
       return true;
     }
-    CORE_LOG_ERROR("Failed to load " + name + ": " + response_payload.result().message());
+    CORE_LOG_ERROR("Failed to unload " + name + ": " + response_payload.result().message());
   }
   return false;
 }
