@@ -92,16 +92,18 @@ class settings_interface_impl : public settings_interface {
   /// Notice this does not save so anhy "active" values will be flushed and new ones read from file.
   void clear_cache() {
     MUTEX_GUARD();
-    {
-      settings_cache_.clear();
-      settings_delete_cache_.clear();
-      path_cache_.clear();
-      settings_delete_path_cache_.clear();
-      key_cache_.clear();
-      children_.clear();
-    }
+    clear_cached_values_unsafe();
+    children_.clear();
     real_clear_cache();
     get_core()->set_reload(false);
+  }
+  // Drop every cached value and staged change. The caller holds mutex_.
+  void clear_cached_values_unsafe() {
+    settings_cache_.clear();
+    settings_delete_cache_.clear();
+    path_cache_.clear();
+    settings_delete_path_cache_.clear();
+    key_cache_.clear();
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -142,13 +144,19 @@ class settings_interface_impl : public settings_interface {
   }
 
   // children_ is cleared and refilled under mutex_ by clear_cache() (a
-  // settings reload, or settings_http re-downloading its includes) while
-  // other threads walk it. Everything outside the lock walks a copy taken
-  // under it; the copy holds shared_ptrs, so the children it names stay alive
-  // even if a reload drops them meanwhile. Never recurse into a child while
-  // holding mutex_: it is not recursive, and a child is free to call back.
+  // settings reload) while other threads walk it. The walks that only recurse
+  // (get_children, to_string, house_keeping, get_changes) take a copy under
+  // the lock and recurse after releasing it, so a slow child - an http
+  // include downloading in house_keeping() - does not hold this store's lock
+  // meanwhile; the copy holds shared_ptrs, so the children it names stay alive
+  // even if a reload drops them. The lookups (getter, setter, get_sections,
+  // get_keys, save) still consult children_ under mutex_.
+  //
+  // Untimed, unlike MUTEX_GUARD: these walks never threw before they took the
+  // lock, and a reload may hold it for longer than 5 s (clear_cache() on an
+  // INI store builds its http includes, which download).
   parent_list_type snapshot_children() {
-    MUTEX_GUARD();
+    boost::unique_lock<boost::timed_mutex> lock(mutex_);
     return children_;
   }
 
