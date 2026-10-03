@@ -686,6 +686,24 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         );
       });
 
+      it("listing the queries, or asking one for its help, never runs a script handler", async () => {
+        // Both ask the core for the registered queries. The listing used to ask
+        // for every command's parameters too, which the core collects by
+        // running the command - so it ran every check on the box, each script
+        // handler included, side effects and all.
+        await request(REST_URL)
+          .get("/api/v2/scripts/py")
+          .set(auth())
+          .trustLocalhost(true)
+          .expect(200);
+        const help = await request(REST_URL)
+          .get("/api/v2/queries/py_calls/help")
+          .set(auth())
+          .trustLocalhost(true);
+        expect(help.status).toBe(200);
+        expect(messageOf(await executeQuery(key, "py_calls"))).toBe("calls=1");
+      });
+
       it("PUT stores and loads a script, GET reads it back, DELETE removes it", async () => {
         const source = fs.readFileSync(path.join(FIXTURES, "rest_added.py"), "utf8");
         await request(REST_URL)
@@ -865,6 +883,64 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         expect(names.filter((n) => n === "py_echo")).toHaveLength(1);
         expect((await executeQuery(key, "py_echo", { after: "reload" })).result).toBe(OK);
       });
+    });
+  });
+
+  describe("scripts/python/sample.py, loaded unchanged", () => {
+    // The sample the docs point at, so a sample that stops working fails here.
+    const SAMPLE = path.join(__dirname, "..", "scripts", "python", "sample.py");
+    let nscp: NscpInstance;
+    let key: string;
+
+    beforeAll(async () => {
+      const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-py-sample-"));
+      const scripts = path.join(workDir, "scripts");
+      fs.mkdirSync(path.join(scripts, "python"), { recursive: true });
+      fs.copyFileSync(SAMPLE, path.join(scripts, "python", "sample.py"));
+      nscp = new NscpInstance({ workDir, pathOverrides: { scripts } });
+      key = await setupQueryNscp(nscp, "PythonScript", {
+        "/modules": { PythonScript: "enabled", WEBServer: "enabled" },
+        "/settings/python/scripts": { sample: "sample.py" },
+        "/settings/core": { "metrics interval": "1s" },
+      });
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("breaks, checks, fixes and saves the world", async () => {
+      expect(messageOf(await executeQuery(key, "check_world"))).toBe("The world is fine!");
+
+      expect((await executeQuery(key, "break_world")).result).toBe(OK);
+      const broken = await executeQuery(key, "check_world");
+      expect(broken.result).toBe(CRITICAL);
+      expect(messageOf(broken)).toBe("My god its full of stars: bad");
+
+      const saved = await executeQuery(key, "save_world");
+      expect(messageOf(saved)).toBe("The world is saved: bad");
+      await until("the saved world in the settings file", () =>
+        /^world\s*=\s*bad$/m.test(fs.readFileSync(nscp.settingsFile, "utf8")),
+      );
+
+      expect(messageOf(await executeQuery(key, "fix_world"))).toBe("Wicked! Safe!");
+      expect((await executeQuery(key, "check_world")).result).toBe(OK);
+    });
+
+    it("show_metrics turns on logging every metric the agent collects", async () => {
+      const on = await executeQuery(key, "show_metrics", { true: "" });
+      expect(messageOf(on)).toBe("Metrics displayed enabled");
+      await until("a metric in the log", () => logLines(nscp, "Got metrics: ").length > 0);
+      expect(logLines(nscp, "Got metrics: ").some((l) => l.includes("number.of.times"))).toBe(true);
+      const off = await executeQuery(key, "show_metrics", { false: "" });
+      expect(messageOf(off)).toBe("Metrics displayed disabled");
+    });
+
+    it("its help command answers `nscp client --exec`", async () => {
+      const r = await nscp.run(["client", "--module", "PythonScript", "--exec", "help"], {
+        allowFailure: true,
+      });
+      expect(r.stdout).toContain("Need help? Sorry, Im not help full my friend...");
     });
   });
 
