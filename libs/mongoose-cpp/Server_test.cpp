@@ -708,3 +708,88 @@ TEST(ServerImpl, AClientThatLeavesBeforeItsAnswerIsForgotten) {
   ASSERT_TRUE(fast.received);
   EXPECT_EQ(fast.body, "fast");
 }
+
+// ---- TLS that did not load / accept filter / stopping ------------------------
+
+TEST(ServerImpl, StartRefusesAfterAFailedSetSsl) {
+  const auto logger = std::make_shared<CollectingLogger>();
+  const std::unique_ptr<Server> server(Server::make_server(logger));
+  server->registerController(new MatchController());
+  std::string cert = "no-such-dir/no-such-certificate.pem";
+  std::string key;
+  ASSERT_FALSE(server->setSsl(cert, key));
+  EXPECT_FALSE(server->start(bind_url(choose_port_base() + 38)));
+}
+
+TEST(ServerImpl, AcceptFilterDropsARefusedPeerBeforeAnyRequest) {
+  const int port = choose_port_base() + 39;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/x", new FixedHandler(200, "x"));
+  const ServerFixture fx;
+  std::atomic<int> asked{0};
+  fx.server->setAcceptFilter([&asked](const std::string& remote) {
+    ++asked;
+    return remote != "127.0.0.1";
+  });
+  fx.start(port, controller);
+  const RawResponse r = raw_fetch(bind_url(port), make_get_request("/x", port));
+  fx.server->stop();
+  EXPECT_FALSE(r.received);
+  EXPECT_GE(asked.load(), 1);
+}
+
+TEST(ServerImpl, AStoppingServerAcceptsNothingNew) {
+  // stop() waits for a running handler; while it does, the listener used to
+  // keep accepting requests no worker would ever run.
+  const int port = choose_port_base() + 40;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/slow", new SlowHandler(std::chrono::milliseconds(1500)));
+  controller->registerRoute("GET", "/fast", new FixedHandler(200, "fast"));
+  const ServerFixture fx;
+  fx.server->setWorkerThreads(2);
+  fx.start(port, controller);
+
+  RawResponse slow;
+  std::thread slow_client([&] { slow = raw_fetch(bind_url(port), make_get_request("/slow", port)); });
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  std::thread stopper([&] { fx.server->stop(); });
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  const RawResponse late = raw_fetch(bind_url(port), make_get_request("/fast", port));
+  stopper.join();
+  slow_client.join();
+
+  EXPECT_FALSE(late.received && late.status == 200) << "a request taken while stopping";
+  ASSERT_TRUE(slow.received) << "the request in flight is still answered";
+  EXPECT_EQ(slow.body, "slow");
+}
+
+#ifdef __linux__
+#include <dirent.h>
+namespace {
+int open_descriptors() {
+  int count = 0;
+  if (DIR* dir = opendir("/proc/self/fd")) {
+    while (readdir(dir) != nullptr) ++count;
+    closedir(dir);
+  }
+  return count;
+}
+}  // namespace
+
+TEST(ServerImpl, AFailedStartLeavesNoSocketsBehind) {
+  // The wake-up socket pair used to be created before the listen that
+  // failed, and never closed: every reload while the port was taken leaked two.
+  const int port = choose_port_base() + 41;
+  const ServerFixture holder;
+  holder.start(port, new MatchController());
+  const int before = open_descriptors();
+  for (int i = 0; i < 10; ++i) {
+    const auto logger = std::make_shared<CollectingLogger>();
+    std::unique_ptr<Server> server(Server::make_server(logger));
+    server->setWorkerThreads(4);
+    EXPECT_FALSE(server->start(bind_url(port)));
+  }
+  EXPECT_EQ(open_descriptors(), before);
+  holder.server->stop();
+}
+#endif

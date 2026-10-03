@@ -38,14 +38,15 @@ std::vector<std::string> form_values(const form_vector &form, const std::string 
 
 // Split the plugin arguments into tokens. NCPA joins the `args=` values and
 // the path segments with spaces and splits the result again with shlex; this
-// does the same split, with the quoting rules the rest of the agent uses:
-//   - whitespace separates tokens;
-//   - "..." groups and is removed; inside it only \" is an escape;
+// does the same split with the interactive prompt's tokenizer
+// (str::utils::parse_prompt_command) with backslash escapes off:
+//   - whitespace separates tokens; empty tokens are dropped;
+//   - "..." groups and is removed;
 //   - '...' groups and is removed only at the start of a token or right after
 //     its first '=' (`'a b'`, `path='C:\x y'`); anywhere else it is kept, so a
 //     filter's own quotes survive (`filter=core='total'`);
-//   - a backslash outside double quotes is an ordinary character, so Windows
-//     paths survive (`path=C:\Windows\Temp`).
+//   - a backslash is always an ordinary character, so Windows paths survive
+//     (`path=C:\Windows\Temp`, `"path=C:\Temp\"`), as with NCPA on Windows.
 // check_ncpa.py needs the second split: it tokenises -a with a non-POSIX
 // shlex that keeps the quotes, so -a '"filter=load > 80"' arrives as the one
 // segment `"filter=load > 80"`.
@@ -86,6 +87,9 @@ struct plugin_policy {
   // Whether the query `name`, registered by the module `module` (its name,
   // not the alias it was loaded under), is exposed.
   bool allows(const std::string &name, const std::string &module) const;
+  // Whether allows() looks at the module at all (only `scripts` does), so a
+  // caller can skip resolving it.
+  bool needs_module() const { return mode == mode_type::scripts; }
 
   std::string to_string() const;
 };

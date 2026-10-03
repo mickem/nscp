@@ -46,6 +46,7 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   bool setSsl(std::string& certificate, std::string& key) override;
   void setBodyLimit(std::size_t bytes) override;
   void setWorkerThreads(std::size_t threads) override;
+  void setAcceptFilter(accept_filter filter) override;
   void setTlsOptions(const std::string& tls_version, const std::string& ciphers) override;
 
   /** Per-connection HTTP body cap. Default 1 MiB. */
@@ -95,6 +96,8 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   std::string cert_pem_;
   std::string key_pem_;
   bool use_tls_ = false;
+  // setSsl() was called and the certificate did not load: start() refuses.
+  bool ssl_failed_ = false;
   // The TLS version range and cipher list the operator configured. Defaults
   // to "1.2+" so the listener keeps accepting TLS 1.2 while now also being
   // able to negotiate TLS 1.3, which the hard-coded tlsv12_server method made
@@ -117,6 +120,7 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   // the thread it runs on.
   std::vector<std::shared_ptr<boost::thread>> threads_;
   std::size_t worker_threads_ = 1;
+  accept_filter accept_filter_;
   std::atomic<bool> stopping_{false};
 };
 

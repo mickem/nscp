@@ -1277,3 +1277,36 @@ TEST(ServerBeastImpl, WorkerThreadsServeManyConcurrentClients) {
   fx.server->stop();
   EXPECT_EQ(ok.load(), 8 * 16);
 }
+
+// ---- TLS that did not load / accept filter -----------------------------------
+
+TEST(ServerBeastImpl, StartRefusesAfterAFailedSetSsl) {
+  // A caller that ignores setSsl()'s answer (as the WEB server did) must not
+  // end up serving plain HTTP: both backends decide TLS by whether a
+  // certificate loaded.
+  const auto logger = std::make_shared<CollectingLogger>();
+  ServerBeastImpl server(logger);
+  server.registerController(new MatchController());
+  std::string cert = "no-such-dir/no-such-certificate.pem";
+  std::string key;
+  ASSERT_FALSE(server.setSsl(cert, key));
+  const int port = choose_port_base() + 64;
+  EXPECT_FALSE(server.start(bind_url(port)));
+  EXPECT_FALSE(wait_listening(port, std::chrono::milliseconds(300)));
+}
+
+TEST(ServerBeastImpl, AcceptFilterDropsARefusedPeerBeforeAnyRequest) {
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/x", new FixedHandler(200, "x"));
+  const ServerFixture fx;
+  std::atomic<int> asked{0};
+  fx.server->setAcceptFilter([&asked](const std::string& remote) {
+    ++asked;
+    return remote != "127.0.0.1";
+  });
+  const int port = fx.start(choose_port_base() + 65, controller);
+  const RawResponse r = beast_fetch("127.0.0.1", port, "/x");
+  fx.server->stop();
+  EXPECT_FALSE(r.received);
+  EXPECT_GE(asked.load(), 1);
+}

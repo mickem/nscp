@@ -7,7 +7,6 @@
 
 #include <memory>
 #include <net/auth_rate_limiter.hpp>
-#include <net/socket/allowed_hosts.hpp>
 #include <string>
 #include <vector>
 
@@ -20,8 +19,6 @@
 struct ncpa_config {
   std::string token;
   std::string backup_token;
-  std::string allowed_hosts;
-  bool cache_allowed_hosts = true;
   bool allow_arguments = false;
   ncpa::plugin_policy plugins;
   int auth_max_failures = auth_rate_limiter::kDefaultMaxFailures;
@@ -52,6 +49,5 @@ class ncpa_controller : public Mongoose::RegexpController {
 
   const ncpa_config config_;
   std::shared_ptr<ncpa_sources> sources_;
-  socket_helpers::allowed_hosts_manager allowed_hosts_;
   auth_rate_limiter rate_limiter_;
 };

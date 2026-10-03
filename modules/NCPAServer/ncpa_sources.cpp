@@ -5,6 +5,7 @@
 
 #include <map>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/registry.hpp>
 
 namespace {
@@ -41,18 +42,18 @@ std::map<std::string, std::string> module_names(const nscapi::core_wrapper *core
   return out;
 }
 
-std::vector<ncpa_sources::query_info> queries(const nscapi::core_wrapper *core, const std::string &name) {
+std::vector<ncpa_sources::query_info> queries(const nscapi::core_wrapper *core, const std::string &name, const bool with_module) {
   std::vector<PB::Registry::ItemType> types{PB::Registry::ItemType::QUERY};
   // The registry lists the aliases separately; a lookup by name finds both.
   if (name.empty()) types.push_back(PB::Registry::ItemType::QUERY_ALIAS);
   const PB::Registry::RegistryResponseMessage response = registry_inventory(core, name, types);
-  const std::map<std::string, std::string> modules = module_names(core);
+  const std::map<std::string, std::string> modules = with_module ? module_names(core) : std::map<std::string, std::string>();
   std::vector<ncpa_sources::query_info> out;
   for (const auto &r : response.payload()) {
     for (const auto &i : r.inventory()) {
       ncpa_sources::query_info info;
       info.name = i.name();
-      if (i.info().plugin_size() > 0) {
+      if (with_module && i.info().plugin_size() > 0) {
         const auto it = modules.find(i.info().plugin(0));
         info.module = it == modules.end() ? i.info().plugin(0) : it->second;
       }
@@ -63,11 +64,11 @@ std::vector<ncpa_sources::query_info> queries(const nscapi::core_wrapper *core, 
 }
 }  // namespace
 
-std::vector<ncpa_sources::query_info> ncpa_sources::list_queries() const { return queries(core_, ""); }
+std::vector<ncpa_sources::query_info> ncpa_sources::list_queries(const bool with_module) const { return queries(core_, "", with_module); }
 
-bool ncpa_sources::describe_query(const std::string &name, query_info &out) const {
+bool ncpa_sources::describe_query(const std::string &name, const bool with_module, query_info &out) const {
   if (name.empty()) return false;
-  for (const query_info &info : queries(core_, name)) {
+  for (const query_info &info : queries(core_, name, with_module)) {
     out = info;
     return true;
   }
@@ -77,5 +78,5 @@ bool ncpa_sources::describe_query(const std::string &name, query_info &out) cons
 int ncpa_sources::run_query(const std::string &name, const std::list<std::string> &arguments, std::string &message, std::string &perf) const {
   nscapi::core_helper ch(core_, static_cast<int>(plugin_id_));
   // No length cap: NCPA has no payload limit, so the whole output goes back.
-  return ch.simple_query(name, arguments, message, perf, static_cast<std::size_t>(-1));
+  return ch.simple_query(name, arguments, message, perf, nscapi::protobuf::functions::no_truncation);
 }

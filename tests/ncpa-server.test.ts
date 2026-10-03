@@ -369,9 +369,16 @@ describe("NCPA server", () => {
       await nscp?.stop();
     });
 
-    it("answers a plain 403", async () => {
-      const res = await get(`/api/plugins?token=${TOKEN}`).expect(403);
-      expect(res.text).not.toContain("check_ok");
+    it("drops the connection before the TLS handshake, whatever the request", async () => {
+      // Checked as the connection is accepted, so a refused host gets no
+      // handshake, no worker and no answer - not even to a verb no route
+      // handles.
+      for (const verb of ["get", "put", "head"] as const) {
+        await expect(
+          request(URL)[verb](`/api/plugins?token=${TOKEN}`).trustLocalhost(true),
+        ).rejects.toThrow();
+      }
+      expect(nscp.capturedStdout()).toContain("not in 'allowed hosts'");
     });
   });
 
@@ -467,6 +474,34 @@ describe("NCPA server", () => {
         "could not be loaded: refusing to start the NCPA listener in cleartext HTTP",
       );
       await expect(nscp.waitForPort(PORT, { timeoutMs: 2_000 })).rejects.toThrow();
+    });
+  });
+
+  describe("with a certificate that does not load and allow insecure", () => {
+    let nscp: NscpInstance | undefined;
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("serves plain HTTP, because it was asked to", async () => {
+      // A failed setSsl() makes a server refuse to start; the explicit opt-in
+      // gets a server that was never asked for TLS.
+      nscp = new NscpInstance();
+      const junk = path.join(nscp.workDir, "junk.pem");
+      fs.writeFileSync(junk, "this is not a certificate\n");
+      await nscp.configure({
+        "/modules": { NCPAServer: "enabled", CheckHelpers: "enabled" },
+        "/settings/default": { "allowed hosts": "127.0.0.1" },
+        "/settings/NCPA/server": { token: TOKEN, certificate: junk, "allow insecure": true },
+      });
+      await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
+      nscp.start();
+      await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
+      const res = await request(`http://127.0.0.1:${PORT}`)
+        .get(`/api/plugins/check_ok?token=${TOKEN}&check=1`)
+        .expect(200);
+      expect(res.body.returncode).toBe(0);
     });
   });
 

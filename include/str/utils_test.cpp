@@ -442,6 +442,20 @@ TEST(str_utils, parse_prompt_command_double_quotes_keep_backslash_escapes) {
   EXPECT_EQ(prompt_args("a\\ b"), (std::vector<std::string>{"a b"})) << "a bare backslash escapes, as before";
 }
 
+TEST(str_utils, parse_prompt_command_without_backslash_escapes_keeps_backslashes) {
+  // The NCPA server's mode: a backslash is always literal, as with NCPA's own
+  // non-POSIX split on Windows.
+  const auto split = [](const std::string &line) {
+    std::vector<std::string> args;
+    str::utils::parse_prompt_command(line, args, false);
+    return args;
+  };
+  EXPECT_EQ(split("path=C:\\Windows\\Temp"), (std::vector<std::string>{"path=C:\\Windows\\Temp"}));
+  EXPECT_EQ(split("\"path=C:\\Temp\\\" \"pattern=*.log\""), (std::vector<std::string>{"path=C:\\Temp\\", "pattern=*.log"}));
+  EXPECT_EQ(split("a\\ b"), (std::vector<std::string>{"a\\", "b"}));
+  EXPECT_EQ(split("filter=core='total' 'x y'"), (std::vector<std::string>{"filter=core='total'", "x y"}));
+}
+
 TEST(str_utils, parse_prompt_command_single_quotes_are_literal) {
   EXPECT_EQ(prompt_args("check_files 'path=C:\\temp\\x y'"), (std::vector<std::string>{"check_files", "path=C:\\temp\\x y"}));
   EXPECT_EQ(prompt_args("check_files path='C:\\Program Files\\app'"), (std::vector<std::string>{"check_files", "path=C:\\Program Files\\app"}));

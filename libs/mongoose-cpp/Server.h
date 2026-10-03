@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -73,10 +74,12 @@ class NSCP_MONGOOSE_EXPORT Server {
    * @param certificate path to the PEM-encoded certificate
    * @param key path to the PEM-encoded private key (may equal `certificate`
    *            if the key is concatenated into the cert file)
-   * @return true when a certificate and key were loaded. On false the server
-   *         serves plain HTTP if started anyway: both backends decide TLS by
-   *         whether a certificate is loaded, so a caller that must not fall
-   *         back to cleartext has to check this.
+   * @return true when a certificate and key were loaded. On false the
+   *         server is poisoned for TLS: start() refuses to run rather than
+   *         fall back to plain HTTP, since both backends decide TLS by whether
+   *         a certificate is loaded and a failed load would otherwise leave
+   *         the listener in cleartext. Not calling setSsl() at all is how a
+   *         caller asks for plain HTTP.
    */
   virtual bool setSsl(std::string &certificate, std::string &key) = 0;
 
@@ -103,6 +106,19 @@ class NSCP_MONGOOSE_EXPORT Server {
    * request to a pool of this many workers, answering through mg_wakeup().
    */
   virtual void setWorkerThreads(std::size_t /*threads*/) {}
+
+  /**
+   * Decide, per connection, whether a peer may connect at all. Called with the
+   * peer's address as each connection is accepted - before the TLS handshake
+   * and before any request is read - and a peer it refuses is disconnected
+   * there. An allow-list belongs here rather than in a controller: checked
+   * per request, a refused host can still complete handshakes and occupy the
+   * request handlers, and a request no controller routes is answered before
+   * the check runs. Must be set before `start()`; called from the server's
+   * I/O thread(s), so it must be thread-safe and quick.
+   */
+  typedef std::function<bool(const std::string &remote_ip)> accept_filter;
+  virtual void setAcceptFilter(accept_filter /*filter*/) {}
 
   /**
    * Restrict the TLS versions and cipher suites the listener negotiates.

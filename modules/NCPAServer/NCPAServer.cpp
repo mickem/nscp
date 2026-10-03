@@ -3,13 +3,17 @@
 
 #include "NCPAServer.h"
 
+#include <boost/asio/ip/address.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <net/socket/allowed_hosts.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <net/web_server_logger.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
+#include <str/utils.hpp>
 
 #include "ncpa_controller.hpp"
 #include "ncpa_sources.hpp"
@@ -22,23 +26,6 @@ namespace {
 const char *const kDefaultTlsVersion = "1.2+";
 const char *const kDefaultPort = "5693";
 
-class ncpa_web_logger : public Mongoose::WebLogger {
-  bool log_errors_;
-  bool log_info_;
-  bool log_debug_;
-
- public:
-  ncpa_web_logger(const bool log_errors, const bool log_info, const bool log_debug) : log_errors_(log_errors), log_info_(log_info), log_debug_(log_debug) {}
-  void log_error(const std::string &message) override {
-    if (log_errors_) NSC_LOG_ERROR("NCPA: " + message);
-  }
-  void log_info(const std::string &message) override {
-    if (log_info_) NSC_LOG_MESSAGE("NCPA: " + message);
-  }
-  void log_debug(const std::string &message) override {
-    if (log_debug_) NSC_DEBUG_MSG("NCPA: " + message);
-  }
-};
 }  // namespace
 
 NCPAServer::NCPAServer() = default;
@@ -75,6 +62,8 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   settings.set_alias("NCPA", std::move(alias), "server");
 
   ncpa_config config;
+  std::string allowed_hosts;
+  bool cache_allowed_hosts = true;
   std::string port;
   std::string plugins;
   std::string certificate;
@@ -141,9 +130,9 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   settings.alias()
       .add_parent("/settings/default")
       .add_key_to_settings()
-      .add_string("allowed hosts", sh::string_key(&config.allowed_hosts, "127.0.0.1"), "Allowed hosts",
+      .add_string("allowed hosts", sh::string_key(&allowed_hosts, "127.0.0.1"), "Allowed hosts",
                   "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
-      .add_bool("cache allowed hosts", sh::bool_key(&config.cache_allowed_hosts, true), "Cache list of allowed hosts",
+      .add_bool("cache allowed hosts", sh::bool_key(&cache_allowed_hosts, true), "Cache list of allowed hosts",
                 "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your "
                 "Nagios server.");
 
@@ -171,7 +160,7 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
 
   try {
-    Mongoose::WebLoggerPtr logger(new ncpa_web_logger(log_errors, log_info, log_debug));
+    Mongoose::WebLoggerPtr logger(new net::web_server_logger(log_errors, log_info, log_debug, "NCPA: "));
     server_.reset(Mongoose::Server::make_server(logger));
     // An untouched `tls version` goes in as empty, for the reason WEBServer.cpp
     // gives: the mongoose backend would otherwise log on every start that it
@@ -191,7 +180,39 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
       }
       NSC_LOG_ERROR("NCPA: no usable certificate at '" + certificate + "' and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port +
                     ". The token travels in clear.");
+      // A server whose setSsl() failed refuses to start (it never falls back
+      // to cleartext on its own), so the explicit opt-in gets a fresh one that
+      // was never asked for TLS.
+      if (!cert_missing) {
+        server_.reset(Mongoose::Server::make_server(logger));
+        server_->setTlsOptions(tls_version == kDefaultTlsVersion ? std::string() : tls_version, allowed_ciphers);
+      }
     }
+    // `allowed hosts` decides who may connect at all, so it is applied as a
+    // connection is accepted - before the TLS handshake, before a worker is
+    // spent on it, and whatever the request turns out to be.
+    auto hosts = std::make_shared<socket_helpers::allowed_hosts_manager>();
+    hosts->cached = cache_allowed_hosts;
+    hosts->set_source(allowed_hosts);
+    {
+      std::list<std::string> host_errors;
+      hosts->refresh(host_errors);
+      NSC_LOG_ERROR_LISTS(host_errors);
+    }
+    server_->setAcceptFilter([hosts](const std::string &remote) {
+      std::list<std::string> host_errors;
+      bool allowed = false;
+      try {
+        allowed = hosts->is_allowed(boost::asio::ip::make_address(remote), host_errors);
+      } catch (const std::exception &e) {
+        host_errors.push_back(std::string("unparsable peer address: ") + e.what());
+      }
+      if (!allowed) {
+        NSC_LOG_ERROR("NCPA: rejected connection from " + remote + (host_errors.empty() ? std::string() : " (" + str::utils::joinEx(host_errors, ", ") + ")") +
+                      ": not in 'allowed hosts'.");
+      }
+      return allowed;
+    });
     // Checks run on a pool, so one slow check (an external script near its
     // timeout) does not hold up every other poll and TLS handshake.
     server_->setWorkerThreads(static_cast<std::size_t>(threads < 1 ? 1 : threads));

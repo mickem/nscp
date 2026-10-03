@@ -91,6 +91,7 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
 #endif
   bool setSsl(std::string &certificate, std::string &key) override;
   void setWorkerThreads(std::size_t threads) override;
+  void setAcceptFilter(accept_filter filter) override;
   void setTlsOptions(const std::string &tls_version, const std::string &ciphers) override;
 
   /**
@@ -134,6 +135,12 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
     bool close = false;
   };
   void worker_proc();
+  // Store a finished answer for the poll thread to write.
+  void hand_back(const job &finished, reply answer);
+  bool admits(mg_connection *connection) const;
+  // Answers handed back but not yet written, or written but not yet sent.
+  // Poll thread only.
+  bool has_unsent_answers() const;
   void deliver(mg_connection *connection);
   void forget(unsigned long connection_id);
 
@@ -141,6 +148,8 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   WebLoggerPtr logger_;
   std::string certificate;
   std::string key;
+  // setSsl() was called and the certificate did not load: start() refuses.
+  bool ssl_failed_ = false;
   mg_mgr mgr{};
 
   std::vector<Controller *> controllers;
@@ -148,11 +157,23 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   boost::atomic<bool> stop_thread_;
   boost::timed_mutex mutex_;
   std::shared_ptr<boost::thread> thread_;
+  // Whether a poll thread took ownership of mgr (it frees it when it stops).
+  // A server that never got that far frees it in its destructor.
+  bool poll_thread_owns_mgr_ = false;
 
   log_target log_target_;
 
   std::size_t worker_threads_ = 1;
   bool use_workers_ = false;
+  accept_filter accept_filter_;
+  // False until start() succeeds and again from the moment stop() begins: no
+  // new connection is kept and no new request is taken while the server
+  // drains, so nothing is accepted that no worker will run.
+  std::atomic<bool> accepting_{false};
+  // How many finished answers wait in replies_. mg_wakeup() can drop its
+  // datagram (a burst bigger than the socket buffer) without saying so, so the
+  // poll thread also delivers on MG_EV_POLL whenever this is non-zero.
+  std::atomic<std::size_t> ready_replies_{0};
   std::vector<std::shared_ptr<boost::thread>> workers_;
   std::mutex jobs_mutex_;
   std::condition_variable jobs_cv_;

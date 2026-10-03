@@ -24,11 +24,13 @@ class ncpa_sources {
 
   ncpa_sources(const nscapi::core_wrapper *core, unsigned int plugin_id) : core_(core), plugin_id_(plugin_id) {}
 
-  // Every registered query and query alias.
-  std::vector<query_info> list_queries() const;
+  // Every registered query and query alias. `with_module` resolves each
+  // query's module name, which costs a module-registry lookup; leave it off
+  // when the caller does not look at query_info::module.
+  std::vector<query_info> list_queries(bool with_module) const;
   // The registration of one query; false when nothing is registered under
   // `name`.
-  bool describe_query(const std::string &name, query_info &out) const;
+  bool describe_query(const std::string &name, bool with_module, query_info &out) const;
 
   // Run a query with each argument as one token, the way a REST caller passes
   // `key=value`. The caller identity (this module) is stamped on the request,

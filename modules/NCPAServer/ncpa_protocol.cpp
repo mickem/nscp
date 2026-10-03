@@ -8,8 +8,8 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/json.hpp>
-#include <cctype>
 #include <str/constant_time.hpp>
+#include <str/utils.hpp>
 
 namespace json = boost::json;
 
@@ -50,49 +50,7 @@ std::vector<std::string> form_values(const form_vector &form, const std::string 
 
 std::vector<std::string> split_args(const std::string &value) {
   std::vector<std::string> out;
-  std::string current;
-  bool in_token = false;
-  std::size_t equals = 0;  // unquoted '=' seen in the current token
-  const auto flush = [&]() {
-    if (in_token) out.push_back(current);
-    current.clear();
-    in_token = false;
-    equals = 0;
-  };
-  for (std::size_t i = 0; i < value.size(); ++i) {
-    const char c = value[i];
-    if (std::isspace(static_cast<unsigned char>(c))) {
-      flush();
-      continue;
-    }
-    if (c == '"') {
-      // Only \" is an escape: every other backslash is the character itself,
-      // so "C:\Temp" and "\\server\share" arrive as written.
-      in_token = true;
-      for (++i; i < value.size() && value[i] != '"'; ++i) {
-        if (value[i] == '\\' && i + 1 < value.size() && value[i + 1] == '"') ++i;
-        current.push_back(value[i]);
-      }
-      continue;
-    }
-    // A single quote only groups where a whole argument or a whole value
-    // starts, as at the interactive prompt (str::utils::parse_prompt_command):
-    // 'a b' and path='C:\x y' group, filter=core='total' keeps its quotes for
-    // the filter language.
-    const bool value_start = !in_token || (equals == 1 && !current.empty() && current.back() == '=');
-    if (c == '\'' && value_start) {
-      in_token = true;
-      for (++i; i < value.size() && value[i] != '\''; ++i) current.push_back(value[i]);
-      continue;
-    }
-    in_token = true;
-    if (c == '=') ++equals;
-    current.push_back(c);
-  }
-  // An unterminated quote keeps what it collected rather than failing the
-  // request: the token is still the caller's intent, and the check it reaches
-  // validates its own arguments.
-  flush();
+  str::utils::parse_prompt_command(value, out, false);
   return out;
 }
 
