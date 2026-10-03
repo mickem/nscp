@@ -3,7 +3,7 @@ title: "Permission policy reloads are applied in one step and keep the previous 
 fixed_in: next
 severity: "Low"
 modules: [core]
-action: none
+action: conditional
 ---
 A settings reload rebuilt the live permission table in place: it cleared the
 rules, re-applied the four switches and then re-added one rule per policy,
@@ -25,6 +25,6 @@ reload that was meant to turn enforcement on, or to withdraw a grant, and
 fails therefore leaves the earlier, more permissive policy running until the
 error is fixed and the reload repeated.
 
-**What to do:** nothing required. If you rely on a reload to tighten the
-policy, check the log for `permissions: failed to load` after it, or confirm
-the new rule count in the `permissions: loaded N rule(s)` debug line.
+**What to do:** nothing, unless you rely on a reload to tighten the policy:
+then check the log for `permissions: failed to load` after it, or confirm the
+new rule count in the `permissions: loaded N rule(s)` debug line.
