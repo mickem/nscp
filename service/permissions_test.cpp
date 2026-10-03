@@ -304,3 +304,47 @@ TEST(Permissions, reader_never_sees_an_empty_table_during_replace) {
   reader.join();
   EXPECT_EQ(0, denied.load());
 }
+
+// ===== failed reload ======================================================
+
+TEST(Permissions, failed_load_before_enabled_keeps_a_disabled_policy_off) {
+  // A default install (no [/settings/permissions]) whose reload times out
+  // before `enabled` is read must not start refusing every query.
+  permissions fresh;
+  fresh.complete_failed_load(/*enabled_read=*/false, /*exec_read=*/false, /*previously_enabled=*/false);
+  EXPECT_FALSE(fresh.is_enabled());
+  EXPECT_TRUE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_TRUE(fresh.is_exec_allowed());
+}
+
+TEST(Permissions, failed_load_before_enabled_keeps_an_enabled_policy_closed) {
+  permissions fresh;
+  fresh.complete_failed_load(/*enabled_read=*/false, /*exec_read=*/false, /*previously_enabled=*/true);
+  EXPECT_TRUE(fresh.is_enabled());
+  EXPECT_FALSE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_FALSE(fresh.is_exec_allowed());
+}
+
+TEST(Permissions, failed_load_honours_an_enabled_value_it_read) {
+  // `enabled` was read; it decides, whatever was in force before.
+  permissions turned_on;
+  turned_on.set_enabled(true);
+  turned_on.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/false, /*previously_enabled=*/false);
+  EXPECT_TRUE(turned_on.is_enabled());
+  EXPECT_FALSE(turned_on.is_exec_allowed());
+
+  permissions turned_off;
+  turned_off.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/false, /*previously_enabled=*/true);
+  EXPECT_FALSE(turned_off.is_enabled());
+}
+
+TEST(Permissions, failed_load_keeps_rules_and_exec_switch_it_read) {
+  permissions fresh;
+  fresh.set_enabled(true);
+  fresh.set_allow_exec(true);
+  fresh.add_rule("NRPEServer", "CheckSystem.*");
+  fresh.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/true, /*previously_enabled=*/false);
+  EXPECT_TRUE(fresh.is_exec_allowed());
+  EXPECT_TRUE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_FALSE(fresh.is_allowed("NRPEServer", "CheckDisk.check_drivesize"));
+}

@@ -102,6 +102,20 @@ class permissions {
   // caller of is_allowed() sees either the old table or the new one -
   // never the empty or half-filled one in between, which with the policy
   // enabled denied every call that arrived during the rebuild.
+  // Settle the switches a reload failed before reading, in a table that is
+  // about to be published anyway (see plugin_manager::load_permissions).
+  // An `enabled` that was not read keeps the value currently in force
+  // (`previously_enabled`): forcing the policy on would turn a transient
+  // settings-lock timeout on a host that never enabled it into deny-all,
+  // and forcing it off would drop enforcement on one that did. Under an
+  // enabled policy, an `allow exec` that was not read is denied, and the
+  // rules not read stay absent: the failure fails closed.
+  void complete_failed_load(bool enabled_read, bool exec_read, bool previously_enabled) {
+    std::lock_guard<std::mutex> lk(mutex_);
+    if (!enabled_read) state_.enabled = previously_enabled;
+    if (!exec_read) state_.allow_exec = false;
+  }
+
   void replace_with(const permissions& other) {
     if (&other == this) return;
     state copy;

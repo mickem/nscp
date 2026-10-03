@@ -273,17 +273,12 @@ void nsclient::core::plugin_manager::load_permissions() {
     LOG_ERROR_CORE("permissions: settings not available, skipping load");
     return;
   }
-  // Build the table aside and publish it in one step: checks keep flowing
-  // on the server pools during a reload, and filling permissions_ rule by
-  // rule left it empty (deny-all, with the policy enabled) in between.
-  // Declared outside the try so a failed load can still publish it (below),
-  // with the two switches it may not have got as far as reading.
-  nsclient::core::permissions fresh;
-  bool enabled_read = false;
-  bool exec_read = false;
+  const std::string section = "/settings/permissions";
+  const std::string policies_section = section + "/policies";
+  // Documentation metadata for the settings UI and the reference docs. It
+  // does not decide the policy, so failing to register it (a registry-lock
+  // timeout) must not count as a failed load.
   try {
-    const std::string section = "/settings/permissions";
-    const std::string policies_section = section + "/policies";
     core->register_path(0xffff, section, "Core permissions",
                         "Optional policy layer that gates which commands a calling module / user may execute. "
                         "Disabled by default - see docs/reference/core-permissions.md.",
@@ -304,7 +299,21 @@ void nsclient::core::plugin_manager::load_permissions() {
                         "Rule table. Each key is a subject pattern (module[:principal]); the value is a comma-separated list of "
                         "object patterns (module.command). Rules merge additively.",
                         true, false);
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("permissions: failed to register the settings keys: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("permissions: failed to register the settings keys (unknown error)");
+  }
 
+  // Build the table aside and publish it in one step: checks keep flowing
+  // on the server pools during a reload, and filling permissions_ rule by
+  // rule left it empty (deny-all, with the policy enabled) in between.
+  // Declared outside the try so a failed load can still publish it (below),
+  // with the two switches it may not have got as far as reading.
+  nsclient::core::permissions fresh;
+  bool enabled_read = false;
+  bool exec_read = false;
+  try {
     const std::string enabled = settings->get_string(section, "enabled", "false");
     fresh.set_enabled(enabled == "true" || enabled == "1");
     enabled_read = true;
@@ -325,18 +334,21 @@ void nsclient::core::plugin_manager::load_permissions() {
   } catch (...) {
     LOG_ERROR_CORE("permissions: failed to load (unknown error)");
   }
-  // A load that failed part-way fails closed. Keeping the previous table
-  // kept every rule the operator had just removed (and the old exec switch)
-  // in force, and at boot left a policy that is enabled in the configuration
-  // disabled. Instead, what was read is enforced and everything that was not
-  // takes its strict value: the policy enabled, exec denied, no further
-  // rules. Only an `enabled = false` that was actually read turns it off.
-  if (!enabled_read) fresh.set_enabled(true);
-  if (!exec_read) fresh.set_allow_exec(false);
+  // A load that failed part-way publishes what it read rather than keeping
+  // the previous table, which kept every rule the operator had just removed
+  // (and the old exec switch) in force. An enabled policy fails closed: exec
+  // denied unless it was read, and no rule that was not read. Whether the
+  // policy is on at all is taken from what was read, or else left as it is:
+  // a host that never enabled it is not turned into deny-all by a transient
+  // settings-lock timeout. At boot that means a policy whose `enabled` could
+  // not be read stays off until a reload reads it.
+  fresh.complete_failed_load(enabled_read, exec_read, permissions_.is_enabled());
   permissions_.replace_with(fresh);
   if (fresh.is_enabled()) {
     LOG_ERROR_CORE_STD("permissions: enforcing the " + str::xtos(fresh.rule_count()) +
                        " rule(s) read before the failure; every other call is denied until the policy loads");
+  } else if (!enabled_read) {
+    LOG_ERROR_CORE("permissions: could not read whether the policy is enabled; it stays disabled until the policy loads");
   }
 }
 
