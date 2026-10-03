@@ -262,15 +262,12 @@ TEST_F(SimplePluginsListTest, RemovePluginWaitsForAWalkOnAnotherThread) {
     cv.wait(lock, [&]() { return entered; });
   }
 
-  // Not in this list: says so, and returns while the walk is still inside
-  // the callback.
-  const auto started = std::chrono::steady_clock::now();
-  EXPECT_FALSE(list_->remove_plugin(42));
-  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
+  // Not in this list: nothing to close or wait for.
+  EXPECT_EQ(list_->remove_plugin(42), nsclient::simple_plugins_list::removal::absent);
 
   std::atomic<bool> removed{false};
   std::thread remover([&]() {
-    EXPECT_TRUE(list_->remove_plugin(1));
+    EXPECT_EQ(list_->remove_plugin(1), nsclient::simple_plugins_list::removal::removed);
     removed = true;
   });
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -285,6 +282,114 @@ TEST_F(SimplePluginsListTest, RemovePluginWaitsForAWalkOnAnotherThread) {
   walk.join();
   EXPECT_TRUE(removed.load());
   EXPECT_TRUE(list_->empty());
+}
+
+// A round is waited for only by the removal of the module it is inside: a
+// round stuck in one module's fetchMetrics - or blocked on the lifecycle
+// lock from inside it - does not hold up the removal of another, and the
+// module removed meanwhile is skipped when the round reaches it.
+TEST_F(SimplePluginsListTest, RemovingAModuleDoesNotWaitForARoundInsideAnother) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  list_->add_plugin(plugin1);
+  list_->add_plugin(plugin2);
+
+  std::mutex mu;
+  std::condition_variable cv;
+  bool entered = false;
+  bool released = false;
+  std::vector<unsigned int> called;
+  std::thread walk([&]() {
+    list_->do_all([&](nsclient::plugin_type p) {
+      std::unique_lock<std::mutex> lock(mu);
+      called.push_back(p->get_id());
+      if (p->get_id() != 1) return;
+      entered = true;
+      cv.notify_all();
+      cv.wait(lock, [&]() { return released; });
+    });
+  });
+  {
+    std::unique_lock<std::mutex> lock(mu);
+    cv.wait(lock, [&]() { return entered; });
+  }
+
+  // The round is inside module 1. Removing module 2 has nothing to wait for:
+  // with no wait allowed at all, it still comes back removed.
+  EXPECT_EQ(list_->remove_plugin(2, std::chrono::milliseconds(0)), nsclient::simple_plugins_list::removal::removed);
+  // Removing module 1 is what the round holds up.
+  EXPECT_EQ(list_->remove_plugin(1, std::chrono::milliseconds(0)), nsclient::simple_plugins_list::removal::still_walking);
+
+  {
+    std::lock_guard<std::mutex> lock(mu);
+    released = true;
+  }
+  cv.notify_all();
+  walk.join();
+  // Module 2 was removed before the round got to it, so it was never called.
+  EXPECT_EQ(called, (std::vector<unsigned int>{1}));
+}
+
+// A refused removal reopens the module where it was, so the rounds keep
+// walking the modules in the order they were registered.
+TEST_F(SimplePluginsListTest, AReopenedModuleKeepsItsPlace) {
+  for (unsigned int id = 1; id <= 3; ++id) list_->add_plugin(std::make_shared<MockListPlugin>(id, "alias", "Module"));
+
+  const nsclient::simple_plugins_list::closing c = list_->close_plugin(2);
+  ASSERT_TRUE(static_cast<bool>(c));
+  std::vector<unsigned int> while_closed;
+  list_->do_all([&](nsclient::plugin_type p) { while_closed.push_back(p->get_id()); });
+  EXPECT_EQ(while_closed, (std::vector<unsigned int>{1, 3}));
+
+  c.reopen();
+  std::vector<unsigned int> reopened;
+  list_->do_all([&](nsclient::plugin_type p) { reopened.push_back(p->get_id()); });
+  EXPECT_EQ(reopened, (std::vector<unsigned int>{1, 2, 3}));
+}
+
+// The list, not a round, owns the module: once removed, the remover holds
+// the last reference, so the module is never destroyed on a walking thread.
+TEST_F(SimplePluginsListTest, TheRemoverHoldsTheLastReference) {
+  auto plugin = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  list_->add_plugin(plugin);
+  list_->do_all([](nsclient::plugin_type) {});
+  EXPECT_EQ(list_->remove_plugin(1), nsclient::simple_plugins_list::removal::removed);
+  EXPECT_EQ(plugin.use_count(), 1);
+}
+
+TEST_F(SimplePluginsListTest, RemoveAllNamesTheModulesARoundIsStillInside) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  list_->add_plugin(plugin1);
+  list_->add_plugin(plugin2);
+
+  std::mutex mu;
+  std::condition_variable cv;
+  bool entered = false;
+  bool released = false;
+  std::thread walk([&]() {
+    list_->do_all([&](nsclient::plugin_type p) {
+      if (p->get_id() != 1) return;
+      std::unique_lock<std::mutex> lock(mu);
+      entered = true;
+      cv.notify_all();
+      cv.wait(lock, [&]() { return released; });
+    });
+  });
+  {
+    std::unique_lock<std::mutex> lock(mu);
+    cv.wait(lock, [&]() { return entered; });
+  }
+  const std::vector<nsclient::plugin_type> stuck = list_->remove_all(std::chrono::milliseconds(0));
+  ASSERT_EQ(stuck.size(), 1u);
+  EXPECT_EQ(stuck[0], plugin1);
+  EXPECT_TRUE(list_->empty());
+  {
+    std::lock_guard<std::mutex> lock(mu);
+    released = true;
+  }
+  cv.notify_all();
+  walk.join();
 }
 
 // ============================================================================

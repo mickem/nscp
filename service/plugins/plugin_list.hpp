@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread.hpp>
 #include <chrono>
@@ -32,17 +33,66 @@ class plugins_list_exception : public std::exception {
   const char *what() const noexcept override { return what_ ? what_->c_str() : ""; }
 };
 
+// The modules a metrics or facts round walks. Each sits behind its own gate
+// (threads::gated): a round enters a module's gate only around the call into
+// that module, so a removal waits for the rounds inside *that* module and
+// for nothing else - a round stuck in another module's fetchMetrics, or
+// blocked on the lifecycle lock from inside one, does not hold it up. And the
+// gate, not the round, owns the module, so the remover is its last holder:
+// a round never drops the last reference and runs a module's destructor -
+// and dlclose - on the walking thread.
 struct simple_plugins_list : boost::noncopyable {
-  typedef std::list<plugin_type> simple_plugin_list_type;
-  simple_plugin_list_type plugins_;
+  typedef threads::gated<plugin_type> gate_type;
+  struct slot {
+    unsigned long id;
+    std::shared_ptr<gate_type> gate;
+  };
+  std::vector<slot> plugins_;
   boost::shared_mutex mutex_;
-  // The threads inside a do_all() walk, so remove_plugin() / remove_all()
-  // can wait for the walks that may still be calling the plugin they just
-  // took out - see do_all.
-  threads::in_flight walks_;
   logging::log_client_accessor logger_;
 
   explicit simple_plugins_list(logging::log_client_accessor logger) : logger_(std::move(logger)) {}
+
+  // A module whose gate has been closed: rounds skip it from now on, and it
+  // keeps its place in the list until finish() takes it out - so a refused
+  // unload reopens it where it was, in the order the rounds walk.
+  class closing {
+    simple_plugins_list *list_;
+    std::shared_ptr<gate_type> gate_;
+    std::uint64_t cutoff_;
+
+   public:
+    closing() : list_(nullptr), cutoff_(0) {}
+    closing(simple_plugins_list *list, std::shared_ptr<gate_type> gate, const std::uint64_t cutoff) : list_(list), gate_(std::move(gate)), cutoff_(cutoff) {}
+    explicit operator bool() const { return gate_ != nullptr; }
+    // Wait for the rounds inside the module when it was closed.
+    bool drain(const std::chrono::milliseconds timeout) const { return !gate_ || gate_->tracker().wait_for_others_before(cutoff_, timeout); }
+    // Let rounds call the module again, in its old place.
+    void reopen() const {
+      if (gate_) gate_->tracker().reopen();
+    }
+    // Done with the module. Drained: out of the list, and handed back so the
+    // caller is its last holder. Not drained: it stays in the list, closed,
+    // so remove_all() waits for it again at shutdown and reports it.
+    plugin_type finish(const bool drained) const {
+      if (!gate_ || !drained) return plugin_type();
+      list_->erase_slot(gate_);
+      return gate_->take();
+    }
+  };
+
+  // Drain several closings within one deadline, rather than one bound each.
+  static bool drain_all(const std::vector<closing> &closings, const std::chrono::milliseconds timeout) {
+    const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + timeout;
+    bool drained = true;
+    for (const closing &c : closings) {
+      const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+      const std::chrono::milliseconds remaining =
+          now < deadline ? std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now) : std::chrono::milliseconds(0);
+      if (!c.drain(remaining)) drained = false;
+    }
+    return drained;
+  }
 
   bool has_valid_lock_log(const boost::unique_lock<boost::shared_mutex> &lock, const std::string &key) {
     if (!lock.owns_lock()) {
@@ -58,69 +108,68 @@ struct simple_plugins_list : boost::noncopyable {
     }
     return true;
   }
-  void has_valid_lock_throw(const boost::unique_lock<boost::shared_mutex> &lock, const std::string &key) {
-    if (!lock.owns_lock()) {
-      log_error(__FILE__, __LINE__, "Failed to get mutex", key);
-      throw plugins_list_exception("Failed to get mutex: " + utf8::cvt<std::string>(key));
-    }
-  }
-  void has_valid_lock_throw(const boost::shared_lock<boost::shared_mutex> &lock, const std::string &key) {
-    if (!lock.owns_lock()) {
-      log_error(__FILE__, __LINE__, "Failed to get mutex", key);
-      throw plugins_list_exception("Failed to get mutex: " + utf8::cvt<std::string>(key));
-    }
-  }
 
   void add_plugin(const plugin_type &plugin) {
     const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
     if (!has_valid_lock_log(writeLock, "plugins_list::add_plugin")) return;
-    for (const plugin_type &p : plugins_) {
-      if (p->get_id() == plugin->get_id()) {
+    for (const slot &s : plugins_) {
+      if (s.id == plugin->get_id()) {
         log_error(__FILE__, __LINE__, "Duplicate plugin id");
         return;
       }
     }
-    plugins_.push_back(plugin);
+    plugins_.push_back(slot{plugin->get_id(), std::make_shared<gate_type>(plugin)});
   }
 
-  void remove_all() {
-    std::uint64_t cutoff = 0;
+  // Close the module's gate, if it is in this list. An empty closing when it
+  // is not, or when the lock could not be had - nothing to wait for or undo.
+  closing close_plugin(const unsigned long id) {
+    const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+    if (!has_valid_lock_log(writeLock, "plugins_list::close_plugin" + str::xtos(id))) return closing();
+    for (const slot &s : plugins_) {
+      if (s.id == id) return closing(this, s.gate, s.gate->tracker().close());
+    }
+    return closing();
+  }
+
+  enum class removal { absent, removed, still_walking };
+  // Close, drain and take out one module - for a caller that cannot refuse
+  // (a purge). A module a round is still inside after `timeout` stays in the
+  // list, closed; see closing::finish.
+  removal remove_plugin(const unsigned long id, const std::chrono::milliseconds timeout = std::chrono::seconds(10)) {
+    const closing c = close_plugin(id);
+    if (!c) return removal::absent;
+    const bool drained = c.drain(timeout);
+    if (!drained) log_error(__FILE__, __LINE__, "A metrics or facts round is still running inside the module", "plugins_list::remove_plugin" + str::xtos(id));
+    const plugin_type released = c.finish(drained);
+    return drained ? removal::removed : removal::still_walking;
+  }
+
+  // Close and drain every module at once, within one deadline, and empty the
+  // list. Returns the modules a round is still inside, for the caller to
+  // leave alone.
+  std::vector<plugin_type> remove_all(const std::chrono::milliseconds timeout = std::chrono::seconds(30)) {
+    std::vector<std::pair<std::shared_ptr<gate_type>, std::uint64_t> > closed;
     {
       const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
-      if (!has_valid_lock_log(writeLock, "plugins_list::remove_all")) return;
-      if (plugins_.empty()) return;
+      if (!has_valid_lock_log(writeLock, "plugins_list::remove_all")) return std::vector<plugin_type>();
+      for (const slot &s : plugins_) closed.emplace_back(s.gate, s.gate->tracker().close());
       plugins_.clear();
-      cutoff = walks_.cutoff();
     }
-    wait_for_walks(cutoff, std::chrono::seconds(30), "plugins_list::remove_all");
-  }
-
-  // Only a removal that took something out waits for the walks: the plugin
-  // manager calls this on every list for every module it unloads, and a
-  // module that was never in this one has nothing a walk could still be
-  // calling, so parking its unload behind a slow metrics or facts round
-  // would be the stall do_all was changed to avoid.
-  // Returns whether the plugin was in this list (and so has been taken out).
-  bool remove_plugin(unsigned long id) {
-    std::uint64_t cutoff = 0;
-    bool erased = false;
-    {
-      const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
-      if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id))) return false;
-      auto it = plugins_.begin();
-      while (it != plugins_.end()) {
-        if ((*it)->get_id() == id) {
-          it = plugins_.erase(it);
-          erased = true;
-        } else {
-          ++it;
-        }
+    std::vector<plugin_type> still_walked;
+    std::vector<plugin_type> released;
+    const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + timeout;
+    for (const auto &c : closed) {
+      const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+      const std::chrono::milliseconds remaining =
+          now < deadline ? std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now) : std::chrono::milliseconds(0);
+      if (c.first->tracker().wait_for_others_before(c.second, remaining)) {
+        released.push_back(c.first->take());
+      } else {
+        still_walked.push_back(c.first->value());
       }
-      if (!erased) return false;
-      cutoff = walks_.cutoff();
     }
-    wait_for_walks(cutoff, std::chrono::seconds(10), "plugins_list::remove_plugin" + str::xtos(id));
-    return true;
+    return still_walked;
   }
 
   // Whether anything is registered here. A failed lock reads as empty: the
@@ -132,39 +181,34 @@ struct simple_plugins_list : boost::noncopyable {
     return plugins_.empty();
   }
 
-  // Call `fun` on every registered plugin. The list is copied under the lock
+  // Call `fun` on every registered module. The list is copied under the lock
   // and the calls are made outside it, as master_plugin_list::get_plugins
   // does: `fun` runs module code (fetchMetrics, submitMetrics, fetchFacts),
   // and a module that loads or unloads another from there re-enters
-  // add_plugin / remove_plugin, which want this mutex exclusively on the
-  // thread that held it shared - a 30 s or 10 s wait and then a silently
-  // dropped registration. Holding it across the calls also parked every
-  // web unload behind a slow metrics tick. The copies keep each plugin alive
-  // for its own call even if it is removed meanwhile.
-  //
-  // The walk is still a barrier for a removal on another thread, as the
-  // held lock used to be: remove_plugin() waits for the walks that started
-  // before it, because its callers drop what the plugin contributed right
-  // after - the plugin manager erases a module's fact sets after
-  // deregistering it, and a walk still inside that module's fetchFacts would
-  // otherwise store them again, owned by a dead id - and purge_broken_plugin
-  // unloads it after. Only a removal from inside the walk's own callback
-  // does not wait. The manager takes a module out of these lists - and so
-  // waits here - before it unloads it, so a copy never holds an unloaded
-  // plugin; metrics_fetcher still catches per plugin as a backstop.
+  // add_plugin / close_plugin, which want this mutex exclusively. The copy
+  // is of the slots, not the modules: each call goes through the module's
+  // gate, which covers the whole of `fun` - for facts that includes storing
+  // what the module returned, which the manager's remove_owned_by must
+  // follow, or the sets come back owned by a dead id.
   void do_all(const boost::function<void(plugin_type)> &fun) {
-    threads::in_flight::guard walking(walks_);
     // A vector, as master_plugin_list::get_plugins returns: one allocation
-    // per walk rather than a node per plugin.
-    std::vector<plugin_type> snapshot;
+    // per round rather than a node per module.
+    std::vector<slot> snapshot;
     {
       const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
       if (!has_valid_lock_log(readLock, "plugins_list::list")) return;
-      snapshot.assign(plugins_.begin(), plugins_.end());
-      walking.enter();
+      snapshot = plugins_;
     }
-    for (const plugin_type &p : snapshot) {
-      fun(p);
+    for (const slot &s : snapshot) {
+      // The guard is declared before the copy, so the copy goes first
+      // however this ends: the gate still holds the module, so the copy is
+      // never the last reference, and only then does a waiting remover wake.
+      threads::in_flight::guard inside(s.gate->tracker());
+      if (!inside.try_enter()) continue;  // closed for removal since the list was read
+      plugin_type plugin = s.gate->value();
+      fun(plugin);
+      plugin.reset();
+      inside.leave();
     }
   }
 
@@ -172,7 +216,9 @@ struct simple_plugins_list : boost::noncopyable {
     std::string ret;
     const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!has_valid_lock_log(readLock, "plugins_list::list")) return "";
-    for (const plugin_type &p : plugins_) {
+    for (const slot &s : plugins_) {
+      const plugin_type &p = s.gate->value();
+      if (!p) continue;
       if (!ret.empty()) ret += ", ";
       ret += p->getName();
     }
@@ -185,12 +231,10 @@ struct simple_plugins_list : boost::noncopyable {
   }
 
  private:
-  // With the list already changed: wait for the do_all() walks that started
-  // before the change, which may still be calling the removed plugin. The
-  // bound matches what the write lock used to wait for the walk to let go.
-  void wait_for_walks(std::uint64_t cutoff, std::chrono::seconds timeout, const std::string &key) {
-    if (!walks_.wait_for_others_before(cutoff, timeout))
-      log_error(__FILE__, __LINE__, "A walk over the plugins is still running after " + str::xtos(timeout.count()) + "s", key);
+  void erase_slot(const std::shared_ptr<gate_type> &gate) {
+    const boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
+    if (!has_valid_lock_log(writeLock, "plugins_list::erase")) return;
+    plugins_.erase(std::remove_if(plugins_.begin(), plugins_.end(), [&gate](const slot &s) { return s.gate == gate; }), plugins_.end());
   }
 };
 

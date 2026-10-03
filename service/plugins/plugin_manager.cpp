@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/unordered_map.hpp>
+#include <chrono>
 #include <file_helpers.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
@@ -443,29 +444,36 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   // the library - under that thread. It is parked until stop_plugins, when
   // nothing can still be inside it.
   //
-  // A log line that is still being handled when the wait for it runs out
-  // takes the same path: a purge cannot refuse, but it need not unload under
-  // the line either. The handler may be another module's (the logger cannot
-  // tell), in which case this one is parked for nothing worse than a
-  // deferred unload.
+  // A log line, or a metrics or facts round, still inside the module when
+  // the wait for it runs out takes the same path: a purge cannot refuse, but
+  // it need not unload under the call either. The waits are per module, so
+  // what they report is inside this one. stop_plugins waits for it again
+  // and leaves it alone if it is still there.
   const bool inside = plugin && plugin->is_dispatching_on_this_thread();
+  std::vector<simple_plugins_list::closing> walks;
+  for (simple_plugins_list *list : {&metrics_fetchers_, &metrics_submitters_, &facts_fetchers_}) {
+    const simple_plugins_list::closing c = list->close_plugin(plugin_id);
+    if (c) walks.push_back(c);
+  }
+  const bool walked = !simple_plugins_list::drain_all(walks, std::chrono::seconds(10));
+  for (const simple_plugins_list::closing &c : walks) c.finish(!walked);
   const bool delivering = plugin && log_instance_->remove_subscriber(plugin).delivering;
-  const bool parked = inside || delivering;
+  const bool parked = inside || walked || delivering;
   if (inside) {
     LOG_ERROR_CORE_STD("Removing " + plugin->get_alias_or_name() +
                        " after its failed reload; it is unloaded at shutdown, as the reload was requested from inside a call it is serving");
+  } else if (walked) {
+    LOG_ERROR_CORE_STD("Removing " + plugin->get_alias_or_name() +
+                       " after its failed reload; it is unloaded at shutdown, as a metrics or facts round is still running inside it after 10 s");
   } else if (delivering) {
     LOG_ERROR_CORE_STD("Removing " + plugin->get_alias_or_name() +
-                       " after its failed reload; it is unloaded at shutdown, as a log line is still being handled by a log-handler module after 5 s");
+                       " after its failed reload; it is unloaded at shutdown, as a log line is still being handled by it after 5 s");
   }
   if (parked) retired_plugins_.push_back(plugin);
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
   channels_.remove_plugin(plugin_id);
   event_subscribers_.remove_plugin(plugin_id);
-  metrics_fetchers_.remove_plugin(plugin_id);
-  metrics_submitters_.remove_plugin(plugin_id);
-  facts_fetchers_.remove_plugin(plugin_id);
   // Whatever this module contributed to the inventory goes with it: a frozen
   // fact set from a module that is no longer running is worse than none.
   if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
@@ -537,8 +545,8 @@ void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
   }
 }
 
-// Plugins stop_plugins could not tear down because a log line was still being
-// handled inside them. Allocated once and never freed on purpose: a static
+// Plugins stop_plugins could not tear down because a log line or a metrics or
+// facts round was still inside them. Allocated once and never freed on purpose: a static
 // list would destroy its plugins at exit, after their libraries' own statics
 // are gone - the crash on process exit plugin_manager.hpp describes.
 std::list<nsclient::plugin_type> &nsclient::core::plugin_manager::abandoned_plugins() {
@@ -557,30 +565,41 @@ void nsclient::core::plugin_manager::stop_plugins() {
   // which goes here) or not started (and then this clear has already waited
   // for the deliveries, so the module it finds nothing left to drop for has
   // no line inside it either).
+  //
+  // The logger and the walk lists report the modules a log line or a round
+  // is still inside after their waits - the parked ones included, which the
+  // logger keeps draining and the walk lists keep closed. remove_plugin
+  // refuses exactly this; shutdown cannot, but it need not tear a module
+  // down under the call either. Such a module is neither unloaded nor
+  // released: unloading would run the teardown under the call, and the
+  // last reference going would unmap the library under it. It is handed to
+  // a holder that is never freed, so the library stays mapped until the
+  // process ends - the same leak unload_plugin chooses for a call that will
+  // not come back.
   const std::vector<logging::logging_subscriber_instance> still_handling = log_instance_->clear_subscribers();
+  std::vector<plugin_type> still_walked;
+  for (simple_plugins_list *list : {&metrics_fetchers_, &metrics_submitters_, &facts_fetchers_}) {
+    const std::vector<plugin_type> stuck = list->remove_all();
+    still_walked.insert(still_walked.end(), stuck.begin(), stuck.end());
+  }
   commands_.remove_all();
   channels_.remove_all();
   event_subscribers_.remove_all();
-  metrics_fetchers_.remove_all();
-  metrics_submitters_.remove_all();
-  facts_fetchers_.remove_all();
+  const auto leave_in_use = [&](const plugin_type &p) {
+    if (std::find(still_handling.begin(), still_handling.end(), p) != still_handling.end()) {
+      LOG_ERROR_CORE_STD("Leaving " + p->get_alias_or_name() + " loaded at shutdown: a log line is still being handled by it after 5 s");
+    } else if (std::find(still_walked.begin(), still_walked.end(), p) != still_walked.end()) {
+      LOG_ERROR_CORE_STD("Leaving " + p->get_alias_or_name() + " loaded at shutdown: a metrics or facts round is still running inside it");
+    } else {
+      return false;
+    }
+    abandoned_plugins().push_back(p);
+    return true;
+  };
   for (const plugin_type &p : plugin_list_.get_plugins()) {
     try {
       if (p) {
-        if (std::find(still_handling.begin(), still_handling.end(), p) != still_handling.end()) {
-          // A log line is still being handled inside this module after the
-          // wait. remove_plugin refuses exactly this; shutdown cannot, but it
-          // need not tear the module down under the line either. Neither
-          // unloaded nor released: unloading would run the teardown under
-          // the handler, and the last reference going would unmap the
-          // library under it. The instance is handed to a holder that is
-          // never freed, so the library stays mapped until the process ends
-          // - the same leak unload_plugin chooses for a call that will not
-          // come back.
-          LOG_ERROR_CORE_STD("Leaving " + p->get_alias_or_name() + " loaded at shutdown: a log line is still being handled by it after 5 s");
-          abandoned_plugins().push_back(p);
-          continue;
-        }
+        if (leave_in_use(p)) continue;
         LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
         p->unload_plugin();
       }
@@ -591,10 +610,12 @@ void nsclient::core::plugin_manager::stop_plugins() {
     }
   }
   plugin_list_.clear();
-  // Parked by purge_broken_plugin while a thread was still inside them; that
-  // call has long returned by now.
+  // Parked by purge_broken_plugin while something was still inside them.
+  // The dispatch that parked one has long returned by now; a log line or a
+  // round may not have, which leave_in_use asks the waits above about.
   for (const plugin_type &p : retired_plugins_) {
     try {
+      if (leave_in_use(p)) continue;
       p->unload_plugin();
     } catch (const plugin_exception &e) {
       LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
@@ -797,24 +818,28 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // because the throw skipped that line.
   //
   // The walk lists (metrics fetchers and submitters, facts fetchers) and the
-  // log subscription are the exception, and go first: a metrics or facts
-  // round walks a copy of its list, and removing the module from the list
-  // waits for the rounds that hold one, so no round reaches into the module
-  // after it is unloaded. Unloading first let a round that had taken its
-  // copy call an unloaded module, log "Library is not loaded" for it, and on
-  // the facts path mark it failing and later fixed. Membership of these is
-  // the module's static capability, so a refused unload simply re-adds it.
-  // Only what was actually taken out is put back on a refusal: a list that
-  // could not get its write lock still holds the module, and re-adding it
-  // there would log "Duplicate plugin id".
-  const bool was_metrics_fetcher = metrics_fetchers_.remove_plugin(plugin_id);
-  const bool was_metrics_submitter = metrics_submitters_.remove_plugin(plugin_id);
-  const bool was_facts_fetcher = facts_fetchers_.remove_plugin(plugin_id);
-  const auto restore_walks = [&]() {
-    if (was_metrics_fetcher) metrics_fetchers_.add_plugin(plugin);
-    if (was_metrics_submitter) metrics_submitters_.add_plugin(plugin);
-    if (was_facts_fetcher) facts_fetchers_.add_plugin(plugin);
+  // log subscription are the exception, and go first: their gates close, so
+  // no round or log line reaches into the module after it is unloaded, and
+  // the waits see out the ones already inside it. Unloading first let a
+  // round call an unloaded module, log "Library is not loaded" for it, and
+  // on the facts path mark it failing and later fixed. The waits are per
+  // module - a round stuck in another module, or blocked on the lifecycle
+  // lock this call holds, is not inside this one and is not waited for -
+  // and the three lists share one deadline. A refusal reopens the gates,
+  // so the module keeps its place in every list.
+  std::vector<simple_plugins_list::closing> walks;
+  for (simple_plugins_list *list : {&metrics_fetchers_, &metrics_submitters_, &facts_fetchers_}) {
+    const simple_plugins_list::closing c = list->close_plugin(plugin_id);
+    if (c) walks.push_back(c);
+  }
+  const auto restore_walks = [&walks]() {
+    for (const simple_plugins_list::closing &c : walks) c.reopen();
   };
+  if (!simple_plugins_list::drain_all(walks, std::chrono::seconds(10))) {
+    LOG_ERROR_CORE_STD("Refused to unload " + name + ": a metrics or facts round is still running inside it after 10 s");
+    restore_walks();
+    return false;
+  }
   // A log line is not a dispatch, so unload_plugin does not wait for one,
   // and the unloaded flag it sets only stops lines that have not reached the
   // module yet (dll_plugin::handleMessage). remove_subscriber waits for the
@@ -832,10 +857,7 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // (stop_plugins), so it cannot slip in between.
   const logging::unsubscribe_result unsubscribed = log_instance_->remove_subscriber(plugin);
   if (unsubscribed.delivering) {
-    // The logger cannot say which handler the line is in - the wait covers
-    // every delivery that started while this module was subscribed - so the
-    // stuck handler may well be another module's.
-    LOG_ERROR_CORE_STD("Refused to unload " + name + ": a log line is still being handled by a log-handler module after 5 s");
+    LOG_ERROR_CORE_STD("Refused to unload " + name + ": a log line is still being handled by it after 5 s");
     log_instance_->add_subscriber(plugin);
     restore_walks();
     return false;
@@ -848,6 +870,7 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
     restore_walks();
     return false;
   }
+  for (const simple_plugins_list::closing &c : walks) c.finish(true);
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
   channels_.remove_plugin(plugin_id);

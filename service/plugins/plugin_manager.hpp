@@ -90,8 +90,8 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // inside them: kept alive (and loaded) until stop_plugins unloads them.
   // Guarded by lifecycle_mutex_.
   std::list<plugin_type> retired_plugins_;
-  // Plugins stop_plugins left loaded because a log line was still being
-  // handled inside them; see there.
+  // Plugins stop_plugins left loaded because a log line or a metrics or
+  // facts round was still inside them; see there.
   static std::list<plugin_type> &abandoned_plugins();
 
  public:
