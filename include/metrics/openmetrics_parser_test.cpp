@@ -377,7 +377,16 @@ TEST(OpenmetricsParser, FinalLineFeedAfterEofChangesNothing) {
     EXPECT_EQ(a.error, b.error) << whole;
     EXPECT_EQ(a.error_line, b.error_line) << whole;
     EXPECT_EQ(a.saw_eof, b.saw_eof) << whole;
-    EXPECT_EQ(a.families.size(), b.families.size()) << whole;
+    ASSERT_EQ(a.families.size(), b.families.size()) << whole;
+    for (std::size_t i = 0; i < a.families.size(); ++i) {
+      const om::family &x = a.families.at(i);
+      const om::family &y = b.families.at(i);
+      EXPECT_EQ(x.name, y.name) << whole;
+      EXPECT_EQ(x.type, y.type) << whole;
+      EXPECT_EQ(x.help, y.help) << whole;
+      EXPECT_EQ(x.unit, y.unit) << whole;
+      EXPECT_EQ(x.samples.size(), y.samples.size()) << whole;
+    }
     expect_consistent(b, cut, openmetrics);
   };
   for (const char *body : cases) same(body);
@@ -403,6 +412,54 @@ TEST(OpenmetricsParser, FinalLineFeedAfterEofChangesNothing) {
       return;
     }
   }
+}
+
+TEST(OpenmetricsParser, BlankAndCommentLinesMayStandInsideAPairBlock) {
+  // Neither belongs to another family, so neither decides the block.
+  const std::string body =
+      "# TYPE x gauge\nx 1\n"
+      "# HELP x Total.\n"
+      "\n"
+      "# a comment between the metadata lines\n"
+      "# TYPE x counter\n"
+      "   \n"
+      "#another comment\n"
+      "x_total 1\n"
+      "# EOF\n";
+  const om::result parsed = om::parse(body, openmetrics);
+  ASSERT_TRUE(parsed.ok()) << parsed.error << " on line " << parsed.error_line;
+  ASSERT_EQ(parsed.families.size(), 2u);
+  EXPECT_EQ(parsed.families.at(1).type, om::family_type::counter);
+  EXPECT_EQ(parsed.families.at(1).help, "Total.");
+  EXPECT_EQ(parsed.families.at(1).samples.size(), 1u);
+}
+
+TEST(OpenmetricsParser, OverLongMetadataLineFailsItsFamilyLikeAnyOther) {
+  // Every failing metadata line of a family with no samples yet takes that
+  // family out - an over-long one too.
+  om::limits bounds;
+  bounds.max_line_bytes = 20;
+  for (const om::format f : {openmetrics, text}) {
+    const om::result too_long = om::parse("# TYPE y counter\n# HELP y " + std::string(40, 'h') + "\n", f, bounds);
+    EXPECT_EQ(too_long.error_line, 2u) << too_long.error;
+    EXPECT_NE(too_long.error.find("longer than 20 bytes"), std::string::npos) << too_long.error;
+    EXPECT_TRUE(too_long.families.empty());
+    const om::result twice = om::parse("# TYPE y counter\n# HELP y a\n# HELP y b\n", f, bounds);
+    EXPECT_EQ(twice.error_line, 3u) << twice.error;
+    EXPECT_TRUE(twice.families.empty());
+  }
+}
+
+TEST(OpenmetricsParser, LineLimitCountsTheLineAsServed) {
+  // Carriage return and surrounding blanks included: the limit is on what
+  // the exporter sent, not on what is left after trimming it.
+  om::limits bounds;
+  bounds.max_line_bytes = 10;
+  const om::result fits = om::parse("  a 1    \r\n", text, bounds);
+  EXPECT_TRUE(fits.ok()) << fits.error;
+  const om::result padded = om::parse("    a 1     \r\n", text, bounds);
+  EXPECT_FALSE(padded.ok());
+  EXPECT_NE(padded.error.find("longer than 10 bytes"), std::string::npos) << padded.error;
 }
 
 TEST(OpenmetricsParser, BodyEndingInsideTheSecondBlockOfAPairReadsAsTruncated) {

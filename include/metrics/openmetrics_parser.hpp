@@ -51,12 +51,14 @@
 // family when it has declared a type that can pair and its first sample is
 // one of its own. Anything else first - another family, `# EOF`, a sample
 // that is not its own - makes the line that repeated the name a late line for
-// the earlier family, and that line is the error. `# EOF` included, with or
+// the earlier family, and that line is the error - `# EOF` included, with or
 // without its line feed. When the parse stops inside the block before any of
-// that - the body ends on a line boundary, or one of the block's own lines
-// fails - an untyped block is not kept, since it cannot be told apart from
-// late lines for the earlier family, and a typed one is kept as declared, as
-// any family is kept with what it read before the parse stopped. A counter and a histogram or summary of one name both own `X_created`,
+// that, the block is not kept if it never declared its type, or if a metadata
+// line of its own failed (a second `# HELP`, trailing text, an over-long
+// line), as no family is. A typed block is kept as declared when the body ends
+// on a line boundary, when the body is cut in the middle of a line, or when
+// one of its own samples fails - as any family keeps what it read before the
+// parse stopped. A counter and a histogram or summary of one name both own `X_created`,
 // and client_golang writes it for each when created timestamps are on, so
 // that one sample name may appear in both families of a pair.
 //
@@ -91,13 +93,16 @@
 // Memory is the text of the body - a family name is held twice, by its family
 // and by the index - plus a fixed overhead for each family, sample and label,
 // which `limits` bounds. Measured with libstdc++ on x86-64: a family costs
-// 235 to 330 bytes with its first sample, and a label 64 plus 32 for each of
+// 220 to 340 bytes with its first sample, and a label 64 plus 32 for each of
 // its name and value too long for the short-string buffer (15 bytes). Each
 // further sample is about 85 bytes in use, but a family's list grows by
-// doubling, so up to twice that is allocated: Linux keeps only the touched
-// part resident, while Windows commits all of it. With no limits, a body costs
-// eleven to sixteen times its size when it is label-heavy, twenty resident
-// and up to forty allocated when it is one family of short samples, and forty
+// doubling, so up to twice that is allocated once the parse is done: Linux
+// keeps only the touched part resident, while Windows commits all of it. And
+// while a list grows, its old buffer and the new one twice its size exist
+// together, so the peak during the parse is up to three times what the samples
+// use. With no limits, a body costs eleven to sixteen times its size when it
+// is label-heavy; when it is one family of short samples, twenty resident and
+// up to forty allocated once parsed, and up to sixty at the peak; and forty
 // to fifty when it is single-sample families with names a few characters
 // long. With the default
 // limits, the worst body - 16-character label names and values up to

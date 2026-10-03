@@ -4,6 +4,7 @@
 #include <locale.h>
 
 #include <algorithm>
+#include <cassert>
 #include <clocale>
 #include <cmath>
 #include <cstdlib>
@@ -50,9 +51,10 @@ std::string_view trim_blanks(std::string_view text) {
 }
 
 // A line as every check sees it: one trailing carriage return (a CRLF body)
-// dropped and the blanks around it trimmed. The reader and the truncation
-// check in `parse()` both go through this, so they cannot disagree about what a
-// line says.
+// dropped and the blanks around it trimmed. Everything `parser::read_line`
+// decides about a line - whether it may end the body without a line feed,
+// what kind of line it is - goes through this, so no two decisions can see a
+// different line.
 std::string_view normalise(std::string_view line) {
   if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
   return trim_blanks(line);
@@ -303,7 +305,8 @@ struct family_state {
   bool type = false;
   bool unit = false;
   // The block a repeated OpenMetrics name opened, until its first sample says
-  // whether it is the second family of a same-name pair (see `comment`).
+  // whether it is the second family of a same-name pair (see
+  // `metadata_line`).
   bool tentative = false;
 };
 
@@ -375,6 +378,9 @@ class parser {
     const line_shape shape = shape_of(text);
     if (!block_admits(shape)) return refuse_block();
     if (bounds_.max_line_bytes != 0 && raw.size() > bounds_.max_line_bytes) {
+      // An over-long metadata line of the family being read fails that family
+      // like any other failing line of its own metadata (see `metadata_line`).
+      if (shape.what == line_kind::metadata && shape.whole_name && in_own_block(shape.name)) current_block_failed_ = true;
       return fail("line longer than " + std::to_string(bounds_.max_line_bytes) + " bytes");
     }
     // Blank lines are not part of OpenMetrics, but the Prometheus text format
@@ -409,10 +415,9 @@ class parser {
   // apart from late lines for the earlier family, and is what a body cut
   // there looks like.
   void finish() {
-    // A block still tentative when the body said it was complete was never a
-    // pair. The line reader refuses it at `# EOF` already; this is the same
-    // rule, kept where the parse ends so that no path to the end skips it.
-    if (current_ != npos && state_[current_].tentative && out_.saw_eof && out_.ok()) refuse_block();
+    // `read_line` refuses a tentative block at `# EOF`, so none is still open
+    // when the body said it was complete.
+    assert(!(current_ != npos && state_[current_].tentative && out_.saw_eof && out_.ok()));
     if (current_ == npos || current_ + 1 != out_.families.size() || !out_.families[current_].samples.empty()) return;
     family_state &seen = state_[current_];
     if (current_block_failed_ || (seen.tentative && !seen.type)) {
@@ -441,6 +446,12 @@ class parser {
   bool refuse_block() {
     current_block_failed_ = true;
     return fail_on(declared_again(out_.families[current_].name), block_opened_on_);
+  }
+
+  // Whether a metadata line naming `name` belongs to the family being read: one
+  // of that name with no samples yet, whose metadata is still being declared.
+  bool in_own_block(const std::string_view name) const {
+    return current_ != npos && out_.families[current_].name == name && out_.families[current_].samples.empty();
   }
 
   // Whether a line can be part of the tentative block of a repeated name: a
@@ -521,7 +532,7 @@ class parser {
     // A line that fails from here on belongs to the family it names. When that
     // is the family being read and it has no samples yet, the failure leaves
     // it incomplete, and `finish()` takes it out.
-    const bool own_block = current_ != npos && out_.families[current_].name == name && out_.families[current_].samples.empty();
+    const bool own_block = in_own_block(name);
     const auto fail_block = [&](const std::string &why) {
       if (own_block) current_block_failed_ = true;
       return fail(why);
@@ -694,13 +705,9 @@ class parser {
   std::size_t family_for(const std::string_view name) {
     if (current_ != npos && state_[current_].tentative) {
       // The first sample after a repeated name decides: one of the block's own
-      // makes it the second family of a pair. The line reader lets no other
-      // sample through; this is the same rule, kept where the sample is
-      // placed, so that no path can attach a stranger to the block.
-      if (!state_[current_].type || !owns(current_, name)) {
-        refuse_block();
-        return npos;
-      }
+      // makes it the second family of a pair. `read_line` refuses any other
+      // sample before it gets here.
+      assert(state_[current_].type && owns(current_, name));
       state_[current_].tentative = false;
       return current_;
     }
