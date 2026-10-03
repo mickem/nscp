@@ -1252,7 +1252,11 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char *ra
             found = true;
             if (match_any) {
               response = respbuffer;
-              return NSCAPI::exec_return_codes::returnOK;
+              // isSuccess, as every other handled request below: this used to
+              // be exec_return_codes::returnOK, which is 0 - hasFailed in this
+              // API - so a caller asking `any` module read its success as a
+              // failure.
+              return NSCAPI::cmd_return_codes::isSuccess;
             }
             responses.push_back(respbuffer);
           }
