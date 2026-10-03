@@ -71,12 +71,13 @@ struct log_interface {
   virtual bool should_critical() const = 0;
 };
 
-// What remove_subscriber found and did. `removed` says the subscriber was on
-// the list; `delivering` says a log line may still be inside it on another
-// thread when the call returned, because the bounded wait for the deliveries
-// in flight ran out. A caller about to tear the subscriber down (unloading
-// the module) treats `delivering` the way it treats a dispatch that will not
-// finish: it refuses.
+// What remove_subscriber / clear_subscribers found and did. `removed` says
+// something was on the list; `delivering` says a log line may still be
+// inside one of the subscribers that were on it when the call returned,
+// because the bounded wait for the deliveries in flight ran out. A caller
+// about to tear a subscriber down (unloading the module) treats
+// `delivering` the way it treats a dispatch that will not finish: it
+// refuses. It says nothing about which subscriber the line is in.
 struct unsubscribe_result {
   bool removed = false;
   bool delivering = false;
@@ -87,7 +88,7 @@ struct logger : log_interface {
 
   virtual void add_subscriber(logging_subscriber_instance subscriber) = 0;
   virtual unsubscribe_result remove_subscriber(logging_subscriber_instance subscriber) = 0;
-  virtual void clear_subscribers() = 0;
+  virtual unsubscribe_result clear_subscribers() = 0;
 
   virtual bool startup() = 0;
   virtual bool shutdown() = 0;

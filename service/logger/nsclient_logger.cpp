@@ -56,7 +56,7 @@ void nsclient::logging::impl::nsclient_logger::add_subscriber(const logging_subs
 nsclient::logging::unsubscribe_result nsclient::logging::impl::nsclient_logger::remove_subscriber(logging_subscriber_instance subscriber) {
   return remove(subscriber);
 }
-void nsclient::logging::impl::nsclient_logger::clear_subscribers() { clear(); }
+nsclient::logging::unsubscribe_result nsclient::logging::impl::nsclient_logger::clear_subscribers() { return clear(); }
 bool nsclient::logging::impl::nsclient_logger::startup() {
   if (backend_) {
     return backend_->startup();

@@ -441,12 +441,23 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   // it, and dropping the last reference would destroy the instance - and unmap
   // the library - under that thread. It is parked until stop_plugins, when
   // nothing can still be inside it.
+  //
+  // A log line that is still being handled when the wait for it runs out
+  // takes the same path: a purge cannot refuse, but it need not unload under
+  // the line either. The handler may be another module's (the logger cannot
+  // tell), in which case this one is parked for nothing worse than a
+  // deferred unload.
   const bool inside = plugin && plugin->is_dispatching_on_this_thread();
+  const bool delivering = plugin && log_instance_->remove_subscriber(plugin).delivering;
+  const bool parked = inside || delivering;
   if (inside) {
     LOG_ERROR_CORE_STD("Removing " + plugin->get_alias_or_name() +
                        " after its failed reload; it is unloaded at shutdown, as the reload was requested from inside a call it is serving");
-    retired_plugins_.push_back(plugin);
+  } else if (delivering) {
+    LOG_ERROR_CORE_STD("Removing " + plugin->get_alias_or_name() +
+                       " after its failed reload; it is unloaded at shutdown, as a log line is still being handled by a log-handler module after 5 s");
   }
+  if (parked) retired_plugins_.push_back(plugin);
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
   channels_.remove_plugin(plugin_id);
@@ -457,15 +468,7 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   // Whatever this module contributed to the inventory goes with it: a frozen
   // fact set from a module that is no longer running is worse than none.
   if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
-  if (plugin) {
-    // A purge cannot refuse: the module is being taken out whatever state it
-    // is in. A log line still inside it after the wait is worth a line of
-    // its own, since the unload below runs under it.
-    if (log_instance_->remove_subscriber(plugin).delivering) {
-      LOG_ERROR_CORE_STD("A log line is still being handled by " + plugin->get_alias_or_name() + " after 5 s; purging it regardless");
-    }
-  }
-  if (plugin && !inside) {
+  if (plugin && !parked) {
     try {
       plugin->unload_plugin();
     } catch (const plugin_exception &e) {
@@ -538,6 +541,14 @@ void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
  */
 void nsclient::core::plugin_manager::stop_plugins() {
   const boost::recursive_mutex::scoped_lock lifecycle(lifecycle_mutex_);
+  // The log subscriptions go first, and under the lifecycle lock, so this
+  // cannot interleave with a remove_plugin on another thread: that call has
+  // either finished (and a refused unload has re-added its subscription,
+  // which goes here) or not started (and finds nothing left to remove, so
+  // it does not skip the wait while a line is still inside the module).
+  if (log_instance_->clear_subscribers().delivering) {
+    LOG_ERROR_CORE("A log line is still being handled by a log-handler module after 5 s; stopping the modules regardless");
+  }
   commands_.remove_all();
   channels_.remove_all();
   event_subscribers_.remove_all();
@@ -774,9 +785,14 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // inside its own log handler: that delivery is this thread's, and
   // is_dispatching_on_this_thread() does not count log lines, so such a
   // module is torn down under its handler as it always was.
+  // clear_subscribers() at shutdown runs under lifecycle_mutex_
+  // (stop_plugins), so it cannot slip in between.
   const logging::unsubscribe_result unsubscribed = log_instance_->remove_subscriber(plugin);
   if (unsubscribed.delivering) {
-    LOG_ERROR_CORE_STD("Refused to unload " + name + ": a log line is still being handled by it after 5 s");
+    // The logger cannot say which handler the line is in - the wait covers
+    // every delivery that started while this module was subscribed - so the
+    // stuck handler may well be another module's.
+    LOG_ERROR_CORE_STD("Refused to unload " + name + ": a log line is still being handled by a log-handler module after 5 s");
     log_instance_->add_subscriber(plugin);
     return false;
   }

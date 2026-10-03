@@ -618,8 +618,8 @@ void NSClientT::read_facts_max_size() {
     }
     const std::vector<std::string> dropped = facts_->set_max_size(value);
     for (const std::string &fact_set : dropped) {
-      LOG_ERROR_CORE_STD("Dropped the fact set '" + fact_set + "': the facts document no longer fits the lowered [/settings/facts] max size of " +
-                         max_size + " bytes. Disable a set, or raise max size.");
+      LOG_ERROR_CORE_STD("Dropped the fact set '" + fact_set + "': the facts document no longer fits the lowered [/settings/facts] max size of " + max_size +
+                         " bytes. Disable a set, or raise max size.");
     }
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the previous one: " + utf8::utf8_from_native(e.what()));
@@ -771,10 +771,9 @@ bool NSClientT::stop_nsclient() {
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
-void NSClientT::unloadPlugins() {
-  log_instance_->clear_subscribers();
-  plugins_->stop_plugins();
-}
+// The log subscriptions are cleared by stop_plugins itself, under its
+// lifecycle lock, so an unload on another thread cannot interleave with it.
+void NSClientT::unloadPlugins() { plugins_->stop_plugins(); }
 void NSClientT::reloadPlugins() {
   // Re-read the included configuration before working out which modules should
   // be running. An include is served from the child instance built when the

@@ -423,6 +423,45 @@ TEST(NsclientLogger, RemovingAnUnknownSubscriberDoesNotWaitForADelivery) {
   delivery.join();
 }
 
+TEST(NsclientLogger, RemoveReportsADeliveryThatOutlivesTheWait) {
+  // The caller is about to unload the module; a handler still inside after
+  // the wait is reported so it can refuse, as it would a stuck dispatch.
+  auto logger = make_backendless_logger();
+  logger->set_delivery_wait(std::chrono::milliseconds(200));
+  auto blocking = std::make_shared<BlockingSubscriber>();
+  logger->add_subscriber(blocking);
+
+  std::thread delivery([&logger]() { logger->on_log_message("stuck"); });
+  blocking->wait_until_entered();
+
+  const auto started = std::chrono::steady_clock::now();
+  const auto result = logger->remove_subscriber(blocking);
+  EXPECT_TRUE(result.removed);
+  EXPECT_TRUE(result.delivering);
+  EXPECT_GE(std::chrono::steady_clock::now() - started, std::chrono::milliseconds(200));
+
+  blocking->release();
+  delivery.join();
+}
+
+TEST(NsclientLogger, ClearReportsADeliveryThatOutlivesTheWait) {
+  auto logger = make_backendless_logger();
+  logger->set_delivery_wait(std::chrono::milliseconds(200));
+  EXPECT_FALSE(logger->clear_subscribers().removed);  // empty list: nothing to wait for
+  auto blocking = std::make_shared<BlockingSubscriber>();
+  logger->add_subscriber(blocking);
+
+  std::thread delivery([&logger]() { logger->on_log_message("stuck"); });
+  blocking->wait_until_entered();
+
+  const auto result = logger->clear_subscribers();
+  EXPECT_TRUE(result.removed);
+  EXPECT_TRUE(result.delivering);
+
+  blocking->release();
+  delivery.join();
+}
+
 TEST(NsclientLogger, RemoveAndClearReturnAtOnceWithNothingInFlight) {
   // Plain add / remove with nothing in flight returns at once.
   auto logger = make_backendless_logger();

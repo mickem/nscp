@@ -29,7 +29,7 @@ class MockListLogger : public nsclient::logging::logger {
 
   void add_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {}
   nsclient::logging::unsubscribe_result remove_subscriber(nsclient::logging::logging_subscriber_instance) override { return {}; }
-  void clear_subscribers() override {}
+  nsclient::logging::unsubscribe_result clear_subscribers() override { return {}; }
 
   bool startup() override { return false; }
   bool shutdown() override { return false; }

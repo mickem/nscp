@@ -60,6 +60,10 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   // The threads inside a delivery, so remove() / clear() can wait for the
   // ones that may still hold the subscriber they just took off the list.
   threads::in_flight deliveries_;
+  // How long a line waits for the delivery lock, and a removal for the
+  // deliveries in flight: 5 s in the service, like dll_plugin's wait for its
+  // dispatchers. Settable so a test can see the timed-out path in less.
+  std::chrono::milliseconds delivery_wait_{5000};
 
   // How many deliveries the calling thread is inside, for the nested-line
   // check on the fan-out path. Thread-local rather than a lookup in
@@ -87,21 +91,27 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
     subscribers_ = next;
     has_subscribers_ = true;
   }
+  // For tests: how long the bounded waits run (see delivery_wait_).
+  void set_delivery_wait(std::chrono::milliseconds wait) { delivery_wait_ = wait; }
+
   // Take every subscriber off the list and wait for the deliveries that
   // started on the old list to finish. Nothing in flight can hold what was
   // never on the list, so an empty list returns at once.
-  void clear() {
+  unsubscribe_result clear() {
+    unsubscribe_result result;
     subscribers_ptr previous;
     std::uint64_t cutoff = 0;
     {
       boost::lock_guard<boost::mutex> lock(mutex_);
-      if (!subscribers_ || subscribers_->empty()) return;
+      if (!subscribers_ || subscribers_->empty()) return result;
+      result.removed = true;
       previous = subscribers_;
       subscribers_ = std::make_shared<subscribers_type>();
       has_subscribers_ = false;
       cutoff = deliveries_.cutoff();
     }
-    wait_and_release(previous, cutoff);
+    result.delivering = !wait_and_release(previous, cutoff);
+    return result;
   }
   // Take one subscriber off the list and wait for the deliveries that
   // started on the old list, so the caller can tear it down afterwards. A
@@ -149,11 +159,15 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
     if (!has_subscribers_.load(std::memory_order_acquire)) return;
     if (delivery_depth() > 0) return;
     boost::unique_lock<boost::timed_mutex> serial(delivery_mutex_, boost::defer_lock);
-    if (!serial.try_lock_for(boost::chrono::seconds(5))) return;
-    // Declared before the snapshot so that the snapshot - and with it the
-    // last reference a removed subscriber may have - is released before the
-    // guard wakes a waiting remove().
+    if (!serial.try_lock_for(boost::chrono::milliseconds(delivery_wait_.count()))) return;
+    // Both guards are declared before the snapshot, so that the snapshot -
+    // and with it the last reference a removed subscriber may have - is
+    // released while this thread still counts as delivering and before the
+    // tracker wakes a waiting remove(). A plugin destroyed by that release
+    // may log from its teardown: with the depth still up, that line returns
+    // at the top instead of waiting on the delivery lock this thread holds.
     threads::in_flight::guard delivering(deliveries_);
+    const depth_guard nested;
     subscribers_ptr snapshot;
     {
       boost::lock_guard<boost::mutex> lock(mutex_);
@@ -161,7 +175,6 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
       snapshot = subscribers_;
       delivering.enter();
     }
-    const depth_guard nested;
     for (const logging_subscriber_instance &s : *snapshot) {
       s->on_log_message(data);
     }
@@ -190,7 +203,7 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
 
   void add_subscriber(logging_subscriber_instance) override;
   unsubscribe_result remove_subscriber(logging_subscriber_instance subscriber) override;
-  void clear_subscribers() override;
+  unsubscribe_result clear_subscribers() override;
   bool startup() override;
   bool shutdown() override;
   void configure() override;
@@ -206,7 +219,7 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   // handler that has been running for five seconds is not going to finish
   // because we keep waiting. Returns false when it ran out.
   bool wait_and_release(subscribers_ptr &previous, std::uint64_t cutoff) {
-    const bool clean = deliveries_.wait_for_others_before(cutoff, std::chrono::seconds(5));
+    const bool clean = deliveries_.wait_for_others_before(cutoff, delivery_wait_);
     previous.reset();
     return clean;
   }
