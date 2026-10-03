@@ -3,16 +3,17 @@
 
 #pragma once
 
-#include <atomic>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/condition_variable.hpp>
-#include <boost/thread/thread.hpp>
-#include <set>
 #include <NSCAPI.h>
 
+#include <atomic>
 #include <boost/algorithm/string.hpp>
+#include <boost/thread/condition_variable.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 #include <dll/dll.hpp>
+#include <set>
+#include <threads/in_flight.hpp>
 
 #include "plugin_interface.hpp"
 
@@ -41,13 +42,15 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // queued unload stalled every new dispatch - and a module re-entering itself
   // through the core (check_multi calling check_always_ok, a script querying a
   // command its own module serves) deadlocked against its own outer read lock.
-  // The count is kept as the multiset of dispatching threads because
-  // unload_plugin needs one thing a plain counter cannot give it: whether the
-  // calls in flight are only its own, which is the case when a handler unloads
-  // the module it is itself running in.
+  // The count is kept per thread (threads::in_flight) because unload_plugin
+  // needs one thing a plain counter cannot give it: whether the calls in
+  // flight are only its own, which is the case when a handler unloads the
+  // module it is itself running in. The tracker also numbers its entries,
+  // so unload and reload wait only for the calls that were inside when they
+  // closed the door. dispatch_mutex_ guards the door flags below and orders
+  // a dispatch's entry against the cutoff those waits take.
   mutable boost::mutex dispatch_mutex_;
-  boost::condition_variable dispatch_idle_;
-  std::multiset<boost::thread::id> dispatchers_;
+  threads::in_flight dispatchers_;
   // Set by unload_plugin before it waits: no dispatch may enter after it.
   bool unloading_ = false;
   // Set by load_plugin(reloadStart) for as long as loadModuleEx runs on the
@@ -87,12 +90,12 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // entered().
   class dispatch_lock {
     dll_plugin &owner_;
-    bool entered_;
+    threads::in_flight::guard guard_;
 
    public:
     explicit dispatch_lock(dll_plugin &owner);
     ~dispatch_lock();
-    bool entered() const { return entered_; }
+    bool entered() const { return guard_.entered(); }
     dispatch_lock(const dispatch_lock &) = delete;
     dispatch_lock &operator=(const dispatch_lock &) = delete;
   };
@@ -204,8 +207,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
                                           unsigned int *response_buffer_len);
   NSCAPI::nagiosReturn on_event(const char *request_buffer, const unsigned int request_buffer_len);
   NSCAPI::nagiosReturn fetchMetrics(char **response_buffer, unsigned int *response_buffer_len);
-  NSCAPI::nagiosReturn fetchFacts(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
-                                  unsigned int *response_buffer_len);
+  NSCAPI::nagiosReturn fetchFacts(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
   NSCAPI::nagiosReturn submitMetrics(const char *buffer, const unsigned int buffer_len);
   int commandLineExec(bool targeted, const char *request, const unsigned int request_len, char **reply, unsigned int *reply_len);
   bool getVersion(int *major, int *minor, int *revision);

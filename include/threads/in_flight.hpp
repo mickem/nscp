@@ -66,6 +66,17 @@ class in_flight {
     bool entered() const { return entered_; }
   };
 
+  // Whether the calling thread is inside already. Only the calling thread
+  // adds or removes its own entries, so the answer is stable for it.
+  bool on_this_thread() const {
+    const boost::thread::id self = boost::this_thread::get_id();
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const entry &e : entries_) {
+      if (e.thread == self) return true;
+    }
+    return false;
+  }
+
   // The number the next enter() will get. Every entry made before this call
   // is below it; take it under the lock that the entries were made under.
   std::uint64_t cutoff() const {

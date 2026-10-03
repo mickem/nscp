@@ -65,13 +65,17 @@ TEST(InFlight, GuardEntersOnceAndNestedGuardsLeaveInnermostFirst) {
   {
     in_flight::guard g(tracker);
     EXPECT_FALSE(g.entered());
+    EXPECT_FALSE(tracker.on_this_thread());
     g.enter();
     g.enter();  // idempotent
     EXPECT_TRUE(g.entered());
+    EXPECT_TRUE(tracker.on_this_thread());
     {
       in_flight::guard nested(tracker);
       nested.enter();
+      EXPECT_TRUE(tracker.on_this_thread());
     }
+    EXPECT_TRUE(tracker.on_this_thread());
     // The outer entry is still there after the nested one left: a waiter on
     // another thread still sees it.
     const std::uint64_t cutoff = tracker.cutoff();
@@ -81,6 +85,7 @@ TEST(InFlight, GuardEntersOnceAndNestedGuardsLeaveInnermostFirst) {
     EXPECT_TRUE(timed_out.load());
   }
   // And gone once the outer guard went.
+  EXPECT_FALSE(tracker.on_this_thread());
   EXPECT_TRUE(tracker.wait_for_others_before(tracker.cutoff(), std::chrono::milliseconds(100)));
 }
 
