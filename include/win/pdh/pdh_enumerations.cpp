@@ -19,24 +19,30 @@ namespace {
   // RAII guard for a temporary PDH query handle. The destructor swallows the
   // PdhCloseQuery status so we can use it in cleanup-on-error paths without
   // double-reporting; if cleanup itself fails the caller will already have a
-  // more useful error from the original failure.
+  // more useful error from the original failure. Released through the
+  // implementation it was opened on - the one whose lock the caller holds -
+  // not whatever factory::get_impl() returns by then.
   struct ScopedPdhQuery {
+    explicit ScopedPdhQuery(impl_interface &impl) : impl(impl) {}
+    impl_interface &impl;
     PDH_HQUERY h = nullptr;
     ~ScopedPdhQuery() {
       if (h != nullptr) {
         try {
-          factory::get_impl()->PdhCloseQuery(h);
+          impl.PdhCloseQuery(h);
         } catch (...) {
         }
       }
     }
   };
   struct ScopedPdhCounter {
+    explicit ScopedPdhCounter(impl_interface &impl) : impl(impl) {}
+    impl_interface &impl;
     PDH_HCOUNTER h = nullptr;
     ~ScopedPdhCounter() {
       if (h != nullptr) {
         try {
-          factory::get_impl()->PdhRemoveCounter(h);
+          impl.PdhRemoveCounter(h);
         } catch (...) {
         }
       }
@@ -51,16 +57,19 @@ namespace {
   bool resolve_path_via_temp_query(const std::wstring &input, std::wstring &resolved_out, std::string &error_out, bool &no_instances) {
     // Held until the handles below are released (declared first, so it is
     // destroyed last): a concurrent reload would free the library under them.
+    // Every call goes through this one implementation: CheckSystem swaps the
+    // factory's on each module load, and a call through a freshly fetched one
+    // would run outside the lock held here.
     const std::shared_ptr<impl_interface> impl = factory::get_impl();
     std::lock_guard<impl_interface> guard(*impl);
-    ScopedPdhQuery query;
-    pdh_error status = factory::get_impl()->PdhOpenQuery(nullptr, 0, &query.h);
+    ScopedPdhQuery query(*impl);
+    pdh_error status = impl->PdhOpenQuery(nullptr, 0, &query.h);
     if (status.is_error()) {
       error_out = status.get_message();
       return false;
     }
-    ScopedPdhCounter counter;
-    status = factory::get_impl()->PdhAddEnglishCounter(query.h, input.c_str(), 0, &counter.h);
+    ScopedPdhCounter counter(*impl);
+    status = impl->PdhAddEnglishCounter(query.h, input.c_str(), 0, &counter.h);
     if (status.is_no_instance()) {
       // On a localized host the direct expansion fails on the English name
       // and the English-name add is where an empty object first shows: the
@@ -74,7 +83,7 @@ namespace {
     }
     hlp::buffer<TCHAR, PDH_COUNTER_INFO *> info_buf(2048);
     auto info_size = static_cast<DWORD>(info_buf.size());
-    status = factory::get_impl()->PdhGetCounterInfo(counter.h, FALSE, &info_size, info_buf.get());
+    status = impl->PdhGetCounterInfo(counter.h, FALSE, &info_size, info_buf.get());
     if (status.is_error()) {
       error_out = status.get_message();
       return false;

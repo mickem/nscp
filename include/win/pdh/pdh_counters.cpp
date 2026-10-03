@@ -13,7 +13,12 @@
 namespace PDH {
 PDHCounter::PDHCounter(const pdh_instance &counter) : hCounter_(nullptr), counter_(counter), data_() {}
 PDHCounter::~PDHCounter() {
-  if (hCounter_ != nullptr) remove();
+  try {
+    remove();
+  } catch (...) {
+    // A destructor that throws terminates the agent; the handle is dropped
+    // either way.
+  }
 }
 
 pdh_error PDHCounter::validate() const { return factory::get_impl()->PdhValidatePath(utf8::cvt<std::wstring>(counter_->get_counter()).c_str(), false); }
@@ -101,9 +106,14 @@ void PDHCounter::addToQuery(const std::shared_ptr<impl_interface> &impl, PDH_HQU
 }
 void PDHCounter::remove() {
   if (hCounter_ == nullptr) return;
-  const pdh_error status = impl_->PdhRemoveCounter(hCounter_);
-  if (status.is_error()) throw pdh_exception(getName() + " PdhRemoveCounter failed", status);
+  // Forget the handle before removing it: whether or not PDH accepts the
+  // remove, it is no use afterwards, and keeping it made the next
+  // addToQuery() refuse ("already opened"), so a query reopened after a
+  // reload failed on every sample, and the destructor removed it again.
+  const PDH_HCOUNTER handle = hCounter_;
   hCounter_ = nullptr;
+  const pdh_error status = impl_->PdhRemoveCounter(handle);
+  if (status.is_error()) throw pdh_exception(getName() + " PdhRemoveCounter failed", status);
 }
 pdh_error PDHCounter::collect() {
   if (hCounter_ == nullptr) return {};

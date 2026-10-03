@@ -66,61 +66,49 @@ void ThreadedSafePDH::remove_listener(subscriber* sub) {
 }
 
 pdh_error ThreadedSafePDH::PdhLookupPerfIndexByName(const LPCTSTR szMachineName, const LPCTSTR szName, DWORD* dwIndex) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhLookupPerfIndexByName, "PdhLookupPerfIndexByName")(szMachineName, szName, dwIndex));
+  return call_locked(pPdhLookupPerfIndexByName, "PdhLookupPerfIndexByName", szMachineName, szName, dwIndex);
 }
 
 pdh_error ThreadedSafePDH::PdhLookupPerfNameByIndex(const LPCTSTR szMachineName, const DWORD dwNameIndex, const LPTSTR szNameBuffer,
                                                     const LPDWORD pcchNameBufferSize) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhLookupPerfNameByIndex, "PdhLookupPerfNameByIndex")(szMachineName, dwNameIndex, szNameBuffer, pcchNameBufferSize));
+  return call_locked(pPdhLookupPerfNameByIndex, "PdhLookupPerfNameByIndex", szMachineName, dwNameIndex, szNameBuffer, pcchNameBufferSize);
 }
 
 pdh_error ThreadedSafePDH::PdhExpandCounterPath(const LPCTSTR szWildCardPath, const LPTSTR mszExpandedPathList, const LPDWORD pcchPathListLength) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhExpandCounterPath, "PdhExpandCounterPath")(szWildCardPath, mszExpandedPathList, pcchPathListLength));
+  return call_locked(pPdhExpandCounterPath, "PdhExpandCounterPath", szWildCardPath, mszExpandedPathList, pcchPathListLength);
 }
 pdh_error ThreadedSafePDH::PdhGetCounterInfo(const PDH_HCOUNTER hCounter, const BOOLEAN bRetrieveExplainText, const LPDWORD pdwBufferSize,
                                              PDH_COUNTER_INFO* lpBuffer) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhGetCounterInfo, "PdhGetCounterInfo")(hCounter, bRetrieveExplainText, pdwBufferSize, lpBuffer));
+  return call_locked(pPdhGetCounterInfo, "PdhGetCounterInfo", hCounter, bRetrieveExplainText, pdwBufferSize, lpBuffer);
 }
 pdh_error ThreadedSafePDH::PdhAddCounter(const PDH_HQUERY hQuery, const LPCWSTR szFullCounterPath, const DWORD_PTR dwUserData, PDH_HCOUNTER* phCounter) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhAddCounter, "PdhAddCounter")(hQuery, szFullCounterPath, dwUserData, phCounter));
+  return call_locked(pPdhAddCounter, "PdhAddCounter", hQuery, szFullCounterPath, dwUserData, phCounter);
 }
 pdh_error ThreadedSafePDH::PdhAddEnglishCounter(const PDH_HQUERY hQuery, const LPCWSTR szFullCounterPath, const DWORD_PTR dwUserData, PDH_HCOUNTER* phCounter) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhAddEnglishCounter, "PdhAddEnglishCounter")(hQuery, szFullCounterPath, dwUserData, phCounter));
+  // Absent before Vista; keep the hint NativeExternalPDH gives (basic_impl.hpp).
+  return call_locked_hint(pPdhAddEnglishCounter, "PdhAddEnglishCounter",
+                          "PdhAddEnglishCounter is only available on Vista and later you need to use localized counters.", hQuery, szFullCounterPath,
+                          dwUserData, phCounter);
 }
-pdh_error ThreadedSafePDH::PdhRemoveCounter(const PDH_HCOUNTER hCounter) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhRemoveCounter, "PdhRemoveCounter")(hCounter));
-}
+pdh_error ThreadedSafePDH::PdhRemoveCounter(const PDH_HCOUNTER hCounter) { return call_locked(pPdhRemoveCounter, "PdhRemoveCounter", hCounter); }
 pdh_error ThreadedSafePDH::PdhGetRawCounterValue(const PDH_HCOUNTER hCounter, const LPDWORD dwFormat, const PPDH_RAW_COUNTER pValue) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhGetRawCounterValue, "PdhGetRawCounterValue")(hCounter, dwFormat, pValue));
+  return call_locked(pPdhGetRawCounterValue, "PdhGetRawCounterValue", hCounter, dwFormat, pValue);
 }
 pdh_error ThreadedSafePDH::PdhGetFormattedCounterValue(const PDH_HCOUNTER hCounter, const DWORD dwFormat, const LPDWORD lpdwType,
                                                        const PPDH_FMT_COUNTERVALUE pValue) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhGetFormattedCounterValue, "PdhGetFormattedCounterValue")(hCounter, dwFormat, lpdwType, pValue));
+  return call_locked(pPdhGetFormattedCounterValue, "PdhGetFormattedCounterValue", hCounter, dwFormat, lpdwType, pValue);
 }
 pdh_error ThreadedSafePDH::PdhOpenQuery(const LPCWSTR szDataSource, const DWORD_PTR dwUserData, PDH_HQUERY* phQuery) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhOpenQuery, "PdhOpenQuery")(szDataSource, dwUserData, phQuery));
+  return call_locked(pPdhOpenQuery, "PdhOpenQuery", szDataSource, dwUserData, phQuery);
 }
 pdh_error ThreadedSafePDH::PdhCloseQuery(const PDH_HQUERY hQuery) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhCloseQuery, "PdhCloseQuery")(hQuery));
+  return call_locked(pPdhCloseQuery, "PdhCloseQuery", hQuery);
 }
 pdh_error ThreadedSafePDH::PdhCollectQueryData(const PDH_HQUERY hQuery) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhCollectQueryData, "PdhCollectQueryData")(hQuery));
+  return call_locked(pPdhCollectQueryData, "PdhCollectQueryData", hQuery);
 }
 pdh_error ThreadedSafePDH::validate_path_locked(const LPCWSTR szFullPathBuffer) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhValidatePath, "PdhValidatePath")(szFullPathBuffer));
+  return call_locked(pPdhValidatePath, "PdhValidatePath", szFullPathBuffer);
 }
 pdh_error ThreadedSafePDH::PdhValidatePath(const LPCWSTR szFullPathBuffer, const bool force_reload) {
   pdh_error status = validate_path_locked(szFullPathBuffer);
@@ -132,20 +120,15 @@ pdh_error ThreadedSafePDH::PdhValidatePath(const LPCWSTR szFullPathBuffer, const
 }
 pdh_error ThreadedSafePDH::PdhEnumObjects(const LPCWSTR szDataSource, const LPCWSTR szMachineName, const LPWSTR mszObjectList, const LPDWORD pcchBufferSize,
                                           const DWORD dwDetailLevel, const BOOL bRefresh) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhEnumObjects, "PdhEnumObjects")(szDataSource, szMachineName, mszObjectList, pcchBufferSize, dwDetailLevel, bRefresh));
+  return call_locked(pPdhEnumObjects, "PdhEnumObjects", szDataSource, szMachineName, mszObjectList, pcchBufferSize, dwDetailLevel, bRefresh);
 }
 pdh_error ThreadedSafePDH::PdhEnumObjectItems(const LPCWSTR szDataSource, const LPCWSTR szMachineName, const LPCWSTR szObjectName, const LPWSTR mszCounterList,
                                               const LPDWORD pcchCounterListLength, const LPWSTR mszInstanceList, const LPDWORD pcchInstanceListLength,
                                               const DWORD dwDetailLevel, const DWORD dwFlags) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(require_locked(pPdhEnumObjectItems, "PdhEnumObjectItems")(szDataSource, szMachineName, szObjectName, mszCounterList, pcchCounterListLength,
-                                                                             mszInstanceList, pcchInstanceListLength, dwDetailLevel, dwFlags));
+  return call_locked(pPdhEnumObjectItems, "PdhEnumObjectItems", szDataSource, szMachineName, szObjectName, mszCounterList, pcchCounterListLength, mszInstanceList, pcchInstanceListLength, dwDetailLevel, dwFlags);
 }
 pdh_error ThreadedSafePDH::PdhExpandWildCardPath(const LPCTSTR szDataSource, const LPCTSTR szWildCardPath, const LPWSTR mszExpandedPathList,
                                                  const LPDWORD pcchPathListLength, const DWORD dwFlags) {
-  boost::lock_guard<boost::recursive_mutex> guard(mutex_);
-  return pdh_error(
-      require_locked(pPdhExpandWildCardPath, "PdhExpandWildCardPath")(szDataSource, szWildCardPath, mszExpandedPathList, pcchPathListLength, dwFlags));
+  return call_locked(pPdhExpandWildCardPath, "PdhExpandWildCardPath", szDataSource, szWildCardPath, mszExpandedPathList, pcchPathListLength, dwFlags);
 }
 }  // namespace PDH

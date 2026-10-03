@@ -26,12 +26,25 @@ class ThreadedSafePDH : public NativeExternalPDH {
 
   // Called with mutex_ held: returns `proc`, loading PDH first when a failed
   // reload() left it unloaded, so the next call retries the load instead of
-  // every call failing until the next reload.
+  // every call failing until the next reload. `missing`, when given,
+  // replaces the generic message for a proc that pdh.dll loaded but does not
+  // export (one that only newer Windows has).
   template <class Proc>
-  static Proc require_locked(const Proc& proc, const char* name) {
+  static Proc require_locked(const Proc& proc, const char* name, const char* missing = nullptr) {
     if (proc == nullptr && PDH_ == nullptr) load_procs();
-    if (proc == nullptr) throw pdh_exception(std::string("Failed to initialize ") + name);
+    if (proc == nullptr) throw pdh_exception(missing != nullptr && PDH_ != nullptr ? std::string(missing) : std::string("Failed to initialize ") + name);
     return proc;
+  }
+
+  // One PDH call through `proc`, under mutex_: every wrapper below is this.
+  template <class Proc, class... Args>
+  pdh_error call_locked_hint(const Proc& proc, const char* name, const char* missing, Args... args) {
+    boost::lock_guard<boost::recursive_mutex> guard(mutex_);
+    return pdh_error(require_locked(proc, name, missing)(args...));
+  }
+  template <class Proc, class... Args>
+  pdh_error call_locked(const Proc& proc, const char* name, Args... args) {
+    return call_locked_hint(proc, name, nullptr, args...);
   }
 
  public:

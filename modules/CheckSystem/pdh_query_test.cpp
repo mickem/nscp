@@ -602,6 +602,36 @@ TEST_F(PdhQueryLifecycleTest, QueryLeftClosedByAFailedReloadReopensOnNextGather)
   EXPECT_EQ(mock->listener_count, 0);
 }
 
+TEST_F(PdhQueryLifecycleTest, ACounterThatFailedToRemoveDoesNotWedgeTheReopen) {
+  // A reload closes every query (on_unload) and reopens it; on_unload carries
+  // on past a counter whose remove fails. That counter used to keep its
+  // handle, so re-adding it refused ("already opened") and the reopened
+  // query failed on every sample from then on.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar"));
+  q.open();
+  mock->remove_counter_status = PDH_INVALID_HANDLE;
+  q.on_unload();
+  mock->remove_counter_status = ERROR_SUCCESS;
+
+  EXPECT_NO_THROW(q.gatherData(false));
+  EXPECT_TRUE(q.is_open());
+  q.close();
+  EXPECT_EQ(mock->open_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, CloseWithACounterThatFailsToRemoveDoesNotThrowFromADestructor) {
+  // close() clears the counters after on_unload() has given up on one; the
+  // counter's destructor then removed the stale handle again, and a throw
+  // out of a destructor aborts the agent.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar"));
+  q.open();
+  mock->remove_counter_status = PDH_INVALID_HANDLE;
+  EXPECT_NO_THROW(q.close());
+  EXPECT_FALSE(q.is_open());
+}
+
 namespace {
 // Counts its callbacks and can be told to fail one of them.
 struct recording_subscriber : PDH::subscriber {
