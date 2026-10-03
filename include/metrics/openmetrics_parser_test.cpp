@@ -313,6 +313,9 @@ TEST(OpenmetricsParser, SameNamePairThatCannotStandSideBySideIsRefused) {
       {"# TYPE x gauge\nx 1\n# HELP x again\n# UNIT x bytes\n# TYPE y gauge\n", 3, declared, 1},
       {"# TYPE x gauge\nx 1\n# TYPE x counter\n# TYPE y gauge\ny 1\n", 3, declared, 1},
       {"# TYPE x gauge\nx 1\n# TYPE x counter\n# EOF\n", 3, declared, 1},
+      // `# EOF` with text after it ends nothing, but it is not one of the
+      // block's lines either: the same fault as a plain `# EOF`.
+      {"# TYPE x gauge\nx 1\n# TYPE x counter\n# EOF junk\n", 3, declared, 1},
       {"# TYPE x gauge\nx 1\n# TYPE x counter\nx 2\n", 3, declared, 1},
       // Inside the block every line is held to the usual rules, and reported
       // where it is: the repeated name was fine as far as it went.
@@ -352,6 +355,54 @@ TEST(OpenmetricsParser, SameNamePairThatCannotStandSideBySideIsRefused) {
   const om::result text_pair = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\nx 2\n", text);
   EXPECT_FALSE(text_pair.ok());
   EXPECT_EQ(text_pair.error_line, 3u);
+}
+
+TEST(OpenmetricsParser, FinalLineFeedAfterEofChangesNothing) {
+  // Plenty of exporters leave the line feed after `# EOF` off, and the reader
+  // accepts that, so every body must read the same with and without it - the
+  // repeated-name rule included, which once only looked at whole lines.
+  const char *const cases[] = {
+      "# TYPE x gauge\nx 1\n# TYPE x counter\n# EOF\n",
+      "# TYPE x gauge\nx 1\n# HELP x again\n# EOF\n",
+      "# TYPE x gauge\nx 1\n# TYPE x counter\r\n# EOF\r\n",
+      "# TYPE x gauge\nx 1\n# HELP x again\r\n# EOF\r\n",
+      "# TYPE x gauge\nx 1\n# TYPE x counter\nx_total 1\n# EOF\n",
+      "# TYPE x gauge\nx 1\n  # EOF  \n",
+  };
+  const auto same = [](const std::string &whole) {
+    const std::string cut = whole.substr(0, whole.size() - 1);
+    const om::result a = om::parse(whole, openmetrics);
+    const om::result b = om::parse(cut, openmetrics);
+    EXPECT_EQ(a.ok(), b.ok()) << whole;
+    EXPECT_EQ(a.error, b.error) << whole;
+    EXPECT_EQ(a.error_line, b.error_line) << whole;
+    EXPECT_EQ(a.saw_eof, b.saw_eof) << whole;
+    EXPECT_EQ(a.families.size(), b.families.size()) << whole;
+    expect_consistent(b, cut, openmetrics);
+  };
+  for (const char *body : cases) same(body);
+  // The block's first two cases, by their result.
+  const om::result refused = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\n# EOF", openmetrics);
+  EXPECT_FALSE(refused.ok());
+  EXPECT_EQ(refused.error_line, 3u);
+  EXPECT_EQ(refused.families.size(), 1u);
+
+  // And any body built from the same pieces the fuzzer uses, ended by `# EOF`.
+  const char *const fragments[] = {"# TYPE h histogram\n", "# TYPE h counter\n", "# TYPE h gauge\n",       "# HELP h x\n", "# UNIT h s\n", "h 1\n",
+                                   "h_total 1\n",          "h_created 1\n",      "h_bucket{le=\"1\"} 1\n", "h_count 1\n",  "g 1\n",        "# EOF junk\n"};
+  std::mt19937 random(1631);
+  std::uniform_int_distribution<std::size_t> pick(0, sizeof(fragments) / sizeof(fragments[0]) - 1);
+  std::uniform_int_distribution<std::size_t> length(0, 8);
+  for (int round = 0; round < 20000; ++round) {
+    std::string body;
+    const std::size_t pieces = length(random);
+    for (std::size_t i = 0; i < pieces; ++i) body += fragments[pick(random)];
+    same(body + (random() % 2 == 0 ? "# EOF\n" : "# EOF\r\n"));
+    if (::testing::Test::HasFailure()) {
+      ADD_FAILURE() << "round " << round << " body: " << body;
+      return;
+    }
+  }
 }
 
 TEST(OpenmetricsParser, BodyEndingInsideTheSecondBlockOfAPairReadsAsTruncated) {
@@ -436,13 +487,23 @@ TEST(OpenmetricsParser, LimitHitByAnotherFamilyInsideAPairBlockIsTheRepeatedName
   }
 }
 
-TEST(OpenmetricsParser, OversizedLastLineInsideAPairBlockIsRefused) {
+TEST(OpenmetricsParser, OversizedLineInsideAPairBlockIsJudgedInTheDocumentedOrder) {
+  // A line the body ends in the middle of is never read, not even for its
+  // length; a whole line is judged by the block rule before its length, and
+  // the block's own oversized sample is refused for its length.
   om::limits bounds;
   bounds.max_line_bytes = 64;
-  const om::result parsed = om::parse("# TYPE x gauge\nx 1\n# HELP x again\n" + std::string(10000, 'y'), openmetrics, bounds);
-  EXPECT_FALSE(parsed.ok());
-  EXPECT_EQ(parsed.error_line, 4u);
-  EXPECT_NE(parsed.error.find("longer than 64 bytes"), std::string::npos) << parsed.error;
+  const om::result cut = om::parse("# TYPE x gauge\nx 1\n# HELP x again\n" + std::string(10000, 'y'), openmetrics, bounds);
+  EXPECT_EQ(cut.error_line, 4u);
+  EXPECT_NE(cut.error.find("middle of a line"), std::string::npos) << cut.error;
+
+  const om::result stranger = om::parse("# TYPE x gauge\nx 1\n# HELP x again\n" + std::string(10000, 'y') + "\n", openmetrics, bounds);
+  EXPECT_EQ(stranger.error_line, 3u);
+  EXPECT_NE(stranger.error.find("already declared or sampled"), std::string::npos) << stranger.error;
+
+  const om::result own = om::parse("# TYPE x gauge\nx 1\n# TYPE x counter\nx_total{a=\"" + std::string(10000, 'y') + "\"} 1\n", openmetrics, bounds);
+  EXPECT_EQ(own.error_line, 4u);
+  EXPECT_NE(own.error.find("longer than 64 bytes"), std::string::npos) << own.error;
 }
 
 TEST(OpenmetricsParser, PrometheusTextCounterWithoutTotal) {
@@ -1151,7 +1212,7 @@ TEST(OpenmetricsParser, WideLineDoesNotSlowTheLinesAfterIt) {
 
 TEST(OpenmetricsParser, DefaultLimitsStopABodyBuiltToExhaustMemory) {
   // The bodies that cost the most per byte: single-sample families with short
-  // names (about fifty times the body), and short labels (about eleven). The
+  // names (forty to fifty times the body), and short labels (eleven to sixteen). The
   // defaults stop each long before it costs more than a few hundred MB.
   std::string families;
   for (int i = 0; i < 60000; ++i) families += "m" + std::to_string(i) + " 1\n";
@@ -1175,31 +1236,43 @@ TEST(OpenmetricsParser, DefaultLimitsStopABodyBuiltToExhaustMemory) {
 
 TEST(OpenmetricsParser, InterleavedTextFamiliesAreReadInLinearTime) {
   // Regrouping a sample into a family read earlier must cost what appending
-  // to the family being read costs: two families alternating line by line
-  // against the same lines grouped. A per-switch reallocation made this
-  // quadratic - minutes at the default series limit.
-  std::string interleaved;
-  std::string grouped_a;
-  std::string grouped_b;
-  // 20k per family: linear, a few milliseconds; quadratic, seconds - large
-  // enough to fail clearly, small enough not to stall CI when it does.
-  for (int i = 0; i < 20000; ++i) {
-    const std::string a = "a{i=\"" + std::to_string(i) + "\"} 1\n";
-    const std::string b = "b{i=\"" + std::to_string(i) + "\"} 1\n";
-    interleaved += a + b;
-    grouped_a += a;
-    grouped_b += b;
-  }
-  const auto seconds = [](const std::string &body) {
-    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-    const om::result parsed = om::parse(body, text);
-    EXPECT_TRUE(parsed.ok()) << parsed.error;
-    EXPECT_EQ(parsed.families.size(), 2u);
-    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  // to the family being read costs, however many families there are to go
+  // back to: two families alternating line by line, and 10,000 families taken
+  // round-robin, each against the same lines grouped. A per-switch
+  // reallocation made the first quadratic, a per-switch scan of the families
+  // would make the second so. Each body is timed warm, best of three, so the
+  // order they run in does not favour either.
+  const auto seconds = [](const std::string &body, const std::size_t families) {
+    double best = 0;
+    for (int round = 0; round < 3; ++round) {
+      const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+      const om::result parsed = om::parse(body, text);
+      const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+      EXPECT_TRUE(parsed.ok()) << parsed.error;
+      EXPECT_EQ(parsed.families.size(), families);
+      if (round == 0 || took < best) best = took;
+    }
+    return best;
   };
-  const double grouped = seconds(grouped_a + grouped_b);
-  const double alternating = seconds(interleaved);
-  EXPECT_LT(alternating, 4 * grouped + 0.25) << "grouped: " << grouped << "s, interleaved: " << alternating << "s";
+  struct shape {
+    std::size_t families;
+    std::size_t per_family;
+  };
+  // Linear, each body parses in milliseconds; quadratic, in seconds - large
+  // enough to fail clearly, small enough not to stall CI when it does.
+  for (const shape &sh : {shape{2, 20000}, shape{10000, 20}}) {
+    std::string interleaved;
+    std::string grouped;
+    for (std::size_t i = 0; i < sh.per_family; ++i) {
+      for (std::size_t f = 0; f < sh.families; ++f) interleaved += "f" + std::to_string(f) + "{i=\"" + std::to_string(i) + "\"} 1\n";
+    }
+    for (std::size_t f = 0; f < sh.families; ++f) {
+      for (std::size_t i = 0; i < sh.per_family; ++i) grouped += "f" + std::to_string(f) + "{i=\"" + std::to_string(i) + "\"} 1\n";
+    }
+    const double together = seconds(grouped, sh.families);
+    const double apart = seconds(interleaved, sh.families);
+    EXPECT_LT(apart, 4 * together + 0.25) << sh.families << " families: grouped " << together << "s, interleaved " << apart << "s";
+  }
 }
 
 TEST(OpenmetricsParser, LabelsCountAgainstTheirLimits) {

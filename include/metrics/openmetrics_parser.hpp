@@ -51,9 +51,12 @@
 // family when it has declared a type that can pair and its first sample is
 // one of its own. Anything else first - another family, `# EOF`, a sample
 // that is not its own - makes the line that repeated the name a late line for
-// the earlier family, and that line is the error. A body that ends inside the
-// block before it has declared a type reads as truncated; the block is not
-// kept. A counter and a histogram or summary of one name both own `X_created`,
+// the earlier family, and that line is the error. `# EOF` included, with or
+// without its line feed. When the parse stops inside the block before any of
+// that - the body ends on a line boundary, or one of the block's own lines
+// fails - an untyped block is not kept, since it cannot be told apart from
+// late lines for the earlier family, and a typed one is kept as declared, as
+// any family is kept with what it read before the parse stopped. A counter and a histogram or summary of one name both own `X_created`,
 // and client_golang writes it for each when created timestamps are on, so
 // that one sample name may appear in both families of a pair.
 //
@@ -70,7 +73,14 @@
 // reported ahead of anything else wrong with the later line. Families read
 // before it are kept, so a caller can choose between discarding the scrape and
 // using what arrived; a family whose own metadata line failed with no samples
-// yet, and a repeated name's block that never became a pair, are not.
+// yet is not, nor is a repeated name's block that was refused or never
+// declared its type.
+//
+// Every line is read once for its kind and leading name, and judged in one
+// order: a line the body ends in the middle of is refused unread (only an
+// OpenMetrics `# EOF`, or a blank line after it, may end the body without a
+// line feed); then the repeated-name rule; then `max_line_bytes`; then the
+// line is parsed.
 //
 // Time is linear in the body: a sample appends to the family being read, or -
 // in the Prometheus text format - to the family it is regrouped into, at the
@@ -81,13 +91,15 @@
 // Memory is the text of the body - a family name is held twice, by its family
 // and by the index - plus a fixed overhead for each family, sample and label,
 // which `limits` bounds. Measured with libstdc++ on x86-64: a family costs
-// 250 to 330 bytes with its first sample, each further sample about 85 (a
-// family's list grows by doubling, so it may reserve up to as much again,
-// mostly never touched), a label 64 plus 32 for each of its name and value
-// too long for the short-string buffer (15 bytes). With no limits, a body
-// costs eleven to sixteen times its size when it is label-heavy, twenty when
-// it is one family of short samples, and forty to fifty when it is
-// single-sample families with names a few characters long. With the default
+// 235 to 330 bytes with its first sample, and a label 64 plus 32 for each of
+// its name and value too long for the short-string buffer (15 bytes). Each
+// further sample is about 85 bytes in use, but a family's list grows by
+// doubling, so up to twice that is allocated: Linux keeps only the touched
+// part resident, while Windows commits all of it. With no limits, a body costs
+// eleven to sixteen times its size when it is label-heavy, twenty resident
+// and up to forty allocated when it is one family of short samples, and forty
+// to fifty when it is single-sample families with names a few characters
+// long. With the default
 // limits, the worst body - 16-character label names and values up to
 // `max_labels` - costs about 350 MB beyond its text.
 //
@@ -165,7 +177,10 @@ struct limits {
   // short, label-heavy lines.
   std::size_t max_labels = 2500000;
   // The longest line, in bytes, the parser will read. A line over it is
-  // reported without being read.
+  // reported without being parsed. Inside the block of a repeated OpenMetrics
+  // name its leading name is read first, and a line that is not the block's
+  // own is reported as the repeated name instead (see above); a line the body
+  // ends in the middle of is reported as cut, whatever its length.
   std::size_t max_line_bytes = 1024 * 1024;
 };
 

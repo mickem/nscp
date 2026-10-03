@@ -323,6 +323,22 @@ struct match {
   std::size_t same_name = npos;
 };
 
+enum class line_kind { blank, eof, eof_with_text, comment, metadata, sample };
+
+// What a line is, from its first characters (see `parser::shape_of`).
+struct line_shape {
+  line_kind what = line_kind::blank;
+  // `HELP`, `TYPE` or `UNIT` for metadata, the first word for a comment.
+  std::string_view keyword;
+  // The metric name the line starts with, after the keyword for metadata;
+  // empty when there is none.
+  std::string_view name;
+  // Where the line goes on after the name.
+  std::size_t after_name = 0;
+  // Metadata only: the name is followed by a blank or the end of the line.
+  bool whole_name = false;
+};
+
 // Whether two families of one name are the pair client_golang writes: exactly
 // one of them a counter.
 bool pair_types(const family_type a, const family_type b) { return (a == family_type::counter) != (b == family_type::counter); }
@@ -339,49 +355,51 @@ class parser {
   // by a later one (see `refuse_block`).
   bool fail(const std::string &why) { return fail_on(why, line_number_); }
 
-  // Reads one line, without its line feed.
-  bool line(const std::string_view raw) {
+  // Reads one line, without its line feed. Everything about a line is decided
+  // here, in one order, from one reading of what the line is (`shape_of`):
+  //
+  //   1. A line the body ends in the middle of is refused, unread: it cannot
+  //      be trusted even for its name. Only an OpenMetrics `# EOF`, or a blank
+  //      line after one, may end the body without its line feed.
+  //   2. While a repeated name's block is tentative, a line that is not one of
+  //      the block's own makes the repeated name the first line at fault, and
+  //      that is reported before anything else wrong with this line. Its name
+  //      is all that is read of it, so an oversized line costs no more.
+  //   3. A line over `max_line_bytes` is refused, unparsed.
+  //   4. The line is parsed.
+  bool read_line(const std::string_view raw, const bool terminated) {
+    const std::string_view text = normalise(raw);
+    if (!terminated && !(format_ == format::openmetrics_1_0 && (is_eof_marker(text) || (out_.saw_eof && text.empty())))) {
+      return fail("the body ends in the middle of a line");
+    }
+    const line_shape shape = shape_of(text);
+    if (!block_admits(shape)) return refuse_block();
+    if (bounds_.max_line_bytes != 0 && raw.size() > bounds_.max_line_bytes) {
+      return fail("line longer than " + std::to_string(bounds_.max_line_bytes) + " bytes");
+    }
     // Blank lines are not part of OpenMetrics, but the Prometheus text format
     // allows them, some exporters separate families with one, and some end the
     // body with one after `# EOF`.
-    const std::string_view text = normalise(raw);
-    if (text.empty()) return true;
+    if (shape.what == line_kind::blank) return true;
     // OpenMetrics ends the document at `# EOF`. Anything after it is either a
     // second document glued on or a proxy appending to the body, and neither
     // belongs in this scrape.
     if (out_.saw_eof) return fail("text after '# EOF'");
-    if (text.front() == '#') return comment(text);
-    return sample_line(text);
-  }
-
-  // Called for every whole line before anything else is read from it. While a
-  // repeated name's block is tentative, a line that is not one of the block's
-  // own - its metadata, then its first sample, a comment or a blank - means the
-  // block was never the second family of a pair, so the line that repeated the
-  // name is the first line at fault, and it is reported before anything that
-  // might also be wrong with this one (a bad value, a limit, its length). Only
-  // the name is read, so an oversized line is classified as cheaply as any.
-  bool block_takes(const std::string_view raw) {
-    if (current_ == npos || !state_[current_].tentative) return true;
-    const std::string_view text = normalise(raw);
-    if (text.empty()) return true;
-    const std::string &name = out_.families[current_].name;
-    cursor c;
-    c.line = text;
-    if (text.front() == '#') {
-      if (is_eof_marker(text)) return refuse_block();
-      c.at = 1;
-      c.skip_blanks();
-      const std::string_view keyword = c.token();
-      if (keyword != "HELP" && keyword != "TYPE" && keyword != "UNIT") return true;
-      c.skip_blanks();
-      const std::string_view named = metric_name(c);
-      if (named == name && (c.done() || is_blank(c.peek()))) return true;
-      return refuse_block();
+    switch (shape.what) {
+      case line_kind::eof:
+        out_.saw_eof = true;
+        return true;
+      case line_kind::eof_with_text:
+        return fail("unexpected text after '# EOF'");
+      case line_kind::metadata:
+        return metadata_line(text, shape);
+      case line_kind::sample:
+        return sample_line(text, shape);
+      case line_kind::blank:
+      case line_kind::comment:
+        break;
     }
-    const std::string_view sampled = metric_name(c);
-    if (state_[current_].type && !sampled.empty() && owns(current_, sampled)) return true;
-    return refuse_block();
+    return true;
   }
 
   // After the last line read, whether the body ended there or a line failed.
@@ -391,6 +409,10 @@ class parser {
   // apart from late lines for the earlier family, and is what a body cut
   // there looks like.
   void finish() {
+    // A block still tentative when the body said it was complete was never a
+    // pair. The line reader refuses it at `# EOF` already; this is the same
+    // rule, kept where the parse ends so that no path to the end skips it.
+    if (current_ != npos && state_[current_].tentative && out_.saw_eof && out_.ok()) refuse_block();
     if (current_ == npos || current_ + 1 != out_.families.size() || !out_.families[current_].samples.empty()) return;
     family_state &seen = state_[current_];
     if (current_block_failed_ || (seen.tentative && !seen.type)) {
@@ -421,31 +443,79 @@ class parser {
     return fail_on(declared_again(out_.families[current_].name), block_opened_on_);
   }
 
-  bool comment(const std::string_view text) {
-    if (format_ == format::openmetrics_1_0 && is_eof_marker(text)) {
-      out_.saw_eof = true;
-      return true;
+  // Whether a line can be part of the tentative block of a repeated name: a
+  // blank line, a comment, metadata naming the block, or - once the block has
+  // declared its type - one of its own samples. A `# EOF` cannot.
+  bool block_admits(const line_shape &shape) const {
+    if (current_ == npos || !state_[current_].tentative) return true;
+    switch (shape.what) {
+      case line_kind::blank:
+      case line_kind::comment:
+        return true;
+      case line_kind::eof:
+      case line_kind::eof_with_text:
+        return false;
+      case line_kind::metadata:
+        return shape.whole_name && shape.name == out_.families[current_].name;
+      case line_kind::sample:
+        return state_[current_].type && !shape.name.empty() && owns(current_, shape.name);
     }
+    return false;
+  }
+
+  // What a line is - its kind, and the keyword and name it starts with - read
+  // once, for the block rule and for the parse alike, so that the two can never
+  // disagree about a line.
+  line_shape shape_of(const std::string_view text) const {
+    line_shape shape;
+    if (text.empty()) return shape;
     cursor c;
     c.line = text;
+    if (text.front() != '#') {
+      shape.what = line_kind::sample;
+      shape.name = metric_name(c);
+      shape.after_name = c.at;
+      return shape;
+    }
+    if (format_ == format::openmetrics_1_0 && is_eof_marker(text)) {
+      shape.what = line_kind::eof;
+      return shape;
+    }
     c.at = 1;
     c.skip_blanks();
-    const std::string_view keyword = c.token();
+    shape.keyword = c.token();
     // In OpenMetrics `# EOF` is the terminator and nothing else; in the
     // Prometheus text format it is a comment like any other.
-    if (format_ == format::openmetrics_1_0 && keyword == "EOF") return fail("unexpected text after '# EOF'");
+    if (format_ == format::openmetrics_1_0 && shape.keyword == "EOF") {
+      shape.what = line_kind::eof_with_text;
+      return shape;
+    }
+    if (shape.keyword != "HELP" && shape.keyword != "TYPE" && shape.keyword != "UNIT") {
+      shape.what = line_kind::comment;
+      return shape;
+    }
+    shape.what = line_kind::metadata;
+    if (c.done() || !is_blank(c.peek())) return shape;
+    c.skip_blanks();
+    shape.name = metric_name(c);
+    shape.after_name = c.at;
+    // `foo.bar` is not `foo` with something after it: the line names no
+    // family at all.
+    shape.whole_name = !shape.name.empty() && (c.done() || is_blank(c.peek()));
+    return shape;
+  }
+
+  bool metadata_line(const std::string_view text, const line_shape &shape) {
+    const std::string_view keyword = shape.keyword;
     const bool help = keyword == "HELP";
     const bool type = keyword == "TYPE";
     const bool unit = keyword == "UNIT";
-    // Anything else is a comment.
-    if (!help && !type && !unit) return true;
-    if (c.done() || !is_blank(c.peek())) return fail("expected a metric name after '# " + std::string(keyword) + "'");
-    c.skip_blanks();
-    const std::string_view name = metric_name(c);
+    const std::string_view name = shape.name;
     if (name.empty()) return fail("expected a metric name after '# " + std::string(keyword) + "'");
-    // `foo.bar` is not `foo` with something after it: the line names no
-    // family at all, so it says nothing about the one being read.
-    if (!c.done() && !is_blank(c.peek())) return fail("invalid character in metric name '" + std::string(name) + std::string(c.token()) + "'");
+    cursor c;
+    c.line = text;
+    c.at = shape.after_name;
+    if (!shape.whole_name) return fail("invalid character in metric name '" + std::string(name) + std::string(c.token()) + "'");
     c.skip_blanks();
 
     // A line that fails from here on belongs to the family it names. When that
@@ -623,8 +693,14 @@ class parser {
   // exporters rely on; so does this one.
   std::size_t family_for(const std::string_view name) {
     if (current_ != npos && state_[current_].tentative) {
-      // `block_takes()` let this sample through, so it is one of the block's
-      // own: the block is the second family of a pair.
+      // The first sample after a repeated name decides: one of the block's own
+      // makes it the second family of a pair. The line reader lets no other
+      // sample through; this is the same rule, kept where the sample is
+      // placed, so that no path can attach a stranger to the block.
+      if (!state_[current_].type || !owns(current_, name)) {
+        refuse_block();
+        return npos;
+      }
       state_[current_].tentative = false;
       return current_;
     }
@@ -653,11 +729,12 @@ class parser {
     return c.line.substr(start, c.at - start);
   }
 
-  bool sample_line(const std::string_view text) {
+  bool sample_line(const std::string_view text, const line_shape &shape) {
     cursor c;
     c.line = text;
+    c.at = shape.after_name;
     sample parsed;
-    const std::string_view name = metric_name(c);
+    const std::string_view name = shape.name;
     if (name.empty()) return fail("expected a metric name at the start of the line");
     parsed.name = std::string(name);
     bool separated = false;
@@ -852,40 +929,18 @@ const char *type_name(const family_type type) {
 
 namespace {
 
-// Reads lines until the body ends or one fails.
-void read_lines(const std::string_view text, const format body_format, const limits &bounds, parser &reader, result &out) {
+// Splits the body into lines and hands each to the parser, until the body
+// ends or a line fails. Both formats end every line, the last one included,
+// with a line feed; whether a line without one may still be read is the
+// parser's to decide (see `parser::read_line`).
+void read_lines(const std::string_view text, parser &reader) {
   std::size_t start = 0;
   std::size_t number = 0;
   while (start < text.size()) {
     const std::size_t end = text.find('\n', start);
     reader.begin_line(++number);
     const bool terminated = end != std::string_view::npos;
-    const std::size_t length = (terminated ? end : text.size()) - start;
-    // A line cut mid-way cannot be trusted even for its name, so only a whole
-    // one is classified.
-    if (terminated && !reader.block_takes(text.substr(start, length))) return;
-    if (bounds.max_line_bytes != 0 && length > bounds.max_line_bytes) {
-      reader.fail("line longer than " + std::to_string(bounds.max_line_bytes) + " bytes");
-      return;
-    }
-    const std::string_view line = text.substr(start, length);
-    // Both formats end every line, the last one included, with a line feed. A
-    // body that stops without one was cut off - by a size cap, a timeout or a
-    // dying exporter - and its last line cannot be trusted even when it reads:
-    // `foo 12` cut to `foo 1` is a perfectly good sample. The one exception is
-    // an OpenMetrics terminator, or a blank line after it, since plenty of
-    // exporters leave its line feed off. A Prometheus text body has no
-    // terminator, so there a `# EOF` is a comment that may have been cut from
-    // a longer one, and the body is refused like any other.
-    if (!terminated) {
-      const std::string_view last = normalise(line);
-      const bool terminator = body_format == format::openmetrics_1_0 && (is_eof_marker(last) || (out.saw_eof && last.empty()));
-      if (!terminator) {
-        reader.fail("the body ends in the middle of a line");
-        return;
-      }
-    }
-    if (!reader.line(line)) return;
+    if (!reader.read_line(text.substr(start, (terminated ? end : text.size()) - start), terminated)) return;
     if (!terminated) return;
     start = end + 1;
   }
@@ -896,7 +951,7 @@ void read_lines(const std::string_view text, const format body_format, const lim
 result parse(const std::string &body, const format body_format, const limits &bounds) {
   result out;
   parser reader(out, body_format, bounds);
-  read_lines(body, body_format, bounds, reader, out);
+  read_lines(body, reader);
   reader.finish();
   return out;
 }
