@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <locale>
@@ -93,7 +94,11 @@ class number_reader {
     stream_.str(std::string(raw));
     double value = 0;
     stream_ >> value;
-    if (stream_.fail()) return false;
+    // A decimal that does not fit a double (`1e400`) is refused rather than
+    // read as infinity: the non-finite values have their own spellings, and
+    // whether the stream flags the overflow or hands back HUGE_VAL differs
+    // between standard libraries.
+    if (stream_.fail() || std::isinf(value)) return false;
     out = value;
     return true;
   }
@@ -227,18 +232,16 @@ class parser {
   // when the line cannot be read.
   bool line(std::string_view text) {
     if (!text.empty() && text[text.size() - 1] == '\r') text = text.substr(0, text.size() - 1);
-    if (out_.saw_eof) {
-      // OpenMetrics ends the document at `# EOF`. Anything after it is either
-      // a second document glued on or a proxy appending to the body, and
-      // neither belongs in this scrape.
-      if (!text.empty()) return fail("text after '# EOF'");
-      return true;
-    }
     // Blank lines are not part of OpenMetrics, but the Prometheus text format
-    // allows them and some exporters separate families with one.
+    // allows them and some exporters separate families with one - or end the
+    // body with one after `# EOF`.
     std::size_t first = 0;
     while (first < text.size() && is_blank(text[first])) ++first;
     if (first == text.size()) return true;
+    // OpenMetrics ends the document at `# EOF`. Anything after it is either a
+    // second document glued on or a proxy appending to the body, and neither
+    // belongs in this scrape.
+    if (out_.saw_eof) return fail("text after '# EOF'");
     text = text.substr(first);
     if (text[0] == '#') return comment(text);
     return sample_line(text);

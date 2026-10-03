@@ -284,3 +284,24 @@ TEST(OpenmetricsRoundTrip, PrometheusTextDialectLandsOnTheSameFamilies) {
     }
   }
 }
+
+TEST(OpenmetricsRoundTrip, EveryTruncationOfOurOwnBodyIsRefusedOrEndsOnALine) {
+  // The body the agent actually serves, cut where a size cap or a dropped
+  // connection would cut it: a prefix ending mid-line is never read, and one
+  // ending on a line feed reads as the families it got through - never a
+  // family with more samples than the full body had.
+  for (const openmetrics::dialect dialect : {openmetrics::dialect::openmetrics_1_0, openmetrics::dialect::prometheus_text_0_0_4}) {
+    const std::string body = openmetrics::render(snapshot(), dialect);
+    const om::result full = om::parse(body);
+    ASSERT_TRUE(full.ok()) << full.error;
+    for (std::size_t length = 0; length < body.size(); ++length) {
+      const om::result parsed = om::parse(body.substr(0, length));
+      // `# EOF` without its line feed is the one unterminated line accepted.
+      const bool bare_eof = length == body.size() - 1;
+      const bool on_a_line = length == 0 || body[length - 1] == '\n' || bare_eof;
+      EXPECT_EQ(parsed.ok(), on_a_line) << "cut at " << length << ": " << parsed.error;
+      EXPECT_EQ(parsed.saw_eof, bare_eof) << "cut at " << length;
+      EXPECT_LE(parsed.sample_count, full.sample_count);
+    }
+  }
+}
