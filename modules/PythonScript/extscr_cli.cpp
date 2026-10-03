@@ -104,7 +104,12 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     PB::Registry::RegistryRequestMessage rrm;
     PB::Registry::RegistryResponseMessage r_response;
     PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
-    payload->mutable_inventory()->set_fetch_all(true);
+    // Names only. For a QUERY inventory fetch_all makes the core run every
+    // registered command with `help-pb` to collect its parameters, which this
+    // listing never reads: GET /api/v2/scripts/<runtime> executed every check
+    // on the box - each script handler included, with whatever side effects
+    // it has - just to print their names.
+    payload->mutable_inventory()->set_fetch_all(false);
     payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY);
     std::string pb_response;
     provider_->get_core()->registry_query(rrm.SerializeAsString(), pb_response);

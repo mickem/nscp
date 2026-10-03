@@ -156,6 +156,29 @@ bool LUAScript::unloadModule() {
   return true;
 }
 
+namespace {
+// The core asks a command for its parameters by running it with the single
+// argument `help-pb` (registry_query_handler::inventory_queries, behind
+// /api/v2/queries/<name>/help). A script handler has no parameters to declare
+// and cannot tell that request from a real one, so handing it over ran the
+// check - side effects and all - only to have its answer discarded.
+bool is_help_request(const PB::Commands::QueryRequestMessage::Request &request) { return request.arguments_size() == 1 && request.arguments(0) == "help-pb"; }
+
+// Answer it here instead: a command the scripts registered declares no
+// parameters, anything else is not ours.
+void answer_help_request(const scripts::script_manager<lua::lua_traits> &scripts, const PB::Commands::QueryRequestMessage::Request &request,
+                         PB::Commands::QueryResponseMessage::Response *response) {
+  if (!scripts.find_command(scripts::nscp::tags::query_tag, request.command()) &&
+      !scripts.find_command(scripts::nscp::tags::simple_query_tag, request.command())) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to find command: " + request.command());
+  }
+  response->set_command(request.command());
+  // An empty ParameterDetails, which serialises to nothing at all.
+  response->set_data("");
+  response->set_result(PB::Common::ResultCode::OK);
+}
+}  // namespace
+
 void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                const PB::Commands::QueryRequestMessage &request_message) {
   // Hold our own reference and register as a dispatcher for the whole call:
@@ -166,6 +189,7 @@ void LUAScript::query_fallback(const PB::Commands::QueryRequestMessage::Request 
   if (!scripts) return nscapi::protobuf::functions::set_response_bad(*response, "Module is not loaded");
   const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
   if (!dispatch.entered()) return nscapi::protobuf::functions::set_response_bad(*response, "Module is unloading");
+  if (is_help_request(request)) return answer_help_request(*scripts, request, response);
   boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command(scripts::nscp::tags::query_tag, request.command());
   if (!cmd) {
     cmd = scripts->find_command(scripts::nscp::tags::simple_query_tag, request.command());
