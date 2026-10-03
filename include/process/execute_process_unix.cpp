@@ -30,6 +30,7 @@
 #include <limits>
 #include <list>
 #include <mutex>
+#include <shared_mutex>
 #include <bytes/buffer.hpp>
 #include <process/execute_process.hpp>
 #include <string>
@@ -133,16 +134,22 @@ namespace {
 //
 // The registry must never hold a pid the kernel may have handed to another
 // process, and must never miss a live child:
-//  - an entry is added in the parent under children_mutex, which is held across
-//    fork(), so kill_all() cannot run between the fork and the registration;
+//  - fork_gate is held shared from just before fork() until the child is
+//    registered, and kill_all() takes it exclusively, so kill_all() cannot run
+//    between a fork and its registration. Shared, so that script launches do
+//    not queue behind one another's fork() (a page-table copy of the whole
+//    agent); only an unload waits for the launches in flight;
 //  - an entry is removed before its pid is reaped: the parent waits for the
 //    child with WNOWAIT, which leaves it a zombie whose pid cannot be reused,
 //    takes it out of the registry, and only then calls waitpid().
+// children_mutex guards the list itself and is only ever held briefly. Lock
+// order: fork_gate before children_mutex.
 struct running_child {
   pid_t pid;
   bool group;
   bool unloading;
 };
+std::shared_mutex fork_gate;
 std::mutex children_mutex;
 std::list<running_child> children;
 
@@ -154,8 +161,8 @@ void signal_child(pid_t pid, bool group, int sig) {
   kill(pid, sig);
 }
 
-// Take `pid` out of the registry. Returns whether kill_all() had ended it.
-// Idempotent, so the scope guard below can call it again on every path.
+// Take `pid` out of the registry. Returns whether kill_all() signalled it
+// (finish_child() decides whether that is what ended it). Idempotent, so the scope guard below can call it again on every path.
 bool unregister_child(pid_t pid) {
   const std::lock_guard<std::mutex> lock(children_mutex);
   bool unloading = false;
@@ -199,7 +206,7 @@ wait_result wait_exited(pid_t pid, bool block) {
   }
 }
 
-// Unregister, then reap. Returns whether kill_all() had ended the child.
+// Unregister, then reap. Returns whether kill_all() signalled the child.
 bool reap_child(pid_t pid, int& status) {
   const bool unloading = unregister_child(pid);
   status = 0;
@@ -208,35 +215,49 @@ bool reap_child(pid_t pid, int& status) {
   return unloading;
 }
 
-const char* signal_name(int sig) {
-  switch (sig) {
-    case SIGHUP:
-      return "SIGHUP";
-    case SIGINT:
-      return "SIGINT";
-    case SIGQUIT:
-      return "SIGQUIT";
-    case SIGILL:
-      return "SIGILL";
-    case SIGABRT:
-      return "SIGABRT";
-    case SIGBUS:
-      return "SIGBUS";
-    case SIGFPE:
-      return "SIGFPE";
-    case SIGKILL:
-      return "SIGKILL";
-    case SIGSEGV:
-      return "SIGSEGV";
-    case SIGPIPE:
-      return "SIGPIPE";
-    case SIGALRM:
-      return "SIGALRM";
-    case SIGTERM:
-      return "SIGTERM";
-    default:
-      return nullptr;
+// "SIGKILL" for 9. glibc 2.32 and later know every signal of the platform;
+// elsewhere the table covers the POSIX ones, and anything else (a realtime
+// signal) is left to the number.
+std::string signal_name(int sig) {
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32))
+  if (const char* abbrev = sigabbrev_np(sig)) return std::string("SIG") + abbrev;
+#endif
+  static const struct {
+    int sig;
+    const char* name;
+  } names[] = {{SIGHUP, "SIGHUP"},   {SIGINT, "SIGINT"},       {SIGQUIT, "SIGQUIT"},   {SIGILL, "SIGILL"},   {SIGTRAP, "SIGTRAP"},
+               {SIGABRT, "SIGABRT"}, {SIGBUS, "SIGBUS"},       {SIGFPE, "SIGFPE"},     {SIGKILL, "SIGKILL"}, {SIGUSR1, "SIGUSR1"},
+               {SIGSEGV, "SIGSEGV"}, {SIGUSR2, "SIGUSR2"},     {SIGPIPE, "SIGPIPE"},   {SIGALRM, "SIGALRM"}, {SIGTERM, "SIGTERM"},
+               {SIGCHLD, "SIGCHLD"}, {SIGCONT, "SIGCONT"},     {SIGSTOP, "SIGSTOP"},   {SIGTSTP, "SIGTSTP"}, {SIGTTIN, "SIGTTIN"},
+               {SIGTTOU, "SIGTTOU"}, {SIGURG, "SIGURG"},       {SIGXCPU, "SIGXCPU"},   {SIGXFSZ, "SIGXFSZ"}, {SIGVTALRM, "SIGVTALRM"},
+               {SIGPROF, "SIGPROF"}, {SIGSYS, "SIGSYS"}};
+  for (const auto& n : names) {
+    if (n.sig == sig) return n.name;
   }
+  return std::string();
+}
+
+// End a child that is still (or may still be) running: SIGTERM, up to two
+// seconds for it to exit, then SIGKILL, then wait for it - without reaping it.
+// The SIGKILL goes out whatever the SIGTERM achieved. The leader exiting says
+// nothing about the rest of its group (a helper that traps SIGTERM outlives a
+// shell that does not), and a wait that failed says nothing about either.
+// Signalling after the leader has exited is safe because it has not been
+// reaped yet: an unreaped zombie keeps its pid, and with it the group id,
+// reserved. An agent started with SIGCHLD ignored has its children reaped by
+// the kernel, which voids that guarantee - as it did for every launcher before
+// this one - and the kill is still the safer side to err on.
+void terminate_child(pid_t pid, bool group) {
+  signal_child(pid, group, SIGTERM);
+  for (int i = 0; i < 20; ++i) {
+    if (wait_exited(pid, false) != wait_result::running) break;
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 100 * 1000 * 1000;  // 100ms
+    nanosleep(&ts, nullptr);
+  }
+  signal_child(pid, group, SIGKILL);
+  wait_exited(pid, true);
 }
 }  // namespace
 
@@ -251,6 +272,11 @@ void process::kill_all() {
   // it has no group of its own to signal, and a helper it backgrounded keeps
   // running - and, holding the output pipe, keeps that worker waiting until
   // the script's timeout.
+  //
+  // A child that finished but has not been reaped yet is marked too - the
+  // SIGKILL does nothing to it - which is why finish_child() only believes the
+  // mark when the status says the child died of SIGKILL.
+  const std::unique_lock<std::shared_mutex> gate(fork_gate);
   const std::lock_guard<std::mutex> lock(children_mutex);
   for (running_child& c : children) {
     c.unloading = true;
@@ -325,14 +351,18 @@ NSCAPI::nagiosReturn map_exit_status(int status) {
 // The result of a reaped child: its exit code, or UNKNOWN with a message that
 // says why when it did not exit by itself. Whatever the script printed before
 // it died is kept below the message.
+// `unloading` is only believed when the child died of SIGKILL: kill_all() also
+// marks a child that had already exited by itself and was waiting to be reaped.
+bool killed_by_unload(bool unloading, int status) { return unloading && WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL; }
+
 NSCAPI::nagiosReturn finish_child(const process::exec_arguments& args, int status, bool unloading, std::string& output) {
   std::string reason;
-  if (unloading) {
+  if (killed_by_unload(unloading, status)) {
     reason = "Command " + args.alias + " was killed: the module is unloading";
   } else if (WIFSIGNALED(status)) {
     const int sig = WTERMSIG(status);
-    const char* name = signal_name(sig);
-    reason = "Command " + args.alias + " was terminated by signal " + std::to_string(sig) + (name ? std::string(" (") + name + ")" : std::string());
+    const std::string name = signal_name(sig);
+    reason = "Command " + args.alias + " was terminated by signal " + std::to_string(sig) + (name.empty() ? std::string() : " (" + name + ")");
   } else {
     return map_exit_status(status);
   }
@@ -451,16 +481,16 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   }
 
   // The registry node is allocated before the fork, so registering it is a
-  // splice that cannot throw while children_mutex is held.
+  // splice that cannot throw while the locks are held.
   std::list<running_child> node;
   node.push_back(running_child{0, args.kill_tree, false});
 
   pid_t pid;
   int fork_errno = 0;
   {
-    // Held across fork() so kill_all() cannot run between the fork and the
-    // registration. The child inherits the mutex locked and never touches it.
-    const std::lock_guard<std::mutex> lock(children_mutex);
+    // Held (shared) across fork() so kill_all() cannot run between the fork
+    // and the registration. The child inherits it held and never touches it.
+    const std::shared_lock<std::shared_mutex> gate(fork_gate);
     pid = fork();
     fork_errno = errno;
     if (pid == 0) {
@@ -491,6 +521,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     }
     if (pid > 0) {
       node.front().pid = pid;
+      const std::lock_guard<std::mutex> lock(children_mutex);
       children.splice(children.end(), node);
     }
   }
@@ -517,25 +548,11 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   close(pipefd[0]);
 
   if (timed_out) {
-    // Graceful first, hard second. With `kill tree` both signals go to the
-    // process group, so a helper the script backgrounded - the usual reason
-    // the pipe never closed - dies too.
-    signal_child(pid, args.kill_tree, SIGTERM);
-    wait_result waited = wait_result::running;
-    for (int i = 0; i < 20; ++i) {
-      waited = wait_exited(pid, false);
-      if (waited != wait_result::running) break;
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 100 * 1000 * 1000;  // 100ms
-      nanosleep(&ts, nullptr);
-    }
-    if (waited == wait_result::running) {
-      signal_child(pid, args.kill_tree, SIGKILL);
-      wait_exited(pid, true);
-    }
+    // With `kill tree` both signals go to the process group, so a helper the
+    // script backgrounded - the usual reason the pipe never closed - dies too.
+    terminate_child(pid, args.kill_tree);
     int status = 0;
-    if (reap_child(pid, status)) {
+    if (killed_by_unload(reap_child(pid, status), status)) {
       // kill_all() got there first; that, not the timeout, is why it ended.
       output.clear();
       return finish_child(args, status, true, output);
@@ -544,17 +561,35 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
 
+  if (had_error) {
+    // The output can no longer be read, so whatever the script goes on to do
+    // cannot become a result. End it now rather than wait for it with no
+    // deadline: the timeout only bounded the drain.
+    terminate_child(pid, args.kill_tree);
+    int status = 0;
+    const bool unloading = reap_child(pid, status);
+    if (killed_by_unload(unloading, status)) {
+      output.clear();
+      return finish_child(args, status, true, output);
+    }
+    const std::string reason = "Command " + args.alias + " failed while its output was being read; killed";
+    output = output.empty() ? reason : reason + "\n" + output;
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+
   if (wait_exited(pid, true) == wait_result::failed) {
-    output = "Failed to wait for child: ";
-    output += errno_text(errno);
+    // The guard is about to drop the registration, after which nothing could
+    // reach the child any more - neither a later unload nor a reap. So it is
+    // killed here, on the same reasoning as terminate_child()'s SIGKILL.
+    const int saved = errno;
+    signal_child(pid, args.kill_tree, SIGKILL);
+    output = "Failed to wait for " + args.alias + ": ";
+    output += errno_text(saved);
+    output += "; killed";
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   int status = 0;
   const bool unloading = reap_child(pid, status);
-  if (had_error && !unloading && !WIFSIGNALED(status)) {
-    if (output.empty()) output = "Command " + args.alias + " failed during read";
-    return NSCAPI::query_return_codes::returnUNKNOWN;
-  }
   return finish_child(args, status, unloading, output);
 }
 

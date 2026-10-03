@@ -11,8 +11,10 @@
  *   - run-as settings (user/domain/password): refused, never silently ignored
  *   - kill tree: a backgrounded helper dies with the script on timeout and on
  *     kill_all(), and the script runs in a session of its own
- *   - kill_all() ends a running child and the check says why; a script killed
- *     by a signal says which; stdin is /dev/null
+ *   - kill_all() ends a running child and the check says why, but leaves the
+ *     result of one that had already finished alone; a script killed by a
+ *     signal says which; stdin is /dev/null
+ *   - the timeout SIGKILL reaches a helper that traps SIGTERM
  *
  * Everything runs real child processes against /bin/sh and friends, which is
  * deterministic on any POSIX build host.
@@ -223,7 +225,18 @@ bool is_terminated(pid_t pid) {
   const char* close_paren = n ? strrchr(buf, ')') : nullptr;
   return close_paren != nullptr && close_paren[1] == ' ' && close_paren[2] == 'Z';
 #else
-  return false;
+  // macOS and the BSDs have no procfs; ps reports a zombie with a state
+  // starting in Z there as well.
+  const std::string cmd = "ps -o stat= -p " + std::to_string(pid) + " 2>/dev/null";
+  FILE* p = popen(cmd.c_str(), "r");
+  if (!p) return false;
+  char buf[64] = {0};
+  const bool read = fgets(buf, sizeof(buf), p) != nullptr;
+  pclose(p);
+  if (!read) return true;  // no such process any more
+  const char* state = buf;
+  while (*state == ' ') ++state;
+  return *state == 'Z';
 #endif
 }
 
@@ -353,6 +366,72 @@ TEST(ExecuteProcessUnix, KillAllWithKillTreeEndsBackgroundedHelper) {
   ASSERT_GT(helper, 0);
   EXPECT_TRUE(wait_terminated(helper)) << "helper " << helper << " outlived the unload";
   kill(helper, SIGKILL);
+}
+
+TEST(ExecuteProcessUnix, KillTreeEndsHelperThatTrapsSigtermOnTimeout) {
+  // The shell dies of the SIGTERM; its helper ignores it. The SIGKILL must
+  // still reach the group although the leader has already exited.
+  const std::string pidfile = temp_pidfile();
+  process::exec_arguments args = make_args("trapper", 1);
+  args.argv = {"/bin/sh", "-c", "(trap '' TERM; exec /bin/sleep 60) & echo $! > " + pidfile + "; wait"};
+  args.kill_tree = true;
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  const pid_t helper = read_pid(pidfile);
+  unlink(pidfile.c_str());
+
+  EXPECT_EQ(ret, NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(output, "Command test_command didn't terminate within 1s; killed");
+  ASSERT_GT(helper, 0);
+  EXPECT_TRUE(wait_terminated(helper)) << "helper " << helper << " survived by trapping SIGTERM";
+  kill(helper, SIGKILL);
+}
+
+TEST(ExecuteProcessUnix, KillAllDoesNotRewriteAFinishedScript) {
+  // The script exits 0 but a helper it left behind (no kill tree, so outside
+  // any group the unload kills) holds the pipe, so the script sits unreaped
+  // while kill_all() runs. Its result is its own exit code, not "unloading".
+  const std::string pids = temp_pidfile();
+  process::exec_arguments args = make_args("finished", 60);
+  args.argv = {"/bin/sh", "-c", "/bin/sleep 60 & echo $$ $! > " + pids + "; exit 0"};
+  int ret = -1;
+  std::string output;
+  std::string escaped;
+  const auto worker = threads::start_guarded_thread(
+      "execute_process_test worker", [&] { ret = process::execute_process(args, output); }, [&escaped](const std::string& line) { escaped = line; });
+  ASSERT_TRUE(wait_for_file(pids));
+  long leader = 0, helper = 0;
+  {
+    FILE* f = nullptr;
+    for (int i = 0; i < 200 && helper == 0; ++i) {  // the line may be half written
+      f = fopen(pids.c_str(), "r");
+      if (f) {
+        if (fscanf(f, "%ld %ld", &leader, &helper) != 2) helper = 0;
+        fclose(f);
+      }
+      if (helper == 0) usleep(10 * 1000);
+    }
+  }
+  unlink(pids.c_str());
+  ASSERT_GT(leader, 0);
+  ASSERT_GT(helper, 0);
+  ASSERT_TRUE(wait_terminated(static_cast<pid_t>(leader))) << "the script did not exit";
+  process::kill_all();
+  kill(static_cast<pid_t>(helper), SIGKILL);  // lets the pipe close
+  worker->join();
+
+  EXPECT_EQ(escaped, "");
+  EXPECT_EQ(ret, 0);
+  EXPECT_EQ(output, "");
+}
+
+TEST(ExecuteProcessUnix, SignalOutsideTheCommonSetIsNamed) {
+  process::exec_arguments args = make_args("usr1");
+  args.argv = {"/bin/sh", "-c", "kill -USR1 $$"};
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, NSCAPI::query_return_codes::returnUNKNOWN);
+  EXPECT_EQ(output, "Command test_command was terminated by signal " + std::to_string(SIGUSR1) + " (SIGUSR1)");
 }
 
 TEST(ExecuteProcessUnix, ScriptKilledBySignalSaysSo) {

@@ -20,6 +20,9 @@ running scripts at all. Now:
 - A script ended by an unload reports `was killed: the module is unloading`,
   and one ended by a signal reports which (`was terminated by signal 9
   (SIGKILL)`), instead of an empty `UNKNOWN`.
+- If reading a script's output fails, the script is now ended the same way
+  as on a timeout and reports `failed while its output was being read;
+  killed`. Before, the agent waited for it with no deadline.
 - Every script reads stdin from `/dev/null`. Under the service that is what
   it already had; under `nscp test` a script no longer reads the terminal.
 
