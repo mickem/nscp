@@ -30,7 +30,7 @@ specified with or without the `.lua` extension. A `lib/` folder under `scripts/l
 
 | Command                                                    | What it does                                                                 |
 |------------------------------------------------------------|------------------------------------------------------------------------------|
-| `nscp lua list [--json]`                                   | List the files under `${scripts}/lua` (helpers in `lib` are left out)         |
+| `nscp lua list [--json] [--include-lib]`                   | List the files under `${scripts}/lua`; helpers in a `lib` folder only with `--include-lib` |
 | `nscp lua add --script <file> [--alias <name>]`            | Configure a script and enable the module; `--no-config` leaves the configuration alone |
 | `nscp lua add --script <file> --import <path> [--replace]` | Copy a script into `${scripts}/lua` first; an existing file is only overwritten with `--replace` |
 | `nscp lua show --script <file>`                            | Print a script                                                               |
@@ -52,18 +52,20 @@ A Lua script can hook into three lifecycle moments:
 
 - **Top-level code** — runs once when the script is loaded. Use this to register check commands,
   channel subscriptions, and event handlers.
-- `on_start` — optional global function, invoked after every script has loaded. Use it for work that
-  needs other modules to be ready.
+- `on_start` — optional global function, invoked once every script and every module has loaded. Use
+  it for work that needs other modules to be ready.
 - `main` — optional global function, invoked when the script is run from the command line.
 
-A script that does not parse, or whose top-level code or `on_start` raises an error, is logged and
-skipped; the other scripts load and start regardless, and whatever it registered before the error
-stays registered.
+A script that does not parse, or whose top-level code raises an error, is logged and never started:
+its `on_start` does not run, though whatever its top-level code registered before the error stays
+registered. An `on_start` that raises is logged. Either way the other scripts load and start
+regardless.
 
 A reload of the module (`Core():reload("LUAScript")`, or a reload of the service) loads every script
-afresh: the top-level code and `on_start` run again in a new Lua state, so any state a script kept in
-its variables starts over. Commands and channels a script no
-longer registers - because it was deleted, or changed - are gone after the reload.
+afresh: the top-level code runs again in a new Lua state, so any state a script kept in its variables
+starts over, and `on_start` runs again once the reload is complete - on a reload of the service, after
+any module the same reload enabled has loaded. Commands and channels a script no longer registers -
+because it was deleted, or changed - are gone after the reload.
 
 ### Top-level code
 
@@ -424,7 +426,10 @@ reg:simple_cmdline(name, function, description)
 ```
 
 Register a **command-line command**, run with `nscp client --module LUAScript --exec <name> [args...]`
-or from a script with `Core:simple_exec`. Callback signature is `(command, args) -> (code, message)`:
+or from a script with `Core:simple_exec`. Callback signature is `(command, args) -> (code, message)`.
+
+The module's own verbs come first, so a handler registered under one of their names is never reached:
+`help`, `execute`, `lua-script`, `lua-run`, `add`, `install`, `list`, `show` and `delete`.
 
 ```lua
 local function do_something(command, args)
