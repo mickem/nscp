@@ -14,11 +14,13 @@ class simple_console_logger : public log_driver_interface_impl {
   std::string format_;
   std::vector<char> buf_;
   logging_subscriber *subscriber_manager_;
+  void render(const std::string &data);
 
  public:
   simple_console_logger(logging_subscriber *subscriber_manager);
   ~simple_console_logger() override;
   void do_log(std::string data) override;
+  void do_log_from_handler(std::string data, std::vector<std::uint64_t> chain) override;
   struct config_data {
     std::string format;
   };

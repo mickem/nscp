@@ -4,11 +4,13 @@
 #pragma once
 
 #include <atomic>
-#include <memory>
 #include <boost/thread.hpp>
+#include <cstdint>
+#include <memory>
 #include <nsclient/logger/log_driver_interface_impl.hpp>
 #include <string>
 #include <threads/concurrent_queue.hpp>
+#include <vector>
 
 namespace nsclient {
 namespace logging {
@@ -17,8 +19,15 @@ class threaded_logger : public log_driver_interface_impl {
   // Shared with the worker thread: a worker that failed to exit at shutdown
   // (stuck in a subscriber, or a full pipe) is abandoned with a live queue
   // instead of having it, its mutex and its condition destroyed under it.
+  // A queued line, with the handlers it came through when a log handler
+  // wrote it (see nsclient_logger::do_log); empty for every other line and
+  // for the control messages.
+  struct queued_line {
+    std::string data;
+    std::vector<std::uint64_t> chain;
+  };
   struct shared_state {
-    concurrent_queue<std::string> queue;
+    concurrent_queue<queued_line> queue;
     std::atomic<bool> abandoned{false};
     // Everything thread_proc touches lives here rather than on the logger.
     // An abandoned worker outlives the threaded_logger, so it must not reach
@@ -48,6 +57,7 @@ class threaded_logger : public log_driver_interface_impl {
   ~threaded_logger() override;
 
   void do_log(std::string data) override;
+  void do_log_from_handler(std::string data, std::vector<std::uint64_t> chain) override;
   void push(const std::string &data);
 
   // Static, and takes nothing but the shared state: the worker can be detached

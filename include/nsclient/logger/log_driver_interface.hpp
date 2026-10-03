@@ -3,8 +3,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace nsclient {
 namespace logging {
@@ -13,6 +16,11 @@ struct log_driver_interface {
   log_driver_interface() = default;
   virtual ~log_driver_interface() = default;
   virtual void do_log(std::string data) = 0;
+  // A line a log handler wrote, with the handlers it came through (see
+  // nsclient_logger::do_log). A driver that hands lines back to the
+  // subscriber manager passes the chain along with it; one that does not
+  // (a file) writes the line like any other.
+  virtual void do_log_from_handler(std::string data, std::vector<std::uint64_t> /*chain*/) { do_log(std::move(data)); }
   virtual void synch_configure() = 0;
   virtual void asynch_configure() = 0;
 

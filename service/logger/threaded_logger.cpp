@@ -22,13 +22,17 @@ threaded_logger::threaded_logger(logging_subscriber *subscriber_manager, log_dri
 threaded_logger::~threaded_logger() { threaded_logger::shutdown(); }
 
 void threaded_logger::do_log(const std::string data) { push(data); }
-void threaded_logger::push(const std::string &data) { state_->queue.push(data); }
+void threaded_logger::do_log_from_handler(std::string data, std::vector<std::uint64_t> chain) {
+  state_->queue.push(queued_line{std::move(data), std::move(chain)});
+}
+void threaded_logger::push(const std::string &data) { state_->queue.push(queued_line{data, std::vector<std::uint64_t>()}); }
 
 void threaded_logger::thread_proc(std::shared_ptr<shared_state> state) {
-  std::string data;
+  queued_line item;
   while (true) {
     try {
-      state->queue.wait_and_pop(data);
+      state->queue.wait_and_pop(item);
+      const std::string &data = item.data;
       // Abandoned by a shutdown that gave up waiting: the logger this thread
       // belongs to is gone, so touch nothing but the shared state.
       if (state->abandoned) return;
@@ -55,7 +59,12 @@ void threaded_logger::thread_proc(std::shared_ptr<shared_state> state) {
         // an abandoned worker calling it would run against an object already
         // being destroyed.
         boost::lock_guard<boost::mutex> lock(state->subscriber_mutex);
-        if (state->subscriber_manager) state->subscriber_manager->on_log_message(data);
+        if (state->subscriber_manager) {
+          if (item.chain.empty())
+            state->subscriber_manager->on_log_message(data);
+          else
+            state->subscriber_manager->on_handler_log_message(data, item.chain);
+        }
       }
     } catch (const std::exception &e) {
       logger_helper::log_fatal(std::string("Failed to process log message: ") + e.what());
@@ -78,11 +87,8 @@ bool threaded_logger::startup() {
   // Guarded like every other worker, with the last-resort channel as its
   // reporter: this thread *is* the logger, so it cannot report its own death
   // through one.
-  thread_ = boost::thread([state]() {
-    threads::run_guarded(
-        "logger", [state]() { thread_proc(state); },
-        [](const std::string &message) { logger_helper::log_fatal(message); });
-  });
+  thread_ = boost::thread(
+      [state]() { threads::run_guarded("logger", [state]() { thread_proc(state); }, [](const std::string &message) { logger_helper::log_fatal(message); }); });
   return log_driver_interface_impl::startup();
 }
 bool threaded_logger::shutdown() {

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -49,9 +50,17 @@
 
 namespace nsclient {
 namespace logging {
+// The log handlers a line written from inside a handler came through, by
+// the id nsclient_logger gave each. Carried next to the line, never in it.
+typedef std::vector<std::uint64_t> log_handler_chain;
+
 struct logging_subscriber {
   virtual ~logging_subscriber() = default;
   virtual void on_log_message(const std::string &payload) = 0;
+  // A line a log handler wrote, with the handlers it came through. Only the
+  // subscriber manager (nsclient_logger) needs the chain; everything else
+  // takes it as a line like any other.
+  virtual void on_handler_log_message(const std::string &payload, const log_handler_chain &) { on_log_message(payload); }
 };
 typedef std::shared_ptr<logging_subscriber> logging_subscriber_instance;
 
@@ -72,12 +81,12 @@ struct log_interface {
   virtual bool should_critical() const = 0;
 };
 
-// What remove_subscriber found and did. `removed` says the subscriber was
-// on the list; `delivering` says a log line may still be inside it when the
-// call returned, because the bounded wait for the deliveries in flight ran
-// out. A caller about to tear the subscriber down (unloading the module)
-// treats `delivering` the way it treats a dispatch that will not finish: it
-// refuses.
+// What close_subscriber / remove_subscriber found. `removed` says the
+// subscriber was on the list; `delivering` says a log line is still inside
+// it, because the bounded wait for the deliveries in flight ran out. A
+// caller about to tear the subscriber down (unloading the module) treats
+// `delivering` the way it treats a dispatch that will not finish: it
+// refuses, and reopens the subscriber.
 struct unsubscribe_result {
   bool removed = false;
   bool delivering = false;
@@ -87,6 +96,16 @@ struct logger : log_interface {
   virtual void raw(const std::string &message) = 0;
 
   virtual void add_subscriber(logging_subscriber_instance subscriber) = 0;
+  // The two-phase removal an unload needs, the shape the walk lists have:
+  // close the subscriber in its place and wait for the lines inside it;
+  // then either reopen it there (the unload was refused) or drop it (the
+  // module is gone). A subscriber a line is still inside stays closed in
+  // its place, so the next close waits for that line again.
+  virtual unsubscribe_result close_subscriber(logging_subscriber_instance subscriber) = 0;
+  virtual void reopen_subscriber(logging_subscriber_instance subscriber) = 0;
+  // Takes a subscriber out once nothing is inside it; false when one is.
+  virtual bool drop_subscriber(logging_subscriber_instance subscriber) = 0;
+  // close, then drop when nothing was inside.
   virtual unsubscribe_result remove_subscriber(logging_subscriber_instance subscriber) = 0;
   // Takes every subscriber off the list and waits for the deliveries in
   // flight. Returns the subscribers a line was still inside when the wait

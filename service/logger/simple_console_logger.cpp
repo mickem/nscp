@@ -39,6 +39,14 @@ simple_console_logger::~simple_console_logger() {
 }
 
 void simple_console_logger::do_log(const std::string data) {
+  render(data);
+  subscriber_manager_->on_log_message(data);
+}
+void simple_console_logger::do_log_from_handler(const std::string data, const std::vector<std::uint64_t> chain) {
+  render(data);
+  subscriber_manager_->on_handler_log_message(data, chain);
+}
+void simple_console_logger::render(const std::string &data) {
   if (is_console()) {
     std::pair<bool, std::string> m = logger_helper::render_console_message(is_oneline(), data);
     if (!is_no_std_err() && m.first)
@@ -55,7 +63,6 @@ void simple_console_logger::do_log(const std::string data) {
       // showed it.
       std::cout << m.second << std::flush;
   }
-  subscriber_manager_->on_log_message(data);
 }
 simple_console_logger::config_data simple_console_logger::do_config() {
   config_data ret;

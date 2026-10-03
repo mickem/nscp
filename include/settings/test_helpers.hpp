@@ -40,6 +40,9 @@ class null_logger : public nsclient::logging::logger {
 
   void raw(const std::string &) override {}
   void add_subscriber(nsclient::logging::logging_subscriber_instance) override {}
+  nsclient::logging::unsubscribe_result close_subscriber(nsclient::logging::logging_subscriber_instance) override { return {}; }
+  void reopen_subscriber(nsclient::logging::logging_subscriber_instance) override {}
+  bool drop_subscriber(nsclient::logging::logging_subscriber_instance) override { return false; }
   nsclient::logging::unsubscribe_result remove_subscriber(nsclient::logging::logging_subscriber_instance) override { return {}; }
   std::vector<nsclient::logging::logging_subscriber_instance> clear_subscribers() override { return {}; }
   bool startup() override { return true; }

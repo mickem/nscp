@@ -24,6 +24,17 @@ class TestLogger : public nsclient::logging::logger_impl {
 
   void add_subscriber(const nsclient::logging::logging_subscriber_instance subscriber) override { subscribers_.push_back(subscriber); }
 
+  nsclient::logging::unsubscribe_result close_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {
+    nsclient::logging::unsubscribe_result result;
+    result.removed = std::find(subscribers_.begin(), subscribers_.end(), subscriber) != subscribers_.end();
+    return result;
+  }
+  void reopen_subscriber(nsclient::logging::logging_subscriber_instance) override {}
+  bool drop_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {
+    const bool found = std::find(subscribers_.begin(), subscribers_.end(), subscriber) != subscribers_.end();
+    subscribers_.erase(std::remove(subscribers_.begin(), subscribers_.end(), subscriber), subscribers_.end());
+    return found;
+  }
   nsclient::logging::unsubscribe_result remove_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {
     nsclient::logging::unsubscribe_result result;
     result.removed = std::find(subscribers_.begin(), subscribers_.end(), subscriber) != subscribers_.end();
