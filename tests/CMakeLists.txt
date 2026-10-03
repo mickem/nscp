@@ -603,6 +603,19 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    scripts_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/scripts/script_interface_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     check_logfile_test
     SOURCES
         ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/file_reader_test.cpp
