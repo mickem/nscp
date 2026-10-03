@@ -88,6 +88,21 @@ om::label_list labels(std::initializer_list<std::pair<std::string, std::string> 
 // tests below.
 void expect_consistent(const om::result &parsed, const std::string &body, om::format f);
 
+// A failed parse stops at the line it reports: it holds no sample from that
+// line or after it - no more than the lines before the error give. (It may
+// hold fewer families: one whose own metadata line failed is taken out.)
+void expect_stops_at_error(const om::result &parsed, const std::string &body, const om::format f) {
+  ASSERT_FALSE(parsed.ok()) << body;
+  std::size_t start = 0;
+  for (std::size_t line = 1; line < parsed.error_line && start != std::string::npos; ++line) {
+    const std::size_t end = body.find('\n', start);
+    start = end == std::string::npos ? std::string::npos : end + 1;
+  }
+  const om::result before = om::parse(start == std::string::npos ? body : body.substr(0, start), f, om::limits());
+  EXPECT_EQ(parsed.sample_count, before.sample_count) << body << " -> " << parsed.error;
+  EXPECT_LE(parsed.families.size(), before.families.size()) << body << " -> " << parsed.error;
+}
+
 }  // namespace
 
 // --- choosing the format ------------------------------------------------------
@@ -350,6 +365,7 @@ TEST(OpenmetricsParser, SameNamePairThatCannotStandSideBySideIsRefused) {
     EXPECT_NE(parsed.error.find(c.fragment), std::string::npos) << c.body << " -> " << parsed.error;
     EXPECT_EQ(parsed.families.size(), c.families) << c.body;
     expect_consistent(parsed, c.body, openmetrics);
+    expect_stops_at_error(parsed, c.body, openmetrics);
   }
   // The Prometheus text format names every family after its sample, so it
   // never writes a pair.
@@ -818,6 +834,64 @@ TEST(OpenmetricsParser, PythonClientBodiesSurviveEveryCut) {
   }
 }
 
+TEST(OpenmetricsParser, NamesMayStartWithEveryLetterTheGrammarAllows) {
+  // The ends of each range: `a` and `z`, `A` and `Z`, and the two
+  // non-letters a metric name may start with.
+  for (const char *name : {"a", "z", "A", "Z", "_x", ":x", "aZ09_:"}) {
+    const om::result parsed = om::parse(std::string(name) + " 1\n", text);
+    ASSERT_TRUE(parsed.ok()) << name << ": " << parsed.error;
+    EXPECT_EQ(parsed.families.at(0).name, name);
+  }
+  const om::result labelled = om::parse("m{a=\"1\",z=\"2\",A=\"3\",Z=\"4\",_=\"5\",a_Z9=\"6\"} 1\n", text);
+  ASSERT_TRUE(labelled.ok()) << labelled.error;
+  EXPECT_EQ(labelled.families.at(0).samples.at(0).labels.size(), 6u);
+  // And the characters either side of each range are not letters.
+  for (const char *name : {"`x", "{x", "@x", "[x", "9x"}) {
+    EXPECT_FALSE(om::parse(std::string(name) + " 1\n", text).ok()) << name;
+  }
+}
+
+TEST(OpenmetricsParser, OnlyACommentLineIsTheTerminator) {
+  // `# EOF` is a comment line; a line that merely ends in the word is not.
+  for (const char *line : {"XEOF", "a EOF", " EOF", "EOF"}) {
+    const om::result parsed = om::parse(std::string("a 1\n") + line + "\n", openmetrics);
+    EXPECT_FALSE(parsed.ok()) << line;
+    EXPECT_FALSE(parsed.saw_eof) << line;
+    EXPECT_EQ(parsed.error_line, 2u) << line << " -> " << parsed.error;
+  }
+  // Nor, without its line feed, may it end the body: it is a cut line.
+  for (const char *last : {"XEOF", "a EOF"}) {
+    const om::result parsed = om::parse(std::string("a 1\n") + last, openmetrics);
+    EXPECT_NE(parsed.error.find("middle of a line"), std::string::npos) << last << " -> " << parsed.error;
+  }
+  // A blank last line without its line feed may follow `# EOF`.
+  const om::result blank = om::parse("a 1\n# EOF\n   ", openmetrics);
+  EXPECT_TRUE(blank.ok()) << blank.error;
+  EXPECT_TRUE(blank.saw_eof);
+}
+
+TEST(OpenmetricsParser, HelpEndingInABackslashKeepsIt) {
+  // A backslash with nothing after it escapes nothing, so it is kept as
+  // served - with blanks or a carriage return after it in the body or not.
+  for (const char *line : {"# HELP x end\\\n", "# HELP x end\\  \n", "# HELP x end\\\r\n"}) {
+    const om::result parsed = om::parse(std::string(line) + "x 1\n", text);
+    ASSERT_TRUE(parsed.ok()) << parsed.error;
+    EXPECT_EQ(parsed.families.at(0).help, "end\\") << line;
+  }
+}
+
+TEST(OpenmetricsParser, DecimalsEitherSideOfTheConversionBuffer) {
+  // Values are copied into a 64-byte buffer for conversion, longer ones onto
+  // the heap: 62 to 66 characters cover the boundary, where an off-by-one is a
+  // one-byte stack overflow only a sanitizer would see.
+  for (const std::size_t length : {62u, 63u, 64u, 65u, 66u}) {
+    const std::string value = "0." + std::string(length - 2, '5');
+    const om::result parsed = om::parse("v " + value + "\n", text);
+    ASSERT_TRUE(parsed.ok()) << length << ": " << parsed.error;
+    EXPECT_NEAR(parsed.families.at(0).samples.at(0).value, 0.5555555555555556, 1e-15) << length;
+  }
+}
+
 TEST(OpenmetricsParser, EveryTypeHasItsOpenMetricsName) {
   const std::pair<om::family_type, const char *> names[] = {{om::family_type::unknown, "unknown"},
                                                             {om::family_type::counter, "counter"},
@@ -837,8 +911,8 @@ TEST(OpenmetricsParser, EverySpellingOfTheNonFiniteValuesIsRead) {
     const char *text;
     int sign;  // 0 for NaN
   };
-  const spelling spellings[] = {{"NaN", 0},  {"nan", 0},   {"+NaN", 0},     {"-nan", 0},      {"Inf", 1},
-                                {"+inf", 1}, {"-INF", -1}, {"Infinity", 1}, {"+infinity", 1}, {"-Infinity", -1}};
+  const spelling spellings[] = {{"NaN", 0},   {"nan", 0}, {"+NaN", 0},     {"-nan", 0},     {"Inf", 1},       {"+inf", 1},
+                                {"-INF", -1}, {"NAN", 0}, {"INFINITY", 1}, {"Infinity", 1}, {"+infinity", 1}, {"-Infinity", -1}};
   for (const spelling &sp : spellings) {
     const om::result parsed = om::parse(std::string("v ") + sp.text + "\n", text);
     ASSERT_TRUE(parsed.ok()) << sp.text << ": " << parsed.error;
@@ -1296,6 +1370,7 @@ TEST_P(OpenmetricsParserMalformed, IsReportedOnItsLine) {
     EXPECT_FALSE(parsed.ok()) << label << ": " << m.body;
     EXPECT_EQ(parsed.error_line, m.line) << label << ": " << m.body << " -> " << parsed.error;
     EXPECT_NE(parsed.error.find(m.fragment), std::string::npos) << label << ": " << m.body << " -> " << parsed.error;
+    expect_stops_at_error(parsed, m.body, f);
   }
 }
 
@@ -1324,6 +1399,8 @@ INSTANTIATE_TEST_SUITE_P(
         malformed{"UnterminatedSet", "foo{a=\"b\" 1\n", 1, "expected ',' or '}'"},
         malformed{"UnterminatedAfterComma", "foo{a=\"b\", 1\n", 1, "invalid label name"}, malformed{"OpenBraceOnly", "foo{\n", 1, "unterminated label set"},
         malformed{"OpenBraceAndBlanks", "foo{   \n", 1, "unterminated label set"},
+        malformed{"EndsAfterLabelValue", "foo{a=\"b\"\n", 1, "unterminated label set on 'foo'"},
+        malformed{"EndsAfterLabelValueAndBlanks", "foo{a=\"b\"   \n", 1, "unterminated label set on 'foo'"},
         malformed{"MissingEquals", "foo{a \"b\"} 1\n", 1, "expected '=' after label 'a'"},
         malformed{"NameOnlyLabel", "foo{a} 1\n", 1, "expected '=' after label 'a'"}, malformed{"MissingName", "foo{=\"b\"} 1\n", 1, "invalid label name"},
         malformed{"MissingValue", "foo{a=} 1\n", 1, "quoted value for label 'a'"}, malformed{"UnquotedValue", "foo{a=b} 1\n", 1, "quoted value for label 'a'"},
