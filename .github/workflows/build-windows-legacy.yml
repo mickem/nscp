@@ -60,7 +60,7 @@ jobs:
       platform: ${{ steps.setup.outputs.platform }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - id: setup
       run: |
@@ -74,14 +74,14 @@ jobs:
       shell: pwsh
 
     - id: python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ ENV.PYTHON_VERSION }}
         architecture: ${{ inputs.architecture }}
         cache-dependency-path: 'build/python/requirements.txt'
         cache: 'pip'
 
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: 20
         cache: 'npm'
@@ -113,7 +113,7 @@ jobs:
         mkdir tmp\installer_lib
       shell: cmd
 
-    - uses: shogo82148/actions-setup-perl@ac3202722f5744e62a8fa3af3e1aaaebb08861f3 # v1
+    - uses: shogo82148/actions-setup-perl@b61fd6db748050f91bedd4d72ad5e404b5177cc0 # v1
       with:
         perl-version: '5.40'
         distribution: strawberry
@@ -373,7 +373,7 @@ jobs:
         mkdir -p tmp/nscp/dotnet-sample
         cp tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.dll tmp/nscp/modules/dotnet/NSCP.Plugin.CSharpSample.deps.json tmp/nscp/dotnet-sample/
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-${{ steps.setup.outputs.platform }}-legacy-xp
         path: |
