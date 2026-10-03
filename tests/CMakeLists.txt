@@ -590,6 +590,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/threads/concurrent_queue_test.cpp
         ${NSCP_INCLUDEDIR}/threads/scoped_thread_group_test.cpp
         ${NSCP_INCLUDEDIR}/threads/guarded_thread_test.cpp
+        ${NSCP_INCLUDEDIR}/threads/in_flight_test.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_THREAD_LIBRARY}
