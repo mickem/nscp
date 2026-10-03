@@ -146,10 +146,9 @@ struct simple_plugins_list : boost::noncopyable {
   // deregistering it, and a walk still inside that module's fetchFacts would
   // otherwise store them again, owned by a dead id - and purge_broken_plugin
   // unloads it after. Only a removal from inside the walk's own callback
-  // does not wait. remove_plugin() in the manager unloads *before* it
-  // deregisters, so a copy can hold a plugin that is already unloaded; what
-  // `fun` does with a call that throws "Library is not loaded" is its own
-  // business (metrics_fetcher catches it per plugin).
+  // does not wait. The manager takes a module out of these lists - and so
+  // waits here - before it unloads it, so a copy never holds an unloaded
+  // plugin; metrics_fetcher still catches per plugin as a backstop.
   void do_all(const boost::function<void(plugin_type)> &fun) {
     threads::in_flight::guard walking(walks_);
     simple_plugin_list_type snapshot;
@@ -184,11 +183,6 @@ struct simple_plugins_list : boost::noncopyable {
   // With the list already changed: wait for the do_all() walks that started
   // before the change, which may still be calling the removed plugin. The
   // bound matches what the write lock used to wait for the walk to let go.
-  // It can run out when the walk is itself waiting: a log handler that
-  // unloads a module arrives here holding the logger's delivery lock, and
-  // every line the walked module logs then waits 5 s for that lock, so a
-  // removal from inside a log handler is not a barrier the caller should
-  // count on.
   void wait_for_walks(std::uint64_t cutoff, std::chrono::seconds timeout, const std::string &key) {
     if (!walks_.wait_for_others_before(cutoff, timeout))
       log_error(__FILE__, __LINE__, "A walk over the plugins is still running after " + str::xtos(timeout.count()) + "s", key);

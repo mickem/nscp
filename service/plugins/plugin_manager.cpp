@@ -765,25 +765,42 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
     return false;
   }
   unsigned int plugin_id = plugin->get_id();
-  // Unload before deregistering. The module can refuse - calls into it may
-  // still be in flight - and it then keeps running and serving. Deregistering
-  // first meant such a refusal left it half removed: still loaded and
-  // answering nothing, gone from every registry, no longer findable by name to
-  // retry, and still listed as loaded in the cache because the throw skipped
-  // that line. Unloading first leaves the module exactly as it was.
+  // Unload before deregistering from the registries a refusal could not put
+  // back: commands, channels and event subscriptions are what the module
+  // itself registered while loading. The module can refuse - calls into it
+  // may still be in flight - and it then keeps running and serving.
+  // Deregistering those first meant such a refusal left it half removed:
+  // still loaded and answering nothing, gone from every registry, no longer
+  // findable by name to retry, and still listed as loaded in the cache
+  // because the throw skipped that line.
   //
-  // The log subscription is the one registration dropped first: a log line
-  // is not a dispatch, so unload_plugin does not wait for one, and the
-  // unloaded flag it sets only stops lines that have not reached the module
-  // yet (dll_plugin::handleMessage). remove_subscriber waits for the
+  // The walk lists (metrics fetchers and submitters, facts fetchers) and the
+  // log subscription are the exception, and go first: a metrics or facts
+  // round walks a copy of its list, and removing the module from the list
+  // waits for the rounds that hold one, so no round reaches into the module
+  // after it is unloaded. Unloading first let a round that had taken its
+  // copy call an unloaded module, log "Library is not loaded" for it, and on
+  // the facts path mark it failing and later fixed. Membership of these is
+  // the module's static capability, so a refused unload simply re-adds it.
+  metrics_fetchers_.remove_plugin(plugin_id);
+  metrics_submitters_.remove_plugin(plugin_id);
+  facts_fetchers_.remove_plugin(plugin_id);
+  const auto restore_walks = [this, &plugin]() {
+    if (plugin->hasMetricsFetcher()) metrics_fetchers_.add_plugin(plugin);
+    if (plugin->hasMetricsSubmitter()) metrics_submitters_.add_plugin(plugin);
+    if (plugin->hasFactsFetcher()) facts_fetchers_.add_plugin(plugin);
+  };
+  // A log line is not a dispatch, so unload_plugin does not wait for one,
+  // and the unloaded flag it sets only stops lines that have not reached the
+  // module yet (dll_plugin::handleMessage). remove_subscriber waits for the
   // deliveries in flight on other threads, so a line another thread is
   // still handing to the module has left it before the module is torn
   // down; one that does not leave within the wait refuses the unload, as a
   // dispatch that does not finish would. A refused unload gets the
-  // subscription back, so the module is left exactly as it was - only when
-  // this call took it, so a clear_subscribers() from shutdown in between is
-  // not undone. What this cannot see is the module unloading itself from
-  // inside its own log handler: that delivery is this thread's, and
+  // subscription back - only when this call took it, so a
+  // clear_subscribers() from shutdown in between is not undone. What this
+  // cannot see is the module unloading itself from inside its own log
+  // handler: that delivery is this thread's, and
   // is_dispatching_on_this_thread() does not count log lines, so such a
   // module is torn down under its handler as it always was.
   // clear_subscribers() at shutdown runs under lifecycle_mutex_
@@ -795,6 +812,7 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
     // stuck handler may well be another module's.
     LOG_ERROR_CORE_STD("Refused to unload " + name + ": a log line is still being handled by a log-handler module after 5 s");
     log_instance_->add_subscriber(plugin);
+    restore_walks();
     return false;
   }
   try {
@@ -802,15 +820,13 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   } catch (const plugin_exception &e) {
     LOG_ERROR_CORE_STD("Failed to unload " + name + ": " + e.reason());
     if (unsubscribed.removed) log_instance_->add_subscriber(plugin);
+    restore_walks();
     return false;
   }
   plugin_list_.remove(plugin_id);
   commands_.remove_plugin(plugin_id);
   channels_.remove_plugin(plugin_id);
   event_subscribers_.remove_plugin(plugin_id);
-  metrics_fetchers_.remove_plugin(plugin_id);
-  metrics_submitters_.remove_plugin(plugin_id);
-  facts_fetchers_.remove_plugin(plugin_id);
   // Whatever this module contributed to the inventory goes with it: a frozen
   // fact set from a module that is no longer running is worse than none.
   if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
