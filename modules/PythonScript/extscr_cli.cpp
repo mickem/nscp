@@ -21,6 +21,7 @@
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
+#include <scripts/script_files.hpp>
 #include <string>
 #include <utility>
 
@@ -79,7 +80,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     ("help", "Show help.")
     ("json", po::bool_switch(&json), "Return the list in json format.")
     ("query", po::bool_switch(&query), "List queries instead of scripts (for aliases).")
-    ("include-lib", po::bool_switch(&lib), "Do not ignore any lib folders.")
+    ("include-lib", po::bool_switch(&lib), "Also list the helpers in lib folders.")
   ;
   // clang-format on
 
@@ -124,39 +125,12 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
       }
     }
   } else {
-    fs::path dir = provider_->get_core()->expand_path("${scripts}/python");
-    // Relativised against ${scripts}, the folder find_file resolves against, so
-    // that what `list` prints can be handed straight back to `add`. It used to
-    // append the sub-folder to the root, which matched on no platform and left
-    // the strip below relativising on its own; rooting at ${base-path} instead
-    // made the prefix match on Windows, but printed `scripts\python\x` - a
-    // spelling find_file has no candidate for, so `add` then refused the very
-    // value `list` had just produced from anywhere but the install directory.
-    // ${scripts} is the prefix on both platforms and survives a [paths]
-    // override moving the folder off ${base-path} entirely.
-    fs::path rel = provider_->get_core()->expand_path("${scripts}");
-    fs::recursive_directory_iterator iter(dir), eod;
-    for (fs::path const &i : boost::make_iterator_range(iter, eod)) {
-      std::string s = i.string();
-      // Relative to ${scripts} when the file is under it, which is every file
-      // this loop walks, giving `python/x.py` - the same spelling `add --import`
-      // records and one find_file resolves from any working directory. A file
-      // reached through a symlink out of the folder is left absolute rather
-      // than mangled: the strip used to slice the leading separator off
-      // regardless, leaving a rootless `usr/lib/nsclient/scripts/x` that named
-      // no file at all.
-      if (boost::algorithm::starts_with(s, rel.string())) {
-        s = s.substr(rel.string().size());
-        if (!s.empty() && (s[0] == '\\' || s[0] == '/')) s = s.substr(1);
-      }
-      if (s.empty()) continue;
-      fs::path clone = i.parent_path();
-      if (fs::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
-        if (json) {
-          data.push_back(json::value(s));
-        } else {
-          resp += s + "\n";
-        }
+    for (const std::string &s :
+         scripts::files::list_files(provider_->get_core()->expand_path("${scripts}/python"), provider_->get_core()->expand_path("${scripts}"), lib)) {
+      if (json) {
+        data.push_back(json::value(s));
+      } else {
+        resp += s + "\n";
       }
     }
   }
@@ -167,103 +141,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
 }
 
 namespace {
-enum class sandbox_use { read, remove };
-
-bool exists_entry(const fs::path &p) {
-  boost::system::error_code ec;
-  return fs::exists(fs::symlink_status(p, ec));
-}
-
-// The entry a `--script` name refers to, resolved only inside `root`
-// (`${scripts}/python`). Unlike script_provider::find_file() this does not try
-// the name as given - relative to the working directory, or absolute - so a
-// name cannot reach a file outside the scripts folder. `python/foo.py` (the
-// form `list` and the REST listing print) and `foo.py` / `foo` (the form a
-// script is configured by) both resolve. `outside` is set when a name only
-// resolves to something outside `root`, so the caller can say why it refused.
-//
-// Containment is decided on real paths, symlinks resolved: a lexical test
-// alone lets a symlink inside the folder (or a symlinked sub-folder) reach any
-// file the service account can, the hole CheckExternalScripts' sandbox closed
-// the same way. A path that cannot be resolved counts as outside.
-//
-// - read: a regular file whose real path - the link's target, for a link - is
-//   inside the folder.
-// - remove: a regular file or a symlink (dangling, or to a directory, too)
-//   that itself sits in the folder once any symlinked folder above it is
-//   resolved. What a link points at does not matter, since removing a link
-//   never touches its target; a real directory is never a candidate.
-//
-// The path returned is the one inside the folder, so delete removes a link,
-// never its target.
-boost::optional<fs::path> resolve_in_sandbox(const fs::path &root, const std::string &script, const sandbox_use use, bool &outside) {
-  outside = false;
-  if (script.empty()) return boost::none;
-  boost::system::error_code ec;
-  const fs::path real_root = fs::weakly_canonical(root, ec);
-  if (ec) return boost::none;
-  const fs::path parent = root.parent_path();
-  const std::list<fs::path> candidates = {root / script, root / (script + ".py"), parent / script, parent / (script + ".py")};
-  for (const fs::path &c : candidates) {
-    const fs::path candidate = c.lexically_normal();
-    if (!exists_entry(candidate)) continue;
-    if (!file_helpers::checks::path_contains_file(root, candidate)) {
-      outside = true;
-      continue;
-    }
-    const bool is_link = fs::is_symlink(fs::symlink_status(candidate, ec));
-    const bool is_file = fs::is_regular_file(candidate, ec);
-    if (use == sandbox_use::read ? !is_file : !(is_file || is_link)) continue;
-    // Where the entry itself lives, any symlinked folder above it resolved.
-    const fs::path real_parent = fs::weakly_canonical(candidate.parent_path(), ec);
-    if (ec || !file_helpers::checks::path_contains_file(real_root, real_parent / candidate.filename())) {
-      outside = true;
-      continue;
-    }
-    if (use == sandbox_use::read) {
-      const fs::path real = fs::weakly_canonical(candidate, ec);
-      if (ec || !file_helpers::checks::path_contains_file(real_root, real)) {
-        outside = true;
-        continue;
-      }
-    }
-    return candidate;
-  }
-  return boost::none;
-}
-
-// The file a configured entry loads, found the way the loader finds it
-// (script_provider::find_file(): as written - absolute, or relative to the
-// working directory - then under ${scripts}/python and ${scripts}, each with
-// and without `.py`), but without logging every miss. Also tried with any
-// ${...} expanded and with `\` read as a separator, so an entry written for
-// another platform or with a path variable still matches the file it names.
-boost::optional<fs::path> configured_file(nscapi::core_wrapper *core, const fs::path &scripts, const std::string &configured) {
-  std::list<std::string> forms = {configured, core->expand_path(configured)};
-  for (const std::string &f : std::list<std::string>(forms)) forms.push_back(boost::algorithm::replace_all_copy(f, "\\", "/"));
-  for (const std::string &f : forms) {
-    for (const fs::path &c : {fs::path(f), fs::path(f + ".py"), scripts / "python" / f, scripts / "python" / (f + ".py"), scripts / f, scripts / (f + ".py")}) {
-      if (exists_entry(c)) return c;
-    }
-  }
-  return boost::none;
-}
-
-bool same_entry(const fs::path &a, const fs::path &b) {
-  boost::system::error_code ec;
-  if (fs::absolute(a).lexically_normal() == fs::absolute(b).lexically_normal()) return true;
-  return fs::equivalent(a, b, ec) && !ec;
-}
-
-// The script's contents, or nothing when it cannot be read - an unreadable
-// file must not pass for an empty one.
-boost::optional<std::string> read_file(const fs::path &file) {
-  std::ifstream in(file.string().c_str(), std::ios::in | std::ios::binary);
-  if (!in.is_open()) return boost::none;
-  std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-  if (in.bad()) return boost::none;
-  return data;
-}
+namespace sf = scripts::files;
 
 bool parse_script_option(const char *what, const PB::Commands::ExecuteRequestMessage::Request &request,
                          PB::Commands::ExecuteResponseMessage::Response *response, std::string &script) {
@@ -307,12 +185,12 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
 
   const fs::path root = provider_->get_root();
   bool outside = false;
-  const boost::optional<fs::path> file = resolve_in_sandbox(root, script, sandbox_use::read, outside);
+  const boost::optional<fs::path> file = sf::resolve_in_sandbox(root, script, ".py", sf::sandbox_use::read, outside);
   if (!file) {
     nscapi::protobuf::functions::set_response_bad(*response, outside ? "Not allowed outside: " + root.string() : "Script not found: " + script);
     return;
   }
-  const boost::optional<std::string> data = read_file(file.value());
+  const boost::optional<std::string> data = sf::read_file(file.value());
   if (!data) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to read " + file.value().string());
     return;
@@ -326,7 +204,7 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
 
   const fs::path root = provider_->get_root();
   bool outside = false;
-  const boost::optional<fs::path> file = resolve_in_sandbox(root, script, sandbox_use::remove, outside);
+  const boost::optional<fs::path> file = sf::resolve_in_sandbox(root, script, ".py", sf::sandbox_use::remove, outside);
   if (!file) {
     nscapi::protobuf::functions::set_response_bad(*response, outside ? "Not allowed outside: " + root.string() : "Script not found: " + script);
     return;
@@ -353,8 +231,8 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
     // reads them the same way.
     std::string configured = val.get_string();
     if (configured.empty()) configured = val.key();
-    const boost::optional<fs::path> loaded = configured_file(provider_->get_core(), scripts, configured);
-    if (loaded && same_entry(loaded.value(), target)) aliases.push_back(val.key());
+    const boost::optional<fs::path> loaded = sf::configured_file(scripts, "python", ".py", {configured, provider_->get_core()->expand_path(configured)});
+    if (loaded && sf::same_entry(loaded.value(), target)) aliases.push_back(val.key());
   }
 
   boost::system::error_code ec;
