@@ -55,8 +55,14 @@ inline std::list<std::string> parse_command(const std::string &cmd_line) {
 // Not a replacement for parse_command: that one also reads alias and script
 // definitions from the configuration, where a single quote has always been
 // literal and must stay so.
+//
+// With `backslash_escapes` false a backslash is always an ordinary character,
+// inside double quotes too, so Windows paths survive as typed
+// ("path=C:\Temp\" closes where it looks like it does). A double quote can
+// then only be passed inside single quotes. The NCPA server splits its plugin
+// arguments this way: NCPA itself does on Windows (shlex with posix=False).
 template <class T>
-void parse_prompt_command(const std::string &line, T &args) {
+void parse_prompt_command(const std::string &line, T &args, const bool backslash_escapes = true) {
   std::string current;
   bool in_token = false;
   std::size_t equals = 0;  // unquoted '=' seen in the current token
@@ -75,7 +81,7 @@ void parse_prompt_command(const std::string &line, T &args) {
     if (c == '"') {
       in_token = true;
       for (++i; i < line.size() && line[i] != '"'; ++i) {
-        if (line[i] == '\\' && i + 1 < line.size()) ++i;
+        if (backslash_escapes && line[i] == '\\' && i + 1 < line.size()) ++i;
         current.push_back(line[i]);
       }
       continue;
@@ -87,7 +93,7 @@ void parse_prompt_command(const std::string &line, T &args) {
       continue;
     }
     in_token = true;
-    if (c == '\\' && i + 1 < line.size()) {
+    if (backslash_escapes && c == '\\' && i + 1 < line.size()) {
       current.push_back(line[++i]);
       continue;
     }

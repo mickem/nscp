@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <limits>
 #include <net/socket/socket_helpers.hpp>
+#include <net/web_server_logger.hpp>
+#include <net/web_server_tls.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -21,6 +23,7 @@
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscp/password_hash.hpp>
 #include <str/format.hpp>
 #include <str/saturate.hpp>
 #include <utility>
@@ -30,6 +33,7 @@
 #include "api_controller.hpp"
 #include "error_handler.hpp"
 #include "events_controller.hpp"
+#include "facts_controller.hpp"
 #include "info_controller.hpp"
 #include "legacy_command_controller.hpp"
 #include "legacy_controller.hpp"
@@ -40,13 +44,11 @@
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
 #include "openmetrics_renderer.hpp"
-#include <nscp/password_hash.hpp>
 #include "query_controller.hpp"
 #include "results_controller.hpp"
 #include "scripts_controller.hpp"
 #include "settings_controller.hpp"
 #include "static_controller.hpp"
-#include "facts_controller.hpp"
 #include "tags_controller.hpp"
 #include "token_store.hpp"
 #include "web_cli_handler.hpp"
@@ -59,40 +61,12 @@ namespace sh = nscapi::settings_helper;
 using namespace std;
 using namespace Mongoose;
 
-class WEBServerLogger : public WebLogger {
-  bool log_errors_;
-  bool log_info_;
-  bool log_debug_;
-
- public:
-  WEBServerLogger(const bool log_errors, bool log_info, bool log_debug) : log_errors_(log_errors), log_info_(log_info), log_debug_(log_debug) {}
-  void log_error(const std::string &message) override {
-    if (log_errors_) {
-      NSC_LOG_ERROR(message);
-    }
-  }
-  void log_info(const std::string &message) override {
-    if (log_info_) {
-      NSC_LOG_MESSAGE(message);
-    }
-  }
-  void log_debug(const std::string &message) override {
-    if (log_debug_) {
-      NSC_DEBUG_MSG(message);
-    }
-  }
-};
 
 namespace {
 // Where the web sessions are kept in nsclient.db: one row, holding the whole
 // table in session_persistence's format, replaced at every clean shutdown.
 constexpr const char *kSessionStorageContext = "web.sessions";
 constexpr const char *kSessionStorageKey = "sessions";
-
-// The stock `tls version`. Named because two places have to agree on it: the
-// setting's registered default, and the test below it for whether the operator
-// chose the value at all.
-const char *const kDefaultTlsVersion = "1.2+";
 
 // True if a WEB role's comma-separated grant string confers the bare `legacy`
 // permission - the token the deprecated /query/{name} query-dispatch route
@@ -119,7 +93,13 @@ WEBServer::WEBServer()
       results_(new result_store()),
       openmetrics_legacy_(false),
       last_log_index(0) {}
-WEBServer::~WEBServer() = default;
+WEBServer::~WEBServer() {
+  try {
+    if (releaser_ && releaser_->joinable() && releaser_->get_id() != boost::this_thread::get_id()) releaser_->join();
+  } catch (...) {
+    // A destructor must not throw.
+  }
+}
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // Construct once: neither object depends on settings, and a reload would
@@ -263,7 +243,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_string("certificate", sh::path_key(&certificate, "${certificate-path}/certificate.pem"), "TLS Certificate",
                   "Ssl certificate to use for the ssl server")
       .add_string("certificate key", sh::path_key(&key), "TLS private key", "The private key for the certificate if not in the same file")
-      .add_string("tls version", sh::string_key(&tls_version, kDefaultTlsVersion), "TLS version to use",
+      .add_string("tls version", sh::string_key(&tls_version, net::kDefaultWebTlsVersion), "TLS version to use",
                   "Which TLS versions the listener will negotiate, in the same vocabulary as the NRPE and NSCA listeners: an exact version (1.0, 1.1, "
                   "1.2, 1.3), a trailing + for that version or later, or `any`. The default 1.2+ allows TLS 1.2 and TLS 1.3. `sslv3` is the one "
                   "spelling those listeners take that this one does not: the web listener never serves SSL 3.0, so pinning the range to it would accept no "
@@ -539,7 +519,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       }
     });
 
-    WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
+    WebLoggerPtr logger(new net::web_server_logger(log_errors, log_info, log_debug));
     // Where an unhandled handler exception goes. The client gets a bare 500;
     // the reason ends up here, in the agent log, rather than being echoed to
     // a caller that need not have authenticated.
@@ -559,17 +539,23 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       Mongoose::Controller::setErrorSink([](const std::string &message) { NSC_LOG_ERROR(message); });
     }
     server.reset(Server::make_server(logger));
-    // An untouched `tls version` is passed as empty rather than as its default
-    // value: the mongoose backend cannot honour the setting and logs that it is
-    // ignoring it, which on a stock agent would mean an error on every start
-    // and reload about a setting nobody wrote. The beast backend applies the
-    // same default itself when handed an empty string.
-    server->setTlsOptions(tls_version == kDefaultTlsVersion ? std::string() : tls_version, allowed_ciphers);
+    // The guard line of a dying server thread reaches the log as written.
+    server->setThreadReporting("web server", NSC_THREAD_REPORTER);
+    net::apply_tls_options(*server, tls_version, allowed_ciphers);
     if (cert_missing) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {
       NSC_DEBUG_MSG("Using certificate: " + certificate);
-      server->setSsl(certificate, key);
+      // A certificate that is present but does not load (no key, a key for
+      // another certificate, an unreadable file) must not leave the REST API
+      // on plain HTTP: the server refuses to start after a failed setSsl(),
+      // and this says why. `allow insecure` covers a *missing* certificate
+      // only.
+      if (!server->setSsl(certificate, key)) {
+        NSC_LOG_ERROR("WEB certificate at '" + certificate +
+                      "' (or its key) could not be loaded: refusing to serve the WEB server in cleartext HTTP. Fix the certificate, or remove it and "
+                      "set 'allow insecure = true' to accept unencrypted HTTP. The WEB server has NOT been started.");
+      }
     }
 
     server->registerController(new StaticController(session, path));
@@ -628,7 +614,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     }
 
     try {
-      server->start("0.0.0.0:" + port);
+      if (!server->start("0.0.0.0:" + port)) {
+        NSC_LOG_ERROR("The WEB server has NOT been started on port " + port + " (see the error above).");
+        return true;
+      }
     } catch (const std::exception &e) {
       NSC_LOG_ERROR("Failed to start server: " + utf8::utf8_from_native(e.what()));
       return true;
@@ -657,10 +646,7 @@ void WEBServer::prepareShutdown() {
 bool WEBServer::unloadModule() {
   bool ok = true;
   try {
-    if (server) {
-      server->stop();
-      server.reset();
-    }
+    if (auto releaser = Mongoose::stop_and_release(server, NSC_THREAD_REPORTER)) releaser_ = releaser;
   } catch (...) {
     NSC_LOG_ERROR_EX("unload");
     ok = false;

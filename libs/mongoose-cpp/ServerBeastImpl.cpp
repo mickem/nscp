@@ -3,28 +3,30 @@
 
 #include "ServerBeastImpl.h"
 
+#include <openssl/ssl.h>
+
+#include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl/stream.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
-#include <openssl/ssl.h>
 #include <boost/thread/thread.hpp>
 #include <boost/version.hpp>
-#include <nsclient/nsclient_exception.hpp>
 #include <chrono>
 #include <memory>
+#include <net/tls_versions.hpp>
+#include <nsclient/nsclient_exception.hpp>
 #include <string>
 #include <threads/guarded_io_context.hpp>
 #include <utility>
-
-#include <net/tls_versions.hpp>
 
 #include "Helpers.h"
 #include "Request.h"
@@ -43,12 +45,13 @@ namespace {
 // the legacy spawn(ex, fn, attributes) overload, which has no completion
 // token, so passing asio::detached there fails to compile. Centralize the
 // difference here; every spawn in this file is a fire-and-forget coroutine.
-template <typename Fn>
-void spawn_detached(asio::io_context& ioc, Fn&& fn) {
+// `ctx` is the io_context or an executor (a connection's strand).
+template <typename Context, typename Fn>
+void spawn_detached(Context&& ctx, Fn&& fn) {
 #if BOOST_VERSION >= 108000
-  asio::spawn(ioc, std::forward<Fn>(fn), asio::detached);
+  asio::spawn(std::forward<Context>(ctx), std::forward<Fn>(fn), asio::detached);
 #else
-  asio::spawn(ioc, std::forward<Fn>(fn));
+  asio::spawn(std::forward<Context>(ctx), std::forward<Fn>(fn));
 #endif
 }
 
@@ -59,9 +62,9 @@ struct BindEndpoint {
 };
 
 // Parse the mongoose-style bind URL ("https://0.0.0.0:8443",
-// "http://127.0.0.1:8080" or a bare "host:port"). IPv6 bracket syntax
-// is not supported — the existing wrapper never emits it. Throws
-// nsclient_exception on malformed input (caller catches and logs).
+// "http://127.0.0.1:8080", a bare "host:port", or an IPv6 address in
+// brackets: "[::1]:5693", as mongoose takes it). Throws nsclient_exception on
+// malformed input (caller catches and logs).
 BindEndpoint parse_bind(const std::string& bind) {
   BindEndpoint ep;
   std::string s = bind;
@@ -75,6 +78,15 @@ BindEndpoint parse_bind(const std::string& bind) {
   }
   const auto slash = s.find('/');
   if (slash != std::string::npos) s.erase(slash);
+  std::string bracketed_host;
+  if (!s.empty() && s[0] == '[') {
+    const auto close = s.find(']');
+    if (close == std::string::npos) throw nsclient::nsclient_exception("Invalid bind '" + bind + "': unterminated '['");
+    bracketed_host = s.substr(1, close - 1);
+    if (bracketed_host.empty()) throw nsclient::nsclient_exception("Invalid bind '" + bind + "': empty address in brackets");
+    s.erase(0, close + 1);
+    if (!s.empty() && s[0] != ':') throw nsclient::nsclient_exception("Invalid bind '" + bind + "': expected ':' after ']'");
+  }
   const auto colon = s.rfind(':');
   if (colon == std::string::npos) {
     ep.host = s;
@@ -100,6 +112,7 @@ BindEndpoint parse_bind(const std::string& bind) {
     }
     ep.port = static_cast<unsigned short>(port_value);
   }
+  if (!bracketed_host.empty()) ep.host = bracketed_host;
   if (ep.host.empty()) ep.host = "0.0.0.0";
   return ep;
 }
@@ -220,13 +233,13 @@ ServerBeastImpl::~ServerBeastImpl() {
   controllers_.clear();
 }
 
-void ServerBeastImpl::setSsl(std::string& certificate, std::string& key) {
-  if (thread_) {
+bool ServerBeastImpl::setSsl(std::string& certificate, std::string& key) {
+  if (!threads_.empty()) {
     // ssl_ctx_ is built once in start() from the then-current PEM
     // strings. Mutating cert_pem_/key_pem_ now wouldn't reach the live
     // SSL context. Refuse to silently mislead the caller.
     logger_->log_error("setSsl() called after start() — ignored; restart the server to apply a new certificate");
-    return;
+    return false;
   }
   try {
     auto cert_and_key = cert_loader::load_certificates(certificate, key);
@@ -234,7 +247,13 @@ void ServerBeastImpl::setSsl(std::string& certificate, std::string& key) {
     key_pem_ = std::move(cert_and_key.second);
   } catch (const nsclient::nsclient_exception& e) {
     logger_->log_error("Failed to load certificates: " + e.reason());
+    cert_pem_.clear();
+    key_pem_.clear();
+    ssl_failed_ = true;
+    return false;
   }
+  ssl_failed_ = cert_pem_.empty() || key_pem_.empty();
+  return !ssl_failed_;
 }
 
 void ServerBeastImpl::registerController(Controller* controller) {
@@ -242,8 +261,38 @@ void ServerBeastImpl::registerController(Controller* controller) {
   controllers_.push_back(controller);
 }
 
+void ServerBeastImpl::setWorkerThreads(const std::size_t threads) {
+  if (!threads_.empty()) {
+    logger_->log_error("setWorkerThreads() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  worker_threads_ = threads == 0 ? 1 : threads;
+}
+
+void ServerBeastImpl::setThreadReporting(const std::string& thread_name, thread_reporter reporter) {
+  if (!threads_.empty()) {
+    logger_->log_error("setThreadReporting() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  thread_name_ = thread_name;
+  thread_reporter_ = std::move(reporter);
+}
+
+bool ServerBeastImpl::isServerThread() const {
+  return std::any_of(threads_.begin(), threads_.end(),
+                     [](const std::shared_ptr<boost::thread>& thread) { return thread->get_id() == boost::this_thread::get_id(); });
+}
+
+void ServerBeastImpl::setAcceptFilter(accept_filter filter) {
+  if (!threads_.empty()) {
+    logger_->log_error("setAcceptFilter() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  accept_filter_ = std::move(filter);
+}
+
 void ServerBeastImpl::setBodyLimit(std::size_t bytes) {
-  if (thread_) {
+  if (!threads_.empty()) {
     logger_->log_error("setBodyLimit() called after start() — ignored; restart the server to apply");
     return;
   }
@@ -251,7 +300,7 @@ void ServerBeastImpl::setBodyLimit(std::size_t bytes) {
 }
 
 void ServerBeastImpl::setTlsOptions(const std::string& tls_version, const std::string& ciphers) {
-  if (thread_) {
+  if (!threads_.empty()) {
     logger_->log_error("setTlsOptions() called after start() — ignored; restart the server to apply");
     return;
   }
@@ -342,14 +391,23 @@ void ServerBeastImpl::dispatch(const http::request<http::string_body>& req, http
   }
 }
 
-void ServerBeastImpl::start(const std::string& bind) {
-  if (thread_) {
+bool ServerBeastImpl::start(const std::string& bind) {
+  if (!threads_.empty()) {
     // Already running — refuse a concurrent double-start. (A start() after a
-    // matching stop() is fine and supported: stop() clears thread_, and the
+    // matching stop() is fine and supported: stop() clears threads_, and the
     // run-state reset below re-arms the io_context so the instance can be
     // unloaded/reloaded.)
     logger_->log_error("start() called on an already-started server — ignored");
-    return;
+    return false;
+  }
+
+  if (ssl_failed_) {
+    // TLS was asked for and could not be set up. Starting anyway would serve
+    // the same port in cleartext - credentials included - which is never
+    // what a caller that called setSsl() wants.
+    logger_->log_error("TLS was requested for " + bind +
+                       " but the certificate could not be loaded; refusing to serve plain HTTP. The listener has NOT been started.");
+    return false;
   }
 
   BindEndpoint ep;
@@ -357,7 +415,7 @@ void ServerBeastImpl::start(const std::string& bind) {
     ep = parse_bind(bind);
   } catch (const nsclient::nsclient_exception& e) {
     logger_->log_error(e.reason());
-    return;
+    return false;
   }
 
   // TLS is driven by "did setSsl() load a cert" — matches the mongoose
@@ -373,7 +431,7 @@ void ServerBeastImpl::start(const std::string& bind) {
   if (use_tls_) {
     if (cert_pem_.empty() || key_pem_.empty()) {
       logger_->log_error("TLS requested for " + bind + " but no certificate/key was set");
-      return;
+      return false;
     }
     // asio's tlsv12_server pins *both* ends of the range to TLS 1.2, so this
     // listener could never negotiate TLS 1.3 - on every DEB/RPM build, where
@@ -385,24 +443,24 @@ void ServerBeastImpl::start(const std::string& bind) {
     long max_version = 0;
     std::string version_error;
     if (!resolve_tls_range(tls_version_, min_version, max_version, version_error)) {
-      logger_->log_error(version_error + ". The WEB server has NOT been started.");
-      return;
+      logger_->log_error(version_error + ". The listener has NOT been started.");
+      return false;
     }
     ssl_ctx_ = std::make_unique<asio::ssl::context>(asio::ssl::context::tls_server);
     ssl_ctx_->set_options(asio::ssl::context::default_workarounds | asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 | asio::ssl::context::single_dh_use);
     if (SSL_CTX_set_min_proto_version(ssl_ctx_->native_handle(), min_version) != 1 ||
         SSL_CTX_set_max_proto_version(ssl_ctx_->native_handle(), max_version) != 1) {
-      logger_->log_error("Failed to apply tls version '" + tls_version_ + "': rejected by this OpenSSL build. The WEB server has NOT been started.");
+      logger_->log_error("Failed to apply tls version '" + tls_version_ + "': rejected by this OpenSSL build. The listener has NOT been started.");
       ssl_ctx_.reset();
-      return;
+      return false;
     }
     if (!ciphers_.empty() && SSL_CTX_set_cipher_list(ssl_ctx_->native_handle(), ciphers_.c_str()) != 1) {
       // Refuse rather than fall back: a cipher list that OpenSSL rejects
       // leaves the default suite set in place, which is the opposite of what
       // an operator narrowing it asked for.
-      logger_->log_error("Failed to apply the configured allowed ciphers: rejected by this OpenSSL build. The WEB server has NOT been started.");
+      logger_->log_error("Failed to apply the configured allowed ciphers: rejected by this OpenSSL build. The listener has NOT been started.");
       ssl_ctx_.reset();
-      return;
+      return false;
     }
     try {
       ssl_ctx_->use_certificate_chain(asio::buffer(cert_pem_));
@@ -410,7 +468,7 @@ void ServerBeastImpl::start(const std::string& bind) {
     } catch (const std::exception& e) {
       logger_->log_error(std::string("Failed to install certificate: ") + e.what());
       ssl_ctx_.reset();
-      return;
+      return false;
     }
   }
 
@@ -418,7 +476,7 @@ void ServerBeastImpl::start(const std::string& bind) {
   const auto address = asio::ip::make_address(ep.host, ec);
   if (ec) {
     logger_->log_error("Invalid bind address '" + ep.host + "': " + ec.message());
-    return;
+    return false;
   }
   const tcp::endpoint endpoint(address, ep.port);
 
@@ -427,27 +485,27 @@ void ServerBeastImpl::start(const std::string& bind) {
   if (ec) {
     logger_->log_error("Failed to open acceptor: " + ec.message());
     acceptor_.reset();
-    return;
+    return false;
   }
   acceptor_->set_option(asio::socket_base::reuse_address(true), ec);
   acceptor_->bind(endpoint, ec);
   if (ec) {
     logger_->log_error("Failed to bind " + bind + ": " + ec.message());
     acceptor_.reset();
-    return;
+    return false;
   }
   acceptor_->listen(asio::socket_base::max_listen_connections, ec);
   if (ec) {
     logger_->log_error("Failed to listen on " + bind + ": " + ec.message());
     acceptor_.reset();
-    return;
+    return false;
   }
 
   // (Re)initialize the per-run io_context state so the instance can be
   // restarted after a stop() (e.g. plugin unload/reload). A previous run
   // left ioc_ run-to-completion, the work guard released, and stopping_ set;
   // undo all three before spawning the new accept loop. Safe here because the
-  // guard above guarantees no run() is in flight (thread_ is null/joined).
+  // guard above guarantees no run() is in flight (threads_ is empty/joined).
   stopping_ = false;
   ioc_.restart();
   work_guard_ = std::make_unique<asio::executor_work_guard<asio::io_context::executor_type>>(ioc_.get_executor());
@@ -464,10 +522,19 @@ void ServerBeastImpl::start(const std::string& bind) {
   // fails, the server keeps serving. What re-entering cannot bring back is
   // the accept loop itself, which is why spawn_accept_loop() guards that
   // separately.
+  //
+  // With more than one thread every one of them runs the same io_context, so
+  // a handler that blocks (a check, an external script) holds up only its own
+  // thread; the accept loop and the other sessions keep going on the rest.
+  // The guard line is worded by the thread helpers and handed to the reporter
+  // as is; by default it goes to this server's logger.
   const WebLoggerPtr log = logger_;
-  thread_ = threads::start_guarded_thread(
-      "web server", [this, log] { threads::run_io_context_guarded("web server", ioc_, [log](const std::string& message) { log->log_error(message); }); },
-      [log](const std::string& message) { log->log_error(message); });
+  const thread_reporter report = thread_reporter_ ? thread_reporter_ : thread_reporter([log](const std::string& message) { log->log_error(message); });
+  const std::string name = thread_name_;
+  for (std::size_t i = 0; i < worker_threads_; ++i) {
+    threads_.push_back(threads::start_guarded_thread(name, [this, name, report] { threads::run_io_context_guarded(name, ioc_, report); }, report));
+  }
+  return true;
 }
 
 void ServerBeastImpl::spawn_accept_loop() {
@@ -501,7 +568,11 @@ void ServerBeastImpl::spawn_accept_loop() {
 void ServerBeastImpl::accept_loop(const asio::yield_context& yield) {
   while (!stopping_) {
     boost::system::error_code aec;
-    tcp::socket socket(ioc_);
+    // Each connection on a strand of its own. With one thread running ioc_
+    // that changes nothing; with several (setWorkerThreads) it is what keeps a
+    // session's timeout handler from closing the socket on one thread while
+    // its read completes on another.
+    tcp::socket socket(asio::make_strand(ioc_));
     acceptor_->async_accept(socket, yield[aec]);
     if (aec) {
       // operation_aborted is the normal stop() path (the acceptor was
@@ -517,13 +588,23 @@ void ServerBeastImpl::accept_loop(const asio::yield_context& yield) {
     boost::system::error_code rec;
     const auto re = socket.remote_endpoint(rec);
     if (!rec) remote = re.address().to_string();
+    // Refused hosts are dropped here, before the handshake and before any of
+    // the request machinery is spent on them.
+    if (accept_filter_ && (rec || !accept_filter_(remote))) {
+      boost::system::error_code ignored;
+      socket.close(ignored);
+      continue;
+    }
 
     // Each connection is handled in its own coroutine so one slow client
     // never holds up the accept side.
+    const auto session_executor = socket.get_executor();
     if (use_tls_) {
-      spawn_detached(ioc_, [this, sock = std::move(socket), remote](const asio::yield_context& y) mutable { run_tls_session(std::move(sock), remote, y); });
+      spawn_detached(session_executor,
+                     [this, sock = std::move(socket), remote](const asio::yield_context& y) mutable { run_tls_session(std::move(sock), remote, y); });
     } else {
-      spawn_detached(ioc_, [this, sock = std::move(socket), remote](const asio::yield_context& y) mutable { run_plain_session(std::move(sock), remote, y); });
+      spawn_detached(session_executor,
+                     [this, sock = std::move(socket), remote](const asio::yield_context& y) mutable { run_plain_session(std::move(sock), remote, y); });
     }
   }
 }
@@ -588,7 +669,7 @@ void ServerBeastImpl::run_plain_session(tcp::socket socket, std::string remote_i
 }
 
 void ServerBeastImpl::stop() {
-  if (!thread_) return;
+  if (threads_.empty()) return;
   stopping_ = true;
 
   // Drain naturally — DO NOT call `ioc_.stop()`. Calling stop() while a
@@ -620,14 +701,25 @@ void ServerBeastImpl::stop() {
   // which throws rather than returning, and the throw would escape a
   // destructor further up. Let it go instead: the acceptor is closed and the
   // work guard dropped, so run() returns as soon as this handler does.
-  if (thread_->get_id() == boost::this_thread::get_id()) {
-    thread_->detach();
-    thread_.reset();
+  //
+  // With several threads none of them may be joined in that case either: the
+  // others keep running the io_context until it has no work left, and the
+  // handler that called us is work until it returns - so they would wait on
+  // it while it waits on them. Each returns once the last handler does.
+  const bool from_own_thread = std::any_of(threads_.begin(), threads_.end(),
+                                           [](const std::shared_ptr<boost::thread>& thread) { return thread->get_id() == boost::this_thread::get_id(); });
+  if (from_own_thread) {
+    // Leave acceptor_ and ssl_ctx_ alone: the other threads are still running
+    // the io_context, and a session accepted just before the acceptor closed
+    // would otherwise build its TLS stream on a null context. The object itself
+    // must outlive those threads too, which is why a caller on a server thread
+    // frees it through stop_and_release() rather than a delete.
+    for (const std::shared_ptr<boost::thread>& thread : threads_) thread->detach();
+    threads_.clear();
     return;
   }
-
-  thread_->join();
-  thread_.reset();
+  for (const std::shared_ptr<boost::thread>& thread : threads_) thread->join();
+  threads_.clear();
   acceptor_.reset();
   ssl_ctx_.reset();
 }

@@ -23,6 +23,8 @@ std::string load_file(const std::string& path, const std::string& hint);
 /// When `key_path` is empty the returned key buffer is the same string
 /// as the certificate buffer — matches the behaviour of the original
 /// load_certificates helper in ServerMongooseImpl.cpp.
+/// With OpenSSL available it also checks that the certificate and key parse
+/// and belong together, and throws nsclient_exception when they do not.
 std::pair<std::string, std::string> load_certificates(const std::string& cert_path, const std::string& key_path);
 
 }  // namespace cert_loader

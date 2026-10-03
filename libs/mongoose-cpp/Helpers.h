@@ -19,6 +19,13 @@ struct NSCP_MONGOOSE_EXPORT Helpers {
   static std::string encode_b64(const std::string &str);
   static std::string decode_b64(const std::string &str);
 
+  // Decode %XX escapes. `form` is the application/x-www-form-urlencoded rule
+  // (query strings, POST bodies), where '+' is a space; a path segment keeps
+  // a literal '+'. A malformed or truncated escape is copied through as is.
+  // The one decoder Request uses for its variables, shared so a server that
+  // reads a path or a body itself decodes it the same way.
+  static std::string url_decode(const std::string &str, bool form);
+
   // Add the browser-facing hardening headers to a response, unless the
   // controller already set one of them.
   //

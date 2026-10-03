@@ -209,6 +209,7 @@ if(OPENSSL_FOUND)
         SOURCES
             ${NSCP_INCLUDEDIR}/net/net_test.cpp
             ${NSCP_INCLUDEDIR}/net/payload_limits_test.cpp
+            ${NSCP_INCLUDEDIR}/net/connection_log_throttle_test.cpp
             ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/proxy_config_test.cpp
@@ -242,6 +243,7 @@ if(OPENSSL_FOUND)
             nscpcrypt
             ${Boost_FILESYSTEM_LIBRARY}
             ${Boost_DATE_TIME_LIBRARY}
+            ${Boost_THREAD_LIBRARY}
             ${OPENSSL_LIBRARIES}
             $<$<PLATFORM_ID:Windows>:CRYPT32>
         INCLUDES
