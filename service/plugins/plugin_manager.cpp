@@ -1359,34 +1359,51 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
   return NSCAPI::api_return_codes::isSuccess;
 }
 
+std::list<nsclient::core::plugin_manager::plugin_type> nsclient::core::plugin_manager::event_subscribers_for(
+    const PB::Commands::EventMessage &message, const std::function<std::list<plugin_type>(const std::string &)> &lookup,
+    std::list<std::string> *unmatched) {
+  std::list<plugin_type> ret;
+  std::set<unsigned int> seen;
+  for (const PB::Commands::EventMessage::Request &r : message.payload()) {
+    bool matched = false;
+    for (const plugin_type &p : lookup(r.event())) {
+      if (!p) continue;
+      matched = true;
+      if (seen.insert(p->get_id()).second) ret.push_back(p);
+    }
+    if (!matched && unmatched) unmatched->push_back(r.event());
+  }
+  return ret;
+}
+
 NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string &request) {
   PB::Commands::EventMessage em;
   em.ParseFromString(request);
-  for (const PB::Commands::EventMessage::Request &r : em.payload()) {
-    bool has_matched = false;
+  std::list<plugin_type> subscribers;
+  std::list<std::string> unmatched;
+  try {
+    subscribers = event_subscribers_for(em, [this](const std::string &event) { return event_subscribers_.get(event); }, &unmatched);
+  } catch (nsclient::plugins_list_exception &e) {
+    LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
+    return NSCAPI::api_return_codes::hasFailed;
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
+    return NSCAPI::api_return_codes::hasFailed;
+  } catch (...) {
+    LOG_ERROR_CORE("No handler for event");
+    return NSCAPI::api_return_codes::hasFailed;
+  }
+  for (const std::string &event : unmatched) {
+    LOG_DEBUG_CORE("No handler for event: " + event);
+  }
+  // Once per subscriber: each one gets the whole message and walks its lines.
+  for (const plugin_type &p : subscribers) {
     try {
-      for (const nsclient::plugin_type &p : event_subscribers_.get(r.event())) {
-        try {
-          p->on_event(request);
-          has_matched = true;
-        } catch (const std::exception &e) {
-          LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
-        } catch (...) {
-          LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": UNKNOWN EXCEPTION");
-        }
-      }
-    } catch (nsclient::plugins_list_exception &e) {
-      LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
-      return NSCAPI::api_return_codes::hasFailed;
+      p->on_event(request);
     } catch (const std::exception &e) {
-      LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
-      return NSCAPI::api_return_codes::hasFailed;
+      LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
     } catch (...) {
-      LOG_ERROR_CORE("No handler for event");
-      return NSCAPI::api_return_codes::hasFailed;
-    }
-    if (!has_matched) {
-      LOG_DEBUG_CORE("No handler for event: " + r.event());
+      LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": UNKNOWN EXCEPTION");
     }
   }
   return NSCAPI::api_return_codes::isSuccess;

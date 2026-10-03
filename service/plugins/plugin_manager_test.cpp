@@ -323,3 +323,99 @@ TEST(plugin_manager_facts, an_unreadable_response_says_why_and_changes_nothing) 
   EXPECT_NE(apply("", facts, errors), "") << "an empty buffer is a failed round, not an empty inventory";
   EXPECT_EQ(json_of(facts), "{}");
 }
+
+// ============================================================================
+// event_subscribers_for: who an event message is delivered to
+// ============================================================================
+
+namespace {
+class EventMockPlugin : public nsclient::core::plugin_interface {
+ public:
+  EventMockPlugin(unsigned int id, const std::string &alias) : plugin_interface(id, alias) {}
+  bool load_plugin(NSCAPI::moduleLoadMode) override { return true; }
+  bool has_start() override { return false; }
+  bool start_plugin() override { return true; }
+  bool has_prepare_shutdown() override { return false; }
+  void prepare_shutdown_plugin() override {}
+  void unload_plugin() override {}
+  std::string getName() override { return get_alias(); }
+  std::string getDescription() override { return "Mock plugin"; }
+  std::string get_version() override { return "1.0.0"; }
+  bool hasCommandHandler() override { return false; }
+  NSCAPI::nagiosReturn handleCommand(std::string, std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool hasNotificationHandler() override { return false; }
+  NSCAPI::nagiosReturn handleNotification(const char *, std::string &, std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  NSCAPI::nagiosReturn handle_schedule(const std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool hasMessageHandler() override { return false; }
+  void handleMessage(const char *, unsigned int) override {}
+  bool has_on_event() override { return true; }
+  NSCAPI::nagiosReturn on_event(const std::string &) override { return NSCAPI::cmd_return_codes::isSuccess; }
+  bool hasMetricsFetcher() override { return false; }
+  bool hasFactsFetcher() override { return false; }
+  NSCAPI::nagiosReturn fetchFacts(const std::string &, std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  NSCAPI::nagiosReturn fetchMetrics(std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool hasMetricsSubmitter() override { return false; }
+  NSCAPI::nagiosReturn submitMetrics(const std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool has_command_line_exec() override { return false; }
+  int commandLineExec(bool, std::string &, std::string &) override { return 0; }
+  bool has_routing_handler() override { return false; }
+  bool route_message(const char *, const char *, unsigned int, char **, char **, unsigned int *) override { return false; }
+  bool is_duplicate(boost::filesystem::path, std::string) override { return false; }
+  std::string getModule() override { return get_alias(); }
+  void on_log_message(const std::string &) override {}
+};
+
+using plugin_list = std::list<nsclient::core::plugin_type>;
+
+PB::Commands::EventMessage event_message(std::initializer_list<const char *> events) {
+  PB::Commands::EventMessage m;
+  for (const char *e : events) m.add_payload()->set_event(e);
+  return m;
+}
+
+std::list<unsigned int> ids(const plugin_list &plugins) {
+  std::list<unsigned int> ret;
+  for (const auto &p : plugins) ret.push_back(p->get_id());
+  return ret;
+}
+}  // namespace
+
+TEST(plugin_manager_events, a_message_of_n_lines_reaches_each_subscriber_once) {
+  // A real-time filter sends one line per record, all under one event name.
+  // Every subscriber walks the lines itself, so it must get the message once,
+  // not once per line - that was N copies of N lines.
+  const auto python = std::make_shared<EventMockPlugin>(1, "python");
+  const auto web = std::make_shared<EventMockPlugin>(2, "web");
+  const auto lookup = [&](const std::string &) { return plugin_list{python, web}; };
+
+  const auto subscribers = nsclient::core::plugin_manager::event_subscribers_for(
+      event_message({"system.cpu:rt", "system.cpu:rt", "system.cpu:rt", "system.cpu:rt"}), lookup);
+
+  EXPECT_EQ((std::list<unsigned int>{1, 2}), ids(subscribers));
+}
+
+TEST(plugin_manager_events, a_subscriber_of_several_lines_events_is_still_called_once) {
+  const auto both = std::make_shared<EventMockPlugin>(1, "both");
+  const auto cpu_only = std::make_shared<EventMockPlugin>(2, "cpu");
+  const auto mem_only = std::make_shared<EventMockPlugin>(3, "mem");
+  const auto lookup = [&](const std::string &event) {
+    if (event == "system.cpu:rt") return plugin_list{cpu_only, both};
+    return plugin_list{both, mem_only};
+  };
+
+  const auto subscribers = nsclient::core::plugin_manager::event_subscribers_for(event_message({"system.cpu:rt", "system.memory:rt"}), lookup);
+
+  EXPECT_EQ((std::list<unsigned int>{2, 1, 3}), ids(subscribers)) << "each once, in the order first seen";
+}
+
+TEST(plugin_manager_events, lines_nobody_listens_to_are_reported_and_skipped) {
+  const auto cpu = std::make_shared<EventMockPlugin>(1, "cpu");
+  const auto lookup = [&](const std::string &event) { return event == "system.cpu:rt" ? plugin_list{cpu} : plugin_list{}; };
+  std::list<std::string> unmatched;
+
+  const auto subscribers =
+      nsclient::core::plugin_manager::event_subscribers_for(event_message({"nobody:listens", "system.cpu:rt"}), lookup, &unmatched);
+
+  EXPECT_EQ((std::list<unsigned int>{1}), ids(subscribers));
+  EXPECT_EQ((std::list<std::string>{"nobody:listens"}), unmatched);
+}

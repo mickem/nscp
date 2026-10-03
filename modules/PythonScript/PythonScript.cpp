@@ -3,6 +3,8 @@
 
 #include "PythonScript.h"
 
+#include <set>
+
 #include <boost/program_options.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -292,12 +294,12 @@ void PythonScript::onEvent(const PB::Commands::EventMessage &request, const std:
   if (inst->has_event_handler("$$event$$")) {
     inst->on_event("$$event$$", buffer);
   }
+  // Registry.event_pb(name, fn) gets the whole message, so once per event
+  // name it carries - not once per line, which handed it the same message
+  // once for every record in it. Registry.event gets one record per call.
+  std::set<std::string> pb_delivered;
   for (const ::PB::Commands::EventMessage::Request &line : request.payload()) {
-    // Registry.event_pb(name, fn) files its handler under the event's own
-    // name, and the core only delivers events this module subscribed to by
-    // that name - but only the "$$event$$" catch-all above was ever looked
-    // up, so an event_pb handler registered the documented way never ran.
-    if (line.event() != "$$event$$" && inst->has_event_handler(line.event())) {
+    if (line.event() != "$$event$$" && pb_delivered.insert(line.event()).second && inst->has_event_handler(line.event())) {
       inst->on_event(line.event(), buffer);
     }
     if (inst->has_simple_event_handler(line.event())) {
