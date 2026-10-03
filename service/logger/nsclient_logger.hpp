@@ -20,29 +20,41 @@ namespace nsclient {
 namespace logging {
 namespace impl {
 class nsclient_logger : public logger_impl, public logging_subscriber {
-  // A subscriber and the deliveries inside it. The tracker is per
-  // subscriber so that removing one waits for the lines still inside *it*,
-  // not for a slow handler in an unrelated module - an unload of CheckNSCP
-  // must not be refused because ElasticClient is stuck.
+  // One subscriber behind its own gate (threads::gated). A delivery enters
+  // a subscriber's gate only around the call into that subscriber, so
+  // removing one waits for the lines inside *it* and for nothing else: a
+  // line stuck in ElasticClient neither refuses the unload of WEBServer nor
+  // holds a reference to it. And the gate, not the delivery, owns the
+  // subscriber, so the remover is its last holder and a module's destructor
+  // never runs on the logging thread.
+  typedef threads::gated<logging_subscriber_instance> gate_type;
   struct entry {
-    logging_subscriber_instance subscriber;
-    std::shared_ptr<threads::in_flight> deliveries;
+    // Names the subscriber in a handler line's chain (see do_log).
+    std::uint64_t id;
+    std::shared_ptr<gate_type> gate;
   };
   typedef std::vector<entry> subscribers_type;
   typedef std::shared_ptr<const subscribers_type> subscribers_ptr;
+  // A subscriber taken off the list whose wait ran out with a line still
+  // inside it. It stays closed, and clear() waits for it again at shutdown
+  // and reports it if it is still stuck.
+  struct draining {
+    entry subscriber;
+    std::uint64_t cutoff;
+  };
 
   log_driver_instance backend_;
   // Copy-on-write: add() / remove() / clear() publish a new vector, and a
-  // delivery holds the one it started with. The list changes on module
-  // load and unload only, so a log line costs one shared_ptr copy rather
-  // than a node per subscriber.
+  // delivery walks the one it started with. The list changes on module
+  // load and unload only, so a log line costs one shared_ptr copy.
   subscribers_ptr subscribers_;
+  std::vector<draining> draining_;
+  std::uint64_t next_id_ = 1;
   // Mirrors "subscribers_ is non-empty", maintained under mutex_, so the
   // common case - no log-handler module loaded, as in every CLI mode - costs
   // a log line no lock at all.
   std::atomic<bool> has_subscribers_{false};
-  // Guards subscribers_ and the ordering between a delivery entering the
-  // trackers and a removal taking its cutoffs. Held for those few lines
+  // Guards subscribers_, draining_ and next_id_. Held for those few lines
   // only, never across a subscriber's on_log_message, so a plain blocking
   // mutex is safe. It used to be a 5 s timed mutex held across the whole
   // fan-out: a subscriber that logged from inside its handler re-entered on
@@ -58,152 +70,33 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   // can see the timed-out path in less.
   std::chrono::milliseconds delivery_wait_{5000};
 
-  // How many deliveries the calling thread is inside: a line logged while it
-  // is above zero was produced by a handler, and do_log marks it as such
-  // (see tag_handler_line in the .cpp). Thread-local so do_log can tell
-  // without a lock; the process has one nsclient_logger, so one counter per
-  // thread is enough.
-  static unsigned &delivery_depth() {
-    static thread_local unsigned depth = 0;
-    return depth;
-  }
-  struct depth_guard {
-    depth_guard() { ++delivery_depth(); }
-    ~depth_guard() { --delivery_depth(); }
-    depth_guard(const depth_guard &) = delete;
-    depth_guard &operator=(const depth_guard &) = delete;
+  // The delivery the calling thread is inside, for do_log: the chain of
+  // handlers the line being delivered already came through, and the one
+  // being called now. Thread-local, so do_log reads it without a lock; the
+  // process has one nsclient_logger, so one slot per thread is enough.
+  struct delivery_context {
+    const std::vector<std::uint64_t> *chain;
+    std::uint64_t handler;
   };
+  static delivery_context *&current_delivery() {
+    static thread_local delivery_context *context = nullptr;
+    return context;
+  }
 
  public:
   nsclient_logger();
   ~nsclient_logger() override;
 
-  void add(const logging_subscriber_instance &subscriber) {
-    boost::lock_guard<boost::mutex> lock(mutex_);
-    std::shared_ptr<subscribers_type> next = subscribers_ ? std::make_shared<subscribers_type>(*subscribers_) : std::make_shared<subscribers_type>();
-    next->push_back(entry{subscriber, std::make_shared<threads::in_flight>()});
-    subscribers_ = next;
-    has_subscribers_ = true;
-  }
   // For tests: how long the bounded wait runs (see delivery_wait_).
   void set_delivery_wait(std::chrono::milliseconds wait) { delivery_wait_ = wait; }
-  // For tests: install a backend built by the caller, as set_backend(name)
-  // would install one of its own.
+  // Install a backend: set_backend(name) builds one and hands it here, and
+  // a test hands its own.
   void use_backend(log_driver_instance backend);
 
-  // Take every subscriber off the list and wait for the deliveries that
-  // started on the old list to finish, within one shared bound. Returns the
-  // subscribers a delivery was still inside when it ran out, so the caller
-  // can leave those alone; an empty list means every one is clear. Nothing
-  // in flight can hold what was never on the list, so an empty list returns
-  // at once.
-  std::vector<logging_subscriber_instance> clear() {
-    std::vector<logging_subscriber_instance> still_delivering;
-    subscribers_ptr previous;
-    std::vector<std::uint64_t> cutoffs;
-    {
-      boost::lock_guard<boost::mutex> lock(mutex_);
-      if (!subscribers_ || subscribers_->empty()) return still_delivering;
-      previous = subscribers_;
-      subscribers_ = std::make_shared<subscribers_type>();
-      has_subscribers_ = false;
-      cutoffs.reserve(previous->size());
-      for (const entry &e : *previous) cutoffs.push_back(e.deliveries->cutoff());
-    }
-    const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + delivery_wait_;
-    for (std::size_t i = 0; i < previous->size(); ++i) {
-      const entry &e = (*previous)[i];
-      const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-      const std::chrono::milliseconds remaining =
-          now < deadline ? std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now) : std::chrono::milliseconds(0);
-      if (!e.deliveries->wait_for_others_before(cutoffs[i], remaining)) still_delivering.push_back(e.subscriber);
-    }
-    // Released only after mutex_ is: if the old list held the last reference
-    // to a plugin, the destructor unmaps the library, whose static
-    // destructors may log - and a log line takes mutex_.
-    previous.reset();
-    return still_delivering;
-  }
-  // Take one subscriber off the list and wait for the deliveries that
-  // started on the old list and are inside it, so the caller can tear it
-  // down afterwards. A subscriber that was not on the list is not waited
-  // for either - the plugin manager unsubscribes every module it unloads,
-  // handler or not, and that must not park an unload behind an unrelated
-  // handler - and costs no copy: the list is scanned first and copied only
-  // on a hit.
-  unsubscribe_result remove(const logging_subscriber_instance &subscriber) {
-    unsubscribe_result result;
-    subscribers_ptr previous;
-    std::shared_ptr<threads::in_flight> deliveries;
-    std::uint64_t cutoff = 0;
-    {
-      boost::lock_guard<boost::mutex> lock(mutex_);
-      if (!subscribers_) return result;
-      std::size_t at = subscribers_->size();
-      for (std::size_t i = 0; i < subscribers_->size(); ++i) {
-        if ((*subscribers_)[i].subscriber == subscriber) {
-          at = i;
-          break;
-        }
-      }
-      if (at == subscribers_->size()) return result;
-      result.removed = true;
-      std::shared_ptr<subscribers_type> next = std::make_shared<subscribers_type>();
-      next->reserve(subscribers_->size() - 1);
-      for (std::size_t i = 0; i < subscribers_->size(); ++i) {
-        if (i != at) next->push_back((*subscribers_)[i]);
-      }
-      deliveries = (*subscribers_)[at].deliveries;
-      cutoff = deliveries->cutoff();
-      previous = subscribers_;
-      subscribers_ = next;
-      has_subscribers_ = !next->empty();
-    }
-    // The wait excludes this thread's own delivery (a handler unsubscribing
-    // itself) and is bounded like dll_plugin's wait for its dispatchers: a
-    // handler that has been running for five seconds is not going to finish
-    // because we keep waiting.
-    result.delivering = !deliveries->wait_for_others_before(cutoff, delivery_wait_);
-    previous.reset();  // see clear()
-    return result;
-  }
-
-  // Deliver to the subscriber list as it was when the line arrived, with
-  // mutex_ released: a subscriber is module code (handleMessage), and it may
-  // unload modules - itself included - from inside its handler. The copy
-  // keeps every subscriber alive for this delivery even if it is removed
-  // meanwhile; remove() then waits for the delivery before returning. A
-  // line a handler logged is not delivered at all - see do_log.
-  void on_log_message(const std::string &data) override {
-    if (!has_subscribers_.load(std::memory_order_acquire)) return;
-    if (is_handler_line(data)) return;
-    // Every tracker is entered under mutex_, before the first call, so a
-    // remove() that takes its cutoff afterwards waits for this delivery
-    // whichever subscriber it is removing. The guards are declared before
-    // the snapshot so that the snapshot - and with it the last reference a
-    // removed subscriber may have - is released while this thread still
-    // counts as delivering and before a tracker wakes a waiting remove(). A
-    // plugin destroyed by that release may log from its teardown; that line
-    // is then a handler line too.
-    std::vector<threads::in_flight::guard> delivering;
-    const depth_guard nested;
-    subscribers_ptr snapshot;
-    {
-      boost::lock_guard<boost::mutex> lock(mutex_);
-      if (!subscribers_ || subscribers_->empty()) return;
-      snapshot = subscribers_;
-      delivering.reserve(snapshot->size());
-      for (const entry &e : *snapshot) {
-        delivering.emplace_back(*e.deliveries);
-        delivering.back().enter();
-      }
-    }
-    for (std::size_t i = 0; i < snapshot->size(); ++i) {
-      (*snapshot)[i].subscriber->on_log_message(data);
-      delivering[i].leave();
-    }
-    snapshot.reset();
-  }
+  // Deliver the line to every subscriber that did not produce it. Each call
+  // goes through the subscriber's gate (see entry); a subscriber closed for
+  // removal since the list was read is skipped.
+  void on_log_message(const std::string &data) override;
 
   // Takes both severity names ("debug", "trace", ...) and log-driver options
   // ("console", "no-console", "oneline", "no-std-err") - cli_parser pushes
@@ -232,14 +125,29 @@ class nsclient_logger : public logger_impl, public logging_subscriber {
   bool shutdown() override;
   void configure() override;
 
-  // The origin tag: a line a handler logged from inside a delivery carries
-  // from_log_handler in its LogEntry, set by do_log on the logging thread,
-  // where the depth is known, and read back here however the line travelled
-  // in between. Keyed on the line itself rather than on anything the logger
-  // remembers, so a byte-identical line from another source can neither
-  // steal the tag nor inherit it.
-  static std::string tag_handler_line(const std::string &data);
-  static bool is_handler_line(const std::string &data);
+  // A line a handler logs from inside its handler carries the chain of
+  // handlers it came through - the one that logged it, and the chain of the
+  // line that handler was handed - in LogEntry.handled_by, and is not handed
+  // to any of them again. It still reaches every other handler: a failure
+  // ElasticClient logs from its handler shows in the web UI's live log and
+  // in check_nscp's error tally. A handler that logged once per line it was
+  // handed would otherwise feed itself forever; two that did would feed each
+  // other. The chain grows by one handler per hop, so no line goes round
+  // more than once per subscriber.
+  //
+  // The field is written ahead of the rest of the message, so a line is
+  // known to carry one from its first byte, and only such a line is parsed
+  // here. A module that hands lines to a thread of its own and logs from
+  // there is outside any delivery and is not tagged: it has to filter by
+  // sender, as ElasticClient and DotnetPlugins do.
+  static std::string tag_handler_line(const std::string &data, const std::vector<std::uint64_t> &chain);
+  // The chain a line carries; empty for a line no handler wrote.
+  static std::vector<std::uint64_t> handler_chain(const std::string &data);
+
+ private:
+  // Under mutex_: release the draining subscribers whose lines have left
+  // since, into `released` for the caller to drop after unlocking.
+  void prune_draining(std::vector<logging_subscriber_instance> &released);
 };
 }  // namespace impl
 }  // namespace logging

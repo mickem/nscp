@@ -241,14 +241,16 @@ std::string line(const std::string& message) {
   entry.add_entry()->set_message(message);
   return entry.SerializeAsString();
 }
-// The messages of a serialized LogEntry, with "+handler" on a tagged one.
+// The messages of a serialized LogEntry, with "+handled" on a line a
+// handler wrote (one that carries a chain).
 std::string describe(const std::string& data) {
   PB::Log::LogEntry entry;
   if (!entry.ParseFromString(data)) return "<not a LogEntry>";
+  const bool tagged = entry.handled_by_size() > 0;
   std::string out;
   for (const PB::Log::LogEntry::Entry& e : entry.entry()) {
     if (!out.empty()) out += ",";
-    out += e.message() + (e.from_log_handler() ? "+handler" : "");
+    out += e.message() + (tagged ? "+handled" : "");
   }
   return out;
 }
@@ -264,14 +266,15 @@ std::vector<std::string> describe_all(const std::vector<std::string>& lines) {
 // line were fanned out again, this would feed itself forever.
 class ReentrantSubscriber : public logging_subscriber {
  public:
-  explicit ReentrantSubscriber(nsclient_logger* logger) : logger_(logger) {}
+  explicit ReentrantSubscriber(nsclient_logger* logger, std::string says = "nested") : logger_(logger), says_(std::move(says)) {}
   void on_log_message(const std::string& payload) override {
     {
       std::lock_guard<std::mutex> g(mu);
       payloads.push_back(payload);
     }
-    logger_->do_log(line("nested"));
+    logger_->do_log(line(says_));
   }
+  std::string says_;
   std::vector<std::string> snapshot() {
     std::lock_guard<std::mutex> g(mu);
     return payloads;
@@ -375,7 +378,7 @@ class BlockingSubscriber : public logging_subscriber {
 
 }  // namespace
 
-TEST(NsclientLogger, SubscriberLoggingFromItsHandlerOnTheConsoleBackendNeitherStallsNorRecurses) {
+TEST(NsclientLogger, AHandlersLineSkipsItButReachesTheOtherHandlers) {
   auto logger = make_backendless_logger();
   auto backend = std::make_shared<SynchronousBackend>(logger.get());
   logger->use_backend(backend);
@@ -384,24 +387,46 @@ TEST(NsclientLogger, SubscriberLoggingFromItsHandlerOnTheConsoleBackendNeitherSt
   logger->add_subscriber(reentrant);
   logger->add_subscriber(other);
 
-  const auto started = std::chrono::steady_clock::now();
   logger->do_log(line("outer"));
-  const auto elapsed = std::chrono::steady_clock::now() - started;
 
-  // The line reaches both subscribers once. The handler's own line reaches
-  // the backend, tagged, but is not fanned out to the handlers again, and
-  // nothing sat out a lock timeout.
+  // The handler is handed "outer" once and not its own line, which would
+  // otherwise feed it forever. The other handler gets both: a failure a
+  // handler logs reaches the web UI and check_nscp as it did before. On the
+  // console backend the handler's line is delivered synchronously, inside
+  // the delivery of "outer", so the other handler sees it first.
   EXPECT_EQ(describe_all(reentrant->snapshot()), (std::vector<std::string>{"outer"}));
-  EXPECT_EQ(describe_all(other->snapshot()), (std::vector<std::string>{"outer"}));
-  EXPECT_EQ(describe_all(backend->snapshot()), (std::vector<std::string>{"outer", "nested+handler"}));
-  EXPECT_LT(elapsed, std::chrono::seconds(2));
+  EXPECT_EQ(describe_all(other->snapshot()), (std::vector<std::string>{"nested+handled", "outer"}));
+  EXPECT_EQ(describe_all(backend->snapshot()), (std::vector<std::string>{"outer", "nested+handled"}));
+  logger->destroy();
+}
+
+TEST(NsclientLogger, TwoHandlersThatLogPerLineDoNotFeedEachOther) {
+  // A logs on every line it is handed, and so does B. Without the chain the
+  // two would hand each other lines forever; with it, a line goes round at
+  // most once per handler.
+  auto logger = make_backendless_logger();
+  auto backend = std::make_shared<SynchronousBackend>(logger.get());
+  logger->use_backend(backend);
+  auto a = std::make_shared<ReentrantSubscriber>(logger.get(), "from-a");
+  auto b = std::make_shared<ReentrantSubscriber>(logger.get(), "from-b");
+  logger->add_subscriber(a);
+  logger->add_subscriber(b);
+
+  logger->do_log(line("outer"));
+
+  // "outer" -> A writes from-a, which reaches B -> B writes from-b, which
+  // has been through both and stops. Then "outer" -> B writes from-b, which
+  // reaches A -> A writes from-a, which stops.
+  EXPECT_EQ(describe_all(a->snapshot()), (std::vector<std::string>{"outer", "from-b+handled"}));
+  EXPECT_EQ(describe_all(b->snapshot()), (std::vector<std::string>{"from-a+handled", "outer"}));
+  EXPECT_EQ(backend->snapshot().size(), 5u);
   logger->destroy();
 }
 
 TEST(NsclientLogger, AnIdenticalLineFromElsewhereIsNotMistakenForAHandlersOwn) {
   // The tag is in the line, not keyed on its content: a byte-identical line
   // logged by something that is not a handler is still delivered, and the
-  // handler's own copy is still withheld.
+  // handler's own copy is still withheld from it.
   auto logger = make_backendless_logger();
   auto backend = std::make_shared<SynchronousBackend>(logger.get());
   logger->use_backend(backend);
@@ -411,8 +436,19 @@ TEST(NsclientLogger, AnIdenticalLineFromElsewhereIsNotMistakenForAHandlersOwn) {
   logger->do_log(line("outer"));   // the handler logs "nested" from inside
   logger->do_log(line("nested"));  // and here "nested" comes from outside
   EXPECT_EQ(describe_all(reentrant->snapshot()), (std::vector<std::string>{"outer", "nested"}));
-  EXPECT_EQ(describe_all(backend->snapshot()), (std::vector<std::string>{"outer", "nested+handler", "nested", "nested+handler"}));
+  EXPECT_EQ(describe_all(backend->snapshot()), (std::vector<std::string>{"outer", "nested+handled", "nested", "nested+handled"}));
   logger->destroy();
+}
+
+TEST(NsclientLogger, AnUntaggedLineIsNotParsedForAChain) {
+  // Only a line whose first byte is the chain field is parsed for one.
+  EXPECT_TRUE(nsclient_logger::handler_chain(line("plain")).empty());
+  EXPECT_TRUE(nsclient_logger::handler_chain("").empty());
+  const std::string tagged = nsclient_logger::tag_handler_line(line("x"), {7, 9});
+  EXPECT_EQ(nsclient_logger::handler_chain(tagged), (std::vector<std::uint64_t>{7, 9}));
+  // Re-tagging replaces the chain rather than adding a second one.
+  EXPECT_EQ(nsclient_logger::handler_chain(nsclient_logger::tag_handler_line(tagged, {3})), (std::vector<std::uint64_t>{3}));
+  EXPECT_EQ(describe(tagged), "x+handled");
 }
 
 TEST(NsclientLogger, SubscriberLoggingFromItsHandlerOnTheThreadedBackendDoesNotFeedItself) {
@@ -434,14 +470,15 @@ TEST(NsclientLogger, SubscriberLoggingFromItsHandlerOnTheThreadedBackendDoesNotF
   while (sink->size() < 2 && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(10));
   // And then nothing more: the handler was handed "outer" once.
   std::this_thread::sleep_for(std::chrono::milliseconds(300));
-  EXPECT_EQ(describe_all(sink->snapshot()), (std::vector<std::string>{"outer", "nested+handler"}));
+  EXPECT_EQ(describe_all(sink->snapshot()), (std::vector<std::string>{"outer", "nested+handled"}));
   EXPECT_EQ(describe_all(reentrant->snapshot()), (std::vector<std::string>{"outer"}));
   logger->destroy();
 }
 
 TEST(NsclientLogger, RemoveWaitsOnlyForDeliveriesInsideTheSubscriberBeingRemoved) {
-  // A stuck handler in one module must not refuse the unload of another:
-  // the deliveries are counted per subscriber.
+  // A line stuck in one module's handler must not refuse the unload of
+  // another: a delivery enters a subscriber's gate only around the call
+  // into that subscriber.
   auto logger = make_backendless_logger();
   logger->set_delivery_wait(std::chrono::milliseconds(200));
   auto blocking = std::make_shared<BlockingSubscriber>();
@@ -452,19 +489,19 @@ TEST(NsclientLogger, RemoveWaitsOnlyForDeliveriesInsideTheSubscriberBeingRemoved
   std::thread delivery([&logger]() { logger->on_log_message("stuck"); });
   blocking->wait_until_entered();
 
-  // `other` comes after `blocking` in the list, so the stuck line has not
-  // reached it yet - but it will, once `blocking` lets go: the delivery
-  // entered every subscriber's tracker before its first call. Removing
-  // `other` therefore waits for this delivery too, and reports it.
+  // `other` comes after `blocking`: the stuck line has not reached it, so
+  // removing it has nothing to wait for - and its gate is closed, so the
+  // line never will reach it.
   const auto result_other = logger->remove_subscriber(other);
   EXPECT_TRUE(result_other.removed);
-  EXPECT_TRUE(result_other.delivering);
+  EXPECT_FALSE(result_other.delivering);
   const auto result_blocking = logger->remove_subscriber(blocking);
   EXPECT_TRUE(result_blocking.removed);
   EXPECT_TRUE(result_blocking.delivering);
 
   blocking->release();
   delivery.join();
+  EXPECT_TRUE(other->snapshot().empty());
 }
 
 TEST(NsclientLogger, RemoveOfAnotherSubscriberDoesNotWaitForAHandlerThatIsAlreadyPast) {
@@ -478,11 +515,9 @@ TEST(NsclientLogger, RemoveOfAnotherSubscriberDoesNotWaitForAHandlerThatIsAlread
   std::thread delivery([&logger]() { logger->on_log_message("stuck"); });
   blocking->wait_until_entered();
 
-  const auto started = std::chrono::steady_clock::now();
   const auto result = logger->remove_subscriber(other);
   EXPECT_TRUE(result.removed);
   EXPECT_FALSE(result.delivering);
-  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::milliseconds(150));
 
   blocking->release();
   delivery.join();
@@ -505,6 +540,27 @@ TEST(NsclientLogger, ClearNamesTheSubscribersStillDelivering) {
 
   blocking->release();
   delivery.join();
+  EXPECT_TRUE(logger->clear_subscribers().empty());
+}
+
+TEST(NsclientLogger, AStuckRemovalIsWaitedForAgainByClear) {
+  // A module parked because its removal could not wait a line out is no
+  // longer a subscriber - but clear() at shutdown still waits for it and
+  // names it if the line is still inside, so shutdown leaves it alone.
+  auto logger = make_backendless_logger();
+  logger->set_delivery_wait(std::chrono::milliseconds(200));
+  auto blocking = std::make_shared<BlockingSubscriber>();
+  logger->add_subscriber(blocking);
+
+  std::thread delivery([&logger]() { logger->on_log_message("stuck"); });
+  blocking->wait_until_entered();
+
+  EXPECT_TRUE(logger->remove_subscriber(blocking).delivering);
+  EXPECT_EQ(logger->clear_subscribers(), (std::vector<nsclient::logging::logging_subscriber_instance>{blocking}));
+
+  blocking->release();
+  delivery.join();
+  // Once the line has left, the next clear finds nothing still inside.
   EXPECT_TRUE(logger->clear_subscribers().empty());
 }
 
@@ -533,21 +589,22 @@ TEST(NsclientLogger, DeliveriesRunConcurrentlyAcrossThreads) {
 
 TEST(NsclientLogger, SubscriberMayRemoveItselfFromInsideItsHandler) {
   auto logger = make_backendless_logger();
+  // A removal that had to wait for the handler's own delivery would run
+  // this out and report it; the handler's own thread is not waited for.
+  logger->set_delivery_wait(std::chrono::milliseconds(0));
   auto self_removing = std::make_shared<SelfRemovingSubscriber>(logger.get());
   auto other = std::make_shared<CapturingSubscriber>();
   logger->add_subscriber(self_removing);
   logger->add_subscriber(other);
 
-  const auto started = std::chrono::steady_clock::now();
   logger->on_log_message("first");
   logger->on_log_message("second");
-  const auto elapsed = std::chrono::steady_clock::now() - started;
 
   // Removed on the first line, so it never sees the second; the other
-  // subscriber sees both and nothing waited for a timeout.
+  // subscriber sees both.
   EXPECT_EQ(self_removing->calls.load(), 1);
   EXPECT_EQ(other->snapshot(), (std::vector<std::string>{"first", "second"}));
-  EXPECT_LT(elapsed, std::chrono::seconds(2));
+  EXPECT_TRUE(logger->clear_subscribers().empty());
 }
 
 TEST(NsclientLogger, RemoveWaitsForADeliveryInFlightOnAnotherThread) {
@@ -605,9 +662,9 @@ TEST(NsclientLogger, RemovingAnUnknownSubscriberDoesNotWaitForADelivery) {
   std::thread delivery([&logger]() { logger->on_log_message("slow"); });
   blocking->wait_until_entered();
 
-  const auto started = std::chrono::steady_clock::now();
-  EXPECT_FALSE(logger->remove_subscriber(never_added).removed);
-  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
+  const auto result = logger->remove_subscriber(never_added);
+  EXPECT_FALSE(result.removed);
+  EXPECT_FALSE(result.delivering);
 
   blocking->release();
   delivery.join();
@@ -650,13 +707,16 @@ TEST(NsclientLogger, ClearReportsADeliveryThatOutlivesTheWait) {
   delivery.join();
 }
 
-TEST(NsclientLogger, RemoveAndClearReturnAtOnceWithNothingInFlight) {
-  // Plain add / remove with nothing in flight returns at once.
+TEST(NsclientLogger, RemoveAndClearReportNothingWithNothingInFlight) {
+  // With no wait allowed at all, a removal that found something to wait
+  // for would report it.
   auto logger = make_backendless_logger();
+  logger->set_delivery_wait(std::chrono::milliseconds(0));
   auto sub = std::make_shared<CapturingSubscriber>();
+  auto second = std::make_shared<CapturingSubscriber>();
   logger->add_subscriber(sub);
-  const auto started = std::chrono::steady_clock::now();
-  logger->remove_subscriber(sub);
-  logger->clear_subscribers();
-  EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
+  logger->add_subscriber(second);
+  logger->on_log_message("delivered and gone");
+  EXPECT_FALSE(logger->remove_subscriber(sub).delivering);
+  EXPECT_TRUE(logger->clear_subscribers().empty());
 }

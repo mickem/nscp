@@ -24,13 +24,14 @@ message LogEntry {
 		int32	line	= 4;
 		string	message = 5;
 		int32	date	= 6;
-		// Set by the core on a line a log-handler module wrote from inside its
-		// handler. Such a line reaches the console and the log file but is not
-		// handed to the log handlers again: one that logged once per line it
-		// received would otherwise feed itself forever.
-		bool	from_log_handler = 7;
 	};
 
 	repeated Entry entry = 1;
+	// Set by the core on a line a log-handler module wrote from inside its
+	// handler: the handlers the line came through, which it is not handed to
+	// again (one that logged per line it received would otherwise feed itself
+	// forever). Internal to the core, and written ahead of `entry` on the wire
+	// so the core can spot it from the first byte (nsclient_logger).
+	repeated uint64 handled_by = 2;
 }
 
