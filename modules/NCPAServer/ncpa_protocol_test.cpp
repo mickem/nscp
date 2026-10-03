@@ -87,8 +87,9 @@ TEST(NcpaArgs, RemovesTheQuotesCheckNcpaLeavesAroundAToken) {
   // check_ncpa.py's non-POSIX shlex keeps them: -a '"warning=load > 80" ...'.
   EXPECT_EQ(ncpa::split_args("\"warning=load > 80\" \"critical=load > 90\""), (strings{"warning=load > 80", "critical=load > 90"}));
   EXPECT_EQ(ncpa::split_args("'top-syntax=${list}'"), (strings{"top-syntax=${list}"}));
-  EXPECT_EQ(ncpa::split_args("\"say \\\"hi\\\"\""), (strings{"say \"hi\""}));
-  EXPECT_EQ(ncpa::split_args("''"), (strings{""}));
+  // A double quote travels inside single quotes; empty tokens are dropped.
+  EXPECT_EQ(ncpa::split_args("'say \"hi\"'"), (strings{"say \"hi\""}));
+  EXPECT_EQ(ncpa::split_args("''"), strings());
 }
 
 TEST(NcpaArgs, KeepsBackslashes) {
@@ -96,6 +97,8 @@ TEST(NcpaArgs, KeepsBackslashes) {
   EXPECT_EQ(ncpa::split_args("path=C:\\Windows\\Temp"), (strings{"path=C:\\Windows\\Temp"}));
   EXPECT_EQ(ncpa::split_args("\"path=\\\\server\\share\\x y\""), (strings{"path=\\\\server\\share\\x y"}));
   EXPECT_EQ(ncpa::split_args("path='C:\\Program Files\\app'"), (strings{"path=C:\\Program Files\\app"}));
+  // A trailing backslash does not escape the closing quote.
+  EXPECT_EQ(ncpa::split_args("\"path=C:\\Temp\\\" \"pattern=*.log\""), (strings{"path=C:\\Temp\\", "pattern=*.log"}));
 }
 
 TEST(NcpaArgs, KeepsAFiltersOwnQuotes) {

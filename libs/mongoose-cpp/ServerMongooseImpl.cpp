@@ -16,6 +16,7 @@
 #include <utility>
 
 #include "Helpers.h"
+#include "StreamResponse.h"
 #include "cert_loader.h"
 
 using namespace std;
@@ -89,6 +90,12 @@ ServerMongooseImpl::ServerMongooseImpl(WebLoggerPtr logger) : logger_(std::move(
 
 ServerMongooseImpl::~ServerMongooseImpl() {
   ServerMongooseImpl::stop();
+  if (!poll_thread_owns_mgr_) {
+    // Never started (or the start failed): nothing else will release what
+    // mg_mgr_init() and a failed listen opened.
+    const scoped_log_target route(&log_target_);
+    mg_mgr_free(&mgr);
+  }
 
   for (const auto &controller : controllers) {
     delete controller;
@@ -104,11 +111,16 @@ bool ServerMongooseImpl::setSsl(std::string &new_certificate, std::string &new_k
     key = cert_and_key.second;
   } catch (const nsclient::nsclient_exception &e) {
     logger_->log_error("Failed to load certificates: " + e.reason());
+    certificate.clear();
+    key.clear();
+    ssl_failed_ = true;
     return false;
   }
-  return !certificate.empty() && !key.empty();
+  ssl_failed_ = certificate.empty() || key.empty();
+  return !ssl_failed_;
 #else
   logger_->log_error("Not compiled with TLS");
+  ssl_failed_ = true;
   return false;
 #endif
 }
@@ -119,6 +131,14 @@ void ServerMongooseImpl::setWorkerThreads(const std::size_t threads) {
     return;
   }
   worker_threads_ = threads == 0 ? 1 : threads;
+}
+
+void ServerMongooseImpl::setAcceptFilter(accept_filter filter) {
+  if (thread_) {
+    logger_->log_error("setAcceptFilter() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  accept_filter_ = std::move(filter);
 }
 
 void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std::string &ciphers) {
@@ -149,10 +169,30 @@ void ServerMongooseImpl::thread_proc() {
   while (true) {
     mg_mgr_poll(&mgr, 1000);
     if (stop_thread_) {
+      // Write out what is already answered before closing everything: stop()
+      // has drained the workers, and their last answers may still be waiting
+      // for this thread, or sitting in a send buffer. mg_mgr_free() closes
+      // connections without flushing them. Bounded, so a client that never
+      // reads cannot hold a reload up.
+      for (int i = 0; i < 40 && has_unsent_answers(); ++i) {
+        mg_mgr_poll(&mgr, 50);
+      }
       mg_mgr_free(&mgr);
       return;
     }
   }
+}
+
+bool ServerMongooseImpl::has_unsent_answers() const {
+  if (ready_replies_ > 0) {
+    return true;
+  }
+  for (const mg_connection *c = mgr.conns; c != nullptr; c = c->next) {
+    if (!c->is_listening && !c->is_closing && c->send.len > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool ServerMongooseImpl::start(const std::string &bind) {
@@ -161,15 +201,26 @@ bool ServerMongooseImpl::start(const std::string &bind) {
     logger_->log_error("start() called on an already-started server — ignored");
     return false;
   }
+  if (ssl_failed_) {
+    // See ServerBeastImpl::start(): never fall back to cleartext.
+    logger_->log_error("TLS was requested for " + bind +
+                       " but the certificate could not be loaded; refusing to serve plain HTTP. The listener has NOT been started.");
+    return false;
+  }
+  // Listen first: the wake-up socket pair is only created once there is
+  // something to wake, so a start that fails (the port is taken) leaves
+  // nothing open behind it - a reload loop would otherwise leak two sockets
+  // per attempt.
+  if (mg_http_listen(&mgr, bind.c_str(), event_handler, this) == nullptr) {
+    logger_->log_error("Failed to listen on " + bind + ". The listener has NOT been started.");
+    return false;
+  }
   use_workers_ = worker_threads_ > 1;
   if (use_workers_ && !mg_wakeup_init(&mgr)) {
     logger_->log_error("Failed to set up the request worker pool; answering every request on the poll thread instead.");
     use_workers_ = false;
   }
-  if (mg_http_listen(&mgr, bind.c_str(), event_handler, this) == nullptr) {
-    logger_->log_error("Failed to listen on " + bind + ". The listener has NOT been started.");
-    return false;
-  }
+  accepting_ = true;
   const WebLoggerPtr log = logger_;
   if (use_workers_) {
     {
@@ -182,20 +233,32 @@ bool ServerMongooseImpl::start(const std::string &bind) {
     }
   }
   thread_ = threads::start_guarded_thread("web server", [this] { thread_proc(); }, [log](const std::string &message) { log->log_error(message); });
+  poll_thread_owns_mgr_ = true;
   return true;
 }
 
 void ServerMongooseImpl::stop() {
-  // The workers go first: they hand their answers to the poll thread through
-  // mg_wakeup(), which needs the manager the poll thread frees when it stops.
-  // Queued requests are dropped; one already running is waited for.
+  // Stop taking work first: from here a new connection is closed as it is
+  // accepted and a new request is answered 503 (see event_handler), so a
+  // reload waiting on a slow check does not keep accepting polls no worker
+  // will run. Then the workers, while the poll thread still runs to write
+  // their answers out - queued requests get a 503, one already running is
+  // waited for. The poll thread goes last: mg_wakeup() needs its manager.
+  accepting_ = false;
   if (!workers_.empty()) {
+    std::deque<job> abandoned;
     {
       const std::lock_guard<std::mutex> lock(jobs_mutex_);
       stop_workers_ = true;
-      jobs_.clear();
+      abandoned.swap(jobs_);
     }
     jobs_cv_.notify_all();
+    for (const job &queued : abandoned) {
+      StreamResponse unavailable;
+      unavailable.setCode(HTTP_SERVICE_UNAVAILABLE, REASON_SERVICE_UNAVAILABLE);
+      unavailable.append("Server is stopping");
+      hand_back(queued, render(unavailable, queued.is_ssl));
+    }
     const bool from_worker = std::any_of(workers_.begin(), workers_.end(),
                                          [](const std::shared_ptr<boost::thread> &worker) { return worker->get_id() == boost::this_thread::get_id(); });
     for (const std::shared_ptr<boost::thread> &worker : workers_) {
@@ -251,20 +314,26 @@ void ServerMongooseImpl::worker_proc() {
       const std::unique_ptr<Response> response(Controller::internalErrorFromException("Unknown error"));
       answer = render(*response, current.is_ssl);
     }
-    {
-      const std::lock_guard<std::mutex> lock(jobs_mutex_);
-      // Closed while we worked: nobody to answer.
-      if (waiting_.erase(current.connection_id) == 0) {
-        continue;
-      }
-      pending_reply &pending = replies_[current.connection_id];
-      pending.answer = std::move(answer);
-      pending.close = current.close;
-    }
-    if (!mg_wakeup(&mgr, current.connection_id, "r", 1)) {
-      logger_->log_error("Failed to hand a finished request back to the poll thread; the client will time out.");
-    }
+    hand_back(current, std::move(answer));
   }
+}
+
+void ServerMongooseImpl::hand_back(const job &finished, reply answer) {
+  {
+    const std::lock_guard<std::mutex> lock(jobs_mutex_);
+    // Closed while we worked: nobody to answer.
+    if (waiting_.erase(finished.connection_id) == 0) {
+      return;
+    }
+    pending_reply &pending = replies_[finished.connection_id];
+    pending.answer = std::move(answer);
+    pending.close = finished.close;
+    ++ready_replies_;
+  }
+  // A nudge, not the delivery guarantee: mg_wakeup() reports success even
+  // when its datagram is dropped, so the poll thread also sweeps on
+  // MG_EV_POLL (event_handler) while ready_replies_ is non-zero.
+  mg_wakeup(&mgr, finished.connection_id, "r", 1);
 }
 
 void ServerMongooseImpl::deliver(mg_connection *connection) {
@@ -277,6 +346,7 @@ void ServerMongooseImpl::deliver(mg_connection *connection) {
     }
     pending = std::move(it->second);
     replies_.erase(it);
+    --ready_replies_;
   }
   mg_http_reply(connection, pending.answer.code, pending.answer.headers.c_str(), "%s", pending.answer.body.c_str());
   if (pending.close) {
@@ -287,19 +357,33 @@ void ServerMongooseImpl::deliver(mg_connection *connection) {
 void ServerMongooseImpl::forget(const unsigned long connection_id) {
   const std::lock_guard<std::mutex> lock(jobs_mutex_);
   waiting_.erase(connection_id);
-  replies_.erase(connection_id);
+  if (replies_.erase(connection_id) > 0) --ready_replies_;
+}
+
+bool ServerMongooseImpl::admits(mg_connection *connection) const {
+  if (!accept_filter_) {
+    return true;
+  }
+  char buf[100];
+  mg_snprintf(buf, sizeof(buf), "%M", mg_print_ip, &connection->rem);
+  return accept_filter_(std::string(buf));
 }
 
 void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *ev_data) {
   if (connection->fn_data != nullptr) {
     auto *impl = static_cast<ServerMongooseImpl *>(connection->fn_data);
-    if (ev == MG_EV_WAKEUP) {
+    if (ev == MG_EV_WAKEUP || (ev == MG_EV_POLL && impl->ready_replies_ > 0)) {
       impl->deliver(connection);
     }
     if (ev == MG_EV_CLOSE && impl->use_workers_) {
       impl->forget(connection->id);
     }
     if (ev == MG_EV_ACCEPT) {
+      if (!impl->accepting_ || !impl->admits(connection)) {
+        // Before the TLS handshake: a refused or late peer costs nothing more.
+        connection->is_closing = 1;
+        return;
+      }
 #if MG_ENABLE_OPENSSL
       impl->initTls(connection);
 #else
@@ -307,6 +391,12 @@ void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *
 #endif
     }
     if (ev == MG_EV_HTTP_MSG) {
+      if (!impl->accepting_) {
+        // A keep-alive connection asking for more while the server stops.
+        mg_http_reply(connection, HTTP_SERVICE_UNAVAILABLE, "Content-Type: text/plain\r\nConnection: close\r\n", "Server is stopping");
+        connection->is_draining = 1;
+        return;
+      }
       auto message = static_cast<struct mg_http_message *>(ev_data);
       impl->onHttpRequest(connection, message);
     }

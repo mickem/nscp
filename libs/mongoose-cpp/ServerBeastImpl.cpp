@@ -237,9 +237,13 @@ bool ServerBeastImpl::setSsl(std::string& certificate, std::string& key) {
     key_pem_ = std::move(cert_and_key.second);
   } catch (const nsclient::nsclient_exception& e) {
     logger_->log_error("Failed to load certificates: " + e.reason());
+    cert_pem_.clear();
+    key_pem_.clear();
+    ssl_failed_ = true;
     return false;
   }
-  return !cert_pem_.empty() && !key_pem_.empty();
+  ssl_failed_ = cert_pem_.empty() || key_pem_.empty();
+  return !ssl_failed_;
 }
 
 void ServerBeastImpl::registerController(Controller* controller) {
@@ -253,6 +257,14 @@ void ServerBeastImpl::setWorkerThreads(const std::size_t threads) {
     return;
   }
   worker_threads_ = threads == 0 ? 1 : threads;
+}
+
+void ServerBeastImpl::setAcceptFilter(accept_filter filter) {
+  if (!threads_.empty()) {
+    logger_->log_error("setAcceptFilter() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  accept_filter_ = std::move(filter);
 }
 
 void ServerBeastImpl::setBodyLimit(std::size_t bytes) {
@@ -362,6 +374,15 @@ bool ServerBeastImpl::start(const std::string& bind) {
     // run-state reset below re-arms the io_context so the instance can be
     // unloaded/reloaded.)
     logger_->log_error("start() called on an already-started server — ignored");
+    return false;
+  }
+
+  if (ssl_failed_) {
+    // TLS was asked for and could not be set up. Starting anyway would serve
+    // the same port in cleartext - credentials included - which is never
+    // what a caller that called setSsl() wants.
+    logger_->log_error("TLS was requested for " + bind +
+                       " but the certificate could not be loaded; refusing to serve plain HTTP. The listener has NOT been started.");
     return false;
   }
 
@@ -541,6 +562,13 @@ void ServerBeastImpl::accept_loop(const asio::yield_context& yield) {
     boost::system::error_code rec;
     const auto re = socket.remote_endpoint(rec);
     if (!rec) remote = re.address().to_string();
+    // Refused hosts are dropped here, before the handshake and before any of
+    // the request machinery is spent on them.
+    if (accept_filter_ && (rec || !accept_filter_(remote))) {
+      boost::system::error_code ignored;
+      socket.close(ignored);
+      continue;
+    }
 
     // Each connection is handled in its own coroutine so one slow client
     // never holds up the accept side.
@@ -654,13 +682,16 @@ void ServerBeastImpl::stop() {
   // it while it waits on them. Each returns once the last handler does.
   const bool from_own_thread = std::any_of(threads_.begin(), threads_.end(),
                                            [](const std::shared_ptr<boost::thread>& thread) { return thread->get_id() == boost::this_thread::get_id(); });
-  for (const std::shared_ptr<boost::thread>& thread : threads_) {
-    if (from_own_thread) {
-      thread->detach();
-    } else {
-      thread->join();
-    }
+  if (from_own_thread) {
+    // Leave acceptor_ and ssl_ctx_ alone: the other threads are still running
+    // the io_context, and a session accepted just before the acceptor closed
+    // would otherwise build its TLS stream on a null context. They are released
+    // with this object.
+    for (const std::shared_ptr<boost::thread>& thread : threads_) thread->detach();
+    threads_.clear();
+    return;
   }
+  for (const std::shared_ptr<boost::thread>& thread : threads_) thread->join();
   threads_.clear();
   acceptor_.reset();
   ssl_ctx_.reset();

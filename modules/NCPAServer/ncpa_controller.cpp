@@ -31,11 +31,6 @@ std::string join_path(const std::vector<std::string> &path) { return "/api/" + b
 
 ncpa_controller::ncpa_controller(ncpa_config config, std::shared_ptr<ncpa_sources> sources)
     : RegexpController("/api"), config_(std::move(config)), sources_(std::move(sources)) {
-  allowed_hosts_.cached = config_.cache_allowed_hosts;
-  allowed_hosts_.set_source(config_.allowed_hosts);
-  std::list<std::string> errors;
-  allowed_hosts_.refresh(errors);
-  NSC_LOG_ERROR_LISTS(errors);
   rate_limiter_.set_max_failures(config_.auth_max_failures);
   rate_limiter_.set_block_seconds(config_.auth_block_seconds);
 
@@ -49,23 +44,9 @@ ncpa_controller::ncpa_controller(ncpa_config config, std::shared_ptr<ncpa_source
 }
 
 bool ncpa_controller::authenticate(const Mongoose::Request &request, const ncpa::form_vector &args, Mongoose::StreamResponse &response) {
+  // `allowed hosts` is not checked here: the server refuses those peers as
+  // it accepts them (NCPAServer's accept filter), before the handshake.
   const std::string &remote = request.getRemoteIp();
-  std::list<std::string> errors;
-  bool allowed = false;
-  try {
-    allowed = allowed_hosts_.is_allowed(boost::asio::ip::make_address(remote), errors);
-  } catch (const std::exception &e) {
-    errors.push_back(std::string("unparsable peer address: ") + e.what());
-  }
-  if (!allowed) {
-    NSC_LOG_ERROR("NCPA: rejected connection from " + remote + (errors.empty() ? std::string() : " (" + str::utils::joinEx(errors, ", ") + ")") +
-                  ": not in 'allowed hosts'.");
-    // A plain 403, as NCPA answers a host outside its allow-list. check_ncpa
-    // reports it as UNKNOWN with the HTTP status.
-    response.setCodeForbidden("403 Your host is not allowed");
-    return false;
-  }
-
   if (rate_limiter_.is_blocked(remote)) {
     NSC_LOG_ERROR("NCPA: rejected request from " + remote + ": blocked after repeated failed tokens.");
     answer_json(response, ncpa::error_body(kBlocked));
@@ -147,7 +128,7 @@ void ncpa_controller::handle(Mongoose::Request &request, const boost::smatch &wh
 
 std::vector<std::string> ncpa_controller::exposed_plugins() const {
   std::vector<std::string> names;
-  for (const ncpa_sources::query_info &q : sources_->list_queries()) {
+  for (const ncpa_sources::query_info &q : sources_->list_queries(config_.plugins.needs_module())) {
     if (config_.plugins.allows(q.name, q.module)) names.push_back(q.name);
   }
   std::sort(names.begin(), names.end());
@@ -167,7 +148,7 @@ void ncpa_controller::plugins(const std::vector<std::string> &path, const ncpa::
   // A query that is not exposed answers exactly like one that does not exist,
   // so the plugins node cannot be used to map what else is registered.
   ncpa_sources::query_info info;
-  if (!sources_->describe_query(name, info) || !config_.plugins.allows(name, info.module)) {
+  if (!sources_->describe_query(name, config_.plugins.needs_module(), info) || !config_.plugins.allows(name, info.module)) {
     NSC_DEBUG_MSG("NCPA: " + remote + " asked for plugin '" + name + "', which is not registered or not exposed by 'plugins = " + config_.plugins.to_string() +
                   "'.");
     answer_json(response, check_mode ? ncpa::missing_node_check_body("plugin", name) : ncpa::missing_node_body(full_path, "plugin", name));

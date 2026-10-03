@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <net/socket/socket_helpers.hpp>
+#include <net/web_server_logger.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -21,6 +22,7 @@
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscp/password_hash.hpp>
 #include <str/format.hpp>
 #include <str/saturate.hpp>
 #include <utility>
@@ -30,6 +32,7 @@
 #include "api_controller.hpp"
 #include "error_handler.hpp"
 #include "events_controller.hpp"
+#include "facts_controller.hpp"
 #include "info_controller.hpp"
 #include "legacy_command_controller.hpp"
 #include "legacy_controller.hpp"
@@ -40,13 +43,11 @@
 #include "modules_controller.hpp"
 #include "openmetrics_controller.hpp"
 #include "openmetrics_renderer.hpp"
-#include <nscp/password_hash.hpp>
 #include "query_controller.hpp"
 #include "results_controller.hpp"
 #include "scripts_controller.hpp"
 #include "settings_controller.hpp"
 #include "static_controller.hpp"
-#include "facts_controller.hpp"
 #include "tags_controller.hpp"
 #include "token_store.hpp"
 #include "web_cli_handler.hpp"
@@ -59,29 +60,6 @@ namespace sh = nscapi::settings_helper;
 using namespace std;
 using namespace Mongoose;
 
-class WEBServerLogger : public WebLogger {
-  bool log_errors_;
-  bool log_info_;
-  bool log_debug_;
-
- public:
-  WEBServerLogger(const bool log_errors, bool log_info, bool log_debug) : log_errors_(log_errors), log_info_(log_info), log_debug_(log_debug) {}
-  void log_error(const std::string &message) override {
-    if (log_errors_) {
-      NSC_LOG_ERROR(message);
-    }
-  }
-  void log_info(const std::string &message) override {
-    if (log_info_) {
-      NSC_LOG_MESSAGE(message);
-    }
-  }
-  void log_debug(const std::string &message) override {
-    if (log_debug_) {
-      NSC_DEBUG_MSG(message);
-    }
-  }
-};
 
 namespace {
 // Where the web sessions are kept in nsclient.db: one row, holding the whole
@@ -538,7 +516,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       }
     });
 
-    WebLoggerPtr logger(new WEBServerLogger(log_errors, log_info, log_debug));
+    WebLoggerPtr logger(new net::web_server_logger(log_errors, log_info, log_debug));
     // Where an unhandled handler exception goes. The client gets a bare 500;
     // the reason ends up here, in the agent log, rather than being echoed to
     // a caller that need not have authenticated.
@@ -568,7 +546,16 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {
       NSC_DEBUG_MSG("Using certificate: " + certificate);
-      server->setSsl(certificate, key);
+      // A certificate that is present but does not load (no key, a key for
+      // another certificate, an unreadable file) must not leave the REST API
+      // on plain HTTP: the server refuses to start after a failed setSsl(),
+      // and this says why. `allow insecure` covers a *missing* certificate
+      // only.
+      if (!server->setSsl(certificate, key)) {
+        NSC_LOG_ERROR("WEB certificate at '" + certificate +
+                      "' (or its key) could not be loaded: refusing to serve the WEB server in cleartext HTTP. Fix the certificate, or remove it and "
+                      "set 'allow insecure = true' to accept unencrypted HTTP. The WEB server has NOT been started.");
+      }
     }
 
     server->registerController(new StaticController(session, path));
@@ -627,7 +614,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     }
 
     try {
-      server->start("0.0.0.0:" + port);
+      if (!server->start("0.0.0.0:" + port)) {
+        NSC_LOG_ERROR("The WEB server has NOT been started on port " + port + " (see the error above).");
+        return true;
+      }
     } catch (const std::exception &e) {
       NSC_LOG_ERROR("Failed to start server: " + utf8::utf8_from_native(e.what()));
       return true;

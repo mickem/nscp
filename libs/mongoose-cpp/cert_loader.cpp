@@ -42,14 +42,18 @@ namespace {
 // fails in the first handshake (mongoose) or at start() (beast). A caller that
 // must not fall back to cleartext decides on setSsl()'s answer, so the answer
 // has to mean "this certificate and key can be served".
+// With no callback OpenSSL asks for a passphrase on the terminal - a service
+// would block there. Neither server can use an encrypted key anyway.
+int no_passphrase(char*, int, int, void*) { return 0; }
+
 void validate(const std::string& cert, const std::string& key, const std::string& cert_path) {
   const std::unique_ptr<BIO, decltype(&BIO_free)> cert_bio(BIO_new_mem_buf(cert.data(), static_cast<int>(cert.size())), &BIO_free);
-  const std::unique_ptr<X509, decltype(&X509_free)> x509(cert_bio ? PEM_read_bio_X509(cert_bio.get(), nullptr, nullptr, nullptr) : nullptr, &X509_free);
+  const std::unique_ptr<X509, decltype(&X509_free)> x509(cert_bio ? PEM_read_bio_X509(cert_bio.get(), nullptr, &no_passphrase, nullptr) : nullptr, &X509_free);
   if (!x509) {
     throw nsclient::nsclient_exception("No PEM certificate found in " + cert_path);
   }
   const std::unique_ptr<BIO, decltype(&BIO_free)> key_bio(BIO_new_mem_buf(key.data(), static_cast<int>(key.size())), &BIO_free);
-  const std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> pkey(key_bio ? PEM_read_bio_PrivateKey(key_bio.get(), nullptr, nullptr, nullptr) : nullptr,
+  const std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> pkey(key_bio ? PEM_read_bio_PrivateKey(key_bio.get(), nullptr, &no_passphrase, nullptr) : nullptr,
                                                                  &EVP_PKEY_free);
   if (!pkey) {
     throw nsclient::nsclient_exception("No PEM private key found for the certificate " + cert_path);
