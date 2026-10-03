@@ -13,4 +13,5 @@ script (`check_ncpa.py -M plugins/check_cpu`) and returns its output
 unchanged; the built-in NCPA node tree (`cpu/`, `memory/`, `disk/`, ...)
 follows. Arguments are refused unless `allow arguments = true`, as with NRPE.
 The listener uses the WEB server's certificate and refuses to start without
-one. On Windows it is the new *NCPA support* installer feature.
+one. On Windows it is the new *NCPA support* installer feature. See the
+[NCPAServer reference](../reference/client/NCPAServer.md).

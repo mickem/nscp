@@ -137,9 +137,9 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
   settings.alias()
       .add_parent("/settings/default")
       .add_key_to_settings()
-      .add_string("allowed hosts", sh::string_key(&config.allowed_hosts, "127.0.0.1"), "ALLOWED HOSTS",
+      .add_string("allowed hosts", sh::string_key(&config.allowed_hosts, "127.0.0.1"), "Allowed hosts",
                   "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
-      .add_bool("cache allowed hosts", sh::bool_key(&config.cache_allowed_hosts, true), "CACHE ALLOWED HOSTS",
+      .add_bool("cache allowed hosts", sh::bool_key(&config.cache_allowed_hosts, true), "Cache list of allowed hosts",
                 "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your "
                 "Nagios server.");
 
