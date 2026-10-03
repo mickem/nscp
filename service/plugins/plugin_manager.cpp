@@ -544,8 +544,9 @@ void nsclient::core::plugin_manager::stop_plugins() {
   // The log subscriptions go first, and under the lifecycle lock, so this
   // cannot interleave with a remove_plugin on another thread: that call has
   // either finished (and a refused unload has re-added its subscription,
-  // which goes here) or not started (and finds nothing left to remove, so
-  // it does not skip the wait while a line is still inside the module).
+  // which goes here) or not started (and then this clear has already waited
+  // for the deliveries, so the module it finds nothing left to drop for has
+  // no line inside it either).
   if (log_instance_->clear_subscribers().delivering) {
     LOG_ERROR_CORE("A log line is still being handled by a log-handler module after 5 s; stopping the modules regardless");
   }
