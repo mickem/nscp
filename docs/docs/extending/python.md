@@ -37,7 +37,8 @@ The key is the script's alias, and `add` uses the file name unless you pass `--a
 | `nscp py execute --script <file> [args...]`           | Run a script's `__main__` (see below)                                        |
 
 `show` and `delete` only reach files under `${scripts}/python`; a name that resolves anywhere else is
-refused. A deleted script stays loaded until the module reloads. The same operations are available
+refused, and so is a symlink (or a symlinked folder) that leads out of it. Deleting a symlink removes
+the link, not its target. A deleted script stays loaded until the module reloads. The same operations are available
 over REST under [`/api/v2/scripts/py`](../api/rest/scripts.md).
 
 ## Lifecycle functions
@@ -505,6 +506,10 @@ to the callback:
 - `event` — payload is delivered as a Python `dict`. Callback signature: `(event_name, data) -> None`.
 - `event_pb` — payload is delivered as `bytes`: a serialized `EventMessage`. Callback signature:
   `(event_name, request_bytes)`. The return value is ignored.
+
+One message can carry several records - a real-time CPU filter sends one per core. An `event`
+handler is called once per record, with that record's data; an `event_pb` handler once per message,
+with all of them.
 
 An event is named `<source>:<alias>`; a real-time CPU filter called `high_cpu` raises
 `system.cpu:high_cpu`.

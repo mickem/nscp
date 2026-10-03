@@ -1,5 +1,5 @@
 ---
-icon: "🔧"
+icon: "🔧 🔒"
 modules: [PythonScript]
 action: conditional
 ---
@@ -14,7 +14,7 @@ turned up these, now fixed:
   or builds a settings path from it.
 - A script that registered a handler with `Registry.event` crashed the agent
   on the first event it subscribed to. `Registry.event_pb` handlers never ran
-  at all; they now run, and receive the event as `bytes`.
+  at all; they now run, once per message, and receive it as `bytes`.
 - A `Registry.simple_subscription` handler is given the submission's source
   (for example `check_and_forward`'s `source=`); it used to receive an empty
   string unless the result carried one of its own.
@@ -30,6 +30,8 @@ turned up these, now fixed:
   <name>` deletes it and removes it from `/settings/python/scripts`. Both
   answered with nothing before, so `GET` and `DELETE` on
   `/api/v2/scripts/py/<name>` returned an empty `200` and changed nothing.
-  They now act, on files under `${scripts}/python` only. Review custom roles
-  that hold `scripts.delete.PythonScript` (or `scripts.*`) if that grant was
-  not meant to remove files.
+  They now act, on files under `${scripts}/python` only, symlinks resolved.
+  Review custom roles that hold `scripts.get.PythonScript`,
+  `scripts.delete.PythonScript` or `scripts.*` if those grants were not meant
+  to read or remove scripts; see the
+  [security notice](../security/notices.md#pythonscript-reading-and-deleting-scripts-over-rest-and-the-cli).

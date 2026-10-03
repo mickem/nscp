@@ -168,16 +168,28 @@ namespace {
 // form `list` and the REST listing print) and `foo.py` / `foo` (the form a
 // script is configured by) both resolve. `outside` is set when a name only
 // resolves to a file outside `root`, so the caller can say why it refused.
+//
+// Containment is decided on the real paths, symlinks resolved: a lexical test
+// alone lets a symlink inside the folder (or a symlinked sub-folder) reach any
+// file the service account can, the hole CheckExternalScripts' sandbox closed
+// the same way. A path that cannot be resolved counts as outside. The path
+// returned is the one inside the folder, so delete removes a link, never its
+// target.
 boost::optional<fs::path> resolve_in_sandbox(const fs::path &root, const std::string &script, bool &outside) {
   outside = false;
   if (script.empty()) return boost::none;
+  boost::system::error_code ec;
+  const fs::path real_root = fs::weakly_canonical(root, ec);
+  if (ec) return boost::none;
   const fs::path parent = root.parent_path();
   const std::list<fs::path> candidates = {root / script, root / (script + ".py"), parent / script, parent / (script + ".py")};
   for (const fs::path &c : candidates) {
     const fs::path candidate = c.lexically_normal();
-    boost::system::error_code ec;
     if (!fs::is_regular_file(candidate, ec)) continue;
-    if (file_helpers::checks::path_contains_file(root, candidate)) return candidate;
+    const fs::path real = fs::weakly_canonical(candidate, ec);
+    if (!ec && file_helpers::checks::path_contains_file(root, candidate) && file_helpers::checks::path_contains_file(real_root, real)) {
+      return candidate;
+    }
     outside = true;
   }
   return boost::none;
