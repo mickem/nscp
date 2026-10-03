@@ -3,6 +3,7 @@
 
 #include <exception>
 #include <memory>
+#include <mutex>
 #include <win/pdh/pdh_query.hpp>
 
 namespace PDH {
@@ -80,6 +81,11 @@ void PDHQuery::on_reload() {
 bool PDHQuery::is_open() const { return hQuery_ != nullptr; }
 
 void PDHQuery::open() {
+  // Under the implementation's lock, so a reload cannot run between opening
+  // the query and subscribing it: the query would keep handles into the
+  // library that reload freed, and never be called back to replace them.
+  const std::shared_ptr<impl_interface> impl = factory::get_impl();
+  std::lock_guard<impl_interface> guard(*impl);
   if (hQuery_ != nullptr) throw pdh_exception("query was already opened when trying to open query!");
   on_reload();
   try {
@@ -95,6 +101,14 @@ void PDHQuery::open() {
 }
 
 void PDHQuery::close() {
+  if (!listener_registered_ && hQuery_ == nullptr) {
+    counters_.clear();
+    return;
+  }
+  // Unsubscribing and closing are one step for a reload, for the same reason
+  // as in open().
+  const std::shared_ptr<impl_interface> impl = factory::get_impl();
+  std::lock_guard<impl_interface> guard(*impl);
   if (listener_registered_) {
     try {
       factory::get_impl()->remove_listener(this);
@@ -117,16 +131,25 @@ void PDHQuery::close() {
 }
 
 void PDHQuery::gatherData(const bool ignore_errors) {
+  // A concurrent reload closes and reopens this query's handles, so each
+  // read of one happens under the implementation's lock (as in collect()).
+  // Step by step rather than across the loop: the sleeps below must not hold
+  // up every other PDH user.
+  const auto collect_counter = [](const counter_type &c) {
+    const std::shared_ptr<impl_interface> impl = factory::get_impl();
+    std::lock_guard<impl_interface> guard(*impl);
+    return c->collect();
+  };
   collect();
   for (const counter_type c : counters_) {
-    pdh_error status = c->collect();
+    pdh_error status = collect_counter(c);
     if (status.is_invalid_data()) {
       // First call after open() routinely returns INVALID_DATA for derived
       // counters (e.g. percentages need two samples). Give PDH a second
       // sample and retry.
       Sleep(1000);
       collect();
-      status = c->collect();
+      status = collect_counter(c);
       if (status.is_invalid_data()) {
         // Still no data. This is noise on percentage counters under heavy
         // fluctuation (#642, #906) — skip this counter for this tick rather
@@ -137,7 +160,7 @@ void PDHQuery::gatherData(const bool ignore_errors) {
     if (status.is_negative_denominator()) {
       Sleep(500);
       collect();
-      status = c->collect();
+      status = collect_counter(c);
     }
     if (status.is_negative_denominator()) {
       // Still negative after the retry. Some counters simply cannot be
@@ -158,7 +181,9 @@ void PDHQuery::gatherData(const bool ignore_errors) {
   }
 }
 void PDHQuery::collect() const {
-  const pdh_error status = factory::get_impl()->PdhCollectQueryData(hQuery_);
+  const std::shared_ptr<impl_interface> impl = factory::get_impl();
+  std::lock_guard<impl_interface> guard(*impl);
+  const pdh_error status = impl->PdhCollectQueryData(hQuery_);
   if (status.is_error()) throw pdh_exception("PdhCollectQueryData failed: ", status);
 }
 

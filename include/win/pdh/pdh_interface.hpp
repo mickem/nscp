@@ -234,6 +234,14 @@ class impl_interface {
   virtual bool reload() = 0;
   virtual void add_listener(subscriber *sub) = 0;
   virtual void remove_listener(subscriber *sub) = 0;
+
+  // BasicLockable: held by a subscriber across work that a concurrent
+  // reload() must not interleave with - reading the handles reload() closes
+  // and reopens, or opening a query and subscribing it. Only the thread-safe
+  // implementation reloads concurrently; there it is the recursive lock every
+  // call above takes, elsewhere it holds nothing.
+  virtual void lock() {}
+  virtual void unlock() {}
 };
 
 class factory {

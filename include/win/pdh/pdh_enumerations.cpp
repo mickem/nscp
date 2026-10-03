@@ -8,6 +8,8 @@
 #include <bytes/buffer.hpp>
 #include <error/error.hpp>
 #include <list>
+#include <memory>
+#include <mutex>
 #include <str/utf8.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/pdh/pdh_interface.hpp>
@@ -45,6 +47,10 @@ namespace {
   // the (possibly English) counter, ask PDH for its full localized path, and
   // return that. All handles are released on every exit path.
   bool resolve_path_via_temp_query(const std::wstring &input, std::wstring &resolved_out, std::string &error_out) {
+    // Held until the handles below are released (declared first, so it is
+    // destroyed last): a concurrent reload would free the library under them.
+    const std::shared_ptr<impl_interface> impl = factory::get_impl();
+    std::lock_guard<impl_interface> guard(*impl);
     ScopedPdhQuery query;
     pdh_error status = factory::get_impl()->PdhOpenQuery(nullptr, 0, &query.h);
     if (status.is_error()) {
