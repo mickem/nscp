@@ -34,15 +34,15 @@ namespace core {
 // doc spec (docs/design/core-permissions.md) is the source of truth.
 class permissions {
  public:
-  permissions() : enabled_(false), allow_exec_(true), log_denials_(true), log_allows_(false) {}
+  permissions() {}
 
   void set_enabled(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
-    enabled_ = v;
+    state_.enabled = v;
   }
   bool is_enabled() const {
     std::lock_guard<std::mutex> lk(mutex_);
-    return enabled_;
+    return state_.enabled;
   }
 
   // Global exec toggle. Per-command policies in the rule table apply
@@ -60,31 +60,31 @@ class permissions {
   // lockdown flip it to false.
   void set_allow_exec(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
-    allow_exec_ = v;
+    state_.allow_exec = v;
   }
   bool is_exec_allowed() const {
     std::lock_guard<std::mutex> lk(mutex_);
     // When the policy system is disabled, exec is always allowed (same
     // bypass as is_allowed). When enabled, the toggle decides.
-    return !enabled_ || allow_exec_;
+    return !state_.enabled || state_.allow_exec;
   }
 
   void set_log_denials(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
-    log_denials_ = v;
+    state_.log_denials = v;
   }
   bool should_log_denials() const {
     std::lock_guard<std::mutex> lk(mutex_);
-    return log_denials_;
+    return state_.log_denials;
   }
 
   void set_log_allows(bool v) {
     std::lock_guard<std::mutex> lk(mutex_);
-    log_allows_ = v;
+    state_.log_allows = v;
   }
   bool should_log_allows() const {
     std::lock_guard<std::mutex> lk(mutex_);
-    return log_allows_;
+    return state_.log_allows;
   }
 
   // Add a rule. `subject_pattern` is the subject side of the policy (one
@@ -97,15 +97,6 @@ class permissions {
     add_rule_locked(subject_pattern, objects_csv);
   }
 
-  // Drop all rules. Used on settings reload before re-registering the
-  // policies tree. Other settings (enabled / log_*) survive because they
-  // are set via separate keys that the registry rebinds before the
-  // policies are re-added.
-  void clear_rules() {
-    std::lock_guard<std::mutex> lk(mutex_);
-    rules_.clear();
-  }
-
   // Take over every rule and flag of `other` in one step. A reload builds
   // the complete table in a local instance and publishes it here, so a
   // caller of is_allowed() sees either the old table or the new one -
@@ -113,27 +104,18 @@ class permissions {
   // enabled denied every call that arrived during the rebuild.
   void replace_with(const permissions& other) {
     if (&other == this) return;
-    std::vector<rule> rules;
-    bool enabled, allow_exec, log_denials, log_allows;
+    state copy;
     {
       std::lock_guard<std::mutex> lk(other.mutex_);
-      rules = other.rules_;
-      enabled = other.enabled_;
-      allow_exec = other.allow_exec_;
-      log_denials = other.log_denials_;
-      log_allows = other.log_allows_;
+      copy = other.state_;
     }
     std::lock_guard<std::mutex> lk(mutex_);
-    rules_.swap(rules);
-    enabled_ = enabled;
-    allow_exec_ = allow_exec;
-    log_denials_ = log_denials;
-    log_allows_ = log_allows;
+    std::swap(state_, copy);
   }
 
   std::size_t rule_count() const {
     std::lock_guard<std::mutex> lk(mutex_);
-    return rules_.size();
+    return state_.rules.size();
   }
 
   // The policy decision. `subject` is `module[:principal]` (use
@@ -149,8 +131,8 @@ class permissions {
   // option may be worth reintroducing then.)
   bool is_allowed(const std::string& subject, const std::string& object) const {
     std::lock_guard<std::mutex> lk(mutex_);
-    if (!enabled_) return true;
-    for (const auto& rule : rules_) {
+    if (!state_.enabled) return true;
+    for (const auto& rule : state_.rules) {
       if (!subject_matches(rule.subject, subject)) continue;
       for (const auto& obj_pattern : rule.objects) {
         if (object_matches(obj_pattern, object)) return true;
@@ -196,7 +178,7 @@ class permissions {
     }
     const std::string trimmed = trim(token);
     if (!trimmed.empty()) r.objects.push_back(trimmed);
-    if (!r.objects.empty()) rules_.push_back(std::move(r));
+    if (!r.objects.empty()) state_.rules.push_back(std::move(r));
   }
 
   static std::string trim(const std::string& s) {
@@ -278,12 +260,19 @@ class permissions {
     return false;
   }
 
+  // Everything a reload replaces, kept in one value so replace_with() takes
+  // it over whole: a field added here is copied with the rest, where a
+  // field-by-field copy that missed it would keep the old value forever.
+  struct state {
+    bool enabled = false;
+    bool allow_exec = true;
+    bool log_denials = true;
+    bool log_allows = false;
+    std::vector<rule> rules;
+  };
+
   mutable std::mutex mutex_;
-  bool enabled_;
-  bool allow_exec_;
-  bool log_denials_;
-  bool log_allows_;
-  std::vector<rule> rules_;
+  state state_;
 };
 
 }  // namespace core

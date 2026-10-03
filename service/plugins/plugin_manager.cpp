@@ -260,11 +260,11 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 }
 
 // Read /settings/permissions{,/policies} into permissions_. Idempotent:
-// safe to call from both the boot path and from do_reload("settings"). On
-// reload we clear the rule table first so deleted rules disappear, then
-// re-register each policies key. The four global switches use
-// register_key + get_string so the settings UI / docs see the keys even
-// when the operator hasn't customised them. See
+// safe to call from both the boot path and from do_reload("settings"). The
+// whole table is rebuilt aside and published in one step, so deleted rules
+// disappear without a window in which there are none. The four global
+// switches use register_key + get_string so the settings UI / docs see the
+// keys even when the operator hasn't customised them. See
 // docs/design/core-permissions.md for the wire format.
 void nsclient::core::plugin_manager::load_permissions() {
   const auto core = settings_manager::get_core();
@@ -273,6 +273,11 @@ void nsclient::core::plugin_manager::load_permissions() {
     LOG_ERROR_CORE("permissions: settings not available, skipping load");
     return;
   }
+  // Build the table aside and publish it in one step: checks keep flowing
+  // on the server pools during a reload, and filling permissions_ rule by
+  // rule left it empty (deny-all, with the policy enabled) in between.
+  // Declared outside the try so a failed load can still publish it (below).
+  nsclient::core::permissions fresh;
   try {
     const std::string section = "/settings/permissions";
     const std::string policies_section = section + "/policies";
@@ -297,10 +302,6 @@ void nsclient::core::plugin_manager::load_permissions() {
                         "object patterns (module.command). Rules merge additively.",
                         true, false);
 
-    // Build the table aside and publish it in one step: checks keep flowing
-    // on the server pools during a reload, and filling permissions_ rule by
-    // rule left it empty (deny-all, with the policy enabled) in between.
-    nsclient::core::permissions fresh;
     const std::string enabled = settings->get_string(section, "enabled", "false");
     fresh.set_enabled(enabled == "true" || enabled == "1");
     fresh.set_log_denials(settings->get_string(section, "log denials", "true") != "false");
@@ -317,6 +318,14 @@ void nsclient::core::plugin_manager::load_permissions() {
     LOG_ERROR_CORE_STD("permissions: failed to load: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     LOG_ERROR_CORE("permissions: failed to load (unknown error)");
+  }
+  // A load that failed after reading enabled=true over a disabled policy
+  // still publishes what it read: a partial table fails closed, whereas
+  // keeping the disabled one would silently leave enforcement off. A policy
+  // that was already enabled keeps its previous, complete table.
+  if (fresh.is_enabled() && !permissions_.is_enabled()) {
+    LOG_ERROR_CORE("permissions: enforcing the partially loaded policy table");
+    permissions_.replace_with(fresh);
   }
 }
 
