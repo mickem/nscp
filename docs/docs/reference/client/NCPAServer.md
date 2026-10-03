@@ -56,7 +56,7 @@ name, joined with spaces and split again. The quoting rules are those of the NSC
 | Written                       | Reaches the check as        | Why                                                         |
 |-------------------------------|-----------------------------|-------------------------------------------------------------|
 | `"warning=load > 80"`         | `warning=load > 80`         | double quotes group and are removed                         |
-| `path='C:\Program Filespp'` | `path=C:\Program Filespp` | a single quote groups where a whole value starts            |
+| `path='C:\Program Files\app'` | `path=C:\Program Files\app` | a single quote groups where a whole value starts            |
 | `filter=core='total'`         | `filter=core='total'`       | a single quote anywhere else is kept, for the filter syntax |
 | `path=C:\Windows\Temp`        | `path=C:\Windows\Temp`      | a backslash is an ordinary character                        |
 
