@@ -120,27 +120,42 @@ class settings_interface_impl : public settings_interface {
   }
   nsclient::logging::logger_instance get_logger() const { return core_->get_logger(); }
 
-  instance_raw_ptr add_child(std::string alias, std::string context) {
+  // A child store for `context`, or null (logged) when it cannot be created -
+  // an include that cannot be read, a cached copy antivirus still holds. The
+  // one place children are created, so every path logs the same way; the
+  // context goes through to_log_safe_string() since an http include can carry
+  // credentials.
+  instance_raw_ptr create_child(const std::string &alias, const std::string &context) {
     try {
-      instance_raw_ptr child = get_core()->create_instance(alias, context);
-      {
-        MUTEX_GUARD();
-        children_.push_back(child);
-      }
-      return child;
+      return get_core()->create_instance(alias, context);
     } catch (const std::exception &e) {
-      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
+      std::string where = "(unparsable context)";
+      try {
+        where = net::parse(context).to_log_safe_string();
+      } catch (const std::exception &) {
+        // An out-of-range port; the error itself is what matters here.
+      }
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child " + where + ": " + utf8::utf8_from_native(e.what()));
     }
     return instance_raw_ptr();
   }
 
-  void add_child_unsafe(std::string alias, std::string context) {
+  instance_raw_ptr add_child(std::string alias, std::string context) {
+    instance_raw_ptr child = create_child(alias, context);
+    if (!child) return child;
     try {
-      instance_raw_ptr child = get_core()->create_instance(alias, context);
+      MUTEX_GUARD();
       children_.push_back(child);
     } catch (const std::exception &e) {
-      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child " + context + ": " + utf8::utf8_from_native(e.what()));
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to attach child: " + utf8::utf8_from_native(e.what()));
+      return instance_raw_ptr();
     }
+    return child;
+  }
+
+  void add_child_unsafe(std::string alias, std::string context) {
+    instance_raw_ptr child = create_child(alias, context);
+    if (child) children_.push_back(child);
   }
 
   // children_ is cleared and refilled under mutex_ by clear_cache() (a

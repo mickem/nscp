@@ -154,6 +154,11 @@ class settings_http : public settings::settings_interface_impl {
         rebuild_pending_ = true;
         return;
       }
+      // Built on the latest cached copy, which is what the pending rebuild
+      // was waiting for: leaving the flag set had the next pass build the
+      // same file again and ask for a full agent reload. Its attachments are
+      // fetched by that pass, which fetches them whenever nothing changed.
+      rebuild_pending_ = false;
     }
     install_child_unsafe(child);
   }
@@ -420,8 +425,10 @@ class settings_http : public settings::settings_interface_impl {
         os.close();
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
         if (boost::filesystem::is_regular_file(local_file)) {
-          get_logger()->error("settings", __FILE__, __LINE__, "Using cached artifact: " + tmp_file.string());
-          return true;
+          // Keep serving the cached copy - and report it as unchanged: it is
+          // what the store already reads, so "changed" only made every pass
+          // of an outage rebuild it and reload the whole agent.
+          get_logger()->error("settings", __FILE__, __LINE__, "Using cached artifact: " + local_file.string());
         }
         return false;
       }
@@ -515,6 +522,10 @@ class settings_http : public settings::settings_interface_impl {
         }
         boost::filesystem::rename(tmp_file, local_file);
         guard.active = false;  // tmp_file has been moved into place
+        // The first copy there has ever been - after a boot with the server
+        // down and nothing cached, say. That is a change: reporting it as
+        // none left the store on defaults until the remote file changed again.
+        return true;
       }
     }
     return false;
@@ -536,24 +547,24 @@ class settings_http : public settings::settings_interface_impl {
         get_logger()->error("settings", __FILE__, __LINE__, "Skipping attachment '" + k + "': " + e.what());
         continue;
       }
-      op_string str = child->get_string("/attachments", k);
-      if (!str) continue;
-      net::url source = parse_settings_url(str.value());
-      get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_log_safe_string() + " as " + target);
-      cache_remote_file(source, target);
+      // One attachment that cannot be saved (a failed rename or directory
+      // creation throws) must not cost the others, nor escape reload_data()
+      // before it asks for the reload the new configuration needs.
+      try {
+        op_string str = child->get_string("/attachments", k);
+        if (!str) continue;
+        net::url source = parse_settings_url(str.value());
+        get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_log_safe_string() + " as " + target);
+        cache_remote_file(source, target);
+      } catch (const std::exception &e) {
+        get_logger()->error("settings", __FILE__, __LINE__, "Failed to fetch attachment '" + k + "': " + utf8::utf8_from_native(e.what()));
+      }
     }
   }
 
   // A child store on the cached copy, or null (logged) when it cannot be
   // built - antivirus still holding the file just renamed into place, say.
-  instance_raw_ptr build_child(const boost::filesystem::path &local_file) {
-    try {
-      return get_core()->create_instance("remote_http_file", "ini://" + local_file.string());
-    } catch (const std::exception &e) {
-      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
-    }
-    return instance_raw_ptr();
-  }
+  instance_raw_ptr build_child(const boost::filesystem::path &local_file) { return create_child("remote_http_file", "ini://" + local_file.string()); }
 
   // Make `child` this store's only child. Both rebuild paths (real_clear_cache
   // and reload_data) install it here, so they cannot drift apart. Reassigning
