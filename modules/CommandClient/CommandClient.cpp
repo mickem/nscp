@@ -423,10 +423,15 @@ bool CommandClient::commandLineExec(const int target_mode, const PB::Commands::E
   input_thread = boost::thread();
 
   if (editor) {
-    // Drop the shared reference the logging thread reaches us through, and
-    // hand the console back to the core, before the editor is destroyed.
-    set_editor(nullptr);
+    // Hand the console back to the core first, while the editor is still
+    // up: the core waits for the lines queued for our handler, which it did
+    // not print itself, so they land in the prompt rather than nowhere. Then
+    // drop the shared reference the logging thread reaches us through,
+    // before the editor is destroyed. A line logged during that wait is
+    // printed twice - by the core, whose console is back on, and through the
+    // prompt - which is deliberate: the other order loses lines instead.
     get_core()->set_log_option("console");
+    set_editor(nullptr);
     editor.reset();
   }
 

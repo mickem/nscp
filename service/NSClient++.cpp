@@ -771,10 +771,9 @@ bool NSClientT::stop_nsclient() {
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
-void NSClientT::unloadPlugins() {
-  log_instance_->clear_subscribers();
-  plugins_->stop_plugins();
-}
+// The log subscriptions are cleared by stop_plugins itself, under its
+// lifecycle lock, so an unload on another thread cannot interleave with it.
+void NSClientT::unloadPlugins() { plugins_->stop_plugins(); }
 void NSClientT::reloadPlugins() {
   // Re-read the included configuration before working out which modules should
   // be running. An include is served from the child instance built when the

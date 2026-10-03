@@ -40,6 +40,8 @@ struct error_handler : error_handler_interface {
 
   boost::timed_mutex mutex_;
   entry_store log_entries;
+  // The index the next entry gets; see add_message.
+  std::size_t next_index_ = 0;
   std::string last_error_;
   unsigned int error_count_;
   std::size_t max_entries_;

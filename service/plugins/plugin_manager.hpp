@@ -92,6 +92,9 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // inside them: kept alive (and loaded) until stop_plugins unloads them.
   // Guarded by lifecycle_mutex_.
   std::list<plugin_type> retired_plugins_;
+  // Plugins stop_plugins left loaded because a log line or a metrics or
+  // facts round was still inside them; see there.
+  static std::list<plugin_type> &abandoned_plugins();
 
  public:
   plugin_manager(path_instance path_, logging::logger_instance log_instance);
@@ -125,6 +128,17 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // the module DSO at static-destruction time, after the DSO's own statics
   // are gone — a crash on process exit.
   void purge_broken_plugin(unsigned long plugin_id);
+
+  // A module's slot in one of the walk lists (metrics fetchers and
+  // submitters, facts fetchers), closed, with whether the rounds inside it
+  // left within the wait. close_walks closes the module in all three and
+  // drains them within one shared deadline; remove_plugin and
+  // purge_broken_plugin then reopen or finish each slot on its own outcome.
+  struct walk_closing {
+    simple_plugins_list::closing slot;
+    bool drained;
+  };
+  std::vector<walk_closing> close_walks(unsigned long plugin_id);
 
  public:
   void prepare_shutdown_plugins();

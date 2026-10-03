@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-#include <algorithm>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <nscapi/protobuf/log.hpp>
 #include <nsclient/logger/logger_impl.hpp>
 #include <string>
@@ -24,10 +24,27 @@ class TestLogger : public nsclient::logging::logger_impl {
 
   void add_subscriber(const nsclient::logging::logging_subscriber_instance subscriber) override { subscribers_.push_back(subscriber); }
 
-  void remove_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {
-    subscribers_.erase(std::remove(subscribers_.begin(), subscribers_.end(), subscriber), subscribers_.end());
+  nsclient::logging::unsubscribe_result close_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {
+    nsclient::logging::unsubscribe_result result;
+    result.removed = std::find(subscribers_.begin(), subscribers_.end(), subscriber) != subscribers_.end();
+    return result;
   }
-  void clear_subscribers() override { subscribers_.clear(); }
+  void reopen_subscriber(nsclient::logging::logging_subscriber_instance) override {}
+  bool drop_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {
+    const bool found = std::find(subscribers_.begin(), subscribers_.end(), subscriber) != subscribers_.end();
+    subscribers_.erase(std::remove(subscribers_.begin(), subscribers_.end(), subscriber), subscribers_.end());
+    return found;
+  }
+  nsclient::logging::unsubscribe_result remove_subscriber(nsclient::logging::logging_subscriber_instance subscriber) override {
+    nsclient::logging::unsubscribe_result result;
+    result.removed = std::find(subscribers_.begin(), subscribers_.end(), subscriber) != subscribers_.end();
+    subscribers_.erase(std::remove(subscribers_.begin(), subscribers_.end(), subscriber), subscribers_.end());
+    return result;
+  }
+  std::vector<nsclient::logging::logging_subscriber_instance> clear_subscribers() override {
+    subscribers_.clear();
+    return {};
+  }
 
   bool startup() override { return true; }
   bool shutdown() override { return true; }

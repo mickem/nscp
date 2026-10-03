@@ -28,9 +28,7 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
     # logger
     logger/nsclient_logger.cpp
-    logger/simple_console_logger.cpp
     logger/simple_file_logger.cpp
-    logger/threaded_logger.cpp
     settings_query_handler.cpp
     registry_query_handler.cpp
     storage_query_handler.cpp
@@ -93,9 +91,7 @@ if(WIN32)
         ${NSCP_ERROR_HPP}
         # logger
         logger/nsclient_logger.hpp
-        logger/simple_console_logger.hpp
         logger/simple_file_logger.hpp
-        logger/threaded_logger.hpp
         settings_query_handler.hpp
         registry_query_handler.hpp
         storage_query_handler.hpp
@@ -117,7 +113,6 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
         # Logger
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_impl.hpp
-        ${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.hpp
@@ -395,10 +390,6 @@ NSCP_CREATE_TEST(
 NSCP_CREATE_TEST(
     service_logger_test
     SOURCES
-        logger/threaded_logger.cpp
-        logger/threaded_logger_test.cpp
-        logger/simple_console_logger.cpp
-        logger/simple_console_logger_test.cpp
         logger/simple_file_logger.cpp
         logger/simple_file_logger_test.cpp
         logger/nsclient_logger.cpp

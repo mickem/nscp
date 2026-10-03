@@ -8,6 +8,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/asio.hpp>
+#include <boost/chrono/duration.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
 #include <boost/optional.hpp>
@@ -31,11 +32,20 @@ op5_client::op5_client(const nscapi::core_wrapper *core, int plugin_id, op5_conf
   thread_ = threads::start_guarded_thread("op5 client", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
 }
 
-/**
- * Default d-tor
- * @return
- */
-op5_client::~op5_client() {}
+// Stop the worker before the members it dereferences go. stop() is otherwise
+// only reached from Op5Client::unloadModule, so any path that destroyed the
+// client without it (an unloadModule that threw, static teardown at DLL unload
+// when the core never called NSUnloadModule, the test fixture) destroyed a
+// joinable boost::thread: with the project's Boost defaults that detaches it,
+// and thread_proc went on locking mutex_ and reading config_ inside freed
+// memory. Idempotent: a second call after unloadModule finds no thread.
+op5_client::~op5_client() {
+  try {
+    stop();
+  } catch (...) {
+    // Nothing a destructor can do about a failed join.
+  }
+}
 
 #define HTTP_HDR_AUTH "Authorization"
 #define HTTP_HDR_AUTH_BASIC "Basic "
@@ -92,7 +102,8 @@ http::response op5_client::do_call(const char *verb, const std::string &url, con
   std::string verify_mode;
   std::string ca;
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+    lock.try_lock_for(boost::chrono::seconds(5));
     if (!lock.owns_lock()) {
       NSC_LOG_ERROR("Failed to read config");
       return http::response();
@@ -322,7 +333,8 @@ void op5_client::deregister_host(std::string host) {
 
 void op5_client::add_check(std::string key, std::string arg) {
   try {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+    lock.try_lock_for(boost::chrono::seconds(5));
     if (!lock.owns_lock()) {
       NSC_LOG_ERROR("Failed to add check: " + key);
       return;
@@ -349,7 +361,12 @@ void op5_client::thread_proc() {
   bool deregister = false;
   unsigned long long interval = 3600;
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    // A duration on the steady clock, here and at every other timed lock in
+    // this file: the absolute deadline these used to take was on the wall
+    // clock, so a clock step backwards made the lock wait for the length of
+    // the step - and stop(), joining this thread, waited with it.
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+    lock.try_lock_for(boost::chrono::seconds(5));
     if (!lock.owns_lock()) {
       NSC_LOG_ERROR("Failed to start thread");
       return;
@@ -371,14 +388,21 @@ void op5_client::thread_proc() {
       }
 
       op5_config::check_map copy;
+      // Skip this round's checks (copy stays empty) when the config cannot be
+      // read, but still fall through to the stop check and the sleep below. A
+      // `continue` here jumped past both, and while the lock stayed
+      // unobtainable (a stuck logger, say) the thread hot-looped re-sending
+      // the host check, with nothing for stop() to interrupt: a timed lock is
+      // not an interruption point, so join() waited until the lock came back.
       {
-        boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-        if (!lock.owns_lock()) {
+        boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+        lock.try_lock_for(boost::chrono::seconds(5));
+        if (lock.owns_lock()) {
+          interval = config_.interval;
+          copy = config_.checks;
+        } else {
           NSC_LOG_ERROR("Failed to run checks");
-          continue;
         }
-        interval = config_.interval;
-        copy = config_.checks;
       }
       std::string response;
       nscapi::core_helper ch(get_core(), get_id());
@@ -431,7 +455,8 @@ void op5_client::thread_proc() {
 bool op5_client::send_a_check(const std::string &alias, int result, std::string message, std::string &status) {
   std::string hostname;
   {
-    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::defer_lock);
+    lock.try_lock_for(boost::chrono::seconds(5));
     if (!lock.owns_lock()) {
       status = "failed to fetch host name";
       return false;
