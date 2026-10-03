@@ -47,8 +47,9 @@ bool wait_for_next_sample(const threads::stop_signal &stop_signal, const std::at
     case threads::stop_signal::wait_result::failed:
       break;
   }
+  // A signal start() could not create fails every wait; it already said so.
   static std::atomic<bool> reported{false};
-  if (!reported.exchange(true)) {
+  if (stop_signal.valid() && !reported.exchange(true)) {
     NSC_LOG_ERROR("Failed to wait on the collector's stop signal, sleeping between samples instead: " + error::lookup::last_error(errno));
   }
   std::this_thread::sleep_until(due);
@@ -371,11 +372,15 @@ process_history_check::history_type pdh_thread::get_process_history() const {
 }
 
 bool pdh_thread::start() {
-  // See threads::stop_signal for why a failure here must not start a thread.
+  // Unlike the collectors that block on their stop signal indefinitely (see
+  // threads::stop_signal), this one wakes every second and checks
+  // stop_requested_, so it can run without one - at the fd limit, say. A stop
+  // then waits out the current second. Refusing to start instead left
+  // check_cpu and check_memory answering from an empty collector until the
+  // next reload, and nothing looks at what start() returns.
   std::string error;
   if (!stop_signal_.create(error)) {
-    NSC_LOG_ERROR("Failed to create stop signal, the collector is disabled: " + error);
-    return false;
+    NSC_LOG_ERROR("Failed to create the collector's stop signal, stopping it may take up to a second: " + error);
   }
   stop_requested_ = false;
   thread_ = threads::start_guarded_thread("checksystem collector", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
