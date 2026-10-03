@@ -82,6 +82,8 @@ NSCP_CREATE_TEST(
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_THREAD_LIBRARY}
+        # op5_client.cpp's timed locks wait with try_lock_for (Boost chrono).
+        ${Boost_CHRONO_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${EXTRA_LIBS}
     INCLUDES
