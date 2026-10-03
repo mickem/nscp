@@ -18,4 +18,7 @@ like `threaded-file`, which means it also writes the console and feeds the log
 handlers, where the old `file` backend did neither. The file is still opened
 and closed for every line, so log shippers and rotation tools never find it
 locked. With `max size` set, the cut back to the newest 70% now runs on the
-thread that crossed the limit, which waits for it.
+thread that crossed the limit, which waits for it. At most 10 000 lines wait
+for the log handlers; when a handler falls that far behind, the oldest lines
+are dropped for the handlers only (never for the console or the file), and
+`nsclient.fatal` records when that starts and how many were dropped.

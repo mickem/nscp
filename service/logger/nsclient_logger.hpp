@@ -61,6 +61,8 @@ class nsclient_logger : public logger_impl {
     logging_subscriber_instance current;
     bool started = false;
     bool stopping = false;
+    // Lines dropped because the queue was full, since the last report.
+    std::uint64_t dropped = 0;
   };
 
   // Guards the sink state below. Held while a line is written, never while
@@ -80,6 +82,10 @@ class nsclient_logger : public logger_impl {
   // the service, like dll_plugin's wait for its dispatchers.
   std::chrono::milliseconds delivery_wait_{5000};
   std::chrono::milliseconds join_wait_{10000};
+  // How many lines may wait for the handlers. A handler that is stuck, or
+  // slower than the agent logs, would otherwise grow the queue without
+  // bound; past this the oldest lines are dropped.
+  std::size_t queue_limit_ = 10000;
 
   static bool &on_worker_thread();
   // Under delivery_->mutex: the subscriber's entry, or end().
@@ -103,6 +109,7 @@ class nsclient_logger : public logger_impl {
   // For tests: shorten the bounded waits.
   void set_delivery_wait(std::chrono::milliseconds wait) { delivery_wait_ = wait; }
   void set_join_wait(std::chrono::milliseconds wait) { join_wait_ = wait; }
+  void set_queue_limit(std::size_t limit) { queue_limit_ = limit; }
 
   // Takes both severity names ("debug", "trace", ...) and console options
   // ("console", "no-console", "oneline", "no-std-err") - cli_parser pushes

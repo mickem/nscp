@@ -247,6 +247,49 @@ TEST(NsclientLogger, AStuckHandlerDoesNotBlockLogging) {
   stuck->release();
 }
 
+// A handler stuck while the agent keeps logging does not grow the queue
+// without bound: past the limit the oldest lines are dropped, and the
+// handler gets the newest ones once it is back.
+TEST(NsclientLogger, AFullQueueDropsTheOldestLines) {
+  struct StuckOnce : CapturingSubscriber {
+    void on_log_message(const std::string& payload) override {
+      {
+        std::unique_lock<std::mutex> lock(gate_mu);
+        entered = true;
+        gate_cv.notify_all();
+        gate_cv.wait(lock, [this]() { return released; });
+      }
+      CapturingSubscriber::on_log_message(payload);
+    }
+    void wait_until_entered() {
+      std::unique_lock<std::mutex> lock(gate_mu);
+      gate_cv.wait(lock, [this]() { return entered; });
+    }
+    void release() {
+      {
+        std::lock_guard<std::mutex> lock(gate_mu);
+        released = true;
+      }
+      gate_cv.notify_all();
+    }
+    std::mutex gate_mu;
+    std::condition_variable gate_cv;
+    bool entered = false;
+    bool released = false;
+  };
+  nsclient_logger logger;
+  logger.set_queue_limit(5);
+  auto sub = std::make_shared<StuckOnce>();
+  logger.add_subscriber(sub);
+  logger.do_log(line("enter"));
+  sub->wait_until_entered();
+  for (int i = 1; i <= 20; ++i) logger.do_log(line(std::to_string(i)));
+  sub->release();
+  EXPECT_EQ(sub->wait_for(6), (std::vector<std::string>{"enter", "16", "17", "18", "19", "20"}));
+  // Dropped lines count as handed out, so a flush is not left waiting on them.
+  EXPECT_TRUE(logger.clear_subscribers().empty());
+}
+
 TEST(NsclientLogger, AThrowingHandlerDoesNotStopTheOthers) {
   struct Throwing : logging_subscriber {
     void on_log_message(const std::string&) override { throw std::runtime_error("boom"); }

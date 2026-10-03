@@ -115,6 +115,17 @@ void nsclient_logger::do_log(const std::string data) {
   {
     boost::lock_guard<boost::mutex> lock(delivery_->mutex);
     if (delivery_->stopping || delivery_->subscribers.empty()) return;
+    // Full: drop the oldest line, counted as done so a flush still ends.
+    // Reported when it starts, and with a count once the handlers catch up
+    // (see deliver), not once per line - this is the logger's own channel.
+    if (queue_limit_ > 0 && delivery_->queue.size() >= queue_limit_) {
+      delivery_->queue.pop_front();
+      ++delivery_->done;
+      if (delivery_->dropped++ == 0) {
+        logger_helper::log_fatal("Log handlers are " + std::to_string(delivery_->queue.size() + 1) +
+                                 " lines behind; dropping the oldest lines for them until they catch up (the console and the log file are not affected)");
+      }
+    }
     delivery_->queue.push_back(data);
     ++delivery_->queued;
   }
@@ -129,6 +140,10 @@ void nsclient_logger::deliver(const std::shared_ptr<delivery> d) {
     if (d->stopping) return;
     const std::string line = std::move(d->queue.front());
     d->queue.pop_front();
+    if (d->dropped != 0 && d->queue.empty()) {
+      logger_helper::log_fatal("Log handlers caught up; " + std::to_string(d->dropped) + " lines were dropped for them");
+      d->dropped = 0;
+    }
     // Walk by id rather than by position, so a subscriber added or removed
     // while the lock is down neither shifts the walk nor gets the line twice.
     std::uint64_t last = 0;
