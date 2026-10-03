@@ -98,72 +98,84 @@ void simple_file_logger::truncate_to_tail(const std::string &file, const std::ui
   boost::filesystem::resize_file(file, keep);
 }
 
+// One line costs one open, one write and one close: the file is not held
+// open between lines, so nothing else on the host - a log shipper, an
+// operator deleting it, a rotation tool - ever finds it locked, and there is
+// no buffer to lose. The size comes from the stream itself (opened at the
+// end), not from separate exists/file_size calls.
 void simple_file_logger::do_log(const std::string &data) {
   if (file_.empty()) return;
   try {
-    if (max_size_ != 0 && boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
-      // Keep the newest 70%, moved to the front of the file through a fixed
-      // buffer and then cut off with resize_file. Holding the tail in memory
-      // made a large max size (a few GiB on x86) throw bad_alloc on every
-      // line, and 70% computed through an int was undefined past INT_MAX.
-      // In place, so the file keeps the mode it was created with.
-      const std::uintmax_t size = boost::filesystem::file_size(file_.c_str());
-      const std::uintmax_t keep = static_cast<std::uintmax_t>(max_size_ / 10 * 7);
-      try {
-        if (keep < size) truncate_to_tail(file_, size, keep);
-      } catch (...) {
-        logger_helper::log_fatal("Failed to truncate log file: " + file_);
-      }
-    }
-    if (!boost::filesystem::exists(file_.c_str())) {
-      boost::filesystem::path parent = file_helpers::meta::get_path(file_);
-      if (!parent.empty()) {
-        if (!boost::filesystem::exists(parent.string())) {
-          try {
-            boost::filesystem::create_directories(parent);
-          } catch (...) {
-            if (!reported_mkdir_failure) {
-              reported_mkdir_failure = true;
-              logger_helper::log_fatal("Failed to create log directory: " + parent.string());
-            }
-          }
-        }
-      }
-    }
-    std::string date = logger_helper::get_formated_date(format_);
-
     PB::Log::LogEntry message;
     if (!message.ParseFromString(data)) {
       logger_helper::log_fatal("Failed to parse message: " + str::format::strip_ctrl_chars(data));
-    } else {
-      std::stringstream tmp;
-      for (int i = 0; i < message.entry_size(); i++) {
-        const auto &msg = message.entry(i);
-        // Strip control characters from every field that originated outside
-        // this process (file, message). Without this, a plugin / remote
-        // command whose output contains "\n<forged log line>\n" would inject
-        // arbitrary lines into the agent's log file - confusing audit and
-        // breaking log shippers that key on line position.
-        const std::string safe_file = str::format::strip_ctrl_chars(msg.file());
-        const std::string safe_message = str::format::strip_ctrl_chars(msg.message());
-        tmp << date << (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level())) << (":") << safe_file << (":") << msg.line()
-            << (": ") << safe_message << "\n";
-      }
-      try {
-        if (!boost::filesystem::exists(file_.c_str())) create_log_file_with_mode(file_);
-        std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
-        if (!stream) {
-          if (!reported_log_failure) {
-            reported_log_failure = true;
-            logger_helper::log_fatal("Failed to open log file: " + file_);
+      return;
+    }
+    const std::string date = logger_helper::get_formated_date(format_);
+    std::stringstream tmp;
+    for (int i = 0; i < message.entry_size(); i++) {
+      const auto &msg = message.entry(i);
+      // Strip control characters from every field that originated outside
+      // this process (file, message). Without this, a plugin / remote
+      // command whose output contains "\n<forged log line>\n" would inject
+      // arbitrary lines into the agent's log file - confusing audit and
+      // breaking log shippers that key on line position.
+      const std::string safe_file = str::format::strip_ctrl_chars(msg.file());
+      const std::string safe_message = str::format::strip_ctrl_chars(msg.message());
+      tmp << date << (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level())) << (":") << safe_file << (":") << msg.line()
+          << (": ") << safe_message << "\n";
+    }
+    try {
+      // A no-op (one failed O_EXCL open) when the file exists.
+      create_log_file_with_mode(file_);
+      std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
+      if (!stream) {
+        // Most likely the folder is missing: create it, once, and retry.
+        const boost::filesystem::path parent = file_helpers::meta::get_path(file_);
+        if (!parent.empty()) {
+          boost::system::error_code ec;
+          boost::filesystem::create_directories(parent, ec);
+          if (ec && !reported_mkdir_failure) {
+            reported_mkdir_failure = true;
+            logger_helper::log_fatal("Failed to create log directory: " + parent.string());
           }
-          logger_helper::log_fatal(tmp.str());
-        } else {
-          stream << tmp.str();
         }
-      } catch (std::exception &e) {
-        logger_helper::log_fatal("Failed to write log: " + tmp.str() + ": " + e.what());
+        create_log_file_with_mode(file_);
+        stream.clear();
+        stream.open(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
       }
+      if (stream && max_size_ != 0) {
+        const std::streamoff at = stream.tellp();
+        if (at > 0 && static_cast<std::uintmax_t>(at) > max_size_) {
+          // Keep the newest 70%, moved to the front of the file through a
+          // fixed buffer and then cut off with resize_file. Holding the tail
+          // in memory made a large max size (a few GiB on x86) throw
+          // bad_alloc on every line, and 70% computed through an int was
+          // undefined past INT_MAX. In place, so the file keeps the mode it
+          // was created with.
+          stream.close();
+          const std::uintmax_t size = static_cast<std::uintmax_t>(at);
+          const std::uintmax_t keep = static_cast<std::uintmax_t>(max_size_ / 10 * 7);
+          try {
+            if (keep < size) truncate_to_tail(file_, size, keep);
+          } catch (...) {
+            logger_helper::log_fatal("Failed to truncate log file: " + file_);
+          }
+          stream.clear();
+          stream.open(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
+        }
+      }
+      if (!stream) {
+        if (!reported_log_failure) {
+          reported_log_failure = true;
+          logger_helper::log_fatal("Failed to open log file: " + file_);
+        }
+        logger_helper::log_fatal(tmp.str());
+      } else {
+        stream << tmp.str();
+      }
+    } catch (std::exception &e) {
+      logger_helper::log_fatal("Failed to write log: " + tmp.str() + ": " + e.what());
     }
   } catch (std::exception &e) {
     logger_helper::log_fatal("Failed to parse data from: " + str::format::strip_ctrl_chars(data) + ": " + e.what());
