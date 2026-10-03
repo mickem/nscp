@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <fstream>
@@ -48,6 +49,10 @@ class settings_http : public settings::settings_interface_impl {
   boost::filesystem::path local_file_;
   net::url remote_url;
   instance_raw_ptr child_instance;
+  // Set when the child could not be built on the current cached copy, so
+  // house_keeping() rebuilds on its next pass even though the download's
+  // hash matches by then - nothing else would ever retry it.
+  std::atomic<bool> rebuild_pending_{false};
 
  public:
   // Settings urls take the same host name placeholders as the submit clients
@@ -126,7 +131,21 @@ class settings_http : public settings::settings_interface_impl {
 
   bool supports_updates() override { return false; }
 
-  virtual void real_clear_cache() {}
+  // clear_cache() (every plugin or settings reload) and load() drop the cached values,
+  // and clear_cache() the child with them. Every read goes through the child,
+  // so without one each value read as its default - and reload_data() only
+  // rebuilds when the downloaded file changes, so it stayed that way. Rebuild
+  // it on the cached copy; refreshing the copy is house_keeping()'s job.
+  // The caller holds mutex_.
+  void real_clear_cache() override {
+    instance_raw_ptr child = build_child(resolve_cache_file(remote_url));
+    if (!child) {
+      // Keep serving the previous copy, and have house_keeping() retry.
+      rebuild_pending_ = true;
+      child = child_instance;
+    }
+    if (child) install_child_unsafe(child);
+  }
 
   static std::string hash_file(const boost::filesystem::path &file) { return hash_string(file_helpers::read_file_as_string(file)); }
 
@@ -514,43 +533,68 @@ class settings_http : public settings::settings_interface_impl {
     }
   }
 
+  // A child store on the cached copy, or null (logged) when it cannot be
+  // built - antivirus still holding the file just renamed into place, say.
+  instance_raw_ptr build_child(const boost::filesystem::path &local_file) {
+    try {
+      return get_core()->create_instance("remote_http_file", "ini://" + local_file.string());
+    } catch (const std::exception &e) {
+      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
+    }
+    return instance_raw_ptr();
+  }
+
+  // Make `child` this store's only child. Both rebuild paths (real_clear_cache
+  // and reload_data) install it here, so they cannot drift apart. Reassigning
+  // child_instance matters as much as replacing the child: get_real_sections
+  // and get_real_keys read it directly, and leaving it on the old instance
+  // served the previous file's sections for the rest of the process. The
+  // caller holds mutex_, which those readers hold too.
+  void install_child_unsafe(const instance_raw_ptr &child) {
+    children_.clear();
+    children_.push_back(child);
+    child_instance = child;
+  }
+
+  instance_raw_ptr current_child() {
+    boost::unique_lock<boost::timed_mutex> lock(mutex_);
+    return child_instance;
+  }
+
   void initial_load() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
     migrate_legacy_cache_file(remote_url, local_file);
     cache_remote_file(remote_url, local_file.string());
     child_instance = add_child("remote_http_file", "ini://" + local_file.string());
+    if (!child_instance) rebuild_pending_ = true;
     fetch_attachments(child_instance);
   }
 
-  // Re-download the configuration and, when it changed, rebuild the child
-  // store on top of the new cached copy. Returns whether anything changed, so
-  // house_keeping can tell a rebuilt subtree (everything below us was just
-  // fetched) from an unchanged one (nothing below us has been touched).
+  // Re-download the configuration and, when it changed (or the last rebuild
+  // failed), rebuild the child store on top of the new cached copy. Returns
+  // whether anything changed, so house_keeping can tell a rebuilt subtree
+  // (everything below us was just fetched) from an unchanged one (nothing
+  // below us has been touched).
   bool reload_data() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
     migrate_legacy_cache_file(remote_url, local_file);
-    if (!cache_remote_file(remote_url, local_file.string())) return false;
-    // Build the new child first, then swap it in under the lock in one step.
-    // Emptying children_ (clear_cache) and adding the child back afterwards
-    // left a window in which every read on this store found no child - the
-    // whole remote configuration briefly read as defaults.
-    instance_raw_ptr child;
-    try {
-      child = get_core()->create_instance("remote_http_file", "ini://" + local_file.string());
-    } catch (const std::exception &e) {
-      get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
+    const bool changed = cache_remote_file(remote_url, local_file.string());
+    if (!changed && !rebuild_pending_) return false;
+    // Build the new child first, then swap it in under the lock in one step:
+    // emptying the children and adding the new one afterwards left a window
+    // in which every read on this store found no child, so the whole remote
+    // configuration briefly read as defaults. When it cannot be built, keep
+    // serving the previous one and retry on the next pass.
+    const instance_raw_ptr child = build_child(local_file);
+    if (!child) {
+      rebuild_pending_ = true;
+      return false;
     }
+    rebuild_pending_ = false;
     {
       MUTEX_GUARD();
       clear_cached_values_unsafe();
-      children_.clear();
-      if (child) children_.push_back(child);
-      // Reassigning child_instance matters as much as replacing the child:
-      // get_sections and get_keys below read it directly. Leaving it on the
-      // old instance served the previous file's sections out of that
-      // instance's own cache for the rest of the process. Under the lock,
-      // because those readers hold it.
-      child_instance = child;
+      install_child_unsafe(child);
     }
     fetch_attachments(child);
     get_core()->set_reload(true);
@@ -672,7 +716,7 @@ class settings_http : public settings::settings_interface_impl {
   // would fetch every one of them twice in the same pass.
   void house_keeping() override {
     if (reload_data()) return;
-    fetch_attachments(child_instance);
+    fetch_attachments(current_child());
     settings_interface_impl::house_keeping();
   }
 
