@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <boost/scoped_ptr.hpp>
 #include <lua/lua_core.hpp>
 #include <lua/lua_script.hpp>
@@ -15,13 +14,13 @@
 
 class LUAScript : public nscapi::impl::simple_plugin {
  private:
-  // Shared so a dispatch can hold its own reference across unloadModule.
+  // Shared so a dispatch can hold its own reference across unloadModule; all
+  // three are replaced on every reload, so they are read and written with
+  // std::atomic_load / atomic_store only.
   std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
   std::shared_ptr<lua::lua_runtime> lua_runtime_;
   std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
   boost::filesystem::path root_;
-  // Set once startModule has run: a reload then starts the scripts it loads.
-  std::atomic<bool> started_{false};
 
   void start_scripts();
 

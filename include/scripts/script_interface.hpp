@@ -156,6 +156,10 @@ struct script_manager {
   typedef std::map<int, script_information<script_trait> *> script_list_type;
   typedef std::map<std::string, command_definition<script_trait> > command_list_type;
   script_list_type scripts_;
+  // By script id: the scripts whose load failed, which are never started, and
+  // the ones start_all has started, which are not started a second time.
+  std::set<int> failed_loads_;
+  std::set<int> started_;
   command_list_type commands;
   // Guards the two maps above and the dispatch bookkeeping below. Held only
   // for the lookups and mutations themselves, never across a running script.
@@ -263,12 +267,17 @@ struct script_manager {
   void load_all(const error_reporter &report = error_reporter()) {
     // TODO: locked
     for (typename script_list_type::value_type &entry : scripts_) {
-      run_reported(report, entry.second, [&] { script_runtime->load(entry.second); });
+      if (!run_reported(report, entry.second, [&] { script_runtime->load(entry.second); })) failed_loads_.insert(entry.first);
     }
   }
+  // Starts each script once: one whose load failed is skipped - what its
+  // top-level code registered before the error stays, but it is not started
+  // half-loaded - and one already started is left alone, so a second call
+  // (the core starts a module again after a reload) starts only what is new.
   void start_all(const error_reporter &report = error_reporter()) {
     // TODO: locked
     for (typename script_list_type::value_type &entry : scripts_) {
+      if (failed_loads_.count(entry.first) > 0 || !started_.insert(entry.first).second) continue;
       run_reported(report, entry.second, [&] { script_runtime->start(entry.second); });
     }
   }
@@ -295,6 +304,8 @@ struct script_manager {
       }
       dropped.swap(commands);
       doomed.swap(scripts_);
+      failed_loads_.clear();
+      started_.clear();
       unloading_ = false;
     }
     // Outside the lock: both call into the core, and unload() runs script
@@ -342,16 +353,22 @@ struct script_manager {
                           nscp_runtime->execute(type, command, description);
                   }
   */
+  // Whether the step ran through; without a reporter a failure throws.
   template <class F>
-  static void run_reported(const error_reporter &report, const script_information<script_trait> *info, F step) {
-    if (!report) return step();
+  static bool run_reported(const error_reporter &report, const script_information<script_trait> *info, F step) {
+    if (!report) {
+      step();
+      return true;
+    }
     try {
       step();
+      return true;
     } catch (const std::exception &e) {
       report(info->script, e.what());
     } catch (...) {
       report(info->script, "Unknown exception");
     }
+    return false;
   }
 
   bool empty() const {

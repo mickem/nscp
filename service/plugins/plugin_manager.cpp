@@ -701,9 +701,17 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
   const plugin_type plugin = plugin_list_.find_by_alias(module);
   if (plugin) {
     LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
-    plugin->load_plugin(NSCAPI::reloadStart);
+    if (!plugin->load_plugin(NSCAPI::reloadStart)) {
+      LOG_ERROR_CORE_STD("Plugin refused to reload: " + plugin->get_alias_or_name());
+      return false;
+    }
     if (plugin->reload_raced()) {
       LOG_ERROR_CORE_STD("Reloaded " + plugin->get_alias_or_name() + " while calls into it were still running: a check held it for over 5s");
+    }
+    // Every other module is loaded already, so the reloaded one can be
+    // started straight away (see dll_plugin::load_plugin).
+    if (plugin->has_start() && !plugin->start_plugin()) {
+      LOG_ERROR_CORE_STD("Plugin refused to start: " + plugin->get_alias_or_name());
     }
     return true;
   }

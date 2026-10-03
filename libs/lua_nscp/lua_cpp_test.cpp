@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <lua/lua_cpp.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
@@ -122,4 +123,24 @@ TEST(LuaWrapper, AnExplicitGcFollowedByAMethodRaisesInsteadOfCrashing) {
   EXPECT_FALSE(ok) << message;
   EXPECT_NE(message.find("probe: object was already destroyed"), std::string::npos) << message;
   EXPECT_EQ(probe_object::live, 0);
+}
+
+TEST(LuaWrapper, OnlyTheFourNagiosCodesReadAsThemselves) {
+  // A numeric status was cast to int before anything checked it: a script
+  // returning 0/0, math.huge or 1e20 made that cast undefined, and anything
+  // else in range of an int passed through as a result code nothing knows.
+  lua::Lua_State state;
+  lua_State *L = state.get_state();
+  lua::lua_wrapper instance(L);
+  const auto code_of = [&](const lua_Number n) {
+    lua_pushnumber(L, n);
+    return instance.pop_code();
+  };
+  EXPECT_EQ(code_of(0), NSCAPI::query_return_codes::returnOK);
+  EXPECT_EQ(code_of(1), NSCAPI::query_return_codes::returnWARN);
+  EXPECT_EQ(code_of(2), NSCAPI::query_return_codes::returnCRIT);
+  EXPECT_EQ(code_of(3), NSCAPI::query_return_codes::returnUNKNOWN);
+  for (const lua_Number bad : {-1.0, 4.0, 1.5, 1e20, -1e20, HUGE_VAL, -HUGE_VAL, std::nan("")}) {
+    EXPECT_EQ(code_of(bad), NSCAPI::query_return_codes::returnUNKNOWN) << bad;
+  }
 }

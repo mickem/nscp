@@ -11,17 +11,23 @@ check your scripts against the ones marked *check*:
   core reported `Plugin refused to load: LUAScript` and no Lua script on the host ran. The error is
   now logged and the other scripts load. An `on_start` that raises no longer stops the scripts after
   it from starting.
+- An `on_start` - or top-level code - that called the Core API (`Core():simple_query(...)` and the
+  like) left the Lua lock held for good, and every Lua check after it waited forever. A script whose
+  top-level code raised is no longer started: its `on_start` does not run.
 - Handlers registered with `Registry:simple_cmdline` never ran - neither from
   `nscp client --module LUAScript --exec <name>` nor from `Core:simple_exec`. They now do.
 - A reload of LUAScript now runs `on_start` again for the freshly loaded scripts (it ran only once per
   agent lifetime), and takes back the queries and channels of a script that was removed. *Check* a
-  script whose `on_start` must only ever run once.
+  script whose `on_start` must only ever run once. A handler registered with `simple_cmdline` under
+  one of the module's own verbs (`help`, `execute`, `add`, `list`, ...) is never reached;
+  [Lua scripting](../extending/lua.md#registrysimple_cmdline) lists them.
 - *Check:* `Settings:get_bool` reads `true`, `1` and `yes` as `true`; it used to read the value as an
   integer, so `true` came back as the default. `Settings:set_bool` writes `true`/`false`.
 - *Check:* `Core:simple_exec` returns `"unknown"` and `Failed to execute <command> on <target>` when
   nothing could run the command; it returned `"warning"` and `Command failed.`.
 - *Check:* `Core:simple_submit` on a channel nobody listens to returns `false` and
   `Failed to submit message: <channel>`; it raised a Lua error.
+- `main` that returns only a status no longer prints `NIL` for the missing message.
 - A check handler that returns no status answers `unknown` with
   `Invalid return from <command>: expected (code, message, perf)`; a missing message or performance
   data is empty, where it used to read `NIL`. A numeric status outside `0`-`3` reads as `unknown`.
