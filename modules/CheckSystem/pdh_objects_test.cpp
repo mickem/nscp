@@ -46,6 +46,15 @@ TEST(PdhError, NotFoundCoversAllThreeCodes) {
   EXPECT_FALSE(PDH::pdh_error(PDH_INVALID_DATA).is_not_found());
 }
 
+TEST(PdhError, NoInstanceIsNotNotFound) {
+  // An object with zero instances is an empty set, not a missing counter set:
+  // the two predicates must stay disjoint or an idle IIS reads as uninstalled.
+  EXPECT_TRUE(PDH::pdh_error(PDH_CSTATUS_NO_INSTANCE).is_no_instance());
+  EXPECT_FALSE(PDH::pdh_error(PDH_CSTATUS_NO_INSTANCE).is_not_found());
+  EXPECT_FALSE(PDH::pdh_error(PDH_CSTATUS_NO_OBJECT).is_no_instance());
+  EXPECT_FALSE(PDH::pdh_error(ERROR_SUCCESS).is_no_instance());
+}
+
 TEST(PdhError, NegativeDenominatorCoversBothCodes) {
   EXPECT_TRUE(PDH::pdh_error(PDH_CALC_NEGATIVE_DENOMINATOR).is_negative_denominator());
   EXPECT_TRUE(PDH::pdh_error(PDH_CALC_NEGATIVE_VALUE).is_negative_denominator());
@@ -81,6 +90,17 @@ TEST(PdhException, StringPlusFailedErrorAppendsErrorMessage) {
   // Whatever localized text PDH.DLL returns, the message starts with our prefix.
   const std::string r = e.reason();
   EXPECT_EQ(r.rfind("context:", 0), 0u) << "actual: " << r;
+}
+
+TEST(PdhException, NoInstanceIsAPdhException) {
+  // The collector and check_pdh catch pdh_exception / std::exception and
+  // treat the counter as failed; the subtype must stay inside that net.
+  static_assert(std::is_nothrow_copy_constructible<PDH::pdh_no_instance_exception>::value, "subtype must keep the noexcept copy (CERT-ERR60)");
+  try {
+    throw PDH::pdh_no_instance_exception("\\W3SVC_W3WP(*)\\Active Requests: the object has no instances at the moment");
+  } catch (const PDH::pdh_exception &e) {
+    EXPECT_NE(e.reason().find("no instances"), std::string::npos);
+  }
 }
 
 TEST(PdhException, CopyPreservesMessage) {

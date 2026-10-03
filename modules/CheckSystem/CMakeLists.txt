@@ -237,6 +237,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.cpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_object_gather.cpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.cpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.cpp
         ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.cpp

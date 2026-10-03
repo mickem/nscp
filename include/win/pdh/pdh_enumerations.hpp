@@ -20,7 +20,13 @@ class Enumerations {
   };
 
   typedef std::list<Object> Objects;
+  // Expand a wildcard counter path to the paths of its current instances.
+  // `error` is set when the path cannot be expanded (object or counter
+  // missing). With `no_instances`, an object that resolved but has no
+  // instances right now is reported through that flag instead, with an empty
+  // list and no error; the two-argument form reports it as an error.
   static std::list<std::string> expand_wild_card_path(const std::string &query, std::string &error);
+  static std::list<std::string> expand_wild_card_path(const std::string &query, std::string &error, bool &no_instances);
   static void fetch_object_details(Object &object, bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD);
   static Objects EnumObjects(bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD);
   static Object EnumObject(const std::string &object, bool instances = true, bool objects = true, DWORD dwDetailLevel = PERF_DETAIL_WIZARD);
