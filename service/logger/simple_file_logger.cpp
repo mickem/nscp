@@ -98,7 +98,7 @@ void simple_file_logger::truncate_to_tail(const std::string &file, const std::ui
   boost::filesystem::resize_file(file, keep);
 }
 
-void simple_file_logger::do_log(const std::string data) {
+void simple_file_logger::do_log(const std::string &data) {
   if (file_.empty()) return;
   try {
     if (max_size_ != 0 && boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
@@ -196,6 +196,11 @@ simple_file_logger::config_data simple_file_logger::do_config(const bool log_fau
 
     settings.register_all();
     settings.notify();
+    // The key is registered as a path rooted at ${log-path}, so a bare name is
+    // already absolute by here. An unset value still needs the default name,
+    // and it is rooted the same way rather than left to the working directory.
+    // Resolved here rather than in apply(), which runs under the logger's lock.
+    if (ret.file.empty()) ret.file = settings_manager::get_proxy()->resolve_path("nsclient.log", "${log-path}");
     // Nothing more to do to ret.file: the key is registered as a path_key rooted
     // at ${log-path}, so notify() has already expanded its tokens and rooted a
     // bare name.
@@ -226,26 +231,26 @@ void simple_file_logger::synch_configure() { do_config(true); }
 
 void simple_file_logger::asynch_configure() {
   try {
-    config_data config = do_config(false);
-
-    format_ = config.format;
-    max_size_ = config.max_size;
-    // `none` switches file logging off, and is tested before anything joins a
-    // directory onto it - the rooting below would otherwise turn the sentinel
-    // into a real file called `none` inside the log folder.
-    if (nscp::paths::is_no_path(config.file)) {
-      file_ = "";
-      return;
-    }
-    // The key is registered as a path rooted at ${log-path}, so a bare name is
-    // already absolute by here. An unset value still needs the default name,
-    // and it is rooted the same way rather than left to the working directory.
-    file_ = config.file.empty() ? settings_manager::get_proxy()->resolve_path("nsclient.log", "${log-path}") : config.file;
+    apply(do_config(false));
   } catch (const std::exception &) {
     // ignored, since this might be after shutdown...
   } catch (...) {
     // ignored, since this might be after shutdown...
   }
+}
+
+void simple_file_logger::apply(const config_data &config) {
+  format_ = config.format;
+  max_size_ = config.max_size;
+  // `none` switches file logging off, and is tested before anything joins a
+  // directory onto it - the rooting below would otherwise turn the sentinel
+  // into a real file called `none` inside the log folder.
+  if (nscp::paths::is_no_path(config.file)) {
+    file_ = "";
+    return;
+  }
+  // Empty only when the settings could not be read at all: keep the file.
+  if (!config.file.empty()) file_ = config.file;
 }
 }  // namespace impl
 }  // namespace logging

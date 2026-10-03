@@ -511,16 +511,13 @@ void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int le
   if (!fHandleMessage) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   // A log line racing the unload must not call into an instance that
   // unload_plugin has torn down. Unlike every other entry point this one is
-  // not a dispatch: the logger delivers subscribers synchronously on the
-  // caller's thread on the console backend, so a module that logs from inside
-  // its own fUnLoadModule arrives here from the unload itself, and making the
-  // unload wait for it would wait for itself. The race is closed one level
-  // up instead: the plugin manager takes the module's log subscription and
-  // waits for the lines still inside it (its gate in nsclient_logger) before
-  // it calls unload_plugin, and refuses, parks or leaves the module loaded
-  // when one does not come back. This flag is the backstop for an unload that
-  // does not go through the manager - the destructor's - and stops the lines
-  // that have not reached the module yet.
+  // not tracked as a dispatch: lines arrive from the logger's one delivery
+  // thread, and the race is closed there instead. The plugin manager takes
+  // the module's log subscription and waits until that thread has left the
+  // module before it calls unload_plugin, and refuses, parks or leaves the
+  // module loaded when it does not. This flag is the backstop for an unload
+  // that does not go through the manager - the destructor's - and stops the
+  // lines that have not reached the module yet.
   if (unloaded_) return;
   try {
     fHandleMessage(get_id(), data, len);

@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -50,17 +49,9 @@
 
 namespace nsclient {
 namespace logging {
-// The log handlers a line written from inside a handler came through, by
-// the id nsclient_logger gave each. Carried next to the line, never in it.
-typedef std::vector<std::uint64_t> log_handler_chain;
-
 struct logging_subscriber {
   virtual ~logging_subscriber() = default;
   virtual void on_log_message(const std::string &payload) = 0;
-  // A line a log handler wrote, with the handlers it came through. Only the
-  // subscriber manager (nsclient_logger) needs the chain; everything else
-  // takes it as a line like any other.
-  virtual void on_handler_log_message(const std::string &payload, const log_handler_chain &) { on_log_message(payload); }
 };
 typedef std::shared_ptr<logging_subscriber> logging_subscriber_instance;
 

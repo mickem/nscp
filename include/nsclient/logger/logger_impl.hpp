@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <nsclient/logger/log_driver_interface.hpp>
 #include <nsclient/logger/log_level.hpp>
 #include <nsclient/logger/log_message_factory.hpp>
 #include <nsclient/logger/logger.hpp>

@@ -20,8 +20,8 @@ is still inside is left loaded rather than torn down under it, with `Leaving
 <module> loaded at shutdown: …`.
 
 A line a log-handler module writes from inside its handler is no longer handed
-back to that handler, on any log backend, so a handler that logs once per line
-it receives no longer feeds itself; it still reaches the console, the log file
-and every other log handler. A module that hands lines to a thread of its own
-and logs from there is not covered, and has to filter its own lines by sender,
-as ElasticClient and DotnetPlugins do.
+to any log handler, so a handler that logs once per line it receives no longer
+feeds itself or another handler; it still reaches the console and the log
+file. A module that hands lines to a thread of its own and logs from there is
+not covered, and has to filter its own lines by sender, as ElasticClient and
+DotnetPlugins do.

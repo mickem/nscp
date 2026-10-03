@@ -3,14 +3,16 @@
 
 #pragma once
 
-#include <nsclient/logger/log_driver_interface_impl.hpp>
 #include <cstdint>
 #include <string>
 
 namespace nsclient {
 namespace logging {
 namespace impl {
-class simple_file_logger : public log_driver_interface_impl {
+// The log file: appends one formatted line per entry, creates the file 0640
+// and cuts it back to its newest 70% past `max size`. Not thread safe on its
+// own; nsclient_logger serialises every call.
+class simple_file_logger {
   std::string file_;
   std::size_t max_size_;
   std::string format_;
@@ -33,16 +35,18 @@ class simple_file_logger : public log_driver_interface_impl {
   // alone rather than cutting the log down to whatever was copied.
   static void truncate_to_tail(const std::string &file, std::uintmax_t size, std::uintmax_t keep);
 
-  void do_log(std::string data) override;
+  void do_log(const std::string &data);
   struct config_data {
     std::string file;
     std::string format;
     std::size_t max_size;
   };
-  config_data do_config(bool log_fault);
-  void synch_configure() override;
-  void asynch_configure() override;
-  bool shutdown() override { return true; }
+  // Registers the keys and reads them; touches nothing on this object, so
+  // it can run without the caller's lock (reading settings may log).
+  static config_data do_config(bool log_fault);
+  void apply(const config_data &config);
+  void synch_configure();
+  void asynch_configure();
 };
 
 }  // namespace impl

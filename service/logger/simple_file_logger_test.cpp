@@ -114,11 +114,6 @@ std::string make_entry(PB::Log::LogEntry::Entry::Level level, const std::string&
 
 }  // namespace
 
-TEST(SimpleFileLogger, ShutdownReturnsTrue) {
-  simple_file_logger logger(unique_name("shutdown"));
-  EXPECT_TRUE(logger.shutdown());
-}
-
 TEST(SimpleFileLogger, BasePathOnPosixIsEmpty) {
 #ifndef WIN32
   simple_file_logger logger("dummy");

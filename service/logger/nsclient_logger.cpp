@@ -4,244 +4,289 @@
 #include "nsclient_logger.hpp"
 
 #include <algorithm>
-#include <nsclient/logger/logger.hpp>
+#include <iostream>
+#include <nscapi/settings/helper.hpp>
+#include <nsclient/logger/logger_helper.hpp>
+#include <threads/guarded_thread.hpp>
 
-#include "simple_console_logger.hpp"
-#include "simple_file_logger.hpp"
-#include "threaded_logger.hpp"
+#include "../libs/settings_manager/settings_manager_impl.h"
 
-#define CONSOLE_BACKEND "console"
-#define THREADED_FILE_BACKEND "threaded-file"
-#define FILE_BACKEND "file"
+namespace sh = nscapi::settings_helper;
+
+namespace nsclient {
+namespace logging {
+namespace impl {
+
 // Console everywhere, on every platform. Writing to a log file is a thing the
-// *service* does - it selects the file backend explicitly when it starts (see
+// *service* does - it selects the file explicitly when it starts (see
 // cli_parser::parse_service, and the --log-backend in the systemd unit).
-//
-// It used to default to the file backend on Windows, which meant every CLI
-// invocation opened a file next to the executable: under Program Files, so an
-// ordinary user running `nscp client ...` failed to open it and logging quietly
-// degraded. Nothing about a one-shot command needs a log file, and needing
-// write access to the install directory to run one is worse than useless.
-#define DEFAULT_BACKEND CONSOLE_BACKEND
+// Nothing about a one-shot command needs a log file, and needing write access
+// to the install directory to run one is worse than useless.
+nsclient_logger::nsclient_logger() : delivery_(std::make_shared<delivery>()) {}
 
-void nsclient::logging::impl::nsclient_logger::set_backend(const std::string backend) {
-  log_driver_instance tmp;
-  if (backend == CONSOLE_BACKEND) {
-    tmp = std::make_shared<simple_console_logger>(this);
-  } else if (backend == THREADED_FILE_BACKEND) {
-    log_driver_instance inner = std::make_shared<simple_file_logger>("nsclient.log");
-    tmp = std::make_shared<threaded_logger>(this, inner);
-  } else if (backend == FILE_BACKEND) {
-    tmp = std::make_shared<simple_file_logger>("nsclient.log");
-  } else {
-    tmp = std::make_shared<simple_console_logger>(this);
-  }
-  use_backend(tmp);
+nsclient_logger::~nsclient_logger() { nsclient_logger::destroy(); }
+
+bool &nsclient_logger::on_worker_thread() {
+  static thread_local bool on_worker = false;
+  return on_worker;
 }
 
-void nsclient::logging::impl::nsclient_logger::use_backend(log_driver_instance backend) {
-  if (!backend) return;
-  if (backend_) backend->set_config(backend_);
-  backend->startup();
-  backend_.swap(backend);
+bool nsclient_logger::is_console_option(const std::string &key) {
+  return key == "console" || key == "no-console" || key == "oneline" || key == "no-std-err";
 }
 
-nsclient::logging::impl::nsclient_logger::nsclient_logger() { nsclient_logger::set_backend(DEFAULT_BACKEND); }
-
-nsclient::logging::impl::nsclient_logger::~nsclient_logger() { nsclient_logger::destroy(); }
-
-void nsclient::logging::impl::nsclient_logger::destroy() { backend_.reset(); }
-
-void nsclient::logging::impl::nsclient_logger::add_subscriber(const logging_subscriber_instance subscriber) {
-  boost::lock_guard<boost::mutex> lock(mutex_);
-  // Already here, closed by an earlier attempt: back in service in its
-  // place, rather than a second gate the next removal would not know about.
-  if (const entry *existing = find_locked(subscriber)) {
-    existing->gate->tracker().reopen();
+// "no-console" is how a module that has taken the console over for itself
+// asks the core to stop writing to it (see NSAPISetLogOption and the
+// CommandClient prompt, which renders log messages through its line editor
+// so they do not land in the middle of what the user is typing).
+void nsclient_logger::set_log_level(const std::string level) {
+  if (!is_console_option(level)) {
+    logger_impl::set_log_level(level);
     return;
   }
-  std::shared_ptr<subscribers_type> next = subscribers_ ? std::make_shared<subscribers_type>(*subscribers_) : std::make_shared<subscribers_type>();
-  next->push_back(entry{next_id_++, std::make_shared<gate_type>(subscriber)});
-  subscribers_ = next;
-  has_subscribers_ = true;
+  boost::lock_guard<boost::mutex> lock(sink_mutex_);
+  if (level == "console")
+    console_ = true;
+  else if (level == "no-console")
+    console_ = false;
+  else if (level == "oneline")
+    oneline_ = true;
+  else
+    no_std_err_ = true;
 }
 
-const nsclient::logging::impl::nsclient_logger::entry *nsclient::logging::impl::nsclient_logger::find_locked(
-    const logging_subscriber_instance &subscriber) const {
-  if (!subscribers_) return nullptr;
-  for (const entry &e : *subscribers_) {
-    if (e.gate->value() == subscriber) return &e;
+void nsclient_logger::set_backend(const std::string backend) {
+  boost::lock_guard<boost::mutex> lock(sink_mutex_);
+  if (backend == "file" || backend == "threaded-file") {
+    if (!file_) file_ = std::make_unique<simple_file_logger>("nsclient.log");
+  } else {
+    file_.reset();
   }
-  return nullptr;
 }
 
-// Close the subscriber's gate in place and wait for the lines inside it. A
-// subscriber that is not on the list is not waited for - the plugin manager
-// closes every module it unloads, handler or not - and a closed one that is
-// closed again waits for the line that kept it closed: close() hands out a
-// cutoff that still covers it.
-nsclient::logging::unsubscribe_result nsclient::logging::impl::nsclient_logger::close_subscriber(logging_subscriber_instance subscriber) {
-  unsubscribe_result result;
-  std::shared_ptr<gate_type> gate;
-  std::uint64_t cutoff = 0;
+void nsclient_logger::write_sinks(const std::string &data) {
+  boost::lock_guard<boost::mutex> lock(sink_mutex_);
+  if (console_) {
+    const std::pair<bool, std::string> m = logger_helper::render_console_message(oneline_, data);
+    if (!no_std_err_ && m.first)
+      std::cerr << m.second;
+    else
+      // Flush every line: on Windows nothing else flushes std::cout until the
+      // next read from std::cin, so in `nscp test` the log only caught up
+      // when a key was pressed.
+      std::cout << m.second << std::flush;
+  }
+  if (file_) file_->do_log(data);
+}
+
+void nsclient_logger::do_log(const std::string data) {
+  write_sinks(data);
+  // A line from inside a handler stops at the sinks; see the class comment.
+  if (on_worker_thread() || !has_subscribers_.load(std::memory_order_acquire)) return;
   {
-    boost::lock_guard<boost::mutex> lock(mutex_);
-    const entry *found = find_locked(subscriber);
-    if (found == nullptr) return result;
-    gate = found->gate;
-    cutoff = gate->tracker().close();
+    boost::lock_guard<boost::mutex> lock(delivery_->mutex);
+    if (delivery_->stopping || delivery_->subscribers.empty()) return;
+    delivery_->queue.push_back(data);
   }
+  delivery_->changed.notify_all();
+}
+
+void nsclient_logger::deliver(const std::shared_ptr<delivery> d) {
+  on_worker_thread() = true;
+  boost::unique_lock<boost::mutex> lock(d->mutex);
+  while (true) {
+    while (!d->stopping && d->queue.empty()) d->changed.wait(lock);
+    if (d->stopping) return;
+    const std::string line = std::move(d->queue.front());
+    d->queue.pop_front();
+    // Walk by id rather than by position, so a subscriber added or removed
+    // while the lock is down neither shifts the walk nor gets the line twice.
+    std::uint64_t last = 0;
+    while (!d->stopping) {
+      const auto next = std::find_if(d->subscribers.begin(), d->subscribers.end(), [last](const entry &e) { return e.id > last; });
+      if (next == d->subscribers.end()) break;
+      last = next->id;
+      if (!next->open) continue;
+      d->current = next->subscriber;
+      logging_subscriber_instance subscriber = next->subscriber;
+      lock.unlock();
+      try {
+        subscriber->on_log_message(line);
+      } catch (const std::exception &e) {
+        logger_helper::log_fatal(std::string("Log handler failed: ") + e.what());
+      } catch (...) {
+        logger_helper::log_fatal("Log handler failed");
+      }
+      // Dropped before the remover can wake, so the remover, not this
+      // thread, holds the last reference: a module is never destroyed (and
+      // its library unmapped) on the logging thread.
+      subscriber.reset();
+      lock.lock();
+      d->current.reset();
+      d->changed.notify_all();
+    }
+  }
+}
+
+nsclient_logger::entries::iterator nsclient_logger::find(const logging_subscriber_instance &subscriber) {
+  return std::find_if(delivery_->subscribers.begin(), delivery_->subscribers.end(), [&subscriber](const entry &e) { return e.subscriber == subscriber; });
+}
+
+// The wait excludes the worker itself - a handler closing itself - and is
+// bounded like dll_plugin's wait for its dispatchers.
+bool nsclient_logger::wait_until_left(boost::unique_lock<boost::mutex> &lock, const logging_subscriber_instance &subscriber) {
+  if (on_worker_thread()) return true;
+  return delivery_->changed.timed_wait(lock, boost::posix_time::milliseconds(delivery_wait_.count()),
+                                       [&]() { return delivery_->current != subscriber; });
+}
+
+void nsclient_logger::add_subscriber(const logging_subscriber_instance subscriber) {
+  boost::lock_guard<boost::mutex> lock(delivery_->mutex);
+  if (delivery_->stopping) return;
+  const entries::iterator it = find(subscriber);
+  if (it != delivery_->subscribers.end()) {
+    it->open = true;
+  } else {
+    delivery_->subscribers.push_back(entry{delivery_->next_id++, subscriber, true});
+  }
+  has_subscribers_ = true;
+  if (!delivery_->started) {
+    delivery_->started = true;
+    const std::shared_ptr<delivery> d = delivery_;
+    // This thread *is* the logger, so it reports its own death through the
+    // last-resort channel.
+    worker_ = threads::start_guarded_thread(
+        "logger", [d]() { deliver(d); }, [](const std::string &message) { logger_helper::log_fatal(message); });
+  }
+}
+
+// Close one subscriber in its place and wait until the worker is not inside
+// it, so the caller can tear it down afterwards. Only that subscriber is
+// waited for, and not at all when it was not on the list (the plugin manager
+// closes every module it unloads, handler or not). One the worker is still
+// inside stays closed where it is, so the next close waits for it again.
+unsubscribe_result nsclient_logger::close_subscriber(const logging_subscriber_instance subscriber) {
+  unsubscribe_result result;
+  boost::unique_lock<boost::mutex> lock(delivery_->mutex);
+  const entries::iterator it = find(subscriber);
+  if (it == delivery_->subscribers.end()) return result;
+  it->open = false;
   result.removed = true;
-  // The wait excludes this thread's own delivery - a handler closing itself
-  // - and is bounded like dll_plugin's wait for its dispatchers: a handler
-  // that has been running for five seconds is not going to finish because
-  // we keep waiting.
-  result.delivering = !gate->tracker().wait_for_others_before(cutoff, delivery_wait_);
+  result.delivering = !wait_until_left(lock, subscriber);
   return result;
 }
 
-void nsclient::logging::impl::nsclient_logger::reopen_subscriber(logging_subscriber_instance subscriber) {
-  boost::lock_guard<boost::mutex> lock(mutex_);
-  if (const entry *found = find_locked(subscriber)) found->gate->tracker().reopen();
+void nsclient_logger::reopen_subscriber(const logging_subscriber_instance subscriber) {
+  boost::lock_guard<boost::mutex> lock(delivery_->mutex);
+  const entries::iterator it = find(subscriber);
+  if (it != delivery_->subscribers.end()) it->open = true;
 }
 
-// Take a closed subscriber out of the list once nothing is inside it, and
-// hand it back so this thread drops it - after mutex_ is released: when it
-// is the last reference to a plugin, the destructor unmaps the library,
-// whose static destructors may log, and a log line takes mutex_. One still
-// occupied stays, closed, for the next close or clear to wait for.
-bool nsclient::logging::impl::nsclient_logger::drop_subscriber(logging_subscriber_instance subscriber) {
-  logging_subscriber_instance released;
-  {
-    boost::lock_guard<boost::mutex> lock(mutex_);
-    const entry *found = find_locked(subscriber);
-    if (found == nullptr) return false;
-    threads::in_flight &tracker = found->gate->tracker();
-    // A zero wait is a check: true once nothing that was inside is left.
-    // The cutoff of a closed tracker covers every entry it will ever have.
-    if (!tracker.wait_for_others_before(tracker.close(), std::chrono::milliseconds(0))) return false;
-    const std::shared_ptr<gate_type> gate = found->gate;
-    std::shared_ptr<subscribers_type> next = std::make_shared<subscribers_type>();
-    next->reserve(subscribers_->size() - 1);
-    for (const entry &e : *subscribers_) {
-      if (e.gate != gate) next->push_back(e);
-    }
-    subscribers_ = next;
-    has_subscribers_ = !next->empty();
-    released = gate->take();
-  }
+// The list's reference goes under the lock, but the caller still holds its
+// own, so the module is never released here.
+bool nsclient_logger::drop_subscriber(const logging_subscriber_instance subscriber) {
+  boost::lock_guard<boost::mutex> lock(delivery_->mutex);
+  const entries::iterator it = find(subscriber);
+  if (it == delivery_->subscribers.end()) return false;
+  // A handler dropping itself is the one line the worker can be inside here.
+  if (delivery_->current == subscriber && !on_worker_thread()) return false;
+  delivery_->subscribers.erase(it);
+  has_subscribers_ = !delivery_->subscribers.empty();
   return true;
 }
 
-nsclient::logging::unsubscribe_result nsclient::logging::impl::nsclient_logger::remove_subscriber(logging_subscriber_instance subscriber) {
+unsubscribe_result nsclient_logger::remove_subscriber(const logging_subscriber_instance subscriber) {
   const unsubscribe_result result = close_subscriber(subscriber);
   if (result.removed && !result.delivering) drop_subscriber(subscriber);
   return result;
 }
 
-// Close every subscriber and wait for the lines inside them within one
-// shared bound, then drop the ones that came clear. The ones a line is
-// still inside stay, closed, and are returned, so the caller can leave
-// those modules alone - including one an earlier attempt left closed.
-std::vector<nsclient::logging::logging_subscriber_instance> nsclient::logging::impl::nsclient_logger::clear_subscribers() {
-  std::vector<std::pair<std::shared_ptr<gate_type>, std::uint64_t> > closing;
-  {
-    boost::lock_guard<boost::mutex> lock(mutex_);
-    if (!subscribers_) return std::vector<logging_subscriber_instance>();
-    for (const entry &e : *subscribers_) closing.emplace_back(e.gate, e.gate->tracker().close());
-  }
-  const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + delivery_wait_;
+// Take every subscriber off the list and wait for the worker to leave the
+// one it is in, if any. Returns that one when the wait runs out, so the
+// caller can leave its module alone.
+std::vector<logging_subscriber_instance> nsclient_logger::clear_subscribers() {
   std::vector<logging_subscriber_instance> still_delivering;
-  std::vector<std::shared_ptr<gate_type> > clear;
-  for (const auto &c : closing) {
-    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-    const std::chrono::milliseconds remaining =
-        now < deadline ? std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now) : std::chrono::milliseconds(0);
-    if (c.first->tracker().wait_for_others_before(c.second, remaining)) {
-      clear.push_back(c.first);
-    } else {
-      still_delivering.push_back(c.first->value());
-    }
-  }
-  std::vector<logging_subscriber_instance> released;
+  // Held until after the wait and released here, on the caller's thread, so
+  // the worker never drops the last reference to a module (see deliver).
+  entries taken;
   {
-    boost::lock_guard<boost::mutex> lock(mutex_);
-    std::shared_ptr<subscribers_type> next = std::make_shared<subscribers_type>();
-    for (const entry &e : *subscribers_) {
-      if (std::find(clear.begin(), clear.end(), e.gate) == clear.end()) {
-        next->push_back(e);
-      } else {
-        released.push_back(e.gate->take());
-      }
+    boost::unique_lock<boost::mutex> lock(delivery_->mutex);
+    taken.swap(delivery_->subscribers);
+    delivery_->queue.clear();
+    has_subscribers_ = false;
+    if (on_worker_thread()) return still_delivering;
+    if (!delivery_->changed.timed_wait(lock, boost::posix_time::milliseconds(delivery_wait_.count()), [&]() { return !delivery_->current; })) {
+      still_delivering.push_back(delivery_->current);
     }
-    subscribers_ = next;
-    has_subscribers_ = !next->empty();
   }
   return still_delivering;
 }
 
-void nsclient::logging::impl::nsclient_logger::on_log_message(const std::string &data) { deliver(data, log_handler_chain()); }
+bool nsclient_logger::startup() { return true; }
 
-void nsclient::logging::impl::nsclient_logger::on_handler_log_message(const std::string &data, const log_handler_chain &chain) { deliver(data, chain); }
-
-void nsclient::logging::impl::nsclient_logger::deliver(const std::string &data, const log_handler_chain &chain) {
-  if (!has_subscribers_.load(std::memory_order_acquire)) return;
-  subscribers_ptr snapshot;
+// Stop the worker. One stuck in a handler past the wait is left behind on the
+// state it shares, and returns to nothing but that state.
+bool nsclient_logger::shutdown() {
+  entries taken;
   {
-    boost::lock_guard<boost::mutex> lock(mutex_);
-    snapshot = subscribers_;
+    boost::lock_guard<boost::mutex> lock(delivery_->mutex);
+    delivery_->stopping = true;
+    delivery_->queue.clear();
+    taken.swap(delivery_->subscribers);
   }
-  if (!snapshot) return;
-  delivery_context context{&chain, 0};
-  struct restore_context {
-    delivery_context *outer;
-    ~restore_context() { current_delivery() = outer; }
-  } restore{current_delivery()};
-  current_delivery() = &context;
-  for (const entry &e : *snapshot) {
-    if (std::find(chain.begin(), chain.end(), e.id) != chain.end()) continue;
-    // The guard is declared before the copy, so the copy goes first however
-    // this ends: the gate still holds the subscriber, so the copy is never
-    // the last reference, and only then does a waiting close wake.
-    threads::in_flight::guard inside(e.gate->tracker());
-    if (!inside.try_enter()) continue;  // closed since the list was read
-    logging_subscriber_instance subscriber = e.gate->value();
-    context.handler = e.id;
-    subscriber->on_log_message(data);
-    context.handler = 0;
-    subscriber.reset();
-    inside.leave();
+  delivery_->changed.notify_all();
+  has_subscribers_ = false;
+  if (!worker_) return true;
+  const std::shared_ptr<boost::thread> worker = std::move(worker_);
+  if (worker->get_id() == boost::this_thread::get_id()) {
+    worker->detach();
+    return true;
   }
-}
-
-bool nsclient::logging::impl::nsclient_logger::startup() {
-  if (backend_) {
-    return backend_->startup();
-  } else {
+  if (!worker->timed_join(boost::posix_time::milliseconds(join_wait_.count()))) {
+    logger_helper::log_fatal("Log handler thread did not stop; leaving it behind");
+    worker->detach();
     return false;
   }
+  return true;
 }
-bool nsclient::logging::impl::nsclient_logger::shutdown() {
-  if (backend_) {
-    return backend_->shutdown();
+
+void nsclient_logger::destroy() {
+  shutdown();
+  boost::lock_guard<boost::mutex> lock(sink_mutex_);
+  file_.reset();
+}
+
+void nsclient_logger::configure() {
+  // Settings are read without the sink lock held: reading them may log.
+  bool has_file;
+  {
+    boost::lock_guard<boost::mutex> lock(sink_mutex_);
+    has_file = file_ != nullptr;
   }
-  return false;
-}
-void nsclient::logging::impl::nsclient_logger::configure() {
-  if (backend_) {
-    backend_->synch_configure();
-    backend_->asynch_configure();
+  if (has_file) {
+    const simple_file_logger::config_data config = simple_file_logger::do_config(true);
+    boost::lock_guard<boost::mutex> lock(sink_mutex_);
+    if (file_) file_->apply(config);
+    return;
+  }
+  // Without a file only the date format is registered, as the console
+  // backend did; the console renders without a date.
+  try {
+    std::string format;
+    sh::settings_registry settings(settings_manager::get_proxy());
+    settings.set_alias("log");
+    settings.add_path_to_settings()("log", "Log file", "Configure log file properties.");
+    settings.add_key_to_settings("log").add_string("date format", sh::string_key(&format, "%Y-%m-%d %H:%M:%S"), "Console date mask",
+                                                   "The syntax of the dates in the log file.");
+    settings.register_all();
+    settings.notify();
+  } catch (const std::exception &e) {
+    logger_helper::log_fatal(std::string("Failed to configure logger: ") + e.what());
+  } catch (...) {
+    logger_helper::log_fatal("Failed to configure logger.");
   }
 }
 
-void nsclient::logging::impl::nsclient_logger::do_log(const std::string data) {
-  if (!backend_) return;
-  const delivery_context *const context = current_delivery();
-  if (context != nullptr && context->handler != 0) {
-    log_handler_chain chain = *context->chain;
-    chain.push_back(context->handler);
-    backend_->do_log_from_handler(data, chain);
-  } else {
-    backend_->do_log(data);
-  }
-}
+}  // namespace impl
+}  // namespace logging
+}  // namespace nsclient
