@@ -174,25 +174,6 @@ TEST(Permissions, different_subject_rules_dont_bleed) {
 
 // ===== state / lifecycle ==================================================
 
-TEST(Permissions, clear_rules_resets_policy_table) {
-  permissions p;
-  p.set_enabled(true);
-  p.add_rule("X", "A.b");
-  EXPECT_EQ(1u, p.rule_count());
-  EXPECT_TRUE(p.is_allowed("X", "A.b"));
-  p.clear_rules();
-  EXPECT_EQ(0u, p.rule_count());
-  EXPECT_FALSE(p.is_allowed("X", "A.b"));
-}
-
-TEST(Permissions, clear_rules_keeps_enabled_state) {
-  permissions p;
-  p.set_enabled(true);
-  p.add_rule("X", "A.b");
-  p.clear_rules();
-  EXPECT_TRUE(p.is_enabled());
-}
-
 TEST(Permissions, empty_objects_list_drops_rule) {
   // Defensive: a rule with no object patterns can't authorise anything,
   // so we drop it. Otherwise an admin who types
@@ -299,9 +280,9 @@ TEST(Permissions, replace_with_self_is_a_no_op) {
 
 TEST(Permissions, reader_never_sees_an_empty_table_during_replace) {
   // A settings reload republishes the table while checks keep flowing.
-  // Rebuilding in place (clear_rules + add_rule) left a window in which an
-  // enabled policy had no rules and denied everything; replace_with must
-  // not have one.
+  // Rebuilding in place (clearing the rules, then re-adding them) left a
+  // window in which an enabled policy had no rules and denied everything;
+  // replace_with must not have one.
   permissions p;
   p.set_enabled(true);
   p.add_rule("NRPEServer", "CheckSystem.*");
