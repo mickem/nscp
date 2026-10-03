@@ -23,11 +23,12 @@ turned up these, now fixed:
   execute <command> on <target>"])`. It used to return `(0, [])`, which reads
   as success, or `(False, <text>)` when the call threw. Check your scripts if
   one tests the code for `0` or `False`. The docs also wrongly offered
-  `"local"` as a target; use the module name, or `""` for every module.
+  `"local"` as a target; use a module name, `"any"`, or `"all"`.
 - `nscp py add --import` asked for `--overwrite` when the file already
   existed. The option is `--replace`, and the message now says so.
 - `nscp py show --script <name>` prints the script and `nscp py delete --script
-  <name>` deletes it and removes it from `/settings/python/scripts`. Both
+  <name>` deletes it and removes every `/settings/python/scripts` entry that
+  loads it, however the entry is written. Both
   answered with nothing before, so `GET` and `DELETE` on
   `/api/v2/scripts/py/<name>` returned an empty `200` and changed nothing.
   They now act, on files under `${scripts}/python` only, symlinks resolved.

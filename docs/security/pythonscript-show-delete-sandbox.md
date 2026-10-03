@@ -20,10 +20,11 @@ The built-in `full` role (`*`) holds both; no other built-in role does.
 
 Both are confined to `${scripts}/python`. A name is resolved inside that folder
 only - never relative to the working directory, never as an absolute path - and
-the check is made on the real path with symlinks resolved, so a symlink in the
-folder, or a symlinked sub-folder, cannot reach a file outside it. A path that
-cannot be resolved is refused. Deleting a symlink inside the folder removes the
-link, not its target. Over REST the name is also rejected before any of this if
+the check is made on real paths with symlinks resolved, so a symlinked
+sub-folder cannot reach outside it. A path that cannot be resolved is refused.
+`show` reads a symlink only when its target is inside the folder as well.
+`delete` removes the entry itself - a file, or a symlink whatever it points at -
+and never follows a link, so it cannot remove anything outside the folder. Over REST the name is also rejected before any of this if
 it holds `..`, a leading `/` or a drive letter.
 
 **What to do:** nothing on a default install. If a custom role holds
