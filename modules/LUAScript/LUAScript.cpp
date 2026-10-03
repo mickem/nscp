@@ -246,6 +246,14 @@ void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Reques
     nscapi::protobuf::functions::set_response_bad(*response, "Module is not loaded");
     return;
   }
+  // Held from the add until the script returns: unload_all() (a reload or
+  // unload on another thread) waits for it, or parks the script, rather than
+  // freeing it and its interpreter state while exec_main() runs.
+  const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts);
+  if (!dispatch.entered()) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Module is being unloaded");
+    return;
+  }
   scripts::script_information<lua::lua_traits> *info = scripts->add("", ofile.value().string());
   lua_runtime_->load(info);
   std::vector<std::string> opts(script_options.begin(), script_options.end());

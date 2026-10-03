@@ -4,6 +4,7 @@
 #pragma once
 
 #include <list>
+#include <memory>
 #include <win/pdh/pdh_counters.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_resolver.hpp>
@@ -37,5 +38,9 @@ class PDHQuery : public subscriber {
   inline void collect() const;
 
   PDH_HQUERY getQueryHandle() const;
+
+ private:
+  std::shared_ptr<impl_interface> impl_;
+  std::shared_ptr<impl_interface> impl() const;
 };
 }  // namespace PDH

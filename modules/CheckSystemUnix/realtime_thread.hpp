@@ -16,10 +16,10 @@
 #include <nsclient/nsclient_exception.hpp>
 #include <rrd_buffer.hpp>
 #include <sampling_state.hpp>
-#include <string>
-#include <vector>
-
 #include <set>
+#include <string>
+#include <threads/stop_signal.hpp>
+#include <vector>
 
 #include "check_network.h"
 #include "check_process_history.h"
@@ -145,6 +145,9 @@ class pdh_thread {
   mutable boost::shared_mutex mutex_;
   // Set by stop() on the module thread, polled by the collector thread.
   std::atomic<bool> stop_requested_;
+  // Wakes the collector out of its one-second wait as soon as stop() is
+  // called, so a stop (and so every reload) does not wait out the sleep.
+  threads::stop_signal stop_signal_;
 
   nscapi::core_wrapper *core_;
   int plugin_id_;

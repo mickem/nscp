@@ -5,6 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <thread>
+
 using nsclient::core::permissions;
 
 // ===== disabled / no-rules stance =========================================
@@ -171,25 +174,6 @@ TEST(Permissions, different_subject_rules_dont_bleed) {
 
 // ===== state / lifecycle ==================================================
 
-TEST(Permissions, clear_rules_resets_policy_table) {
-  permissions p;
-  p.set_enabled(true);
-  p.add_rule("X", "A.b");
-  EXPECT_EQ(1u, p.rule_count());
-  EXPECT_TRUE(p.is_allowed("X", "A.b"));
-  p.clear_rules();
-  EXPECT_EQ(0u, p.rule_count());
-  EXPECT_FALSE(p.is_allowed("X", "A.b"));
-}
-
-TEST(Permissions, clear_rules_keeps_enabled_state) {
-  permissions p;
-  p.set_enabled(true);
-  p.add_rule("X", "A.b");
-  p.clear_rules();
-  EXPECT_TRUE(p.is_enabled());
-}
-
 TEST(Permissions, empty_objects_list_drops_rule) {
   // Defensive: a rule with no object patterns can't authorise anything,
   // so we drop it. Otherwise an admin who types
@@ -261,4 +245,106 @@ TEST(Permissions, exec_toggle_does_not_affect_query_is_allowed) {
   p.add_rule("WEBServer:admin", "CheckSystem.check_cpu");
   EXPECT_TRUE(p.is_allowed("WEBServer:admin", "CheckSystem.check_cpu"));
   EXPECT_FALSE(p.is_allowed("WEBServer:guest", "CheckSystem.check_cpu"));
+}
+
+TEST(Permissions, replace_with_takes_over_rules_and_flags) {
+  permissions fresh;
+  fresh.set_enabled(true);
+  fresh.set_allow_exec(false);
+  fresh.set_log_denials(false);
+  fresh.set_log_allows(true);
+  fresh.add_rule("NRPEServer", "CheckSystem.check_cpu");
+
+  permissions p;
+  p.add_rule("WEBServer", "*");
+  p.replace_with(fresh);
+
+  EXPECT_TRUE(p.is_enabled());
+  EXPECT_FALSE(p.is_exec_allowed());
+  EXPECT_FALSE(p.should_log_denials());
+  EXPECT_TRUE(p.should_log_allows());
+  EXPECT_EQ(1u, p.rule_count());
+  EXPECT_TRUE(p.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  // The old rule is gone, not merged.
+  EXPECT_FALSE(p.is_allowed("WEBServer", "CheckSystem.check_cpu"));
+}
+
+TEST(Permissions, replace_with_self_is_a_no_op) {
+  permissions p;
+  p.set_enabled(true);
+  p.add_rule("NRPEServer", "*");
+  p.replace_with(p);
+  EXPECT_EQ(1u, p.rule_count());
+  EXPECT_TRUE(p.is_allowed("NRPEServer", "check_cpu"));
+}
+
+TEST(Permissions, reader_never_sees_an_empty_table_during_replace) {
+  // A settings reload republishes the table while checks keep flowing.
+  // Rebuilding in place (clearing the rules, then re-adding them) left a
+  // window in which an enabled policy had no rules and denied everything;
+  // replace_with must not have one.
+  permissions p;
+  p.set_enabled(true);
+  p.add_rule("NRPEServer", "CheckSystem.*");
+
+  std::atomic<bool> done{false};
+  std::atomic<int> denied{0};
+  std::thread reader([&] {
+    while (!done) {
+      if (!p.is_allowed("NRPEServer", "CheckSystem.check_cpu")) ++denied;
+    }
+  });
+  for (int i = 0; i < 2000; ++i) {
+    permissions fresh;
+    fresh.set_enabled(true);
+    fresh.add_rule("NRPEServer", "CheckSystem.*");
+    p.replace_with(fresh);
+  }
+  done = true;
+  reader.join();
+  EXPECT_EQ(0, denied.load());
+}
+
+// ===== failed reload ======================================================
+
+TEST(Permissions, failed_load_before_enabled_keeps_a_disabled_policy_off) {
+  // A default install (no [/settings/permissions]) whose reload times out
+  // before `enabled` is read must not start refusing every query.
+  permissions fresh;
+  fresh.complete_failed_load(/*enabled_read=*/false, /*exec_read=*/false, /*previously_enabled=*/false);
+  EXPECT_FALSE(fresh.is_enabled());
+  EXPECT_TRUE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_TRUE(fresh.is_exec_allowed());
+}
+
+TEST(Permissions, failed_load_before_enabled_keeps_an_enabled_policy_closed) {
+  permissions fresh;
+  fresh.complete_failed_load(/*enabled_read=*/false, /*exec_read=*/false, /*previously_enabled=*/true);
+  EXPECT_TRUE(fresh.is_enabled());
+  EXPECT_FALSE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_FALSE(fresh.is_exec_allowed());
+}
+
+TEST(Permissions, failed_load_honours_an_enabled_value_it_read) {
+  // `enabled` was read; it decides, whatever was in force before.
+  permissions turned_on;
+  turned_on.set_enabled(true);
+  turned_on.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/false, /*previously_enabled=*/false);
+  EXPECT_TRUE(turned_on.is_enabled());
+  EXPECT_FALSE(turned_on.is_exec_allowed());
+
+  permissions turned_off;
+  turned_off.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/false, /*previously_enabled=*/true);
+  EXPECT_FALSE(turned_off.is_enabled());
+}
+
+TEST(Permissions, failed_load_keeps_rules_and_exec_switch_it_read) {
+  permissions fresh;
+  fresh.set_enabled(true);
+  fresh.set_allow_exec(true);
+  fresh.add_rule("NRPEServer", "CheckSystem.*");
+  fresh.complete_failed_load(/*enabled_read=*/true, /*exec_read=*/true, /*previously_enabled=*/false);
+  EXPECT_TRUE(fresh.is_exec_allowed());
+  EXPECT_TRUE(fresh.is_allowed("NRPEServer", "CheckSystem.check_cpu"));
+  EXPECT_FALSE(fresh.is_allowed("NRPEServer", "CheckDisk.check_drivesize"));
 }

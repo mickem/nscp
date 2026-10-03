@@ -72,7 +72,14 @@ struct client_handler : public socket_helpers::client::client_handler {
 };
 
 struct check_mk_client_handler : public client::handler_interface {
-  boost::scoped_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
+  typedef scripts::script_manager<lua::lua_traits> script_manager_type;
+  // Replaced by every loadModuleEx and dropped by unloadModule while send()
+  // may be running on a client thread. Published and read atomically, and
+  // send() holds its own reference for the whole call: freeing the manager
+  // under it left the call's dispatch_guard unlocking a freed mutex.
+  std::shared_ptr<script_manager_type> scripts_;
+  std::shared_ptr<script_manager_type> scripts() const { return std::atomic_load(&scripts_); }
+  void set_scripts(std::shared_ptr<script_manager_type> scripts) { std::atomic_store(&scripts_, std::move(scripts)); }
   bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message,
              PB::Commands::QueryResponseMessage &response_message) {
     const ::PB::Common::Header &request_header = request_message.header();
@@ -136,9 +143,14 @@ struct check_mk_client_handler : public client::handler_interface {
       // and unload_all, and the definition points at a script unload_all
       // deletes, so stay registered as a dispatcher across the lookup and the
       // call - unload_all waits for the scripts that are running.
-      const scripts::script_manager<lua::lua_traits>::dispatch_guard dispatch(*scripts_);
+      const std::shared_ptr<script_manager_type> scripts = this->scripts();
+      if (!scripts) {
+        nscapi::protobuf::functions::set_response_bad(*payload, "Module is not loaded");
+        return;
+      }
+      const script_manager_type::dispatch_guard dispatch(*scripts);
       if (!dispatch.entered()) return;
-      boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command("check_mk", "c_callback");
+      boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts->find_command("check_mk", "c_callback");
       if (cmd) {
         parse_data(cmd.value().information, cmd.value().function, packet);
       } else {

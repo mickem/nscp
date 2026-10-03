@@ -3,6 +3,7 @@
 
 #include <exception>
 #include <memory>
+#include <mutex>
 #include <win/pdh/pdh_query.hpp>
 
 namespace PDH {
@@ -35,6 +36,11 @@ void PDHQuery::removeAllCounters() {
   counters_.clear();
 }
 
+// The implementation this query was opened against, so the lock it holds and
+// the calls it makes always go to the same object (open() binds it; until
+// then the factory's current one).
+std::shared_ptr<impl_interface> PDHQuery::impl() const { return impl_ ? impl_ : factory::get_impl(); }
+
 void PDHQuery::on_unload() {
   if (hQuery_ == nullptr) return;
   for (const auto& c : counters_) {
@@ -46,19 +52,20 @@ void PDHQuery::on_unload() {
   }
   const PDH_HQUERY h = hQuery_;
   hQuery_ = nullptr;
-  const pdh_error status = factory::get_impl()->PdhCloseQuery(h);
+  const pdh_error status = impl()->PdhCloseQuery(h);
   if (status.is_error()) throw pdh_exception("PdhCloseQuery failed", status);
 }
 void PDHQuery::on_reload() {
   if (hQuery_ != nullptr) return;
-  const pdh_error status = factory::get_impl()->PdhOpenQuery(nullptr, 0, &hQuery_);
+  const std::shared_ptr<impl_interface> impl = this->impl();
+  const pdh_error status = impl->PdhOpenQuery(nullptr, 0, &hQuery_);
   if (status.is_error()) {
     hQuery_ = nullptr;
     throw pdh_exception("PdhOpenQuery failed", status);
   }
   try {
     for (const auto& c : counters_) {
-      c->addToQuery(getQueryHandle());
+      c->addToQuery(impl, getQueryHandle());
     }
   } catch (...) {
     const PDH_HQUERY h = hQuery_;
@@ -70,7 +77,7 @@ void PDHQuery::on_reload() {
       }
     }
     try {
-      factory::get_impl()->PdhCloseQuery(h);
+      impl->PdhCloseQuery(h);
     } catch (...) {
     }
     throw;
@@ -80,10 +87,16 @@ void PDHQuery::on_reload() {
 bool PDHQuery::is_open() const { return hQuery_ != nullptr; }
 
 void PDHQuery::open() {
+  // Under the implementation's lock, so a reload cannot run between opening
+  // the query and subscribing it: the query would keep handles into the
+  // library that reload freed, and never be called back to replace them.
+  if (!listener_registered_) impl_ = factory::get_impl();
+  const std::shared_ptr<impl_interface> impl = this->impl();
+  std::lock_guard<impl_interface> guard(*impl);
   if (hQuery_ != nullptr) throw pdh_exception("query was already opened when trying to open query!");
   on_reload();
   try {
-    factory::get_impl()->add_listener(this);
+    impl->add_listener(this);
     listener_registered_ = true;
   } catch (...) {
     try {
@@ -95,9 +108,17 @@ void PDHQuery::open() {
 }
 
 void PDHQuery::close() {
+  if (!listener_registered_ && hQuery_ == nullptr) {
+    counters_.clear();
+    return;
+  }
+  // Unsubscribing and closing are one step for a reload, for the same reason
+  // as in open().
+  const std::shared_ptr<impl_interface> impl = this->impl();
+  std::lock_guard<impl_interface> guard(*impl);
   if (listener_registered_) {
     try {
-      factory::get_impl()->remove_listener(this);
+      impl->remove_listener(this);
     } catch (...) {
       // Best-effort: if the factory is gone or mutex is poisoned, we still
       // want close() to finish freeing local state.
@@ -117,16 +138,33 @@ void PDHQuery::close() {
 }
 
 void PDHQuery::gatherData(const bool ignore_errors) {
+  // A concurrent reload closes and reopens this query's handles, so each
+  // read of one happens under the implementation's lock (as in collect()).
+  // Step by step rather than across the loop: the sleeps below must not hold
+  // up every other PDH user.
+  const std::shared_ptr<impl_interface> impl = this->impl();
+  {
+    // A reload that could not reopen this query (PDH failed to load again,
+    // or PdhOpenQuery failed) left it closed but still subscribed. Reopen it
+    // here, so it recovers once PDH works again instead of failing every
+    // sample until the next reload.
+    std::lock_guard<impl_interface> guard(*impl);
+    if (listener_registered_ && hQuery_ == nullptr) on_reload();
+  }
+  const auto collect_counter = [&impl](const counter_type& c) {
+    std::lock_guard<impl_interface> guard(*impl);
+    return c->collect();
+  };
   collect();
   for (const counter_type c : counters_) {
-    pdh_error status = c->collect();
+    pdh_error status = collect_counter(c);
     if (status.is_invalid_data()) {
       // First call after open() routinely returns INVALID_DATA for derived
       // counters (e.g. percentages need two samples). Give PDH a second
       // sample and retry.
       Sleep(1000);
       collect();
-      status = c->collect();
+      status = collect_counter(c);
       if (status.is_invalid_data()) {
         // Still no data. This is noise on percentage counters under heavy
         // fluctuation (#642, #906) — skip this counter for this tick rather
@@ -137,7 +175,7 @@ void PDHQuery::gatherData(const bool ignore_errors) {
     if (status.is_negative_denominator()) {
       Sleep(500);
       collect();
-      status = c->collect();
+      status = collect_counter(c);
     }
     if (status.is_negative_denominator()) {
       // Still negative after the retry. Some counters simply cannot be
@@ -162,7 +200,9 @@ void PDHQuery::collect() const {
   // which tells the caller nothing it did not already know; an empty query
   // simply has nothing to sample.
   if (counters_.empty()) return;
-  const pdh_error status = factory::get_impl()->PdhCollectQueryData(hQuery_);
+  const std::shared_ptr<impl_interface> impl = this->impl();
+  std::lock_guard<impl_interface> guard(*impl);
+  const pdh_error status = impl->PdhCollectQueryData(hQuery_);
   if (status.is_error()) throw pdh_exception("PdhCollectQueryData failed: ", status);
 }
 
