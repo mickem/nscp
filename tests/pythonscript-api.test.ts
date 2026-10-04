@@ -27,6 +27,9 @@
  * | Error paths                                 | raise, None, wrong shape, short tuple, a script that does not parse |
  * | /api/v2/scripts/py, `nscp py` verbs         | PUT, GET, list, DELETE, traversal; add/list/show/delete/install  |
  *
+ * `Registry.subscription` is covered only for the lifetime of the message it
+ * hands over, which needs no protobuf parsing.
+ *
  * Not here: the raw-protobuf `Registry.function` / `subscription` / `cmdline`,
  * `Core.query` / `submit` / `exec` and `Settings.query`. They need the
  * generated `*_pb2` modules and the `protobuf` Python package next to the
@@ -439,6 +442,23 @@ describeWithModules("PythonScript")("PythonScript API", () => {
           .trustLocalhost(true)
           .expect(200);
         expect(res.body.result).not.toBe(OK);
+      });
+    });
+
+    describe("Registry.subscription", () => {
+      it("a message the handler keeps is still readable after it returns", async () => {
+        // The handler gets a memoryview. It used to view the agent's own
+        // temporary copy of the request, so one kept past the return read
+        // freed memory; it now views a bytes object it keeps alive itself.
+        const r = await executeQuery(key, "py_submit", {
+          channel: "PYRAW",
+          message: "kept past the handler",
+        });
+        expect(messageOf(r)).toMatch(/^submitted: True/);
+        // Churn the heap a little before reading the view back.
+        for (let i = 0; i < 5; i++) await executeQuery(key, "py_echo", { filler: "x".repeat(256) });
+        const kept = messageOf(await executeQuery(key, "py_seen", { raw_kept: "" }));
+        expect(kept).toBe("memoryview marker=True");
       });
     });
 
