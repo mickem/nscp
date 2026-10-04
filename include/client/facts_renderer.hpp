@@ -196,18 +196,30 @@ inline std::string render_fact_sets(std::vector<fact_set_switch> sets, const std
     return a.id < b.id;
   });
 
+  // The core reports the top-level sets it holds (`storage`, `docker`), and a
+  // switch is that set or a part of it (`storage.volumes`, `docker.images`),
+  // so a switch is matched through the set it belongs to. Sibling switches
+  // share that set, which is why "reload to stop" needs every sibling off.
+  const auto top_level = [](const std::string &id) { return id.substr(0, id.find('.')); };
+  std::set<std::string> configured_sets;
+  for (const fact_set_switch &set : sets) {
+    if (set.configured) configured_sets.insert(top_level(set.id));
+  }
+
   std::vector<std::vector<std::string>> rows;
   rows.push_back({"SET", "STATE", "PRODUCER", "SECTION"});
   for (const fact_set_switch &set : sets) {
+    const std::string owner = top_level(set.id);
+    const bool collecting = claimed.count(owner) > 0;
     std::string state;
-    const bool collecting = claimed.count(set.id) > 0;
     if (!have_round) {
       state = set.configured ? "enabled" : "disabled";
     } else if (set.configured && collecting) {
-      state = errors.count(set.id) > 0 ? "enabled, failing: " + errors[set.id] : "enabled";
+      const std::map<std::string, std::string>::const_iterator error = errors.find(errors.count(set.id) > 0 ? set.id : owner);
+      state = error != errors.end() ? "enabled, failing: " + error->second : "enabled";
     } else if (set.configured) {
       state = "enabled (reload to start)";
-    } else if (collecting) {
+    } else if (collecting && configured_sets.count(owner) == 0) {
       state = "disabled (reload to stop)";
     } else {
       state = "disabled";
