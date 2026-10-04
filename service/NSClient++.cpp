@@ -811,6 +811,12 @@ void NSClientT::reloadPlugins() {
   // running are recognised as duplicates and left alone.
   boot_load_active_plugins();
   plugins_->start_plugins(NSCAPI::normalStart);
+  // Now that every module the reload enabled is loaded: start the ones it
+  // loaded, and start again the ones it reloaded. A module only started by
+  // this does its startup work - a Lua on_start querying a module enabled in
+  // the same reload, Scheduler's run-on-startup schedules - against a
+  // complete agent. Modules loaded here were never started at all before.
+  plugins_->post_start_plugins();
   // TODO: a module *disabled* since the last load is still left running; that
   // needs unloading a live plugin, which is a different problem from this one.
   settings_manager::get_core()->set_reload(false);

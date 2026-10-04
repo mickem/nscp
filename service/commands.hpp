@@ -149,7 +149,11 @@ class commands : boost::noncopyable {
     }
     std::string lc = make_key(cmd);
     if (!have_plugin(plugin_id)) throw command_exception("Failed to find plugin: " + str::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
-    if (commands_.find(lc) != commands_.end()) {
+    // A module registering its own command again - a script module does on
+    // every reload, keeping its commands registered throughout - is not a
+    // duplicate; another module taking the name over is.
+    const command_list_type::const_iterator existing = commands_.find(lc);
+    if (existing != commands_.end() && existing->second->get_id() != plugin_id) {
       log_info(__FILE__, __LINE__, "Duplicate command", cmd);
     }
     descriptions_[lc].description = desc;

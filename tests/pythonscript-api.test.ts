@@ -686,6 +686,24 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         );
       });
 
+      it("listing the queries, or asking one for its help, never runs a script handler", async () => {
+        // Both ask the core for the registered queries. The listing used to ask
+        // for every command's parameters too, which the core collects by
+        // running the command - so it ran every check on the box, each script
+        // handler included, side effects and all.
+        await request(REST_URL)
+          .get("/api/v2/scripts/py")
+          .set(auth())
+          .trustLocalhost(true)
+          .expect(200);
+        const help = await request(REST_URL)
+          .get("/api/v2/queries/py_calls/help")
+          .set(auth())
+          .trustLocalhost(true);
+        expect(help.status).toBe(200);
+        expect(messageOf(await executeQuery(key, "py_calls"))).toBe("calls=1");
+      });
+
       it("PUT stores and loads a script, GET reads it back, DELETE removes it", async () => {
         const source = fs.readFileSync(path.join(FIXTURES, "rest_added.py"), "utf8");
         await request(REST_URL)
@@ -868,12 +886,73 @@ describeWithModules("PythonScript")("PythonScript API", () => {
     });
   });
 
+  describe("scripts/python/sample.py, loaded unchanged", () => {
+    // The sample the docs point at, so a sample that stops working fails here.
+    const SAMPLE = path.join(__dirname, "..", "scripts", "python", "sample.py");
+    let nscp: NscpInstance;
+    let key: string;
+
+    beforeAll(async () => {
+      const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-py-sample-"));
+      const scripts = path.join(workDir, "scripts");
+      fs.mkdirSync(path.join(scripts, "python"), { recursive: true });
+      fs.copyFileSync(SAMPLE, path.join(scripts, "python", "sample.py"));
+      nscp = new NscpInstance({ workDir, pathOverrides: { scripts } });
+      key = await setupQueryNscp(nscp, "PythonScript", {
+        "/modules": { PythonScript: "enabled", WEBServer: "enabled" },
+        "/settings/python/scripts": { sample: "sample.py" },
+        "/settings/core": { "metrics interval": "1s" },
+      });
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("breaks, checks, fixes and saves the world", async () => {
+      expect(messageOf(await executeQuery(key, "check_world"))).toBe("The world is fine!");
+
+      expect((await executeQuery(key, "break_world")).result).toBe(OK);
+      const broken = await executeQuery(key, "check_world");
+      expect(broken.result).toBe(CRITICAL);
+      expect(messageOf(broken)).toBe("My god its full of stars: bad");
+
+      const saved = await executeQuery(key, "save_world");
+      expect(messageOf(saved)).toBe("The world is saved: bad");
+      await until("the saved world in the settings file", () =>
+        /^world\s*=\s*bad$/m.test(fs.readFileSync(nscp.settingsFile, "utf8")),
+      );
+
+      expect(messageOf(await executeQuery(key, "fix_world"))).toBe("Wicked! Safe!");
+      expect((await executeQuery(key, "check_world")).result).toBe(OK);
+    });
+
+    it("show_metrics turns on logging every metric the agent collects", async () => {
+      const on = await executeQuery(key, "show_metrics", { true: "" });
+      expect(messageOf(on)).toBe("Metrics displayed enabled");
+      await until("a metric in the log", () => logLines(nscp, "Got metrics: ").length > 0);
+      expect(logLines(nscp, "Got metrics: ").some((l) => l.includes("number.of.times"))).toBe(true);
+      const off = await executeQuery(key, "show_metrics", { false: "" });
+      expect(messageOf(off)).toBe("Metrics displayed disabled");
+    });
+
+    it("its world_help command answers `nscp client --exec`", async () => {
+      const r = await nscp.run(["client", "--module", "PythonScript", "--exec", "world_help"], {
+        allowFailure: true,
+      });
+      expect(r.stdout).toContain("Need help? Sorry, Im not help full my friend...");
+    });
+  });
+
   describe("from the command line", () => {
     let nscp: NscpInstance;
     let scripts: string;
 
     beforeAll(async () => {
-      ({ nscp, scripts } = fixtureInstance("nscp-py-cli-", [
+      // "lib" in the path: on a Linux package ${scripts} is
+      // /usr/lib/nsclient/scripts, and `list` used to drop every file whose
+      // path contained "lib" anywhere - which was all of them.
+      ({ nscp, scripts } = fixtureInstance("nscp-py-cli-lib-", [
         "api_fixture.py",
         "alias_probe.py",
         "failing_handlers.py",
@@ -1007,6 +1086,20 @@ describeWithModules("PythonScript")("PythonScript API", () => {
       expect(files).toEqual(
         expect.arrayContaining(["python/api_fixture.py", "python/alias_probe.py"]),
       );
+    });
+
+    it("`nscp py list` leaves out the helpers in lib unless --include-lib", async () => {
+      fs.mkdirSync(path.join(scripts, "python", "lib"), { recursive: true });
+      fs.writeFileSync(path.join(scripts, "python", "lib", "a_helper.py"), "# helper\n");
+      try {
+        const plain = (await py(["list"])).stdout.replace(/\\/g, "/");
+        expect(plain).toMatch(/^python\/api_fixture\.py$/m);
+        expect(plain).not.toContain("a_helper.py");
+        const all = (await py(["list", "--include-lib"])).stdout.replace(/\\/g, "/");
+        expect(all).toMatch(/^python\/lib\/a_helper\.py$/m);
+      } finally {
+        fs.rmSync(path.join(scripts, "python", "lib"), { recursive: true, force: true });
+      }
     });
 
     it("`nscp py add`, `show` and `delete` manage one script", async () => {

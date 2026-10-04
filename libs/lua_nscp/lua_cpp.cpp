@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <cmath>
 #include <lua/lua_cpp.hpp>
 
 extern "C" {
@@ -95,8 +96,16 @@ NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
   if (pos == -1) pos = lua_gettop(L);
   if (pos == 0) return NSCAPI::query_return_codes::returnUNKNOWN;
   switch (lua_type(L, pos)) {
-    case LUA_TNUMBER:
-      return static_cast<int>(lua_tonumber(L, pos));
+    case LUA_TNUMBER: {
+      // Only the four Nagios codes are a status; anything else passed through
+      // as a result code nothing downstream knows how to report. Checked as a
+      // lua_Number before the cast: converting NaN, math.huge or 1e20 to int
+      // is undefined. A NaN fails every comparison and lands below.
+      const lua_Number n = lua_tonumber(L, pos);
+      if (n >= NSCAPI::query_return_codes::returnOK && n <= NSCAPI::query_return_codes::returnUNKNOWN && n == std::floor(n)) return static_cast<int>(n);
+      NSC_LOG_ERROR_STD("Invalid code: " + str::xtos(n));
+      return NSCAPI::query_return_codes::returnUNKNOWN;
+    }
     case LUA_TSTRING:
       return string_to_code(lua_tostring(L, pos));
     case LUA_TBOOLEAN:

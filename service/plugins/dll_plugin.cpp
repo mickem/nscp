@@ -200,6 +200,13 @@ bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
   if (fLoadModule(get_id(), get_alias().c_str(), mode)) {
     loaded_ = true;
     loading_ = false;
+    // A reload replaces what startModule started (LUAScript's scripts and
+    // their on_start, Scheduler's run-on-startup schedules), so the module is
+    // owed a new start. The caller gives it once everything the reload loads
+    // is loaded: reload_plugin right away, a service reload after the modules
+    // it enabled. Modules used to start themselves from loadModuleEx instead,
+    // which on a service reload ran ahead of those modules.
+    if (mode == NSCAPI::reloadStart) started_ = false;
     return true;
   }
   return false;
