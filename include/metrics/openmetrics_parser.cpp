@@ -466,9 +466,11 @@ class parser {
       current_block_failed_ = true;
     }
     if (current_ == npos) return;
-    if (!out_.families[current_].samples.empty()) return;
-    // Otherwise a repeated name that declared a type its earlier family can
-    // pair with, with the body ending before its sample, is read as declared.
+    // Neither condition can hold for a family with samples: a metadata line
+    // fails its family only while it has none, and the parse stops there; a
+    // repeated name's block stops being tentative at its first sample. A
+    // repeated name that declared a type its earlier family can pair with,
+    // with the body ending before its sample, is read as declared.
     const family_state &seen = state_[current_];
     if (current_block_failed_ || (seen.tentative && !seen.type)) drop_current();
   }
