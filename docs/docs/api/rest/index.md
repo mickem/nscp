@@ -224,16 +224,23 @@ The bundled `legacy` role is defined as `*`, which grants every privilege.
 ### Adding users
 
 ```
-nscp web add-user --user foo --password foo
+nscp web add-user --user foo --password foo --role limited
 ```
 
-Which produces:
+Which produces (the password is stored as a PBKDF2 hash, never as typed; the
+salt and digest differ on every run):
 
 ```
 [/settings/WEB/server/users/foo]
-password=foo
+password=pbkdf2-sha256$100000$<salt hex>$<hash hex>
 role=limited
 ```
+
+Without `--role` the user gets the `client` role. A `password` written into
+`nsclient.ini` by hand in clear text is still accepted, but it **stays in clear
+text on disk** until `nscp web add-user` is run for that user again, which
+hashes it in place. Create users with the command rather than by editing the
+file.
 
 ### Assigning roles
 

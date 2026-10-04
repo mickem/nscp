@@ -601,14 +601,15 @@ read**, and the agent reads it with its own privileges - `SYSTEM` on Windows, `r
 | `check_disk_write` | `file=` | creates and deletes a test file at any writable path |
 | `check_registry_key`, `check_registry_value` | `key=` | any registry key, and the value data itself (binary as hex) |
 | `check_eventlog` | `file=` / `log=` | any event log channel, and the event text itself |
+| `check_process` | `detail-syntax=` / `fetch-only` | every process's full command line (`${command_line}`), which often carries passwords and tokens |
 
 That is what those checks are *for*, so it is not a defect, and where only your configuration decides what runs it does
 not matter. It matters where the **caller** picks the argument: NRPE with `allow arguments = true`, or the REST API. A
 caller who can reach `check_logfile` with an arbitrary `file=` can read `/etc/shadow`, a private key or a registry hive
 backup, and gets the contents back in the check output.
 
-Each of these modules has an access mode which narrows this. They all default to `any` - the behaviour of every
-release before 0.21.0 - so this is opt-in and an upgrade changes nothing:
+Every check in the table except `check_process` has an access mode which narrows this. They all default to `any` -
+the behaviour of every release before 0.21.0 - so this is opt-in and an upgrade changes nothing:
 
 | Check | Section | Mode setting | Allow list |
 |-------|---------|--------------|------------|
@@ -627,6 +628,12 @@ any channel the agent can read, `Security` included.
 The disk checks never return file contents, but they enumerate whole trees and can report a checksum of any readable
 file, which confirms known content and for a short file effectively recovers it. Narrower than `check_logfile`, but much
 wider reach.
+
+`check_process` has no access mode: the `command_line` keyword is there by design, and its default syntax does not
+show it, but any caller who can pass `detail-syntax=${command_line}` gets the argument list of every process the agent
+can see - database passwords, API tokens and connection strings passed on a command line included. `fetch-only` (the
+check_mk `<<<ps>>>` feed) returns the same command lines without being asked. Where callers may pass arguments, close
+it by refusing arguments (below) or by running process checks only as aliases you define.
 
 The modes are `any` (anything the caller names), `allowed` (only what matches the list) and `predefined` (only names you
 configured). `allowed` is experimental: it parses and matches what the caller sent, and a parser is a place where the
@@ -897,6 +904,28 @@ box:
 
 **The honest framing is**: anyone with that password can run arbitrary code as `LocalSystem`. Manage it accordingly, or
 remove the capability with the flag above.
+
+#### Grants that equal administrator access
+
+The same holds for every role, not only for `admin`: a role carrying any of the grants below can run code of its choice
+as the service account (`LocalSystem` on Windows, `root` or `nsclient` on Linux), so give them only to accounts you
+would trust with a local administrator login on the host.
+
+| Grant | Why it amounts to code execution |
+|-------|----------------------------------|
+| `*` (the `full` role) | Includes everything below. |
+| `legacy` | The pre-v1 API, including `/query/<command>` with any arguments and `/core/reload`. |
+| `console.exec` | Forwards an arbitrary CLI command to the agent. |
+| `modules.post` | Uploads a module archive and loads it: its code runs in the service process. |
+| `scripts.add.*` (and `scripts.*`) | Uploads a script that `CheckExternalScripts`, `PythonScript` or `LuaScript` then runs. |
+| `settings.put` (and `settings.*`) | Writes an external script definition, `allow arguments` and `allowed hosts`, then saves and reloads. |
+| `settings.delete` | Removes the restrictions this page describes - `allowed hosts`, access modes, the permission policy - and reloads. |
+
+A wildcard grants the whole category, so `scripts.*` and `settings.*` sit on this list as well. The module controls
+(`modules.load`, `modules.enable`, `modules.put`) only act on modules already installed, so they are not code execution on
+their own, but they switch on whatever the configuration already defines for those modules; treat them as administrative
+too. `logs.put` is not on the list, but it lets the caller write any line, with any source file and line number, into the
+agent's log and the web UI's log view, so do not rely on that log as evidence of what a caller with that grant did.
 
 #### When you don't need WEB at all
 
