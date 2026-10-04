@@ -6,6 +6,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 
+#include "etag.hpp"
 #include "helpers.hpp"
 
 metrics_controller::metrics_controller(const int version, const std::shared_ptr<session_manager_interface> &session, const nscapi::core_wrapper *core,
@@ -30,9 +31,8 @@ void metrics_controller::get_metrics(Mongoose::Request &request, boost::smatch &
   // The described document is a different shape (values under `metrics`, what
   // they mean under `metadata`), so it is opt-in: a scraper or dashboard that
   // does not ask for it keeps reading the flat key/value map it always did.
-  if (wants_metadata(request)) {
-    response.append(session->get_metrics_v2_described());
-    return;
-  }
-  response.append(session->get_metrics_v2());
+  // Either way the answer carries an ETag: the store is refreshed about once a
+  // second, but a dashboard polling faster than its collectors produce gets a
+  // 304 instead of the same body again.
+  web_etag::send(request, response, wants_metadata(request) ? session->get_metrics_v2_described() : session->get_metrics_v2());
 }

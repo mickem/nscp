@@ -99,6 +99,7 @@ if(WIN32)
         failures_controller.hpp
         diagnostics_controller.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/perf_json.hpp
+        etag.hpp
         settings_controller.hpp
         metrics_controller.hpp
         openmetrics_controller.hpp
@@ -148,6 +149,7 @@ NSCP_CREATE_TEST(
         # rule to a [/modules] entry: ${NSCP_INCLUDEDIR}/nscp/name_safety.hpp.
         ${NSCP_INCLUDEDIR}/nscp/name_safety_test.cpp
         auth_rate_limiter_test.cpp
+        etag_test.cpp
         error_handler.cpp
         error_handler_test.cpp
         metrics_handler.cpp

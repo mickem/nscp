@@ -7,6 +7,7 @@
 #include <boost/json.hpp>
 #include <boost/regex.hpp>
 
+#include "etag.hpp"
 #include "helpers.hpp"
 #include "openmetrics_renderer.hpp"
 
@@ -27,5 +28,8 @@ void openmetrics_controller::get_openmetrics(Mongoose::Request &request, boost::
   // and the type are chosen from one decision rather than two.
   const openmetrics::dialect dialect = openmetrics::dialect_for(request.readHeader("Accept"));
   response.setHeader("Content-Type", openmetrics::content_type_for(dialect));
-  response.append(dialect == openmetrics::dialect::openmetrics_1_0 ? session->get_open_metrics() : session->get_prometheus_metrics());
+  // The body depends on Accept, so a cache has to key on it too. The ETag is
+  // of the body actually sent, so the two dialects never share a tag.
+  response.setHeader("Vary", "Accept");
+  web_etag::send(request, response, dialect == openmetrics::dialect::openmetrics_1_0 ? session->get_open_metrics() : session->get_prometheus_metrics());
 }

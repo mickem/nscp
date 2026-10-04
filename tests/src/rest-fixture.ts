@@ -53,9 +53,10 @@ export async function setupRestNscp(nscp: NscpInstance): Promise<void> {
       // The built-in `monitoring` and `metrics` roles, copied verbatim from
       // WEBServer.cpp: the metrics endpoints are gated by `metrics.list` /
       // `openmetrics.list`, and a scraper gets a role that holds those two
-      // and no `queries.execute`.
+      // and no `queries.execute`. `monitoring` also reads the facts inventory
+      // (`facts.get`), but cannot make the producers collect (`facts.refresh`).
       monitoring:
-        "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list",
+        "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get",
       metrics: "public,metrics.list,openmetrics.list,login.get",
     },
     // CheckHelpers aliases used by the alias-endpoint and queries scenarios:
