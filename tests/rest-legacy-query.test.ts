@@ -174,6 +174,19 @@ describe("REST query (legacy)", () => {
       .expect(404);
   });
 
+  // The legacy GET /metrics route was never reachable - the static controller
+  // claims every /metrics URL first - and has been removed. Pin that the URL
+  // still answers with the UI (or 404) and never with the metrics snapshot,
+  // so a change to the controller order cannot bring a legacy-grant route back.
+  it("does not serve metrics on the root /metrics URL", async () => {
+    const response = await request(REST_URL)
+      .get("/metrics")
+      .set("Authorization", `Bearer ${key}`)
+      .trustLocalhost(true);
+    expect([200, 404]).toContain(response.status);
+    expect(response.type).not.toEqual("application/json");
+  });
+
   it("still serves the legacy JSON query route the `legacy` grant is for", async () => {
     // check_nscp_api asks for GET /query/<command>, not the protobuf route;
     // removing one must not take the other with it.
