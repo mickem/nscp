@@ -376,6 +376,11 @@ std::string onboarding::build_state_report(const boost::optional<std::string> &a
   // flag the host as partially self-managed without the agent uploading any of
   // the local configuration, which routinely holds passwords.
   root["local_config_present"] = local_config_present;
+  // This build merges the server's host override after every bundle, so the
+  // override wins. Older agents merged it first and let bundles win; they say
+  // nothing here, which is how the server tells the two apart and warns that a
+  // host override is not in force on them.
+  root["host_override_last"] = true;
   json::array bundles;
   for (const installed_bundle &bundle : bundles_installed) {
     json::object entry;
