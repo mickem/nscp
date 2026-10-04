@@ -278,6 +278,23 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# The exposition parser CheckOpenMetrics scrapes exporters with. It is
+# standard-library only on purpose: the body comes off the network and the
+# parser is the first thing to touch it, so it is tested on its own here. The
+# round trip against the agent's own renderer is in the WEBServer test.
+NSCP_CREATE_TEST(
+    openmetrics_parser_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser_test.cpp
+        ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser_detail_test.cpp
+        ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser_errors_test.cpp
+        ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     cron_parser_test
     SOURCES
