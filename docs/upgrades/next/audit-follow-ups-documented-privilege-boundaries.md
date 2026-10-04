@@ -11,4 +11,4 @@ Nothing changes on a running agent. Check your setup if you installed with
 `USER_WRITABLE_CONFIG=1` (every local user can then run code as `SYSTEM`), or
 if a web role carries `settings.put`, `settings.delete`, `console.exec`,
 `modules.post` or `scripts.add.*`. A client that requested `GET /metrics`
-received the web UI (or a 404) before and still does; use `/api/v2/metrics`.
+received the web UI's HTML before and still does; use `/api/v2/metrics`.

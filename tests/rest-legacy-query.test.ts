@@ -175,16 +175,17 @@ describe("REST query (legacy)", () => {
   });
 
   // The legacy GET /metrics route was never reachable - the static controller
-  // claims every /metrics URL first - and has been removed. Pin that the URL
-  // still answers with the UI (or 404) and never with the metrics snapshot,
-  // so a change to the controller order cannot bring a legacy-grant route back.
+  // claims every /metrics URL first - and has been removed. Pin that the static
+  // handler still answers it (with index.html, or its placeholder page when no
+  // UI is installed), so a change to the controller order cannot bring a
+  // legacy-grant route back.
   it("does not serve metrics on the root /metrics URL", async () => {
     const response = await request(REST_URL)
       .get("/metrics")
       .set("Authorization", `Bearer ${key}`)
       .trustLocalhost(true);
-    expect([200, 404]).toContain(response.status);
-    expect(response.type).not.toEqual("application/json");
+    expect(response.status).toEqual(200);
+    expect(response.type).toEqual("text/html");
   });
 
   it("still serves the legacy JSON query route the `legacy` grant is for", async () => {

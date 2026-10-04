@@ -672,7 +672,7 @@ A list of all the MSI options can be found below.
 | FLEET_BUNDLE_KEY    | Bundle encryption key(s) for sealed bundles, as shown once by the fleet server; several separated by commas             |
 | FLEET_REQUIRE_ENCRYPTED_BUNDLES | Set to 1 to refuse every bundle that is not sealed with one of the bundle keys                              |
 | LAYOUT              | On-disk layout: `modern` keeps the writable state in `%ProgramData%\NSClient++` restricted to SYSTEM and administrators, `legacy` (default) keeps it in the install folder. Omit it to keep whatever the host already uses. **Experimental** - see below |
-| USER_WRITABLE_CONFIG | Set to 1 to give the local `Users` group write access to `nsclient.ini`. **This makes every local user an administrator of the host** - see below. Has no effect with `LAYOUT=modern` or `ALLOW_CONFIGURATION=0` |
+| USER_WRITABLE_CONFIG | Set to 1 to give the local `Users` group write access to `nsclient.ini`. **This makes every local user an administrator of the host** - see below. Ignored on a host already on the modern layout (its `boot.ini` says `modern`) and with `ALLOW_CONFIGURATION=0`; do not combine it with a fresh or first-time `LAYOUT=modern` install, where the writable file is still installed and then moved into `%ProgramData%` |
 
 <!-- @formatter:off -->
 !!! danger "USER_WRITABLE_CONFIG is a local privilege escalation"

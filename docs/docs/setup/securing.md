@@ -919,7 +919,7 @@ would trust with a local administrator login on the host.
 | `modules.post` | Uploads a module archive and loads it: its code runs in the service process. |
 | `scripts.add.*` (and `scripts.*`) | Uploads a script that `CheckExternalScripts`, `PythonScript` or `LuaScript` then runs. |
 | `settings.put` (and `settings.*`) | Writes an external script definition, `allow arguments` and `allowed hosts`, then saves and reloads. |
-| `settings.delete` | Removes the restrictions this page describes - `allowed hosts`, access modes, the permission policy - and reloads. |
+| `settings.delete` | Removes the restrictions this page describes - `allowed hosts`, access modes, the permission policy. The change lands on the next reload or restart, which anyone with `settings.put` or `legacy` can trigger. |
 
 A wildcard grants the whole category, so `scripts.*` and `settings.*` sit on this list as well. The module controls
 (`modules.load`, `modules.enable`, `modules.put`) only act on modules already installed, so they are not code execution on
