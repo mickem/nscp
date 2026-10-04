@@ -13,6 +13,7 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <str/saturate.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 
@@ -307,7 +308,7 @@ struct collectd_builder {
     if (vkey.empty()) return false;
     if (vkey[0] >= '0' && vkey[0] <= '9') {
       if (is_derive)
-        metric.derives.push_back(static_cast<long long>(str::stox<double>(vkey, 0)));
+        metric.derives.push_back(str::to_int64_saturating(str::stox<double>(vkey, 0)));
       else
         metric.gauges.push_back(str::stox<double>(vkey, 0));
       return true;
