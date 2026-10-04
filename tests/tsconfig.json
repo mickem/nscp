@@ -13,9 +13,10 @@
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@fixtures/*": ["src/*"]
+      "@fixtures/*": ["src/*"],
+      "@stress/*": ["stress/lib/*"]
     }
   },
-  "include": ["src/**/*.ts", "*.test.ts", "live/**/*.ts"],
+  "include": ["src/**/*.ts", "*.test.ts", "live/**/*.ts", "stress/**/*.ts"],
   "exclude": ["node_modules", "dist", "rest", "msi"]
 }

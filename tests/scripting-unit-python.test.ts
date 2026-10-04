@@ -35,8 +35,8 @@ describeWithModules("PythonScript")("nscp unit --language python", () => {
     expect(r.exitCode).toBe(0);
   });
 
-  // Issue #748's perfdata round trip. --case picks the one suite of the two in
-  // test_python.py, which is what proves --case reaches the script at all.
+  // Issue #748's perfdata round trip, selected by --case (the case below is
+  // what proves a non-matching --case is not a silent pass).
   it("test_python --case perfdata", async () => {
     const r = await runScriptingUnit(nscp, "python", "test_python", {
       cases: ["perfdata"],
@@ -44,8 +44,6 @@ describeWithModules("PythonScript")("nscp unit --language python", () => {
     });
     expect(r.all).toMatch(/OK: \d+ test\(s\) successfull/);
     expect(r.all).toContain("PythonScript perfdata round-trip");
-    // The scheduler suite was not selected, so it never ran.
-    expect(r.all).not.toContain("Commands/second");
     expect(r.exitCode).toBe(0);
   });
 
@@ -54,17 +52,5 @@ describeWithModules("PythonScript")("nscp unit --language python", () => {
     const r = await runScriptingUnit(nscp, "python", "test_python", { cases: ["no-such-suite"] });
     expect(r.all).toMatch(/ERROR: \d+\/\d+ test\(s\) failed/);
     expect(r.exitCode).not.toBe(0);
-  });
-
-  // The scheduler throughput half of test_python.py: 1000 schedules at 5 s
-  // feeding a subscription for a minute. It asserts only that the load is
-  // delivered; the stress harness under tests/stress/ is what replaces it.
-  it("test_python --case 'PythonScript tests' (scheduler throughput)", async () => {
-    const r = await runScriptingUnit(nscp, "python", "test_python", {
-      cases: ["PythonScript tests"],
-      timeout: 240_000,
-    });
-    expect(r.all).toMatch(/OK: \d+ test\(s\) successfull/);
-    expect(r.exitCode).toBe(0);
   });
 });

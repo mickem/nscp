@@ -1,0 +1,2 @@
+# Per-run output of the stress harness (npm run test:stress).
+stress/results/

@@ -984,7 +984,10 @@ There are three kinds of tests in this repo:
    them. These replace the old `tests/<proto>/run-test.bat` scripts and
    run on both Linux and Windows.
    The in-process Python scripts (`scripts/python/test_*.py`) run from
-   here as well, through `nscp unit` (`scripting-unit-python.test.ts`).
+   here as well, through `nscp unit` (`scripting-unit-python.test.ts`), and
+   an opt-in **stress harness** (`tests/stress/`, `npm run test:stress`)
+   shares the runner but never the default run; see
+   [Stress tests](#stress-tests).
 3. **Live / remote acceptance tests** — the same Jest harness, but pointed
    at an nscp that is **already installed and running** (a provisioned
    Azure VM, a package install, or a dev build you started by hand) rather
@@ -1235,6 +1238,42 @@ you want it to.
 
 See `tests/README.md` for the full layout, fixture documentation and the
 per-suite table.
+
+### Stress tests
+
+An opt-in Jest harness under `tests/stress/` (`*.stress.ts`, its own
+`jest.stress.config.js`) replaces the old `scripts/python/test_stress.py` and
+the scheduler-throughput half of `test_python.py`, neither of which ran
+anywhere. Each scenario loads one agent for a configurable window and **passes
+or fails on invariants, not on a throughput bar**: zero failed requests and zero
+lost submissions, `check_ok` answered within 2 s after the load stops, RSS at
+the end within 20 % of RSS after warm-up and a flat thread count (the leak
+canary), and a log with no `terminated by an uncaught exception` and no
+`Failed to` lines. Throughput, latency percentiles and the RSS/thread samples
+are recorded to `tests/stress/results/<scenario>.json` for a baseline to grow
+from.
+
+```bash
+cd tests
+export NSCP_BIN=/abs/path/to/nscp
+npm run test:stress                                              # every scenario, 60 s each
+NSCP_STRESS_DURATION=300 npx jest --config jest.stress.config.js rest-flood
+NSCP_STRESS_DURATION=1800 npm run test:stress                    # a soak
+```
+
+| Variable                    | Default | Effect                                                      |
+| --------------------------- | ------- | ----------------------------------------------------------- |
+| `NSCP_STRESS_DURATION`      | `60`    | Seconds of load per scenario                                |
+| `NSCP_STRESS_CONCURRENCY`   | `32`    | Parallel workers, one connection each                       |
+| `NSCP_STRESS_RPS`           | `0`     | Requests per second across all workers; `0` is unbounded    |
+| `NSCP_STRESS_RSS_TOLERANCE` | `20`    | Percent RSS may grow from warm-up to end before failing     |
+| `NSCP_STRESS_SCHEDULES`     | `1000`  | Schedules the scheduler-load scenario installs              |
+
+The scenarios are never part of `npm test` or a pull request build. The
+sanitizer job (`tests-sanitizers.yml`) runs the two cheapest ones for a minute
+against the ASan/UBSan build after ctest, which is where the leaks and races
+the legacy stress test was hunting actually show. See `tests/README.md` for the
+scenario list.
 
 ### Live / remote acceptance tests
 

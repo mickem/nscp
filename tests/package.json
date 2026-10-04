@@ -8,6 +8,7 @@
     "test:one": "jest --runInBand --testPathPattern",
     "test:no-docker": "NSCP_SKIP_DOCKER=1 jest --runInBand",
     "test:live": "jest --runInBand --config jest.live.config.js",
+    "test:stress": "jest --runInBand --config jest.stress.config.js",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md}\""
   },
@@ -23,6 +24,7 @@
     "supertest": "^7.2.2",
     "testcontainers": "^10.13.2",
     "ts-jest": "^29.2.5",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "undici": "^7.30.0"
   }
 }

@@ -141,3 +141,34 @@ jobs:
       # tests/{nrpe,nsca,...} spawn the daemon and don't pair with sanitizer-
       # instrumented modules on this first pass.
       run: ctest --output-on-failure -R '_test$'
+
+    - name: Install integration harness deps
+      working-directory: tests
+      run: npm install
+
+    # The two cheapest stress scenarios (tests/stress/), for a minute each,
+    # against this sanitizer-instrumented build: a REST flood and a thousand
+    # schedules into the result cache. This is where the leaks and races the
+    # retired scripts/python/test_stress.py was hunting show up - the harness
+    # fails the run on any sanitizer report the agent prints on shutdown. The
+    # RSS tolerance is widened because ASan's quarantine keeps freed memory
+    # resident for a while; the thread-count and log invariants are unchanged.
+    - name: Run stress scenarios under sanitizers (60 s each)
+      working-directory: tests
+      env:
+        NSCP_BIN: ${{ github.workspace }}/tmp/nscp/nscp
+        NSCP_STRESS_DURATION: "60"
+        NSCP_STRESS_CONCURRENCY: "16"
+        NSCP_STRESS_RSS_TOLERANCE: "50"
+        ASAN_OPTIONS: halt_on_error=1:abort_on_error=1:detect_leaks=1:detect_odr_violation=0:check_initialization_order=1:detect_stack_use_after_return=1:print_stacktrace=1
+        UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1:suppressions=${{ github.workspace }}/tools/sanitizers/ubsan-suppressions.txt
+        LSAN_OPTIONS: suppressions=${{ github.workspace }}/tools/sanitizers/lsan-suppressions.txt
+      run: npx jest --config jest.stress.config.js --runInBand rest-flood scheduler-load
+
+    - name: Upload stress results
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: stress-results-sanitizers
+        path: tests/stress/results/
+        if-no-files-found: ignore
