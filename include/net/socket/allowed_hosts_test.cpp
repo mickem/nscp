@@ -4,11 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/asio/ip/address.hpp>
-#include <boost/thread/thread.hpp>
-#include <chrono>
-#include <mutex>
 #include <net/socket/allowed_hosts.hpp>
-#include <thread>
 
 using namespace socket_helpers;
 using namespace boost::asio::ip;
@@ -191,107 +187,4 @@ TEST(AllowedHostsTest, AnUnparseableNumericAddressIsReportedNotThrown) {
   EXPECT_FALSE(errors.empty());
   // The good entry in the same list still works.
   EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
-}
-
-TEST(AllowedHostsTest, AFailedLookupKeepsWhatTheNameResolvedToBefore) {
-  // A name that resolved once and then fails a lookup (a DNS hiccup) keeps
-  // its addresses: the list used to be emptied first and rebuilt, so the host
-  // was refused until the next successful refresh.
-  allowed_hosts_manager manager;
-  manager.set_source("no-such-host.invalid");
-  manager.entries_v4.emplace_back("no-such-host.invalid", make_address("192.0.2.7").to_v4().to_bytes(), allowed_hosts_manager::addr_v4{{255, 255, 255, 255}});
-  std::list<std::string> errors;
-  manager.refresh(errors);
-  ASSERT_FALSE(errors.empty());
-  EXPECT_NE(errors.front().find("keeping the addresses it resolved to before"), std::string::npos) << errors.front();
-  std::list<std::string> check_errors;
-  EXPECT_TRUE(manager.is_allowed(make_address("192.0.2.7"), check_errors));
-}
-
-TEST(AllowedHostsTest, ARemovedNameDoesNotLinger) {
-  // Only a failed lookup keeps old entries; a name taken out of the list is
-  // gone at the next refresh.
-  allowed_hosts_manager manager;
-  manager.set_source("127.0.0.1");
-  manager.entries_v4.emplace_back("no-such-host.invalid", make_address("192.0.2.7").to_v4().to_bytes(), allowed_hosts_manager::addr_v4{{255, 255, 255, 255}});
-  std::list<std::string> errors;
-  manager.refresh(errors);
-  EXPECT_FALSE(manager.is_allowed(make_address("192.0.2.7"), errors));
-  EXPECT_TRUE(manager.is_allowed(make_address("127.0.0.1"), errors));
-}
-
-TEST(AllowedHostsTest, ANameListedTwiceIsLookedUpOnce) {
-  allowed_hosts_manager manager;
-  manager.set_source("no-such-host.invalid, 127.0.0.1,no-such-host.invalid");
-  EXPECT_EQ(manager.sources.size(), 2u);
-}
-
-TEST(AllowedHostsTest, AFailingNameListedTwiceDoesNotGrowTheList) {
-  // Each failed lookup used to copy the name's old entries once per listing,
-  // doubling the list on every refresh. The sources are pushed directly here,
-  // past set_source()'s own de-duplication.
-  allowed_hosts_manager manager;
-  manager.sources = {"no-such-host.invalid", "no-such-host.invalid"};
-  manager.entries_v4.emplace_back("no-such-host.invalid", make_address("192.0.2.7").to_v4().to_bytes(), allowed_hosts_manager::addr_v4{{255, 255, 255, 255}});
-  for (int i = 0; i < 5; i++) {
-    std::list<std::string> errors;
-    manager.refresh(errors);
-  }
-  EXPECT_EQ(manager.entries_v4.size(), 1u);
-}
-
-TEST(AllowedHostsTest, AnOlderRefreshDoesNotOverwriteANewerOne) {
-  // Overlapping refreshes: one that started before another already published
-  // drops its result, so a slow, failing lookup cannot bring back addresses
-  // the newer refresh removed. Simulated by marking a later refresh as
-  // published before this one starts.
-  allowed_hosts_manager manager;
-  manager.set_source("127.0.0.1");
-  manager.entries_v4.emplace_back("removed", make_address("192.0.2.7").to_v4().to_bytes(), allowed_hosts_manager::addr_v4{{255, 255, 255, 255}});
-  manager.refresh_published_ = manager.refresh_started_ + 2;
-  std::list<std::string> errors;
-  manager.refresh(errors);
-  ASSERT_EQ(manager.entries_v4.size(), 1u);
-  EXPECT_EQ(manager.entries_v4.front().host, "removed");
-  // The next one is newer than anything published, and goes in.
-  manager.refresh(errors);
-  manager.refresh(errors);
-  EXPECT_TRUE(manager.is_allowed(make_address("127.0.0.1"), errors));
-  EXPECT_FALSE(manager.is_allowed(make_address("192.0.2.7"), errors));
-}
-
-TEST(AllowedHostsTest, SetSourceDiscardsARefreshAlreadyUnderWay) {
-  allowed_hosts_manager manager;
-  manager.set_source("127.0.0.1");
-  // What refresh() does as it takes its snapshot.
-  const std::uint64_t in_flight = ++manager.refresh_started_;
-  manager.set_source("10.0.0.1");
-  EXPECT_LT(in_flight, manager.refresh_published_);
-}
-
-TEST(AllowedHostsTest, TheBackgroundRefreshResolvesAndStops) {
-  allowed_hosts_manager manager;
-  manager.set_source("127.0.0.1,no-such-host.invalid");
-  std::mutex mutex;
-  int reports = 0;
-  manager.start_background_refresh(std::chrono::seconds(1), [&](const std::list<std::string> &errors) {
-    const std::lock_guard<std::mutex> lock(mutex);
-    if (!errors.empty()) reports++;
-  });
-  std::list<std::string> errors;
-  for (int i = 0; i < 100 && !manager.is_allowed(make_address("127.0.0.1"), errors); i++) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  }
-  EXPECT_TRUE(manager.is_allowed(make_address("127.0.0.1"), errors));
-  const std::shared_ptr<boost::thread> thread = manager.stop_background_refresh();
-  ASSERT_TRUE(thread);
-  thread->join();
-  int seen = 0;
-  {
-    const std::lock_guard<std::mutex> lock(mutex);
-    seen = reports;
-  }
-  // The failing name was reported, and nothing is reported once stopped.
-  EXPECT_GE(seen, 1);
-  EXPECT_FALSE(manager.stop_background_refresh());
 }

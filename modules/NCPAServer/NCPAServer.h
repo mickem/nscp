@@ -11,9 +11,6 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 struct ncpa_auth_state;
-namespace socket_helpers {
-struct allowed_hosts_manager;
-}
 
 // Serves the Nagios NCPA HTTP API (port 5693) so Nagios Core and XI can poll
 // the agent with the stock check_ncpa.py plugin and the XI NCPA wizard. The
@@ -32,8 +29,6 @@ class NCPAServer : public nscapi::impl::simple_plugin {
   void stop_server();
 
   std::shared_ptr<Mongoose::Server> server_;
-  // The listener's allow-list, kept to stop its background refresh.
-  std::shared_ptr<socket_helpers::allowed_hosts_manager> hosts_;
   // The token rate limiter. Created once and handed to every controller, so a
   // settings reload does not reset it.
   std::shared_ptr<ncpa_auth_state> auth_;

@@ -242,7 +242,6 @@ if(OPENSSL_FOUND)
             nscpcrypt
             ${Boost_FILESYSTEM_LIBRARY}
             ${Boost_DATE_TIME_LIBRARY}
-            ${Boost_THREAD_LIBRARY}
             ${OPENSSL_LIBRARIES}
             $<$<PLATFORM_ID:Windows>:CRYPT32>
         INCLUDES

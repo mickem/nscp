@@ -3,19 +3,12 @@
 
 #pragma once
 
-#include <boost/asio/ip/address.hpp>
-#include <chrono>
-#include <cstdint>
-#include <functional>
-#include <list>
-#include <memory>
-#include <mutex>
 #include <net/dll_defines.hpp>
-#include <string>
 
-namespace boost {
-class thread;
-}
+#include <mutex>
+#include <boost/asio/ip/address.hpp>
+#include <list>
+#include <string>
 
 namespace socket_helpers {
 
@@ -47,21 +40,6 @@ struct allowed_hosts_manager {
   // here. The critical section is a short list walk per accepted connection,
   // so there is nothing to win from a reader/writer lock anyway.
   mutable std::mutex entries_mutex_;
-  // Orders refreshes that overlap (with `cached` off, every accepting thread
-  // runs one): each takes a number when it snapshots the sources, and one
-  // that finishes after a later-started one has already published is
-  // dropped, so a slow, failing lookup cannot bring back addresses a newer
-  // refresh removed. Guarded by entries_mutex_.
-  std::uint64_t refresh_started_ = 0;
-  std::uint64_t refresh_published_ = 0;
-
-  typedef std::function<void(const std::list<std::string> &errors)> error_reporter;
-  struct background_refresh;
-  // See start_background_refresh(). Not copied: a copy is a separate list.
-  // The only handle to it: dropping it (the implicit destructor) stops the
-  // refresh, through a deleter set in allowed_hosts.cpp - so code that never
-  // starts one does not have to link that file.
-  std::shared_ptr<background_refresh> background_;
 
   allowed_hosts_manager() : cached(true) {}
   allowed_hosts_manager(const allowed_hosts_manager &other)
@@ -80,19 +58,6 @@ struct allowed_hosts_manager {
   addr_v4 lookup_mask_v4(std::string mask);
   addr_v6 lookup_mask_v6(std::string mask);
   NSCP_NET_EXPORT void refresh(std::list<std::string> &errors);
-
-  // Re-resolve the host names every `interval` on a thread of its own, so a
-  // listener can keep names current without a DNS lookup on the thread that
-  // accepts connections (which is what `cached = false` does). `report` gets
-  // the errors of each round; it is never called once the refresh is stopped.
-  // Replaces a refresh already running.
-  NSCP_NET_EXPORT void start_background_refresh(std::chrono::seconds interval, error_reporter report);
-  // Stops the background refresh without waiting for it: a round stuck in a
-  // slow resolver finishes on its own and then neither touches this object
-  // nor reports. Returns the thread (null when none ran) so an owner that is
-  // about to unload the code it runs can join it; dropping it is fine
-  // otherwise. Destroying the manager does the same.
-  NSCP_NET_EXPORT std::shared_ptr<boost::thread> stop_background_refresh();
 
   template <class T>
   static bool match_host(const T &allowed, const T &mask, const T &remote) {
