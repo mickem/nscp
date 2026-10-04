@@ -1570,16 +1570,15 @@ json::value describe_metric(const PB::Metrics::Metric &v, const PB::Metrics::Met
 }
 }  // namespace
 
-// The three JSON renderings of a snapshot: the nested blob of `/metrics`, the
-// flat list of `/api/v2/metrics`, and the per-key metadata that same endpoint
-// serves for `?meta=1`. The OpenMetrics exposition used to be built in the same
+// The two JSON renderings of a snapshot: the flat list of `/api/v2/metrics`,
+// and the per-key metadata that same endpoint serves for `?meta=1`. (A third,
+// nested rendering fed the root `/metrics` route, which was never reachable
+// and has been removed.) The OpenMetrics exposition used to be built in the same
 // pass; it lives in openmetrics_renderer.cpp now, because a conformant document
 // has to group samples into families and cannot be appended a line at a time.
-void build_metrics(json::object &metrics, json::object &metrics_list, json::object &metrics_meta, const std::string &trail,
-                   const PB::Metrics::MetricsBundle &b) {
-  json::object node;
+void build_metrics(json::object &metrics_list, json::object &metrics_meta, const std::string &trail, const PB::Metrics::MetricsBundle &b) {
   for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
-    build_metrics(node, metrics_list, metrics_meta, trail + "." + b2.key(), b2);
+    build_metrics(metrics_list, metrics_meta, trail + "." + b2.key(), b2);
   }
   for (const PB::Metrics::Metric &v : b.value()) {
     // Any numeric type, not just a gauge: a producer that types a monotonic
@@ -1587,10 +1586,8 @@ void build_metrics(json::object &metrics, json::object &metrics_list, json::obje
     // dashboard on its way to being described properly on the OpenMetrics one.
     double value = 0;
     if (nscapi::metrics::numeric_value(v, value)) {
-      node.insert(json::object::value_type(v.key(), gauge_to_json(value)));
       metrics_list.insert(json::object::value_type(trail + "." + v.key(), gauge_to_json(value)));
     } else if (v.has_string_value()) {
-      node.insert(json::object::value_type(v.key(), v.string_value().value()));
       metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.string_value().value()));
     } else {
       // Nothing the flat views can show, so nothing to describe either: the
@@ -1599,13 +1596,12 @@ void build_metrics(json::object &metrics, json::object &metrics_list, json::obje
     }
     metrics_meta.insert(json::object::value_type(trail + "." + v.key(), describe_metric(v, b)));
   }
-  metrics.insert(json::object::value_type(b.key(), node));
 }
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const {
-  json::object metrics, metrics_list, metrics_meta;
+  json::object metrics_list, metrics_meta;
   for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
     for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
-      build_metrics(metrics, metrics_list, metrics_meta, b.key(), b);
+      build_metrics(metrics_list, metrics_meta, b.key(), b);
     }
   }
   std::string open_metrics;
@@ -1637,7 +1633,7 @@ void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const
   // - a dashboard that wants to print "12 592 123 904 bytes" needs the value
   // and the unit from the same snapshot - but the join happens where the two
   // are read, so a snapshot is never held twice over.
-  session->set_metrics(json::serialize(metrics), json::serialize(metrics_list), json::serialize(metrics_meta), open_metrics, prometheus_text);
+  session->set_metrics(json::serialize(metrics_list), json::serialize(metrics_meta), open_metrics, prometheus_text);
   client->push_metrics(response);
 }
 

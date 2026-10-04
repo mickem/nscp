@@ -359,9 +359,8 @@ TEST_F(SessionManagerTest, Metrics) {
   // used to join a list of lines, and is not allowed to reshape the document
   // the renderer produced (dropping its trailing newline would be enough to
   // make the exposition invalid).
-  smi.set_metrics("metrics", "{\"cpu\":1}", "{\"cpu\":{\"type\":\"gauge\"}}", "# TYPE open_metrics counter\nopen_metrics_total 1\n# EOF\n",
+  smi.set_metrics("{\"cpu\":1}", "{\"cpu\":{\"type\":\"gauge\"}}", "# TYPE open_metrics counter\nopen_metrics_total 1\n# EOF\n",
                   "# TYPE open_metrics_total counter\nopen_metrics_total 1\n# EOF\n");
-  EXPECT_EQ(smi.get_metrics(), "metrics");
   // The plain flat list keeps being exactly what it was for everything that
   // does not ask for the metadata; `?meta=1` gets it joined to its metadata.
   EXPECT_EQ(smi.get_metrics_v2(), "{\"cpu\":1}");
