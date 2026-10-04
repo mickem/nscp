@@ -6,6 +6,7 @@
 #include <boost/function.hpp>
 #include <client/facts_renderer.hpp>
 #include <client/simple_client.hpp>
+#include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper.hpp>
@@ -316,6 +317,67 @@ static std::string render_description(const client::cli_handler_ptr &handler, co
   return out;
 }
 
+// Every fact-set switch the loaded modules registered: a bool key in a section
+// called `facts`, wherever it lives - the same rule the web UI's Facts page
+// uses, so a module added later needs nothing here. One inventory query for
+// what is registered (type, owner, default) and one for what is configured.
+static std::vector<client::fact_set_switch> collect_fact_switches(const client::cli_handler_ptr &handler) {
+  std::vector<client::fact_set_switch> sets;
+
+  PB::Settings::SettingsRequestMessage inventory_request;
+  PB::Settings::SettingsRequestMessage::Request *inventory = inventory_request.add_payload();
+  inventory->mutable_inventory()->mutable_node()->set_path("");
+  inventory->mutable_inventory()->set_recursive_fetch(true);
+  inventory->mutable_inventory()->set_fetch_keys(true);
+  inventory->set_plugin_id(handler->get_plugin_id());
+  std::string inventory_body;
+  handler->get_core()->settings_query(inventory_request.SerializeAsString(), inventory_body);
+  PB::Settings::SettingsResponseMessage inventory_response;
+  if (!inventory_response.ParseFromString(inventory_body) || inventory_response.payload_size() == 0) return sets;
+
+  PB::Settings::SettingsRequestMessage values_request;
+  PB::Settings::SettingsRequestMessage::Request *values = values_request.add_payload();
+  values->mutable_query()->mutable_node()->set_path("");
+  values->mutable_query()->set_recursive(true);
+  values->mutable_query()->set_include_keys(true);
+  // Only the switches are read, but the walk returns every key: keep the
+  // secrets masked so they never sit in this process's memory in the clear.
+  values->mutable_query()->set_redact_sensitive(true);
+  values->set_plugin_id(handler->get_plugin_id());
+  std::string values_body;
+  handler->get_core()->settings_query(values_request.SerializeAsString(), values_body);
+  PB::Settings::SettingsResponseMessage values_response;
+  std::map<std::string, std::string> configured;
+  if (values_response.ParseFromString(values_body) && values_response.payload_size() > 0 && values_response.payload(0).has_query()) {
+    for (const PB::Settings::Node &node : values_response.payload(0).query().nodes()) {
+      if (!node.value().empty()) configured[node.path() + "\n" + node.key()] = node.value();
+    }
+  }
+
+  const std::string suffix = "/facts";
+  for (const PB::Settings::SettingsResponseMessage::Response::Inventory &entry : inventory_response.payload(0).inventory()) {
+    const std::string &path = entry.node().path();
+    const std::string &key = entry.node().key();
+    // Only the bools are switches: the core's own section also carries
+    // `interval` and `max size`, which are settings about facts.
+    if (key.empty() || entry.info().type() != "bool") continue;
+    if (path.size() < suffix.size() || path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0) continue;
+    // An unset key reads as its default, exactly as the module reads it.
+    const std::map<std::string, std::string>::const_iterator it = configured.find(path + "\n" + key);
+    const std::string value = boost::algorithm::to_lower_copy(it != configured.end() ? it->second : entry.info().default_value());
+    client::fact_set_switch set;
+    set.id = key;
+    set.section = path;
+    set.configured = value == "true" || value == "1";
+    for (const std::string &plugin : entry.info().plugin()) {
+      if (!set.producer.empty()) set.producer += ", ";
+      set.producer += plugin;
+    }
+    sets.push_back(set);
+  }
+  return sets;
+}
+
 namespace client {
 
 const std::vector<command_info> &builtin_commands() {
@@ -334,7 +396,7 @@ const std::vector<command_info> &builtin_commands() {
       {"desc", "<query>", "describe a query and its parameters"},
       {"keywords", "<query>", "list the filter keywords of a query with their descriptions"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
-      {"facts", "[path|refresh]", "show the host inventory (facts), a subtree of it, or collect it now"},
+      {"facts", "[path|refresh|list]", "show the host inventory (facts), a subtree of it, collect it now, or list the fact sets"},
       {"settings", "", "show the configured settings (keys set in the configuration, not every registered default)"},
       {"exec", "<module> [command] [args]", "run a module's command line, as nscp <module> ... does (exec CheckSystem --list --all)"},
       {"load", "<module>", "load a module now"},
@@ -650,7 +712,9 @@ void cli_client::handle_command(const std::string &command) {
     handler->output_message(render_inventory({queries, aliases}));
   } else if (is_verb(command, "facts")) {
     const std::string argument = boost::algorithm::trim_copy(command.substr(5));
-    if (argument == "refresh") {
+    if (argument == "list") {
+      handler->output_message(client::render_fact_sets(collect_fact_switches(handler), handler->get_core()->get_facts()));
+    } else if (argument == "refresh") {
       // A manual round: every producer collects now, which is the point of
       // asking for it, so this is the one facts verb that costs something.
       if (!handler->get_core()->refresh_facts()) {

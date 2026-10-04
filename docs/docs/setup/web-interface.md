@@ -96,7 +96,7 @@ allow insecure = false
 |--------------|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | `full`       | `*`                                                                                          | Administration: settings, modules, scripts.                              |
 | `client`     | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` | A monitoring client that also browses the agent.       |
-| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list`                 | A monitoring server running checks with arguments, and scraping metrics. |
+| `monitoring` | `public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get`       | A monitoring server running checks with arguments, scraping metrics and reading the facts inventory. |
 | `restricted` | `public,queries.execute.noargs,aliases.list,login.get`                                       | A monitoring server that may run checks but **not pass arguments**.      |
 | `metrics`    | `public,metrics.list,openmetrics.list,login.get`                                             | A Prometheus scraper: reads metrics, runs nothing.                       |
 | `legacy`     | `legacy,login.get`                                                                           | Old clients only — see the warning below. Not created on a fresh install. |

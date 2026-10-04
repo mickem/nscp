@@ -208,3 +208,74 @@ TEST(FactsRenderer, AnErrorFromTheCoreIsReported) {
 
   EXPECT_EQ(client::render_facts(message.SerializeAsString(), ""), "Could not read the facts: the repository is not configured");
 }
+
+namespace {
+client::fact_set_switch switch_for(const std::string &id, const std::string &producer, const bool configured) {
+  client::fact_set_switch set;
+  set.id = id;
+  set.producer = producer;
+  set.section = producer.empty() ? "/settings/facts" : "/settings/" + producer + "/facts";
+  set.configured = configured;
+  return set;
+}
+
+// The STATE cell of the row for `id`, read back out of the rendered table.
+std::string state_of(const std::string &out, const std::string &id) {
+  const std::string::size_type row = out.find("\n" + id + " ");
+  if (row == std::string::npos) return "(no row)";
+  const std::string::size_type end = out.find('\n', row + 1);
+  std::string line = out.substr(row + 1, end == std::string::npos ? std::string::npos : end - row - 1);
+  line = line.substr(id.size());
+  const std::string::size_type start = line.find_first_not_of(' ');
+  const std::string::size_type stop = line.find("  ", start);
+  return line.substr(start, stop - start);
+}
+}  // namespace
+
+TEST(FactSetList, NoProducerLoadedSaysWhatToLoad) {
+  const std::string out = client::render_fact_sets({}, "");
+  EXPECT_NE(out.find("No module that produces facts is loaded"), std::string::npos) << out;
+}
+
+TEST(FactSetList, ADefaultConfigListsEverySetAsDisabled) {
+  PB::Facts::FactsResponseMessage message;
+  document_of(start(message));
+  const std::string out = client::render_fact_sets({switch_for("os", "CheckSystem", false), switch_for("agent", "", false)}, message.SerializeAsString());
+  EXPECT_EQ(out.substr(0, out.find('\n')).find("SET"), 0u) << out;
+  EXPECT_EQ(state_of(out, "os"), "disabled") << out;
+  EXPECT_EQ(state_of(out, "agent"), "disabled") << out;
+  // The core registers `agent` itself and has no module name to report.
+  EXPECT_NE(out.find("core"), std::string::npos) << out;
+}
+
+TEST(FactSetList, SaysWhenTheConfigurationAndTheLastRoundDisagree) {
+  PB::Facts::FactsResponseMessage message;
+  PB::Facts::FactsResponseMessage::Response *payload = start(message);
+  payload->add_enabled("os");
+  payload->add_enabled("hardware");
+  payload->add_enabled("storage.volumes");
+  PB::Common::KeyValue *error = payload->add_errors();
+  error->set_key("storage.volumes");
+  error->set_value("access denied");
+  document_of(payload);
+
+  const std::string out = client::render_fact_sets(
+      {
+          switch_for("os", "CheckSystem", true),
+          switch_for("hardware", "CheckSystem", false),
+          switch_for("network.interfaces", "CheckSystem", true),
+          switch_for("storage.volumes", "CheckDisk", true),
+      },
+      message.SerializeAsString());
+  EXPECT_EQ(state_of(out, "os"), "enabled") << out;
+  EXPECT_EQ(state_of(out, "hardware"), "disabled (reload to stop)") << out;
+  EXPECT_EQ(state_of(out, "network.interfaces"), "enabled (reload to start)") << out;
+  EXPECT_EQ(state_of(out, "storage.volumes"), "enabled, failing: access denied") << out;
+  // Grouped by producer: CheckDisk's row comes before CheckSystem's.
+  EXPECT_LT(out.find("storage.volumes"), out.find("\nhardware")) << out;
+}
+
+TEST(FactSetList, WithoutARoundTheConfigurationIsAllThereIsToSay) {
+  const std::string out = client::render_fact_sets({switch_for("os", "CheckSystem", true)}, "");
+  EXPECT_EQ(state_of(out, "os"), "enabled") << out;
+}

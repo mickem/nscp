@@ -238,10 +238,11 @@ Options:
     * `metrics` — `public, metrics.list, openmetrics.list, login.get`. Reads `/api/v2/metrics` and
       `/api/v2/openmetrics` and nothing else: the role for a Prometheus scraper, which needs no ability to run checks.
       See the [Prometheus scenario](../scenarios/prometheus.md).
-    * `monitoring` — `public, queries.execute, aliases.list, login.get, metrics.list, openmetrics.list`. Recommended
-      for monitoring servers that need to pass arguments (thresholds, drives, service names) in the request, and that
-      also scrape metrics. Where they don't pass arguments, `restricted` above is the tighter choice — it is the same
-      role with arguments refused; where they only scrape, `metrics` is.
+    * `monitoring` — `public, queries.execute, aliases.list, login.get, metrics.list, openmetrics.list, facts.get`.
+      Recommended for monitoring servers that need to pass arguments (thresholds, drives, service names) in the
+      request, and that also scrape metrics and read the [facts](../api/rest/facts.md) inventory. Where they don't
+      pass arguments, `restricted` above is the tighter choice — it runs the same checks with arguments refused;
+      where they only scrape, `metrics` is.
     * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
     * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
     * `legacy` — `legacy,login.get`. **Dangerous — do not use for normal clients.** It unlocks the deprecated
