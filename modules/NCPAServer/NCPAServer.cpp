@@ -49,8 +49,9 @@ void NCPAServer::stop_server() {
   // Safe from any thread, a request thread of this very server included: the
   // last reference is then dropped on a thread of its own, kept here until
   // the destructor can wait for it.
+  // There is one only when a server is released from its own thread, the
+  // rare backstop path, so the list is not pruned before then.
   if (auto releaser = Mongoose::stop_and_release(server_, NSC_THREAD_REPORTER)) retired_.push_back(releaser);
-  retired_.remove_if([](const std::shared_ptr<boost::thread> &thread) { return !thread->joinable() || thread->try_join_for(boost::chrono::milliseconds(0)); });
 }
 
 bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mode) {
