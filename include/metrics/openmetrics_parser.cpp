@@ -13,6 +13,7 @@
 #include <limits>
 #include <map>
 #include <metrics/openmetrics_parser.hpp>
+#include <metrics/openmetrics_parser_detail.hpp>
 #include <string_view>
 #include <vector>
 #if defined(__APPLE__) || defined(__FreeBSD__)
@@ -23,8 +24,14 @@ namespace metrics {
 namespace openmetrics {
 
 namespace {
-
 const std::size_t npos = static_cast<std::size_t>(-1);
+}  // namespace
+
+// The pure helpers the parser is built from, declared in
+// `openmetrics_parser_detail.hpp` so that each can be tested on its own -
+// including the inputs the parser never hands them, which is what keeps them
+// safe if a later change does.
+namespace detail {
 
 bool is_blank(const char c) { return c == ' ' || c == '\t'; }
 bool is_alpha(const char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
@@ -89,9 +96,11 @@ struct cursor {
   std::size_t at = 0;
 
   bool done() const { return at >= line.size(); }
-  char peek() const { return line[at]; }
+  // `\0` at the end of the line, which no rule of either grammar accepts, so
+  // a check of the next character is safe without a `done()` before it.
+  char peek() const { return done() ? '\0' : line[at]; }
   void skip_blanks() {
-    while (!done() && is_blank(peek())) ++at;
+    while (is_blank(peek())) ++at;
   }
   // Up to the next blank or the end of the line.
   std::string_view token() {
@@ -168,6 +177,8 @@ double c_strtod(const char *text, char **end) {
 // stream would refuse it on some and read it on others. Overflow is refused:
 // the non-finite values have their own spellings, and `1e400` is not one.
 bool to_double(const std::string_view raw, double &out) {
+  // `strtod` reads an empty token as a zero it consumed all of.
+  if (raw.empty()) return false;
   // `at` rather than `[]` for the terminator: a bound off by one here throws
   // in every build, instead of writing past the buffer unseen.
   std::array<char, 64> buffer;
@@ -309,6 +320,12 @@ std::string unescape_help(const std::string_view raw) {
   return ret;
 }
 
+}  // namespace detail
+
+using namespace detail;
+
+namespace {
+
 // What the metadata lines of a family have said, kept beside the family
 // rather than in it because none of it is part of what the caller reads.
 struct family_state {
@@ -386,9 +403,7 @@ class parser {
   // being read, before `# EOF`, takes that family out with it.
   bool read_line(const std::string_view raw, const bool terminated) {
     const std::string_view text = normalise(raw);
-    if (!terminated && !(format_ == format::openmetrics_1_0 && (is_eof_marker(text) || (out_.saw_eof && text.empty())))) {
-      return fail("the body ends in the middle of a line");
-    }
+    if (!terminated && !may_end_unterminated(text)) return fail("the body ends in the middle of a line");
     const line_shape shape = shape_of(text);
     if (!block_admits(shape)) return refuse_block();
     // A metadata line of the family being read that fails - over-long, or
@@ -431,6 +446,15 @@ class parser {
         break;
     }
     return true;
+  }
+
+  // Whether the body may end on this line without its line feed: only an
+  // OpenMetrics `# EOF`, or a blank line after one. Anything else cut there
+  // may be missing the rest of the line.
+  bool may_end_unterminated(const std::string_view text) const {
+    if (format_ != format::openmetrics_1_0) return false;
+    if (is_eof_marker(text)) return true;
+    return out_.saw_eof && text.empty();
   }
 
   // After the last line read, whether the body ended there or a line failed.
@@ -540,7 +564,7 @@ class parser {
       return shape;
     }
     shape.what = line_kind::metadata;
-    if (c.done() || !is_blank(c.peek())) return shape;
+    if (!is_blank(c.peek())) return shape;
     c.skip_blanks();
     shape.name = metric_name(c);
     shape.after_name = c.at;
@@ -613,7 +637,8 @@ class parser {
       if (!room_for_family()) return false;
     } else {
       const family_state &seen = state_[at];
-      if ((help && seen.help) || (type && seen.type) || (unit && seen.unit)) {
+      const bool declared = help ? seen.help : type ? seen.type : seen.unit;
+      if (declared) {
         return fail("second '# " + std::string(keyword) + "' line for '" + std::string(name) + "'");
       }
     }
@@ -763,8 +788,8 @@ class parser {
 
   static std::string_view metric_name(cursor &c) {
     const std::size_t start = c.at;
-    if (c.done() || !is_name_start(c.peek())) return std::string_view();
-    while (!c.done() && is_name_char(c.peek())) ++c.at;
+    if (!is_name_start(c.peek())) return std::string_view();
+    while (is_name_char(c.peek())) ++c.at;
     return c.line.substr(start, c.at - start);
   }
 
@@ -777,14 +802,14 @@ class parser {
     if (name.empty()) return fail("expected a metric name at the start of the line");
     parsed.name = std::string(name);
     bool separated = false;
-    if (!c.done() && is_blank(c.peek())) {
+    if (is_blank(c.peek())) {
       c.skip_blanks();
       separated = true;
     }
-    if (!c.done() && c.peek() == '{') {
+    if (c.peek() == '{') {
       if (!labels(c, parsed)) return false;
       separated = false;
-      if (!c.done() && is_blank(c.peek())) {
+      if (is_blank(c.peek())) {
         c.skip_blanks();
         separated = true;
       }
@@ -841,13 +866,13 @@ class parser {
       }
       const std::size_t start = c.at;
       if (!is_label_start(c.peek())) return fail("invalid label name on '" + parsed.name + "'");
-      while (!c.done() && is_label_char(c.peek())) ++c.at;
+      while (is_label_char(c.peek())) ++c.at;
       const std::string_view name = c.line.substr(start, c.at - start);
       c.skip_blanks();
-      if (c.done() || c.peek() != '=') return fail("expected '=' after label '" + std::string(name) + "' on '" + parsed.name + "'");
+      if (c.peek() != '=') return fail("expected '=' after label '" + std::string(name) + "' on '" + parsed.name + "'");
       ++c.at;
       c.skip_blanks();
-      if (c.done() || c.peek() != '"') return fail("expected a quoted value for label '" + std::string(name) + "' on '" + parsed.name + "'");
+      if (c.peek() != '"') return fail("expected a quoted value for label '" + std::string(name) + "' on '" + parsed.name + "'");
       ++c.at;
       std::string value;
       if (!label_value(c, value)) return fail("unterminated or badly escaped value for label '" + std::string(name) + "' on '" + parsed.name + "'");

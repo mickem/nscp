@@ -287,6 +287,8 @@ NSCP_CREATE_TEST(
     openmetrics_parser_test
     SOURCES
         ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser_test.cpp
+        ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser_detail_test.cpp
+        ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser_errors_test.cpp
         ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser.cpp
     LIBRARIES
         GTest::gtest_main
