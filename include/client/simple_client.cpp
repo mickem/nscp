@@ -6,7 +6,6 @@
 #include <boost/function.hpp>
 #include <client/facts_renderer.hpp>
 #include <client/simple_client.hpp>
-#include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper.hpp>
@@ -319,8 +318,8 @@ static std::string render_description(const client::cli_handler_ptr &handler, co
 
 // Every fact-set switch the loaded modules registered: a bool key in a section
 // called `facts`, wherever it lives - the same rule the web UI's Facts page
-// uses, so a module added later needs nothing here. One inventory query for
-// what is registered (type, owner, default) and one for what is configured.
+// uses, so a module added later needs nothing here. One inventory walk answers
+// both what is registered (type, owner, default) and what is configured.
 static std::vector<client::fact_set_switch> collect_fact_switches(const client::cli_handler_ptr &handler) {
   std::vector<client::fact_set_switch> sets;
 
@@ -329,30 +328,14 @@ static std::vector<client::fact_set_switch> collect_fact_switches(const client::
   inventory->mutable_inventory()->mutable_node()->set_path("");
   inventory->mutable_inventory()->set_recursive_fetch(true);
   inventory->mutable_inventory()->set_fetch_keys(true);
+  // The walk returns the configured value of every key, not only the
+  // switches: keep the secrets masked so they never reach this process.
+  inventory->mutable_inventory()->set_redact_sensitive(true);
   inventory->set_plugin_id(handler->get_plugin_id());
   std::string inventory_body;
   handler->get_core()->settings_query(inventory_request.SerializeAsString(), inventory_body);
   PB::Settings::SettingsResponseMessage inventory_response;
   if (!inventory_response.ParseFromString(inventory_body) || inventory_response.payload_size() == 0) return sets;
-
-  PB::Settings::SettingsRequestMessage values_request;
-  PB::Settings::SettingsRequestMessage::Request *values = values_request.add_payload();
-  values->mutable_query()->mutable_node()->set_path("");
-  values->mutable_query()->set_recursive(true);
-  values->mutable_query()->set_include_keys(true);
-  // Only the switches are read, but the walk returns every key: keep the
-  // secrets masked so they never sit in this process's memory in the clear.
-  values->mutable_query()->set_redact_sensitive(true);
-  values->set_plugin_id(handler->get_plugin_id());
-  std::string values_body;
-  handler->get_core()->settings_query(values_request.SerializeAsString(), values_body);
-  PB::Settings::SettingsResponseMessage values_response;
-  std::map<std::string, std::string> configured;
-  if (values_response.ParseFromString(values_body) && values_response.payload_size() > 0 && values_response.payload(0).has_query()) {
-    for (const PB::Settings::Node &node : values_response.payload(0).query().nodes()) {
-      if (!node.value().empty()) configured[node.path() + "\n" + node.key()] = node.value();
-    }
-  }
 
   const std::string suffix = "/facts";
   for (const PB::Settings::SettingsResponseMessage::Response::Inventory &entry : inventory_response.payload(0).inventory()) {
@@ -363,8 +346,8 @@ static std::vector<client::fact_set_switch> collect_fact_switches(const client::
     if (key.empty() || entry.info().type() != "bool") continue;
     if (path.size() < suffix.size() || path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0) continue;
     // An unset key reads as its default, exactly as the module reads it.
-    const std::map<std::string, std::string>::const_iterator it = configured.find(path + "\n" + key);
-    const std::string value = boost::algorithm::to_lower_copy(it != configured.end() ? it->second : entry.info().default_value());
+    const std::string &configured = entry.node().value();
+    const std::string value = boost::algorithm::to_lower_copy(configured.empty() ? entry.info().default_value() : configured);
     client::fact_set_switch set;
     set.id = key;
     set.section = path;

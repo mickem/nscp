@@ -249,13 +249,15 @@ TEST(FactSetList, ADefaultConfigListsEverySetAsDisabled) {
 }
 
 TEST(FactSetList, SaysWhenTheConfigurationAndTheLastRoundDisagree) {
+  // What the core reports is the top-level set each producer wrote, not the
+  // switch: `storage.volumes` lands in `storage`.
   PB::Facts::FactsResponseMessage message;
   PB::Facts::FactsResponseMessage::Response *payload = start(message);
   payload->add_enabled("os");
   payload->add_enabled("hardware");
-  payload->add_enabled("storage.volumes");
+  payload->add_enabled("storage");
   PB::Common::KeyValue *error = payload->add_errors();
-  error->set_key("storage.volumes");
+  error->set_key("storage");
   error->set_value("access denied");
   document_of(payload);
 
@@ -273,6 +275,21 @@ TEST(FactSetList, SaysWhenTheConfigurationAndTheLastRoundDisagree) {
   EXPECT_EQ(state_of(out, "storage.volumes"), "enabled, failing: access denied") << out;
   // Grouped by producer: CheckDisk's row comes before CheckSystem's.
   EXPECT_LT(out.find("storage.volumes"), out.find("\nhardware")) << out;
+}
+
+TEST(FactSetList, ASiblingSwitchKeepsTheSharedSetWithoutAReload) {
+  // `docker` and `docker.containers` both land in the `docker` set. With
+  // only the containers switch on, the core holding `docker` is not a sign
+  // that the summary switch waits on a reload.
+  PB::Facts::FactsResponseMessage message;
+  PB::Facts::FactsResponseMessage::Response *payload = start(message);
+  payload->add_enabled("docker");
+  document_of(payload);
+
+  const std::string out =
+      client::render_fact_sets({switch_for("docker", "CheckDocker", false), switch_for("docker.containers", "CheckDocker", true)}, message.SerializeAsString());
+  EXPECT_EQ(state_of(out, "docker"), "disabled") << out;
+  EXPECT_EQ(state_of(out, "docker.containers"), "enabled") << out;
 }
 
 TEST(FactSetList, WithoutARoundTheConfigurationIsAllThereIsToSay) {

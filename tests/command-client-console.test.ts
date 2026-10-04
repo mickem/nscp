@@ -396,6 +396,18 @@ describe("nscp test console", () => {
     expect(out).not.toMatch(/^interval\s/m);
   });
 
+  it("reads a switch turned on in the configuration", async () => {
+    await nscp.configure({
+      "/modules": { CheckHelpers: "enabled", CheckDisk: "enabled" },
+      "/settings/disk/facts": { "storage.volumes": "true" },
+    });
+    // A typed command can run before the startup round has claimed the set,
+    // which is what "reload to start" says; a manual round settles it.
+    const out = await runConsole("facts refresh\nfacts list\nexit\n");
+    expect(out).toMatch(/storage\.volumes\s+enabled\s+CheckDisk/);
+    expect(out).toMatch(/agent\s+disabled\s+core/);
+  });
+
   it("offers facts in the built-in help", async () => {
     const out = await runConsole("help\nexit\n");
     expect(out).toMatch(/facts \[path\|refresh\|list\]/);

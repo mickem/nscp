@@ -865,8 +865,8 @@ password = <hash>
 ```
 
 The `monitoring` role is registered by the WEB module at startup and grants only
-`public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list` — enough for a monitoring server to log
-in, run queries and scrape metrics, and nothing else. No `settings.*`, no `modules.*`, no `scripts.*`. If you need more
+`public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get` — enough for a monitoring
+server to log in, run queries, scrape metrics and read the facts inventory, and nothing else. No `settings.*`, no `modules.*`, no `scripts.*`. If you need more
 (e.g. the legacy `check_nscp_api` integration that lists queries), prefer the `client` role over `full`. If you need
 *less*, the `restricted` role (`public,queries.execute.noargs,aliases.list,login.get`) runs the same checks but refuses
 any request carrying arguments, and the `metrics` role (`public,metrics.list,openmetrics.list,login.get`) only reads
