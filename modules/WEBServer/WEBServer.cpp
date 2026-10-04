@@ -117,8 +117,7 @@ WEBServer::WEBServer()
       session(new session_manager_interface()),
       events_(new event_store()),
       results_(new result_store()),
-      openmetrics_legacy_(false),
-      last_log_index(0) {}
+      openmetrics_legacy_(false) {}
 WEBServer::~WEBServer() = default;
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -715,7 +714,11 @@ void WEBServer::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   using namespace boost::gregorian;
 
   error_handler_interface::log_entry entry;
-  entry.index = last_log_index++;
+  // The index is assigned by the store, under its lock: numbering here, on
+  // whichever thread logged, let two concurrent lines take their numbers in
+  // one order and land in the store in the other, and the UI's live log -
+  // which asks for "everything after the highest index I have seen" -
+  // skipped the lower one for good.
   entry.line = message.line();
   entry.file = message.file();
   entry.message = message.message();

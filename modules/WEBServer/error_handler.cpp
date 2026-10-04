@@ -7,7 +7,12 @@ void error_handler::add_message(bool is_error, const log_entry &message) {
   {
     const boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!lock.owns_lock()) return;
+    // Numbered here, under the lock, so the order of the indices is the
+    // order of the entries: get_messages_since hands out everything above
+    // the highest index the caller has seen, which only works if no lower
+    // index can arrive after a higher one.
     log_entries.push_back(message);
+    log_entries.back().index = next_index_++;
     // Drop from the front rather than refusing the new entry: the buffer backs
     // a log *viewer*, and a viewer that stopped updating a thousand lines ago
     // is worse than one that cannot scroll all the way back. The error tally

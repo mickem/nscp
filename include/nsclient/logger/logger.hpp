@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #define LOG_CRITICAL_CORE(msg)                               \
   {                                                          \
@@ -71,12 +72,36 @@ struct log_interface {
   virtual bool should_critical() const = 0;
 };
 
+// What close_subscriber / remove_subscriber found. `removed` says the
+// subscriber was on the list; `delivering` says a log line is still inside
+// it, because the bounded wait for the deliveries in flight ran out. A
+// caller about to tear the subscriber down (unloading the module) treats
+// `delivering` the way it treats a dispatch that will not finish: it
+// refuses, and reopens the subscriber.
+struct unsubscribe_result {
+  bool removed = false;
+  bool delivering = false;
+};
+
 struct logger : log_interface {
   virtual void raw(const std::string &message) = 0;
 
   virtual void add_subscriber(logging_subscriber_instance subscriber) = 0;
-  virtual void remove_subscriber(logging_subscriber_instance subscriber) = 0;
-  virtual void clear_subscribers() = 0;
+  // The two-phase removal an unload needs, the shape the walk lists have:
+  // close the subscriber in its place and wait for the lines inside it;
+  // then either reopen it there (the unload was refused) or drop it (the
+  // module is gone). A subscriber a line is still inside stays closed in
+  // its place, so the next close waits for that line again.
+  virtual unsubscribe_result close_subscriber(logging_subscriber_instance subscriber) = 0;
+  virtual void reopen_subscriber(logging_subscriber_instance subscriber) = 0;
+  // Takes a subscriber out once nothing is inside it; false when one is.
+  virtual bool drop_subscriber(logging_subscriber_instance subscriber) = 0;
+  // close, then drop when nothing was inside.
+  virtual unsubscribe_result remove_subscriber(logging_subscriber_instance subscriber) = 0;
+  // Takes every subscriber off the list and waits for the deliveries in
+  // flight. Returns the subscribers a line was still inside when the wait
+  // ran out, so the caller can leave those alone; empty means all clear.
+  virtual std::vector<logging_subscriber_instance> clear_subscribers() = 0;
 
   virtual bool startup() = 0;
   virtual bool shutdown() = 0;

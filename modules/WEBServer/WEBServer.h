@@ -116,5 +116,4 @@ class WEBServer : public nscapi::impl::simple_plugin {
   std::shared_ptr<Mongoose::Server> server;
 
   web_server::user_config users_;
-  std::atomic<unsigned long> last_log_index;
 };

@@ -2,216 +2,548 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 /*
- * Unit tests for nsclient::logging::impl::nsclient_logger.
- *
- * nsclient_logger composes a backend (console / file / threaded-file) and
- * fans log messages out to a list of subscribers.
- *
- * Important caveat: the default constructor selects the platform default
- * backend (threaded-file on Windows, which spawns a worker thread; console
- * elsewhere, which patches std::cout's streambuf). Both have side-effects
- * we'd rather not propagate across the gtest runner. Each test below calls
- * destroy() on the freshly-constructed logger before doing anything else,
- * which releases the default backend cleanly (and joins the threaded-file
- * worker via its destructor). Tests then exercise the parts that don't need
- * a backend at all (subscriber broadcast, log-level handling, is-safe-with-
- * no-backend).
+ * Unit tests for nsclient::logging::impl::nsclient_logger: level and console
+ * options, and the subscriber fan-out on its one delivery thread. A fresh
+ * logger has the console off and no log file, so nothing here writes
+ * anywhere but to the subscribers.
  */
 
 #include "nsclient_logger.hpp"
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <nsclient/logger/log_message_factory.hpp>
+#include <nscapi/protobuf/log.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <string>
+#include <thread>
 #include <vector>
 
-using nsclient::logging::log_message_factory;
 using nsclient::logging::logging_subscriber;
 using nsclient::logging::impl::nsclient_logger;
 
 namespace {
 
+// A serialized LogEntry carrying one message, the shape every real line has.
+std::string line(const std::string& message) {
+  PB::Log::LogEntry entry;
+  entry.add_entry()->set_message(message);
+  return entry.SerializeAsString();
+}
+std::string message_of(const std::string& data) {
+  PB::Log::LogEntry entry;
+  if (!entry.ParseFromString(data) || entry.entry_size() == 0) return "<not a LogEntry>";
+  return entry.entry(0).message();
+}
+
 class CapturingSubscriber : public logging_subscriber {
  public:
   void on_log_message(const std::string& payload) override {
     std::lock_guard<std::mutex> g(mu);
-    payloads.push_back(payload);
+    payloads.push_back(message_of(payload));
+    cv.notify_all();
   }
   std::vector<std::string> snapshot() {
     std::lock_guard<std::mutex> g(mu);
     return payloads;
   }
+  // Delivery is asynchronous: wait for `n` lines (or give up after 5 s).
+  std::vector<std::string> wait_for(std::size_t n) {
+    std::unique_lock<std::mutex> g(mu);
+    cv.wait_for(g, std::chrono::seconds(5), [&]() { return payloads.size() >= n; });
+    return payloads;
+  }
   std::vector<std::string> payloads;
   std::mutex mu;
+  std::condition_variable cv;
 };
 
-// Build a logger with no live backend so the rest of the test exercises
-// only the in-memory subscriber list and log-level state.
-std::unique_ptr<nsclient_logger> make_backendless_logger() {
-  auto logger = std::make_unique<nsclient_logger>();
-  logger->destroy();  // join/release the default platform backend
-  return logger;
-}
+// Logs again from inside its handler on every line it is handed, through the
+// logger's do_log as a module's log call would. Unbounded: if the nested line
+// were handed out again, this would feed itself forever.
+class ReentrantSubscriber : public CapturingSubscriber {
+ public:
+  explicit ReentrantSubscriber(nsclient_logger* logger) : logger_(logger) {}
+  void on_log_message(const std::string& payload) override {
+    CapturingSubscriber::on_log_message(payload);
+    logger_->do_log(line("nested"));
+  }
+  nsclient_logger* logger_;
+};
+
+// Unsubscribes itself from inside its handler.
+class SelfRemovingSubscriber : public logging_subscriber, public std::enable_shared_from_this<SelfRemovingSubscriber> {
+ public:
+  explicit SelfRemovingSubscriber(nsclient_logger* logger) : logger_(logger) {}
+  void on_log_message(const std::string&) override {
+    removed = logger_->remove_subscriber(shared_from_this()).removed;
+    ++calls;
+  }
+  nsclient_logger* logger_;
+  std::atomic<bool> removed{false};
+  std::atomic<int> calls{0};
+};
+
+// Blocks inside its handler until released.
+class BlockingSubscriber : public logging_subscriber {
+ public:
+  void on_log_message(const std::string&) override {
+    std::unique_lock<std::mutex> lock(mu);
+    entered = true;
+    cv.notify_all();
+    cv.wait(lock, [this]() { return released; });
+    finished = true;
+  }
+  void wait_until_entered() {
+    std::unique_lock<std::mutex> lock(mu);
+    cv.wait(lock, [this]() { return entered; });
+  }
+  void release() {
+    {
+      std::lock_guard<std::mutex> lock(mu);
+      released = true;
+    }
+    cv.notify_all();
+  }
+  std::mutex mu;
+  std::condition_variable cv;
+  bool entered = false;
+  bool released = false;
+  std::atomic<bool> finished{false};
+};
 
 }  // namespace
 
-TEST(NsclientLogger, ConstructAndDestroyReleasesDefaultBackend) {
+// ===== levels and console options ==========================================
+
+TEST(NsclientLogger, ConstructAndDestroy) {
   auto logger = std::make_unique<nsclient_logger>();
   EXPECT_NO_THROW(logger->destroy());
+  EXPECT_NO_THROW(logger->do_log(line("after destroy")));
 }
 
-TEST(NsclientLogger, OnLogMessageBroadcastsToAllSubscribers) {
-  auto logger = make_backendless_logger();
-  auto a = std::make_shared<CapturingSubscriber>();
-  auto b = std::make_shared<CapturingSubscriber>();
-  logger->add_subscriber(a);
-  logger->add_subscriber(b);
-
-  logger->on_log_message("payload-1");
-  logger->on_log_message("payload-2");
-
-  EXPECT_EQ(a->snapshot(), (std::vector<std::string>{"payload-1", "payload-2"}));
-  EXPECT_EQ(b->snapshot(), (std::vector<std::string>{"payload-1", "payload-2"}));
+TEST(NsclientLogger, StartupAndShutdownSucceed) {
+  nsclient_logger logger;
+  EXPECT_TRUE(logger.startup());
+  EXPECT_TRUE(logger.shutdown());
 }
 
-TEST(NsclientLogger, ClearSubscribersStopsBroadcast) {
-  auto logger = make_backendless_logger();
-  auto sub = std::make_shared<CapturingSubscriber>();
-  logger->add_subscriber(sub);
-
-  logger->on_log_message("first");
-  ASSERT_EQ(sub->snapshot().size(), 1u);
-
-  logger->clear_subscribers();
-  logger->on_log_message("ignored");
-
-  EXPECT_EQ(sub->snapshot().size(), 1u);
-}
-
-TEST(NsclientLogger, OnLogMessageWithNoSubscribersIsSafe) {
-  auto logger = make_backendless_logger();
-  EXPECT_NO_THROW(logger->on_log_message("noop"));
-}
-
-TEST(NsclientLogger, DoLogIsSafeWithNoBackend) {
-  auto logger = make_backendless_logger();
-  EXPECT_NO_THROW(logger->do_log("after destroy"));
-}
-
-TEST(NsclientLogger, RawForwardsToBackend) {
-  // Without a backend, raw is a no-op; the test verifies it does not throw.
-  auto logger = make_backendless_logger();
-  EXPECT_NO_THROW(logger->raw("anything"));
-}
-
-TEST(NsclientLogger, StartupAndShutdownReturnFalseWithNoBackend) {
-  auto logger = make_backendless_logger();
-  EXPECT_FALSE(logger->startup());
-  EXPECT_FALSE(logger->shutdown());
-}
-
-TEST(NsclientLogger, ConfigureWithNoBackendIsSafe) {
-  auto logger = make_backendless_logger();
-  EXPECT_NO_THROW(logger->configure());
+TEST(NsclientLogger, ConfigureWithoutSettingsIsSafe) {
+  nsclient_logger logger;
+  EXPECT_NO_THROW(logger.configure());
+  logger.set_backend("file");
+  EXPECT_NO_THROW(logger.configure());
 }
 
 TEST(NsclientLogger, SetLogLevelControlsShouldPredicates) {
-  auto logger = make_backendless_logger();
+  nsclient_logger logger;
+  logger.set_log_level("error");
+  EXPECT_TRUE(logger.should_error());
+  EXPECT_TRUE(logger.should_critical());
+  EXPECT_FALSE(logger.should_warning());
+  EXPECT_FALSE(logger.should_debug());
 
-  logger->set_log_level("error");
-  EXPECT_TRUE(logger->should_error());
-  EXPECT_TRUE(logger->should_critical());
-  EXPECT_FALSE(logger->should_debug());
-  EXPECT_FALSE(logger->should_trace());
-  EXPECT_FALSE(logger->should_info());
-  EXPECT_FALSE(logger->should_warning());
-
-  logger->set_log_level("trace");
-  EXPECT_TRUE(logger->should_trace());
-  EXPECT_TRUE(logger->should_debug());
-  EXPECT_TRUE(logger->should_info());
-  EXPECT_TRUE(logger->should_warning());
-  EXPECT_TRUE(logger->should_error());
-  EXPECT_TRUE(logger->should_critical());
+  logger.set_log_level("trace");
+  EXPECT_TRUE(logger.should_trace());
+  EXPECT_TRUE(logger.should_info());
 }
 
-TEST(NsclientLogger, SetLogLevelInvalidIsSafe) {
-  auto logger = make_backendless_logger();
-  // Invalid level routes a synthesised error message through do_log; with no
-  // backend that's a no-op. The test checks for absence of an exception.
-  EXPECT_NO_THROW(logger->set_log_level("not-a-level"));
-}
-
-// Covers every level enum value from log_level.hpp that round-trips cleanly
-// through set_log_level()/get_log_level():
-//   critical (1), error (2), warning (3), debug (50), trace (99).
-// The two values that DO NOT round-trip ("info" denormalises to "message",
-// "off" is not parseable) are pinned by GetLogLevelReturnsCurrentStrangeIncorrectCase.
 TEST(NsclientLogger, GetLogLevelReturnsCurrent) {
-  auto logger = make_backendless_logger();
-
+  nsclient_logger logger;
   for (const std::string level : {"critical", "error", "warning", "debug", "trace"}) {
     SCOPED_TRACE("level=" + level);
-    logger->set_log_level(level);
-    EXPECT_EQ(logger->get_log_level(), level);
+    logger.set_log_level(level);
+    EXPECT_EQ(logger.get_log_level(), level);
   }
+  // "info" is reported back as "message"; "off" and junk leave it alone.
+  logger.set_log_level("info");
+  EXPECT_EQ(logger.get_log_level(), "message");
+  logger.set_log_level("off");
+  logger.set_log_level("not-a-level");
+  EXPECT_EQ(logger.get_log_level(), "message");
 }
 
-// Pins the two known asymmetries between set_log_level and get_log_level:
-//   * "info" is accepted but reported back as "message".
-//   * "off" maps to level 0 in log_level.hpp but log_level::set() does not
-//     parse it, so the previously-set level survives unchanged.
-TEST(NsclientLogger, GetLogLevelReturnsCurrentStrangeIncorrectCase) {
-  auto logger = make_backendless_logger();
-
-  // "info" -> "message" (asymmetric on purpose, see log_level.cpp).
-  logger->set_log_level("info");
-  EXPECT_EQ(logger->get_log_level(), "message");
-
-  // "off" is silently rejected; the previous level (here: "message") sticks.
-  logger->set_log_level("off");
-  EXPECT_EQ(logger->get_log_level(), "message");
-
-  // Sanity: an obviously bogus value is also rejected without disturbing state.
-  logger->set_log_level("not-a-level");
-  EXPECT_EQ(logger->get_log_level(), "message");
-}
-
-TEST(NsclientLogger, LogMethodsRespectLevel) {
-  auto logger = make_backendless_logger();
-  auto sub = std::make_shared<CapturingSubscriber>();
-  logger->add_subscriber(sub);
-
-  logger->set_log_level("error");
-  // These messages would only reach the subscriber via the backend's
-  // on_log_message callback - we have no backend, so the subscriber sees
-  // nothing regardless. We're really validating that the should_X gating
-  // suppresses formatting work entirely.
-  logger->trace("m", __FILE__, __LINE__, "trace-msg");
-  logger->debug("m", __FILE__, __LINE__, "debug-msg");
-  logger->info("m", __FILE__, __LINE__, "info-msg");
-  logger->warning("m", __FILE__, __LINE__, "warning-msg");
-  // Below-threshold messages are suppressed before do_log; subscriber
-  // accordingly sees nothing.
-  EXPECT_TRUE(sub->snapshot().empty());
-}
-
-// The driver options cli_parser pushes onto the same list as severities.
-// These used to fall through to log_level::set(), which does not know them:
-// --no-stderr and oneline logged "Invalid log level: ..." instead of taking
-// effect, and there was no way at all to turn the console back off.
-TEST(NsclientLogger, DriverOptionsDoNotDisturbTheSeverityLevel) {
-  auto logger = make_backendless_logger();
-  logger->set_log_level("warning");
-  ASSERT_EQ(logger->get_log_level(), "warning");
-
+// The console options cli_parser pushes onto the same list as severities.
+TEST(NsclientLogger, ConsoleOptionsDoNotDisturbTheSeverityLevel) {
+  nsclient_logger logger;
+  logger.set_log_level("warning");
   for (const std::string option : {"console", "no-console", "oneline", "no-std-err"}) {
     SCOPED_TRACE("option=" + option);
-    EXPECT_NO_THROW(logger->set_log_level(option));
-    EXPECT_EQ(logger->get_log_level(), "warning");
+    EXPECT_TRUE(nsclient_logger::is_console_option(option));
+    EXPECT_NO_THROW(logger.set_log_level(option));
+    EXPECT_EQ(logger.get_log_level(), "warning");
   }
+}
+
+TEST(NsclientLogger, LinesBelowTheLevelReachNoSubscriber) {
+  nsclient_logger logger;
+  auto sub = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(sub);
+  logger.set_log_level("error");
+  logger.debug("m", __FILE__, __LINE__, "debug-msg");
+  logger.warning("m", __FILE__, __LINE__, "warning-msg");
+  logger.error("m", __FILE__, __LINE__, "error-msg");
+  EXPECT_EQ(sub->wait_for(1), (std::vector<std::string>{"error-msg"}));
+}
+
+// ===== fan-out ===============================================================
+
+TEST(NsclientLogger, EverySubscriberGetsEveryLineInOrder) {
+  nsclient_logger logger;
+  auto a = std::make_shared<CapturingSubscriber>();
+  auto b = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(a);
+  logger.add_subscriber(b);
+  logger.do_log(line("one"));
+  logger.do_log(line("two"));
+  EXPECT_EQ(a->wait_for(2), (std::vector<std::string>{"one", "two"}));
+  EXPECT_EQ(b->wait_for(2), (std::vector<std::string>{"one", "two"}));
+}
+
+TEST(NsclientLogger, ClearSubscribersStopsTheFanOut) {
+  nsclient_logger logger;
+  auto sub = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(sub);
+  logger.do_log(line("first"));
+  ASSERT_EQ(sub->wait_for(1).size(), 1u);
+  EXPECT_TRUE(logger.clear_subscribers().empty());
+  logger.do_log(line("ignored"));
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  EXPECT_EQ(sub->snapshot().size(), 1u);
+}
+
+// A handler that logs once per line it receives must not feed itself, nor
+// another handler that does the same.
+TEST(NsclientLogger, ALineLoggedFromAHandlerReachesNoSubscriber) {
+  nsclient_logger logger;
+  auto a = std::make_shared<ReentrantSubscriber>(&logger);
+  auto b = std::make_shared<ReentrantSubscriber>(&logger);
+  logger.add_subscriber(a);
+  logger.add_subscriber(b);
+  logger.do_log(line("outer"));
+  ASSERT_EQ(a->wait_for(1).size(), 1u);
+  ASSERT_EQ(b->wait_for(1).size(), 1u);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  EXPECT_EQ(a->snapshot(), (std::vector<std::string>{"outer"}));
+  EXPECT_EQ(b->snapshot(), (std::vector<std::string>{"outer"}));
+}
+
+// A stuck handler must not hold up the threads that log.
+TEST(NsclientLogger, AStuckHandlerDoesNotBlockLogging) {
+  nsclient_logger logger;
+  logger.set_delivery_wait(std::chrono::milliseconds(50));
+  logger.set_join_wait(std::chrono::milliseconds(50));
+  auto stuck = std::make_shared<BlockingSubscriber>();
+  logger.add_subscriber(stuck);
+  logger.do_log(line("enter"));
+  stuck->wait_until_entered();
+  const auto start = std::chrono::steady_clock::now();
+  for (int i = 0; i < 100; ++i) logger.do_log(line("more"));
+  EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
+  stuck->release();
+}
+
+// A handler stuck while the agent keeps logging does not grow the queue
+// without bound: past the limit the oldest lines are dropped, and the
+// handler gets the newest ones once it is back.
+TEST(NsclientLogger, AFullQueueDropsTheOldestLines) {
+  struct StuckOnce : CapturingSubscriber {
+    void on_log_message(const std::string& payload) override {
+      {
+        std::unique_lock<std::mutex> lock(gate_mu);
+        entered = true;
+        gate_cv.notify_all();
+        gate_cv.wait(lock, [this]() { return released; });
+      }
+      CapturingSubscriber::on_log_message(payload);
+    }
+    void wait_until_entered() {
+      std::unique_lock<std::mutex> lock(gate_mu);
+      gate_cv.wait(lock, [this]() { return entered; });
+    }
+    void release() {
+      {
+        std::lock_guard<std::mutex> lock(gate_mu);
+        released = true;
+      }
+      gate_cv.notify_all();
+    }
+    std::mutex gate_mu;
+    std::condition_variable gate_cv;
+    bool entered = false;
+    bool released = false;
+  };
+  nsclient_logger logger;
+  logger.set_queue_limit(5);
+  auto sub = std::make_shared<StuckOnce>();
+  logger.add_subscriber(sub);
+  logger.do_log(line("enter"));
+  sub->wait_until_entered();
+  for (int i = 1; i <= 20; ++i) logger.do_log(line(std::to_string(i)));
+  sub->release();
+  EXPECT_EQ(sub->wait_for(6), (std::vector<std::string>{"enter", "16", "17", "18", "19", "20"}));
+  // Dropped lines count as handed out, so a flush is not left waiting on them.
+  EXPECT_TRUE(logger.clear_subscribers().empty());
+}
+
+TEST(NsclientLogger, AThrowingHandlerDoesNotStopTheOthers) {
+  struct Throwing : logging_subscriber {
+    void on_log_message(const std::string&) override { throw std::runtime_error("boom"); }
+  };
+  nsclient_logger logger;
+  auto good = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(std::make_shared<Throwing>());
+  logger.add_subscriber(good);
+  logger.do_log(line("one"));
+  logger.do_log(line("two"));
+  EXPECT_EQ(good->wait_for(2), (std::vector<std::string>{"one", "two"}));
+}
+
+// A module handing the console back sees every line logged while it held it
+// before the call returns (the CommandClient prompt closing).
+TEST(NsclientLogger, HandingTheConsoleBackFlushesTheHandlers) {
+  struct Slow : CapturingSubscriber {
+    void on_log_message(const std::string& payload) override {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      CapturingSubscriber::on_log_message(payload);
+    }
+  };
+  nsclient_logger logger;
+  auto sub = std::make_shared<Slow>();
+  logger.add_subscriber(sub);
+  logger.set_log_level("no-console");
+  for (const char* m : {"a", "b", "c", "d", "e"}) logger.do_log(line(m));
+  logger.set_log_level("console");
+  EXPECT_EQ(sub->snapshot(), (std::vector<std::string>{"a", "b", "c", "d", "e"}));
+  logger.set_log_level("no-console");
+}
+
+// ===== removal ===============================================================
+
+TEST(NsclientLogger, RemoveReportsWhetherTheSubscriberWasOnTheList) {
+  nsclient_logger logger;
+  auto sub = std::make_shared<CapturingSubscriber>();
+  EXPECT_FALSE(logger.remove_subscriber(sub).removed);
+  logger.add_subscriber(sub);
+  const auto result = logger.remove_subscriber(sub);
+  EXPECT_TRUE(result.removed);
+  EXPECT_FALSE(result.delivering);
+  EXPECT_FALSE(logger.remove_subscriber(sub).removed);
+}
+
+TEST(NsclientLogger, RemoveWaitsForTheLineInsideTheSubscriber) {
+  nsclient_logger logger;
+  auto sub = std::make_shared<BlockingSubscriber>();
+  logger.add_subscriber(sub);
+  logger.do_log(line("x"));
+  sub->wait_until_entered();
+  std::thread releaser([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    sub->release();
+  });
+  const auto result = logger.remove_subscriber(sub);
+  EXPECT_TRUE(result.removed);
+  EXPECT_FALSE(result.delivering);
+  EXPECT_TRUE(sub->finished);
+  releaser.join();
+}
+
+TEST(NsclientLogger, RemoveDoesNotWaitForADeliveryInsideAnotherSubscriber) {
+  nsclient_logger logger;
+  logger.set_delivery_wait(std::chrono::seconds(5));
+  auto stuck = std::make_shared<BlockingSubscriber>();
+  auto other = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(stuck);
+  logger.add_subscriber(other);
+  logger.do_log(line("x"));
+  stuck->wait_until_entered();
+  const auto start = std::chrono::steady_clock::now();
+  const auto result = logger.remove_subscriber(other);
+  EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
+  EXPECT_TRUE(result.removed);
+  EXPECT_FALSE(result.delivering);
+  stuck->release();
+}
+
+TEST(NsclientLogger, RemoveReportsADeliveryThatOutlivesTheWait) {
+  nsclient_logger logger;
+  logger.set_delivery_wait(std::chrono::milliseconds(50));
+  auto sub = std::make_shared<BlockingSubscriber>();
+  logger.add_subscriber(sub);
+  logger.do_log(line("x"));
+  sub->wait_until_entered();
+  const auto result = logger.remove_subscriber(sub);
+  EXPECT_TRUE(result.removed);
+  EXPECT_TRUE(result.delivering);
+  sub->release();
+}
+
+TEST(NsclientLogger, CloseKeepsTheSubscriberInPlaceAndReopenResumesIt) {
+  nsclient_logger logger;
+  auto a = std::make_shared<CapturingSubscriber>();
+  auto b = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(a);
+  logger.add_subscriber(b);
+  const auto closed = logger.close_subscriber(a);
+  EXPECT_TRUE(closed.removed);
+  EXPECT_FALSE(closed.delivering);
+  logger.do_log(line("while-closed"));
+  ASSERT_EQ(b->wait_for(1).size(), 1u);
+  logger.reopen_subscriber(a);
+  logger.do_log(line("after"));
+  ASSERT_EQ(b->wait_for(2).size(), 2u);
+  EXPECT_EQ(a->wait_for(1), (std::vector<std::string>{"after"}));
+}
+
+// A second add of a subscriber already on the list reopens it rather than
+// adding another entry that would get every line twice.
+TEST(NsclientLogger, AddingASubscriberAgainReopensIt) {
+  nsclient_logger logger;
+  auto a = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(a);
+  logger.close_subscriber(a);
+  logger.add_subscriber(a);
+  logger.add_subscriber(a);
+  logger.do_log(line("once"));
+  EXPECT_EQ(a->wait_for(1), (std::vector<std::string>{"once"}));
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  EXPECT_EQ(a->snapshot().size(), 1u);
+}
+
+// A close refused because a line is inside leaves the subscriber closed in
+// place, so a retry waits for that same line again instead of finding it
+// clear - and a drop is refused until it has left.
+TEST(NsclientLogger, ARetriedCloseWaitsForTheSameLineAgain) {
+  nsclient_logger logger;
+  logger.set_delivery_wait(std::chrono::milliseconds(50));
+  auto stuck = std::make_shared<BlockingSubscriber>();
+  logger.add_subscriber(stuck);
+  logger.do_log(line("x"));
+  stuck->wait_until_entered();
+  EXPECT_TRUE(logger.close_subscriber(stuck).delivering);
+  EXPECT_TRUE(logger.close_subscriber(stuck).delivering);
+  EXPECT_FALSE(logger.drop_subscriber(stuck));
+  stuck->release();
+  logger.set_delivery_wait(std::chrono::seconds(5));
+  const auto result = logger.close_subscriber(stuck);
+  EXPECT_TRUE(result.removed);
+  EXPECT_FALSE(result.delivering);
+  EXPECT_TRUE(logger.drop_subscriber(stuck));
+  EXPECT_FALSE(logger.close_subscriber(stuck).removed);
+}
+
+// The last lines before stop_plugins reach the handlers: clear hands out
+// what is already queued before it takes the list away.
+TEST(NsclientLogger, ClearDeliversTheLinesAlreadyQueued) {
+  struct Slow : CapturingSubscriber {
+    void on_log_message(const std::string& payload) override {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      CapturingSubscriber::on_log_message(payload);
+    }
+  };
+  nsclient_logger logger;
+  auto sub = std::make_shared<Slow>();
+  logger.add_subscriber(sub);
+  for (int i = 0; i < 10; ++i) logger.do_log(line("line-" + std::to_string(i)));
+  EXPECT_TRUE(logger.clear_subscribers().empty());
+  EXPECT_EQ(sub->snapshot().size(), 10u);
+}
+
+// A flush waits only for the lines queued when it began, so one that keeps
+// arriving from other threads does not hold it to the deadline.
+TEST(NsclientLogger, AFlushIsNotHeldUpByLinesQueuedAfterIt) {
+  nsclient_logger logger;
+  logger.set_delivery_wait(std::chrono::seconds(5));
+  auto sub = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(sub);
+  std::atomic<bool> stop{false};
+  std::thread chatter([&]() {
+    while (!stop) logger.do_log(line("chatter"));
+  });
+  const auto start = std::chrono::steady_clock::now();
+  EXPECT_TRUE(logger.clear_subscribers().empty());
+  EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(4));
+  stop = true;
+  chatter.join();
+}
+
+TEST(NsclientLogger, ClearNamesTheSubscriberStillDelivering) {
+  nsclient_logger logger;
+  logger.set_delivery_wait(std::chrono::milliseconds(50));
+  auto stuck = std::make_shared<BlockingSubscriber>();
+  logger.add_subscriber(stuck);
+  logger.add_subscriber(std::make_shared<CapturingSubscriber>());
+  logger.do_log(line("x"));
+  stuck->wait_until_entered();
+  const auto still = logger.clear_subscribers();
+  ASSERT_EQ(still.size(), 1u);
+  EXPECT_EQ(still[0], stuck);
+  stuck->release();
+}
+
+// A removal that timed out is still caught by the clear at shutdown.
+TEST(NsclientLogger, AStuckRemovalIsWaitedForAgainByClear) {
+  nsclient_logger logger;
+  logger.set_delivery_wait(std::chrono::milliseconds(50));
+  auto stuck = std::make_shared<BlockingSubscriber>();
+  logger.add_subscriber(stuck);
+  logger.do_log(line("x"));
+  stuck->wait_until_entered();
+  ASSERT_TRUE(logger.remove_subscriber(stuck).delivering);
+  const auto still = logger.clear_subscribers();
+  ASSERT_EQ(still.size(), 1u);
+  EXPECT_EQ(still[0], stuck);
+  stuck->release();
+  EXPECT_TRUE(logger.clear_subscribers().empty());
+}
+
+TEST(NsclientLogger, ASubscriberMayRemoveItselfFromItsHandler) {
+  nsclient_logger logger;
+  auto sub = std::make_shared<SelfRemovingSubscriber>(&logger);
+  auto after = std::make_shared<CapturingSubscriber>();
+  logger.add_subscriber(sub);
+  logger.add_subscriber(after);
+  logger.do_log(line("one"));
+  logger.do_log(line("two"));
+  ASSERT_EQ(after->wait_for(2).size(), 2u);
+  EXPECT_TRUE(sub->removed);
+  EXPECT_EQ(sub->calls, 1);
+}
+
+// The worker never holds the last reference: the remover does.
+TEST(NsclientLogger, TheRemoverHoldsTheLastReference) {
+  nsclient_logger logger;
+  auto sub = std::make_shared<BlockingSubscriber>();
+  logger.add_subscriber(sub);
+  logger.do_log(line("x"));
+  sub->wait_until_entered();
+  std::thread releaser([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    sub->release();
+  });
+  ASSERT_FALSE(logger.remove_subscriber(sub).delivering);
+  releaser.join();
+  EXPECT_EQ(sub.use_count(), 1);
+}
+
+// A worker stuck in a handler at shutdown is left behind, and the logger can
+// still be destroyed under it.
+TEST(NsclientLogger, ShutdownLeavesAStuckWorkerBehind) {
+  auto stuck = std::make_shared<BlockingSubscriber>();
+  {
+    nsclient_logger logger;
+    logger.set_delivery_wait(std::chrono::milliseconds(50));
+    logger.set_join_wait(std::chrono::milliseconds(50));
+    logger.add_subscriber(stuck);
+    logger.do_log(line("x"));
+    stuck->wait_until_entered();
+    EXPECT_FALSE(logger.shutdown());
+  }
+  stuck->release();
+  for (int i = 0; i < 100 && !stuck->finished; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_TRUE(stuck->finished);
 }

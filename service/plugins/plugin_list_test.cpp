@@ -5,7 +5,13 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <thread>
+#include <vector>
 
 #include "plugin_interface.hpp"
 
@@ -107,6 +113,17 @@ TEST(PluginsListExceptionTest, ThrowAndCatchAsStdException) {
 // simple_plugins_list tests
 // ============================================================================
 
+// What the plugin manager does to take a module out of one walk list: close
+// its slot, wait for the rounds inside it, and finish on that outcome.
+enum class removal { absent, removed, still_walking };
+removal remove_from(nsclient::simple_plugins_list& list, const unsigned long id, const std::chrono::milliseconds timeout = std::chrono::seconds(10)) {
+  const nsclient::simple_plugins_list::closing c = list.close_plugin(id);
+  if (!c) return removal::absent;
+  const bool drained = nsclient::simple_plugins_list::drain_each({c}, timeout)[0];
+  c.finish(drained);
+  return drained ? removal::removed : removal::still_walking;
+}
+
 class SimplePluginsListTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -163,7 +180,7 @@ TEST_F(SimplePluginsListTest, RemovePlugin) {
   list_->add_plugin(plugin1);
   list_->add_plugin(plugin2);
 
-  list_->remove_plugin(1);
+  remove_from(*list_, 1);
 
   const std::string result = list_->to_string();
   EXPECT_TRUE(result.find("Module1") == std::string::npos);
@@ -175,7 +192,7 @@ TEST_F(SimplePluginsListTest, RemoveNonExistentPlugin) {
   list_->add_plugin(plugin);
 
   // Removing non-existent plugin should not crash
-  list_->remove_plugin(999);
+  remove_from(*list_, 999);
 
   EXPECT_EQ(list_->to_string(), "Module");
 }
@@ -197,6 +214,209 @@ TEST_F(SimplePluginsListTest, DoAllOnEmptyList) {
   list_->do_all([&count](nsclient::plugin_type) { count++; });
 
   EXPECT_EQ(count, 0);
+}
+
+// The callback runs module code, and a module may load or unload another
+// module from there (a metrics fetcher calling load_module). That re-enters
+// add_plugin / remove_plugin on the thread do_all is running on, so do_all
+// must not hold the list's lock across the call: with it held shared, the
+// unique lock those want waited out its timeout and the change was dropped.
+TEST_F(SimplePluginsListTest, DoAllCallbackMayRemoveAndAddPlugins) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  const auto plugin3 = std::make_shared<MockListPlugin>(3, "alias3", "Module3");
+  list_->add_plugin(plugin1);
+  list_->add_plugin(plugin2);
+
+  std::vector<unsigned int> seen;
+  list_->do_all([&](nsclient::plugin_type p) {
+    seen.push_back(p->get_id());
+    remove_from(*list_, p->get_id());
+    if (p->get_id() == 1) list_->add_plugin(plugin3);
+  });
+
+  // Every plugin that was registered when the walk started was visited
+  // exactly once; the one added during the walk is not visited this time.
+  EXPECT_EQ(seen, (std::vector<unsigned int>{1, 2}));
+  int count = 0;
+  std::vector<unsigned int> remaining;
+  list_->do_all([&](nsclient::plugin_type p) {
+    count++;
+    remaining.push_back(p->get_id());
+  });
+  EXPECT_EQ(count, 1);
+  EXPECT_EQ(remaining, (std::vector<unsigned int>{3}));
+}
+
+// A removal on another thread still waits for a walk that may be calling the
+// removed plugin, as the held lock used to make it: the plugin manager drops
+// what the module contributed right after. A removal of an id that is not
+// in the list has nothing to wait for and returns at once.
+TEST_F(SimplePluginsListTest, RemovePluginWaitsForAWalkOnAnotherThread) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  list_->add_plugin(plugin1);
+
+  std::mutex mu;
+  std::condition_variable cv;
+  bool entered = false;
+  bool released = false;
+  std::thread walk([&]() {
+    list_->do_all([&](nsclient::plugin_type) {
+      std::unique_lock<std::mutex> lock(mu);
+      entered = true;
+      cv.notify_all();
+      cv.wait(lock, [&]() { return released; });
+    });
+  });
+  {
+    std::unique_lock<std::mutex> lock(mu);
+    cv.wait(lock, [&]() { return entered; });
+  }
+
+  // Not in this list: nothing to close or wait for.
+  EXPECT_EQ(remove_from(*list_, 42), removal::absent);
+
+  std::atomic<bool> removed{false};
+  std::thread remover([&]() {
+    EXPECT_EQ(remove_from(*list_, 1), removal::removed);
+    removed = true;
+  });
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  EXPECT_FALSE(removed.load());
+
+  {
+    std::lock_guard<std::mutex> lock(mu);
+    released = true;
+  }
+  cv.notify_all();
+  remover.join();
+  walk.join();
+  EXPECT_TRUE(removed.load());
+  EXPECT_TRUE(list_->empty());
+}
+
+// A round is waited for only by the removal of the module it is inside: a
+// round stuck in one module's fetchMetrics - or blocked on the lifecycle
+// lock from inside it - does not hold up the removal of another, and the
+// module removed meanwhile is skipped when the round reaches it.
+TEST_F(SimplePluginsListTest, RemovingAModuleDoesNotWaitForARoundInsideAnother) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  list_->add_plugin(plugin1);
+  list_->add_plugin(plugin2);
+
+  std::mutex mu;
+  std::condition_variable cv;
+  bool entered = false;
+  bool released = false;
+  std::vector<unsigned int> called;
+  std::thread walk([&]() {
+    list_->do_all([&](nsclient::plugin_type p) {
+      std::unique_lock<std::mutex> lock(mu);
+      called.push_back(p->get_id());
+      if (p->get_id() != 1) return;
+      entered = true;
+      cv.notify_all();
+      cv.wait(lock, [&]() { return released; });
+    });
+  });
+  {
+    std::unique_lock<std::mutex> lock(mu);
+    cv.wait(lock, [&]() { return entered; });
+  }
+
+  // The round is inside module 1. Removing module 2 has nothing to wait for:
+  // with no wait allowed at all, it still comes back removed.
+  EXPECT_EQ(remove_from(*list_, 2, std::chrono::milliseconds(0)), removal::removed);
+  // Removing module 1 is what the round holds up.
+  EXPECT_EQ(remove_from(*list_, 1, std::chrono::milliseconds(0)), removal::still_walking);
+
+  {
+    std::lock_guard<std::mutex> lock(mu);
+    released = true;
+  }
+  cv.notify_all();
+  walk.join();
+  // Module 2 was removed before the round got to it, so it was never called.
+  EXPECT_EQ(called, (std::vector<unsigned int>{1}));
+}
+
+// A refused removal reopens the module where it was, so the rounds keep
+// walking the modules in the order they were registered.
+TEST_F(SimplePluginsListTest, AReopenedModuleKeepsItsPlace) {
+  for (unsigned int id = 1; id <= 3; ++id) list_->add_plugin(std::make_shared<MockListPlugin>(id, "alias", "Module"));
+
+  const nsclient::simple_plugins_list::closing c = list_->close_plugin(2);
+  ASSERT_TRUE(static_cast<bool>(c));
+  std::vector<unsigned int> while_closed;
+  list_->do_all([&](nsclient::plugin_type p) { while_closed.push_back(p->get_id()); });
+  EXPECT_EQ(while_closed, (std::vector<unsigned int>{1, 3}));
+
+  c.reopen();
+  std::vector<unsigned int> reopened;
+  list_->do_all([&](nsclient::plugin_type p) { reopened.push_back(p->get_id()); });
+  EXPECT_EQ(reopened, (std::vector<unsigned int>{1, 2, 3}));
+}
+
+// The list, not a round, owns the module: once removed, the remover holds
+// the last reference, so the module is never destroyed on a walking thread.
+TEST_F(SimplePluginsListTest, TheRemoverHoldsTheLastReference) {
+  auto plugin = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  list_->add_plugin(plugin);
+  list_->do_all([](nsclient::plugin_type) {});
+  EXPECT_EQ(remove_from(*list_, 1), removal::removed);
+  EXPECT_EQ(plugin.use_count(), 1);
+}
+
+TEST_F(SimplePluginsListTest, RemoveAllNamesTheModulesARoundIsStillInside) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  list_->add_plugin(plugin1);
+  list_->add_plugin(plugin2);
+
+  std::mutex mu;
+  std::condition_variable cv;
+  bool entered = false;
+  bool released = false;
+  std::thread walk([&]() {
+    list_->do_all([&](nsclient::plugin_type p) {
+      if (p->get_id() != 1) return;
+      std::unique_lock<std::mutex> lock(mu);
+      entered = true;
+      cv.notify_all();
+      cv.wait(lock, [&]() { return released; });
+    });
+  });
+  {
+    std::unique_lock<std::mutex> lock(mu);
+    cv.wait(lock, [&]() { return entered; });
+  }
+  const std::vector<nsclient::plugin_type> stuck = list_->remove_all(std::chrono::milliseconds(0));
+  ASSERT_EQ(stuck.size(), 1u);
+  EXPECT_EQ(stuck[0], plugin1);
+  EXPECT_TRUE(list_->empty());
+  {
+    std::lock_guard<std::mutex> lock(mu);
+    released = true;
+  }
+  cv.notify_all();
+  walk.join();
+}
+
+// A module whose slot cannot be taken out keeps its module: finish() never
+// empties a gate whose slot is still listed.
+TEST_F(SimplePluginsListTest, FinishLeavesAStuckSlotHoldingItsModule) {
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  list_->add_plugin(plugin1);
+  const nsclient::simple_plugins_list::closing c = list_->close_plugin(1);
+  ASSERT_TRUE(static_cast<bool>(c));
+  // Not drained: nothing handed back, the slot stays, closed, with its module.
+  EXPECT_FALSE(c.finish(false));
+  EXPECT_EQ(c.plugin(), plugin1);
+  EXPECT_EQ(list_->to_string(), "Module1");
+  // Drained: out of the list and handed back.
+  EXPECT_EQ(c.finish(true), plugin1);
+  EXPECT_TRUE(list_->empty());
 }
 
 // ============================================================================
@@ -441,7 +661,7 @@ TEST(PluginsListListenersImplTest, RemovePluginLeavesNoStaleId) {
 
   impl.remove_plugin(1);
 
-  for (const auto &entry : impl.listeners_) {
+  for (const auto& entry : impl.listeners_) {
     EXPECT_TRUE(entry.second.count(1) == 0) << "stale id left in channel " << entry.first;
   }
 }

@@ -4,6 +4,8 @@
 #include "dll_plugin.h"
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <chrono>
+#include <cstdint>
 #include <str/xtos.hpp>
 
 #include "../core_api.h"
@@ -65,18 +67,18 @@ nsclient::core::dll_plugin::reload_barrier::reload_barrier(dll_plugin &owner, NS
   owner_.reloading_thread_ = self;
   owner_.reload_raced_ = false;
   held_ = true;
-  const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(5);
-  while (owner_.dispatchers_.size() != owner_.dispatchers_.count(self)) {
-    if (!owner_.dispatch_idle_.timed_wait(lock, deadline)) {
-      // A check has been running for five seconds and is still inside. The
-      // reload cannot be refused - the core purges a module whose load returns
-      // false - and it cannot wait forever without stalling the scheduler that
-      // drives it, so go ahead and record it for the caller to report. The
-      // modules that replace an object on reload publish it atomically for
-      // exactly this remaining window.
-      owner_.reload_raced_ = true;
-      break;
-    }
+  // The cutoff is taken under dispatch_mutex_, which every entry is made
+  // under, so it covers exactly the calls that got in before the door closed.
+  const std::uint64_t cutoff = owner_.dispatchers_.cutoff();
+  lock.unlock();
+  if (!owner_.dispatchers_.wait_for_others_before(cutoff, std::chrono::seconds(5))) {
+    // A check has been running for five seconds and is still inside. The
+    // reload cannot be refused - the core purges a module whose load returns
+    // false - and it cannot wait forever without stalling the scheduler that
+    // drives it, so go ahead and record it for the caller to report. The
+    // modules that replace an object on reload publish it atomically for
+    // exactly this remaining window.
+    owner_.reload_raced_ = true;
   }
 }
 nsclient::core::dll_plugin::reload_barrier::~reload_barrier() {
@@ -88,7 +90,7 @@ nsclient::core::dll_plugin::reload_barrier::~reload_barrier() {
   }
   owner_.dispatch_resumed_.notify_all();
 }
-nsclient::core::dll_plugin::dispatch_lock::dispatch_lock(dll_plugin &owner) : owner_(owner), entered_(false) {
+nsclient::core::dll_plugin::dispatch_lock::dispatch_lock(dll_plugin &owner) : owner_(owner), guard_(owner.dispatchers_) {
   boost::unique_lock<boost::mutex> guard(owner_.dispatch_mutex_);
   // Only the bookkeeping is serialised, never the dispatch itself: two callers
   // arriving at the same module from different transports both go straight in.
@@ -104,23 +106,17 @@ nsclient::core::dll_plugin::dispatch_lock::dispatch_lock(dll_plugin &owner) : ow
   // is one of the calls that unload is waiting for, so the module cannot go
   // away underneath it - and refusing would fail the outer call (a check_multi
   // running its sub-checks) for no gain.
-  if (owner_.unloading_ && owner_.dispatchers_.find(self) == owner_.dispatchers_.end()) return;
-  owner_.dispatchers_.insert(self);
-  entered_ = true;
+  if (owner_.unloading_ && !owner_.dispatchers_.on_this_thread()) return;
+  // Entered under dispatch_mutex_, so an unload or reload that closes the
+  // door afterwards takes a cutoff above this entry and waits for it.
+  guard_.enter();
 }
-nsclient::core::dll_plugin::dispatch_lock::~dispatch_lock() {
-  if (!entered_) return;
-  boost::lock_guard<boost::mutex> guard(owner_.dispatch_mutex_);
-  // Erase one entry, not every entry for this thread: a module that dispatches
-  // into itself nests, and the outer call is still running.
-  const std::multiset<boost::thread::id>::iterator it = owner_.dispatchers_.find(boost::this_thread::get_id());
-  if (it != owner_.dispatchers_.end()) owner_.dispatchers_.erase(it);
-  // Notify on every departure, not only when the set empties: unload and
-  // reload both wait for "nothing left but my own calls", which is reached
-  // with the waiter's own entries still in the set. Waiting for empty meant
-  // that waiter was never woken and always ran out its five seconds.
-  owner_.dispatch_idle_.notify_all();
-}
+// The guard leaves the tracker on its own: one entry, not every entry for
+// this thread, since a module that dispatches into itself nests and the
+// outer call is still running; and it wakes the waiters on every departure,
+// since unload and reload wait for "nothing left but my own calls", which
+// is reached with the waiter's own entries still inside.
+nsclient::core::dll_plugin::dispatch_lock::~dispatch_lock() {}
 
 /**
  * Default d-tor
@@ -191,10 +187,7 @@ void nsclient::core::dll_plugin::load_dll() {
   loadRemoteProcs_();
 }
 
-bool nsclient::core::dll_plugin::is_dispatching_on_this_thread() const {
-  boost::lock_guard<boost::mutex> guard(dispatch_mutex_);
-  return dispatchers_.find(boost::this_thread::get_id()) != dispatchers_.end();
-}
+bool nsclient::core::dll_plugin::is_dispatching_on_this_thread() const { return dispatchers_.on_this_thread(); }
 
 bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
   if ((loaded_ || loading_) && mode != NSCAPI::reloadStart) return true;
@@ -517,16 +510,14 @@ void nsclient::core::dll_plugin::deleteBuffer(char **buffer) {
 void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int len) {
   if (!fHandleMessage) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
   // A log line racing the unload must not call into an instance that
-  // unload_plugin has torn down. Unlike every other entry point this one does
-  // NOT take the shared dispatch lock: simple_console_logger dispatches
-  // subscribers synchronously on the caller's thread, so a module that logs
-  // from inside its own fUnLoadModule would arrive here on the thread already
-  // holding dispatch_mutex_ exclusively and deadlock. The flag is atomic
-  // instead, which orders this read against unload_plugin's write without
-  // making the unload wait on a log callback. That leaves a narrow window --
-  // an unload starting between this check and the call below still tears the
-  // instance down under it -- which closing properly needs a lock this path
-  // can reach without deadlocking.
+  // unload_plugin has torn down. Unlike every other entry point this one is
+  // not tracked as a dispatch: lines arrive from the logger's one delivery
+  // thread, and the race is closed there instead. The plugin manager takes
+  // the module's log subscription and waits until that thread has left the
+  // module before it calls unload_plugin, and refuses, parks or leaves the
+  // module loaded when it does not. This flag is the backstop for an unload
+  // that does not go through the manager - the destructor's - and stops the
+  // lines that have not reached the module yet.
   if (unloaded_) return;
   try {
     fHandleMessage(get_id(), data, len);
@@ -540,28 +531,30 @@ void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int le
  */
 void nsclient::core::dll_plugin::unload_plugin() {
   if (!isLoaded()) return;
+  std::uint64_t cutoff = 0;
   {
-    boost::unique_lock<boost::mutex> lock(dispatch_mutex_);
+    boost::lock_guard<boost::mutex> lock(dispatch_mutex_);
     // Close the door first, then wait for whoever is already inside.
     unloading_ = true;
-    const boost::thread::id self = boost::this_thread::get_id();
-    const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(5);
-    // Wait until the only calls left inside are this thread's own. A handler
-    // unloading the module it is running in is itself one of them, further up
-    // this stack, and can never leave before we return - so waiting for it
-    // would be waiting for ourselves.
-    while (dispatchers_.size() != dispatchers_.count(self)) {
-      if (!dispatch_idle_.timed_wait(lock, deadline)) {
-        // Other threads are still executing inside the module and did not come
-        // back within the wait. Tearing it down now is precisely the race this
-        // count exists to prevent, so leave it loaded and serving: leaking a
-        // module is much cheaper than calling into one whose instance has been
-        // destroyed.
-        unloading_ = false;
-        leaked_ = true;
-        throw plugin_exception(get_alias_or_name(), "Refused to unload: calls into the module were still in flight after 5s");
-      }
+    cutoff = dispatchers_.cutoff();
+  }
+  // Wait until the only calls left inside are this thread's own. A handler
+  // unloading the module it is running in is itself one of them, further up
+  // this stack, and can never leave before we return - so waiting for it
+  // would be waiting for ourselves; the tracker never waits for the caller's
+  // own entries.
+  if (!dispatchers_.wait_for_others_before(cutoff, std::chrono::seconds(5))) {
+    // Other threads are still executing inside the module and did not come
+    // back within the wait. Tearing it down now is precisely the race this
+    // count exists to prevent, so leave it loaded and serving: leaking a
+    // module is much cheaper than calling into one whose instance has been
+    // destroyed.
+    {
+      boost::lock_guard<boost::mutex> lock(dispatch_mutex_);
+      unloading_ = false;
     }
+    leaked_ = true;
+    throw plugin_exception(get_alias_or_name(), "Refused to unload: calls into the module were still in flight after 5s");
   }
   // Only call into the DSO while a module instance can exist there (fLoadModule
   // was invoked — even unsuccessfully — and unload has not run yet). A second

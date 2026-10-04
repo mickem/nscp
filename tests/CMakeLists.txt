@@ -131,7 +131,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
-        ${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface_impl_test.cpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_impl_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
@@ -600,6 +599,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/threads/concurrent_queue_test.cpp
         ${NSCP_INCLUDEDIR}/threads/scoped_thread_group_test.cpp
         ${NSCP_INCLUDEDIR}/threads/guarded_thread_test.cpp
+        ${NSCP_INCLUDEDIR}/threads/in_flight_test.cpp
         ${NSCP_INCLUDEDIR}/threads/stop_signal_test.cpp
         ${THREADS_TEST_PLATFORM_SOURCES}
     LIBRARIES
