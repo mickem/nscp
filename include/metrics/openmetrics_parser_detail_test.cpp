@@ -61,6 +61,27 @@ TEST(OpenmetricsParserDetail, NulIsInNoClass) {
   }
 }
 
+TEST(OpenmetricsParserDetail, CharAtIsNulPastTheEnd) {
+  const std::string_view abc("abc");
+  EXPECT_EQ(omd::char_at(abc, 0), 'a');
+  EXPECT_EQ(omd::char_at(abc, 2), 'c');
+  EXPECT_EQ(omd::char_at(abc, 3), '\0');
+  EXPECT_EQ(omd::char_at(abc, 4), '\0');
+  EXPECT_EQ(omd::char_at(std::string_view(), 0), '\0');
+  // A view into a longer string ends where the view does, not the string.
+  const std::string backing = "abcdef";
+  EXPECT_EQ(omd::char_at(std::string_view(backing).substr(0, 3), 3), '\0');
+}
+
+TEST(OpenmetricsParserDetail, AsciiLowerFoldsOnlyTheUpperCaseLetters) {
+  for (int i = 0; i < 256; ++i) {
+    const char c = static_cast<char>(i);
+    const std::size_t at = upper.find(c);
+    const char expected = at == std::string::npos ? c : lower.at(at);
+    EXPECT_EQ(omd::ascii_lower(c), expected) << "byte " << i;
+  }
+}
+
 TEST(OpenmetricsParserDetail, EndsWithNeedsSomethingBeforeTheSuffix) {
   EXPECT_TRUE(omd::ends_with("abc", "bc"));
   EXPECT_TRUE(omd::ends_with("abc", ""));

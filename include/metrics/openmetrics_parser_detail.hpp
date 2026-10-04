@@ -25,6 +25,10 @@ bool is_name_start(char c);
 bool is_name_char(char c);
 bool is_label_start(char c);
 bool is_label_char(char c);
+// The byte at `i`, or `\0` past the end.
+char char_at(std::string_view text, std::size_t i);
+// ASCII-only case folding.
+char ascii_lower(char c);
 
 // Whether `value` is longer than `suffix` and ends with it.
 bool ends_with(std::string_view value, std::string_view suffix);

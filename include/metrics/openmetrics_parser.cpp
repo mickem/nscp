@@ -7,6 +7,7 @@
 #include <array>
 #include <clocale>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
@@ -47,6 +48,13 @@ bool is_name_char(const char c) { return is_name_start(c) || is_digit(c); }
 bool is_label_start(const char c) { return is_alpha(c) || c == '_'; }
 bool is_label_char(const char c) { return is_label_start(c) || is_digit(c); }
 
+// The byte at `i`, or `\0` past the end - which no character class accepts,
+// so a scan can test the next byte without checking the length first.
+char char_at(const std::string_view text, const std::size_t i) { return i < text.size() ? text[i] : '\0'; }
+
+// ASCII-only case folding: a byte outside `A`-`Z` is left alone.
+char ascii_lower(const char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; }
+
 bool ends_with(const std::string_view value, const std::string_view suffix) {
   return value.size() > suffix.size() && value.substr(value.size() - suffix.size()) == suffix;
 }
@@ -81,9 +89,7 @@ bool equals_word(const std::string_view raw, const char *word) {
   const std::size_t length = std::strlen(word);
   if (raw.size() != length) return false;
   for (std::size_t i = 0; i < length; ++i) {
-    char c = raw[i];
-    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-    if (c != word[i]) return false;
+    if (ascii_lower(raw[i]) != word[i]) return false;
   }
   return true;
 }
@@ -116,25 +122,25 @@ struct cursor {
 // `[+-]? (digits [. digits?] | . digits) ([eE] [+-]? digits)?`
 bool is_decimal(const std::string_view raw) {
   std::size_t i = 0;
-  if (i < raw.size() && (raw[i] == '+' || raw[i] == '-')) ++i;
+  if (char_at(raw, i) == '+' || char_at(raw, i) == '-') ++i;
   std::size_t digits = 0;
-  while (i < raw.size() && is_digit(raw[i])) {
+  while (is_digit(char_at(raw, i))) {
     ++i;
     ++digits;
   }
-  if (i < raw.size() && raw[i] == '.') {
+  if (char_at(raw, i) == '.') {
     ++i;
-    while (i < raw.size() && is_digit(raw[i])) {
+    while (is_digit(char_at(raw, i))) {
       ++i;
       ++digits;
     }
   }
   if (digits == 0) return false;
-  if (i < raw.size() && (raw[i] == 'e' || raw[i] == 'E')) {
+  if (char_at(raw, i) == 'e' || char_at(raw, i) == 'E') {
     ++i;
-    if (i < raw.size() && (raw[i] == '+' || raw[i] == '-')) ++i;
+    if (char_at(raw, i) == '+' || char_at(raw, i) == '-') ++i;
     std::size_t exponent = 0;
-    while (i < raw.size() && is_digit(raw[i])) {
+    while (is_digit(char_at(raw, i))) {
       ++i;
       ++exponent;
     }
@@ -146,12 +152,10 @@ bool is_decimal(const std::string_view raw) {
 // `[+-]? digits`
 bool is_integer(const std::string_view raw) {
   std::size_t i = 0;
-  if (i < raw.size() && (raw[i] == '+' || raw[i] == '-')) ++i;
+  if (char_at(raw, i) == '+' || char_at(raw, i) == '-') ++i;
   if (i == raw.size()) return false;
-  for (; i < raw.size(); ++i) {
-    if (!is_digit(raw[i])) return false;
-  }
-  return true;
+  while (is_digit(char_at(raw, i))) ++i;
+  return i == raw.size();
 }
 
 // `strtod` against the "C" locale, whatever the process locale is: the token
@@ -301,9 +305,9 @@ std::string unescape_help(const std::string_view raw) {
   std::string ret;
   ret.reserve(raw.size());
   for (std::size_t i = 0; i < raw.size(); ++i) {
-    const char c = raw[i];
-    if (c == '\\' && i + 1 < raw.size()) {
-      const char next = raw[i + 1];
+    const char c = char_at(raw, i);
+    if (c == '\\') {
+      const char next = char_at(raw, i + 1);
       if (next == '\\' || next == '"') {
         ret += next;
         ++i;
@@ -431,20 +435,11 @@ class parser {
     // second document glued on or a proxy appending to the body, and neither
     // belongs in this scrape.
     if (out_.saw_eof) return fail("text after '# EOF'");
-    switch (shape.what) {
-      case line_kind::eof:
-        out_.saw_eof = true;
-        return true;
-      case line_kind::eof_with_text:
-        return fail("unexpected text after '# EOF'");
-      case line_kind::metadata:
-        return metadata_line(text, shape);
-      case line_kind::sample:
-        return sample_line(text, shape);
-      case line_kind::blank:
-      case line_kind::comment:
-        break;
-    }
+    if (shape.what == line_kind::metadata) return metadata_line(text, shape);
+    if (shape.what == line_kind::sample) return sample_line(text, shape);
+    if (shape.what == line_kind::eof_with_text) return fail("unexpected text after '# EOF'");
+    if (shape.what == line_kind::eof) out_.saw_eof = true;
+    // `# EOF`, or a comment.
     return true;
   }
 
@@ -470,15 +465,12 @@ class parser {
       invariant_broken("a repeated name's block was still open at '# EOF'");
       current_block_failed_ = true;
     }
-    if (current_ == npos || current_ + 1 != out_.families.size() || !out_.families[current_].samples.empty()) return;
-    family_state &seen = state_[current_];
-    if (current_block_failed_ || (seen.tentative && !seen.type)) {
-      drop_current();
-      return;
-    }
-    // A repeated name that declared a type its earlier family can pair with,
-    // with the body ending before its sample: read as declared.
-    seen.tentative = false;
+    if (current_ == npos) return;
+    if (!out_.families[current_].samples.empty()) return;
+    // Otherwise a repeated name that declared a type its earlier family can
+    // pair with, with the body ending before its sample, is read as declared.
+    const family_state &seen = state_[current_];
+    if (current_block_failed_ || (seen.tentative && !seen.type)) drop_current();
   }
 
  private:
@@ -527,9 +519,9 @@ class parser {
       case line_kind::metadata:
         return shape.whole_name && shape.name == out_.families[current_].name;
       case line_kind::sample:
-        return state_[current_].type && !shape.name.empty() && owns(current_, shape.name);
+        break;
     }
-    return false;
+    return state_[current_].type && !shape.name.empty() && owns(current_, shape.name);
   }
 
   // What a line is - its kind, and the keyword and name it starts with - read
@@ -683,7 +675,8 @@ class parser {
     match ret;
     for (const char *suffix : sample_suffixes) {
       const std::string_view tail(suffix);
-      if (!tail.empty() && !ends_with(name, tail)) continue;
+      // `ends_with` takes the empty suffix too, for any name but an empty one.
+      if (!ends_with(name, tail)) continue;
       const name_index::const_iterator it = families_by_name_.find(name.substr(0, name.size() - tail.size()));
       if (it == families_by_name_.end()) continue;
       for (const std::size_t at : {it->second.first, it->second.second}) {
@@ -724,17 +717,14 @@ class parser {
     return at;
   }
 
-  // Only ever the last family: one without samples, which nothing switches
-  // back to.
+  // Takes the family being read out of the result, once the parse is over -
+  // so the name index, which nothing reads again, is left as it is. That
+  // family is the last one in practice (one without samples, which nothing
+  // switches back to), but it is taken out by its position, which holds
+  // whether or not it is.
   void drop_current() {
-    const name_index::iterator it = families_by_name_.find(out_.families[current_].name);
-    if (it->second.second == current_) {
-      it->second.second = npos;
-    } else {
-      families_by_name_.erase(it);
-    }
-    out_.families.pop_back();
-    state_.pop_back();
+    out_.families.erase(out_.families.begin() + static_cast<std::ptrdiff_t>(current_));
+    state_.erase(state_.begin() + static_cast<std::ptrdiff_t>(current_));
     current_ = npos;
   }
 
@@ -899,7 +889,6 @@ class parser {
   // and nothing else: no state survives into the next sample, and no hash an
   // exporter could choose names to collide in.
   bool unique_labels(const sample &parsed) {
-    if (names_seen_.size() < 2) return true;
     std::sort(names_seen_.begin(), names_seen_.end());
     const std::vector<std::string_view>::const_iterator repeated = std::adjacent_find(names_seen_.begin(), names_seen_.end());
     if (repeated == names_seen_.end()) return true;
@@ -920,7 +909,7 @@ class parser {
         return true;
       }
       ++c.at;
-      if (c.done()) return false;
+      // A backslash that ends the line reads as `\0`, which is no escape.
       const char escaped = c.peek();
       if (escaped == '\\' || escaped == '"') {
         out += escaped;
@@ -962,9 +951,7 @@ class parser {
 
 format format_for_content_type(const std::string &content_type) {
   std::string lowered = content_type;
-  for (char &c : lowered) {
-    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-  }
+  for (char &c : lowered) c = ascii_lower(c);
   if (lowered.find("application/openmetrics-text") != std::string::npos) return format::openmetrics_1_0;
   return format::prometheus_text_0_0_4;
 }
