@@ -111,34 +111,34 @@ have no such escape hatch: there is nothing to point them at but the images.
 
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
-| File                                    | Notes                                                                                        |
-| --------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `tests/checksystem-commands.test.ts`    | CheckSystem check commands, both OSes                                                        |
-| `tests/checknet-commands.test.ts`       | CheckNet tcp/ssh/http/dns/web checks                                                         |
-| `tests/checkdisk-commands.test.ts`      | CheckDisk drive/IO checks, both OSes                                                         |
-| `tests/checkdisk-unix.test.ts`          | CheckDisk file/drive checks (Linux)                                                          |
-| `tests/checkmssql-commands.test.ts`     | CheckMSSQL contract tests (Windows); a docker-gated block adds live SQL Server 2022 coverage |
-| `tests/metrics-realtime.test.ts`        | Metrics + real-time filters, both OSes                                                       |
-| `tests/rest-aliases-v2.test.ts`         | CheckHelpers alias listing                                                                   |
-| `tests/rest-api-discovery.test.ts`      | `/api`, `/api/v1`, `/api/v2`, isalive                                                        |
-| `tests/rest-auth.test.ts`               | Login + all auth schemes                                                                     |
-| `tests/rest-events.test.ts`             | events_controller GET / DELETE                                                               |
-| `tests/rest-index.test.ts`              | StaticController fallback                                                                    |
-| `tests/rest-info.test.ts`               | `/api/v2/info` shape                                                                         |
-| `tests/rest-legacy-auth-icinga.test.ts` | Icinga UA-allowlisted query auth                                                             |
-| `tests/rest-legacy-query.test.ts`       | Pre-v1 `/query/<cmd>` endpoint                                                               |
-| `tests/rest-log.test.ts`                | logs CRUD + `/logs/since`                                                                    |
-| `tests/rest-metadata.test.ts`           | metadata_controller                                                                          |
-| `tests/rest-modules-v1.test.ts`         | modules lifecycle (v1)                                                                       |
-| `tests/rest-modules-v2.test.ts`         | modules lifecycle (v2)                                                                       |
-| `tests/rest-permissions.test.ts`        | Role gating on `/modules`                                                                    |
-| `tests/rest-queries-v1.test.ts`         | queries × execute × json/nagios/text                                                         |
-| `tests/rest-queries-v2.test.ts`         | queries v2 of the above                                                                      |
-| `tests/rest-settings.test.ts`           | settings GET / PUT / DELETE                                                                  |
-| `tests/pythonscript-api.test.ts`        | Every documented PythonScript API, `/api/v2/scripts/py`, the `nscp py` verbs and `sample.py` |
+| File                                    | Notes                                                                                              |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `tests/checksystem-commands.test.ts`    | CheckSystem check commands, both OSes                                                              |
+| `tests/checknet-commands.test.ts`       | CheckNet tcp/ssh/http/dns/web checks                                                               |
+| `tests/checkdisk-commands.test.ts`      | CheckDisk drive/IO checks, both OSes                                                               |
+| `tests/checkdisk-unix.test.ts`          | CheckDisk file/drive checks (Linux)                                                                |
+| `tests/checkmssql-commands.test.ts`     | CheckMSSQL contract tests (Windows); a docker-gated block adds live SQL Server 2022 coverage       |
+| `tests/metrics-realtime.test.ts`        | Metrics + real-time filters, both OSes                                                             |
+| `tests/rest-aliases-v2.test.ts`         | CheckHelpers alias listing                                                                         |
+| `tests/rest-api-discovery.test.ts`      | `/api`, `/api/v1`, `/api/v2`, isalive                                                              |
+| `tests/rest-auth.test.ts`               | Login + all auth schemes                                                                           |
+| `tests/rest-events.test.ts`             | events_controller GET / DELETE                                                                     |
+| `tests/rest-index.test.ts`              | StaticController fallback                                                                          |
+| `tests/rest-info.test.ts`               | `/api/v2/info` shape                                                                               |
+| `tests/rest-legacy-auth-icinga.test.ts` | Icinga UA-allowlisted query auth                                                                   |
+| `tests/rest-legacy-query.test.ts`       | Pre-v1 `/query/<cmd>` endpoint                                                                     |
+| `tests/rest-log.test.ts`                | logs CRUD + `/logs/since`                                                                          |
+| `tests/rest-metadata.test.ts`           | metadata_controller                                                                                |
+| `tests/rest-modules-v1.test.ts`         | modules lifecycle (v1)                                                                             |
+| `tests/rest-modules-v2.test.ts`         | modules lifecycle (v2)                                                                             |
+| `tests/rest-permissions.test.ts`        | Role gating on `/modules`                                                                          |
+| `tests/rest-queries-v1.test.ts`         | queries × execute × json/nagios/text                                                               |
+| `tests/rest-queries-v2.test.ts`         | queries v2 of the above                                                                            |
+| `tests/rest-settings.test.ts`           | settings GET / PUT / DELETE                                                                        |
+| `tests/pythonscript-api.test.ts`        | Every documented PythonScript API, `/api/v2/scripts/py`, the `nscp py` verbs and `sample.py`       |
 | `tests/luascript-api.test.ts`           | Every documented LUAScript API, `/api/v2/scripts/lua`, the `nscp lua` verbs and the lua.md example |
-| `tests/scripting-unit-python.test.ts`   | `scripts/python/test_*.py` through `nscp unit`; replaces `acceptance-tests.sh` / `.bat`      |
-| `tests/scripting-unit-lua.test.ts`      | `nscp unit --language lua` with `${scripts}` off the install base, `--case`, `--show-all`    |
+| `tests/scripting-unit-python.test.ts`   | `scripts/python/test_*.py` through `nscp unit`; replaces `acceptance-tests.sh` / `.bat`            |
+| `tests/scripting-unit-lua.test.ts`      | `nscp unit --language lua` with `${scripts}` off the install base, `--case`, `--show-all`          |
 
 The Checkmk end-to-end test (`check_mk-site.test.ts`) pulls a ~500MB image and is also gated by `RUN_CMK_SITE_TEST=1`
 (must be set _and_ docker must not be skipped).
@@ -189,6 +189,39 @@ scripts on this branch against whatever `NSCP_BIN` is. The Lua scripts are also 
 `tests/CMakeLists.txt`), which is how the sanitizer job runs them.
 
 The MSI tests (`tests/msi/`) stay Windows-only and are not part of this harness.
+
+## Stress tests (opt-in)
+
+`tests/stress/*.stress.ts` is a second Jest config (`jest.stress.config.js`, `npm run test:stress`) that is never part
+of `npm test`. It replaces `scripts/python/test_stress.py` and the scheduler-throughput half of `test_python.py`. Every
+scenario is loopback inside one agent, so it runs on the Windows and macOS runners as well, and each one passes or fails
+on the same invariants (`stress/lib/invariants.ts`) while recording throughput, latency percentiles and one RSS/thread
+sample per second into `stress/results/<scenario>.json` (git-ignored; uploaded as a CI artifact):
+
+- zero failed requests and zero lost submissions;
+- the agent answers `check_ok` within 2 s after the load stops;
+- RSS at the end of the load within 20 % of RSS after warm-up, thread count flat (the leak canary);
+- the log has no `terminated by an uncaught exception` and no `Failed to` lines.
+
+Throughput is recorded, never asserted; a baseline file with regression bars comes once a few runs exist.
+
+| File                              | Load                                                                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stress/rest-flood.stress.ts`     | N parallel workers (undici) on `check_ok`, a collector-backed `check_cpu` and `/api/v2/metrics`; the WEBServer threads and the dispatch path               |
+| `stress/scheduler-load.stress.ts` | 1000 schedules at 5 s on a 50-thread pool into the REST passive result cache, drained once a second; delivered beats against expected, every schedule seen |
+
+Knobs, all environment variables: `NSCP_STRESS_DURATION` (seconds, default 60), `NSCP_STRESS_CONCURRENCY` (32),
+`NSCP_STRESS_RPS` (0 = unbounded), `NSCP_STRESS_RSS_TOLERANCE` (percent, 20) and `NSCP_STRESS_SCHEDULES` (1000). A soak
+is the same scenario with `NSCP_STRESS_DURATION=1800`.
+
+```sh
+NSCP_BIN=/abs/path/to/nscp npm run test:stress
+NSCP_STRESS_DURATION=300 npx jest --config jest.stress.config.js --runInBand rest-flood
+```
+
+The sanitizer workflow (`.github/workflows/tests-sanitizers.yml`) runs `rest-flood` and `scheduler-load` for a minute
+each against the ASan/UBSan build after ctest, with the RSS tolerance widened to 50 % for ASan's quarantine; a
+sanitizer report on the agent's shutdown fails the run through `NscpInstance.stop()` as in every other suite.
 
 ## How the fixtures work
 

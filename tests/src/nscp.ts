@@ -451,6 +451,14 @@ export class NscpInstance {
     }
   }
 
+  /**
+   * OS process id of the running `nscp test`, or undefined when it is not
+   * running. The stress harness samples the agent's RSS and thread count by it.
+   */
+  get pid(): number | undefined {
+    return this.proc?.pid;
+  }
+
   /** Collected stdout from the running `nscp test` process so far. */
   capturedStdout(): string {
     return this.stdoutBuf;
