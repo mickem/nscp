@@ -60,4 +60,19 @@ std::wstring quote_argv_w(const std::wstring& arg);
 // CreateProcess does not re-tokenise the first whitespace-bounded prefix.
 std::wstring build_command_line_w(const std::vector<std::string>& argv);
 
+// True when `program` names a Windows batch file (.bat or .cmd), case
+// insensitively, ignoring any surrounding quotes.
+//
+// This is not cosmetic. CreateProcess cannot execute a batch file: given one it
+// re-launches `cmd.exe /c <command line>`, and cmd.exe then parses that line by
+// its own rules - which are not CommandLineToArgvW's. So for a batch target the
+// argv isolation above buys much less than it looks: `%VAR%` still expands from
+// the service environment, `^` still escapes, and a CR or LF inside an argument
+// ends the statement so the rest is parsed as a fresh command, with no quote
+// breakout needed. (This is the mechanism behind the BatBadBut class of
+// vulnerabilities, CVE-2024-24576 and friends.) Callers that let a remote
+// caller supply argument values must therefore hold those values to the
+// stricter shell rules when this returns true.
+bool is_batch_target(const std::string& program);
+
 }  // namespace process
