@@ -566,8 +566,9 @@ Gathered:
           type: fixed
 ```
 
-`facts <path>` shows one subtree (`facts storage.volumes`), and `facts refresh`
-collects now. Over REST the same document is `GET /api/v2/facts` (see
+`facts <path>` shows one subtree (`facts storage.volumes`), `facts refresh`
+collects now, and `facts list` shows every set the loaded modules can produce,
+whether it is on and which section turns it on. Over REST the same document is `GET /api/v2/facts` (see
 [Facts](../api/rest/facts.md)), and the web UI shows it on the Facts page.
 
 ---

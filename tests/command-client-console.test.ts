@@ -383,9 +383,34 @@ describe("nscp test console", () => {
     expect(out).toMatch(/no facts collected/);
   });
 
+  it("lists the fact sets the loaded modules can produce, all off by default", async () => {
+    await nscp.configure({ "/modules": { CheckHelpers: "enabled", CheckDisk: "enabled" } });
+    const out = await runConsole("facts list\nexit\n");
+    expect(out).toMatch(/SET\s+STATE\s+PRODUCER\s+SECTION/);
+    // CheckDisk registers its switch in its own settings, and the core
+    // registers `agent` in [/settings/facts]; neither is on until an operator
+    // turns it on.
+    expect(out).toMatch(/storage\.volumes\s+disabled\s+CheckDisk\s+\/settings\/disk\/facts/);
+    expect(out).toMatch(/agent\s+disabled\s+core\s+\/settings\/facts/);
+    // The core's pacing keys sit in the same section but are not sets.
+    expect(out).not.toMatch(/^interval\s/m);
+  });
+
+  it("reads a switch turned on in the configuration", async () => {
+    await nscp.configure({
+      "/modules": { CheckHelpers: "enabled", CheckDisk: "enabled" },
+      "/settings/disk/facts": { "storage.volumes": "true" },
+    });
+    // A typed command can run before the startup round has claimed the set,
+    // which is what "reload to start" says; a manual round settles it.
+    const out = await runConsole("facts refresh\nfacts list\nexit\n");
+    expect(out).toMatch(/storage\.volumes\s+enabled\s+CheckDisk/);
+    expect(out).toMatch(/agent\s+disabled\s+core/);
+  });
+
   it("offers facts in the built-in help", async () => {
     const out = await runConsole("help\nexit\n");
-    expect(out).toMatch(/facts \[path\|refresh\]/);
+    expect(out).toMatch(/facts \[path\|refresh\|list\]/);
   });
 
   it("exits on the exit command instead of running to the timeout", async () => {

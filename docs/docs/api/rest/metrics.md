@@ -21,6 +21,13 @@ role](../../setup/web-interface.md#built-in-roles) holds both and nothing
 else, which is what a scraper wants; `monitoring` holds them alongside
 `queries.execute`.
 
+Both endpoints answer with an `ETag`, a hash of the body, and
+`Cache-Control: private, no-cache`. A client that sends the tag back in
+`If-None-Match` gets `304 Not Modified` with no body while the store has not
+changed — useful for a dashboard that polls faster than the collectors
+refresh (about once a second). `/api/v2/openmetrics` also sends
+`Vary: Accept`, since the body depends on the negotiated format.
+
 ## List metrics
 
 Returns a flat dictionary mapping a dotted path (e.g.

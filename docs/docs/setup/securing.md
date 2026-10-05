@@ -238,10 +238,11 @@ Options:
     * `metrics` — `public, metrics.list, openmetrics.list, login.get`. Reads `/api/v2/metrics` and
       `/api/v2/openmetrics` and nothing else: the role for a Prometheus scraper, which needs no ability to run checks.
       See the [Prometheus scenario](../scenarios/prometheus.md).
-    * `monitoring` — `public, queries.execute, aliases.list, login.get, metrics.list, openmetrics.list`. Recommended
-      for monitoring servers that need to pass arguments (thresholds, drives, service names) in the request, and that
-      also scrape metrics. Where they don't pass arguments, `restricted` above is the tighter choice — it is the same
-      role with arguments refused; where they only scrape, `metrics` is.
+    * `monitoring` — `public, queries.execute, aliases.list, login.get, metrics.list, openmetrics.list, facts.get`.
+      Recommended for monitoring servers that need to pass arguments (thresholds, drives, service names) in the
+      request, and that also scrape metrics and read the [facts](../api/rest/facts.md) inventory. Where they don't
+      pass arguments, `restricted` above is the tighter choice — it runs the same checks with arguments refused;
+      where they only scrape, `metrics` is.
     * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
     * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
     * `legacy` — `legacy,login.get`. **Dangerous — do not use for normal clients.** It unlocks the deprecated
@@ -871,8 +872,8 @@ password = <hash>
 ```
 
 The `monitoring` role is registered by the WEB module at startup and grants only
-`public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list` — enough for a monitoring server to log
-in, run queries and scrape metrics, and nothing else. No `settings.*`, no `modules.*`, no `scripts.*`. If you need more
+`public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get` — enough for a monitoring
+server to log in, run queries, scrape metrics and read the facts inventory, and nothing else. No `settings.*`, no `modules.*`, no `scripts.*`. If you need more
 (e.g. the legacy `check_nscp_api` integration that lists queries), prefer the `client` role over `full`. If you need
 *less*, the `restricted` role (`public,queries.execute.noargs,aliases.list,login.get`) runs the same checks but refuses
 any request carrying arguments, and the `metrics` role (`public,metrics.list,openmetrics.list,login.get`) only reads

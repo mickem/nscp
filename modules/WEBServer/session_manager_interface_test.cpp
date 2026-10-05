@@ -261,7 +261,7 @@ TEST(SessionManagerMetricsRole, MetricsGrantsAreWhatTheEndpointsAskFor) {
   smi.add_user("scraper", "metrics", "password");
   smi.add_grant("metrics", "public,metrics.list,openmetrics.list,login.get");
   smi.add_user("monitor", "monitoring", "password");
-  smi.add_grant("monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list");
+  smi.add_grant("monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get");
 
   Mongoose::StreamResponse stale;
   smi.store_user_in_response("stale", stale);

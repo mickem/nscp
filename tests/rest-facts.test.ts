@@ -518,6 +518,33 @@ describe("REST facts with no set enabled", () => {
         expect(response.body.revision).toEqual(0);
       });
   });
+
+  it("answers a client that already holds the document with a 304", async () => {
+    const get = (etag?: string) => {
+      const call = request(REST_URL)
+        .get("/api/v2/facts")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true);
+      return etag ? call.set("If-None-Match", etag) : call;
+    };
+    // The startup round can land between two reads and move `collected`, so
+    // wait until two reads in a row agree before revalidating against them.
+    let etag = (await get().expect(200)).headers.etag;
+    const deadline = Date.now() + 60_000;
+    for (;;) {
+      const next = (await get().expect(200)).headers.etag;
+      if (next === etag || Date.now() > deadline) break;
+      etag = next;
+    }
+    expect(etag).toMatch(/^"[0-9a-f]{16}"$/);
+
+    const unchanged = await get(etag).expect(304);
+    expect(unchanged.text ?? "").toEqual("");
+    expect(unchanged.headers.etag).toEqual(etag);
+    // A weak comparison: a client (or a proxy) may hand the tag back as W/.
+    await get(`W/${etag}`).expect(304);
+    await get('"0000000000000000"').expect(200);
+  });
 });
 
 /**

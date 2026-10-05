@@ -54,6 +54,10 @@ from the document — there is nothing to clean up.
 | Address   | /api/v2/facts    |
 | Privilege | facts.get        |
 
+`facts.get` is held by the built-in `full` role and, on a fresh install, by
+`monitoring`: a monitoring server builds its checks from what the host has.
+`client`, `metrics` and `restricted` do not carry it.
+
 ### Request
 
 ```
@@ -152,6 +156,22 @@ inventory:
 
 The bundled web UI marks such a set **stale** and keeps showing its values.
 
+### Polling: `ETag` and `304`
+
+Every answer carries an `ETag`, a hash of the body, and
+`Cache-Control: private, no-cache`. Send the tag back in `If-None-Match` and,
+while nothing changed, the answer is `304 Not Modified` with no body:
+
+```
+GET /api/v2/facts
+If-None-Match: "3f9c0a51d2b7e604"
+```
+
+The tag covers the whole body, so it moves when `collected` does as well as
+when the document does; compare `revision` to tell a new round from a new
+inventory. A browser revalidates on its own, which is what keeps the web UI's
+polling cheap.
+
 ## Collect now
 
 Asks every loaded producer to collect immediately instead of waiting for the
@@ -182,6 +202,7 @@ being able to drive collection in a loop.
 The same document is available without HTTP:
 
 * `nscp test` has a `facts` command (`facts`, `facts os.family`,
-  `facts refresh`) — see [Test mode](../../concepts/test-mode.md).
+  `facts refresh`, and `facts list` for the sets that can be turned on) —
+  see [Test mode](../../concepts/test-mode.md).
 * The bundled web UI has a **Facts** page, one card per set, with a refresh
   button that drives the endpoint above.

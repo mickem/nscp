@@ -3,8 +3,12 @@
 
 #pragma once
 
+#include <algorithm>
+#include <map>
 #include <nscapi/protobuf/facts.hpp>
+#include <set>
 #include <string>
+#include <vector>
 
 // Rendering the host inventory for the `nscp test` prompt.
 //
@@ -146,6 +150,96 @@ inline std::string render_facts(const std::string &body, const std::string &path
     if (!facts.has_object_value() && !facts.has_list_value()) out += " ";
   }
   facts_detail::render_value(facts, "  ", out);
+  return out;
+}
+
+// One fact-set switch as the settings registry describes it: a bool key in a
+// section called `facts`, registered by the module that produces the set (or
+// by the core, for `agent`). The key is the set's own dotted id.
+struct fact_set_switch {
+  std::string id;
+  std::string producer;  // the registering module, empty for the core
+  std::string section;   // e.g. /settings/system/unix/facts
+  bool configured = false;
+};
+
+// `facts list`: every set this agent can produce, whether the configuration
+// turns it on, and whether the core's last round agrees.
+//
+// The two can differ, and that is the line worth reading: a switch takes
+// effect when the module re-reads its configuration, so a set switched on in
+// the file but not reloaded yet is not being collected, and one switched off
+// is still in the document until then. `facts_body` is what
+// core_wrapper::get_facts() returned; empty or unreadable, the column falls
+// back to the configuration alone.
+inline std::string render_fact_sets(std::vector<fact_set_switch> sets, const std::string &facts_body) {
+  if (sets.empty()) {
+    return "No module that produces facts is loaded. Fact sets come from CheckSystem, CheckDisk, CheckDocker, CheckTaskSched and others; load one "
+           "and run `facts list` again.";
+  }
+
+  std::set<std::string> claimed;
+  std::map<std::string, std::string> errors;
+  bool have_round = false;
+  PB::Facts::FactsResponseMessage message;
+  if (!facts_body.empty() && message.ParseFromString(facts_body) && message.payload_size() > 0 &&
+      message.payload(0).result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) {
+    have_round = true;
+    for (const std::string &id : message.payload(0).enabled()) claimed.insert(id);
+    for (const PB::Common::KeyValue &error : message.payload(0).errors()) errors[error.key()] = error.value();
+  }
+
+  // Grouped by producer, the way the web UI's Facts page groups them, and by
+  // id within one so the list reads the same on every run.
+  std::sort(sets.begin(), sets.end(), [](const fact_set_switch &a, const fact_set_switch &b) {
+    if (a.producer != b.producer) return a.producer < b.producer;
+    return a.id < b.id;
+  });
+
+  // The core reports the top-level sets it holds (`storage`, `docker`), and a
+  // switch is that set or a part of it (`storage.volumes`, `docker.images`),
+  // so a switch is matched through the set it belongs to. Sibling switches
+  // share that set, which is why "reload to stop" needs every sibling off.
+  const auto top_level = [](const std::string &id) { return id.substr(0, id.find('.')); };
+  std::set<std::string> configured_sets;
+  for (const fact_set_switch &set : sets) {
+    if (set.configured) configured_sets.insert(top_level(set.id));
+  }
+
+  std::vector<std::vector<std::string>> rows;
+  rows.push_back({"SET", "STATE", "PRODUCER", "SECTION"});
+  for (const fact_set_switch &set : sets) {
+    const std::string owner = top_level(set.id);
+    const bool collecting = claimed.count(owner) > 0;
+    std::string state;
+    if (!have_round) {
+      state = set.configured ? "enabled" : "disabled";
+    } else if (set.configured && collecting) {
+      const std::map<std::string, std::string>::const_iterator error = errors.find(errors.count(set.id) > 0 ? set.id : owner);
+      state = error != errors.end() ? "enabled, failing: " + error->second : "enabled";
+    } else if (set.configured) {
+      state = "enabled (reload to start)";
+    } else if (collecting && configured_sets.count(owner) == 0) {
+      state = "disabled (reload to stop)";
+    } else {
+      state = "disabled";
+    }
+    rows.push_back({set.id, state, set.producer.empty() ? std::string("core") : set.producer, set.section});
+  }
+
+  // Aligned columns, two spaces apart; the last column is not padded.
+  std::vector<std::size_t> widths(4, 0);
+  for (const std::vector<std::string> &row : rows) {
+    for (std::size_t i = 0; i < row.size(); ++i) widths[i] = std::max(widths[i], row[i].size());
+  }
+  std::string out;
+  for (const std::vector<std::string> &row : rows) {
+    if (!out.empty()) out += "\n";
+    for (std::size_t i = 0; i < row.size(); ++i) {
+      out += row[i];
+      if (i + 1 < row.size()) out += std::string(widths[i] - row[i].size() + 2, ' ');
+    }
+  }
   return out;
 }
 

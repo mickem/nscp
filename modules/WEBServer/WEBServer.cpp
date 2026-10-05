@@ -396,8 +396,11 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // dot-separated segment (grant_store::validate_grants), so `metrics.get`
   // matched neither. A monitoring server is expected to scrape, so the role
   // now carries the two grants that actually do it.
-  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list",
-              "checks, queries and metrics");
+  // `facts.get` reads the inventory a monitoring server builds its checks from
+  // (which volumes, interfaces and services the host has). It does not carry
+  // `facts.refresh`, which makes every producer collect at once.
+  ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.list,openmetrics.list,facts.get",
+              "checks, queries, metrics and facts");
   // `queries.execute.noargs` runs a query only when the request carries no
   // arguments at all - the REST twin of the NRPE server's
   // `allow arguments = false`. The caller can run the checks the agent
