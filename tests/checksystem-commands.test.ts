@@ -325,6 +325,24 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(msg).toMatch(/uid=\[S-\d[-\d]+\]/); // a SID string
   });
 
+  it("check_process reads a protected process's CPU times through the limited handle (Windows)", async () => {
+    if (!onWindows) return;
+    // csrss.exe is a protected process: even an elevated agent can only open
+    // it with PROCESS_QUERY_LIMITED_INFORMATION. It must still be listed as
+    // started, and the counters that right allows must be real readings: the
+    // creation time (what delta=true matches the collector's CPU% on) used to
+    // be 0 here, and time/handles a 0 that looked like a measurement.
+    const q = await executeQuery(key, "check_process", {
+      process: "csrss.exe",
+      "top-syntax": "${list}",
+      "detail-syntax": "${exe}=${state} time=${time} handles=${handles} created=${creation}",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    expect(msg).toMatch(/csrss\.exe=started time=\d+ handles=\d+ created=\S+/i);
+    expect(msg).not.toMatch(/created=0(\s|,|$)/);
+  });
+
   it("check_process leaves username empty without resolve-owner (Windows)", async () => {
     if (!onWindows) return;
     const q = await executeQuery(key, "check_process", {
@@ -1444,6 +1462,31 @@ describeOnWindows("CheckSystem check_process delta with the CPU collector (Windo
     );
     expect(q.result).toBe(OK);
     const msg = messageOf(q);
+    const cpu = Number(/cpu=(\d+)/.exec(msg)?.[1]);
+    expect(cpu).toBeGreaterThanOrEqual(0);
+    expect(cpu).toBeLessThanOrEqual(100);
+    expect(msg).toMatch(/user=\d+ kernel=\d+/);
+  });
+
+  it("reports a CPU value for a protected process (csrss.exe)", async () => {
+    if (!onWindows) return;
+    // The collector's CPU% is matched to a process by PID and creation time.
+    // A protected process used to have no creation time (it can only be opened
+    // with the limited right), so it never matched and read 0% forever.
+    const q = await pollQuery(
+      key,
+      "check_process",
+      {
+        process: "csrss.exe",
+        delta: "true",
+        "top-syntax": "${list}",
+        "detail-syntax": "${exe} cpu=${time} user=${user} kernel=${kernel}",
+      },
+      (r) => r.result === OK && /cpu=\d+/.test(messageOf(r)),
+    );
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    expect(msg).not.toMatch(/unknown/i);
     const cpu = Number(/cpu=(\d+)/.exec(msg)?.[1]);
     expect(cpu).toBeGreaterThanOrEqual(0);
     expect(cpu).toBeLessThanOrEqual(100);

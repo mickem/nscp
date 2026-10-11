@@ -45,32 +45,54 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("hung", parsers::where::type_bool, &filter_obj::get_hung, "Process is hung")
       .add_int_var("stopped", parsers::where::type_bool, &filter_obj::get_stopped, "Process is stopped")
       .add_int_var("new", parsers::where::type_bool, &filter_obj::get_is_new, "Process is new (can inly be used for real-time filters)");
+  registry_.add_int_var("limited", parsers::where::type_bool, &filter_obj::get_limited,
+                        "The process could only be opened with limited query rights (protected processes such as csrss.exe or MsMpEng.exe, and other "
+                        "users' processes when the agent is unprivileged): command_line is empty and any counter Windows refused reads unknown");
+
+  // The counters below are optional numbers: a group describe_pid() could not
+  // read (see process_info::has_memory and friends) renders "unknown", never
+  // satisfies a threshold and emits no perf data, rather than a 0 that looks
+  // like a reading. Perf data is unchanged for everything that was read.
   // clang-format off
+  registry_.add_optional_int_var("handles", [](auto obj) { return filter_obj::known_value(obj->has_handles, obj->get_handleCount()); }, "unknown", "Number of handles")
+      .add_int_perf("", "", " handle count")
+      .add_optional_int_var("gdi_handles", [](auto obj) { return filter_obj::known_value(obj->has_gui_handles, obj->get_gdiHandleCount()); }, "unknown", "Number of GDI handles")
+      .add_int_perf("", "", " GDI handle count")
+      .add_optional_int_var("user_handles", [](auto obj) { return filter_obj::known_value(obj->has_gui_handles, obj->get_userHandleCount()); }, "unknown", "Number of USER handles")
+      .add_int_perf("", "", " USER handle count");
   registry_.add_int_legacy()
-    ("handles", [](auto obj, auto context) {return obj->get_handleCount(); }, "Number of handles").add_perf("", "", " handle count")
-    ("gdi_handles", [](auto obj, auto context) {return obj->get_gdiHandleCount(); }, "Number of handles").add_perf("", "", " GDI handle count")
-    ("user_handles", [](auto obj, auto context) {return obj->get_userHandleCount(); }, "Number of handles").add_perf("", "", " USER handle count")
-    ("thread_count", [](auto obj, auto context) {return obj->get_threadCount(); }, "Number of threads").add_perf("", "", " threads")
-    ("peak_virtual", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakVirtualSize(); }, "Peak virtual size in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pv_size")
-    ("virtual", parsers::where::type_size,[](auto obj, auto context) {return obj->get_VirtualSize(); }, "Virtual size in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " v_size")
-    ("page_fault", [](auto obj, auto context) {return obj->get_PageFaultCount(); }, "Page fault count").add_perf("", "", " pf_count")
-    ("peak_working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakWorkingSetSize(); }, "Peak working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pws_size")
-    ("working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ws_size")
-    ("rss", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Resident set size; alias for working_set (g,m,k,b)").add_scaled_byte(std::string(""), " rss")
-    ("working_set_pct", [](auto obj, auto context) {return obj->get_working_set_pct(); }, "Working set as a percentage of total physical RAM").add_perf("%", "", " ws_pct")
-    // 			("qouta", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-    // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-    // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-    // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-    ("peak_pagefile", parsers::where::type_size,[](auto obj, auto context) {return obj->get_PageFileUsage(); }, "Page file usage in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ppf_use")
-    ("pagefile", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakPageFileUsage(); }, "Peak page file use in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pf_use")
-    ("pagefile_pct", [](auto obj, auto context) {return obj->get_pagefile_pct(); }, "Page file usage as a percentage of the system commit limit").add_perf("%", "", " pf_pct")
+    ("thread_count", [](auto obj, auto context) {return obj->get_threadCount(); }, "Number of threads").add_perf("", "", " threads");
+  registry_.add_optional_int_var("peak_virtual", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PeakVirtualSize()); }, "unknown", "Peak virtual size in bytes (g,m,k,b)")
+      .add_scaled_byte_perf(std::string(""), " pv_size")
+      .add_optional_int_var("virtual", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_VirtualSize()); }, "unknown", "Virtual size in bytes (g,m,k,b)")
+      .add_scaled_byte_perf(std::string(""), " v_size")
+      .add_optional_int_var("page_fault", [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PageFaultCount()); }, "unknown", "Page fault count")
+      .add_int_perf("", "", " pf_count")
+      .add_optional_int_var("peak_working_set", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PeakWorkingSetSize()); }, "unknown", "Peak working set in bytes (g,m,k,b)")
+      .add_scaled_byte_perf(std::string(""), " pws_size")
+      .add_optional_int_var("working_set", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_WorkingSetSize()); }, "unknown", "Working set in bytes (g,m,k,b)")
+      .add_scaled_byte_perf(std::string(""), " ws_size")
+      .add_optional_int_var("rss", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_WorkingSetSize()); }, "unknown", "Resident set size; alias for working_set (g,m,k,b)")
+      .add_scaled_byte_perf(std::string(""), " rss")
+      .add_optional_int_var("working_set_pct", [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_working_set_pct()); }, "unknown", "Working set as a percentage of total physical RAM")
+      .add_int_perf("%", "", " ws_pct")
+      .add_optional_int_var("peak_pagefile", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PageFileUsage()); }, "unknown", "Page file usage in bytes (g,m,k,b)")
+      .add_scaled_byte_perf(std::string(""), " ppf_use")
+      .add_optional_int_var("pagefile", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PeakPageFileUsage()); }, "unknown", "Peak page file use in bytes (g,m,k,b)")
+      .add_scaled_byte_perf(std::string(""), " pf_use")
+      .add_optional_int_var("pagefile_pct", [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_pagefile_pct()); }, "unknown", "Page file usage as a percentage of the system commit limit")
+      .add_int_perf("%", "", " pf_pct");
 
-    ("creation", parsers::where::type_date, [](auto obj, auto context) {return obj->get_creation_time(); }, "Creation time").add_perf("", "", " creation")
-    ("kernel", [](auto obj, auto context) {return obj->get_kernel_time(); }, "Kernel CPU time: cumulative seconds, or % of total CPU with delta=true").add_perf("", "", " kernel")
-    ("user", [](auto obj, auto context) {return obj->get_user_time(); }, "User CPU time: cumulative seconds, or % of total CPU with delta=true").add_perf("", "", " user")
-    ("time", [](auto obj, auto context) {return obj->get_total_time(); }, "User+kernel CPU time: cumulative seconds, or % of total CPU with delta=true").add_perf("", "", " total")
+  registry_.add_int_legacy()
+    ("creation", parsers::where::type_date, [](auto obj, auto context) {return obj->get_creation_time(); }, "Creation time").add_perf("", "", " creation");
+  registry_.add_optional_int_var("kernel", [](auto obj) { return filter_obj::known_value(obj->has_times, obj->get_kernel_time()); }, "unknown", "Kernel CPU time: cumulative seconds, or % of total CPU with delta=true")
+      .add_int_perf("", "", " kernel")
+      .add_optional_int_var("user", [](auto obj) { return filter_obj::known_value(obj->has_times, obj->get_user_time()); }, "unknown", "User CPU time: cumulative seconds, or % of total CPU with delta=true")
+      .add_int_perf("", "", " user")
+      .add_optional_int_var("time", [](auto obj) { return filter_obj::known_value(obj->has_times, obj->get_total_time()); }, "unknown", "User+kernel CPU time: cumulative seconds, or % of total CPU with delta=true")
+      .add_int_perf("", "", " total");
 
+  registry_.add_int_legacy()
     ("state", type_custom_state, [](auto obj, auto context) {return obj->get_state_i(); }, "The current state (started, stopped, hung); 'running' is accepted as a synonym for started").add_perf("", "", " state")
     ;
   // clang-format on
@@ -309,7 +331,9 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // than leaking its absolute cumulative-seconds value as though it were a
   // percentage.
   auto apply_cpu_delta = [&](win_list_processes::process_info &rec) {
-    if (!delta_scan) return;
+    // A process whose CPU times could not be read has no creation time to
+    // match on either; its kernel/user/time stay unknown rather than 0%.
+    if (!delta_scan || !rec.has_times) return;
     long long kpct = 0, upct = 0, tpct = 0;
     const auto it = cpu_deltas.find(static_cast<long long>(rec.get_pid()));
     if (it != cpu_deltas.end() && it->second.creation_time == static_cast<unsigned long long>(rec.get_creation_time())) {
