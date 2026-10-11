@@ -66,9 +66,14 @@ export function expectNoGrowth(
  * thread reporting it died (`terminated by an uncaught exception`, the wording
  * from threads::detail::render_thread_event) and any `Failed to ...` error,
  * which is how a lost submission, a bind failure or a refused reload shows up.
+ * `ignore` drops lines a scenario knows are its own doing (a port probe that
+ * connects and hangs up) before either check.
  */
-export function expectCleanLog(nscp: NscpInstance): void {
-  const lines = nscp.capturedStdout().split(/\r?\n/);
+export function expectCleanLog(nscp: NscpInstance, ignore: RegExp[] = []): void {
+  const lines = nscp
+    .capturedStdout()
+    .split(/\r?\n/)
+    .filter((l) => !ignore.some((re) => re.test(l)));
   const died = lines.filter((l) => /terminated by an uncaught exception/.test(l));
   const failed = lines.filter((l) => /Failed to /.test(l));
   expect({ died, count: died.length }).toMatchObject({ count: 0 });

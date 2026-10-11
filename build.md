@@ -1267,13 +1267,27 @@ NSCP_STRESS_DURATION=1800 npm run test:stress                    # a soak
 | `NSCP_STRESS_CONCURRENCY`   | `32`    | Parallel workers, one connection each                       |
 | `NSCP_STRESS_RPS`           | `0`     | Requests per second across all workers; `0` is unbounded    |
 | `NSCP_STRESS_RSS_TOLERANCE` | `20`    | Percent RSS may grow from warm-up to end before failing     |
-| `NSCP_STRESS_SCHEDULES`     | `1000`  | Schedules the scheduler-load scenario installs              |
+| `NSCP_STRESS_SCHEDULES`     | `1000`  | Schedules the scheduler scenarios install (200 for scheduler-slow-neighbour) |
+| `NSCP_STRESS_SLOW_MS`       | `8000`  | How long each slow check in the engine scenarios runs       |
+| `NSCP_STRESS_NRPE_PORT`     | `15666` | NRPE port of the engine scenarios                           |
+| `NSCP_STRESS_WEB_PORT`      | `8443`  | REST port of the engine scenarios; move it off 8443 where an installed agent holds that |
 
-The scenarios are never part of `npm test` or a pull request build. The
-sanitizer job (`tests-sanitizers.yml`) runs the two cheapest ones for a minute
-against the ASan/UBSan build after ctest, which is where the leaks and races
-the legacy stress test was hunting actually show. See `tests/README.md` for the
-scenario list.
+Besides the REST flood and the scheduler load, three scenarios drive every
+check engine at once - C++ modules, an external process, Python, Lua, and the
+calls from one script engine into another through the core - over NRPE, whose
+socket server runs a worker pool: `slow-check-isolation` (a slow check in every
+engine at once, every other path probed meanwhile), `mixed-flood` (a flood with
+slow checks running behind it) and `scheduler-slow-neighbour` (quick schedules
+next to slow ones). They pass when no check ever waits for another engine's
+slow one. Over REST it still does: the web server runs every request on one
+thread, which `slow-check-isolation` records as an expected failure.
+
+The scenarios are never part of `npm test` or a pull request build; what they
+found is pinned in the regular `engine-concurrency.test.ts`. The sanitizer job
+(`tests-sanitizers.yml`) runs `rest-flood`, `scheduler-load`,
+`slow-check-isolation` and `mixed-flood` for a minute each against the
+ASan/UBSan build after ctest, which is where leaks and races actually show. See
+`tests/README.md` for the scenario list.
 
 ### Live / remote acceptance tests
 
