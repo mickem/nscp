@@ -138,7 +138,7 @@ void PDHQuery::close() {
   if (unload_error) std::rethrow_exception(unload_error);
 }
 
-void PDHQuery::gatherData(const bool ignore_errors) {
+void PDHQuery::gatherData(const bool ignore_errors, const bool retry_missing) {
   // A concurrent reload closes and reopens this query's handles, so each
   // read of one happens under the implementation's lock (as in collect()).
   // Step by step rather than across the loop: the sleeps below must not hold
@@ -156,9 +156,27 @@ void PDHQuery::gatherData(const bool ignore_errors) {
     std::lock_guard<impl_interface> guard(*impl);
     return c->collect();
   };
-  collect();
+  // A missing instance (a physical disk whose instance name changed, a RAID
+  // volume that dropped out for a moment) is often back on the next sample
+  // (#648). One extra sample per gather, whichever counter needed it.
+  bool retried_missing = false;
+  const auto resample_missing = [&]() {
+    retried_missing = true;
+    Sleep(1000);
+    collect();
+  };
+  try {
+    collect();
+  } catch (const pdh_no_data_exception&) {
+    if (!retry_missing) throw;
+    resample_missing();
+  }
   for (const counter_type c : counters_) {
     pdh_error status = collect_counter(c);
+    if (status.is_no_instance() && retry_missing && !retried_missing) {
+      resample_missing();
+      status = collect_counter(c);
+    }
     if (status.is_invalid_data()) {
       // First call after open() routinely returns INVALID_DATA for derived
       // counters (e.g. percentages need two samples). Give PDH a second
