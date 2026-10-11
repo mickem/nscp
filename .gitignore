@@ -82,6 +82,8 @@ _build
 *.pwd
 # Local inventory written by build/powershell/provision-fleet-machines.ps1
 .fleet-machines.json
+# Per-run logs and results written by build/powershell/run-estate.ps1
+.estate-runs/
 
 rotate-signing-secret.ps1
 # Coverage reports written by tools/coverage/run.sh (build-coverage/ itself

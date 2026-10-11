@@ -1346,25 +1346,17 @@ an actionable message.
 > If you re-run `web install` with a fresh random password, restart `nscp test`
 > so it loads the new value — an already-running daemon keeps serving the old one.
 
-#### The PowerShell runner
+#### Against an Azure VM
 
-`build/powershell/run-tests.ps1` wires the target address + password into the
-`NSCP_TARGET_*` environment and runs `npm run test:live` for you. Against a
-local install it needs only the password (defaults to `https://127.0.0.1:8443`):
-
-```powershell
-# Reuse the random password saved by the server shell above:
-./build/powershell/run-tests.ps1 -Local -Password (Get-Content <build-dir>\.web-pw) -Os linux
-```
-
-The same script also runs the suite against an Azure VM provisioned by the
-`build/powershell/*/setup-*-machine.ps1` scripts, reading the VM's public IP and
-random web password from the `.vm.pwd` file they write:
+The `build/powershell/*/setup-*-machine.ps1` scripts write the VM's address and
+random web password to `build/powershell/.vm.pwd`. With no
+`NSCP_TARGET_PASSWORD` set, the live suite reads that file itself
+(`NSCP_TARGET_PWD_FILE` picks another one):
 
 ```powershell
 # provision + install (writes build/powershell/.vm.pwd), then test it:
 ./build/powershell/linux/setup-ubuntu-machine.ps1 -VmName NSCP-Ubuntu-Test -Version 0.14.0
-./build/powershell/run-tests.ps1 -VmName NSCP-Ubuntu-Test -Os linux
+npm --prefix tests run test:live -- live-checks
 ```
 
 See [`tests/live/README.md`](tests/live/README.md) and

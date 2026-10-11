@@ -8,6 +8,7 @@
     "test:one": "jest --runInBand --testPathPattern",
     "test:no-docker": "NSCP_SKIP_DOCKER=1 jest --runInBand",
     "test:live": "jest --runInBand --config jest.live.config.js",
+    "test:estate": "jest --runInBand --config jest.estate.config.js",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md}\""
   },

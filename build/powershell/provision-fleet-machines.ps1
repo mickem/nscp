@@ -35,15 +35,30 @@
     Fleet server API key ("nsk_..."), used to mint one bootstrap token per
     machine. Defaults to $env:NSCLIENT_FLEET_API_KEY. The key acts as its owner,
     so a key belonging to an add_hosts user is enough (and is the better choice).
+.PARAMETER Roles
+    Estate roles to provision, as "<role>=<count>,..." (e.g. "mysql=1,mssql=2");
+    a bare "<role>" means the machine count from its role.json. A role is a
+    folder under estate/roles/ (see README.md, "Role-based estate"): each of its
+    machines is named <role>-<site>-<nn>, gets the role's workload installed
+    before NSClient++ and its modules activated, and is tagged on the fleet
+    server so the role's group (and bundle) pick it up on the first sync. The
+    OS round-robins over the role's "os" list. With -Roles, -Windows, -Ubuntu
+    and -Rocky default to 0.
 .PARAMETER Windows
-    How many Windows machines to create (default 1).
+    How many Windows machines to create (default 1): shorthand for that many
+    machines of the "base" role (NSClient++ only) on Windows.
 .PARAMETER Ubuntu
-    How many Ubuntu machines to create (default 1).
+    How many Ubuntu machines to create (default 1); "base" role on Ubuntu.
 .PARAMETER Rocky
-    How many Rocky Linux machines to create (default 0).
+    How many Rocky Linux machines to create (default 0); "base" role on Rocky.
+.PARAMETER MaxMachines
+    Refuse the run up front when it, plus the machines still in the manifest,
+    would exceed this many machines (default 5). Raise it when the regional
+    vCPU quota allows more.
 .PARAMETER Version
-    NSClient++ release to install on every machine. Ignored for a family that has
-    its own -*PackageUrl unless you also pass -Version explicitly.
+    NSClient++ release to install on every machine. Default: the latest release
+    on GitHub, looked up when the run starts. Ignored for a family that has its
+    own -*PackageUrl unless you also pass -Version explicitly.
 .PARAMETER WindowsPackageUrl
     Install the MSI from this url instead of the GitHub release. Needed to test
     the installer's own fleet enrollment before it ships in a release.
@@ -60,6 +75,8 @@
 .PARAMETER FleetCaFile
     Local PEM file with the CA that issued the fleet server certificate; it is
     copied to each machine and used to verify its enrollment call.
+.PARAMETER RolesDir
+    Where the role folders live (default: estate/roles next to this script).
 .PARAMETER Parallel
     Provision the machines concurrently (PowerShell 7+), -MaxParallel at a time.
 .PARAMETER DryRun
@@ -88,6 +105,9 @@
         -Windows 3 -Ubuntu 2 -Rocky 1 -Parallel `
         -WindowsPackageUrl https://my.host/NSCP-0.16.0-x64.msi
 .EXAMPLE
+    # One MariaDB machine and two base machines, by role:
+    ./provision-fleet-machines.ps1 -FleetServer https://fleet.example.com -Roles mysql=1,base=2
+.EXAMPLE
     # Tear the whole estate down again, fleet entries included:
     ./provision-fleet-machines.ps1 -Destroy -RemoveFleetHosts `
         -FleetServer https://fleet.example.com
@@ -95,13 +115,14 @@
 param(
     [string]$FleetServer = $env:NSCLIENT_FLEET_SERVER,
     [string]$ApiKey = $env:NSCLIENT_FLEET_API_KEY,
+    [string]$Roles = "",
     [ValidateRange(0, 50)]
     [int]$Windows = 1,
     [ValidateRange(0, 50)]
     [int]$Ubuntu = 1,
     [ValidateRange(0, 50)]
     [int]$Rocky = 0,
-    [string]$Version = "0.17.0",
+    [string]$Version = "",
     [string]$Location = "WestEurope",
     [string[]]$WindowsVersions = @("windows-2025"),
     [string]$UbuntuVersion = "24.04",
@@ -109,6 +130,9 @@ param(
     [string]$WindowsPackageUrl = "",
     [string]$UbuntuPackageUrl = "",
     [string]$RockyPackageUrl = "",
+    [ValidateRange(1, 100)]
+    [int]$MaxMachines = 5,
+    [string]$RolesDir = "",
     [switch]$FleetInsecure,
     [switch]$FleetNoVerify,
     [string]$FleetCaFile = "",
@@ -130,6 +154,7 @@ $ErrorActionPreference = "Stop"
 $scriptDir = $PSScriptRoot
 $fleetApi = Join-Path $scriptDir "fleet-api.ps1"
 . $fleetApi
+. (Join-Path $scriptDir "estate/estate-api.ps1")
 
 if (-not $ManifestFile) { $ManifestFile = Join-Path $scriptDir ".fleet-machines.json" }
 # Skipping certificate validation for the API calls made from here has to follow
@@ -137,28 +162,9 @@ if (-not $ManifestFile) { $ManifestFile = Join-Path $scriptDir ".fleet-machines.
 # server the machines then refuse to talk to (or the other way round).
 $skipCert = [bool]$FleetNoVerify
 
-function Read-Manifest {
-    param([string]$Path)
-    if (-not (Test-Path $Path)) { return @() }
-    try { return @(Get-Content -Path $Path -Raw | ConvertFrom-Json) }
-    catch {
-        Write-Warning "Could not read the manifest $Path ($($_.Exception.Message)); treating it as empty."
-        return @()
-    }
-}
-
-function Write-Manifest {
-    param([string]$Path, $Machines)
-    # ConvertTo-Json unrolls a single-element array into an object, which would
-    # then read back as one machine's worth of properties - force an array.
-    $json = ConvertTo-Json -InputObject @($Machines) -Depth 5
-    if (@($Machines).Count -eq 1 -and -not $json.StartsWith("[")) { $json = "[$json]" }
-    Set-Content -Path $Path -Value $json -Force
-}
-
 # --- Destroy mode ------------------------------------------------------------
 if ($Destroy) {
-    $existing = Read-Manifest -Path $ManifestFile
+    $existing = Read-FleetManifest -Path $ManifestFile
     if (@($existing).Count -eq 0) {
         Write-Host "Nothing to destroy: $ManifestFile is missing or empty."
         return
@@ -273,12 +279,25 @@ if ($Destroy) {
     }
 
     if ($remaining.Count -gt 0) {
-        Write-Manifest -Path $ManifestFile -Machines $remaining
+        Write-FleetManifest -Path $ManifestFile -Machines $remaining
         # Write-Host, not Write-Error: see the summary at the end of the script -
         # under $ErrorActionPreference = "Stop" an error record here renders as a
         # crash and swallows the `exit`.
         Write-Host "❌ $($remaining.Count) machine(s) could not be removed and are still in the manifest." -ForegroundColor Red
         exit 1
+    }
+    # The estate's own groups and bundles go with its last machine. A legacy
+    # manifest (no estate id) used the shared role-<role> groups, which other
+    # estates may still be using, so those stay.
+    $estateId = $null
+    try { $estateId = Get-EstateId -Machines $existing } catch { Write-Warning "   $($_.Exception.Message)" }
+    $groupServer = if ($FleetServer) { $FleetServer } else { "$(@($existing | Where-Object { $_.FleetServer } | Select-Object -First 1).FleetServer)" }
+    if ($estateId -and $RemoveFleetHosts -and $groupServer -and $ApiKey) {
+        try {
+            Remove-EstateFleetGroups -FleetServer $groupServer -ApiKey $ApiKey -EstateId $estateId -SkipCertificateCheck:$skipCert |
+                ForEach-Object { Write-Host "   ✅ $_" }
+        }
+        catch { Write-Warning "   could not remove the groups of estate ${estateId}: $($_.Exception.Message) (./run-estate.ps1 -Cleanup sweeps them)" }
     }
     Remove-Item $ManifestFile -Force -ErrorAction SilentlyContinue
     Write-Host "✅ Estate torn down."
@@ -289,8 +308,31 @@ if ($Destroy) {
 if ($Parallel -and $PSVersionTable.PSVersion.Major -lt 7) {
     throw "-Parallel needs PowerShell 7+ (ForEach-Object -Parallel); you are on $($PSVersionTable.PSVersion). Re-run with pwsh, or drop -Parallel."
 }
-$total = $Windows + $Ubuntu + $Rocky
-if ($total -lt 1) { throw "Nothing to do: -Windows, -Ubuntu and -Rocky are all 0." }
+# Through `-File` (run-estate.ps1, a CI step) a list arrives as one
+# comma-separated string.
+$WindowsVersions = @($WindowsVersions | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+# With -Roles the per-family counts are opt-in: an explicit -Windows 1 still
+# adds a base Windows machine, the default of 1 does not.
+if ($Roles) {
+    if (-not $PSBoundParameters.ContainsKey("Windows")) { $Windows = 0 }
+    if (-not $PSBoundParameters.ContainsKey("Ubuntu")) { $Ubuntu = 0 }
+    if (-not $PSBoundParameters.ContainsKey("Rocky")) { $Rocky = 0 }
+}
+if (-not $RolesDir) { $RolesDir = Get-EstateRolesDir }
+$catalog = Get-EstateRoleCatalog -RolesDir $RolesDir
+$requested = @(ConvertFrom-RoleSpec -Spec $Roles -Catalog $catalog)
+# -Windows/-Ubuntu/-Rocky are the base role pinned to one family.
+foreach ($family in @(@{ Os = "windows"; Count = $Windows }, @{ Os = "ubuntu"; Count = $Ubuntu }, @{ Os = "rocky"; Count = $Rocky })) {
+    for ($i = 0; $i -lt $family.Count; $i++) {
+        $requested += [pscustomobject]@{ Role = $catalog["base"]; Os = $family.Os; Index = $i }
+    }
+}
+if ($requested.Count -lt 1) { throw "Nothing to do: no -Roles, and -Windows, -Ubuntu and -Rocky are all 0." }
+# Recounted from the plan, roles included: a Windows-only role (mssql) must
+# still trigger the release lookup below, or its setup gets an empty -Version.
+$Windows = @($requested | Where-Object { $_.Os -eq "windows" }).Count
+$Ubuntu = @($requested | Where-Object { $_.Os -eq "ubuntu" }).Count
+$Rocky = @($requested | Where-Object { $_.Os -eq "rocky" }).Count
 # The Linux setup scripts verify - as the service user - that the enrollment
 # material is readable, which the packages only arrange from 0.16.2 on (the
 # agent's adopt_owner). Against an older release every Ubuntu/Rocky machine
@@ -298,6 +340,13 @@ if ($total -lt 1) { throw "Nothing to do: -Windows, -Ubuntu and -Rocky are all 0
 # now instead. Windows is unaffected (the service runs as LocalSystem).
 $minLinuxRelease = [version]"0.16.2"
 $parsedVersion = $null
+# Only families without their own package url install a release at all, so
+# the GitHub lookup is only made (and can only fail) when one of them is asked for.
+$needsRelease = ($Windows -gt 0 -and -not $WindowsPackageUrl) -or ($Ubuntu -gt 0 -and -not $UbuntuPackageUrl) -or ($Rocky -gt 0 -and -not $RockyPackageUrl)
+if (-not $Version -and $needsRelease) {
+    $Version = Get-LatestNscpRelease
+    Write-Host "● NSClient++ $Version (the latest GitHub release; -Version picks another)"
+}
 if (($Ubuntu -gt 0 -and -not $UbuntuPackageUrl) -or ($Rocky -gt 0 -and -not $RockyPackageUrl)) {
     if ([version]::TryParse($Version, [ref]$parsedVersion) -and $parsedVersion -lt $minLinuxRelease) {
         throw "Release $Version predates the Linux fleet-enrollment fix ($minLinuxRelease): every Ubuntu/Rocky machine would fail its post-enrollment check. Use -Version $minLinuxRelease or newer, or point -UbuntuPackageUrl/-RockyPackageUrl at a build that includes it."
@@ -316,24 +365,63 @@ if (-not $DryRun) {
 # Names are chosen up front so the plan is printable and collision-free, but the
 # tokens are minted per machine inside the worker: they are single-use and
 # short-lived, and a sequential six-machine run can easily outlast one.
-$manifest = Read-Manifest -Path $ManifestFile
+$manifest = Read-FleetManifest -Path $ManifestFile
 $taken = @($manifest | ForEach-Object { $_.Name })
 $machines = [System.Collections.Generic.List[object]]::new()
 
+# One estate per manifest: machines added to an existing one join its estate
+# (its groups, bundles and passwords), a new manifest starts a new one.
+$estateId = Get-EstateId -Machines $manifest
+if (-not $estateId -and @($manifest).Count -eq 0) { $estateId = New-EstateId }
+if ($estateId) { Write-Host "● Estate $estateId (machines are tagged estate=$estateId)" }
+else { Write-Warning "$ManifestFile predates estate ids: its machines keep the shared role-<role> groups. Tear it down and provision again to give it its own." }
+
+# One role password per role, not per machine: the role's bundle carries it to
+# every machine of the role, and one bundle can only hold one. A role that
+# already has machines in the manifest keeps theirs, read back from their .pwd
+# files (the manifest no longer stores it).
+$rolePasswords = @{}
+foreach ($m in @($manifest)) {
+    if (-not $m.Role -or $rolePasswords.Contains("$($m.Role)")) { continue }
+    $known = Get-EstateMachineRolePassword -Machine $m
+    if ($known) { $rolePasswords["$($m.Role)"] = $known }
+}
+
 function Add-FleetMachine {
-    param($Os, $Script, $Image, [string[]]$ExtraArgs)
-    $name = New-FleetMachineName -Exclude ($taken + @($machines | ForEach-Object { $_.Name }))
+    param($Os, $Family, $Role, $Script, $Image, [string[]]$ExtraArgs)
+    # The base role keeps today's made-up names (web-ams-04); a workload role
+    # says what the machine is for (mysql-fra-02).
+    $nameRole = ""
+    if ($Role.Name -ne "base") { $nameRole = $Role.Name }
+    $name = New-FleetMachineName -Role $nameRole -Exclude ($taken + @($machines | ForEach-Object { $_.Name }))
     $rg = "$ResourceGroupPrefix-$name"
     $pwdFile = Join-Path $scriptDir ".vm.$name.pwd"
+    $size = $VmSize
+    if ($Role.VmSize) { $size = $Role.VmSize }
+    if (-not $rolePasswords.Contains($Role.Name)) { $rolePasswords[$Role.Name] = New-EstateSecret }
+    $rolePassword = $rolePasswords[$Role.Name]
+    # The role's own tags, plus the estate's: its groups select on both.
+    $tags = [ordered]@{}
+    foreach ($k in $Role.Tags.Keys) { $tags[$k] = $Role.Tags[$k] }
+    if ($estateId) { $tags["estate"] = $estateId }
     # Not $args: that is an automatic variable inside a function.
     $setupArgs = @(
         "-VmName", $name,
         "-ResourceGroupName", $rg,
         "-Location", $Location,
         "-AdminUsername", $AdminUsername,
-        "-VmSize", $VmSize,
-        "-PwdFile", $pwdFile
+        "-VmSize", $size,
+        "-PwdFile", $pwdFile,
+        "-Role", $Role.Name,
+        "-RoleInstallTimeoutMinutes", $Role.InstallTimeoutMinutes
     ) + $ExtraArgs
+    if ($Role.Modules.Count -gt 0) { $setupArgs += @("-Modules", ($Role.Modules -join ",")) }
+    if ($Role.Install.Contains($Family)) { $setupArgs += @("-RoleInstallScript", $Role.Install[$Family]) }
+    if ($Role.LocalSettings.Count -gt 0) { $setupArgs += @("-LocalSettings", (ConvertTo-EstateLocalSettings -Settings $Role.LocalSettings)) }
+    if ($Role.Image) {
+        $setupArgs += @("-ImageUrn", $Role.Image)
+        $Image = $Role.Image
+    }
     if ($FleetInsecure -or $FleetNoVerify) { $setupArgs += "-FleetInsecure" }
     if ($FleetNoVerify) { $setupArgs += "-FleetNoVerify" }
     if ($FleetCaFile) { $setupArgs += @("-FleetCaFile", (Resolve-Path $FleetCaFile).Path) }
@@ -341,7 +429,13 @@ function Add-FleetMachine {
     $machines.Add([pscustomobject]@{
             Name          = $name
             Os            = $Os
+            Family        = $Family
+            Role          = $Role.Name
+            Tags          = $tags
             Image         = $Image
+            VmSize        = $size
+            Vcpus         = $Role.Vcpus
+            EstateId      = $estateId
             ResourceGroup = $rg
             PwdFile       = $pwdFile
             Script        = $Script
@@ -360,27 +454,37 @@ function Get-VersionArgs {
     return @("-PackageUrl", $PackageUrl, "-SkipVersionCheck")
 }
 
-for ($i = 0; $i -lt $Windows; $i++) {
-    # Round-robin the images so -Windows 3 across two versions gives a mix.
-    $image = $WindowsVersions[$i % $WindowsVersions.Count]
-    Add-FleetMachine -Os "windows" -Image $image `
-        -Script (Join-Path $scriptDir "win/setup-machine.ps1") `
-        -ExtraArgs ((Get-VersionArgs -PackageUrl $WindowsPackageUrl) + @("-WindowsVersion", $image))
-}
-for ($i = 0; $i -lt $Ubuntu; $i++) {
-    Add-FleetMachine -Os "linux" -Image "ubuntu-$UbuntuVersion" `
-        -Script (Join-Path $scriptDir "linux/setup-ubuntu-machine.ps1") `
-        -ExtraArgs ((Get-VersionArgs -PackageUrl $UbuntuPackageUrl) + @("-UbuntuVersion", $UbuntuVersion))
-}
-for ($i = 0; $i -lt $Rocky; $i++) {
-    Add-FleetMachine -Os "linux" -Image "rocky-$RockyVersion" `
-        -Script (Join-Path $scriptDir "linux/setup-rocky-machine.ps1") `
-        -ExtraArgs ((Get-VersionArgs -PackageUrl $RockyPackageUrl) + @("-RockyVersion", $RockyVersion))
+$windowsIndex = 0
+foreach ($r in $requested) {
+    switch ($r.Os) {
+        "windows" {
+            # Round-robin the images so -Windows 3 across two versions gives a mix.
+            $image = $WindowsVersions[$windowsIndex % $WindowsVersions.Count]
+            $windowsIndex++
+            Add-FleetMachine -Os "windows" -Family "windows" -Role $r.Role -Image $image `
+                -Script (Join-Path $scriptDir "win/setup-machine.ps1") `
+                -ExtraArgs ((Get-VersionArgs -PackageUrl $WindowsPackageUrl) + @("-WindowsVersion", $image))
+        }
+        "ubuntu" {
+            Add-FleetMachine -Os "linux" -Family "ubuntu" -Role $r.Role -Image "ubuntu-$UbuntuVersion" `
+                -Script (Join-Path $scriptDir "linux/setup-ubuntu-machine.ps1") `
+                -ExtraArgs ((Get-VersionArgs -PackageUrl $UbuntuPackageUrl) + @("-UbuntuVersion", $UbuntuVersion))
+        }
+        "rocky" {
+            Add-FleetMachine -Os "linux" -Family "rocky" -Role $r.Role -Image "rocky-$RockyVersion" `
+                -Script (Join-Path $scriptDir "linux/setup-rocky-machine.ps1") `
+                -ExtraArgs ((Get-VersionArgs -PackageUrl $RockyPackageUrl) + @("-RockyVersion", $RockyVersion))
+        }
+    }
 }
 
 $mode = if ($Parallel) { "parallel (max $MaxParallel at once)" } else { "sequential" }
-Write-Host "● Plan: $($machines.Count) machine(s), region $Location, $mode"
-$machines | ForEach-Object { Write-Host ("   - {0,-14} {1,-16} RG {2}" -f $_.Name, $_.Image, $_.ResourceGroup) }
+$versionNote = if ($Version) { "NSClient++ $Version, " } else { "" }
+Write-Host "● Plan: $($machines.Count) machine(s), ${versionNote}region $Location, $mode"
+$machines | ForEach-Object { Write-Host ("   - {0,-15} {1,-8} {2,-16} {3,-18} RG {4}" -f $_.Name, $_.Role, $_.Image, $_.VmSize, $_.ResourceGroup) }
+# The cap counts what is already up too: an estate that was never torn down
+# still holds its share of the quota.
+Assert-EstateBudget -Requested $machines.Count -Existing @($manifest).Count -MaxMachines $MaxMachines
 if ($DryRun) {
     Write-Host "● -DryRun: nothing was created."
     return
@@ -389,6 +493,8 @@ if ($DryRun) {
 Write-Host "● Fleet server: $FleetServer"
 $health = Test-FleetServer -FleetServer $FleetServer -SkipCertificateCheck:$skipCert
 Write-Host "   /healthz -> $health (the machines must reach this url from Azure too)"
+Test-FleetApiKey -FleetServer $FleetServer -ApiKey $ApiKey -SkipCertificateCheck:$skipCert
+Write-Host "   API key accepted"
 
 & (Join-Path $scriptDir "connect-to-azure.ps1")
 
@@ -405,43 +511,54 @@ Write-Host "   /healthz -> $health (the machines must reach this url from Azure 
 # A failure to *perform* the check (permissions, an API hiccup) is only a
 # warning - it must not block a run that would have worked. A definite answer
 # (the size is unusable, or the quota is genuinely short) stops the run.
+# A role may ask for a bigger -VmSize than the default, so the vCPUs are summed
+# per size (from the SKU, falling back to the role's "vcpus") and per quota.
 $shortfalls = @()
 $sizeProblem = $null
 try {
-    $sku = Get-AzComputeResourceSku -Location $Location -ErrorAction Stop |
-    Where-Object { $_.ResourceType -eq "virtualMachines" -and $_.Name -eq $VmSize } |
-    Select-Object -First 1
-    if (-not $sku) {
-        $sizeProblem = "$VmSize is not offered in $Location. Pick another -VmSize or -Location."
-    }
-    else {
+    $skus = @(Get-AzComputeResourceSku -Location $Location -ErrorAction Stop |
+        Where-Object { $_.ResourceType -eq "virtualMachines" })
+    $neededByQuota = [ordered]@{ cores = 0 }
+    $summary = @()
+    foreach ($sizeGroup in ($machines | Group-Object VmSize)) {
+        $size = $sizeGroup.Name
+        $sku = $skus | Where-Object { $_.Name -eq $size } | Select-Object -First 1
+        if (-not $sku) {
+            $sizeProblem = "$size is not offered in $Location. Pick another -VmSize or -Location."
+            break
+        }
         # A size can exist in the region and still be blocked for this
         # subscription. A purely *zonal* restriction does not apply to us: these
         # VMs are created without a zone.
         $hardBlocks = @($sku.Restrictions | Where-Object { $_.Type -ne "Zone" })
         if ($hardBlocks) {
-            $sizeProblem = "$VmSize is not available to this subscription in ${Location}: $($hardBlocks.ReasonCode -join ', '). Pick another -VmSize or -Location."
+            $sizeProblem = "$size is not available to this subscription in ${Location}: $($hardBlocks.ReasonCode -join ', '). Pick another -VmSize or -Location."
+            break
         }
-    }
-    if (-not $sizeProblem) {
-        $perMachine = 2
+        $perMachine = ($sizeGroup.Group | Measure-Object -Property Vcpus -Maximum).Maximum
         $vcpus = ($sku.Capabilities | Where-Object { $_.Name -eq "vCPUs" }).Value
         if ($vcpus) { $perMachine = [int]$vcpus }
-        $needed = $machines.Count * $perMachine
+        $needed = $sizeGroup.Count * $perMachine
         # "cores" is the regional total; the family quota is the per-size one.
-        $quotaNames = @("cores")
-        if ($sku.Family) { $quotaNames += $sku.Family }
+        $neededByQuota["cores"] += $needed
+        if ($sku.Family) {
+            if (-not $neededByQuota.Contains($sku.Family)) { $neededByQuota[$sku.Family] = 0 }
+            $neededByQuota[$sku.Family] += $needed
+        }
+        $summary += "$($sizeGroup.Count) x $size ($perMachine vCPU each)"
+    }
+    if (-not $sizeProblem) {
         $usage = Get-AzVMUsage -Location $Location -ErrorAction Stop
-        foreach ($quotaName in $quotaNames) {
+        foreach ($quotaName in $neededByQuota.Keys) {
             $u = $usage | Where-Object { $_.Name.Value -eq $quotaName } | Select-Object -First 1
             if (-not $u) { continue }
             $free = $u.Limit - $u.CurrentValue
-            if ($free -lt $needed) {
-                $shortfalls += "{0}: {1} of {2} vCPUs free, {3} needed" -f $u.Name.LocalizedValue, $free, $u.Limit, $needed
+            if ($free -lt $neededByQuota[$quotaName]) {
+                $shortfalls += "{0}: {1} of {2} vCPUs free, {3} needed" -f $u.Name.LocalizedValue, $free, $u.Limit, $neededByQuota[$quotaName]
             }
         }
         if ($shortfalls.Count -eq 0) {
-            Write-Host "● Capacity: $($machines.Count) x $VmSize ($perMachine vCPU each) = $needed vCPUs, within the $Location quota"
+            Write-Host "● Capacity: $($summary -join ', ') = $($neededByQuota['cores']) vCPUs, within the $Location quota"
         }
     }
 }
@@ -457,7 +574,7 @@ if ($shortfalls.Count -gt 0) {
 }
 
 # --- Per-machine worker ------------------------------------------------------
-# Mirrors run-all-tests.ps1: the setup script is run as a child process (it calls
+# The setup script is run as a child process (it calls
 # `exit`, which would otherwise take this script down with it), stderr is merged
 # into stdout so a sub-script's warnings never become error records that abort a
 # parallel fan-out, and every failure is returned as a result rather than thrown.
@@ -471,14 +588,18 @@ function Invoke-FleetProvision {
     $result = [pscustomobject]@{
         Name          = $M.Name
         Os            = $M.Os
+        Family        = $M.Family
+        Role          = $M.Role
         Image         = $M.Image
         ResourceGroup = $M.ResourceGroup
         PwdFile       = $M.PwdFile
+        EstateId      = $M.EstateId
         HostId        = $null
         PublicIp      = $null
         FleetServer   = $FleetServer
         CreatedAt     = (Get-Date).ToString("s")
         Status        = "FAILED"
+        FailedStage   = "provision"
         Detail        = $null
     }
     try {
@@ -487,6 +608,14 @@ function Invoke-FleetProvision {
         $result.HostId = $fleetHost.HostId
         Show "host $($fleetHost.HostId), token valid until $($fleetHost.ExpiresAt.ToString('HH:mm:ss'))"
 
+        # Tag before the agent exists, so the very first desired state it is
+        # handed already carries its role's group and bundle.
+        foreach ($key in @($M.Tags.Keys)) {
+            Set-FleetHostTag -FleetServer $FleetServer -ApiKey $ApiKey -HostId $fleetHost.HostId `
+                -Key $key -Value $M.Tags[$key] -SkipCertificateCheck:$SkipCert
+            Show "tagged $key=$($M.Tags[$key])"
+        }
+
         Show "provisioning + installing + enrolling..."
         # The token goes on the child's command line, so it is briefly visible in
         # the local process list. It is single-use and expires within the hour;
@@ -494,7 +623,14 @@ function Invoke-FleetProvision {
         # either way.
         $childArgs = @($M.SetupArgs) + @("-FleetServer", $FleetServer, "-FleetToken", $fleetHost.BootstrapToken)
         & $PsExe -NoProfile -File $M.Script @childArgs 2>&1 | ForEach-Object { Show $_ }
-        if ($LASTEXITCODE -ne 0) { throw "setup exited $LASTEXITCODE" }
+        # The setup scripts say which part failed through their exit code.
+        switch ($LASTEXITCODE) {
+            0 { }
+            2 { $result.FailedStage = "install"; throw "the $($M.Role) role install (fragment or localSettings) failed" }
+            3 { $result.FailedStage = "enroll"; throw "fleet enrollment failed" }
+            default { throw "setup exited $LASTEXITCODE" }
+        }
+        $result.FailedStage = $null
 
         if (Test-Path $M.PwdFile) {
             $ipLine = @(Get-Content $M.PwdFile) -match '^Public IP:'
@@ -512,6 +648,11 @@ function Invoke-FleetProvision {
 
 # --- Run ---------------------------------------------------------------------
 $psExe = (Get-Process -Id $PID).Path
+# Role passwords reach the setup scripts through the environment, not their
+# command line, where the process list would show them for the whole install.
+# One variable per role: parallel setups of different roles share this
+# process's environment.
+foreach ($r in $rolePasswords.Keys) { Set-Item -Path "env:$(Get-EstateRolePasswordVariable -Role $r)" -Value $rolePasswords[$r] }
 $results = [System.Collections.Generic.List[object]]::new()
 
 if ($Parallel) {
@@ -527,10 +668,11 @@ if ($Parallel) {
             }
             catch {
                 [pscustomobject]@{
-                    Name = $machine.Name; Os = $machine.Os; Image = $machine.Image
-                    ResourceGroup = $machine.ResourceGroup; PwdFile = $machine.PwdFile
-                    HostId = $null; PublicIp = $null; FleetServer = $using:FleetServer
-                    CreatedAt = (Get-Date).ToString("s"); Status = "ERROR"; Detail = "$($_.Exception.Message)"
+                    Name = $machine.Name; Os = $machine.Os; Family = $machine.Family; Role = $machine.Role
+                    Image = $machine.Image; ResourceGroup = $machine.ResourceGroup; PwdFile = $machine.PwdFile
+                    EstateId = $machine.EstateId; HostId = $null; PublicIp = $null
+                    FleetServer = $using:FleetServer; CreatedAt = (Get-Date).ToString("s"); Status = "ERROR"
+                    FailedStage = "provision"; Detail = "$($_.Exception.Message)"
                 }
             }
         } | ForEach-Object { $results.Add($_) }
@@ -547,13 +689,16 @@ else {
 }
 
 # --- Manifest + summary ------------------------------------------------------
-# Record every machine that got as far as an Azure resource group, failures
-# included: a half-created VM still costs money and still needs -Destroy.
-$manifest = @($manifest) + @($results | Select-Object Name, Os, Image, ResourceGroup, PwdFile, HostId, PublicIp, FleetServer, CreatedAt, Status)
-Write-Manifest -Path $ManifestFile -Machines $manifest
+# Record every machine, failures included: a half-created VM still costs money
+# and a pending fleet host still needs -Destroy -RemoveFleetHosts. Detail is
+# what failed, for whoever reads the manifest after this output has scrolled.
+# No role password here: the machine's .pwd file carries it, and the manifest
+# is what lands in a run folder people attach to issues.
+$manifest = @($manifest) + @($results | Select-Object Name, Os, Family, Role, EstateId, Image, ResourceGroup, PwdFile, HostId, PublicIp, FleetServer, CreatedAt, Status, FailedStage, Detail)
+Write-FleetManifest -Path $ManifestFile -Machines $manifest
 
 Write-Host "`n===== MACHINES ====="
-$results | Format-Table -AutoSize Name, Os, Image, PublicIp, HostId, Status, Detail | Out-String | Write-Host
+$results | Format-Table -AutoSize Name, Role, Image, PublicIp, HostId, Status, Detail | Out-String | Write-Host
 Write-Host "Manifest:  $ManifestFile"
 Write-Host "Fleet UI:  $($FleetServer.TrimEnd('/'))  (the machines report in within a sync interval)"
 Write-Host "Connect:   ./connect-machine.ps1 -PwdFile .vm.<name>.pwd"
@@ -572,7 +717,7 @@ if ($failed.Count -gt 0) {
         # The table above truncates Detail; print it in full here.
         Write-Host ("   {0,-14} {1,-16} {2}" -f $f.Name, $f.Image, $f.Detail) -ForegroundColor Red
     }
-    Write-Host "   Logs: ./linux/show-log.ps1 (or ./win/show-log.ps1) -VmName <name>"
+    Write-Host "   Logs: ./estate/collect-logs.ps1 -ManifestFile $ManifestFile"
     Write-Host "   Failures are in the manifest too, so -Destroy cleans up whatever was created."
     exit 1
 }

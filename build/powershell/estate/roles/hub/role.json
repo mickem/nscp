@@ -1,0 +1,55 @@
+{
+  "name": "hub",
+  "description": "A Linux agent that checks two target machines remotely: NRPE, the NSCP REST client and the web-online probe",
+  "os": ["ubuntu"],
+  "machines": 1,
+  "vcpus": 1,
+  "vmSize": null,
+  "image": null,
+  "companions": { "target": 2 },
+  "modules": ["CheckNet", "NRPEClient", "NSCPClient"],
+  "install": {},
+  "installTimeoutMinutes": 10,
+  "tag": {},
+  "bundle": null,
+  "checks": [
+    {
+      "command": "check_nrpe",
+      "each": "target",
+      "args": { "host": "${target.ip}", "command": "check_ok", "argument": "message=hello from the hub" },
+      "expect": "OK"
+    },
+    {
+      "command": "check_remote_nscp",
+      "each": "target",
+      "args": {
+        "host": "${target.ip}",
+        "port": "8443",
+        "password": "${target.password}",
+        "verify": "none",
+        "command": "check_ok",
+        "argument": "message=hello from the hub"
+      },
+      "expect": "OK"
+    },
+    {
+      "command": "check_nsclient_web_online",
+      "each": "target",
+      "args": { "url": "https://${target.ip}:8443", "password": "${target.password}", "verify": "none" },
+      "expect": "OK"
+    },
+    {
+      "command": "check_nsclient_web_online",
+      "each": "target",
+      "args": {
+        "url": "https://${target.ip}:8443",
+        "password": "${target.password}",
+        "verify": "none",
+        "command": "check_memory",
+        "argument": ["warning=used > 100%", "critical=used > 100%"]
+      },
+      "expect": "OK"
+    }
+  ],
+  "logs": {}
+}

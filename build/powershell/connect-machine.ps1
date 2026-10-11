@@ -17,7 +17,7 @@
     Because .vm.pwd only ever describes the LAST machine provisioned, pass
     -PublicIp / -User / -Password / -Os (and -KeyFile for Linux) explicitly to
     reach a different VM, or re-provision the one you want with -KeepVms (see
-    run-all-tests.ps1) so its credentials are the current ones.
+    run-estate.ps1 -Sequential) so its credentials are the current ones.
 .PARAMETER Os
     "windows" or "linux". Auto-detected from .vm.pwd when omitted.
 .PARAMETER PwdFile
