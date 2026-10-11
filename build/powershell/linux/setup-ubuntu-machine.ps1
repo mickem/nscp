@@ -445,7 +445,7 @@ Write-Host "✅ Correct version installed!"
 $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
 
 # Save credentials to .vm.pwd (same format as the Windows setup script) so
-# run-tests.ps1 can point the live acceptance suite at this VM.
+# the live acceptance suite (NSCP_TARGET_PWD_FILE) can point at this VM.
 if (-not $PwdFile) { $PwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd" }
 $fleetLine = if ($FleetServer) { "`nFleet Server:   $FleetServer" } else { "" }
 if ($Role) { $fleetLine += "`nRole:           $Role" }
@@ -467,4 +467,4 @@ Write-Host "Web interface: https://$($vmPublicIp):8443"
 Write-Host "Web password: $WebPassword"
 Write-Host ""
 Write-Host "Run the acceptance suite against it with:"
-Write-Host "  ./build/powershell/run-tests.ps1 -VmName $VmName -Os linux"
+Write-Host "  `$env:NSCP_TARGET_PWD_FILE = '$pwdFile'; npm --prefix tests run test:live -- live-checks"

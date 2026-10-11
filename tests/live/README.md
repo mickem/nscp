@@ -30,6 +30,7 @@ against a VM and locally against localhost:
 | `NSCP_TARGET_URL`      | `https://127.0.0.1:8443` | Base URL of the REST API.                          |
 | `NSCP_TARGET_USER`     | `admin`                  | REST user to log in as.                            |
 | `NSCP_TARGET_PASSWORD` | _(required)_             | Password for that user (the `nscp web install` pw).|
+| `NSCP_TARGET_PWD_FILE` | `build/powershell/.vm.pwd` if it exists | A credentials file the `build/powershell` setup scripts write; its `Web URL` and `Web Password` fill in whatever the two above leave unset. The default is used only when `NSCP_TARGET_PASSWORD` is unset. |
 | `NSCP_TARGET_INSECURE` | `1`                      | Skip TLS cert verification (VMs are self-signed).  |
 | `NSCP_TARGET_OS`       | _(auto)_                 | `windows` / `linux`; else derived from the server. |
 
@@ -59,36 +60,53 @@ that validates `NSCP_TARGET_*` instead of requiring `NSCP_BIN`.
 
 ## Against an Azure VM
 
-The [`build/powershell`](../../build/powershell) scripts provision a VM, install
-NSClient++, run `nscp web install` (WEB on 8443, self-signed cert, random
-password) and save the address + password to `build/powershell/.vm.pwd`.
-`run-tests.ps1` reads that file and runs this suite for you:
+The [`build/powershell`](../../build/powershell) setup scripts provision a VM,
+install NSClient++, run `nscp web install` (WEB on 8443, self-signed cert,
+random password) and save the address + password to a credentials file,
+`build/powershell/.vm.pwd` by default. The suite reads that file itself when
+no password is set:
 
 ```powershell
 # 1. provision + install (writes .vm.pwd)
 ./build/powershell/linux/setup-ubuntu-machine.ps1 -VmName NSCP-Ubuntu-Test -Version 0.14.0
 
 # 2. run the acceptance suite against it
-./build/powershell/run-tests.ps1 -VmName NSCP-Ubuntu-Test -Os linux
+npm --prefix tests run test:live -- live-checks
 ```
+
+`NSCP_TARGET_PWD_FILE` points it at another machine's `.vm.<name>.pwd`.
 
 ## Against a role estate
 
-`estate.test.ts` targets a whole estate instead of one machine: it reads an
-estate manifest and, for every machine that provisioned cleanly, runs the
-checks its role declares in `build/powershell/estate/roles/<role>/role.json`,
-with the same rules as the estate gate (`estate/verify-estate.ps1`, see the
-[build/powershell README](../../build/powershell/README.md#role-based-estate-one-command-per-suite)).
-Each machine's address and password come from the `.vm.<name>.pwd` file the
-manifest points at, so `NSCP_TARGET_*` are not needed. Without
-`NSCP_ESTATE_MANIFEST` the suite is skipped.
+`estate.test.ts` targets a whole estate instead of one machine. For every
+machine that is up, it runs the checks its role declares in
+`build/powershell/estate/roles/<role>/role.json`. It is the estate's only
+check runner: the estate gate (`estate/verify-estate.ps1`, see the
+[build/powershell README](../../build/powershell/README.md#role-based-estate-one-command-per-suite))
+waits for the fleet sync and then runs this suite. Each machine's address and
+password come from the `.vm.<name>.pwd` file its manifest points at, so
+`NSCP_TARGET_*` are not needed.
+
+Against an estate kept with `run-estate.ps1 <role> -KeepVms`:
 
 ```sh
-NSCP_ESTATE_MANIFEST=../build/powershell/.estate-runs/<ts>/suite-mysql/manifest.json \
-  npm run test:live -- estate
+npm run test:estate                 # every estate that is up
+npm run test:estate -- -t mssql     # only the machines whose name matches
 ```
 
-`NSCP_ESTATE_ROLES` points it at another roles directory.
+`test:estate` finds the estate on its own: every manifest under
+`build/powershell` (`.fleet-machines.json` and each run's
+`.estate-runs/<ts>/suite-<role>/manifest.json`) that lists a machine whose
+`.vm.<name>.pwd` still exists. Teardown removes both, so only what is up is
+tested, and nothing up fails the run instead of passing an empty one.
+
+| Variable | Meaning |
+| --- | --- |
+| `NSCP_ESTATE_MANIFEST` | The manifest(s) to test instead, joined with the path delimiter (`;` on Windows). Under `npm run test:live` the suite is skipped without it. |
+| `NSCP_ESTATE_ROLES` | Another roles directory. |
+| `NSCP_ESTATE_MACHINES` | Only these machines, comma-separated. |
+| `NSCP_ESTATE_CHECK_WAIT_SECONDS` | How long one check is retried before it fails (default 60). |
+| `NSCP_ESTATE_RESULTS_DIR` | Write `<dir>/<machine>/checks.json` with every check's verdict and raw REST result (the gate sets this). |
 
 ## Local debugging without a VM
 
@@ -97,10 +115,4 @@ point the suite at localhost — the same command CI would use:
 
 ```sh
 NSCP_TARGET_URL=https://127.0.0.1:8443 NSCP_TARGET_PASSWORD=<pw> npm run test:live
-```
-
-or via the runner:
-
-```powershell
-./build/powershell/run-tests.ps1 -Local -Password <pw> -Os linux
 ```

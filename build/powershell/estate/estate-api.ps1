@@ -21,7 +21,6 @@
 $script:EstateDir = $PSScriptRoot
 $script:EstateOsFamilies = @("windows", "ubuntu", "rocky")
 $script:EstateExpectStates = @("OK", "WARNING", "CRITICAL", "UNKNOWN", "any")
-$script:EstateStateNames = @("OK", "WARNING", "CRITICAL", "UNKNOWN")
 
 function Get-EstateRolesDir {
     return (Join-Path $script:EstateDir "roles")
@@ -126,9 +125,6 @@ function Read-EstateRole {
                 Expect  = $expect
                 Perf    = @($c.perf | Where-Object { $_ } | ForEach-Object { "$_" })
                 Os      = $checkOs
-                # What the check is called in checks.json and the verdicts: the
-                # same command can appear twice with different arguments.
-                Label   = "$command$(if ($checkArgs.Count) { ' ' + (($checkArgs.Keys | ForEach-Object { "$_=$($checkArgs[$_] -join ',')" }) -join ' ') })"
             }
         })
 
@@ -571,145 +567,4 @@ function Get-EstateRolePassword {
             "tear them down and provision again.")
     }
     return $passwords[0]
-}
-
-# --- the agent's REST API -------------------------------------------------------
-
-# Public IP, web URL and web password from a .vm.<name>.pwd file the setup
-# scripts wrote.
-function Read-EstatePwdFile {
-    param([Parameter(Mandatory)][string]$Path)
-    if (-not (Test-Path $Path)) { return $null }
-    $ip = $null; $url = $null; $pw = $null
-    foreach ($line in Get-Content -Path $Path) {
-        if ($line -match '^\s*Public IP:\s*(.+?)\s*$') { $ip = $Matches[1] }
-        if ($line -match '^\s*Web URL:\s*(.+?)\s*$') { $url = $Matches[1] }
-        if ($line -match '^\s*Web Password:\s*(.+?)\s*$') { $pw = $Matches[1] }
-    }
-    return [pscustomobject]@{ PublicIp = $ip; WebUrl = $url; WebPassword = $pw }
-}
-
-# A GET against an agent's REST API. Agents on the estate serve a self-signed
-# certificate, so validation is always off (see Set-FleetCertificateCheck for
-# what that means on Windows PowerShell 5.1).
-function Invoke-EstateAgentApi {
-    param(
-        [Parameter(Mandatory)][string]$BaseUrl,
-        [Parameter(Mandatory)][string]$Path,
-        # Query parameters; a value that is an array repeats the key.
-        [System.Collections.IDictionary]$Query = @{},
-        [hashtable]$Headers = @{},
-        [int]$TimeoutSec = 90
-    )
-    Set-FleetCertificateCheck -Skip $true
-    $pairs = foreach ($k in $Query.Keys) {
-        foreach ($v in @($Query[$k])) { "$([uri]::EscapeDataString($k))=$([uri]::EscapeDataString("$v"))" }
-    }
-    $uri = "$($BaseUrl.TrimEnd('/'))$Path"
-    if ($pairs) { $uri += "?" + ($pairs -join "&") }
-    $params = @{ Uri = $uri; Method = "Get"; Headers = $Headers; TimeoutSec = $TimeoutSec; ErrorAction = "Stop" }
-    if ($PSVersionTable.PSVersion.Major -ge 6) { $params.SkipCertificateCheck = $true }
-    try { return Invoke-RestMethod @params }
-    catch {
-        $status = $null
-        if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-        # Without a status there is no body either: say why the request failed
-        # on the first line, which is the one the gate prints.
-        $code = if ($status) { "HTTP $status" } else {
-            $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
-            "request failed ($($e.Message.Trim()))"
-        }
-        throw "GET $($BaseUrl.TrimEnd('/'))$Path : $code`n$((Get-FleetErrorBody $_).Trim())"
-    }
-}
-
-# Log in (GET /api/v1/login, basic auth) and return the bearer headers.
-function Connect-EstateAgent {
-    param(
-        [Parameter(Mandatory)][string]$BaseUrl,
-        [Parameter(Mandatory)][string]$Password,
-        [string]$User = "admin"
-    )
-    $basic = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("${User}:$Password"))
-    $login = Invoke-EstateAgentApi -BaseUrl $BaseUrl -Path "/api/v1/login" -Headers @{ Authorization = "Basic $basic" } -TimeoutSec 30
-    if (-not $login.key) { throw "Login to $BaseUrl as $User returned no key." }
-    return @{ Authorization = "Bearer $($login.key)" }
-}
-
-# Run one check through /api/v1/queries/<cmd>/commands/execute - the path the
-# web UI and the live suite use, so arguments arrive as single key=value tokens.
-function Invoke-EstateAgentCheck {
-    param(
-        [Parameter(Mandatory)][string]$BaseUrl,
-        [Parameter(Mandatory)][hashtable]$Headers,
-        [Parameter(Mandatory)]$Check
-    )
-    return Invoke-EstateAgentApi -BaseUrl $BaseUrl -Path "/api/v1/queries/$($Check.Command)/commands/execute" `
-        -Query $Check.Args -Headers $Headers
-}
-
-# --- judging a check ------------------------------------------------------------
-
-# Does a role check run on a machine of this family? No "os" means everywhere;
-# "linux" stands for every Linux family.
-function Test-EstateCheckApplies {
-    param(
-        [Parameter(Mandatory)]$Check,
-        [Parameter(Mandatory)][string]$Family
-    )
-    if ($Check.Os.Count -eq 0) { return $true }
-    if ($Check.Os -contains $Family) { return $true }
-    return ($Family -ne "windows" -and $Check.Os -contains "linux")
-}
-
-<#
-.SYNOPSIS
-    Judge one REST query result against a role check.
-.DESCRIPTION
-    Passes when the state is the expected one ("any" accepts OK, WARNING and
-    CRITICAL - a check that ran - but not UNKNOWN, which is what a missing
-    module, a bad argument or an unreachable workload returns) and every name
-    in "perf" occurs in at least one perfdata key, case-insensitively. Keys
-    carry an alias the check renders ("total 5m", "C:\ used %"), so a name
-    matches inside a key rather than all of it.
-.OUTPUTS
-    Passed, State, Message, PerfKeys and Reason (why it failed, else $null).
-#>
-function Test-EstateCheckResult {
-    param(
-        [Parameter(Mandatory)]$Check,
-        [AllowNull()]$Result
-    )
-    $state = $null
-    if ($null -ne $Result -and $null -ne $Result.result) {
-        $raw = "$($Result.result)"
-        if ($raw -match '^\d+$' -and [int]$raw -lt $script:EstateStateNames.Count) { $state = $script:EstateStateNames[[int]$raw] }
-        elseif ($script:EstateStateNames -contains $raw.ToUpperInvariant()) { $state = $raw.ToUpperInvariant() }
-    }
-    $lines = @()
-    if ($null -ne $Result) { $lines = @($Result.lines | Where-Object { $null -ne $_ }) }
-    $message = (@($lines | ForEach-Object { "$($_.message)" }) -join " / ").Trim()
-    $perfKeys = @($lines | Where-Object { $_.perf } | ForEach-Object { $_.perf.PSObject.Properties.Name })
-
-    $reason = $null
-    if (-not $state) { $reason = "no result state in the response" }
-    elseif ($Check.Expect -eq "any" -and $state -eq "UNKNOWN") { $reason = "returned UNKNOWN (expected any state but UNKNOWN)" }
-    elseif ($Check.Expect -ne "any" -and $state -ne $Check.Expect) { $reason = "returned $state, expected $($Check.Expect)" }
-    else {
-        $missing = @($Check.Perf | Where-Object {
-                $want = $_
-                -not ($perfKeys | Where-Object { $_.IndexOf($want, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
-            })
-        if ($missing.Count -gt 0) {
-            $have = if ($perfKeys.Count) { $perfKeys -join ", " } else { "none" }
-            $reason = "no perfdata matching $(($missing | ForEach-Object { "'$_'" }) -join ', ') (got: $have)"
-        }
-    }
-    [pscustomobject]@{
-        Passed   = ($null -eq $reason)
-        State    = $state
-        Message  = $message
-        PerfKeys = $perfKeys
-        Reason   = $reason
-    }
 }

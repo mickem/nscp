@@ -12,15 +12,16 @@
         agent-state.json     the enrollment state (private key redacted)
         journal.txt          journalctl -u nsclient, last 500 lines (Linux)
         events.txt           the Application event log, last 500 events (Windows)
-        msi-install.log      the MSI log, last -TailLines lines (Windows)
+        msi-install.log      the MSI log, last -MsiTailLines lines (Windows)
         role-<file>          the extra files the role.json "logs" list names
         fleet-host.json      GET /api/hosts/<id> at collection time
 
-    checks.json sits in the same folder too, but verify-estate.ps1 writes it.
+    checks.json sits in the same folder too: the jest estate suite writes it
+    and verify-estate.ps1 adds the sync state.
 
     Everything is gathered into one archive on the VM and fetched through
-    RunCommand in 3000-character chunks, so a machine costs a minute or two
-    rather than one round trip per file. A machine that cannot be reached gets
+    RunCommand in 3000-character chunks of about 30 seconds each, so a
+    machine costs a few minutes rather than one round trip per file. A machine that cannot be reached gets
     a collect-error.txt instead; collection never fails the run that called it.
 
     run-estate.ps1 calls this before teardown, on success and failure alike.
@@ -41,8 +42,13 @@
 .PARAMETER FleetNoVerify
     Skip verification of the fleet server certificate.
 .PARAMETER TailLines
-    How much of the agent and MSI logs to keep (default 2000 lines). The whole
-    archive travels through RunCommand 3000 characters at a time.
+    How much of the agent and role logs to keep (default 2000 lines). The
+    whole archive travels through RunCommand 3000 characters at a time, about
+    30 seconds per round trip, so every kilobyte counts.
+.PARAMETER MsiTailLines
+    How much of the verbose MSI log to keep (default 200 lines). A whole one
+    is about 200 KB, which took most of a Windows machine's 17 minutes of
+    collection; the outcome of the install is in its last lines.
 .EXAMPLE
     ./estate/collect-logs.ps1
 .EXAMPLE
@@ -57,6 +63,8 @@ param(
     [switch]$FleetNoVerify,
     [ValidateRange(100, 100000)]
     [int]$TailLines = 2000,
+    [ValidateRange(10, 100000)]
+    [int]$MsiTailLines = 200,
     [string]$RolesDir = ""
 )
 
@@ -144,7 +152,7 @@ Remove-Item -Recurse -Force `$d, 'C:\temp\nscp-collect.zip' -ErrorAction Silentl
 New-Item -ItemType Directory -Path `$d -Force | Out-Null
 `$root = 'C:\Program Files\NSClient++'
 if (Test-Path "`$root\nsclient.log") { Get-Content -Path "`$root\nsclient.log" -Tail $TailLines | Set-Content -Encoding UTF8 -Path "`$d\nsclient.log" }
-if (Test-Path 'C:\temp\install.log') { Get-Content -Path 'C:\temp\install.log' -Tail $TailLines | Set-Content -Encoding UTF8 -Path "`$d\msi-install.log" }
+if (Test-Path 'C:\temp\install.log') { Get-Content -Path 'C:\temp\install.log' -Tail $MsiTailLines | Set-Content -Encoding UTF8 -Path "`$d\msi-install.log" }
 Copy-Item 'C:\nscp-role-install.log' "`$d\role-install.log" -ErrorAction SilentlyContinue
 Copy-Item "`$root\security\agent-state.json" "`$d\agent-state.json" -ErrorAction SilentlyContinue
 Copy-Item "`$root\fleet\fleet.ini" "`$d\fleet.ini" -ErrorAction SilentlyContinue

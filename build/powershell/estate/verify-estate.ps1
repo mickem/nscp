@@ -1,29 +1,29 @@
 <#
 .SYNOPSIS
     The estate gate: wait until every machine in a manifest is in sync with its
-    role bundle and every one of its role checks returns what the role says.
+    role bundle, then run its checks through jest.
 .DESCRIPTION
-    Polls, up to -WaitMinutes, every machine that provisioned cleanly:
+    Two stages, for every machine that provisioned cleanly:
 
-        1. sync   GET /api/hosts/<id>/desired on the fleet server: the desired
-                  state carries the role's bundle (role-<name>) and the host
-                  reports it applied (in_sync against *that* state, not just
-                  whatever it last synced).
-        2. check  log in to the agent over REST (the web URL and password
-                  from its .vm.<name>.pwd) and run each role check
-                  that applies to its OS family; every check must return its
-                  "expect" state with its "perf" keys, in the same round.
+        1. sync   polls GET /api/hosts/<id>/desired on the fleet server, up to
+                  -WaitMinutes, until the desired state carries the role's
+                  bundle (role-<name>) and the host reports it applied
+                  (in_sync against *that* state, not just whatever it last
+                  synced).
+        2. check  runs tests/live/estate.test.ts (`npm run test:estate`) once
+                  for every machine that synced: it logs in to each agent over
+                  REST and runs the role checks that apply to its OS family
+                  and the agent checks every live target must pass,
+                  retrying each for -CheckWaitSeconds. The jest suite is the
+                  only check runner; this script reads its verdicts.
 
-    A machine passes once both hold; the gate stops polling it then. Checks
-    are re-run every round, so a collector warming up or a bundle still on its
-    way is waited out rather than failed.
+    Jest writes <RunFolder>/<machine>/checks.json (per check the verdict, the
+    reason and the raw REST result of the last attempt); this script adds the
+    sync state to it, and writes one for a machine that never synced.
+    -ResultFile gets one line per machine (Machine, Passed, Stage, Detail) for
+    run-suite.ps1, where Stage is "sync" or "check".
 
-    For every machine it writes <RunFolder>/<machine>/checks.json: the sync
-    state and, per check, the verdict and the raw REST result of the last
-    attempt. -ResultFile gets one line per machine (Machine, Passed, Stage,
-    Detail) for run-suite.ps1, where Stage is "sync" or "check".
-
-    Exits 1 if any machine failed.
+    Needs node and `npm install` in tests/. Exits 1 if any machine failed.
 .PARAMETER ManifestFile
     The estate manifest (default: build/powershell/.fleet-machines.json).
 .PARAMETER FleetServer
@@ -35,7 +35,12 @@
 .PARAMETER FleetNoVerify
     Skip verification of the fleet server certificate.
 .PARAMETER WaitMinutes
-    How long to keep polling before failing what is still pending (default 10).
+    How long to wait for the sync stage before failing what is still pending
+    (default 10).
+.PARAMETER CheckWaitSeconds
+    How long jest retries one check before failing it (default 120): a
+    collector warming up or the web server restarting after the bundle reload
+    is waited out.
 .PARAMETER RunFolder
     Where the per-machine checks.json files go. Default: a new
     .estate-runs/<timestamp> folder.
@@ -43,10 +48,6 @@
     Optional JSON summary, one entry per machine.
 .PARAMETER Name
     Only these machines (default: every machine in the manifest).
-.PARAMETER Jest
-    Once the gate has run, also run tests/live/estate.test.ts against the same
-    manifest for a jest-shaped record (needs node and `npm install` in tests/).
-    Its result does not change this script's verdicts or exit code.
 .EXAMPLE
     ./estate/verify-estate.ps1 -ManifestFile .estate-runs/20261003-101500/suite-mysql/manifest.json
 #>
@@ -63,7 +64,8 @@ param(
     [string]$RolesDir = "",
     [ValidateRange(5, 600)]
     [int]$PollSeconds = 20,
-    [switch]$Jest
+    [ValidateRange(0, 3600)]
+    [int]$CheckWaitSeconds = 120
 )
 
 $ErrorActionPreference = "Stop"
@@ -94,6 +96,7 @@ if (-not $fleetGate) {
     Write-Warning "No fleet server or API key: skipping the sync stage, running the checks only."
 }
 
+
 # --- what each machine has to satisfy ---------------------------------------------
 $targets = foreach ($m in $machines) {
     $t = [pscustomobject]@{
@@ -102,17 +105,13 @@ $targets = foreach ($m in $machines) {
         Family     = "$(if ($m.Family) { $m.Family } else { $m.Os })"
         HostId     = "$($m.HostId)"
         Bundle     = $null
-        Checks     = @()
-        BaseUrl    = $null
-        Password   = $null
-        Headers    = $null
         Synced     = $false
         SyncDetail = "not checked yet"
-        Results    = @()
         Done       = $false
         Passed     = $false
         Stage      = $null
         Detail     = $null
+        Record     = $null
     }
     if (-not $t.Role) { $t.Role = "base" }
     if (-not $catalog.Contains($t.Role)) {
@@ -121,24 +120,10 @@ $targets = foreach ($m in $machines) {
     else {
         $role = $catalog[$t.Role]
         if ($role.Bundle) { $t.Bundle = "role-$($role.Name)" }
-        $t.Checks = @($role.Checks | Where-Object { Test-EstateCheckApplies -Check $_ -Family $t.Family })
-        $creds = $null
-        if ($m.PwdFile) { $creds = Read-EstatePwdFile -Path $m.PwdFile }
-        # The pwd file's own "Web URL" first: it is what the setup script
-        # actually configured.
-        $url = $null
-        if ($creds -and $creds.WebUrl) { $url = "$($creds.WebUrl)" }
-        elseif ($m.PublicIp) { $url = "https://$($m.PublicIp):8443" }
-        elseif ($creds -and $creds.PublicIp) { $url = "https://$($creds.PublicIp):8443" }
-        if ($t.Checks.Count -gt 0) {
-            if (-not $url -or -not $creds -or -not $creds.WebPassword) {
-                $t.Done = $true; $t.Stage = "check"
-                $t.Detail = "no web address or password (is $($m.PwdFile) still there?)"
-            }
-            else {
-                $t.BaseUrl = $url
-                $t.Password = $creds.WebPassword
-            }
+        # jest only sees a machine whose credentials file is still there.
+        if (-not ($m.PwdFile -and (Test-Path $m.PwdFile))) {
+            $t.Done = $true; $t.Stage = "check"
+            $t.Detail = "no web address or password (is $($m.PwdFile) still there?)"
         }
     }
     if (-not $fleetGate) { $t.Synced = $true; $t.SyncDetail = "skipped (no fleet server or API key)" }
@@ -147,7 +132,7 @@ $targets = foreach ($m in $machines) {
 }
 $targets = @($targets)
 
-# --- one round -------------------------------------------------------------------
+# --- stage 1: sync -----------------------------------------------------------------
 function Update-SyncState {
     param($T)
     try {
@@ -171,88 +156,110 @@ function Update-SyncState {
     $T.SyncDetail = "in sync$(if ($bundles) { " with $($bundles -join ', ')" })"
 }
 
-function Update-CheckState {
-    param($T)
-    if (-not $T.Headers) {
-        try { $T.Headers = Connect-EstateAgent -BaseUrl $T.BaseUrl -Password $T.Password }
-        catch {
-            $T.Detail = "REST login to $($T.BaseUrl) failed: $($_.Exception.Message -split "`n" | Select-Object -First 1)"
-            return $false
-        }
-    }
-    $T.Results = @(foreach ($check in $T.Checks) {
-            $raw = $null
-            try {
-                $raw = Invoke-EstateAgentCheck -BaseUrl $T.BaseUrl -Headers $T.Headers -Check $check
-                $verdict = Test-EstateCheckResult -Check $check -Result $raw
-            }
-            catch {
-                $err = $_.Exception.Message
-                # A restarted agent (a bundle reload restarts the web server)
-                # forgets its sessions: log in again next round.
-                if ($err -match 'HTTP 40[13]') { $T.Headers = $null }
-                $verdict = [pscustomobject]@{ Passed = $false; State = $null; Message = ""; PerfKeys = @(); Reason = "request failed: $($err -split "`n" | Select-Object -First 1)" }
-            }
-            [pscustomobject]@{
-                Check    = $check.Label
-                Command  = $check.Command
-                Args     = $check.Args
-                Expect   = $check.Expect
-                Perf     = $check.Perf
-                Passed   = $verdict.Passed
-                State    = $verdict.State
-                Reason   = $verdict.Reason
-                Message  = $verdict.Message
-                PerfKeys = $verdict.PerfKeys
-                Response = $raw
-            }
-        })
-    $failed = @($T.Results | Where-Object { -not $_.Passed })
-    if ($failed.Count -eq 0) { $T.Detail = $null; return $true }
-    $T.Detail = "$($failed.Count) of $($T.Results.Count) check(s) failing; first: $($failed[0].Check): $($failed[0].Reason)"
-    return $false
-}
-
 $deadline = (Get-Date).AddMinutes($WaitMinutes)
-Write-Host "Verifying $($targets.Count) machine(s), up to $WaitMinutes minute(s)..."
+Write-Host "Waiting for $($targets.Count) machine(s) to sync, up to $WaitMinutes minute(s)..."
 while ($true) {
-    foreach ($t in @($targets | Where-Object { -not $_.Done })) {
-        if (-not $t.Synced) { Update-SyncState -T $t }
-        if (-not $t.Synced) { continue }
-        if ($t.Checks.Count -eq 0 -or (Update-CheckState -T $t)) {
-            $t.Done = $true; $t.Passed = $true
-            Write-Host ("   {0}: PASSED ({1}; {2} check(s))" -f $t.Machine, $t.SyncDetail, $t.Checks.Count)
-        }
+    foreach ($t in @($targets | Where-Object { -not $_.Done -and -not $_.Synced })) {
+        Update-SyncState -T $t
+        if ($t.Synced) { Write-Host ("   {0}: {1}" -f $t.Machine, $t.SyncDetail) }
     }
-    $pending = @($targets | Where-Object { -not $_.Done })
+    $pending = @($targets | Where-Object { -not $_.Done -and -not $_.Synced })
     if ($pending.Count -eq 0 -or (Get-Date) -ge $deadline) { break }
     foreach ($t in $pending) {
-        $why = if (-not $t.Synced) { "sync: $($t.SyncDetail)" } else { "check: $($t.Detail)" }
-        Write-Host ("   [{0:HH:mm:ss}] {1} waiting - {2}" -f (Get-Date), $t.Machine, $why)
+        Write-Host ("   [{0:HH:mm:ss}] {1} waiting - sync: {2}" -f (Get-Date), $t.Machine, $t.SyncDetail)
     }
     Start-Sleep -Seconds $PollSeconds
 }
-
-# --- verdicts ---------------------------------------------------------------------
-foreach ($t in @($targets | Where-Object { -not $_.Passed -and -not $_.Stage })) {
-    if (-not $t.Synced) { $t.Stage = "sync"; $t.Detail = $t.SyncDetail }
-    else { $t.Stage = "check" }
+foreach ($t in @($targets | Where-Object { -not $_.Done -and -not $_.Synced })) {
+    $t.Done = $true; $t.Stage = "sync"; $t.Detail = $t.SyncDetail
 }
 
+# --- stage 2: checks, through jest -----------------------------------------------
+$toCheck = @($targets | Where-Object { -not $_.Done })
+if ($toCheck.Count -gt 0) {
+    $testsDir = Join-Path (Split-Path -Parent (Split-Path -Parent $parentDir)) "tests"
+    $jestProblem = $null
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { $jestProblem = "npm is not on PATH (the checks run in jest)" }
+    elseif (-not (Test-Path (Join-Path $testsDir "node_modules"))) { $jestProblem = "tests/node_modules is missing: run 'npm install' in $testsDir" }
+
+    $rc = $null
+    if (-not $jestProblem) {
+        # A previous run's file must not pass for this one's.
+        foreach ($t in $toCheck) { Remove-Item (Join-Path (Join-Path $RunFolder $t.Machine) "checks.json") -ErrorAction SilentlyContinue }
+        Write-Host ""
+        Write-Host "Running the checks of $($toCheck.Count) machine(s) (tests/live/estate.test.ts)..."
+        $saved = @{}
+        $jestEnv = @{
+            NSCP_ESTATE_MANIFEST           = $ManifestFile
+            NSCP_ESTATE_ROLES              = (Resolve-Path $RolesDir).Path
+            NSCP_ESTATE_MACHINES           = (($toCheck | ForEach-Object { $_.Machine }) -join ",")
+            NSCP_ESTATE_RESULTS_DIR        = (Resolve-Path $RunFolder).Path
+            NSCP_ESTATE_CHECK_WAIT_SECONDS = "$CheckWaitSeconds"
+        }
+        # Piped through ForEach-Object, jest sees no terminal and drops its
+        # colours; --colors and FORCE_COLOR (for anything chalk-based in the
+        # tests) put them back, and Write-Host passes the escapes through to a
+        # terminal that renders them (CLion's, Windows Terminal, pwsh). A
+        # NO_COLOR in the environment is someone's choice, so it wins.
+        $jestArgs = @()
+        if (-not $env:NO_COLOR) {
+            $jestArgs = @("--colors")
+            if (-not $env:FORCE_COLOR) { $jestEnv.FORCE_COLOR = "1" }
+        }
+        foreach ($k in $jestEnv.Keys) {
+            $saved[$k] = [Environment]::GetEnvironmentVariable($k)
+            Set-Item -Path "env:$k" -Value $jestEnv[$k]
+        }
+        Push-Location $testsDir
+        $eap = $ErrorActionPreference
+        try {
+            # npm writes its banner to stderr; that is not a failure.
+            $ErrorActionPreference = "Continue"
+            & npm run test:estate -- @jestArgs 2>&1 | ForEach-Object { Write-Host $_ }
+            $rc = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $eap
+            Pop-Location
+            foreach ($k in $saved.Keys) {
+                if ($null -eq $saved[$k]) { Remove-Item -Path "env:$k" -ErrorAction SilentlyContinue }
+                else { Set-Item -Path "env:$k" -Value $saved[$k] }
+            }
+        }
+    }
+
+    foreach ($t in $toCheck) {
+        $t.Done = $true; $t.Stage = "check"
+        $file = Join-Path (Join-Path $RunFolder $t.Machine) "checks.json"
+        if ($jestProblem) { $t.Detail = $jestProblem; continue }
+        if (-not (Test-Path $file)) {
+            $t.Detail = "the jest suite wrote no checks.json for it (jest exit $rc; see the output above)"
+            continue
+        }
+        $t.Record = Get-Content -Path $file -Raw | ConvertFrom-Json
+        $t.Passed = [bool]$t.Record.passed
+        if ($t.Passed) { $t.Stage = $null } else { $t.Detail = "$($t.Record.detail)" }
+    }
+}
+
+# --- verdicts ---------------------------------------------------------------------
 foreach ($t in $targets) {
     $dir = Join-Path $RunFolder $t.Machine
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    $checks = @()
+    $url = $null
+    if ($t.Record) { $checks = @($t.Record.checks); $url = $t.Record.url }
     $record = [ordered]@{
         machine    = $t.Machine
         role       = $t.Role
         family     = $t.Family
-        url        = $t.BaseUrl
+        url        = $url
         passed     = $t.Passed
         stage      = $t.Stage
         detail     = $t.Detail
         synced     = $t.Synced
         syncDetail = $t.SyncDetail
-        checks     = @($t.Results)
+        checks     = $checks
     }
     ConvertTo-Json -InputObject $record -Depth 12 | Set-Content -Path (Join-Path $dir "checks.json") -Encoding UTF8
 }
@@ -264,47 +271,10 @@ if ($ResultFile) { ConvertTo-Json -InputObject $summary -Depth 4 | Set-Content -
 
 Write-Host ""
 foreach ($t in $targets) {
-    if ($t.Passed) { Write-Host "$($t.Machine): PASSED" }
+    if ($t.Passed) { Write-Host "$($t.Machine): PASSED ($($t.SyncDetail); $(@($t.Record.checks).Count) check(s))" }
     else { Write-Host "$($t.Machine): FAILED at $($t.Stage) - $($t.Detail)" }
-    foreach ($r in $t.Results) {
-        $mark = if ($r.Passed) { "ok  " } else { "FAIL" }
-        $line = "   $mark $($r.Check): $($r.State)"
-        if (-not $r.Passed) {
-            $line += " - $($r.Reason)"
-            if ($r.Message) { $line += " :: $($r.Message)" }
-        }
-        Write-Host $line
-    }
 }
 Write-Host "checks.json per machine under $RunFolder"
-
-if ($Jest) {
-    $testsDir = Join-Path (Split-Path -Parent (Split-Path -Parent $parentDir)) "tests"
-    Write-Host ""
-    Write-Host "Running tests/live/estate.test.ts against the same manifest..."
-    $env:NSCP_ESTATE_MANIFEST = $ManifestFile
-    $env:NSCP_ESTATE_ROLES = (Resolve-Path $RolesDir).Path
-    Push-Location $testsDir
-    try {
-        $ErrorActionPreference = "Continue"
-        # Piped through ForEach-Object, jest sees no terminal and drops its
-        # colours; --colors and FORCE_COLOR (for anything chalk-based in the
-        # tests) put them back, and Write-Host passes the escapes through to a
-        # terminal that renders them (CLion's, Windows Terminal, pwsh). A
-        # NO_COLOR in the environment is someone's choice, so it wins.
-        $jestArgs = @("estate")
-        $forceColor = -not $env:NO_COLOR
-        $hadForceColor = [bool]$env:FORCE_COLOR
-        if ($forceColor) {
-            $jestArgs = @("--colors") + $jestArgs
-            if (-not $hadForceColor) { $env:FORCE_COLOR = "1" }
-        }
-        try { & npm run test:live -- @jestArgs 2>&1 | ForEach-Object { Write-Host $_ } }
-        finally { if ($forceColor -and -not $hadForceColor) { $env:FORCE_COLOR = $null } }
-        if ($LASTEXITCODE -ne 0) { Write-Warning "estate.test.ts failed (exit $LASTEXITCODE); the gate's verdicts above stand." }
-    }
-    finally { Pop-Location }
-}
 
 if (@($targets | Where-Object { -not $_.Passed }).Count -gt 0) { exit 1 }
 exit 0

@@ -37,7 +37,7 @@ later).
    │ (Windows)             setup-rocky-machine.ps1 (Linux) │  install NSCP,
    └──────────────────────┼───────────────────────────────┘  nscp web install,
                           │                                   write .vm.pwd
-                 run-tests.ps1        →  live acceptance suite (tests/live)
+                 npm run test:live    →  live acceptance suite (tests/live)
                           │
                  connect-machine.ps1  →  RDP (Windows) / SSH (Linux) into the VM
                           │
@@ -260,38 +260,46 @@ names the **first stage that failed**, so the right log is the first one opened:
 | `check`     | a role check did not return what it should                   | `checks.json`        |
 
 **The gate.** After enroll and sync, a suite composes the role's bundle
-(`estate/add-role-bundles.ps1`) and runs `estate/verify-estate.ps1`, which
-polls each machine (up to the suite's wait) until both hold:
+(`estate/add-role-bundles.ps1`) and runs `estate/verify-estate.ps1`, in two
+stages:
 
-1. **sync** — `GET /api/hosts/<id>/desired` on the fleet server carries the
-   role's bundle (`role-<name>`) and the host reports it applied. This is
-   `in_sync` against the state *with* the bundle in it, not whatever the host
-   synced before the bundle was assigned.
-2. **check** — every role check that applies to the machine's OS returns its
-   `expect` state with its `perf` keys, over the agent's REST API, all in the
-   same round.
+1. **sync** — it polls the fleet server (up to the suite's wait) until
+   `GET /api/hosts/<id>/desired` carries the role's bundle (`role-<name>`)
+   and the host reports it applied. This is `in_sync` against the state
+   *with* the bundle in it, not whatever the host synced before the bundle was
+   assigned.
+2. **check** — it runs the jest suite `tests/live/estate.test.ts` once for
+   every machine that synced. Jest logs in to each agent over REST and runs
+   every role check that applies to the machine's OS. Each check must return
+   its `expect` state with its `perf` keys, and is retried for
+   `-CheckWaitSeconds` (default 120) to wait out a collector warming up or the
+   web server restarting after the bundle reload.
 
-It writes `checks.json` into each machine's folder (the verdict, the reason
-and the raw REST result of every check's last attempt) and prints one line
-per check:
+Jest is the only check runner: the gate takes each machine's verdict from the
+`checks.json` jest writes into its folder (the verdict, the reason and the raw
+REST result of every check's last attempt), and adds the sync state to it. It
+needs node and `npm install` in `tests/`. The jest output shows one line per
+check, and the gate ends with one line per machine:
 
 ```
 mysql-fra-02: FAILED at check - 1 of 2 check(s) failing; first: check_mysql ...: returned UNKNOWN, expected OK
-   FAIL check_mysql warning=connections_pct > 100 critical=uptime < 1s: UNKNOWN - returned UNKNOWN, expected OK :: Failed to connect ...
-   ok   check_mysql_query query=SELECT COUNT(*) ... : OK
 ```
 
-Run it by hand against a kept estate while iterating on a role; `-Jest` also
-runs `tests/live/estate.test.ts` against the same manifest for a jest-shaped
-record (needs `npm install` in `tests/`):
-
-```powershell
-./estate/add-role-bundles.ps1 -ManifestFile <manifest>   # after editing a role's bundle
-./estate/verify-estate.ps1 -ManifestFile <manifest> -WaitMinutes 2
-```
+**Running the checks by hand.** Against an estate kept with `-KeepVms`, the
+checks are one command from `tests/`. It finds every estate that is still up
+(every manifest under `build/powershell` that lists a machine whose
+`.vm.<name>.pwd` still exists), so there is no path to type:
 
 ```sh
-cd tests && NSCP_ESTATE_MANIFEST=<manifest> npm run test:live -- estate
+cd tests && npm run test:estate                 # every estate that is up
+cd tests && npm run test:estate -- -t mssql     # one role's machines
+```
+
+After editing a role's bundle, re-apply it and run the whole gate again:
+
+```powershell
+./estate/add-role-bundles.ps1 -ManifestFile <manifest>
+./estate/verify-estate.ps1 -ManifestFile <manifest> -WaitMinutes 2
 ```
 
 **Logs.** Every run writes `.estate-runs/<timestamp>/<machine>/` — on success
@@ -544,60 +552,37 @@ finds `mstsc.exe` / `cmdkey.exe` under `/mnt/c/Windows/System32`).
 
 Since `.vm.pwd` only describes the **last** machine provisioned, to debug a
 specific VM either pass its details explicitly, or keep it alive when you
-provision it — e.g. `./run-all-tests.ps1 -Target windows -WindowsVersions windows-2025 -KeepVms`,
-then `./connect-machine.ps1` to RDP in.
+provision it — e.g. `./run-estate.ps1 base -Sequential -KeepVms`, which also
+copies the credentials to `.vm.pwd` — then `./connect-machine.ps1` to RDP in.
 
 ## Run everything in one command
 
-`run-all-tests.ps1` chains the three steps above (provision → test → teardown)
-for one or several machine types. Each machine gets its own resource group and
-is torn down when it finishes.
+The [role-based estate](#role-based-estate-one-command-per-suite) is the
+one-command path: provision, enroll, check, collect logs, tear down. The
+`base` role is NSClient++ alone, and its machines round-robin over Windows,
+Ubuntu and Rocky, so the old whole-OS matrix is one suite:
 
 ```powershell
-# The whole matrix: Windows Server (latest + oldest) + Ubuntu + Rocky, with the
-# latest GitHub release (-Version pins another)
-./run-all-tests.ps1 -Target all
+# Windows Server 2025, Ubuntu, Rocky and Windows Server 2019, latest release
+./run-estate.ps1 base=4 -WindowsVersions windows-2025,windows-2019
 
-# Same, but concurrently — much faster (most of the time is Azure create/destroy)
-./run-all-tests.ps1 -Target all -Parallel
-
-# A single family, pinned to a release
-./run-all-tests.ps1 -Target ubuntu  -Version 0.24.1
-./run-all-tests.ps1 -Target windows -Version 0.24.1     # windows-2025 + windows-2019
-./run-all-tests.ps1 -Target rocky   -Version 0.24.1     # 'redhat' is an alias
+# A pinned release
+./run-estate.ps1 base=3 -Version 0.24.1
 ```
 
-**Sequential vs. `-Parallel`.** By default machines run one at a time and share
-`build/powershell/.vm.pwd` (so `connect-machine.ps1` and a bare `run-tests`
-still find the last one). `-Parallel` (PowerShell 7+) runs them concurrently,
-each with its own `.vm.<name>.pwd`, capped by `-MaxParallel` (default 4 — mind
-your Azure vCPU quota). It logs in once up front so the concurrent setups don't
-each prompt. Output from the machines interleaves (every line is prefixed with
-the machine label); the pass/fail summary at the end is what matters. With
-`-Parallel -KeepVms`, point at a specific box with
-`./connect-machine.ps1 -PwdFile .vm.<name>.pwd`.
-
-| `-Target`           | Machines provisioned                                  |
-| ------------------- | ----------------------------------------------------- |
-| `all`               | Windows 2025 + Windows 2019 + Ubuntu 24.04 + Rocky 9  |
-| `windows`           | `-WindowsVersions` (default latest + oldest server)   |
-| `ubuntu`            | `-UbuntuVersion` (default 24.04)                      |
-| `rocky` / `redhat`  | `-RockyVersion` (default 9)                           |
-
-It prints a pass/fail summary at the end and exits non-zero if any machine
-failed. Useful switches: `-KeepVms` (skip teardown for debugging — only the last
-machine's `.vm.pwd` survives), `-StopOnFirstFailure`, and `-WindowsVersions` /
-`-UbuntuVersion` / `-RockyVersion` to override the images (e.g.
-`-WindowsVersions windows-2025` for just the latest). The first machine performs
-the Azure login (device-code on WSL); run `./install-azure.ps1` once beforehand
-if the Az modules are missing.
+Every machine gets the role checks and the agent checks of the live suite
+(`check_cpu`, `check_memory`, `check_uptime`, `check_drivesize`, plus the
+Linux- or Windows-only ones), all in jest. The estate needs a fleet server
+(see [Build a fleet](#build-a-fleet-machines-enrolled-with-a-fleet-server)).
+Without one, provision a single machine with a setup script and run the live
+suite against it ([below](#2-run-the-acceptance-suite)).
 
 Supported `-WindowsVersions` values: `windows-2025`, `windows-2022`,
 `windows-2019` (Windows Server), and `windows-11`, `windows-10` (client). Mix
 them freely, e.g. test every Windows:
 
 ```powershell
-./run-all-tests.ps1 -Target windows -Version 0.14.0 `
+./run-estate.ps1 base=5 -Version 0.14.0 -MaxMachines 5 `
   -WindowsVersions windows-2025,windows-2022,windows-2019,windows-11,windows-10
 ```
 
@@ -628,29 +613,32 @@ directory.
 
 ## 2. Run the acceptance suite
 
-[`run-tests.ps1`](run-tests.ps1) points the Jest **live** suite
-([`tests/live`](../../tests/live)) at the VM. It reads the public IP + web
-password from `.vm.pwd` (falling back to explicit `-PublicIp`/`-Password`, or an
-Azure lookup for the IP), sets the `NSCP_TARGET_*` environment, and runs
-`npm run test:live` in `tests/`.
+The Jest **live** suite ([`tests/live`](../../tests/live)) reads the VM's
+address and web password from the credentials file the setup script wrote.
+With no `NSCP_TARGET_PASSWORD` set it uses `build/powershell/.vm.pwd`, the
+machine provisioned last, so from the repository root:
 
 ```powershell
-./run-tests.ps1 -VmName NSCP-Ubuntu-Test -Os linux
-./run-tests.ps1 -VmName NSCP-Test        -Os windows
+npm --prefix tests run test:live -- live-checks
+```
+
+Another machine's file goes in `NSCP_TARGET_PWD_FILE` (the setup script
+prints the full line when it finishes):
+
+```powershell
+$env:NSCP_TARGET_PWD_FILE = 'build/powershell/.vm.web-ams-04.pwd'; npm --prefix tests run test:live -- live-checks
 ```
 
 The suite connects over REST (HTTPS/8443, self-signed cert accepted), logs in,
-and asserts the standard checks work on the real machine — cross-platform
+and asserts the standard checks work on the real machine: cross-platform
 (`check_cpu`, `check_memory`, `check_uptime`, `check_drivesize`) plus
 platform-specific ones (Linux: `check_load`, `check_swap_io`, `check_service`,
-`check_mount`; Windows: `check_service`, `check_eventlog`).
+`check_mount`; Windows: `check_service`, `check_eventlog`). The estate runs the
+same cases on every machine.
 
-It also runs **locally without a VM** for debugging — see
-[`tests/live/README.md`](../../tests/live/README.md):
-
-```powershell
-./run-tests.ps1 -Local -Password <web-pw> -Os linux
-```
+It also runs **locally without a VM** for debugging: set `NSCP_TARGET_URL` and
+`NSCP_TARGET_PASSWORD` instead (see
+[`tests/live/README.md`](../../tests/live/README.md)).
 
 ## 3. Logs / teardown
 
@@ -664,6 +652,7 @@ It also runs **locally without a VM** for debugging — see
 - `.vm.pwd` holds a live web password — it is intentionally not committed
   (add it to your local ignore if needed) and is overwritten by each setup run.
 - One `.vm.pwd` at a time: provision, test, tear down before the next VM, or
-  pass `-PublicIp`/`-Password` to `run-tests.ps1` explicitly for parallel VMs.
-- A GitHub Actions pipeline that downloads a release's artifacts, calls these
-  scripts, runs `run-tests.ps1`, and always tears down is the natural next step.
+  pass `-PwdFile .vm.<name>.pwd` to the setup script and `NSCP_TARGET_PWD_FILE`
+  to the suite for parallel VMs.
+- A GitHub Actions pipeline that wraps `run-estate.ps1` and always tears down
+  is the natural next step.

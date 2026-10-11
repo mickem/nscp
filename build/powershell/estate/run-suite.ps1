@@ -138,7 +138,7 @@ if ($machines.Count -eq 0) {
 $live = @($machines | Where-Object { $results[$_.Name].Verdict -eq "PASSED" })
 
 # A sequential run keeps the shared .vm.pwd pointing at the latest machine, so
-# connect-machine.ps1 and a bare run-tests.ps1 find it.
+# connect-machine.ps1 and `npm run test:live` (tests/) find it.
 if ($suite.sharedPwdFile) {
     foreach ($m in $live) {
         if (Test-Path $m.PwdFile) { Copy-Item $m.PwdFile $suite.sharedPwdFile -Force }

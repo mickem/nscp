@@ -549,7 +549,7 @@ if ($shortfalls.Count -gt 0) {
 }
 
 # --- Per-machine worker ------------------------------------------------------
-# Mirrors run-all-tests.ps1: the setup script is run as a child process (it calls
+# The setup script is run as a child process (it calls
 # `exit`, which would otherwise take this script down with it), stderr is merged
 # into stdout so a sub-script's warnings never become error records that abort a
 # parallel fan-out, and every failure is returned as a result rather than thrown.

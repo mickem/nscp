@@ -12,7 +12,8 @@
         2. waits until each one has enrolled and reports in sync;
         3. composes the role's bundle (estate/add-role-bundles.ps1) and gates
            on it (estate/verify-estate.ps1): each machine must be in sync with
-           the bundle and pass every role check over REST;
+           the bundle and pass every role check, run by the jest suite
+           tests/live/estate.test.ts (needs `npm install` in tests/);
         4. collects every machine's logs into .estate-runs/<timestamp>/<machine>/,
            on success and failure alike;
         5. tears the machines down (unless -KeepVms).
@@ -34,7 +35,7 @@
 .PARAMETER Sequential
     Run the suites one at a time, in the order given, instead of concurrently.
     Each machine's credentials are then also copied to the shared .vm.pwd, so
-    connect-machine.ps1 and a bare run-tests.ps1 find the latest one, and
+    connect-machine.ps1 and `npm run test:live` (tests/) find the latest one, and
     -StopOnFirstFailure applies.
 .PARAMETER MaxParallel
     How many suites run at once (default 4).
@@ -108,7 +109,7 @@ param(
     [string]$UbuntuPackageUrl = "",
     [string]$RockyPackageUrl = "",
     [string]$Location = "",
-    [string]$WindowsVersions = "",
+    [string[]]$WindowsVersions = @(),
     [switch]$FleetInsecure,
     [switch]$FleetNoVerify,
     [string]$FleetCaFile = "",
@@ -210,7 +211,9 @@ foreach ($p in @("Version", "WindowsPackageUrl", "UbuntuPackageUrl", "RockyPacka
     $value = Get-Variable -Name $p -ValueOnly
     if ($value) { $provisionArgs += @("-$p", $value) }
 }
-if ($WindowsVersions) { $provisionArgs += @("-WindowsVersions", $WindowsVersions) }
+# A list typed on the command line arrives as an array, through -File as one
+# string; the suite hands it on as one comma-separated argument either way.
+if ($WindowsVersions) { $provisionArgs += @("-WindowsVersions", ($WindowsVersions -join ",")) }
 if ($FleetInsecure) { $provisionArgs += "-FleetInsecure" }
 if ($FleetNoVerify) { $provisionArgs += "-FleetNoVerify" }
 if ($RolesDir) { $provisionArgs += @("-RolesDir", $RolesDir) }
@@ -297,7 +300,9 @@ $results = [System.Collections.Generic.List[object]]::new()
 foreach ($s in $suites) {
     $resultFile = Join-Path (Split-Path -Parent $s.SuiteFile) "result.json"
     if (Test-Path $resultFile) {
-        foreach ($r in @(Get-Content -Path $resultFile -Raw | ConvertFrom-Json)) { $results.Add($r) }
+        # ForEach-Object unrolls it: PS 5.1's ConvertFrom-Json emits a JSON array
+        # as ONE object, which printed a two-machine suite as System.Object[].
+        foreach ($r in @(Get-Content -Path $resultFile -Raw | ConvertFrom-Json | ForEach-Object { $_ })) { $results.Add($r) }
     }
     elseif ($started.Contains($s.Role)) {
         $results.Add([pscustomobject]@{ Machine = "(suite $($s.Role))"; Role = $s.Role; Verdict = "FAILED"; Stage = "provision"; Detail = "the suite wrote no result" })
