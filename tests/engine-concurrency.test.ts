@@ -121,26 +121,28 @@ describeWithModules(
   (onWindows ? it.skip : it)(
     "answers a REST request while another REST request runs a slow check",
     async () => {
-      const rest = await agent.rest(4);
-      try {
-        const slow = rest.query("py_sleep", { [String(SLOW_MS)]: "", rest_slow: "" });
-        // The slow check is inside the agent once its marker is there.
-        const deadline = performance.now() + SLOW_MS / 2;
-        while (!agent.running().includes("rest_slow") && performance.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 20));
-        }
-        expect(agent.running()).toContain("rest_slow");
-
-        const t0 = performance.now();
-        const fast = await rest.query("check_ok", { message: "rest-fast" });
-        const took = performance.now() - t0;
-        expect(fast.lines[0].message).toBe("rest-fast");
-        // Queued behind the slow check it would take the rest of SLOW_MS.
-        expect({ took, prompt: took < 1_000 }).toMatchObject({ prompt: true });
-        expect((await slow).lines[0].message).toBe(`py slept ${SLOW_MS}`);
-      } finally {
-        await rest.close();
+      // restQuery, not the pooled undici client: this suite also runs on the
+      // Node 18 of the Debian/Ubuntu integration jobs. Log in first, so the
+      // two requests below do not both race to.
+      expect(await agent.restQuery("check_ok", { message: "warm" })).toEqual({
+        result: 0,
+        message: "warm",
+      });
+      const slow = agent.restQuery("py_sleep", { [String(SLOW_MS)]: "", rest_slow: "" });
+      // The slow check is inside the agent once its marker is there.
+      const deadline = performance.now() + SLOW_MS / 2;
+      while (!agent.running().includes("rest_slow") && performance.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 20));
       }
+      expect(agent.running()).toContain("rest_slow");
+
+      const t0 = performance.now();
+      const fast = await agent.restQuery("check_ok", { message: "rest-fast" });
+      const took = performance.now() - t0;
+      expect(fast).toEqual({ result: 0, message: "rest-fast" });
+      // Queued behind the slow check it would take the rest of SLOW_MS.
+      expect({ took, prompt: took < 1_000 }).toMatchObject({ prompt: true });
+      expect(await slow).toEqual({ result: 0, message: `py slept ${SLOW_MS}` });
     },
   );
 });
