@@ -125,15 +125,15 @@ describeWithModules(
       try {
         const slow = rest.query("py_sleep", { [String(SLOW_MS)]: "", rest_slow: "" });
         // The slow check is inside the agent once its marker is there.
-        const deadline = Date.now() + SLOW_MS / 2;
-        while (!agent.running().includes("rest_slow") && Date.now() < deadline) {
+        const deadline = performance.now() + SLOW_MS / 2;
+        while (!agent.running().includes("rest_slow") && performance.now() < deadline) {
           await new Promise((r) => setTimeout(r, 20));
         }
         expect(agent.running()).toContain("rest_slow");
 
-        const t0 = Date.now();
+        const t0 = performance.now();
         const fast = await rest.query("check_ok", { message: "rest-fast" });
-        const took = Date.now() - t0;
+        const took = performance.now() - t0;
         expect(fast.lines[0].message).toBe("rest-fast");
         // Queued behind the slow check it would take the rest of SLOW_MS.
         expect({ took, prompt: took < 1_000 }).toMatchObject({ prompt: true });
