@@ -1,0 +1,40 @@
+{
+  "name": "mysql",
+  "description": "MariaDB server on Linux, checked with CheckMySQL through a role bundle",
+  "os": ["ubuntu", "rocky"],
+  "machines": 1,
+  "vcpus": 1,
+  "vmSize": null,
+  "image": null,
+  "modules": ["CheckMySQL"],
+  "install": { "ubuntu": "install-ubuntu.sh", "rocky": "install-rocky.sh" },
+  "installTimeoutMinutes": 15,
+  "tag": { "role": "mysql" },
+  "bundle": {
+    "settings": {
+      "mysql": { "hostname": "127.0.0.1", "user": "nscp", "password": "${ROLE_PASSWORD}" }
+    }
+  },
+  "checks": [
+    {
+      "command": "check_mysql",
+      "args": { "warning": "connections_pct > 100", "critical": "uptime < 1s" },
+      "expect": "OK",
+      "perf": ["mariadb_uptime", "mariadb_connections_pct"]
+    },
+    {
+      "command": "check_mysql_query",
+      "args": {
+        "query": "SELECT COUNT(*) AS db_count FROM information_schema.SCHEMATA",
+        "critical": "db_count < 1",
+        "perf-syntax": "databases"
+      },
+      "expect": "OK",
+      "perf": ["databases"]
+    }
+  ],
+  "logs": {
+    "ubuntu": ["/var/log/mysql/error.log"],
+    "rocky": ["/var/log/mariadb/mariadb.log"]
+  }
+}

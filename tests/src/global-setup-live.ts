@@ -10,6 +10,13 @@
 import { liveConfig } from "./live-target";
 
 export default async function globalSetupLive(): Promise<void> {
+  // The estate suite (live/estate.test.ts) reads its targets from a manifest,
+  // one machine and password each, so there is no single target to validate.
+  if (process.env.NSCP_ESTATE_MANIFEST && !process.env.NSCP_TARGET_PASSWORD) {
+    // eslint-disable-next-line no-console
+    console.log(`[live] estate manifest ${process.env.NSCP_ESTATE_MANIFEST}`);
+    return;
+  }
   const cfg = liveConfig(); // throws with guidance if password is missing
   // eslint-disable-next-line no-console
   console.log(

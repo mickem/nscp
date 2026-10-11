@@ -32,7 +32,20 @@ function Set-FleetCertificateCheck {
         # 5.1 also still defaults to TLS 1.0 on older hosts, which every current
         # server refuses; opt into 1.2 while we are here.
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+        # A compiled callback, not a scriptblock: .NET may run the validation
+        # on a thread-pool thread with no runspace, where a scriptblock throws
+        # "There is no Runspace available" and the handshake fails.
+        if (-not ("FleetTrustAllCertificates" -as [type])) {
+            Add-Type -TypeDefinition @"
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+public static class FleetTrustAllCertificates {
+    public static bool Accept(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors) { return true; }
+}
+"@
+        }
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback =
+        [System.Delegate]::CreateDelegate([System.Net.Security.RemoteCertificateValidationCallback], [FleetTrustAllCertificates], "Accept")
     }
 }
 
@@ -89,7 +102,7 @@ function Invoke-FleetApi {
     }
 
     try {
-        return Invoke-RestMethod @params
+        $response = Invoke-RestMethod @params
     }
     catch {
         $status = $null
@@ -97,7 +110,7 @@ function Invoke-FleetApi {
         $body = (Get-FleetErrorBody $_).Trim()
         $hint = switch ($status) {
             401 { " (the API key is unknown, revoked, or its owner was deleted)" }
-            403 { " (the key's owner may lack the add_hosts right, or the tenant is at its host limit)" }
+            403 { " (the key's owner lacks the right for this call, or the tenant is at a tier limit - hosts, bundles, ...; the body below says which)" }
             404 { " (is '$FleetServer' really a fleet server? check the url and its path prefix)" }
             429 { " (rate limited - wait and retry)" }
             default { "" }
@@ -105,6 +118,12 @@ function Invoke-FleetApi {
         $code = if ($status) { "HTTP $status" } else { "request failed" }
         throw "$Method $uri : $code$hint`n$body"
     }
+    # A JSON array comes back as ONE pipeline object (an Object[]), and
+    # `return` would hand it on as such: a caller's @(...) then holds a single
+    # element that is the whole list, `Where-Object { $_.name -eq $x }` passes
+    # that list through as a whole, and `$group.id` is every id at once. Pipe
+    # it so the elements come out one by one, as the callers expect.
+    return $response | ForEach-Object { $_ }
 }
 
 # Fail fast, before spending ten minutes creating a VM that then cannot enroll.
@@ -124,6 +143,51 @@ function Test-FleetServer {
         throw "$($FleetServer.TrimEnd('/'))/healthz did not answer 'OK' - is that a fleet server url? It said: $sample"
     }
     return $health
+}
+
+<#
+.SYNOPSIS
+    The tag of the latest NSClient++ release on GitHub ("0.24.1"), which is what
+    the provisioning scripts install when no -Version is given.
+.DESCRIPTION
+    Asks api.github.com for releases/latest: a published, non-prerelease,
+    non-draft release, the same one github.com/mickem/nscp/releases/latest
+    redirects to. Unauthenticated calls are rate-limited per address (60/hour);
+    set GITHUB_TOKEN to lift that. Throws, with the reason, when the API cannot
+    be reached, so a run says so before it creates anything.
+#>
+function Get-LatestNscpRelease {
+    param([string]$Repository = "mickem/nscp")
+    $params = @{
+        Uri         = "https://api.github.com/repos/$Repository/releases/latest"
+        Headers     = @{ Accept = "application/vnd.github+json"; "User-Agent" = "nscp-fleet-tools" }
+        TimeoutSec  = 20
+        ErrorAction = "Stop"
+    }
+    if ($env:GITHUB_TOKEN) { $params.Headers.Authorization = "Bearer $env:GITHUB_TOKEN" }
+    try { $release = Invoke-RestMethod @params }
+    catch { throw "Could not look up the latest NSClient++ release ($($params.Uri)): $($_.Exception.Message). Pass -Version explicitly." }
+    $tag = "$($release.tag_name)".Trim()
+    if (-not $tag) { throw "GitHub returned no tag_name for the latest $Repository release; pass -Version explicitly." }
+    return $tag
+}
+
+# Prove the key works before creating anything: a 401 on the first host create
+# otherwise surfaces after the Azure login and the capacity preflight, and in
+# an estate run once per suite. GET /api/hosts needs no more than view_only.
+function Test-FleetApiKey {
+    param(
+        [Parameter(Mandatory)][string]$FleetServer,
+        [Parameter(Mandatory)][string]$ApiKey,
+        [switch]$SkipCertificateCheck
+    )
+    try {
+        Invoke-FleetApi -FleetServer $FleetServer -Path "/api/hosts" -ApiKey $ApiKey `
+            -SkipCertificateCheck:$SkipCertificateCheck -TimeoutSec 15 | Out-Null
+    }
+    catch {
+        throw "The fleet API key does not work against $($FleetServer.TrimEnd('/')) - mint one from *API keys* in the fleet UI and set `$env:NSCLIENT_FLEET_API_KEY. $($_.Exception.Message)"
+    }
 }
 
 <#
@@ -172,6 +236,72 @@ function Remove-FleetHost {
     )
     Invoke-FleetApi -FleetServer $FleetServer -Path "/api/hosts/$HostId" -Method Delete `
         -ApiKey $ApiKey -SkipCertificateCheck:$SkipCertificateCheck | Out-Null
+}
+
+<#
+.SYNOPSIS
+    Set an operator-sourced tag on a host (PUT /api/hosts/<id>/tags/<key>).
+.DESCRIPTION
+    Group selectors match operator-set tags by default, so this is how a
+    machine is placed in a group before it ever syncs: tag it right after
+    New-FleetHost and its first desired state already carries the group's
+    bundles. Needs configuration rights, like Remove-FleetHost.
+#>
+function Set-FleetHostTag {
+    param(
+        [Parameter(Mandatory)][string]$FleetServer,
+        [Parameter(Mandatory)][string]$ApiKey,
+        [Parameter(Mandatory)][string]$HostId,
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)][string]$Value,
+        [switch]$SkipCertificateCheck
+    )
+    Invoke-FleetApi -FleetServer $FleetServer -Path "/api/hosts/$HostId/tags/$([uri]::EscapeDataString($Key))" -Method Put `
+        -ApiKey $ApiKey -Body @{ value = $Value } -SkipCertificateCheck:$SkipCertificateCheck | Out-Null
+}
+
+<#
+.SYNOPSIS
+    Delete every stored version of a bundle except the ones in -Keep.
+.DESCRIPTION
+    Every compose stores a new, immutable version, and a tenant may only hold
+    so many bundles (50 on the smallest tier) - so a script that composes on
+    every run has to prune too, or it eventually fails with "tier_limit".
+    Deleting a bundle also removes its group assignments, so keep whatever is
+    still meant to be assigned. Needs configuration rights (owner/admin).
+.OUTPUTS
+    One line per deleted version, for the caller to print.
+#>
+function Remove-FleetBundleVersions {
+    param(
+        [Parameter(Mandatory)][string]$FleetServer,
+        [Parameter(Mandatory)][string]$ApiKey,
+        [Parameter(Mandatory)][string]$Name,
+        [string[]]$Keep = @(),
+        [switch]$SkipCertificateCheck
+    )
+    $bundles = @(Invoke-FleetApi -FleetServer $FleetServer -Path "/api/bundles" -ApiKey $ApiKey `
+            -SkipCertificateCheck:$SkipCertificateCheck)
+    foreach ($b in @($bundles | Where-Object { $_.name -eq $Name -and $Keep -notcontains $_.id })) {
+        Invoke-FleetApi -FleetServer $FleetServer -Path "/api/bundles/$($b.id)" -Method Delete -ApiKey $ApiKey `
+            -SkipCertificateCheck:$SkipCertificateCheck | Out-Null
+        "removed $Name $($b.version)"
+    }
+}
+
+<#
+.SYNOPSIS
+    Read one host (GET /api/hosts/<id>): status, enrolled_at, last_seen_at, ...
+#>
+function Get-FleetHost {
+    param(
+        [Parameter(Mandatory)][string]$FleetServer,
+        [Parameter(Mandatory)][string]$ApiKey,
+        [Parameter(Mandatory)][string]$HostId,
+        [switch]$SkipCertificateCheck
+    )
+    Invoke-FleetApi -FleetServer $FleetServer -Path "/api/hosts/$HostId" `
+        -ApiKey $ApiKey -SkipCertificateCheck:$SkipCertificateCheck
 }
 
 <#
@@ -260,6 +390,31 @@ function Read-NagiosPwdFile {
     }
 }
 
+# The estate manifest (.fleet-machines.json by default): one entry per machine
+# provision-fleet-machines.ps1 created, read back by -Destroy, collect-logs.ps1
+# and run-estate.ps1.
+function Read-FleetManifest {
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path $Path)) { return @() }
+    # PS 5.1's ConvertFrom-Json emits a JSON array as ONE object; without the
+    # ForEach-Object a caller's @(Read-FleetManifest) gets a one-element array
+    # holding the real array, and $m.Name then yields every machine's name.
+    try { return @(Get-Content -Path $Path -Raw | ConvertFrom-Json | ForEach-Object { $_ }) }
+    catch {
+        Write-Warning "Could not read the manifest $Path ($($_.Exception.Message)); treating it as empty."
+        return @()
+    }
+}
+
+function Write-FleetManifest {
+    param([Parameter(Mandatory)][string]$Path, $Machines)
+    # ConvertTo-Json unrolls a single-element array into an object, which would
+    # then read back as one machine's worth of properties - force an array.
+    $json = ConvertTo-Json -InputObject @($Machines) -Depth 5
+    if (@($Machines).Count -eq 1 -and -not $json.StartsWith("[")) { $json = "[$json]" }
+    Set-Content -Path $Path -Value $json -Force
+}
+
 # Machine names that look like something out of a real estate rather than
 # "vm-test-3": <role>-<site>-<nn>, e.g. web-ams-04, sql-fra-12. Kept lowercase,
 # alphanumeric-and-hyphen, and at most 12 characters, so the same name is legal
@@ -279,20 +434,24 @@ function New-FleetMachineName {
         # Names already taken (this run's names, plus anything else you want to
         # avoid). Comparison is case-insensitive.
         [string[]]$Exclude = @(),
+        # Use this as the <role> part instead of a random one (an estate role
+        # such as "mysql", so the machine says what it is for).
+        [string]$Role = "",
         [int]$MaxAttempts = 200
     )
     $taken = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($e in $Exclude) { if ($e) { [void]$taken.Add($e) } }
+    $roles = if ($Role) { @($Role) } else { $script:FleetNameRoles }
 
     for ($i = 0; $i -lt $MaxAttempts; $i++) {
-        $name = "{0}-{1}-{2:d2}" -f (Get-Random -InputObject $script:FleetNameRoles),
+        $name = "{0}-{1}-{2:d2}" -f (Get-Random -InputObject $roles),
         (Get-Random -InputObject $script:FleetNameSites),
         (Get-Random -Minimum 1 -Maximum 20)
         if (-not $taken.Contains($name)) { return $name }
     }
     # 20*20*19 combinations, so this only happens if a caller asks for an absurd
     # number of machines - fall back to a suffix rather than looping forever.
-    return ("{0}-{1}-{2:d2}x{3}" -f (Get-Random -InputObject $script:FleetNameRoles),
+    return ("{0}-{1}-{2:d2}x{3}" -f (Get-Random -InputObject $roles),
         (Get-Random -InputObject $script:FleetNameSites),
         (Get-Random -Minimum 1 -Maximum 20), (Get-Random -Minimum 100 -Maximum 999))
 }

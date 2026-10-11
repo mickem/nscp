@@ -43,6 +43,24 @@
     Azure VM size. The default is a 1-vCPU size: a subscription's vCPU quota is
     what caps the size of an estate, so halving the vCPUs per machine doubles
     how many fit. Must be a Generation 2 size (every image below is Gen2).
+.PARAMETER Modules
+    Extra NSClient++ modules to activate, comma-separated, on top of the
+    standard ones (an estate role's "modules").
+.PARAMETER Role
+    The estate role this machine plays; only recorded in the credentials file.
+.PARAMETER RoleInstallScript
+    A local shell script (an estate role's install fragment) to run as root on
+    the VM before NSClient++ is installed, with ROLE_PASSWORD in its
+    environment. Its output goes to /var/log/nscp-role-install.log on the VM;
+    a non-zero exit fails the run with exit code 2.
+.PARAMETER RolePassword
+    The role's throwaway secret, handed to -RoleInstallScript as ROLE_PASSWORD.
+.PARAMETER RoleInstallTimeoutMinutes
+    Wall-clock limit for -RoleInstallScript (default 10).
+.NOTES
+    Exit codes: 0 done, 1 provisioning/install failed, 2 the role install
+    fragment failed, 3 fleet enrollment failed. run-estate.ps1 reads them to
+    name the stage that failed.
 #>
 param(
     [string]$ResourceGroupName = "NSCP-RG",
@@ -63,7 +81,12 @@ param(
     [switch]$FleetInsecure,
     [switch]$FleetNoVerify,
     [string]$FleetCaFile = "",
-    [string]$VmSize = "Standard_F1as_v7"
+    [string]$VmSize = "Standard_F1as_v7",
+    [string]$Modules = "",
+    [string]$Role = "",
+    [string]$RoleInstallScript = "",
+    [string]$RolePassword = "",
+    [int]$RoleInstallTimeoutMinutes = 10
 )
 
 # Fleet options are all-or-nothing: half of them means a machine that quietly
@@ -87,6 +110,15 @@ if ($FleetToken -and -not $FleetServer) {
 if ($FleetCaFile -and -not (Test-Path $FleetCaFile)) {
     Write-Error "❌ -FleetCaFile '$FleetCaFile' does not exist."
     exit 1
+}
+# Passed through `-File`, so a list arrives as one comma-separated string.
+$extraModules = @($Modules -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+foreach ($m in $extraModules) {
+    if ($m -notmatch '^[A-Za-z0-9_]+$') { Write-Error "❌ -Modules: '$m' is not a module name."; exit 1 }
+}
+if ($RoleInstallScript) {
+    if (-not (Test-Path $RoleInstallScript)) { Write-Error "❌ -RoleInstallScript '$RoleInstallScript' does not exist."; exit 1 }
+    . (Join-Path (Split-Path -Parent $PSScriptRoot) "estate/estate-api.ps1")
 }
 
 # Ensure required modules are installed
@@ -201,6 +233,23 @@ $vmConfig = New-AzVMConfig -VMName $VmName -VMSize $VMSize | `
 
 New-AzVM -ResourceGroupName $ResourceGroupName -Location $Location -VM $vmConfig
 
+# The workload goes on before NSClient++, so the agent finds it already running
+# and the role's checks can be verified as soon as the agent is up.
+if ($RoleInstallScript) {
+    Write-Host "● Running the $Role role install fragment ($(Split-Path -Leaf $RoleInstallScript), up to $RoleInstallTimeoutMinutes min)..."
+    $scriptBlock = New-LinuxRoleInstallScript -FragmentPath $RoleInstallScript -RolePassword $RolePassword `
+        -TimeoutMinutes $RoleInstallTimeoutMinutes
+    $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
+    $messages = @($result.Value | ForEach-Object { $_.Message })
+    $messages | ForEach-Object { $_ }
+    $rc = Get-RoleInstallExitCode -Messages $messages
+    if ($rc -ne 0) {
+        Write-Error "❌ The $Role role install fragment failed (exit $rc); its output is in /var/log/nscp-role-install.log on the VM."
+        exit 2
+    }
+    Write-Host "✅ Role $Role installed."
+}
+
 Write-Host "Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
 $RpmUrl = if ($PackageUrl) { $PackageUrl } else { "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Version}-rocky-${RockyVersion}-${Arch}.rpm" }
@@ -248,6 +297,8 @@ sudo nscp settings --activate-module CheckDisk || true
 # anything without configuration) and keeps the monitoring flow turn-key.
 sudo nscp settings --activate-module NRDPClient || true
 sudo nscp settings --activate-module Scheduler || true
+# The estate role's own modules (-Modules), activated here for the same reason.
+$(($extraModules | ForEach-Object { "sudo nscp settings --activate-module $_ || true" }) -join "`n")
 
 # Configure firewall
 sudo dnf install -y firewalld
@@ -348,7 +399,7 @@ echo "FLEET: enrolled (`$state, service user `$svc_user)"
     $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
     if ($result.Status -ne "Succeeded") {
         Write-Error "❌ Failed to enroll the VM with the fleet server. Status: $($result.Status)"
-        exit 1
+        exit 3
     }
     $messages = @($result.Value | ForEach-Object { $_.Message })
     $messages | ForEach-Object { $_ }
@@ -356,7 +407,7 @@ echo "FLEET: enrolled (`$state, service user `$svc_user)"
     # marker - not the status - is what says the host actually joined.
     if (-not ($messages -match 'FLEET: enrolled')) {
         Write-Error "❌ The machine did not enroll with $FleetServer (see the output above)."
-        exit 1
+        exit 3
     }
     Write-Host "✅ Enrolled with the fleet server."
 }
@@ -414,6 +465,8 @@ Write-Host "✅ Correct version installed!"
 # run-tests.ps1 can point the live acceptance suite at this VM.
 if (-not $PwdFile) { $PwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd" }
 $fleetLine = if ($FleetServer) { "`nFleet Server:   $FleetServer" } else { "" }
+if ($Role) { $fleetLine += "`nRole:           $Role" }
+if ($RolePassword) { $fleetLine += "`nRole Password:  $RolePassword" }
 @"
 VM Name:        $VmName
 Resource Group: $ResourceGroupName

@@ -41,6 +41,28 @@
     Azure VM size. The default is a 1-vCPU size: a subscription's vCPU quota is
     what caps the size of an estate, so halving the vCPUs per machine doubles
     how many fit. Must be a Generation 2 size (every image below is Gen2).
+.PARAMETER ImageUrn
+    Use this Marketplace image ("publisher:offer:sku:version") instead of the
+    one -WindowsVersion picks - for an estate role that needs a workload
+    preinstalled, such as SQL Server Express. Must be a Gen2 image.
+.PARAMETER Modules
+    Extra NSClient++ modules to activate, comma-separated, on top of the
+    standard ones (an estate role's "modules").
+.PARAMETER Role
+    The estate role this machine plays; only recorded in the credentials file.
+.PARAMETER RoleInstallScript
+    A local PowerShell script (an estate role's install fragment) to run on the
+    VM before NSClient++ is installed, with ROLE_PASSWORD in its environment.
+    Its output goes to C:\nscp-role-install.log on the VM; a non-zero exit
+    fails the run with exit code 2.
+.PARAMETER RolePassword
+    The role's throwaway secret, handed to -RoleInstallScript as ROLE_PASSWORD.
+.PARAMETER RoleInstallTimeoutMinutes
+    Wall-clock limit for -RoleInstallScript (default 10).
+.NOTES
+    Exit codes: 0 done, 1 provisioning/install failed, 2 the role install
+    fragment failed, 3 fleet enrollment failed. run-estate.ps1 reads them to
+    name the stage that failed.
 #>
 param(
     [string]$ResourceGroupName = "NSCP-RG",
@@ -61,7 +83,13 @@ param(
     [switch]$FleetInsecure,
     [switch]$FleetNoVerify,
     [string]$FleetCaFile = "",
-    [string]$VmSize = "Standard_F1as_v7"
+    [string]$VmSize = "Standard_F1as_v7",
+    [string]$ImageUrn = "",
+    [string]$Modules = "",
+    [string]$Role = "",
+    [string]$RoleInstallScript = "",
+    [string]$RolePassword = "",
+    [int]$RoleInstallTimeoutMinutes = 10
 )
 
 # Fleet options are all-or-nothing: half of them means a machine that quietly
@@ -85,6 +113,15 @@ if ($FleetToken -and -not $FleetServer) {
 if ($FleetCaFile -and -not (Test-Path $FleetCaFile)) {
     Write-Error "❌ -FleetCaFile '$FleetCaFile' does not exist."
     exit 1
+}
+# Passed through `-File`, so a list arrives as one comma-separated string.
+$extraModules = @($Modules -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+foreach ($m in $extraModules) {
+    if ($m -notmatch '^[A-Za-z0-9_]+$') { Write-Error "❌ -Modules: '$m' is not a module name."; exit 1 }
+}
+if ($RoleInstallScript) {
+    if (-not (Test-Path $RoleInstallScript)) { Write-Error "❌ -RoleInstallScript '$RoleInstallScript' does not exist."; exit 1 }
+    . (Join-Path (Split-Path -Parent $PSScriptRoot) "estate/estate-api.ps1")
 }
 
 # Ensure required modules are installed
@@ -192,6 +229,12 @@ switch ($WindowsVersion) {
 # client rights (Visual Studio / Enterprise Dev-Test / multi-session AVD); a
 # plain pay-as-you-go subscription may reject the image.
 $isClient = $WindowsVersion -in @("windows-10", "windows-11")
+if ($ImageUrn) {
+    $urn = $ImageUrn -split ':'
+    if ($urn.Count -ne 4) { Write-Error "❌ -ImageUrn '$ImageUrn' is not publisher:offer:sku:version."; exit 1 }
+    $PublisherName, $Offer, $Skus, $VmVersion = $urn
+    $isClient = $false
+}
 
 Write-Host "● Creating the Virtual Machine: $VmName with $Skus..."
 if ($isClient) {
@@ -223,6 +266,23 @@ Admin Username: $AdminUsername
 Admin Password: $AdminPassword
 "@ | Set-Content -Path $pwdFile -Force
 Write-Host "● RDP credentials saved to $pwdFile (web password will be added after install)."
+
+# The workload goes on before NSClient++, so the agent finds it already running
+# and the role's checks can be verified as soon as the agent is up.
+if ($RoleInstallScript) {
+    Write-Host "● Running the $Role role install fragment ($(Split-Path -Leaf $RoleInstallScript), up to $RoleInstallTimeoutMinutes min)..."
+    $scriptBlock = New-WindowsRoleInstallScript -FragmentPath $RoleInstallScript -RolePassword $RolePassword `
+        -TimeoutMinutes $RoleInstallTimeoutMinutes
+    $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
+    $messages = @($result.Value | ForEach-Object { $_.Message })
+    $messages | ForEach-Object { $_ }
+    $rc = Get-RoleInstallExitCode -Messages $messages
+    if ($rc -ne 0) {
+        Write-Error "❌ The $Role role install fragment failed (exit $rc); its output is in C:\nscp-role-install.log on the VM."
+        exit 2
+    }
+    Write-Host "✅ Role $Role installed."
+}
 
 Write-Host "● Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
@@ -313,13 +373,13 @@ if (Test-Path `$state) {
     $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
     if ($result.Status -ne "Succeeded") {
         Write-Error "❌ Failed to verify fleet enrollment on VM. Status: $($result.Status)"
-        exit 1
+        exit 3
     }
     $messages = @($result.Value | ForEach-Object { $_.Message })
     $messages | ForEach-Object { $_ }
     if (-not ($messages -match 'FLEET: enrolled')) {
         Write-Error "❌ The machine did not enroll with $FleetServer (see the output above)."
-        exit 1
+        exit 3
     }
     Write-Host "✅ Enrolled with the fleet server."
 }
@@ -346,6 +406,8 @@ $scriptBlock = @"
 # anything without configuration) and keeps the monitoring flow turn-key.
 & 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module NRDPClient
 & 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module Scheduler
+# The estate role's own modules (-Modules), activated here for the same reason.
+$(($extraModules | ForEach-Object { "& 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module $_" }) -join "`n")
 
 # Configure Windows Firewall
 New-NetFirewallRule -DisplayName 'NSClient++ HTTPS' -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -ErrorAction SilentlyContinue
@@ -417,6 +479,8 @@ $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $
 # Save credentials to .vm.pwd file
 if (-not $PwdFile) { $PwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd" }
 $fleetLine = if ($FleetServer) { "`nFleet Server:   $FleetServer" } else { "" }
+if ($Role) { $fleetLine += "`nRole:           $Role" }
+if ($RolePassword) { $fleetLine += "`nRole Password:  $RolePassword" }
 @"
 VM Name:        $VmName
 Resource Group: $ResourceGroupName

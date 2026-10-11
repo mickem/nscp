@@ -72,6 +72,24 @@ password) and save the address + password to `build/powershell/.vm.pwd`.
 ./build/powershell/run-tests.ps1 -VmName NSCP-Ubuntu-Test -Os linux
 ```
 
+## Against a role estate
+
+`estate.test.ts` targets a whole estate instead of one machine: it reads an
+estate manifest and, for every machine that provisioned cleanly, runs the
+checks its role declares in `build/powershell/estate/roles/<role>/role.json`,
+with the same rules as the estate gate (`estate/verify-estate.ps1`, see the
+[build/powershell README](../../build/powershell/README.md#role-based-estate-one-command-per-suite)).
+Each machine's address and password come from the `.vm.<name>.pwd` file the
+manifest points at, so `NSCP_TARGET_*` are not needed. Without
+`NSCP_ESTATE_MANIFEST` the suite is skipped.
+
+```sh
+NSCP_ESTATE_MANIFEST=../build/powershell/.estate-runs/<ts>/suite-mysql/manifest.json \
+  npm run test:live -- estate
+```
+
+`NSCP_ESTATE_ROLES` points it at another roles directory.
+
 ## Local debugging without a VM
 
 Install NSClient++ locally (or start a dev build) with WEB enabled on 8443, then

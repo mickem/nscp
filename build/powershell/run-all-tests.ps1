@@ -29,8 +29,9 @@
       rocky    - Rocky Linux          (see -RockyVersion)
       redhat   - alias for rocky
 .PARAMETER Version
-    NSClient++ release to install on every VM (e.g. 0.14.0). Must match a
-    published release asset for each OS.
+    NSClient++ release to install on every VM (e.g. 0.24.1). Must match a
+    published release asset for each OS. Default: the latest release on
+    GitHub, looked up when the run starts.
 .PARAMETER Location
     Azure region for every VM. Defaults to "WestEurope".
 .PARAMETER WindowsVersions
@@ -56,19 +57,19 @@
     where machines are already all in flight). Default: run every machine and
     report a pass/fail summary; exit code is non-zero if any failed.
 .EXAMPLE
-    # Everything, sequentially:
-    ./run-all-tests.ps1 -Target all -Version 0.14.0
+    # Everything, sequentially, with the latest release:
+    ./run-all-tests.ps1 -Target all
 .EXAMPLE
-    # Everything, in parallel (much faster):
-    ./run-all-tests.ps1 -Target all -Version 0.14.0 -Parallel
+    # Everything, in parallel (much faster), pinned to a release:
+    ./run-all-tests.ps1 -Target all -Version 0.24.1 -Parallel
 .EXAMPLE
     # Just Windows, only the latest server, keep the VM for inspection:
-    ./run-all-tests.ps1 -Target windows -Version 0.14.0 -WindowsVersions windows-2025 -KeepVms
+    ./run-all-tests.ps1 -Target windows -WindowsVersions windows-2025 -KeepVms
 #>
 param(
     [ValidateSet("all", "windows", "ubuntu", "rocky", "redhat")]
     [string]$Target = "all",
-    [string]$Version = "0.14.0",
+    [string]$Version = "",
     [string]$Location = "WestEurope",
     [string[]]$WindowsVersions = @("windows-2025", "windows-2019"),
     [string]$UbuntuVersion = "24.04",
@@ -82,7 +83,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 $scriptDir = $PSScriptRoot
+. (Join-Path $scriptDir "fleet-api.ps1")
 
+if (-not $Version) {
+    $Version = Get-LatestNscpRelease
+    Write-Host "● NSClient++ $Version (the latest GitHub release; -Version picks another)"
+}
 if ($Parallel -and $PSVersionTable.PSVersion.Major -lt 7) {
     throw "-Parallel needs PowerShell 7+ (ForEach-Object -Parallel); you are on $($PSVersionTable.PSVersion). Re-run with pwsh, or drop -Parallel."
 }
