@@ -491,7 +491,9 @@ TEST(str_utils, parse_alias_command_splits_like_parse_command) {
 TEST(str_utils, parse_alias_command_keeps_doubled_backslashes_and_escaped_quotes) {
   EXPECT_EQ(alias_args(R"(check_files "path=C:\\Program Files\\NSClient++\\nsclient.log")"),
             (std::list<std::string>{R"(path=C:\Program Files\NSClient++\nsclient.log)"}));
-  EXPECT_EQ(alias_args(R"(check_x "msg=say \"hi\"")"), (std::list<std::string>{R"(msg=say "hi")"}));
+  // Not a raw string: the v141 toolset mis-parses \" inside R"(...)" when
+  // the literal goes through a macro (C2017 "illegal escape sequence").
+  EXPECT_EQ(alias_args("check_x \"msg=say \\\"hi\\\"\""), (std::list<std::string>{R"(msg=say "hi")"}));
 }
 
 TEST(str_utils, parse_alias_command_keeps_an_escaped_space) {
