@@ -166,6 +166,25 @@ bool map_request(int code, const std::string &raw_args, mapped_command &out) {
   }
 }
 
+namespace {
+// The check answered without the value check_nt needs - almost always because
+// it returned UNKNOWN with an explanation ("the collector is busy", "collector
+// still initializing"). Pass that explanation on: without it check_nt shows a
+// generic error and the real cause is visible nowhere. '&' separates fields in
+// a check_nt reply and a line break ends it, so neither may come through.
+std::string no_perf_error(const std::string &command, const PB::Commands::QueryResponseMessage::Response::Line &line) {
+  std::string ret = "ERROR: No performance data from command: " + command;
+  std::string reason = line.message();
+  for (char &c : reason) {
+    if (c == '&') c = '+';
+    if (c == '\r' || c == '\n') c = ' ';
+  }
+  boost::algorithm::trim(reason);
+  if (!reason.empty()) ret += ": " + reason;
+  return ret;
+}
+}  // namespace
+
 std::string format_response(int code, const std::string &command, const PB::Commands::QueryResponseMessage::Response &payload) {
   if (payload.lines_size() != 1) {
     return "ERROR: Invalid number of lines returned from command: " + command + ", " + str::xtos(payload.lines_size());
@@ -176,17 +195,17 @@ std::string format_response(int code, const std::string &command, const PB::Comm
     case REQ_CPULOAD:  // Return the first performance data value
     case REQ_UPTIME:
     case REQ_COUNTER:
-      if (line.perf_size() < 1) return "ERROR: No performance data from command: " + command;
+      if (line.perf_size() < 1) return no_perf_error(command, line);
       return extract_perf_value(line.perf(0));
 
     case REQ_MEMUSE:
-      if (line.perf_size() < 1) return "ERROR: No performance data from command: " + command;
+      if (line.perf_size() < 1) return no_perf_error(command, line);
       return extract_perf_total(line.perf(0)) + "&" + extract_perf_value(line.perf(0));
     case REQ_USEDDISKSPACE:
-      if (line.perf_size() < 1) return "ERROR: No performance data from command: " + command;
+      if (line.perf_size() < 1) return no_perf_error(command, line);
       return extract_perf_value(line.perf(0)) + "&" + extract_perf_total(line.perf(0));
     case REQ_FILEAGE:
-      if (line.perf_size() < 1) return "ERROR: No performance data from command: " + command;
+      if (line.perf_size() < 1) return no_perf_error(command, line);
       return str::xtos_non_sci(extract_perf_value_i(line.perf(0)) / 60) + "&" + line.message();
 
     case REQ_SERVICESTATE:  // Some check_nt commands return the return code (coded as a string)

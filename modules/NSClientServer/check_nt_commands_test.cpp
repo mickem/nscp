@@ -273,11 +273,31 @@ TEST(CheckNtFormatResponse, StateCommandsPrefixTheResultCode) {
             "2& notepad.exe: not running");
 }
 
-TEST(CheckNtFormatResponse, MissingPerformanceDataIsAnError) {
+TEST(CheckNtFormatResponse, MissingPerformanceDataIsAnErrorCarryingTheChecksMessage) {
   const auto payload = make_message_only_response(PB::Common::ResultCode::OK, "no perf here");
   for (int code : {REQ_CPULOAD, REQ_UPTIME, REQ_COUNTER, REQ_MEMUSE, REQ_USEDDISKSPACE, REQ_FILEAGE}) {
-    EXPECT_EQ(format_response(code, "some_command", payload), "ERROR: No performance data from command: some_command") << "code=" << code;
+    EXPECT_EQ(format_response(code, "some_command", payload), "ERROR: No performance data from command: some_command: no perf here") << "code=" << code;
   }
+}
+
+TEST(CheckNtFormatResponse, MissingPerformanceDataPassesOnWhyTheCheckHadNoValue) {
+  // check_cpu answers UNKNOWN with no perfdata while its collector is busy;
+  // that reason is the only lead an operator gets, so it must reach check_nt.
+  const auto payload =
+      make_message_only_response(PB::Common::ResultCode::UNKNOWN, "Failed to read CPU data: the collector is busy (timed out waiting for its lock)");
+  EXPECT_EQ(format_response(REQ_CPULOAD, "check_cpu", payload),
+            "ERROR: No performance data from command: check_cpu: Failed to read CPU data: the collector is busy (timed out waiting for its lock)");
+}
+
+TEST(CheckNtFormatResponse, MissingPerformanceDataKeepsSeparatorsOutOfTheMessage) {
+  // '&' would split the reply into fields and a line break would end it.
+  const auto payload = make_message_only_response(PB::Common::ResultCode::UNKNOWN, "a & b\r\nc\n");
+  EXPECT_EQ(format_response(REQ_UPTIME, "check_uptime", payload), "ERROR: No performance data from command: check_uptime: a + b  c");
+}
+
+TEST(CheckNtFormatResponse, MissingPerformanceDataWithoutAMessageKeepsTheBareError) {
+  const auto payload = make_message_only_response(PB::Common::ResultCode::UNKNOWN, "");
+  EXPECT_EQ(format_response(REQ_CPULOAD, "check_cpu", payload), "ERROR: No performance data from command: check_cpu");
 }
 
 TEST(CheckNtFormatResponse, WrongLineCountIsAnError) {
