@@ -280,18 +280,31 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
     }
   }
   if (!free_counters.empty()) {
+    // The counters are added to the query in open(); a failure after that is
+    // in collecting them, and saying "add" there sent operators looking at a
+    // counter definition that was fine (#648).
+    std::string failure = "Failed to add counter";
     try {
       pdh.open();
+      failure = "Failed to poll counter";
       if (check_average) {
         pdh.collect();
         Sleep(1000);
       }
-      pdh.gatherData(expand_instance);
+      try {
+        pdh.gatherData(expand_instance);
+      } catch (const PDH::pdh_no_data_exception &) {
+        // No counter in the query had data. A physical disk or volume whose
+        // instance is briefly missing (renamed, re-enumerated) recovers on the
+        // next sample, so give PDH one more before reporting it (#648).
+        Sleep(1000);
+        pdh.gatherData(expand_instance);
+      }
       pdh.close();
     } catch (const PDH::pdh_exception &e) {
       if (!ignore_errors) {
-        NSC_LOG_ERROR_EXR("Failed to poll counter", e);
-        return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
+        NSC_LOG_ERROR_EXR(failure, e);
+        return nscapi::protobuf::functions::set_response_bad(*response, failure + ": " + utf8::utf8_from_native(e.what()));
       } else {
         NSC_DEBUG_MSG_STD("Ignoring counter failure: " + utf8::utf8_from_native(e.what()));
       }

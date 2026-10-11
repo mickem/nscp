@@ -49,6 +49,11 @@ class pdh_error {
   // is_not_found(): the counter set is installed, the set of instances is
   // merely empty.
   bool is_no_instance() const { return status_ == PDH_CSTATUS_NO_INSTANCE; }
+  // PdhCollectQueryData found nothing to return for any counter in the query:
+  // typically the instance a counter names does not exist at the moment (a
+  // physical disk whose instance name changed, a RAID volume that dropped
+  // out). PdhAddCounter accepts such a path, so it only surfaces here (#648).
+  bool is_no_data() const { return status_ == PDH_NO_DATA; }
 
   bool is_negative_denominator() const { return status_ == PDH_CALC_NEGATIVE_DENOMINATOR || status_ == PDH_CALC_NEGATIVE_VALUE; }
   bool is_invalid_argument() const { return status_ == PDH_INVALID_ARGUMENT; }
@@ -84,6 +89,15 @@ class pdh_exception : public std::exception {
 class pdh_no_instance_exception : public pdh_exception {
  public:
   explicit pdh_no_instance_exception(const std::string &error) : pdh_exception(error) {}
+};
+
+// Thrown by PDHQuery::collect() when PdhCollectQueryData returns PDH_NO_DATA
+// (see pdh_error::is_no_data()). Still a pdh_exception, so every caller keeps
+// treating it as a failure; check_pdh catches it ahead of that to give PDH
+// one more sample before reporting it.
+class pdh_no_data_exception : public pdh_exception {
+ public:
+  pdh_no_data_exception(const std::string &str, const pdh_error &error) : pdh_exception(str, error) {}
 };
 
 namespace types {

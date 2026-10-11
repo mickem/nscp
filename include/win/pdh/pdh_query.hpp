@@ -5,6 +5,7 @@
 
 #include <list>
 #include <memory>
+#include <string>
 #include <win/pdh/pdh_counters.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_resolver.hpp>
@@ -41,6 +42,7 @@ class PDHQuery : public subscriber {
 
  private:
   std::shared_ptr<impl_interface> impl_;
+  std::string describe_counters() const;
   std::shared_ptr<impl_interface> impl() const;
 };
 }  // namespace PDH
