@@ -256,7 +256,8 @@ foreach ($m in $machines) {
         }
         catch { Write-Warning "   $($m.Name): could not read fleet host $($m.HostId): $($_.Exception.Message)" }
     }
-    try { Protect-CollectedFiles -Dir $dir -RolePassword "$($m.RolePassword)" }
+    # From the .pwd file: the manifest no longer carries the role password.
+    try { Protect-CollectedFiles -Dir $dir -RolePassword "$(Get-EstateMachineRolePassword -Machine $m)" }
     catch { Write-Warning "   $($m.Name): could not redact the collected files: $($_.Exception.Message)" }
     $files = @(Get-ChildItem -Path $dir -File | ForEach-Object { $_.Name })
     Write-Host "   $($files -join ', ')"

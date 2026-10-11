@@ -58,6 +58,9 @@
     a non-zero exit fails the run with exit code 2.
 .PARAMETER RolePassword
     The role's throwaway secret, handed to -RoleInstallScript as ROLE_PASSWORD.
+    Defaults to $env:NSCP_ROLE_PASSWORD_<ROLE>, which is how
+    provision-fleet-machines.ps1 passes it: a command line shows in the
+    process list for the whole install.
 .PARAMETER RoleInstallTimeoutMinutes
     Wall-clock limit for -RoleInstallScript (default 10).
 .PARAMETER LocalSettings
@@ -128,6 +131,9 @@ if ($RoleInstallScript -or $LocalSettings) {
     if ($RoleInstallScript -and -not (Test-Path $RoleInstallScript)) { Write-Error "❌ -RoleInstallScript '$RoleInstallScript' does not exist."; exit 1 }
     . (Join-Path (Split-Path -Parent $PSScriptRoot) "estate/estate-api.ps1")
 }
+if (-not $RolePassword -and $Role) {
+    $RolePassword = [Environment]::GetEnvironmentVariable("NSCP_ROLE_PASSWORD_$($Role.ToUpperInvariant())")
+}
 $localSettingRows = @()
 if ($LocalSettings) {
     try { $localSettingRows = @(ConvertFrom-EstateLocalSettings -Encoded $LocalSettings) }
@@ -178,7 +184,10 @@ if (-not (Test-Path $sshKeyPath)) {
 $sshPublicKey = Get-Content "$sshKeyPath.pub"
 
 Write-Host "Creating resource group: $ResourceGroupName..."
-New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force
+# nscp-created lets estate/cleanup-estate.ps1 tell a group still being set
+# up (no manifest lists it yet) from a leftover.
+New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force `
+    -Tag @{ "nscp-created" = (Get-Date).ToUniversalTime().ToString("o") }
 
 Write-Host "Configuring virtual network and security rules..."
 $subnetConfig = New-AzVirtualNetworkSubnetConfig -Name "default-subnet" -AddressPrefix "10.0.0.0/24"
@@ -485,7 +494,9 @@ Write-Host "● Credentials saved to $pwdFile"
 Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been installed."
 Write-Host "Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
 Write-Host "Web interface: https://$($vmPublicIp):8443"
-Write-Host "Web password: $WebPassword"
+# The password itself stays in the credentials file: this output ends up in
+# run logs (suite.log) that get attached to issues.
+Write-Host "Credentials file (web password included): $pwdFile"
 Write-Host ""
 Write-Host "Run the acceptance suite against it with:"
 Write-Host "  `$env:NSCP_TARGET_PWD_FILE = '$pwdFile'; npm --prefix tests run test:live -- live-checks"

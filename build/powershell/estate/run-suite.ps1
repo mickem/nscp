@@ -75,9 +75,12 @@ function Invoke-Child {
     # "At <file>:<line>" position trailer.
     $errorLines = [System.Collections.Generic.List[string]]::new()
     $errorState = "before"
-    Add-Content -Path $suiteLog -Value "===== $(Get-Date -Format s) $(Split-Path -Leaf $Script) $($Arguments -join ' ')"
+    Add-Content -Path $suiteLog -Value (ConvertTo-EstateRedactedLine "===== $(Get-Date -Format s) $(Split-Path -Leaf $Script) $($Arguments -join ' ')")
     & $psExe -NoProfile -File $Script @Arguments 2>&1 | ForEach-Object {
-        $line = "$_"
+        # Masked before it is shown or logged: suite.log is what -KeepLogs
+        # keeps and what gets attached to an issue (the .pwd files hold the
+        # passwords; see ConvertTo-EstateRedactedLine).
+        $line = ConvertTo-EstateRedactedLine "$_"
         Show $line
         Add-Content -Path $suiteLog -Value $line
         if (-not $line.Trim()) { return }
@@ -238,10 +241,12 @@ try {
     }
 }
 catch {
-    $stage = switch ($script:StageName) { "verify" { "check" } $null { "provision" } default { $script:StageName } }
+    # Not a switch: switch ($null) evaluates no clause at all, the $null one
+    # included, which would leave the stage empty and the machines PASSED.
+    $stage = if (-not $script:StageName) { "provision" } elseif ($script:StageName -eq "verify") { "check" } else { $script:StageName }
     $why = "run-suite.ps1 stopped in $($script:StageName): $($_.Exception.Message)" -replace '\s+', ' '
     Show "ERROR: $why"
-    Add-Content -Path $suiteLog -Value "ERROR: $why`n$($_.ScriptStackTrace)"
+    Add-Content -Path $suiteLog -Value (ConvertTo-EstateRedactedLine "ERROR: $why`n$($_.ScriptStackTrace)")
     foreach ($m in $machines) {
         if (-not $results.Contains($m.Name)) {
             $results[$m.Name] = [pscustomobject]@{

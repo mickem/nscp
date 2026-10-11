@@ -74,7 +74,7 @@
 .EXAMPLE
     ./run-estate.ps1 base                            # today's estate, plus log collection
 .EXAMPLE
-    ./run-estate.ps1 mysql,mssql,iis                 # three suites, concurrently
+    ./run-estate.ps1 mysql,mssql,hub                 # three suites, concurrently
 .EXAMPLE
     ./run-estate.ps1 all -MaxMachines 8              # everything, as the quota allows
 .EXAMPLE
@@ -144,7 +144,9 @@ if ($Collect) {
 if ($Cleanup) {
     $cleanupArgs = @{ KeepLogs = $KeepLogs; DryRun = $DryRun; Force = $Force; FleetNoVerify = $FleetNoVerify }
     if ($FleetServer) { $cleanupArgs.FleetServer = $FleetServer }
-    if ($ApiKey) { $cleanupArgs.ApiKey = $ApiKey }
+    # The key goes through the environment, as on the run path below, never
+    # on a child's command line.
+    if ($ApiKey) { $env:NSCLIENT_FLEET_API_KEY = $ApiKey }
     # A child process: the script calls `exit`. (Not $cleanup: variable names
     # are case-insensitive, so that is the -Cleanup switch itself.)
     $cleanupScript = Join-Path $estateDir "cleanup-estate.ps1"
@@ -279,13 +281,18 @@ if ($Parallel) {
     # Each suite is a background job running its own process, so this works on
     # 5.1 as well. A suite starts only while the machines in flight stay
     # within -MaxMachines, which is what keeps `all` inside the quota.
-    $queue = [System.Collections.Generic.Queue[object]]::new([object[]]$suites.ToArray())
+    # Not a strict queue: the first waiting suite that fits the machine budget
+    # starts, so a big suite at the head does not hold back small ones that
+    # would fit beside what is running. Each suite fits on its own (checked
+    # when the plan was made), so the big one starts once enough has finished.
+    $waiting = [System.Collections.Generic.List[object]]::new([object[]]$suites.ToArray())
     $running = [System.Collections.Generic.List[object]]::new()
-    while ($queue.Count -gt 0 -or $running.Count -gt 0) {
+    while ($waiting.Count -gt 0 -or $running.Count -gt 0) {
         $inFlight = ($running | Measure-Object -Property Count -Sum).Sum
-        while ($queue.Count -gt 0 -and $running.Count -lt $MaxParallel -and
-            ($inFlight + $queue.Peek().Count) -le $MaxMachines) {
-            $s = $queue.Dequeue()
+        while ($running.Count -lt $MaxParallel) {
+            $s = $waiting | Where-Object { ($inFlight + $_.Count) -le $MaxMachines } | Select-Object -First 1
+            if (-not $s) { break }
+            [void]$waiting.Remove($s)
             [void]$started.Add($s.Role)
             Write-Host "● Starting suite $($s.Role) ($($s.Count) machine(s))"
             $job = Start-Job -ScriptBlock {

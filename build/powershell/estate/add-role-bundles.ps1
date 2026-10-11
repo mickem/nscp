@@ -55,6 +55,12 @@ $machines = @(Read-FleetManifest -Path $ManifestFile)
 if (-not $RolesDir) { $RolesDir = Get-EstateRolesDir }
 $catalog = Get-EstateRoleCatalog -RolesDir $RolesDir
 
+# The estate's own groups: two estates of one role (a kept one and a new run)
+# must not share a group, a bundle or a password.
+$estateId = Get-EstateId -Machines $machines
+if (-not $estateId) {
+    Write-Warning "$ManifestFile predates estate ids: using the shared role-<role> groups, which every other estate of the same role shares too."
+}
 $roleNames = @($machines | ForEach-Object { "$($_.Role)" } | Where-Object { $_ } | Sort-Object -Unique)
 if ($Role.Count -gt 0) { $roleNames = @($roleNames | Where-Object { $Role -contains $_ }) }
 $plans = foreach ($name in $roleNames) {
@@ -65,12 +71,15 @@ $plans = foreach ($name in $roleNames) {
     $r = $catalog[$name]
     if (-not $r.Bundle) { continue }
     $password = Get-EstateRolePassword -RoleName $name -Machines $machines
+    $clauses = @($r.Tags.Keys | ForEach-Object { @{ op = "eq"; key = $_; value = $r.Tags[$_] } })
+    if ($estateId) { $clauses += @{ op = "eq"; key = "estate"; value = $estateId } }
     [pscustomobject]@{
         Role     = $r
-        Name     = "role-$name"
-        # Implicit AND of one eq clause per tag; source defaults to manual, so
-        # a host cannot put itself in the group by reporting the tag.
-        Selector = @{ clauses = @($r.Tags.Keys | ForEach-Object { @{ op = "eq"; key = $_; value = $r.Tags[$_] } }) }
+        Name     = Get-EstateGroupName -RoleName $name -EstateId $estateId
+        # Implicit AND of one eq clause per tag (the role's, and the estate's,
+        # which provisioning put on every host); source defaults to manual,
+        # so a host cannot put itself in the group by reporting the tag.
+        Selector = @{ clauses = $clauses }
         Config   = ConvertTo-EstateBundleConfig -Role $r -RolePassword $password -Machines $machines
         Password = $password
     }

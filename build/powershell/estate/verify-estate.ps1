@@ -7,7 +7,7 @@
 
         1. sync   polls GET /api/hosts/<id>/desired on the fleet server, up to
                   -WaitMinutes, until the desired state carries the role's
-                  bundle (role-<name>) and the host reports it applied
+                  bundle (role-<name>-<estate id>) and the host reports it applied
                   (in_sync against *that* state, not just whatever it last
                   synced).
         2. check  runs tests/live/estate.test.ts (`npm run test:estate`) once
@@ -128,7 +128,7 @@ $targets = foreach ($m in $machines) {
     }
     else {
         $role = $catalog[$t.Role]
-        if ($role.Bundle) { $t.Bundle = "role-$($role.Name)" }
+        if ($role.Bundle) { $t.Bundle = Get-EstateGroupName -RoleName $role.Name -EstateId "$($m.EstateId)" }
         # jest only sees a machine whose credentials file is still there.
         if (-not ($m.PwdFile -and (Test-Path $m.PwdFile))) {
             $t.Done = $true; $t.Stage = "check"

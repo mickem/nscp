@@ -239,7 +239,7 @@ down again:
 ```powershell
 # (NSCLIENT_FLEET_SERVER and NSCLIENT_FLEET_API_KEY are set - see above)
 ./run-estate.ps1 base                            # today's estate, plus log collection
-./run-estate.ps1 mysql,mssql,iis                 # three suites, concurrently
+./run-estate.ps1 mysql,mssql,hub                 # three suites, concurrently
 ./run-estate.ps1 all -MaxMachines 8              # everything, as the quota allows
 ./run-estate.ps1 mysql,mssql -Sequential         # one after another, -StopOnFirstFailure applies
 ./run-estate.ps1 mssql -KeepVms                  # leave it up, then connect-machine.ps1
@@ -266,7 +266,7 @@ failed**, so the right log is the first one opened:
 stages:
 
 1. **sync** — it polls the fleet server (up to the suite's wait) until
-   `GET /api/hosts/<id>/desired` carries the role's bundle (`role-<name>`)
+   `GET /api/hosts/<id>/desired` carries the role's bundle (`role-<name>-<estate id>`)
    and the host reports it applied. This is `in_sync` against the state
    *with* the bundle in it, not whatever the host synced before the bundle was
    assigned.
@@ -320,8 +320,13 @@ down everything the tooling ever left behind: every machine in every manifest
 (`.fleet-machines.json` and each run's `suite-<role>/manifest.json`, through
 the ordinary `-Destroy -RemoveFleetHosts`), every `NSCP-Fleet-*` resource
 group in Azure that no manifest lists, and the fleet host whose hostname is
-that machine's name. It then removes the run folders nothing live is left in
-and the `.vm.<name>.pwd` files of machines that no longer exist. It prints the
+that machine's name, and the role groups and bundles of estates that are gone.
+A stray group younger than `-MinStrayAgeHours` (default 3, from the
+`nscp-created` tag the setup scripts put on it) is listed but kept: a suite
+still provisioning has no manifest yet, and its groups look like leftovers
+(`-IncludeRecent` removes them too). It then removes the run folders nothing
+live is left in and the `.vm.<name>.pwd` files of machines that no longer
+exist. It prints the
 plan and asks first; `-DryRun` only prints it, `-Force` skips the question,
 `-KeepLogs` keeps the run folders. Whatever could not be removed stays in its
 manifest, so the next `-Cleanup` picks it up.
@@ -411,11 +416,22 @@ warns for the first two days of a fresh VM). Pin them rather than setting
 the perf keys — `any` with no perf only proves the command answers. The
 forced WARNING/CRITICAL cases stay in the self-spawning `tests/` suites.
 
-`ROLE_PASSWORD` is generated once per role — every machine of a role shares
-it, since one bundle carries it to all of them, and a role that already has
-machines in the manifest keeps theirs — and is recorded in each machine's
-`.vm.<name>.pwd` and the manifest. It is a throwaway secret on a throwaway
-estate — never reuse the pattern for anything real.
+`ROLE_PASSWORD` is generated once per role in an estate — every machine of a
+role shares it, since one bundle carries it to all of them, and a role that
+already has machines in the manifest keeps theirs — and is recorded only in
+each machine's `.vm.<name>.pwd`. It reaches the setup script through the
+environment (`NSCP_ROLE_PASSWORD_<ROLE>`), not its command line, and
+`suite.log` masks credential lines (`ConvertTo-EstateRedactedLine`). It is a
+throwaway secret on a throwaway estate — never reuse the pattern for anything
+real.
+
+**Estates.** Every manifest is an estate with its own id (printed when it is
+provisioned). Its machines are tagged `estate=<id>` and its role groups and
+bundles are named `role-<role>-<id>`, selecting on the role's tags and the
+estate tag, so two estates of the same role — a kept `-KeepVms` estate and a
+new run, or two suites at once — never share a bundle, a password or an
+allow-list. `-Destroy -RemoveFleetHosts` removes the estate's groups and
+bundles with its last machine.
 
 ### Shipped roles
 

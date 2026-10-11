@@ -13,10 +13,33 @@
  * The estate runs the same cases against every machine, next to its role's
  * checks (live/estate.test.ts).
  */
-import { liveLogin, liveDetectOs, type LiveTarget, type TargetOs } from "@fixtures/live-target";
+import {
+  liveConfig,
+  liveLogin,
+  liveDetectOs,
+  type LiveTarget,
+  type TargetOs,
+} from "@fixtures/live-target";
 import { smokeCasesFor, SMOKE_CASES } from "@fixtures/live-smoke";
 
-describe("live agent checks", () => {
+/** Whether NSCP_TARGET_* (or a .vm.pwd) name a target at all. */
+function targetConfigured(): boolean {
+  try {
+    liveConfig();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// `npm run test:live -- estate` with only NSCP_ESTATE_MANIFEST set is an estate
+// run: there is no single target, so this suite steps aside rather than fail
+// every test on the missing password. Without a manifest either, it runs and
+// fails, saying what to set.
+const describeLive =
+  targetConfigured() || !process.env.NSCP_ESTATE_MANIFEST ? describe : describe.skip;
+
+describeLive("live agent checks", () => {
   let target: LiveTarget;
   let os: TargetOs | undefined;
 

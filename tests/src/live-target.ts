@@ -31,6 +31,7 @@ import * as fs from "fs";
 import * as path from "path";
 import request from "supertest";
 import type { QueryResult } from "./queries";
+import { POWERSHELL_DIR } from "./estate-manifest";
 
 export type TargetOs = "windows" | "linux";
 
@@ -57,14 +58,7 @@ function withTls<T extends request.Test>(req: T, insecure: boolean): T {
 }
 
 /** The credentials file the setup scripts write for the machine they provisioned last. */
-export const DEFAULT_PWD_FILE = path.resolve(
-  __dirname,
-  "..",
-  "..",
-  "build",
-  "powershell",
-  ".vm.pwd",
-);
+export const DEFAULT_PWD_FILE = path.join(POWERSHELL_DIR, ".vm.pwd");
 
 /**
  * Web URL and password from a .vm.pwd / .vm.<name>.pwd file: its own "Web URL"

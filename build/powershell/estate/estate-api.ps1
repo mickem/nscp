@@ -300,6 +300,85 @@ function New-EstateSecret {
     return -join (1..$Length | ForEach-Object { [char](Get-Random -InputObject $chars) })
 }
 
+<#
+.SYNOPSIS
+    Mask the credentials in one line of child-script output before it is
+    shown or written to suite.log.
+.DESCRIPTION
+    A run folder is what -KeepLogs keeps and what gets attached to an issue,
+    so suite.log must not carry the passwords the .pwd files hold. Masks
+    "<label> password|secret|token|api key: <value>" and "...=<value>", a
+    --password/--token/--api-key argument, the "Login using this password
+    <pw>" line `nscp web install` prints, and fleet API keys (nsk_...).
+#>
+function ConvertTo-EstateRedactedLine {
+    param([AllowEmptyString()][AllowNull()][string]$Line)
+    if (-not $Line) { return $Line }
+    $l = $Line
+    $l = $l -replace '(?i)(\b(?:password|passwd|secret|token|api[ _-]?key)\b\s*[:=]\s*)(?!<redacted>)(''[^'']*''|"[^"]*"|\S+)', '$1<redacted>'
+    $l = $l -replace '(?i)(-{1,2}(?:password|token|api-?key|fleettoken|rolepassword)\s+)(''[^'']*''|"[^"]*"|\S+)', '$1<redacted>'
+    $l = $l -replace '(?i)(using this password\s+)(\S+)', '$1<redacted>'
+    $l = $l -replace 'nsk_[A-Za-z0-9_-]+', 'nsk_<redacted>'
+    return $l
+}
+
+# --- estates: one manifest, one id ----------------------------------------------
+
+# Every manifest is an estate with its own id. Its machines are tagged
+# estate=<id> and its role groups and bundles are named role-<role>-<id>, so
+# two estates of the same role (a kept one and a new run, or two suites at
+# once) never share a group, a bundle, a password or an allow-list.
+function New-EstateId {
+    $chars = (97..122) + (48..57)
+    return (Get-Date -Format "yyMMddHHmm") + (-join (1..3 | ForEach-Object { [char](Get-Random -InputObject $chars) }))
+}
+
+# The id a manifest's machines carry; $null for a manifest written before
+# estates had ids (its groups are the shared role-<role> ones).
+function Get-EstateId {
+    param([AllowNull()]$Machines)
+    $ids = @($Machines | ForEach-Object { "$($_.EstateId)" } | Where-Object { $_ } | Sort-Object -Unique)
+    if ($ids.Count -gt 1) { throw "The manifest mixes estates $($ids -join ', '); one manifest is one estate." }
+    if ($ids.Count -eq 1) { return $ids[0] }
+    return $null
+}
+
+# The fleet group and bundle of one role in one estate.
+function Get-EstateGroupName {
+    param(
+        [Parameter(Mandatory)][string]$RoleName,
+        [AllowEmptyString()][AllowNull()][string]$EstateId
+    )
+    if ($EstateId) { return "role-$RoleName-$EstateId" }
+    return "role-$RoleName"
+}
+
+<#
+.SYNOPSIS
+    Delete an estate's role groups and every version of their bundles.
+.DESCRIPTION
+    Called once an estate's last machine is gone. -EstateId $null is refused:
+    the legacy shared role-<role> groups may still serve another estate.
+.OUTPUTS
+    One line per deleted bundle version or group, for the caller to print.
+#>
+function Remove-EstateFleetGroups {
+    param(
+        [Parameter(Mandatory)][string]$FleetServer,
+        [Parameter(Mandatory)][string]$ApiKey,
+        [Parameter(Mandatory)][string]$EstateId,
+        [switch]$SkipCertificateCheck
+    )
+    $api = @{ FleetServer = $FleetServer; ApiKey = $ApiKey; SkipCertificateCheck = $SkipCertificateCheck }
+    $groups = @(Invoke-FleetApi @api -Path "/api/groups" | Where-Object { "$($_.name)" -match "^role-[a-z][a-z0-9]*-$([regex]::Escape($EstateId))$" })
+    foreach ($g in $groups) {
+        # Bundles first: deleting a bundle drops its assignment to the group.
+        Remove-FleetBundleVersions @api -Name $g.name
+        Invoke-FleetApi @api -Path "/api/groups/$($g.id)" -Method Delete | Out-Null
+        "removed group $($g.name)"
+    }
+}
+
 # .estate-runs/<timestamp>/ - every run's logs and results land here.
 function New-EstateRunFolder {
     param([string]$Root = (Join-Path (Split-Path -Parent $script:EstateDir) ".estate-runs"))
@@ -724,14 +803,33 @@ function ConvertTo-EstateBundleConfig {
 
 # One password per role in a manifest: the role's bundle carries it to every
 # machine of the role, so they must all have been given the same one.
+# The environment variable a setup script reads its role password from. One
+# per role, since parallel setups of different roles share one environment.
+function Get-EstateRolePasswordVariable {
+    param([Parameter(Mandatory)][string]$Role)
+    return "NSCP_ROLE_PASSWORD_$($Role.ToUpperInvariant())"
+}
+
+# A machine's role password: the "Role Password:" line of its .pwd file, or
+# the RolePassword a manifest written before that moved there still carries.
+function Get-EstateMachineRolePassword {
+    param([Parameter(Mandatory)]$Machine)
+    if ($Machine.PwdFile -and (Test-Path $Machine.PwdFile)) {
+        $line = @(Get-Content -Path $Machine.PwdFile) -match '^\s*Role Password:'
+        if ($line) { return ($line[0] -split ':', 2)[1].Trim() }
+    }
+    if ($Machine.RolePassword) { return "$($Machine.RolePassword)" }
+    return $null
+}
+
 function Get-EstateRolePassword {
     param(
         [Parameter(Mandatory)][string]$RoleName,
         [Parameter(Mandatory)]$Machines
     )
-    $passwords = @($Machines | Where-Object { "$($_.Role)" -eq $RoleName -and $_.RolePassword } |
-        ForEach-Object { "$($_.RolePassword)" } | Sort-Object -Unique)
-    if ($passwords.Count -eq 0) { throw "No machine of role '$RoleName' in the manifest records a role password." }
+    $passwords = @($Machines | Where-Object { "$($_.Role)" -eq $RoleName } |
+        ForEach-Object { Get-EstateMachineRolePassword -Machine $_ } | Where-Object { $_ } | Sort-Object -Unique)
+    if ($passwords.Count -eq 0) { throw "No machine of role '$RoleName' in the manifest has a role password in its .pwd file." }
     if ($passwords.Count -gt 1) {
         throw ("The '$RoleName' machines in the manifest carry $($passwords.Count) different role passwords, " +
             "but one bundle serves them all. They were provisioned by an older provision-fleet-machines.ps1; " +

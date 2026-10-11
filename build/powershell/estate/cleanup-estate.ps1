@@ -38,6 +38,14 @@
 .PARAMETER ResourceGroupPrefix
     The prefix provision-fleet-machines.ps1 gave the resource groups
     (default NSCP-Fleet). Only groups named <prefix>-* are ever considered.
+.PARAMETER MinStrayAgeHours
+    A stray resource group (one no manifest lists) younger than this is kept
+    (default 3): a suite that is still provisioning has no manifest yet, and
+    its groups look exactly like leftovers. The age comes from the
+    nscp-created tag the setup scripts put on a group; one without it counts
+    as old.
+.PARAMETER IncludeRecent
+    Remove recent stray groups too - only when nothing else is running.
 .PARAMETER KeepLogs
     Keep the run folders; only the machines, fleet hosts and credential files
     go.
@@ -56,12 +64,18 @@ param(
     [string]$ApiKey = $env:NSCLIENT_FLEET_API_KEY,
     [switch]$FleetNoVerify,
     [string]$ResourceGroupPrefix = "NSCP-Fleet",
+    [ValidateRange(0, 720)]
+    [int]$MinStrayAgeHours = 3,
+    [switch]$IncludeRecent,
     [switch]$KeepLogs,
     [switch]$DryRun,
     [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
+# The teardowns below inherit the key through the environment, never their
+# command line, where the process list would show it.
+if ($ApiKey) { $env:NSCLIENT_FLEET_API_KEY = $ApiKey }
 $estateDir = $PSScriptRoot
 $parentDir = Split-Path -Parent $estateDir
 . (Join-Path $parentDir "fleet-api.ps1")
@@ -102,6 +116,25 @@ foreach ($module in @('Az.Resources')) {
 }
 $allGroups = @(Get-AzResourceGroup | Where-Object { $_.ResourceGroupName -like "$ResourceGroupPrefix-*" })
 $strayGroups = @($allGroups | Where-Object { $listedGroups -notcontains $_.ResourceGroupName })
+# A suite still provisioning writes its manifest only at the end, so its
+# groups are unlisted for the 10 to 20 minutes they take to come up. Keep the
+# young ones unless told otherwise.
+function Get-GroupAgeHours {
+    param($Group)
+    $created = $null
+    if ($Group.Tags -and $Group.Tags.ContainsKey("nscp-created")) {
+        $parsed = [datetime]::MinValue
+        if ([datetime]::TryParse($Group.Tags["nscp-created"], [Globalization.CultureInfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsed)) { $created = $parsed.ToUniversalTime() }
+    }
+    if (-not $created) { return [double]::MaxValue }
+    return ((Get-Date).ToUniversalTime() - $created).TotalHours
+}
+$recentGroups = @()
+if (-not $IncludeRecent) {
+    $recentGroups = @($strayGroups | Where-Object { (Get-GroupAgeHours $_) -lt $MinStrayAgeHours })
+    $strayGroups = @($strayGroups | Where-Object { $recentGroups -notcontains $_ })
+}
 # A machine's name is what follows the prefix; that is also its hostname.
 $strayNames = @($strayGroups | ForEach-Object { $_.ResourceGroupName.Substring($ResourceGroupPrefix.Length + 1) })
 
@@ -148,6 +181,9 @@ if ($strayGroups.Count -gt 0) {
     }
 }
 else { Write-Host "   no stray $ResourceGroupPrefix-* resource groups in Azure" }
+foreach ($g in $recentGroups) {
+    Write-Host ("   kept: {0}, created {1:N1} h ago and in no manifest - perhaps a suite still provisioning (-IncludeRecent removes it)" -f $g.ResourceGroupName, (Get-GroupAgeHours $g))
+}
 if ($fleetNote) { Write-Warning $fleetNote }
 
 $runDirs = @()
@@ -184,7 +220,6 @@ foreach ($mf in $manifests) {
     Write-Host "● Tearing down $($mf.File)"
     $destroyArgs = @("-Destroy", "-RemoveFleetHosts", "-Force", "-ManifestFile", $mf.File, "-ResourceGroupPrefix", $ResourceGroupPrefix)
     if ($FleetServer) { $destroyArgs += @("-FleetServer", $FleetServer) }
-    if ($ApiKey) { $destroyArgs += @("-ApiKey", $ApiKey) }
     if ($skipCert) { $destroyArgs += "-FleetNoVerify" }
     $ErrorActionPreference = "Continue"
     & $psExe -NoProfile -File $provision @destroyArgs 2>&1 | ForEach-Object { Write-Host "   $_" }
@@ -238,6 +273,28 @@ if ($strayGroups.Count -gt 0) {
             }
             finally { Remove-Job -Job $p.Job -Force -ErrorAction SilentlyContinue }
         }
+    }
+}
+
+# --- 2b. Role groups of estates that are gone ------------------------------------
+# A teardown removes its estate's role-<role>-<id> groups and bundles; this
+# catches the ones whose teardown never ran or did not get that far. An estate
+# is gone when no manifest still lists a machine of it.
+if ($FleetServer -and $ApiKey) {
+    $liveIds = @($manifestFiles | ForEach-Object { @(Read-FleetManifest -Path $_) } |
+            ForEach-Object { "$($_.EstateId)" } | Where-Object { $_ } | Sort-Object -Unique)
+    try {
+        $orphanIds = @(Invoke-FleetApi -FleetServer $FleetServer -ApiKey $ApiKey -Path "/api/groups" -SkipCertificateCheck:$skipCert |
+                ForEach-Object { if ("$($_.name)" -match '^role-[a-z][a-z0-9]*-([a-z0-9]{13})$') { $Matches[1] } } |
+                Where-Object { $liveIds -notcontains $_ } | Sort-Object -Unique)
+        foreach ($id in $orphanIds) {
+            Remove-EstateFleetGroups -FleetServer $FleetServer -ApiKey $ApiKey -EstateId $id -SkipCertificateCheck:$skipCert |
+                ForEach-Object { Write-Host "   ✅ $_ (estate $id is gone)" }
+        }
+    }
+    catch {
+        Write-Warning "   could not sweep the role groups of gone estates: $($_.Exception.Message)"
+        $failures.Add("role groups of gone estates could not be swept")
     }
 }
 

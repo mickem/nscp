@@ -338,7 +338,9 @@ describeEstate("estate role checks", () => {
               why = `request failed: ${firstLine(e)}`;
               // A bundle reload restarts the web server, which forgets its
               // sessions: log in again on the next attempt.
-              if (/40[13]/.test(why)) target = undefined;
+              // supertest words a status mismatch as 'expected 200 "OK", got 401
+              // "Unauthorized"': match the status, not any 401 in the message.
+              if (/\bgot 40[13]\b/.test(why)) target = undefined;
             }
             if (!why || Date.now() >= deadline) break;
             await new Promise((r) => setTimeout(r, 5_000));

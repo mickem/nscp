@@ -286,6 +286,19 @@ if ($Destroy) {
         Write-Host "❌ $($remaining.Count) machine(s) could not be removed and are still in the manifest." -ForegroundColor Red
         exit 1
     }
+    # The estate's own groups and bundles go with its last machine. A legacy
+    # manifest (no estate id) used the shared role-<role> groups, which other
+    # estates may still be using, so those stay.
+    $estateId = $null
+    try { $estateId = Get-EstateId -Machines $existing } catch { Write-Warning "   $($_.Exception.Message)" }
+    $groupServer = if ($FleetServer) { $FleetServer } else { "$(@($existing | Where-Object { $_.FleetServer } | Select-Object -First 1).FleetServer)" }
+    if ($estateId -and $RemoveFleetHosts -and $groupServer -and $ApiKey) {
+        try {
+            Remove-EstateFleetGroups -FleetServer $groupServer -ApiKey $ApiKey -EstateId $estateId -SkipCertificateCheck:$skipCert |
+                ForEach-Object { Write-Host "   ✅ $_" }
+        }
+        catch { Write-Warning "   could not remove the groups of estate ${estateId}: $($_.Exception.Message) (./run-estate.ps1 -Cleanup sweeps them)" }
+    }
     Remove-Item $ManifestFile -Force -ErrorAction SilentlyContinue
     Write-Host "✅ Estate torn down."
     return
@@ -356,14 +369,22 @@ $manifest = Read-FleetManifest -Path $ManifestFile
 $taken = @($manifest | ForEach-Object { $_.Name })
 $machines = [System.Collections.Generic.List[object]]::new()
 
+# One estate per manifest: machines added to an existing one join its estate
+# (its groups, bundles and passwords), a new manifest starts a new one.
+$estateId = Get-EstateId -Machines $manifest
+if (-not $estateId -and @($manifest).Count -eq 0) { $estateId = New-EstateId }
+if ($estateId) { Write-Host "● Estate $estateId (machines are tagged estate=$estateId)" }
+else { Write-Warning "$ManifestFile predates estate ids: its machines keep the shared role-<role> groups. Tear it down and provision again to give it its own." }
+
 # One role password per role, not per machine: the role's bundle carries it to
 # every machine of the role, and one bundle can only hold one. A role that
-# already has machines in the manifest keeps theirs.
+# already has machines in the manifest keeps theirs, read back from their .pwd
+# files (the manifest no longer stores it).
 $rolePasswords = @{}
 foreach ($m in @($manifest)) {
-    if ($m.Role -and $m.RolePassword -and -not $rolePasswords.Contains("$($m.Role)")) {
-        $rolePasswords["$($m.Role)"] = "$($m.RolePassword)"
-    }
+    if (-not $m.Role -or $rolePasswords.Contains("$($m.Role)")) { continue }
+    $known = Get-EstateMachineRolePassword -Machine $m
+    if ($known) { $rolePasswords["$($m.Role)"] = $known }
 }
 
 function Add-FleetMachine {
@@ -379,6 +400,10 @@ function Add-FleetMachine {
     if ($Role.VmSize) { $size = $Role.VmSize }
     if (-not $rolePasswords.Contains($Role.Name)) { $rolePasswords[$Role.Name] = New-EstateSecret }
     $rolePassword = $rolePasswords[$Role.Name]
+    # The role's own tags, plus the estate's: its groups select on both.
+    $tags = [ordered]@{}
+    foreach ($k in $Role.Tags.Keys) { $tags[$k] = $Role.Tags[$k] }
+    if ($estateId) { $tags["estate"] = $estateId }
     # Not $args: that is an automatic variable inside a function.
     $setupArgs = @(
         "-VmName", $name,
@@ -388,7 +413,6 @@ function Add-FleetMachine {
         "-VmSize", $size,
         "-PwdFile", $pwdFile,
         "-Role", $Role.Name,
-        "-RolePassword", $rolePassword,
         "-RoleInstallTimeoutMinutes", $Role.InstallTimeoutMinutes
     ) + $ExtraArgs
     if ($Role.Modules.Count -gt 0) { $setupArgs += @("-Modules", ($Role.Modules -join ",")) }
@@ -407,11 +431,11 @@ function Add-FleetMachine {
             Os            = $Os
             Family        = $Family
             Role          = $Role.Name
-            Tags          = $Role.Tags
+            Tags          = $tags
             Image         = $Image
             VmSize        = $size
             Vcpus         = $Role.Vcpus
-            RolePassword  = $rolePassword
+            EstateId      = $estateId
             ResourceGroup = $rg
             PwdFile       = $pwdFile
             Script        = $Script
@@ -569,7 +593,7 @@ function Invoke-FleetProvision {
         Image         = $M.Image
         ResourceGroup = $M.ResourceGroup
         PwdFile       = $M.PwdFile
-        RolePassword  = $M.RolePassword
+        EstateId      = $M.EstateId
         HostId        = $null
         PublicIp      = $null
         FleetServer   = $FleetServer
@@ -624,6 +648,11 @@ function Invoke-FleetProvision {
 
 # --- Run ---------------------------------------------------------------------
 $psExe = (Get-Process -Id $PID).Path
+# Role passwords reach the setup scripts through the environment, not their
+# command line, where the process list would show them for the whole install.
+# One variable per role: parallel setups of different roles share this
+# process's environment.
+foreach ($r in $rolePasswords.Keys) { Set-Item -Path "env:$(Get-EstateRolePasswordVariable -Role $r)" -Value $rolePasswords[$r] }
 $results = [System.Collections.Generic.List[object]]::new()
 
 if ($Parallel) {
@@ -641,7 +670,7 @@ if ($Parallel) {
                 [pscustomobject]@{
                     Name = $machine.Name; Os = $machine.Os; Family = $machine.Family; Role = $machine.Role
                     Image = $machine.Image; ResourceGroup = $machine.ResourceGroup; PwdFile = $machine.PwdFile
-                    RolePassword = $machine.RolePassword; HostId = $null; PublicIp = $null
+                    EstateId = $machine.EstateId; HostId = $null; PublicIp = $null
                     FleetServer = $using:FleetServer; CreatedAt = (Get-Date).ToString("s"); Status = "ERROR"
                     FailedStage = "provision"; Detail = "$($_.Exception.Message)"
                 }
@@ -663,7 +692,9 @@ else {
 # Record every machine, failures included: a half-created VM still costs money
 # and a pending fleet host still needs -Destroy -RemoveFleetHosts. Detail is
 # what failed, for whoever reads the manifest after this output has scrolled.
-$manifest = @($manifest) + @($results | Select-Object Name, Os, Family, Role, Image, ResourceGroup, PwdFile, RolePassword, HostId, PublicIp, FleetServer, CreatedAt, Status, FailedStage, Detail)
+# No role password here: the machine's .pwd file carries it, and the manifest
+# is what lands in a run folder people attach to issues.
+$manifest = @($manifest) + @($results | Select-Object Name, Os, Family, Role, EstateId, Image, ResourceGroup, PwdFile, HostId, PublicIp, FleetServer, CreatedAt, Status, FailedStage, Detail)
 Write-FleetManifest -Path $ManifestFile -Machines $manifest
 
 Write-Host "`n===== MACHINES ====="
