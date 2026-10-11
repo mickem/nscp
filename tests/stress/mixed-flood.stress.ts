@@ -65,7 +65,7 @@ describe("stress: every engine flooded, with long checks behind", () => {
     const slowLane = Promise.all(
       SLOW_CHECKS.map(async (s) => {
         for (let i = 0; !slowStop; i++) {
-          const started = Date.now();
+          const started = performance.now();
           try {
             const a = await agent.nrpe.query(s.command, [
               String(SLOW_MS),
@@ -74,14 +74,14 @@ describe("stress: every engine flooded, with long checks behind", () => {
             const ok = a.result === 0 && a.message === s.expect(SLOW_MS);
             slowResults.push({
               path: s.path,
-              ms: Date.now() - started,
+              ms: performance.now() - started,
               ok,
               detail: ok ? undefined : `${a.result} ${JSON.stringify(a.message)}`,
             });
           } catch (e) {
             slowResults.push({
               path: s.path,
-              ms: Date.now() - started,
+              ms: performance.now() - started,
               ok: false,
               detail: (e as Error).message,
             });
@@ -95,9 +95,11 @@ describe("stress: every engine flooded, with long checks behind", () => {
     const task = async (worker: number, n: number): Promise<void> => {
       const c = FAST_CHECKS[(worker + n) % FAST_CHECKS.length];
       const token = `w${worker}n${n}`;
-      const started = Date.now();
+      const started = performance.now();
       const a = await agent.nrpe.query(c.command, c.args(token));
-      perPath.get(c.path)?.push(Date.now() - started);
+      // Minus any wait for a local port: a flood this fast can exhaust the
+      // client's ephemeral range, and that time never reached the agent.
+      perPath.get(c.path)?.push(performance.now() - started - a.localWaitMs);
       if (a.result !== 0 || a.message !== c.expect(token)) {
         throw new Error(
           `${c.command} answered ${a.result} ${JSON.stringify(a.message)}, expected ${JSON.stringify(c.expect(token))}`,
@@ -152,6 +154,8 @@ describe("stress: every engine flooded, with long checks behind", () => {
       growth,
       samples,
       extra: {
+        // Requests that waited for a local port (client-side; see nrpe-client.ts).
+        nrpeLocalRetries: agent.nrpe.localRetries,
         warmup,
         slowMs: SLOW_MS,
         latencyByPath,
@@ -170,11 +174,11 @@ describe("stress: every engine flooded, with long checks behind", () => {
     const queued = Object.entries(latencyByPath)
       .filter(([, l]) => l.max >= SLOW_MS)
       .map(([p, l]) => ({ path: p, maxMs: l.max }));
-    expect({ queued, count: queued.length }).toMatchObject({ count: 0 });
+    expect({ queued, count: queued.length }).toEqual({ queued: [], count: 0 });
     // The slow lane ran throughout and every long check came back intact.
     expect(slowResults.length).toBeGreaterThanOrEqual(SLOW_CHECKS.length);
     const badSlow = slowResults.filter((s) => !s.ok);
-    expect({ bad: badSlow.slice(0, 10), count: badSlow.length }).toMatchObject({ count: 0 });
+    expect({ bad: badSlow.slice(0, 10), count: badSlow.length }).toEqual({ bad: [], count: 0 });
     expectCleanLog(agent.nscp, ENGINE_LOG_NOISE);
   });
 });

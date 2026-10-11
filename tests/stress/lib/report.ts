@@ -46,7 +46,7 @@ export function writeReport(report: ScenarioReport): string {
     );
   }
   if (report.responsiveAfterMs !== undefined) {
-    parts.push(`check_ok ${report.responsiveAfterMs} ms after load;`);
+    parts.push(`check_ok ${report.responsiveAfterMs.toFixed(1)} ms after load;`);
   }
   parts.push(`written to ${path.relative(process.cwd(), file)}`);
   // eslint-disable-next-line no-console

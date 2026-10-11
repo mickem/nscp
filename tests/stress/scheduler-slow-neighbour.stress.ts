@@ -113,9 +113,9 @@ describe("stress: the scheduler keeps time next to slow checks", () => {
 
     /** Drain the cache once; `count` is how often that alias reported since the last drain. */
     const drain = async (counting: boolean): Promise<void> => {
-      const t0 = Date.now();
+      const t0 = performance.now();
       const results = await client.getJson<CachedResult[]>("/api/v2/results");
-      pollLatencies.push(Date.now() - t0);
+      pollLatencies.push(performance.now() - t0);
       for (const r of results) {
         if (r.status !== 0 || r.message !== expectMessage.get(r.alias)) {
           wrong.push({ alias: r.alias, status: r.status, message: r.message });
@@ -130,20 +130,20 @@ describe("stress: the scheduler keeps time next to slow checks", () => {
     try {
       // Warm up past the first slow round, so every slow schedule is already
       // holding its thread when counting starts.
-      const warmupUntil = Date.now() + Math.max(warmupMs(knobs), SLOW_MS + 2_000);
-      while (Date.now() < warmupUntil) {
+      const warmupUntil = performance.now() + Math.max(warmupMs(knobs), SLOW_MS + 2_000);
+      while (performance.now() < warmupUntil) {
         await sleep(POLL_MS);
         await drain(false);
       }
       await sampler.markBaseline();
 
-      started = Date.now();
+      started = performance.now();
       const deadline = started + knobs.durationSeconds * 1000;
-      while (Date.now() < deadline) {
+      while (performance.now() < deadline) {
         await sleep(POLL_MS);
         await drain(true);
       }
-      elapsedSeconds = (Date.now() - started) / 1000;
+      elapsedSeconds = (performance.now() - started) / 1000;
       await sampler.markEnd();
       responsiveAfterMs = await expectResponsive(() =>
         agent.nrpe.expect("check_ok", ["message=after"], "after"),
@@ -170,7 +170,7 @@ describe("stress: the scheduler keeps time next to slow checks", () => {
     const growth = expectNoGrowth(sampler, knobs.rssTolerancePct);
     writeReport({
       scenario: "scheduler-slow-neighbour",
-      startedAt: new Date(started).toISOString(),
+      startedAt: new Date(Date.now() - (performance.now() - started)).toISOString(),
       platform: process.platform,
       knobs,
       responsiveAfterMs,
@@ -192,13 +192,16 @@ describe("stress: the scheduler keeps time next to slow checks", () => {
       },
     });
 
-    expect({ wrong: wrong.slice(0, 10), count: wrong.length }).toMatchObject({ count: 0 });
-    expect({ lagging: lagging.slice(0, 20), count: lagging.length }).toMatchObject({ count: 0 });
+    expect({ wrong: wrong.slice(0, 10), count: wrong.length }).toEqual({ wrong: [], count: 0 });
+    expect({ lagging: lagging.slice(0, 20), count: lagging.length }).toEqual({
+      lagging: [],
+      count: 0,
+    });
     const silentSlow = slow.filter((s) => !perAlias.has(s.alias)).map((s) => s.alias);
     if (elapsedSeconds * 1000 > SLOW_MS + INTERVAL_S * 1000) {
-      expect({ silentSlow, count: silentSlow.length }).toMatchObject({ count: 0 });
+      expect({ silentSlow, count: silentSlow.length }).toEqual({ silentSlow: [], count: 0 });
     }
-    expect({ late: late.slice(0, 10), count: late.length }).toMatchObject({ count: 0 });
+    expect({ late: late.slice(0, 10), count: late.length }).toEqual({ late: [], count: 0 });
     expectCleanLog(agent.nscp, ENGINE_LOG_NOISE);
   });
 });

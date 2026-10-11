@@ -124,9 +124,9 @@ describe("stress: scheduler load into the result cache", () => {
 
     /** Drain the cache once; `count` per entry is how often that key reported since the last drain. */
     const drain = async (): Promise<number> => {
-      const t0 = Date.now();
+      const t0 = performance.now();
       const results = await client.getJson<CachedResult[]>("/api/v2/results");
-      pollLatencies.push(Date.now() - t0);
+      pollLatencies.push(performance.now() - t0);
       let n = 0;
       for (const r of results) {
         n += r.count;
@@ -137,23 +137,23 @@ describe("stress: scheduler load into the result cache", () => {
     };
 
     // Warm up: the pool starts, the first beats land. Then baseline.
-    const warmupUntil = Date.now() + warmupMs(knobs);
-    while (Date.now() < warmupUntil) {
+    const warmupUntil = performance.now() + warmupMs(knobs);
+    while (performance.now() < warmupUntil) {
       await sleep(POLL_MS);
       await drain();
     }
     await sampler.markBaseline();
     perAlias.clear();
 
-    const started = Date.now();
+    const started = performance.now();
     const deadline = started + knobs.durationSeconds * 1000;
-    while (Date.now() < deadline) {
+    while (performance.now() < deadline) {
       await sleep(POLL_MS);
       const n = await drain();
       delivered += n;
-      perSecondSeries.push({ t: (Date.now() - started) / 1000, delivered: n });
+      perSecondSeries.push({ t: (performance.now() - started) / 1000, delivered: n });
     }
-    const elapsedSeconds = (Date.now() - started) / 1000;
+    const elapsedSeconds = (performance.now() - started) / 1000;
     await sampler.markEnd();
 
     // Stop the pool, then the agent must answer a fresh check promptly. The
@@ -171,7 +171,7 @@ describe("stress: scheduler load into the result cache", () => {
     const growth = expectNoGrowth(sampler, knobs.rssTolerancePct);
     writeReport({
       scenario: "scheduler-load",
-      startedAt: new Date(started).toISOString(),
+      startedAt: new Date(Date.now() - (performance.now() - started)).toISOString(),
       platform: process.platform,
       knobs,
       responsiveAfterMs,
@@ -206,7 +206,10 @@ describe("stress: scheduler load into the result cache", () => {
         { length: SCHEDULES },
         (_, i) => `stress_${String(i + 1).padStart(5, "0")}`,
       ).filter((a) => !perAlias.has(a));
-      expect({ missing: missing.slice(0, 20), count: missing.length }).toMatchObject({ count: 0 });
+      expect({ missing: missing.slice(0, 20), count: missing.length }).toEqual({
+        missing: [],
+        count: 0,
+      });
     }
     expectCleanLog(nscp);
   });
