@@ -291,8 +291,20 @@ TEST(CheckNtFormatResponse, MissingPerformanceDataPassesOnWhyTheCheckHadNoValue)
 
 TEST(CheckNtFormatResponse, MissingPerformanceDataKeepsSeparatorsOutOfTheMessage) {
   // '&' would split the reply into fields and a line break would end it.
-  const auto payload = make_message_only_response(PB::Common::ResultCode::UNKNOWN, "a & b\r\nc\n");
-  EXPECT_EQ(format_response(REQ_UPTIME, "check_uptime", payload), "ERROR: No performance data from command: check_uptime: a + b  c");
+  const auto payload = make_message_only_response(PB::Common::ResultCode::UNKNOWN, "a & b\r\nc\td\n");
+  EXPECT_EQ(format_response(REQ_UPTIME, "check_uptime", payload), "ERROR: No performance data from command: check_uptime: a + b c d");
+}
+
+TEST(CheckNtFormatResponse, EmbeddedMessagesKeepSeparatorsOutOnTheSuccessPathsToo) {
+  // FILEAGE and the state commands put the check's message on the wire as a
+  // field of their own, so a file name with '&' or a list joined with line
+  // breaks would split or cut the reply just the same.
+  auto fileage = make_perf_response(120, 0);
+  fileage.mutable_lines(0)->set_message("C:\\logs\\a&b.txt: 2 minutes old");
+  EXPECT_EQ(format_response(REQ_FILEAGE, "check_files", fileage), "2&C:\\logs\\a+b.txt: 2 minutes old");
+  EXPECT_EQ(format_response(REQ_SERVICESTATE, "check_service", make_message_only_response(PB::Common::ResultCode::CRITICAL, "a&b: stopped\r\nc: running")),
+            "2& a+b: stopped c: running");
+  EXPECT_EQ(format_response(REQ_PROCSTATE, "check_process", make_message_only_response(PB::Common::ResultCode::OK, "  padded  ")), "0& padded");
 }
 
 TEST(CheckNtFormatResponse, MissingPerformanceDataWithoutAMessageKeepsTheBareError) {

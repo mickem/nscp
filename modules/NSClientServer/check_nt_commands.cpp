@@ -167,19 +167,33 @@ bool map_request(int code, const std::string &raw_args, mapped_command &out) {
 }
 
 namespace {
+// '&' separates the fields of a check_nt reply and a line break ends it, so
+// neither may appear inside a message that is embedded in one: check_nt would
+// read the wrong field, or stop reading early. Every path that puts a check's
+// message on the wire goes through here. Runs of whitespace (a CRLF, a tab
+// between list items) collapse to one space so the reason reads as one line.
+std::string check_nt_safe(const std::string &message) {
+  std::string ret;
+  bool pending_space = false;
+  for (const char c : message) {
+    if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v') {
+      pending_space = !ret.empty();
+      continue;
+    }
+    if (pending_space) ret += ' ';
+    pending_space = false;
+    ret += c == '&' ? '+' : c;
+  }
+  return ret;
+}
+
 // The check answered without the value check_nt needs - almost always because
 // it returned UNKNOWN with an explanation ("the collector is busy", "collector
 // still initializing"). Pass that explanation on: without it check_nt shows a
-// generic error and the real cause is visible nowhere. '&' separates fields in
-// a check_nt reply and a line break ends it, so neither may come through.
+// generic error and the real cause is visible nowhere.
 std::string no_perf_error(const std::string &command, const PB::Commands::QueryResponseMessage::Response::Line &line) {
   std::string ret = "ERROR: No performance data from command: " + command;
-  std::string reason = line.message();
-  for (char &c : reason) {
-    if (c == '&') c = '+';
-    if (c == '\r' || c == '\n') c = ' ';
-  }
-  boost::algorithm::trim(reason);
+  const std::string reason = check_nt_safe(line.message());
   if (!reason.empty()) ret += ": " + reason;
   return ret;
 }
@@ -206,11 +220,11 @@ std::string format_response(int code, const std::string &command, const PB::Comm
       return extract_perf_value(line.perf(0)) + "&" + extract_perf_total(line.perf(0));
     case REQ_FILEAGE:
       if (line.perf_size() < 1) return no_perf_error(command, line);
-      return str::xtos_non_sci(extract_perf_value_i(line.perf(0)) / 60) + "&" + line.message();
+      return str::xtos_non_sci(extract_perf_value_i(line.perf(0)) / 60) + "&" + check_nt_safe(line.message());
 
     case REQ_SERVICESTATE:  // Some check_nt commands return the return code (coded as a string)
     case REQ_PROCSTATE:
-      return str::xtos(payload.result()) + "& " + line.message();
+      return str::xtos(payload.result()) + "& " + check_nt_safe(line.message());
 
     default:
       return "ERROR: Unknown command " + command;
