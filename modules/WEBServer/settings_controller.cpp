@@ -20,6 +20,7 @@ settings_controller::settings_controller(const int version, std::shared_ptr<sess
   addRoute("POST", "/command$", this, &settings_controller::command);
   addRoute("GET", "/status$", this, &settings_controller::status);
   addRoute("GET", "/diff$", this, &settings_controller::diff);
+  addRoute("GET", "/problems$", this, &settings_controller::problems);
   addRoute("GET", "(.*)$", this, &settings_controller::get);
   addRoute("PUT", "(.*)$", this, &settings_controller::put);
   addRoute("DELETE", "(.*)$", this, &settings_controller::del);
@@ -577,5 +578,70 @@ void settings_controller::diff(Mongoose::Request &request, boost::smatch & /*wha
   json::object out;
   out["entries"] = entries;
   out["count"] = static_cast<int>(entries.size());
+  response.append(json::serialize(out));
+}
+
+namespace {
+const char *kind_to_string(PB::Settings::SettingsResponseMessage::Response::Validate::Kind k) {
+  switch (k) {
+    case PB::Settings::SettingsResponseMessage::Response::Validate::ORPHAN_KEY:
+      return "orphan_key";
+    case PB::Settings::SettingsResponseMessage::Response::Validate::RELATIVE_PATH:
+      return "relative_path";
+    case PB::Settings::SettingsResponseMessage::Response::Validate::UNKNOWN_PATH:
+      return "unknown_path";
+    case PB::Settings::SettingsResponseMessage::Response::Validate::UNKNOWN_KEY:
+      return "unknown_key";
+    case PB::Settings::SettingsResponseMessage::Response::Validate::UNUSED_PATH:
+      return "unused_path";
+    case PB::Settings::SettingsResponseMessage::Response::Validate::UNUSED_KEY:
+    default:
+      return "unused_key";
+  }
+}
+}  // namespace
+
+// Sections and keys in the saved configuration that nothing reads - the same
+// report `nscp settings --validate` prints and the startup log summarises.
+void settings_controller::problems(Mongoose::Request &request, boost::smatch & /*what*/, Mongoose::StreamResponse &response) {
+  if (!session->is_logged_in("settings.get", request, response)) return;
+
+  PB::Settings::SettingsRequestMessage rm;
+  PB::Settings::SettingsRequestMessage::Request *payload = rm.add_payload();
+  payload->mutable_validate();
+  payload->set_plugin_id(plugin_id);
+
+  std::string str_response;
+  if (!core->settings_query(rm.SerializeAsString(), str_response)) {
+    response.setCodeServerError("Failed to validate settings");
+    return;
+  }
+  PB::Settings::SettingsResponseMessage pb_response;
+  pb_response.ParseFromString(str_response);
+  if (pb_response.payload_size() != 1 || !pb_response.payload(0).has_validate()) {
+    const std::string message = pb_response.payload_size() == 1 ? pb_response.payload(0).result().message() : "";
+    response.setCodeServerError(message.empty() ? "Failed to validate settings" : message);
+    return;
+  }
+
+  json::array problems;
+  int warnings = 0;
+  for (const auto &f : pb_response.payload(0).validate().findings()) {
+    const bool is_warning = f.severity() == PB::Settings::SettingsResponseMessage::Response::Validate::WARNING;
+    if (is_warning) ++warnings;
+    json::object o;
+    o["kind"] = kind_to_string(f.kind());
+    o["severity"] = is_warning ? "warning" : "info";
+    o["source"] = f.source();
+    o["path"] = f.path();
+    o["key"] = f.key();
+    o["suggestion"] = f.suggestion();
+    o["message"] = f.message();
+    problems.push_back(o);
+  }
+  json::object out;
+  out["problems"] = problems;
+  out["count"] = static_cast<int>(problems.size());
+  out["warnings"] = warnings;
   response.append(json::serialize(out));
 }

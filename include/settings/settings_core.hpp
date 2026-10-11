@@ -80,6 +80,8 @@ class settings_core {
     typedef std::map<std::string, key_description> keys_type;
     keys_type keys;
     std::set<unsigned int> plugins;
+    // Keys here are named by the user (register_user_keys); read by validate().
+    bool user_keys = false;
     path_description(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_, bool is_sample_)
         : title(title_), description(description_), advanced(advanced_), is_sample(is_sample_) {
       append_plugin(plugin_id);
@@ -127,6 +129,10 @@ class settings_core {
 
   virtual void register_subkey(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample,
                                bool update_existing = true) = 0;
+
+  /// Mark a path whose keys are named by the user (see
+  /// settings_impl_interface::register_user_keys).
+  virtual void register_user_keys(unsigned int plugin_id, const std::string &path) {}
 
   //////////////////////////////////////////////////////////////////////////
   /// Register a key with the settings module.
@@ -203,8 +209,14 @@ class settings_core {
   virtual void set_primary(std::string context) = 0;
 
   //////////////////////////////////////////////////////////////////////////
-  /// Validate the settings store and report all missing/invalid and superflous keys.
-  virtual settings::error_list validate() = 0;
+  /// Compare what the active store (and its includes) holds against what the
+  /// loaded modules registered: sections and keys nothing reads, and the near
+  /// misses among them. See validate_inventory() for what counts as a warning.
+  ///
+  /// @param complete_registry every installed module has registered its
+  /// settings (the caller loaded them all), so anything unclaimed is wrong
+  /// rather than possibly another module's.
+  virtual settings::validation_result validate(bool complete_registry = false) = 0;
 
   //////////////////////////////////////////////////////////////////////////
   /// Fill the (current) settings store with the registered default values.

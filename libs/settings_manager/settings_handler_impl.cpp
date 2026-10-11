@@ -94,7 +94,24 @@ void settings::settings_handler_impl::house_keeping() {
   instance->house_keeping();
 }
 
-settings::error_list settings::settings_handler_impl::validate() { return get()->validate(); }
+settings::validation_result settings::settings_handler_impl::validate(const bool complete_registry) {
+  settings::inventory inv;
+  get()->get_inventory(inv);
+  settings::registry_snapshot registry;
+  {
+    boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+    if (!readLock.owns_lock()) throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex");
+    for (const reg_paths_type::value_type &p : registred_paths_) {
+      settings::registry_snapshot::path_entry &entry = registry.paths[p.first];
+      entry.any_key = p.second.subkey.is_subkey || p.second.user_keys;
+      for (const auto &k : p.second.keys) entry.keys.push_back(k.first);
+    }
+  }
+  // Every key under /modules names a module; get_registered_key() accepts
+  // them all the same way.
+  registry.paths["/modules"].any_key = true;
+  return settings::validate_inventory(inv, registry, complete_registry);
+}
 
 bool settings::settings_handler_impl::supports_updates() {
   const boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));

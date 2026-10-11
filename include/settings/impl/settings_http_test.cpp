@@ -303,12 +303,14 @@ TEST(settings_http, get_real_string_returns_empty) {
   EXPECT_FALSE(s.has_real_key({"/x", "y"}));
 }
 
-TEST(settings_http, validate_returns_no_errors) {
+TEST(settings_http, inventory_of_an_empty_remote_is_empty) {
   loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
   temp_dir cache;
   http_test_core core(cache.path());
   settings::settings_http s(&core, "test", http_url(server.port()));
-  EXPECT_TRUE(s.validate().empty());
+  settings::inventory inv;
+  s.get_inventory(inv);
+  EXPECT_TRUE(inv.empty());
 }
 
 TEST(settings_http, hash_string_is_stable) {

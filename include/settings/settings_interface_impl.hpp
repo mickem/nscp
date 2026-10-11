@@ -173,6 +173,20 @@ class settings_interface_impl : public settings_interface {
 
   virtual std::list<std::shared_ptr<settings_interface>> get_children() { return snapshot_children(); }
 
+  void get_inventory(settings::inventory &out) override {
+    {
+      MUTEX_GUARD();
+      get_real_inventory(out);
+    }
+    for (const instance_raw_ptr &child : snapshot_children()) {
+      if (child) child->get_inventory(out);
+    }
+  }
+  // What this store itself holds on disk, includes left out; called under
+  // mutex_. A backend that cannot enumerate its contents contributes nothing,
+  // which validates as clean rather than as wrong.
+  virtual void get_real_inventory(settings::inventory &) {}
+
   template <class T>
   typename T::op_type getter(std::string path, std::string key) {
     MUTEX_GUARD();

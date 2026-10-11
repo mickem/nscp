@@ -392,6 +392,66 @@ $ nscp settings --show
 INI settings: (ini://${shared-path}/nsclient.ini, C:\source\build\x64\dev/nsclient.ini)
 ```
 
+## Checking the configuration
+
+Every section name is an absolute path: `[/settings/external scripts]`, never
+`[settings/external scripts]`. A section that is spelled wrong, or a key that
+is, is not an error to the module that reads the configuration - it just never
+asks for that name, so whatever you wrote there does not take effect. A script
+defined under `[settings/external scripts/scripts]` is `Unknown command`, and
+nothing else says why.
+
+The agent compares the configuration against what its loaded modules read, at
+startup and on every reload, and logs a warning for each entry nothing reads:
+
+```text
+W core Configuration: 2 entries are ignored because nothing reads them. Run 'nscp settings --validate', or see Configuration problems in the web UI, for details.
+W core Configuration: Key 'alow arguments' in [/settings/external scripts] is not a known key. Did you mean 'allow arguments'? (C:\Program Files\NSClient++\nsclient.ini)
+W core Configuration: Section [settings/external scripts/scripts] is ignored: settings paths start with '/'. Did you mean [/settings/external scripts/scripts]? (C:\Program Files\NSClient++\nsclient.ini)
+```
+
+`nscp settings --validate` prints the same report without starting the
+service, and exits with `1` when it holds a warning, so a deployment can check
+a file before it ships:
+
+```text
+$ nscp settings --validate
+/etc/nsclient/nsclient.ini:
+  warning: Key 'alow arguments' in [/settings/external scripts] is not a known key. Did you mean 'allow arguments'?
+  warning: Section [settings/external scripts/scripts] is ignored: settings paths start with '/'. Did you mean [/settings/external scripts/scripts]?
+  info:    Section [/settings/NRPE/server] is not used by any loaded module (it may belong to a module that is not enabled).
+2 warning(s), 1 info
+```
+
+What counts as a warning:
+
+* a section whose name does not start with `/`;
+* a section or key that no loaded module reads but that is a typo away from one
+  that it does (case, and `_`/`-` for a space, do not count as typos: the
+  settings store ignores case anyway);
+* a key above the first `[section]` header.
+
+A section or key that no loaded module reads, and that resembles nothing, is
+only listed as `info`: a module that is not enabled keeps its configuration
+where it was, and a shared section such as `/settings/default` holds keys for
+several modules. Sections that take names you choose - scripts, aliases,
+targets, roles - accept any key. A section with nothing in it is never more
+than `info` either: it configures nothing.
+
+Add `--load-all` to have every installed module register its settings first.
+Anything still unclaimed then belongs to no module at all, and is a warning:
+
+```shell
+nscp settings --validate --load-all
+```
+
+The report covers the active settings store and every file it includes, as
+saved: changes made in the web UI or over REST and not yet saved are not part
+of it. The web UI shows the same report (see
+[Using the web interface](../setup/web-interface.md#configuration-problems)),
+and `GET /api/v2/settings/problems` returns it as JSON (see the
+[Settings API](../api/rest/settings.md#problems)).
+
 ## Overriding settings store
 
 The default way for NSClient++ to find your settings files is via the boot.ini file.

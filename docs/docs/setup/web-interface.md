@@ -368,6 +368,17 @@ After this you should get a popup asking you to save and update the settings.
 If you click `Save and reload` the service will restart and the web server will now be served on port 1234 instead.
 So navigate to `http://localhost:1234/` and you should see the web interface again.
 
+### Configuration problems
+
+When the saved configuration holds a section or key that nothing reads - a
+section written without its leading `/`, a misspelled key - a banner above
+every page says how many entries are ignored. *Show details* opens
+*Configuration problems*, which lists each entry with the file it is in and,
+where there is one, the name it most likely meant. The *Problems* button on the `Settings` page opens the same list,
+and its *Show info* switch adds the sections and keys only a module that is not
+enabled would use. See
+[Checking the configuration](../concepts/settings.md#checking-the-configuration)
+for what is reported and why.
 
 ## Adding certificates to NSClient++
 

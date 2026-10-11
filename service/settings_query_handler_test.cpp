@@ -604,3 +604,45 @@ TEST_F(SettingsQueryTest, a_removal_is_reported_as_removed) {
   }
   EXPECT_TRUE(found);
 }
+
+// ---------------------------------------------------------------------------
+// Validate - what the startup warning, `nscp settings --validate` and the
+// REST /settings/problems endpoint report.
+// ---------------------------------------------------------------------------
+
+TEST_F(SettingsQueryTest, validate_reports_what_nothing_reads) {
+  settings_test::write_file(ini_, "[/section]\ntimeout = 1\ntimout = 2\n[settings/section]\nkey = 3\n");
+  settings_manager::get_settings()->clear_cache();
+  register_key("/section", "timeout");
+
+  PB::Settings::SettingsRequestMessage request;
+  new_request(request)->mutable_validate();
+  const PB::Settings::SettingsResponseMessage response = run(request);
+
+  ASSERT_EQ(response.payload_size(), 1);
+  const auto &validate = response.payload(0).validate();
+  ASSERT_EQ(validate.findings_size(), 2);
+  typedef PB::Settings::SettingsResponseMessage::Response::Validate pb;
+  EXPECT_EQ(validate.findings(0).kind(), pb::UNKNOWN_KEY);
+  EXPECT_EQ(validate.findings(0).severity(), pb::WARNING);
+  EXPECT_EQ(validate.findings(0).path(), "/section");
+  EXPECT_EQ(validate.findings(0).key(), "timout");
+  EXPECT_EQ(validate.findings(0).suggestion(), "timeout");
+  EXPECT_EQ(validate.findings(1).kind(), pb::RELATIVE_PATH);
+  EXPECT_EQ(validate.findings(1).suggestion(), "/settings/section");
+  EXPECT_NE(validate.findings(1).source().find("settings.ini"), std::string::npos);
+  EXPECT_FALSE(validate.findings(1).message().empty());
+}
+
+TEST_F(SettingsQueryTest, validate_of_a_registered_configuration_is_empty) {
+  settings_test::write_file(ini_, "[/section]\nkey = 1\n");
+  settings_manager::get_settings()->clear_cache();
+  register_key("/section", "key");
+
+  PB::Settings::SettingsRequestMessage request;
+  new_request(request)->mutable_validate();
+  const PB::Settings::SettingsResponseMessage response = run(request);
+
+  EXPECT_EQ(response.payload(0).validate().findings_size(), 0);
+  EXPECT_EQ(response.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_OK);
+}

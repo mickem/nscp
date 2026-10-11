@@ -28,6 +28,8 @@ class settings_proxy : public nscapi::settings_helper::settings_impl_interface {
     get_core()->register_subkey(0xffff, path, title, description, advanced, is_sample);
   }
 
+  void register_user_keys(std::string path) override { get_core()->register_user_keys(0xffff, path); }
+
   virtual void register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defValue,
                             bool advanced, bool is_sample, bool is_sensitive) {
     get_core()->register_key(0xffff, path, key, type, title, description, defValue, advanced, is_sample);

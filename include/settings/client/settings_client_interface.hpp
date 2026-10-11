@@ -41,6 +41,12 @@ class settings_impl_interface {
 
   virtual void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample) = 0;
 
+  //////////////////////////////////////////////////////////////////////////
+  /// Declare that the keys under a registered path are named by the user (a
+  /// values path read whole), so settings validation accepts any key there.
+  /// Unlike register_subkey it changes nothing about how the path is listed.
+  virtual void register_user_keys(std::string path) {}
+
   virtual void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) = 0;
 
   //////////////////////////////////////////////////////////////////////////

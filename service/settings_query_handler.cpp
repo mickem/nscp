@@ -52,6 +52,8 @@ void settings_query_handler::parse(PB::Settings::SettingsResponseMessage &respon
         rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
       } else if (r.has_diff()) {
         parse_diff(r.diff(), rp);
+      } else if (r.has_validate()) {
+        parse_validate(rp);
       } else {
         rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
         rp->mutable_result()->set_message("Settings error: Invalid action");
@@ -304,6 +306,10 @@ void settings_query_handler::parse_registration(const PB::Settings::SettingsRequ
     // node.insert(json::object::value_type("fields", value));
     std::string tplData = json::serialize(node);
     settings_manager::get_core()->register_tpl(plugin_id, q.node().path(), q.info().title(), tplData);
+  } else if (q.info().user_keys()) {
+    // Carries no description of its own: it must not overwrite the one the
+    // path was registered with.
+    settings_manager::get_core()->register_user_keys(plugin_id, q.node().path());
   } else if (!q.node().key().empty()) {
     settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), q.info().type(), q.info().title(), q.info().description(),
                                                q.info().default_value(), q.info().advanced(), q.info().sample());
@@ -447,6 +453,44 @@ void settings_query_handler::parse_diff(const PB::Settings::SettingsRequestMessa
     rp->mutable_result()->set_message("Settings diff error: " + utf8::utf8_from_native(e.what()));
     LOG_ERROR_CORE_STD("Settings diff error: " + utf8::utf8_from_native(e.what()));
   }
+}
+
+namespace {
+PB::Settings::SettingsResponseMessage::Response::Validate::Kind to_pb_kind(const settings::validation_finding::kind k) {
+  typedef PB::Settings::SettingsResponseMessage::Response::Validate pb;
+  switch (k) {
+    case settings::validation_finding::kind::orphan_key:
+      return pb::ORPHAN_KEY;
+    case settings::validation_finding::kind::relative_path:
+      return pb::RELATIVE_PATH;
+    case settings::validation_finding::kind::unknown_path:
+      return pb::UNKNOWN_PATH;
+    case settings::validation_finding::kind::unknown_key:
+      return pb::UNKNOWN_KEY;
+    case settings::validation_finding::kind::unused_path:
+      return pb::UNUSED_PATH;
+    case settings::validation_finding::kind::unused_key:
+    default:
+      return pb::UNUSED_KEY;
+  }
+}
+}  // namespace
+
+// Errors go to the outer handler in parse(), like every other action here.
+void settings_query_handler::parse_validate(PB::Settings::SettingsResponseMessage::Response *rp) {
+  PB::Settings::SettingsResponseMessage::Response::Validate *validate = rp->mutable_validate();
+  for (const settings::validation_finding &f : settings_manager::get_core()->validate()) {
+    auto *finding = validate->add_findings();
+    finding->set_kind(to_pb_kind(f.type));
+    finding->set_severity(f.level == settings::validation_finding::severity::warning ? PB::Settings::SettingsResponseMessage::Response::Validate::WARNING
+                                                                                     : PB::Settings::SettingsResponseMessage::Response::Validate::INFO);
+    finding->set_source(f.source);
+    finding->set_path(f.path);
+    finding->set_key(f.key);
+    finding->set_suggestion(f.suggestion);
+    finding->set_message(f.message);
+  }
+  rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 }
 
 }  // namespace core

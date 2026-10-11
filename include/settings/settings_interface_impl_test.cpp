@@ -80,7 +80,6 @@ class memory_backend : public settings::settings_interface_impl {
   // ---- settings_interface boilerplate ----------------------------------
   std::string get_info() override { return "memory backend"; }
   std::string get_type() override { return "memory"; }
-  settings::error_list validate() override { return {}; }
   void ensure_exists() override {}
   void enable_credentials() override {}
   bool supports_updates() override { return true; }

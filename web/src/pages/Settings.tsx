@@ -2,11 +2,13 @@
 import {
   nsclientApi,
   useGetSettingsDescriptionsQuery,
+  useGetSettingsProblemsQuery,
   useGetSettingsStatusQuery,
   useSettingsCommandMutation,
 } from "../api/api.ts";
 import {
   Alert,
+  Badge,
   ButtonGroup,
   Chip,
   FormControlLabel,
@@ -26,6 +28,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import Button from "@mui/material/Button";
 import SettingsList from "../components/SettingsList.tsx";
+import SettingsProblemsDialog from "../components/atoms/SettingsProblemsDialog.tsx";
 import { useMemo, useState } from "react";
 
 export default function Settings() {
@@ -38,6 +41,8 @@ export default function Settings() {
   const { data: settings } = useGetSettingsDescriptionsQuery();
   const [settingsCommand] = useSettingsCommandMutation();
   const { data: settingsStatus } = useGetSettingsStatusQuery();
+  const { data: settingsProblems } = useGetSettingsProblemsQuery();
+  const [problemsOpen, setProblemsOpen] = useState(false);
 
   const onRefresh = () => {
     dispatch(nsclientApi.util.invalidateTags(["Settings", "SettingsDescriptions"]));
@@ -137,6 +142,11 @@ export default function Settings() {
           }
           label="Hide defaults"
         />
+        <Badge badgeContent={settingsProblems?.warnings ?? 0} color="warning">
+          <Button size="small" variant="outlined" onClick={() => setProblemsOpen(true)}>
+            Problems
+          </Button>
+        </Badge>
         <Button size="small" variant="outlined" onClick={reloadSettings} loading={busy}>
           Reload service
         </Button>
@@ -147,6 +157,7 @@ export default function Settings() {
         forceExpanded={!!needle}
         emptyMessage={needle ? `No settings match “${filter}”.` : undefined}
       />
+      <SettingsProblemsDialog open={problemsOpen} onClose={() => setProblemsOpen(false)} />
       <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseError}>
         <Alert onClose={handleCloseError} severity="error">
           {error}
