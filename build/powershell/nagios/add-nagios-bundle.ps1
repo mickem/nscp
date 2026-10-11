@@ -176,6 +176,16 @@ else {
 
 $assigned = @(Invoke-FleetApi -FleetServer $FleetServer -Path "/api/groups/$($group.id)/bundles" -ApiKey $ApiKey -SkipCertificateCheck:$FleetNoVerify)
 
+# Every run stores a new version and the tenant's bundle count is capped, so
+# drop the versions of earlier runs that no group uses any more. Deleting a
+# bundle also deletes its assignments, so anything assigned anywhere stays.
+$inUse = @(foreach ($g in @(Invoke-FleetApi -FleetServer $FleetServer -Path "/api/groups" -ApiKey $ApiKey -SkipCertificateCheck:$FleetNoVerify)) {
+        Invoke-FleetApi -FleetServer $FleetServer -Path "/api/groups/$($g.id)/bundles" -ApiKey $ApiKey -SkipCertificateCheck:$FleetNoVerify |
+            ForEach-Object { "$($_.bundle_id)" }
+    })
+Remove-FleetBundleVersions -FleetServer $FleetServer -ApiKey $ApiKey -Name $BundleName -Keep $inUse `
+    -SkipCertificateCheck:$FleetNoVerify | ForEach-Object { Write-Host "   $_" }
+
 # --- compose the bundle ------------------------------------------------------
 Write-Host "Composing bundle $BundleName $BundleVersion..."
 $bundle = Invoke-FleetApi -FleetServer $FleetServer -Path "/api/bundles/compose" -Method Post -ApiKey $ApiKey `

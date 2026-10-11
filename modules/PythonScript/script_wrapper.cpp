@@ -557,7 +557,11 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
     {
       int ret_code = NSCAPI::api_return_codes::hasFailed;
       try {
-        py::object memoryView(py::handle<>(PyMemoryView_FromMemory(const_cast<char *>(request.c_str()), static_cast<Py_ssize_t>(request.size()), PyBUF_READ)));
+        // A memoryview, as documented, but over a bytes copy it owns. It used to
+        // view the caller's string directly, and a handler that kept the view
+        // past its return (stored it, handed it to a thread) read freed memory.
+        py::object payload = pybuf(request);
+        py::object memoryView(py::handle<>(PyMemoryView_FromObject(payload.ptr())));
 
         py::object ret = py::call<py::object>(py::object(it->second).ptr(), channel, memoryView);
         if (ret.ptr() == Py_None) {

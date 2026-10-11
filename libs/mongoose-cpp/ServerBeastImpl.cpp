@@ -8,6 +8,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl/stream.hpp>
@@ -607,11 +608,21 @@ void ServerBeastImpl::stop() {
   //      expires_after deadline at the worst).
   //   4. ioc_.run() exits naturally with no pending operations, so
   //      ~io_context() has nothing left to destroy.
-  if (acceptor_ && acceptor_->is_open()) {
-    boost::system::error_code ec;
-    acceptor_->cancel(ec);
-    acceptor_->close(ec);
-  }
+  //
+  // The acceptor is closed on the io thread, not here: a tcp::acceptor is not
+  // safe to share between threads, and the accept coroutine may be re-arming
+  // async_accept on it at this very moment. dispatch() runs it inline when
+  // stop() is already on the io thread, and otherwise queues it ahead of the
+  // work guard's release - a queued handler is work, so run() executes it
+  // before it can return. If run() has already returned, the acceptor_.reset()
+  // after the join below closes it instead.
+  asio::dispatch(ioc_, [this] {
+    if (acceptor_ && acceptor_->is_open()) {
+      boost::system::error_code ec;
+      acceptor_->cancel(ec);
+      acceptor_->close(ec);
+    }
+  });
   if (work_guard_) work_guard_->reset();
 
   // Stopping the server from the thread that runs it: a request handler took a

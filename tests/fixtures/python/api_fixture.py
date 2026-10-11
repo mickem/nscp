@@ -34,6 +34,8 @@ event_pb_calls = [0]
 # Channel handlers registered under the same name as the event: they must
 # never be handed an event.
 channel_collisions = []
+# The raw subscription's message objects, kept past the handler's return.
+kept_raw = []
 
 
 def lifecycle(line):
@@ -163,6 +165,10 @@ def py_seen(args):
         return (status.OK, 'pb=%d records=%d min=%d max=%d' % (
             event_pb_calls[0], len(per_record), per_record[0] if per_record else 0,
             per_record[-1] if per_record else 0))
+    if what == 'raw_kept':
+        # Read on a later call, long after the handler returned.
+        return (status.OK, '\n'.join('%s marker=%s' % (type(m).__name__, b'kept past the handler' in bytes(m))
+                                      for m in kept_raw) or 'none')
     if what == 'metrics':
         return (status.OK, '\n'.join('%s=%s' % (k, v) for k, v in sorted(seen_metrics.items())
                                      if 'pyapi' in k) or 'none')
@@ -187,6 +193,13 @@ def on_channel_named_like_event(channel, source, command, code, message, perf):
 
 def on_raw_channel_named_like_event(channel, message):
     channel_collisions.append('raw:%s' % channel)
+    return (True, b'')
+
+
+def on_raw_kept(channel, message):
+    # Keeps the memoryview past the return, which the docs do not forbid: the
+    # agent used to hand out a view of its own temporary string here.
+    kept_raw.append(message)
     return (True, b'')
 
 
@@ -271,6 +284,7 @@ def init(pid, plugin_alias, script_alias):
 
     reg.simple_subscription('PYCHAN', on_submission)
     reg.simple_subscription('PYREJECT', on_reject)
+    reg.subscription('PYRAW', on_raw_kept)
 
     reg.event('system.cpu:py_rt', on_event)
     reg.event_pb('system.cpu:py_rt', on_event_pb)

@@ -1,0 +1,31 @@
+{
+  "name": "target",
+  "description": "NSClient++ with NRPEServer open to the hub's public IP only: what the hub role checks remotely",
+  "os": ["windows", "ubuntu"],
+  "machines": 1,
+  "vcpus": 1,
+  "vmSize": null,
+  "image": null,
+  "companionOnly": true,
+  "modules": ["NRPEServer"],
+  "install": {},
+  "localSettings": {
+    "/settings/NRPE/server": { "verify mode": "none" }
+  },
+  "installTimeoutMinutes": 10,
+  "tag": { "role": "target" },
+  "bundle": {
+    "settings": {
+      "NRPE": {
+        "server": {
+          "allowed hosts": "${ESTATE_IPS:hub}",
+          "use ssl": "true",
+          "insecure": "false",
+          "allow arguments": "true"
+        }
+      }
+    }
+  },
+  "checks": [],
+  "logs": {}
+}

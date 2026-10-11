@@ -35,7 +35,8 @@ legacy_controller::legacy_controller(const std::shared_ptr<session_manager_inter
   // it on POST and gate it behind a dedicated grant so an operator who only
   // wants legacy read access cannot accidentally hand out a remote shell.
   addRoute("POST", "/console/exec", this, &legacy_controller::console_exec);
-  addRoute("GET", "/metrics", this, &legacy_controller::get_metrics);
+  // GET /metrics was removed: StaticController (registered first) claims
+  // every /metrics URL, so it was never reachable. /api/v2/metrics replaces it.
 }
 
 std::string legacy_controller::get_status() {
@@ -197,10 +198,6 @@ void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::Strea
   log.insert(json::object::value_type("pos", pos));
   root.insert(json::object::value_type("log", log));
   response.append(json::serialize(root));
-}
-void legacy_controller::get_metrics(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("legacy", request, response)) return;
-  response.append(session->get_metrics());
 }
 void legacy_controller::log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("legacy", request, response)) return;

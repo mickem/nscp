@@ -406,6 +406,14 @@ nscp client --boot --query check_and_forward --argument command=check_cpu --argu
 OK: Message submitted: NSCA
 ```
 
+Run like this, `check_and_forward` starts a fresh agent process, so a check
+that reads a background collector — `check_cpu` here — has no samples yet and
+submits its warm-up result (*"collector still initializing"*) rather than a
+load. That is enough to prove the NSCA path works; for a real reading, let the
+running agent's scheduler submit it, or call `check_and_forward` on the running
+agent over the REST API (see
+[collector-backed checks](../concepts/checks.md#8-collector-backed-checks-and-warm-up)).
+
 | Argument      | Meaning                                                                     |
 |---------------|-------------------------------------------------------------------------------|
 | `command`     | The check to run (required).                                                  |

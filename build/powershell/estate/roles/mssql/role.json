@@ -1,0 +1,102 @@
+{
+  "name": "mssql",
+  "description": "SQL Server 2022 Developer on Windows Server 2022, checked with CheckMSSQL through a role bundle",
+  "os": ["windows"],
+  "machines": 1,
+  "vcpus": 1,
+  "vmSize": null,
+  "image": { "publisher": "MicrosoftSQLServer", "offer": "sql2022-ws2022", "sku": "sqldev-gen2" },
+  "modules": ["CheckMSSQL"],
+  "install": { "windows": "install-windows.ps1" },
+  "installTimeoutMinutes": 20,
+  "tag": { "role": "mssql" },
+  "bundle": {
+    "settings": {
+      "mssql": { "hostname": "127.0.0.1", "user": "nscp", "password": "${ROLE_PASSWORD}" }
+    }
+  },
+  "checks": [
+    {
+      "command": "check_mssql",
+      "args": { "trust-cert": "true", "critical": "uptime < 1s" },
+      "expect": "OK",
+      "perf": ["uptime"]
+    },
+    {
+      "command": "check_mssql_query",
+      "args": {
+        "trust-cert": "true",
+        "query": "SELECT COUNT(*) AS db_count FROM sys.databases",
+        "critical": "db_count < 4",
+        "perf-syntax": "databases"
+      },
+      "expect": "OK",
+      "perf": ["databases"]
+    },
+    {
+      "command": "check_mssql_databases",
+      "args": { "trust-cert": "true", "warning": "data_size > 1T" },
+      "expect": "OK",
+      "perf": ["master_data"]
+    },
+    {
+      "command": "check_mssql_backup",
+      "args": { "trust-cert": "true", "warning": "none", "critical": "full_age < -2" },
+      "expect": "OK",
+      "perf": ["full_age"]
+    },
+    {
+      "command": "check_mssql_jobs",
+      "args": { "trust-cert": "true" },
+      "expect": "OK"
+    },
+    {
+      "command": "check_mssql_sessions",
+      "args": { "trust-cert": "true", "warning": "none", "critical": "sessions > 100000" },
+      "expect": "OK",
+      "perf": ["sessions"]
+    },
+    {
+      "command": "check_mssql_blocking",
+      "args": { "trust-cert": "true" },
+      "expect": "OK"
+    },
+    {
+      "command": "check_mssql_transactions",
+      "args": { "trust-cert": "true" },
+      "expect": "OK"
+    },
+    {
+      "command": "check_mssql_counters",
+      "args": { "trust-cert": "true", "warning": "none", "critical": "page_life_expectancy < -1" },
+      "expect": "OK",
+      "perf": ["page_life_expectancy"]
+    },
+    {
+      "command": "check_mssql_waits",
+      "args": { "trust-cert": "true", "warning": "none", "critical": "work_queue > 100000" },
+      "expect": "OK",
+      "perf": ["work_queue"]
+    },
+    {
+      "command": "check_mssql_tempdb",
+      "args": { "trust-cert": "true", "warning": "none", "critical": "used_pct > 100" },
+      "expect": "OK",
+      "perf": ["used_pct"]
+    },
+    {
+      "command": "check_mssql_integrity",
+      "args": { "trust-cert": "true", "warning": "none", "critical": "suspect_pages > 0" },
+      "expect": "OK",
+      "perf": ["suspect_pages"]
+    },
+    {
+      "command": "check_mssql_availability_groups",
+      "args": { "trust-cert": "true" },
+      "expect": "OK"
+    }
+  ],
+  "logs": {
+    "windows": ["C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\Log\\ERRORLOG"]
+  }
+}

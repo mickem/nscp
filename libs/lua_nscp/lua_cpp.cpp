@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <cmath>
+#include <limits>
 #include <lua/lua_cpp.hpp>
 
 extern "C" {
@@ -80,7 +81,15 @@ int lua::lua_wrapper::get_int(int pos) {
   // is undefined and in practice terminates the agent. A string that is not a
   // number reads as 0, the same as any other type this cannot convert.
   if (is_string(pos)) return str::stox<int>(lua_tostring(L, pos), 0);
-  if (is_number(pos)) return static_cast<int>(lua_tonumber(L, pos));
+  if (is_number(pos)) {
+    // Casting a double that does not fit in an int is undefined: a script
+    // passing 1e300, math.huge or 0/0 saturates instead.
+    const lua_Number n = lua_tonumber(L, pos);
+    if (std::isnan(n)) return 0;
+    if (n >= static_cast<lua_Number>((std::numeric_limits<int>::max)())) return (std::numeric_limits<int>::max)();
+    if (n <= static_cast<lua_Number>((std::numeric_limits<int>::min)())) return (std::numeric_limits<int>::min)();
+    return static_cast<int>(n);
+  }
   return 0;
 }
 bool lua::lua_wrapper::get_boolean(int pos) {
