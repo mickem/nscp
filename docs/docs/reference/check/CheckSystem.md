@@ -9134,7 +9134,7 @@ disable=
 
 #### Fetch core load <a id="/settings/system/windows/fetch core loads"></a>
 
-Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).
+Set to false to read only the total CPU load and skip the per-core values (check_cpu then has no core rows). The total is read the same way either way, so this does not change how close the figures are to Task Manager; to match Task Manager, enable 'use pdh for cpu'.
 
 
 | Key            | Description                                           |
