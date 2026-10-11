@@ -50,7 +50,8 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
                                 const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                 const PB::Commands::QueryRequestMessage &request_message) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  call_state call(information);
+  lua_wrapper lua(prep_function(call.L, function));
   int args = 2;
   if (function.object_ref != 0) args = 3;
   if (simple) {
@@ -95,7 +96,8 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
 void lua::lua_runtime::exec_main(script_information *information, const std::vector<std::string> &opts,
                                  PB::Commands::ExecuteResponseMessage::Response *response) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, "main"));
+  call_state call(information);
+  lua_wrapper lua(prep_function(call.L, "main"));
   lua.push_array(opts);
   if (lua.pcall(1, 2, 0) != 0) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command main: " + lua.pop_string());
   const std::string msg = pop_optional_string(lua);
@@ -114,7 +116,8 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
                                const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
                                const PB::Commands::ExecuteRequestMessage &request_message) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  call_state call(information);
+  lua_wrapper lua(prep_function(call.L, function));
   int args = 2;
   if (function.object_ref != 0) args = 3;
   if (simple) {
@@ -157,7 +160,8 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
 void lua::lua_runtime::on_submit(std::string channel, script_information *information, lua::lua_traits::function_type function, bool simple,
                                  const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  call_state call(information);
+  lua_wrapper lua(prep_function(call.L, function));
   // cmd_args is the leading self argument (1 when the handler is a bound method,
   // 0 otherwise); the fixed channel/command/... args are added on at each pcall.
   int cmd_args = 0;
@@ -228,13 +232,18 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
   // Windows: on Linux the base is the directory holding the binary, so
   // require() of anything in lua/lib could not work from a package.
   lua_instance.append_path(script_base_path + "/lua/lib/?.lua;" + script_base_path + "/lua/?.lua");
-  if (lua_instance.loadfile(info->script) != 0) throw lua::lua_exception("Failed to load script: " + info->script + ": " + lua_instance.pop_string());
-  if (lua_instance.pcall(0, 0, 0) != 0) throw lua::lua_exception("Failed to execute script: " + info->script + ": " + lua_instance.pop_string());
+  // The top-level code runs on a call stack of its own too: it may register a
+  // handler and then sleep, and the handler can be called meanwhile.
+  call_state call(info);
+  lua_wrapper chunk(call.L);
+  if (chunk.loadfile(info->script) != 0) throw lua::lua_exception("Failed to load script: " + info->script + ": " + chunk.pop_string());
+  if (chunk.pcall(0, 0, 0) != 0) throw lua::lua_exception("Failed to execute script: " + info->script + ": " + chunk.pop_string());
   lua_instance.gc(LUA_GCCOLLECT, 0);
 }
 void lua::lua_runtime::start(scripts::script_information<lua_traits> *info) {
   lua_gil::guard gil;
-  lua_wrapper lua_instance(info->user_data.L);
+  call_state call(info);
+  lua_wrapper lua_instance(call.L);
   lua_instance.getglobal("on_start");
   if (lua_instance.is_function()) {
     lua_instance.getglobal("on_start");
