@@ -58,9 +58,8 @@ void collect(PDHQuery &query, const bool double_sample) {
   }
   // ignore_errors=true: with a wildcard, individual instances can come and go
   // between expansion and collection (and rate counters lack a second sample
-  // when double_sample is off) — neither should fail the whole gather. For the
-  // same reason a missing instance is not worth a retry here.
-  query.gatherData(true, false);
+  // when double_sample is off) — neither should fail the whole gather.
+  query.gatherData(true);
   query.close();
 }
 

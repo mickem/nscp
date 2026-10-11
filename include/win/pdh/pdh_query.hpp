@@ -38,9 +38,10 @@ class PDHQuery : public subscriber {
   // ignore_errors: skip a counter that has no value this tick instead of
   // throwing. retry_missing: when the query or a counter has no data because
   // an instance is missing right now (PDH_NO_DATA, PDH_CSTATUS_NO_INSTANCE),
-  // wait a second and sample once more before giving up. Off for a caller
-  // that cannot afford the second, such as the 1 Hz collector.
-  void gatherData(bool ignore_errors = false, bool retry_missing = true);
+  // wait a second and sample once more before giving up. Opt-in: it costs a
+  // second, which the 1 Hz collector cannot spend, and only counters whose
+  // instances come and go (check_pdh's) need it.
+  void gatherData(bool ignore_errors = false, bool retry_missing = false);
   void collect() const;
 
   PDH_HQUERY getQueryHandle() const;

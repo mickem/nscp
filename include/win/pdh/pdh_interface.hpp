@@ -93,8 +93,8 @@ class pdh_no_instance_exception : public pdh_exception {
 
 // Thrown by PDHQuery::collect() when PdhCollectQueryData returns PDH_NO_DATA
 // (see pdh_error::is_no_data()). Still a pdh_exception, so every caller keeps
-// treating it as a failure; check_pdh catches it ahead of that to give PDH
-// one more sample before reporting it.
+// treating it as a failure; PDHQuery::gatherData() catches it to take one
+// more sample when its caller asks for that (retry_missing).
 class pdh_no_data_exception : public pdh_exception {
  public:
   pdh_no_data_exception(const std::string &str, const pdh_error &error) : pdh_exception(str, error) {}

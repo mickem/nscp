@@ -209,9 +209,7 @@ bool pdh_thread::store_tick(const cpu_reading *cpu_read, const load_fold *fold, 
 // Caller must hold the unique (write) lock on mutex_.
 void pdh_thread::write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors) {
   try {
-    // No retry for a missing instance: this runs under the exclusive lock at
-    // 1 Hz, and the next tick is the next sample anyway.
-    if (pdh != nullptr) pdh->gatherData(false, false);
+    if (pdh != nullptr) pdh->gatherData();
 
     for (const lookup_type::value_type &e : lookups_) {
       if (e.second->has_instances()) {
@@ -478,7 +476,7 @@ void pdh_thread::thread_proc() {
       if (!disable_load) {
         if (check_queue) {
           try {
-            load_query.gatherData(false, false);
+            load_query.gatherData();
             queue = queue_counter->get_float_value();
           } catch (const std::exception &e) {
             queue = 0.0;
