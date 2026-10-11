@@ -40,11 +40,14 @@ std::size_t edit_distance(const std::string &a, const std::string &b) {
   return d[n][m];
 }
 
-// How many edits still read as a typo of a name this long. Short names get
-// none: "lua" is two edits from "log", and a section for a module that is not
-// loaded must not be told it meant a core one.
+// How many edits still read as a typo of a name this long. Names of four
+// characters or fewer get none: module sections are short acronyms one edit
+// apart ([/settings/NSCA/client] next to [/settings/NSCP/client], "lua" and
+// "log"), and a section for a module that is not loaded must not be told it
+// meant a sibling's. Over every path the shipped modules register, this
+// leaves no two sections within reach of each other.
 std::size_t allowed_edits(const std::size_t length) {
-  if (length <= 3) return 0;
+  if (length <= 4) return 0;
   if (length <= 6) return 1;
   return 2;
 }
@@ -195,25 +198,5 @@ std::size_t count_warnings(const validation_result &result) {
   return static_cast<std::size_t>(
       std::count_if(result.begin(), result.end(), [](const validation_finding &f) { return f.level == validation_finding::severity::warning; }));
 }
-
-std::string to_string(const validation_finding::kind type) {
-  switch (type) {
-    case validation_finding::kind::orphan_key:
-      return "orphan_key";
-    case validation_finding::kind::relative_path:
-      return "relative_path";
-    case validation_finding::kind::unknown_path:
-      return "unknown_path";
-    case validation_finding::kind::unknown_key:
-      return "unknown_key";
-    case validation_finding::kind::unused_path:
-      return "unused_path";
-    case validation_finding::kind::unused_key:
-      return "unused_key";
-  }
-  return "unknown";
-}
-
-std::string to_string(const validation_finding::severity level) { return level == validation_finding::severity::warning ? "warning" : "info"; }
 
 }  // namespace settings

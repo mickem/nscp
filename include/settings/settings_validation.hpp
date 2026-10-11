@@ -79,7 +79,5 @@ typedef std::list<validation_finding> validation_result;
 validation_result validate_inventory(const inventory &inv, const registry_snapshot &registry, bool complete_registry);
 
 std::size_t count_warnings(const validation_result &result);
-std::string to_string(validation_finding::kind type);
-std::string to_string(validation_finding::severity level);
 
 }  // namespace settings

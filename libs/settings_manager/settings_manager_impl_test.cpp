@@ -1171,10 +1171,13 @@ TEST_F(SettingsContextTest, ValidateAcceptsAnyKeyUnderAUserKeyedPath) {
   EXPECT_TRUE(impl_->validate().empty());
 }
 
+// The core marks /modules this way at boot (load_configuration_2); there is
+// no special case for it in validate().
 TEST_F(SettingsContextTest, ValidateAcceptsAnyModuleName) {
   settings_test::temp_dir dir;
   const boost::filesystem::path file = dir.file("modules.ini");
   settings_test::write_file(file, "[/modules]\nCheckSystem = enabled\nNotInstalled = disabled\n");
+  impl_->register_user_keys(0xffff, "/modules");
   impl_->set_instance("master", ini_context(file));
 
   EXPECT_TRUE(impl_->validate().empty());

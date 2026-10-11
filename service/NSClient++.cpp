@@ -366,6 +366,9 @@ bool NSClientT::load_configuration_2(const bool override_log) {
                     "The folder to archive crash dumps in. A relative name is taken relative to the crash folder; an absolute path is used as given.");
 
     settings.register_all();
+    // Every key under /modules names a module, so settings validation accepts
+    // any key there.
+    settings_manager::get_core()->register_user_keys(0xffff, MAIN_MODULES_SECTION);
     settings.notify();
     if (use_credentials) {
       settings_manager::get_settings()->enable_credentials();

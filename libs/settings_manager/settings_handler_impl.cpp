@@ -107,9 +107,6 @@ settings::validation_result settings::settings_handler_impl::validate(const bool
       for (const auto &k : p.second.keys) entry.keys.push_back(k.first);
     }
   }
-  // Every key under /modules names a module; get_registered_key() accepts
-  // them all the same way.
-  registry.paths["/modules"].any_key = true;
   return settings::validate_inventory(inv, registry, complete_registry);
 }
 

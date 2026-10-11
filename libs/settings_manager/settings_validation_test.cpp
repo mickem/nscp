@@ -124,6 +124,17 @@ TEST(settings_validation, section_of_a_module_that_is_not_loaded_is_info) {
 
 // "lua" is two edits from "log": short names get no typo allowance, or a
 // disabled module's section reads as a misspelled core one.
+// NSCPClient loaded, NSCAClient disabled with its section left in place - the
+// passive monitoring scenario. One edit apart, and both are real sections.
+TEST(settings_validation, a_disabled_sibling_module_is_not_a_typo) {
+  registry_snapshot reg = make_registry();
+  reg.paths["/settings/NSCP/client"].keys = {"channel"};
+  const validation_result r = validate_inventory(one("/settings/NSCA/client", {"channel"}), reg, false);
+  ASSERT_EQ(r.size(), 1u);
+  EXPECT_EQ(r.front().type, kind::unused_path);
+  EXPECT_EQ(r.front().level, severity::info);
+}
+
 TEST(settings_validation, short_segments_are_not_near_misses) {
   const validation_result r = run(one("/settings/lua", {}));
   ASSERT_EQ(r.size(), 1u);
@@ -156,16 +167,4 @@ TEST(settings_validation, count_warnings_skips_info) {
   ASSERT_EQ(r.size(), 2u);
   EXPECT_EQ(settings::count_warnings(r), 1u);
   EXPECT_EQ(r.back().source, "b.ini");
-}
-
-TEST(settings_validation, kind_and_severity_names_are_stable) {
-  // These strings are the REST API's wire format.
-  EXPECT_EQ(settings::to_string(kind::orphan_key), "orphan_key");
-  EXPECT_EQ(settings::to_string(kind::relative_path), "relative_path");
-  EXPECT_EQ(settings::to_string(kind::unknown_path), "unknown_path");
-  EXPECT_EQ(settings::to_string(kind::unknown_key), "unknown_key");
-  EXPECT_EQ(settings::to_string(kind::unused_path), "unused_path");
-  EXPECT_EQ(settings::to_string(kind::unused_key), "unused_key");
-  EXPECT_EQ(settings::to_string(severity::warning), "warning");
-  EXPECT_EQ(settings::to_string(severity::info), "info");
 }

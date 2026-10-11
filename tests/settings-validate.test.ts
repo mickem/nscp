@@ -93,6 +93,21 @@ describe("nscp settings --validate", () => {
     expect(r.stdout).not.toContain("warning:");
   });
 
+  // Every key under [/settings/permissions/policies] is a rule the operator
+  // names; with --load-all an unclaimed key would be a warning.
+  it("accepts permission rules and module names, even with --load-all", async () => {
+    const nscp = withConfig(
+      CLEAN +
+        "\n[/settings/permissions]\nenabled = false\n" +
+        "\n[/settings/permissions/policies]\nWEBServer:admin = *\nNRPEServer = CheckSystem.check_cpu\n",
+    );
+    const r = await nscp.run(["settings", "--validate", "--load-all"], { allowFailure: true });
+
+    expect(r.stdout).not.toContain("permissions/policies");
+    expect(r.stdout).not.toContain("[/modules]");
+    expect(r.exitCode).toBe(0);
+  });
+
   it("with --load-all, a section no installed module claims is a warning", async () => {
     const nscp = withConfig(CLEAN + "\n[/settings/no such module]\nkey = value\n");
     const r = await nscp.run(["settings", "--validate", "--load-all"], { allowFailure: true });
