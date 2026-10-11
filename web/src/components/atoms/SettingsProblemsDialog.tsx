@@ -60,7 +60,12 @@ export default function SettingsProblemsDialog({ open, onClose }: Props) {
               Failed to check the configuration.
             </Typography>
           )}
-          {data && (
+          {data?.restricted && (
+            <Typography variant="body2" color="text.secondary">
+              Checking the configuration needs the settings.get permission, which your role does not have.
+            </Typography>
+          )}
+          {data && !data.restricted && (
             <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
               <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
                 {warnings === 0

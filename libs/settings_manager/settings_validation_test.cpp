@@ -113,6 +113,24 @@ TEST(settings_validation, misspelled_section_is_a_warning) {
   EXPECT_EQ(r.front().suggestion, "/settings/external scripts/scripts");
 }
 
+// #647 one level down: the misspelled section is the parent, and the object
+// below it has no bare header of its own.
+TEST(settings_validation, misspelled_parent_of_an_object_is_a_warning) {
+  const validation_result r = run(one("/settings/external scripts/scirpts/check_foo", {"command"}));
+  ASSERT_EQ(r.size(), 1u);
+  EXPECT_EQ(r.front().type, kind::unknown_path);
+  EXPECT_EQ(r.front().level, severity::warning);
+  EXPECT_EQ(r.front().suggestion, "/settings/external scripts/scripts/check_foo");
+}
+
+// The walk up stops at the first registered ancestor: a section under it that
+// resembles nothing is only unused.
+TEST(settings_validation, unknown_section_under_a_registered_one_is_info) {
+  const validation_result r = run(one("/settings/external scripts/wrappers/x", {"k"}));
+  ASSERT_EQ(r.size(), 1u);
+  EXPECT_EQ(r.front().type, kind::unused_path);
+}
+
 // [/settings/NRPE/server] with NRPEServer disabled: nothing claims it, but
 // that is how a disabled module looks, so it must not be a warning.
 TEST(settings_validation, section_of_a_module_that_is_not_loaded_is_info) {
@@ -130,6 +148,15 @@ TEST(settings_validation, a_disabled_sibling_module_is_not_a_typo) {
   registry_snapshot reg = make_registry();
   reg.paths["/settings/NSCP/client"].keys = {"channel"};
   const validation_result r = validate_inventory(one("/settings/NSCA/client", {"channel"}), reg, false);
+  ASSERT_EQ(r.size(), 1u);
+  EXPECT_EQ(r.front().type, kind::unused_path);
+  EXPECT_EQ(r.front().level, severity::info);
+}
+
+TEST(settings_validation, objects_of_a_disabled_sibling_module_are_not_typos) {
+  registry_snapshot reg = make_registry();
+  reg.paths["/settings/NSCP/client/targets"].any_key = true;
+  const validation_result r = validate_inventory(one("/settings/NSCA/client/targets/default", {"address"}), reg, false);
   ASSERT_EQ(r.size(), 1u);
   EXPECT_EQ(r.front().type, kind::unused_path);
   EXPECT_EQ(r.front().level, severity::info);

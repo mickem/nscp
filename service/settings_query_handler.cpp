@@ -477,9 +477,13 @@ PB::Settings::SettingsResponseMessage::Response::Validate::Kind to_pb_kind(const
 }  // namespace
 
 // Errors go to the outer handler in parse(), like every other action here.
+// The validate sub-message is only created once validate() has returned: a
+// response carrying it reads as a finished report, and an exception (a lock
+// timeout, an include that cannot be read) must not pass for a clean one.
 void settings_query_handler::parse_validate(PB::Settings::SettingsResponseMessage::Response *rp) {
+  const settings::validation_result problems = settings_manager::get_core()->validate();
   PB::Settings::SettingsResponseMessage::Response::Validate *validate = rp->mutable_validate();
-  for (const settings::validation_finding &f : settings_manager::get_core()->validate()) {
+  for (const settings::validation_finding &f : problems) {
     auto *finding = validate->add_findings();
     finding->set_kind(to_pb_kind(f.type));
     finding->set_severity(f.level == settings::validation_finding::severity::warning ? PB::Settings::SettingsResponseMessage::Response::Validate::WARNING

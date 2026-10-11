@@ -9,10 +9,13 @@ values, plus drive maintenance operations such as `save`, `load`, `reload`,
 
 | Operation                                          | Grant              |
 |----------------------------------------------------|--------------------|
-| `GET /…` — read keys, descriptions, status, diff, problems | `settings.get` |
+| `GET /…` — read keys, descriptions, status, diff, problems¹ | `settings.get` |
 | `PUT /…` — create or update keys                   | `settings.put`     |
 | `POST /command` — `save` / `load` / `reload`       | `settings.put`     |
 | `DELETE /…` — remove keys or paths                 | `settings.delete`  |
+
+¹ `GET /problems` answers any logged-in caller; without `settings.get` the
+report is empty and marked `restricted` (see [Problems](#problems)).
 
 `settings.delete` is intentionally separate from `settings.put` — granting
 write access does not automatically grant the ability to remove keys.
@@ -195,7 +198,8 @@ prints and the agent logs at startup, see
     }
   ],
   "count": 1,
-  "warnings": 1
+  "warnings": 1,
+  "restricted": false
 }
 ```
 
@@ -210,6 +214,11 @@ prints and the agent logs at startup, see
 
 ¹ `info` when the section is empty: it configures nothing, so nothing in it is
 ignored.
+
+A caller that is logged in but lacks `settings.get` gets `200` with an empty
+`problems` list and `"restricted": true` rather than `403`: the web UI asks on
+every page, and takes a `403` for an expired session. `restricted` is `false`
+on a real report.
 
 `warnings` counts the `warning` entries; the web UI raises its banner when it
 is not zero. Unsaved changes are not part of the report: it describes what the

@@ -109,6 +109,20 @@ std::string parent_of(const std::string &path) {
   return path.substr(0, pos);
 }
 
+// A typo above the section itself: [/settings/external scripts/scirpts/check]
+// has no near miss of its own, because nothing is registered under the
+// misspelled parent. Walk up through the ancestors nothing registered, and
+// carry what lies below the one that is a near miss over to the suggestion.
+// The walk stops at the first registered ancestor: above it the path is right.
+boost::optional<std::string> closest_ancestor(const std::string &path, const std::map<std::string, const registry_snapshot::path_entry *> &by_path,
+                                              const std::list<std::string> &registered) {
+  for (std::string ancestor = parent_of(path); !ancestor.empty(); ancestor = parent_of(ancestor)) {
+    if (by_path.find(lower(ancestor)) != by_path.end()) return boost::none;
+    if (const auto near = closest_path(ancestor, registered)) return near.value() + path.substr(ancestor.size());
+  }
+  return boost::none;
+}
+
 validation_finding make(validation_finding::kind type, validation_finding::severity level, const inventory_section &section, const std::string &key,
                         const std::string &suggestion, const std::string &message) {
   validation_finding f;
@@ -164,7 +178,9 @@ validation_result validate_inventory(const inventory &inv, const registry_snapsh
       // module that owns the parent; nothing to compare it against.
       const auto parent = by_path.find(lower(parent_of(section.path)));
       if (parent != by_path.end() && parent->second->any_key) continue;
-      if (const auto near = closest_path(section.path, registered_paths)) {
+      boost::optional<std::string> near = closest_path(section.path, registered_paths);
+      if (!near) near = closest_ancestor(section.path, by_path, registered_paths);
+      if (near) {
         ret.push_back(make(vf::kind::unknown_path, misplaced_level, section, "", near.value(),
                            "Section [" + section.path + "] is not a known settings path. Did you mean [" + near.value() + "]?"));
       } else {

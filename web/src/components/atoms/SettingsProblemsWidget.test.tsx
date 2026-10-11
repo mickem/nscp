@@ -51,6 +51,18 @@ describe("SettingsProblemsWidget", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  // A role without settings.get gets an empty report rather than a 403, which
+  // the UI would take for an expired session and log the user out.
+  it("stays quiet for a role that may not read settings", async () => {
+    const fetchMock = installFetchMock({
+      "/api/v2/settings/problems": jsonResponse({ ...report([]), restricted: true }),
+    });
+    renderWithProviders(<SettingsProblemsWidget />, { withRouter: false });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   // The UI bundle can be newer than the agent serving it (`nscp web
   // install-ui`), and an older agent has no such endpoint.
   it("stays quiet when the agent does not have the endpoint", async () => {

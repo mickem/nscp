@@ -343,6 +343,8 @@ export interface SettingsProblems {
   problems: SettingsProblem[];
   count: number;
   warnings: number;
+  /** The caller lacks settings.get: the report is left empty, not clean. */
+  restricted?: boolean;
 }
 
 // Normalized shape for metadata autocomplete endpoints (counters, channels…).

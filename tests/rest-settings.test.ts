@@ -79,6 +79,22 @@ describe("REST settings controller", () => {
       await request(REST_URL).get("/api/v2/settings/problems").trustLocalhost(true).expect(403);
     });
 
+    // The web UI polls this from every page and takes a 403 for an expired
+    // session; a role without settings.get gets an empty report instead.
+    it("answers a role without settings.get with an empty, restricted report", async () => {
+      const login = await request(REST_URL)
+        .get("/api/v2/login")
+        .auth("client", "client-password")
+        .trustLocalhost(true)
+        .expect(200);
+      const response = await request(REST_URL)
+        .get("/api/v2/settings/problems")
+        .set("Authorization", `Bearer ${login.body.key}`)
+        .trustLocalhost(true)
+        .expect(200);
+      expect(response.body).toEqual({ problems: [], count: 0, warnings: 0, restricted: true });
+    });
+
     it("reports a section without its leading slash as a warning", async () => {
       const response = await request(REST_URL)
         .get("/api/v2/settings/problems")
@@ -98,6 +114,7 @@ describe("REST settings controller", () => {
       expect(problem.source).toContain("nsclient.ini");
       expect(response.body.warnings).toBeGreaterThanOrEqual(1);
       expect(response.body.count).toBe(response.body.problems.length);
+      expect(response.body.restricted).toBe(false);
     });
   });
 

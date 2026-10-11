@@ -603,8 +603,23 @@ const char *kind_to_string(PB::Settings::SettingsResponseMessage::Response::Vali
 
 // Sections and keys in the saved configuration that nothing reads - the same
 // report `nscp settings --validate` prints and the startup log summarises.
+//
+// Any logged-in caller gets an answer: the web UI polls this from every page,
+// and it treats a 403 as an expired session, so a role without settings.get
+// would be logged out of the UI by its own banner. Such a caller gets an empty
+// report marked `restricted` instead.
 void settings_controller::problems(Mongoose::Request &request, boost::smatch & /*what*/, Mongoose::StreamResponse &response) {
-  if (!session->is_logged_in("settings.get", request, response)) return;
+  std::string matched;
+  if (!session->is_logged_in(session_manager_interface::grant_options{"settings.get", "login.get"}, request, response, &matched)) return;
+  if (matched != "settings.get") {
+    json::object out;
+    out["problems"] = json::array();
+    out["count"] = 0;
+    out["warnings"] = 0;
+    out["restricted"] = true;
+    response.append(json::serialize(out));
+    return;
+  }
 
   PB::Settings::SettingsRequestMessage rm;
   PB::Settings::SettingsRequestMessage::Request *payload = rm.add_payload();
@@ -618,8 +633,10 @@ void settings_controller::problems(Mongoose::Request &request, boost::smatch & /
   }
   PB::Settings::SettingsResponseMessage pb_response;
   pb_response.ParseFromString(str_response);
-  if (pb_response.payload_size() != 1 || !pb_response.payload(0).has_validate()) {
-    const std::string message = pb_response.payload_size() == 1 ? pb_response.payload(0).result().message() : "";
+  // parse() reports a failed action as STATUS_OK with a message, so the
+  // message is what tells a report from an error.
+  const std::string message = pb_response.payload_size() == 1 ? pb_response.payload(0).result().message() : "";
+  if (pb_response.payload_size() != 1 || !message.empty() || !pb_response.payload(0).has_validate()) {
     response.setCodeServerError(message.empty() ? "Failed to validate settings" : message);
     return;
   }
@@ -643,5 +660,6 @@ void settings_controller::problems(Mongoose::Request &request, boost::smatch & /
   out["problems"] = problems;
   out["count"] = static_cast<int>(problems.size());
   out["warnings"] = warnings;
+  out["restricted"] = false;
   response.append(json::serialize(out));
 }
