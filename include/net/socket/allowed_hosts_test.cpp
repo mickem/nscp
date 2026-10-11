@@ -234,17 +234,39 @@ TEST(AllowedHostsRejection, AV4MappedMissIsNotReportedAsAListProblem) {
   EXPECT_TRUE(errors.empty());
 }
 
-TEST(AllowedHostsRejection, AListWhereNothingParsedIsNotCalledEmpty) {
+TEST(AllowedHostsRejection, AnUnusableCachedListPointsAtTheLoadTimeErrors) {
+  // The default: the module parses the list once at load and logs its errors
+  // there, so an accept has nothing in `errors` to append.
   allowed_hosts_manager manager;
+  manager.cached = true;
   manager.set_source("192.168.1.999");
-  std::list<std::string> errors;
-  manager.refresh(errors);
-  ASSERT_FALSE(errors.empty());
-  EXPECT_FALSE(manager.is_allowed(make_address("192.168.1.1"), errors));
+  std::list<std::string> load_errors;
+  manager.refresh(load_errors);
+  ASSERT_FALSE(load_errors.empty());
 
+  std::list<std::string> errors;
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.1.1"), errors));
+  EXPECT_TRUE(errors.empty());
+  const std::string msg = manager.rejection_message(make_address("192.168.1.1"), errors);
+  EXPECT_TRUE(contains(msg, "no entry in allowed hosts could be used (192.168.1.999)")) << msg;
+  EXPECT_FALSE(contains(msg, "problems with the list")) << msg;
+  EXPECT_TRUE(contains(msg, "logged when the module loaded")) << msg;
+}
+
+TEST(AllowedHostsRejection, AnUnusableUncachedListCarriesItsErrors) {
+  // `cache allowed hosts = false`: is_allowed() re-reads the list on every
+  // connection, so the reasons are fresh and ride the rejection line.
+  allowed_hosts_manager manager;
+  manager.cached = false;
+  manager.set_source("192.168.1.999");
+
+  std::list<std::string> errors;
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.1.1"), errors));
+  ASSERT_FALSE(errors.empty());
   const std::string msg = manager.rejection_message(make_address("192.168.1.1"), errors);
   EXPECT_TRUE(contains(msg, "no entry in allowed hosts could be used (192.168.1.999)")) << msg;
   EXPECT_TRUE(contains(msg, "; problems with the list: ")) << msg;
+  EXPECT_FALSE(contains(msg, "logged when the module loaded")) << msg;
 }
 
 TEST(AllowedHostsRejection, ALongListIsCapped) {

@@ -250,6 +250,12 @@ std::string socket_helpers::allowed_hosts_manager::rejection_message(const addre
   }
   ret += "; set `allowed hosts` in " + where + ", or in /settings/default if that section does not set it";
   if (count == 0) ret += " (`0.0.0.0/0,::/0` allows every address)";
-  if (!errors.empty()) ret += "; problems with the list: " + str::utils::joinEx(errors, "; ");
+  if (!errors.empty()) {
+    ret += "; problems with the list: " + str::utils::joinEx(errors, "; ");
+  } else if (count > 0 && !usable) {
+    // With `cache allowed hosts` on (the default) the list is parsed once, when
+    // the module loads, and that is where its errors were logged.
+    ret += " (why each entry failed was logged when the module loaded)";
+  }
   return ret;
 }

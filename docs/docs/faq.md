@@ -258,8 +258,9 @@ If you are migrating from a very old (0.3.x) setup, refer to the legacy upgrade 
 ### 4.1 Rejected connection from: your IP address here
 
 Every network server (NRPE, NSCA, check_nt, check_mk and the web server) only accepts connections from the
-addresses in its `allowed hosts` setting. Anything else is dropped before a single byte is read, and the
-agent logs one line saying who was turned away, what the list holds and where to change it:
+addresses in its `allowed hosts` setting. The socket servers drop anything else before a single byte is read;
+the web server answers it with `403 Forbidden`. Either way the agent logs one line saying who was turned away,
+what the list holds and where to change it:
 
 ```
 Rejected connection from: 192.168.5.7, not in allowed hosts (127.0.0.1); set `allowed hosts` in /settings/NRPE/server, or in /settings/default if that section does not set it
@@ -284,7 +285,7 @@ Two variants of the same line point at the list itself rather than at your addre
 | The log says                                                     | Meaning                                                                                                                           |
 |------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
 | `allowed hosts is empty, which rejects every connection`         | The setting is present but blank. An empty list rejects everything; write `allowed hosts = 0.0.0.0/0,::/0` if you really mean any address. |
-| `no entry in allowed hosts could be used (...)`                   | Every entry failed to parse or resolve. The `problems with the list:` part of the line says which and why.                       |
+| `no entry in allowed hosts could be used (...)`                   | Every entry failed to parse or resolve. Which one and why was logged as an error when the module loaded, so look in the log from the agent's start. With `cache allowed hosts = false` the list is re-read on every connection, and the errors ride the rejection line instead, after `problems with the list:`. |
 
 On the monitoring server a rejected NRPE check shows up as a reset connection, a failed SSL handshake or
 *"No output returned from plugin"*. Those have another common cause that the agent does not log as a
