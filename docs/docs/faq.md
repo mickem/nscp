@@ -280,7 +280,7 @@ It is important to understand that timeouts are cascading this means if you have
 
 The Nagios server timeout will fire after exactly 60 seconds but the script timeouts will be started maybe 1 second after the Nagios service check timeout this means once we reach 60 seconds the Nagios service timeout will fire first and 1 second after the script will timeout. This you always have to set each timeout slightly less to accommodate this drift.
 
-If your command takes 60 seconds you need to set the timeouts like this:
+The script itself is the innermost step, so it has to finish inside the first timeout. If your command takes up to 50 seconds you need to set the timeouts like this:
 
 #### 1. Script timeout: 60s
 
