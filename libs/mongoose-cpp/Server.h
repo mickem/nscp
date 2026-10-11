@@ -82,6 +82,17 @@ class NSCP_MONGOOSE_EXPORT Server {
   virtual void setBodyLimit(std::size_t /*bytes*/) {}
 
   /**
+   * How many threads serve requests. A request is dispatched on the thread
+   * that read it, and a check can take a while, so this is how many requests
+   * may be inside the agent at once before the next one waits.
+   *
+   * Honoured by the Beast backend (default 10, minimum 1). The mongoose
+   * backend polls on one thread and ignores this call. Must be called before
+   * `start()`.
+   */
+  virtual void setThreads(std::size_t /*threads*/) {}
+
+  /**
    * Restrict the TLS versions and cipher suites the listener negotiates.
    *
    * `tls_version` uses the same vocabulary as the NRPE and NSCA listeners:

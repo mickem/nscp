@@ -1279,8 +1279,10 @@ socket server runs a worker pool: `slow-check-isolation` (a slow check in every
 engine at once, every other path probed meanwhile), `mixed-flood` (a flood with
 slow checks running behind it) and `scheduler-slow-neighbour` (quick schedules
 next to slow ones). They pass when no check ever waits for another engine's
-slow one. Over REST it still does: the web server runs every request on one
-thread, which `slow-check-isolation` records as an expected failure.
+slow one. Over REST that holds on the beast backend (Linux, macOS), which
+serves requests on the WEB server's `threads` pool; the mongoose backend
+(Windows) serves one at a time, which `slow-check-isolation` records there as
+an expected failure.
 
 The scenarios are never part of `npm test` or a pull request build; what they
 found is pinned in the regular `engine-concurrency.test.ts`. The sanitizer job

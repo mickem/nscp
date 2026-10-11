@@ -15,6 +15,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl/context.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/thread/thread.hpp>
@@ -45,10 +46,13 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   void registerController(Controller* controller) override;
   void setSsl(std::string& certificate, std::string& key) override;
   void setBodyLimit(std::size_t bytes) override;
+  void setThreads(std::size_t threads) override;
   void setTlsOptions(const std::string& tls_version, const std::string& ciphers) override;
 
   /** Per-connection HTTP body cap. Default 1 MiB. */
   static constexpr std::size_t kDefaultBodyLimit = 1u * 1024u * 1024u;
+  /** Request threads when setThreads() was not called. */
+  static constexpr std::size_t kDefaultThreads = 10;
 
  private:
   // The accept loop, run as a stackful coroutine off `start()`. Accepts
@@ -69,8 +73,9 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   // Consecutive respawns of the accept loop. An accept loop that throws every
   // time it is spawned would otherwise spin, so it is given a few tries and
   // then left down with a clear message rather than burning a core in
-  // silence. Only touched from the io_context thread.
-  unsigned int accept_loop_restarts_ = 0;
+  // silence. Only touched by the accept coroutine, which runs on
+  // accept_strand_; atomic because start() resets it from the caller's thread.
+  std::atomic<unsigned int> accept_loop_restarts_{0};
   static constexpr unsigned int kMaxAcceptLoopRestarts = 5;
 
   // Per-connection session coroutines: each owns its socket (moved in),
@@ -111,7 +116,17 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_;
   std::unique_ptr<boost::asio::ssl::context> ssl_ctx_;
   std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
-  std::shared_ptr<boost::thread> thread_;
+  // The accept loop and stop()'s close of the acceptor both run here: with
+  // ioc_ on several threads, closing the acceptor from stop()'s thread while
+  // the accept coroutine sits in async_accept on another would be a data race
+  // on the acceptor.
+  boost::asio::strand<boost::asio::io_context::executor_type> accept_strand_{ioc_.get_executor()};
+  // The pool running ioc_. Every session is its own coroutine, so a request
+  // that blocks in dispatch() - a check that takes a while - holds only the
+  // thread it is on. With one thread, which this used to be, it held every
+  // other request on the server.
+  std::size_t thread_count_ = kDefaultThreads;
+  std::vector<std::shared_ptr<boost::thread>> threads_;
   std::atomic<bool> stopping_{false};
 };
 

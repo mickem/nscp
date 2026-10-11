@@ -1,12 +1,12 @@
 /**
- * Checks running at the same time in one agent must not interfere - the two
+ * Checks running at the same time in one agent must not interfere - the
  * regressions the stress harness's slow-check-isolation scenario found, pinned
  * here so they run on every pull request rather than only in an opt-in soak.
  *
- * Both are driven over NRPE (plain TCP, from stress/lib/nrpe-client.ts),
- * because its socket server runs a worker pool and so really runs requests in
- * parallel; the WEB server dispatches every request on one thread, where
- * neither can show.
+ * The first two are driven over NRPE (plain TCP, from
+ * stress/lib/nrpe-client.ts), because its socket server runs a worker pool on
+ * every platform and so really runs requests in parallel; the last is the WEB
+ * server's own pool.
  *
  * - **Lua calls sharing one stack.** Every call into a Lua script ran on that
  *   script's main lua_State. nscp.sleep and the Core calls release the Lua
@@ -23,8 +23,15 @@
  *   strands each get their own implementation. With five slow checks in flight
  *   and several hundred probes, the old code was all but certain to queue one
  *   (the chance of none is about e^-10).
+ *
+ * - **REST serving one request at a time.** The beast web server ran its
+ *   io_context on a single thread and dispatched every request on it, so one
+ *   slow check over REST held up every other REST request; the `threads`
+ *   setting was read and never used. It now sizes the pool. Windows builds the
+ *   mongoose backend, which still serves one request at a time, so that case
+ *   only runs elsewhere.
  */
-import { describeWithModules } from "@fixtures/index";
+import { describeWithModules, onWindows } from "@fixtures/index";
 import { type EngineAgent, SLOW_CHECKS, startEngineAgent } from "@stress/engines";
 
 jest.setTimeout(180_000);
@@ -110,4 +117,30 @@ describeWithModules(
     // old strands; a first batch stuck behind a slow check also ends here.
     expect(latencies.length).toBeGreaterThanOrEqual(400);
   });
+
+  (onWindows ? it.skip : it)(
+    "answers a REST request while another REST request runs a slow check",
+    async () => {
+      const rest = await agent.rest(4);
+      try {
+        const slow = rest.query("py_sleep", { [String(SLOW_MS)]: "", rest_slow: "" });
+        // The slow check is inside the agent once its marker is there.
+        const deadline = Date.now() + SLOW_MS / 2;
+        while (!agent.running().includes("rest_slow") && Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 20));
+        }
+        expect(agent.running()).toContain("rest_slow");
+
+        const t0 = Date.now();
+        const fast = await rest.query("check_ok", { message: "rest-fast" });
+        const took = Date.now() - t0;
+        expect(fast.lines[0].message).toBe("rest-fast");
+        // Queued behind the slow check it would take the rest of SLOW_MS.
+        expect({ took, prompt: took < 1_000 }).toMatchObject({ prompt: true });
+        expect((await slow).lines[0].message).toBe(`py slept ${SLOW_MS}`);
+      } finally {
+        await rest.close();
+      }
+    },
+  );
 });

@@ -9,6 +9,7 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/beast/core.hpp>
@@ -43,12 +44,14 @@ namespace {
 // the legacy spawn(ex, fn, attributes) overload, which has no completion
 // token, so passing asio::detached there fails to compile. Centralize the
 // difference here; every spawn in this file is a fire-and-forget coroutine.
-template <typename Fn>
-void spawn_detached(asio::io_context& ioc, Fn&& fn) {
+// `where` is the io_context (the coroutine resumes on any of its threads) or a
+// strand (it resumes serialised with everything else on that strand).
+template <class ContextOrExecutor, class Fn>
+void spawn_detached(ContextOrExecutor& where, Fn&& fn) {
 #if BOOST_VERSION >= 108000
-  asio::spawn(ioc, std::forward<Fn>(fn), asio::detached);
+  asio::spawn(where, std::forward<Fn>(fn), asio::detached);
 #else
-  asio::spawn(ioc, std::forward<Fn>(fn));
+  asio::spawn(where, std::forward<Fn>(fn));
 #endif
 }
 
@@ -221,7 +224,7 @@ ServerBeastImpl::~ServerBeastImpl() {
 }
 
 void ServerBeastImpl::setSsl(std::string& certificate, std::string& key) {
-  if (thread_) {
+  if (!threads_.empty()) {
     // ssl_ctx_ is built once in start() from the then-current PEM
     // strings. Mutating cert_pem_/key_pem_ now wouldn't reach the live
     // SSL context. Refuse to silently mislead the caller.
@@ -243,15 +246,24 @@ void ServerBeastImpl::registerController(Controller* controller) {
 }
 
 void ServerBeastImpl::setBodyLimit(std::size_t bytes) {
-  if (thread_) {
+  if (!threads_.empty()) {
     logger_->log_error("setBodyLimit() called after start() — ignored; restart the server to apply");
     return;
   }
   body_limit_ = bytes;
 }
 
+void ServerBeastImpl::setThreads(std::size_t threads) {
+  if (!threads_.empty()) {
+    logger_->log_error("setThreads() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  // Zero would start a server that accepts connections and never serves one.
+  thread_count_ = threads == 0 ? 1 : threads;
+}
+
 void ServerBeastImpl::setTlsOptions(const std::string& tls_version, const std::string& ciphers) {
-  if (thread_) {
+  if (!threads_.empty()) {
     logger_->log_error("setTlsOptions() called after start() — ignored; restart the server to apply");
     return;
   }
@@ -343,9 +355,9 @@ void ServerBeastImpl::dispatch(const http::request<http::string_body>& req, http
 }
 
 void ServerBeastImpl::start(const std::string& bind) {
-  if (thread_) {
+  if (!threads_.empty()) {
     // Already running — refuse a concurrent double-start. (A start() after a
-    // matching stop() is fine and supported: stop() clears thread_, and the
+    // matching stop() is fine and supported: stop() clears threads_, and the
     // run-state reset below re-arms the io_context so the instance can be
     // unloaded/reloaded.)
     logger_->log_error("start() called on an already-started server — ignored");
@@ -447,7 +459,7 @@ void ServerBeastImpl::start(const std::string& bind) {
   // restarted after a stop() (e.g. plugin unload/reload). A previous run
   // left ioc_ run-to-completion, the work guard released, and stopping_ set;
   // undo all three before spawning the new accept loop. Safe here because the
-  // guard above guarantees no run() is in flight (thread_ is null/joined).
+  // guard above guarantees no run() is in flight (threads_ is empty/joined).
   stopping_ = false;
   ioc_.restart();
   work_guard_ = std::make_unique<asio::executor_work_guard<asio::io_context::executor_type>>(ioc_.get_executor());
@@ -464,14 +476,22 @@ void ServerBeastImpl::start(const std::string& bind) {
   // fails, the server keeps serving. What re-entering cannot bring back is
   // the accept loop itself, which is why spawn_accept_loop() guards that
   // separately.
+  //
+  // The io_context runs on a pool. Each session is a coroutine of its own, so
+  // a request whose dispatch() blocks - a check that takes a while - holds
+  // only the thread it is on; with the single thread this used to be, it held
+  // every other request on the server until it returned.
   const WebLoggerPtr log = logger_;
-  thread_ = threads::start_guarded_thread(
-      "web server", [this, log] { threads::run_io_context_guarded("web server", ioc_, [log](const std::string& message) { log->log_error(message); }); },
-      [log](const std::string& message) { log->log_error(message); });
+  for (std::size_t i = 0; i < thread_count_; ++i) {
+    const std::string name = "web server " + std::to_string(i);
+    threads_.push_back(threads::start_guarded_thread(
+        name, [this, log, name] { threads::run_io_context_guarded(name, ioc_, [log](const std::string& message) { log->log_error(message); }); },
+        [log](const std::string& message) { log->log_error(message); }));
+  }
 }
 
 void ServerBeastImpl::spawn_accept_loop() {
-  spawn_detached(ioc_, [this](const asio::yield_context& yield) {
+  spawn_detached(accept_strand_, [this](const asio::yield_context& yield) {
     try {
       accept_loop(yield);
       // A clean return means stop() or a genuine accept error, both of which
@@ -588,7 +608,7 @@ void ServerBeastImpl::run_plain_session(tcp::socket socket, std::string remote_i
 }
 
 void ServerBeastImpl::stop() {
-  if (!thread_) return;
+  if (threads_.empty()) return;
   stopping_ = true;
 
   // Drain naturally — DO NOT call `ioc_.stop()`. Calling stop() while a
@@ -605,29 +625,43 @@ void ServerBeastImpl::stop() {
   //   3. Active per-connection coroutines complete on their own (read
   //      EOF when the client closes, write completion, or the 30s
   //      expires_after deadline at the worst).
-  //   4. ioc_.run() exits naturally with no pending operations, so
-  //      ~io_context() has nothing left to destroy.
-  if (acceptor_ && acceptor_->is_open()) {
-    boost::system::error_code ec;
-    acceptor_->cancel(ec);
-    acceptor_->close(ec);
-  }
+  //   4. ioc_.run() exits naturally on every pool thread with no pending
+  //      operations, so ~io_context() has nothing left to destroy.
+  //
+  // The close is posted to the accept strand rather than made here: the
+  // accept coroutine may be inside async_accept on one of the pool threads,
+  // and an acceptor is not safe to touch from two threads at once. The posted
+  // handler is work of its own, so dropping the guard below cannot let run()
+  // return before it has executed.
+  asio::post(accept_strand_, [this] {
+    if (acceptor_ && acceptor_->is_open()) {
+      boost::system::error_code ec;
+      acceptor_->cancel(ec);
+      acceptor_->close(ec);
+    }
+  });
   if (work_guard_) work_guard_->reset();
 
-  // Stopping the server from the thread that runs it: a request handler took a
+  // Stopping the server from one of its own threads: a request handler took a
   // route that unloads the module (the core refuses that, this is the backstop
-  // for any other path). Joining here would join this thread with itself,
-  // which throws rather than returning, and the throw would escape a
-  // destructor further up. Let it go instead: the acceptor is closed and the
-  // work guard dropped, so run() returns as soon as this handler does.
-  if (thread_->get_id() == boost::this_thread::get_id()) {
-    thread_->detach();
-    thread_.reset();
+  // for any other path). Joining this thread would join it with itself, which
+  // throws rather than returning, and the throw would escape a destructor
+  // further up - and joining the others would wait for run() to return on
+  // them, which it does not while this handler is still running. Let them all
+  // go instead: the close is queued and the work guard dropped, so every run()
+  // returns as soon as this handler does. acceptor_ and ssl_ctx_ stay, the
+  // detached threads may still use them.
+  const auto self = boost::this_thread::get_id();
+  bool on_own_thread = false;
+  for (const auto& t : threads_) on_own_thread = on_own_thread || t->get_id() == self;
+  if (on_own_thread) {
+    for (const auto& t : threads_) t->detach();
+    threads_.clear();
     return;
   }
 
-  thread_->join();
-  thread_.reset();
+  for (const auto& t : threads_) t->join();
+  threads_.clear();
   acceptor_.reset();
   ssl_ctx_.reset();
 }
