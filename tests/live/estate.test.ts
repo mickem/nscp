@@ -63,6 +63,11 @@ interface RunCheck {
   args: Record<string, string | string[]>;
   /** What checks.json records: the role's own arguments, so no password is written out. */
   shownArgs: Record<string, string | string[]>;
+  /**
+   * Values filled in that must not be written out (a target's web password):
+   * masked in whatever the check prints before it is recorded or asserted on.
+   */
+  secrets: string[];
   /** Why it cannot run at all (an "each" check with no target up). */
   unrunnable?: string;
   expect: string;
@@ -147,11 +152,13 @@ function runChecks(checks: RoleCheck[], peers: ManifestEntry[]): RunCheck[] {
     c: RoleCheck,
     label: string,
     args: Record<string, string | string[]>,
+    secrets: string[] = [],
   ): RunCheck => ({
     label,
     command: c.command,
     args,
     shownArgs: c.args ?? {},
+    secrets,
     expect: c.expect ?? "OK",
     perf: c.perf ?? [],
   });
@@ -175,7 +182,9 @@ function runChecks(checks: RoleCheck[], peers: ManifestEntry[]): RunCheck[] {
       const args = Object.fromEntries(
         Object.entries(c.args ?? {}).map(([k, v]) => [k, Array.isArray(v) ? v.map(fill) : fill(v)]),
       );
-      return base(c, `${plain} -> ${t.Name}`, args);
+      const used = JSON.stringify(c.args ?? {}).includes("${target.password}");
+      const secrets = used && values["${target.password}"] ? [values["${target.password}"]] : [];
+      return base(c, `${plain} -> ${t.Name}`, args, secrets);
     });
   });
 }
@@ -234,6 +243,11 @@ function credentials(m: ManifestEntry): { url?: string; password?: string } {
   if (!m.PwdFile || !fs.existsSync(m.PwdFile)) return { url: fallback };
   const { url, password } = readPwdFile(m.PwdFile);
   return { url: url ?? fallback, password };
+}
+
+/** Every secret in text replaced by ***. */
+function redact(text: string, secrets: string[]): string {
+  return secrets.filter((s) => s).reduce((acc, s) => acc.split(s).join("***"), text);
 }
 
 function firstLine(e: unknown): string {
@@ -330,6 +344,11 @@ describeEstate("estate role checks", () => {
             await new Promise((r) => setTimeout(r, 5_000));
           }
           const keys = q ? Object.keys(perfOf(q)) : [];
+          // What is recorded or asserted on has the target's password masked.
+          const shown: QueryResult | null = q
+            ? (JSON.parse(redact(JSON.stringify(q), check.secrets)) as QueryResult)
+            : null;
+          if (why) why = redact(why, check.secrets);
           records.push({
             check: check.label,
             command: check.command,
@@ -339,12 +358,12 @@ describeEstate("estate role checks", () => {
             passed: !why,
             state: q ? (STATES[q.result] ?? null) : null,
             reason: why ?? null,
-            message: q ? messageOf(q) : "",
+            message: shown ? messageOf(shown) : "",
             perfKeys: keys,
-            response: q,
+            response: shown,
           });
           // The reason and the check's own output, so a failure reads on its own.
-          expect(why ? `${why} :: ${q ? messageOf(q) : ""}` : undefined).toBeUndefined();
+          expect(why ? `${why} :: ${shown ? messageOf(shown) : ""}` : undefined).toBeUndefined();
         });
       }
 
@@ -411,6 +430,11 @@ describeEstate("estate role checks", () => {
               if (pluginLoginError) why = pluginLoginError;
               else if (check.unrunnable) why = check.unrunnable;
               else {
+                // The arguments, a target's password among them, go on
+                // check_nsclient's command line: it takes a query's
+                // arguments no other way, just as when Nagios runs it. Its
+                // output is masked so the password at least never reaches
+                // checks.json, the jest output or suite.log.
                 const r = checkNsclient([
                   "--profile",
                   profile,
@@ -419,7 +443,7 @@ describeEstate("estate role checks", () => {
                   check.command,
                   ...argTokens(check.args),
                 ]);
-                out = r.out;
+                out = redact(r.out, check.secrets);
                 keys = nagiosPerfKeys(out.split("\n")[0]);
                 // A tool error exits 1 too, which reads as WARNING: tell them apart.
                 if (r.status < 0 || r.status > 3 || /^Error:/m.test(out))

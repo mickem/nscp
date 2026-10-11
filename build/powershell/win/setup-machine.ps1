@@ -421,7 +421,8 @@ $(($extraModules | ForEach-Object { "& 'C:\Program Files\NSClient++\nscp.exe' se
 # The estate role's localSettings (-LocalSettings): keys the host's own
 # nsclient.ini must carry, because a local key beats a bundle's (the MSI
 # writes its NRPE preset there).
-$(($localSettingRows | ForEach-Object { "& 'C:\Program Files\NSClient++\nscp.exe' settings --path '$($_.Path)' --key '$($_.Key)' --set '$($_.Value)'" }) -join "`n")
+# Each key is read back; a miss prints LOCALSETTING-FAILED, checked below.
+$(if ($localSettingRows.Count) { New-EstateLocalSettingsScript -Rows $localSettingRows -Shell powershell })
 
 # Configure Windows Firewall
 New-NetFirewallRule -DisplayName 'NSClient++ HTTPS' -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -ErrorAction SilentlyContinue
@@ -443,6 +444,13 @@ if ($result.Status -ne "Succeeded") {
     exit 1
 }
 $Result.Value | ForEach-Object { $_.Message }
+if ($localSettingRows.Count) {
+    $missed = @(Get-EstateLocalSettingFailures -Messages @($result.Value | ForEach-Object { $_.Message }))
+    if ($missed.Count) {
+        Write-Error "❌ The $Role role's localSettings did not apply: $($missed -join '; ')"
+        exit 2
+    }
+}
 
 if ($SkipVersionCheck) {
     # -PackageUrl without a -Version to compare against (a local build's version

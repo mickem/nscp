@@ -134,114 +134,148 @@ function Start-Stage {
     $script:StageStart = Get-Date
 }
 
-# --- provision ---------------------------------------------------------------
-Start-Stage "provision"
-Show "provisioning $($suite.count) machine(s)..."
-# spec, not role=count: count includes the companions, which the spec brings.
-$spec = "$($suite.spec)"
-if (-not $spec) { $spec = "$($suite.role)=$($suite.count)" }
-$provisionArgs = @("-Roles", $spec, "-ManifestFile", $manifestFile,
-    "-MaxMachines", "$($suite.count)") + @($suite.provisionArgs)
-$rc = Invoke-Child -Script $provision -Arguments $provisionArgs
-$machines = @(Read-FleetManifest -Path $manifestFile)
-foreach ($m in $machines) {
-    $results[$m.Name] = [pscustomobject]@{
-        Machine = $m.Name; Role = $m.Role; Image = $m.Image; Verdict = "PASSED"; Stage = $null; Detail = $null
+# --- provision, sync, verify --------------------------------------------------
+# Everything up to collect is in one try: under ErrorActionPreference=Stop an
+# unexpected error (a truncated verify.json, a fleet API hiccup) would
+# otherwise end the script here and leave the machines up and billing, with
+# no logs and no result.json. Caught, it fails the machines still standing at
+# the stage it happened in, and collect and teardown run as usual.
+$machines = @()
+try {
+    # --- provision -----------------------------------------------------------
+    Start-Stage "provision"
+    Show "provisioning $($suite.count) machine(s)..."
+    # spec, not role=count: count includes the companions, which the spec brings.
+    $spec = "$($suite.spec)"
+    if (-not $spec) { $spec = "$($suite.role)=$($suite.count)" }
+    $provisionArgs = @("-Roles", $spec, "-ManifestFile", $manifestFile,
+        "-MaxMachines", "$($suite.count)") + @($suite.provisionArgs)
+    $rc = Invoke-Child -Script $provision -Arguments $provisionArgs
+    $machines = @(Read-FleetManifest -Path $manifestFile)
+    foreach ($m in $machines) {
+        $results[$m.Name] = [pscustomobject]@{
+            Machine = $m.Name; Role = $m.Role; Image = $m.Image; Verdict = "PASSED"; Stage = $null; Detail = $null
+        }
+        if ($m.Status -ne "OK") {
+            $stage = "$($m.FailedStage)"
+            if (-not $stage) { $stage = "provision" }
+            $why = "$($m.Detail)" -replace '\s+', ' '
+            if (-not $why) { $why = "provision-fleet-machines.ps1: $($m.Status)" }
+            Set-Verdict -Machine $m -Stage $stage -Detail $why
+        }
     }
-    if ($m.Status -ne "OK") {
-        $stage = "$($m.FailedStage)"
-        if (-not $stage) { $stage = "provision" }
-        $why = "$($m.Detail)" -replace '\s+', ' '
-        if (-not $why) { $why = "provision-fleet-machines.ps1: $($m.Status)" }
+    if ($machines.Count -eq 0) {
+        # Refused before anything was created (bad arguments, quota, budget).
+        $results["(none)"] = [pscustomobject]@{
+            Machine = "(none)"; Role = $suite.role; Image = $null; Verdict = "FAILED"; Stage = "provision"
+            Detail = "provision-fleet-machines.ps1 exited $rc before creating a machine"
+        }
+    }
+    $live = @($machines | Where-Object { $results[$_.Name].Verdict -eq "PASSED" })
+
+    # A sequential run keeps the shared .vm.pwd pointing at the latest machine, so
+    # connect-machine.ps1 and `npm run test:live` (tests/) find it.
+    if ($suite.sharedPwdFile) {
+        foreach ($m in $live) {
+            if (Test-Path $m.PwdFile) { Copy-Item $m.PwdFile $suite.sharedPwdFile -Force }
+        }
+    }
+
+    # --- enroll + sync -------------------------------------------------------
+    Start-Stage "sync"
+    foreach ($m in @($live | Where-Object { -not $_.HostId })) {
+        Set-Verdict -Machine $m -Stage "enroll" -Detail "no fleet host id in the manifest"
+    }
+    $live = @($live | Where-Object { $_.HostId })
+    if ($live.Count -gt 0) {
+        Show "waiting for $($live.Count) machine(s) to enroll and sync (up to $($suite.waitMinutes) min)..."
+        $byHost = @{}
+        foreach ($m in $live) { if ($m.HostId) { $byHost["$($m.HostId)"] = $m } }
+        $states = @(Wait-EstateFleetHosts -FleetServer $suite.fleetServer -ApiKey $apiKey -HostIds @($byHost.Keys) `
+                -Until in_sync -WaitMinutes $suite.waitMinutes -SkipCertificateCheck:$skipCert -Log { param($l) Show $l })
+        foreach ($s in $states) {
+            $m = $byHost[$s.HostId]
+            if (-not $s.EnrolledAt) { Set-Verdict -Machine $m -Stage "enroll" -Detail "never enrolled (status '$($s.Status)')" }
+            elseif (-not $s.Reached) { Set-Verdict -Machine $m -Stage "sync" -Detail "enrolled, but status '$($s.Status)' instead of in_sync" }
+            else { Show "$($m.Name): enrolled and in sync" }
+        }
+        $live = @($live | Where-Object { $results[$_.Name].Verdict -eq "PASSED" })
+    }
+
+    # --- bundle + verify (when the role has them and the scripts exist) ------
+    Start-Stage "verify"
+    $addBundles = Join-Path $estateDir "add-role-bundles.ps1"
+    $verify = Join-Path $estateDir "verify-estate.ps1"
+    $common = @("-ManifestFile", $manifestFile, "-FleetServer", $suite.fleetServer)
+    if ($skipCert) { $common += "-FleetNoVerify" }
+    if ($live.Count -gt 0 -and (Test-Path $addBundles)) {
+        if ((Invoke-Child -Script $addBundles -Arguments $common) -ne 0) {
+            $why = Get-ChildFailure -Script "add-role-bundles.ps1"
+            foreach ($m in $live) { Set-Verdict -Machine $m -Stage "bundle" -Detail $why }
+            $live = @()
+        }
+    }
+    if ($live.Count -gt 0 -and (Test-Path $verify)) {
+        $verifyResult = Join-Path $suiteDir "verify.json"
+        $verifyArgs = $common + @("-WaitMinutes", "$($suite.waitMinutes)", "-RunFolder", $suite.runFolder,
+            "-ResultFile", $verifyResult, "-Name", (($live | ForEach-Object { $_.Name }) -join ","))
+        if ($suite.checkNsclient) { $verifyArgs += "-CheckNsclient" }
+        $rc = Invoke-Child -Script $verify -Arguments $verifyArgs
+        $verdicts = @{}
+        if (Test-Path $verifyResult) {
+            foreach ($v in @(Get-Content -Path $verifyResult -Raw | ConvertFrom-Json | ForEach-Object { $_ })) { $verdicts[$v.Machine] = $v }
+        }
+        foreach ($m in $live) {
+            $v = $verdicts[$m.Name]
+            if ($v) {
+                if (-not $v.Passed) { Set-Verdict -Machine $m -Stage $v.Stage -Detail "$($v.Detail) (see $($m.Name)/checks.json)" }
+            }
+            elseif ($rc -ne 0) {
+                # The gate died before writing its verdicts.
+                Set-Verdict -Machine $m -Stage "check" -Detail (Get-ChildFailure -Script "verify-estate.ps1")
+            }
+        }
+    }
+}
+catch {
+    $stage = switch ($script:StageName) { "verify" { "check" } $null { "provision" } default { $script:StageName } }
+    $why = "run-suite.ps1 stopped in $($script:StageName): $($_.Exception.Message)" -replace '\s+', ' '
+    Show "ERROR: $why"
+    Add-Content -Path $suiteLog -Value "ERROR: $why`n$($_.ScriptStackTrace)"
+    foreach ($m in $machines) {
+        if (-not $results.Contains($m.Name)) {
+            $results[$m.Name] = [pscustomobject]@{
+                Machine = $m.Name; Role = $m.Role; Image = $m.Image; Verdict = "PASSED"; Stage = $null; Detail = $null
+            }
+        }
         Set-Verdict -Machine $m -Stage $stage -Detail $why
     }
-}
-if ($machines.Count -eq 0) {
-    # Refused before anything was created (bad arguments, quota, budget).
-    $results["(none)"] = [pscustomobject]@{
-        Machine = "(none)"; Role = $suite.role; Image = $null; Verdict = "FAILED"; Stage = "provision"
-        Detail = "provision-fleet-machines.ps1 exited $rc before creating a machine"
-    }
-}
-$live = @($machines | Where-Object { $results[$_.Name].Verdict -eq "PASSED" })
-
-# A sequential run keeps the shared .vm.pwd pointing at the latest machine, so
-# connect-machine.ps1 and `npm run test:live` (tests/) find it.
-if ($suite.sharedPwdFile) {
-    foreach ($m in $live) {
-        if (Test-Path $m.PwdFile) { Copy-Item $m.PwdFile $suite.sharedPwdFile -Force }
-    }
-}
-
-# --- enroll + sync -----------------------------------------------------------
-Start-Stage "sync"
-foreach ($m in @($live | Where-Object { -not $_.HostId })) {
-    Set-Verdict -Machine $m -Stage "enroll" -Detail "no fleet host id in the manifest"
-}
-$live = @($live | Where-Object { $_.HostId })
-if ($live.Count -gt 0) {
-    Show "waiting for $($live.Count) machine(s) to enroll and sync (up to $($suite.waitMinutes) min)..."
-    $byHost = @{}
-    foreach ($m in $live) { if ($m.HostId) { $byHost["$($m.HostId)"] = $m } }
-    $states = @(Wait-EstateFleetHosts -FleetServer $suite.fleetServer -ApiKey $apiKey -HostIds @($byHost.Keys) `
-            -Until in_sync -WaitMinutes $suite.waitMinutes -SkipCertificateCheck:$skipCert -Log { param($l) Show $l })
-    foreach ($s in $states) {
-        $m = $byHost[$s.HostId]
-        if (-not $s.EnrolledAt) { Set-Verdict -Machine $m -Stage "enroll" -Detail "never enrolled (status '$($s.Status)')" }
-        elseif (-not $s.Reached) { Set-Verdict -Machine $m -Stage "sync" -Detail "enrolled, but status '$($s.Status)' instead of in_sync" }
-        else { Show "$($m.Name): enrolled and in sync" }
-    }
-    $live = @($live | Where-Object { $results[$_.Name].Verdict -eq "PASSED" })
-}
-
-# --- bundle + verify (when the role has them and the scripts exist) ----------
-Start-Stage "verify"
-$addBundles = Join-Path $estateDir "add-role-bundles.ps1"
-$verify = Join-Path $estateDir "verify-estate.ps1"
-$common = @("-ManifestFile", $manifestFile, "-FleetServer", $suite.fleetServer)
-if ($skipCert) { $common += "-FleetNoVerify" }
-if ($live.Count -gt 0 -and (Test-Path $addBundles)) {
-    if ((Invoke-Child -Script $addBundles -Arguments $common) -ne 0) {
-        $why = Get-ChildFailure -Script "add-role-bundles.ps1"
-        foreach ($m in $live) { Set-Verdict -Machine $m -Stage "bundle" -Detail $why }
-        $live = @()
-    }
-}
-if ($live.Count -gt 0 -and (Test-Path $verify)) {
-    $verifyResult = Join-Path $suiteDir "verify.json"
-    $verifyArgs = $common + @("-WaitMinutes", "$($suite.waitMinutes)", "-RunFolder", $suite.runFolder,
-        "-ResultFile", $verifyResult, "-Name", (($live | ForEach-Object { $_.Name }) -join ","))
-    if ($suite.checkNsclient) { $verifyArgs += "-CheckNsclient" }
-    $rc = Invoke-Child -Script $verify -Arguments $verifyArgs
-    $verdicts = @{}
-    if (Test-Path $verifyResult) {
-        foreach ($v in @(Get-Content -Path $verifyResult -Raw | ConvertFrom-Json | ForEach-Object { $_ })) { $verdicts[$v.Machine] = $v }
-    }
-    foreach ($m in $live) {
-        $v = $verdicts[$m.Name]
-        if ($v) {
-            if (-not $v.Passed) { Set-Verdict -Machine $m -Stage $v.Stage -Detail "$($v.Detail) (see $($m.Name)/checks.json)" }
-        }
-        elseif ($rc -ne 0) {
-            # The gate died before writing its verdicts.
-            Set-Verdict -Machine $m -Stage "check" -Detail (Get-ChildFailure -Script "verify-estate.ps1")
+    if ($results.Count -eq 0) {
+        $results["(none)"] = [pscustomobject]@{
+            Machine = "(none)"; Role = $suite.role; Image = $null; Verdict = "FAILED"; Stage = $stage; Detail = $why
         }
     }
 }
 
 # --- collect, always, before teardown ----------------------------------------
+# A manifest that could not be read still names what was created, so collect
+# and teardown run whenever it exists, not only when $machines got filled.
+$haveMachines = $machines.Count -gt 0 -or (Test-Path $manifestFile)
 Start-Stage "collect"
-if ($machines.Count -gt 0) {
-    $collectArgs = @("-ManifestFile", $manifestFile, "-RunFolder", $suite.runFolder)
-    if ($skipCert) { $collectArgs += "-FleetNoVerify" }
-    if ((Invoke-Child -Script (Join-Path $estateDir "collect-logs.ps1") -Arguments $collectArgs) -ne 0) {
-        Show "WARN: $(Get-ChildFailure -Script "collect-logs.ps1")"
+if ($haveMachines) {
+    try {
+        $collectArgs = @("-ManifestFile", $manifestFile, "-RunFolder", $suite.runFolder)
+        if ($skipCert) { $collectArgs += "-FleetNoVerify" }
+        if ((Invoke-Child -Script (Join-Path $estateDir "collect-logs.ps1") -Arguments $collectArgs) -ne 0) {
+            Show "WARN: $(Get-ChildFailure -Script "collect-logs.ps1")"
+        }
     }
+    catch { Show "WARN: collecting logs failed: $($_.Exception.Message)" }
 }
 
 # --- teardown -------------------------------------------------------------------
 Start-Stage "teardown"
-if ($machines.Count -gt 0) {
+if ($haveMachines) {
     if ($suite.keepVms) {
         Show "keeping the machines; tear them down with:"
         Show "  ./provision-fleet-machines.ps1 -Destroy -RemoveFleetHosts -ManifestFile '$manifestFile'"
@@ -250,7 +284,10 @@ if ($machines.Count -gt 0) {
         Show "tearing down..."
         $destroyArgs = @("-Destroy", "-RemoveFleetHosts", "-Force", "-ManifestFile", $manifestFile)
         if ($skipCert) { $destroyArgs += "-FleetNoVerify" }
-        if ((Invoke-Child -Script $provision -Arguments $destroyArgs) -ne 0) {
+        $torn = $false
+        try { $torn = (Invoke-Child -Script $provision -Arguments $destroyArgs) -eq 0 }
+        catch { Show "WARN: $($_.Exception.Message)" }
+        if (-not $torn) {
             Show "WARN: teardown did not finish; re-run: ./provision-fleet-machines.ps1 -Destroy -RemoveFleetHosts -ManifestFile '$manifestFile'"
         }
     }

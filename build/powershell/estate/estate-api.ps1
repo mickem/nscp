@@ -615,6 +615,55 @@ function ConvertFrom-EstateLocalSettings {
     return @($rows)
 }
 
+<#
+.SYNOPSIS
+    The lines that write -LocalSettings rows on the VM and read each one back.
+.DESCRIPTION
+    `nscp settings --set` is not trusted to report a failure (the Linux
+    scripts have to `|| true` the released binary's exit codes, and RunCommand
+    reports "Succeeded" whatever the script exits with), so every key is read
+    back with `--show` and a mismatch prints a LOCALSETTING-FAILED line, which
+    Get-EstateLocalSettingFailures picks out of the output. The script carries
+    on to the service restart either way, so the host is still up for log
+    collection. A redacted (sensitive) key would read back as a mismatch; no
+    role sets one locally. The value is single-quoted into a variable once and
+    only expanded from there: ConvertFrom-EstateLocalSettings refuses a quote
+    but not a $ or a ".
+.PARAMETER Shell
+    bash (sudo nscp) or powershell (the MSI's nscp.exe).
+#>
+function New-EstateLocalSettingsScript {
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Rows,
+        [Parameter(Mandatory)][ValidateSet("bash", "powershell")][string]$Shell
+    )
+    $lines = foreach ($r in $Rows) {
+        $target = "--path '$($r.Path)' --key '$($r.Key)'"
+        $what = "[$($r.Path)] $($r.Key)"
+        if ($Shell -eq "bash") {
+            "want='$($r.Value)'"
+            "sudo nscp settings $target --set `"`$want`" || true"
+            "v=`"`$(sudo nscp settings $target --show 2>/dev/null | tr -d '\r')`" || true"
+            "printf '%s\n' `"`$v`" | grep -qxF -- `"`$want`" || echo `"LOCALSETTING-FAILED: $what reads back as '`$v', not '`$want'`""
+        }
+        else {
+            "`$want = '$($r.Value)'"
+            "& 'C:\Program Files\NSClient++\nscp.exe' settings $target --set `$want"
+            "`$v = @(& 'C:\Program Files\NSClient++\nscp.exe' settings $target --show 2>`$null | ForEach-Object { `"`$_`".Trim() })"
+            "if (`$v -notcontains `$want) { Write-Output `"LOCALSETTING-FAILED: $what reads back as '`$(`$v -join ' ')', not '`$want'`" }"
+        }
+    }
+    return (@($lines) -join "`n")
+}
+
+# The LOCALSETTING-FAILED lines New-EstateLocalSettingsScript printed, if any.
+function Get-EstateLocalSettingFailures {
+    param([AllowEmptyCollection()][string[]]$Messages)
+    return @($Messages | ForEach-Object { "$_" -split "`r?`n" } |
+            Where-Object { $_ -match '^LOCALSETTING-FAILED: ' } |
+            ForEach-Object { $_ -replace '^LOCALSETTING-FAILED: ', '' })
+}
+
 # --- role bundles ---------------------------------------------------------------
 
 <#

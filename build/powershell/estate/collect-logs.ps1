@@ -8,7 +8,8 @@
 
         nsclient.log         the agent log (last -TailLines lines)
         role-install.log     the role install fragment's captured output
-        fleet.ini            what the applied bundles rendered
+        fleet.ini            what the applied bundles rendered (passwords,
+                             secrets and tokens redacted)
         agent-state.json     the enrollment state (private key redacted)
         journal.txt          journalctl -u nsclient, last 500 lines (Linux)
         events.txt           the Application event log, last 500 events (Windows)
@@ -98,6 +99,29 @@ foreach ($module in @('Az.Compute', 'Az.Resources')) {
         Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
     }
     Import-Module $module
+}
+
+# Secrets do not belong in a log folder, even a throwaway estate's: -KeepLogs
+# keeps it after the machines are gone. fleet.ini carries whatever the role
+# bundle set ([/settings/mysql] password, ...), so a key named like a secret
+# has its value masked; and the machine's role password is masked wherever it
+# turns up (a connection string, an install log, the fleet host's config).
+function Protect-CollectedFiles {
+    param([string]$Dir, [string]$RolePassword)
+    $ini = Join-Path $Dir "fleet.ini"
+    if (Test-Path $ini) {
+        $text = Get-Content -Path $ini -Raw
+        $text = $text -replace '(?im)^([ \t]*[^=;#\r\n]*(?:password|secret|token|private[ _]?key|api[ _]?key)[^=\r\n]*=[ \t]*)\S[^\r\n]*', '$1<redacted>'
+        Set-Content -Path $ini -Value $text -NoNewline
+    }
+    if (-not $RolePassword) { return }
+    foreach ($f in @(Get-ChildItem -Path $Dir -File -Recurse)) {
+        if ($f.Extension -in @(".tgz", ".zip")) { continue }
+        $text = Get-Content -Path $f.FullName -Raw
+        if ($text -and $text.Contains($RolePassword)) {
+            Set-Content -Path $f.FullName -Value $text.Replace($RolePassword, "<redacted>") -NoNewline
+        }
+    }
 }
 
 function Get-RoleLogFiles {
@@ -232,6 +256,8 @@ foreach ($m in $machines) {
         }
         catch { Write-Warning "   $($m.Name): could not read fleet host $($m.HostId): $($_.Exception.Message)" }
     }
+    try { Protect-CollectedFiles -Dir $dir -RolePassword "$($m.RolePassword)" }
+    catch { Write-Warning "   $($m.Name): could not redact the collected files: $($_.Exception.Message)" }
     $files = @(Get-ChildItem -Path $dir -File | ForEach-Object { $_.Name })
     Write-Host "   $($files -join ', ')"
 }

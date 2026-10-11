@@ -602,7 +602,7 @@ function Invoke-FleetProvision {
         # The setup scripts say which part failed through their exit code.
         switch ($LASTEXITCODE) {
             0 { }
-            2 { $result.FailedStage = "install"; throw "the $($M.Role) role install fragment failed" }
+            2 { $result.FailedStage = "install"; throw "the $($M.Role) role install (fragment or localSettings) failed" }
             3 { $result.FailedStage = "enroll"; throw "fleet enrollment failed" }
             default { throw "setup exited $LASTEXITCODE" }
         }

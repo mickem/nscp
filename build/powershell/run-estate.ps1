@@ -214,8 +214,20 @@ if (-not $ApiKey) { throw "-ApiKey is required (or set `$env:NSCLIENT_FLEET_API_
 # command line.
 $env:NSCLIENT_FLEET_API_KEY = $ApiKey
 
+# Resolve "the latest release" once for the whole run: left to each suite it
+# is one unauthenticated GitHub API call per suite (60/hour per address), and a
+# release published mid-run would give earlier and later suites different
+# versions. Only when no -*PackageUrl is given: an explicit -Version also
+# turns the version check on for a package-url family, which must keep
+# installing whatever its package holds.
+if (-not $Version -and -not ($WindowsPackageUrl -or $UbuntuPackageUrl -or $RockyPackageUrl)) {
+    $Version = Get-LatestNscpRelease
+    Write-Host "● NSClient++ $Version for every suite (the latest GitHub release; -Version picks another)"
+}
+
 # Arguments every suite hands to provision-fleet-machines.ps1. -Version only
-# when given, so a -*PackageUrl build keeps skipping the version check.
+# when given or resolved above, so a -*PackageUrl build keeps skipping the
+# version check.
 $provisionArgs = @("-FleetServer", $FleetServer)
 foreach ($p in @("Version", "WindowsPackageUrl", "UbuntuPackageUrl", "RockyPackageUrl", "Location", "FleetCaFile")) {
     $value = Get-Variable -Name $p -ValueOnly

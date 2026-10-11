@@ -303,7 +303,8 @@ sudo nscp settings --activate-module Scheduler || true
 $(($extraModules | ForEach-Object { "sudo nscp settings --activate-module $_ || true" }) -join "`n")
 # The estate role's localSettings (-LocalSettings): keys the host's own
 # nsclient.ini must carry, because a local key beats a bundle's.
-$(($localSettingRows | ForEach-Object { "sudo nscp settings --path '$($_.Path)' --key '$($_.Key)' --set '$($_.Value)' || true" }) -join "`n")
+# Each key is read back; a miss prints LOCALSETTING-FAILED, checked below.
+$(if ($localSettingRows.Count) { New-EstateLocalSettingsScript -Rows $localSettingRows -Shell bash })
 # Restart the nsclient service (picks up the WEB config and the enabled modules)
 sudo systemctl restart nsclient
 "@
@@ -315,6 +316,13 @@ if ($result.Status -ne "Succeeded") {
     exit 1
 }
 $result.Value | ForEach-Object { $_.Message }
+if ($localSettingRows.Count) {
+    $missed = @(Get-EstateLocalSettingFailures -Messages @($result.Value | ForEach-Object { $_.Message }))
+    if ($missed.Count) {
+        Write-Error "❌ The $Role role's localSettings did not apply: $($missed -join '; ')"
+        exit 2
+    }
+}
 
 # --- Fleet enrollment --------------------------------------------------------
 # The Linux packages have no install-time enrollment (that is an MSI feature), so
