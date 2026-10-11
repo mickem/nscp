@@ -106,6 +106,7 @@ tested, and nothing up fails the run instead of passing an empty one.
 | `NSCP_ESTATE_ROLES` | Another roles directory. |
 | `NSCP_ESTATE_MACHINES` | Only these machines, comma-separated. |
 | `NSCP_ESTATE_CHECK_WAIT_SECONDS` | How long one check is retried before it fails (default 60). |
+| `NSCP_ESTATE_CHECK_NSCLIENT` | Also run every role check through this `check_nsclient` plugin binary, logged in to one profile per machine (the gate's `-CheckNsclient`). |
 | `NSCP_ESTATE_RESULTS_DIR` | Write `<dir>/<machine>/checks.json` with every check's verdict and raw REST result (the gate sets this). |
 
 ## Local debugging without a VM

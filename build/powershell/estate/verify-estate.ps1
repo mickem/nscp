@@ -41,6 +41,13 @@
     How long jest retries one check before failing it (default 120): a
     collector warming up or the web server restarting after the bundle reload
     is waited out.
+.PARAMETER CheckNsclient
+    Also run every role check through the check_nsclient plugin (the binary a
+    Nagios server runs), logged in to one profile per machine. Its exit code
+    is the state, judged like the REST result.
+.PARAMETER CheckNsclientPath
+    The plugin to use. Default: check_nsclient on PATH, else the copy an
+    NSClient++ install puts in its program folder.
 .PARAMETER RunFolder
     Where the per-machine checks.json files go. Default: a new
     .estate-runs/<timestamp> folder.
@@ -65,7 +72,9 @@ param(
     [ValidateRange(5, 600)]
     [int]$PollSeconds = 20,
     [ValidateRange(0, 3600)]
-    [int]$CheckWaitSeconds = 120
+    [int]$CheckWaitSeconds = 120,
+    [switch]$CheckNsclient,
+    [string]$CheckNsclientPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -179,6 +188,19 @@ $toCheck = @($targets | Where-Object { -not $_.Done })
 if ($toCheck.Count -gt 0) {
     $testsDir = Join-Path (Split-Path -Parent (Split-Path -Parent $parentDir)) "tests"
     $jestProblem = $null
+    $checkNsclientExe = ""
+    if ($CheckNsclient -or $CheckNsclientPath) {
+        $candidates = @($CheckNsclientPath)
+        if (-not $CheckNsclientPath) {
+            $candidates = @((Get-Command check_nsclient -ErrorAction SilentlyContinue).Source)
+            if ($env:ProgramFiles) { $candidates += Join-Path $env:ProgramFiles "NSClient++\check_nsclient.exe" }
+        }
+        $checkNsclientExe = @($candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1)[0]
+        if (-not $checkNsclientExe) {
+            $jestProblem = "-CheckNsclient: no check_nsclient plugin found (looked for $(@($candidates | Where-Object { $_ }) -join ', '); pass -CheckNsclientPath)"
+        }
+        else { Write-Host "Role checks also run through $checkNsclientExe" }
+    }
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { $jestProblem = "npm is not on PATH (the checks run in jest)" }
     elseif (-not (Test-Path (Join-Path $testsDir "node_modules"))) { $jestProblem = "tests/node_modules is missing: run 'npm install' in $testsDir" }
 
@@ -195,6 +217,7 @@ if ($toCheck.Count -gt 0) {
             NSCP_ESTATE_MACHINES           = (($toCheck | ForEach-Object { $_.Machine }) -join ",")
             NSCP_ESTATE_RESULTS_DIR        = (Resolve-Path $RunFolder).Path
             NSCP_ESTATE_CHECK_WAIT_SECONDS = "$CheckWaitSeconds"
+            NSCP_ESTATE_CHECK_NSCLIENT     = $checkNsclientExe
         }
         # Piped through ForEach-Object, jest sees no terminal and drops its
         # colours; --colors and FORCE_COLOR (for anything chalk-based in the

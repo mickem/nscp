@@ -393,6 +393,7 @@ function Add-FleetMachine {
     ) + $ExtraArgs
     if ($Role.Modules.Count -gt 0) { $setupArgs += @("-Modules", ($Role.Modules -join ",")) }
     if ($Role.Install.Contains($Family)) { $setupArgs += @("-RoleInstallScript", $Role.Install[$Family]) }
+    if ($Role.LocalSettings.Count -gt 0) { $setupArgs += @("-LocalSettings", (ConvertTo-EstateLocalSettings -Settings $Role.LocalSettings)) }
     if ($Role.Image) {
         $setupArgs += @("-ImageUrn", $Role.Image)
         $Image = $Role.Image

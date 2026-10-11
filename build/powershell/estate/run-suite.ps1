@@ -10,10 +10,12 @@
     The suite file (suite.json, next to which everything else of the suite is
     written) carries:
 
-        role, count         what to provision
+        role, spec, count   the suite's role, what to provision (the role
+                            and its companions) and how many machines that is
         runFolder           where collect-logs.ps1 puts the machine folders
         provisionArgs       extra provision-fleet-machines.ps1 arguments
-        fleetServer, fleetNoVerify, waitMinutes, keepVms, sharedPwdFile
+        fleetServer, fleetNoVerify, waitMinutes, keepVms, sharedPwdFile,
+        checkNsclient       run the role checks through check_nsclient too
 
     The API key is not in the file; it is inherited as NSCLIENT_FLEET_API_KEY.
 
@@ -25,6 +27,9 @@
         sync       the agent enrolled but never reported in sync
         bundle     the role bundle could not be composed (add-role-bundles.ps1)
         check      a role check did not return what it should (verify-estate.ps1)
+
+    It also writes timing.json: when it started, how many seconds it took,
+    and the seconds of each stage (provision, sync, verify, collect, teardown).
 
     The suite writes result.json (one entry per machine) and exits 1 if any
     machine failed.
@@ -110,9 +115,32 @@ function Set-Verdict {
     }
 }
 
+# Wall-clock per stage, for timing.json and the run's summary: most of a
+# suite is waiting on Azure, and which stage it waits in is worth knowing.
+$suiteStart = Get-Date
+$stageTimes = [ordered]@{}
+$script:StageName = $null
+$script:StageStart = $null
+function Stop-Stage {
+    if ($script:StageName) {
+        $stageTimes[$script:StageName] = [int][Math]::Round(((Get-Date) - $script:StageStart).TotalSeconds)
+        $script:StageName = $null
+    }
+}
+function Start-Stage {
+    param([string]$Name)
+    Stop-Stage
+    $script:StageName = $Name
+    $script:StageStart = Get-Date
+}
+
 # --- provision ---------------------------------------------------------------
+Start-Stage "provision"
 Show "provisioning $($suite.count) machine(s)..."
-$provisionArgs = @("-Roles", "$($suite.role)=$($suite.count)", "-ManifestFile", $manifestFile,
+# spec, not role=count: count includes the companions, which the spec brings.
+$spec = "$($suite.spec)"
+if (-not $spec) { $spec = "$($suite.role)=$($suite.count)" }
+$provisionArgs = @("-Roles", $spec, "-ManifestFile", $manifestFile,
     "-MaxMachines", "$($suite.count)") + @($suite.provisionArgs)
 $rc = Invoke-Child -Script $provision -Arguments $provisionArgs
 $machines = @(Read-FleetManifest -Path $manifestFile)
@@ -146,6 +174,7 @@ if ($suite.sharedPwdFile) {
 }
 
 # --- enroll + sync -----------------------------------------------------------
+Start-Stage "sync"
 foreach ($m in @($live | Where-Object { -not $_.HostId })) {
     Set-Verdict -Machine $m -Stage "enroll" -Detail "no fleet host id in the manifest"
 }
@@ -166,6 +195,7 @@ if ($live.Count -gt 0) {
 }
 
 # --- bundle + verify (when the role has them and the scripts exist) ----------
+Start-Stage "verify"
 $addBundles = Join-Path $estateDir "add-role-bundles.ps1"
 $verify = Join-Path $estateDir "verify-estate.ps1"
 $common = @("-ManifestFile", $manifestFile, "-FleetServer", $suite.fleetServer)
@@ -181,6 +211,7 @@ if ($live.Count -gt 0 -and (Test-Path $verify)) {
     $verifyResult = Join-Path $suiteDir "verify.json"
     $verifyArgs = $common + @("-WaitMinutes", "$($suite.waitMinutes)", "-RunFolder", $suite.runFolder,
         "-ResultFile", $verifyResult, "-Name", (($live | ForEach-Object { $_.Name }) -join ","))
+    if ($suite.checkNsclient) { $verifyArgs += "-CheckNsclient" }
     $rc = Invoke-Child -Script $verify -Arguments $verifyArgs
     $verdicts = @{}
     if (Test-Path $verifyResult) {
@@ -199,6 +230,7 @@ if ($live.Count -gt 0 -and (Test-Path $verify)) {
 }
 
 # --- collect, always, before teardown ----------------------------------------
+Start-Stage "collect"
 if ($machines.Count -gt 0) {
     $collectArgs = @("-ManifestFile", $manifestFile, "-RunFolder", $suite.runFolder)
     if ($skipCert) { $collectArgs += "-FleetNoVerify" }
@@ -208,6 +240,7 @@ if ($machines.Count -gt 0) {
 }
 
 # --- teardown -------------------------------------------------------------------
+Start-Stage "teardown"
 if ($machines.Count -gt 0) {
     if ($suite.keepVms) {
         Show "keeping the machines; tear them down with:"
@@ -222,6 +255,13 @@ if ($machines.Count -gt 0) {
         }
     }
 }
+
+Stop-Stage
+$suiteSeconds = [int][Math]::Round(((Get-Date) - $suiteStart).TotalSeconds)
+[ordered]@{ started = $suiteStart.ToString("s"); seconds = $suiteSeconds; stages = $stageTimes } |
+    ConvertTo-Json -Depth 4 | Set-Content -Path (Join-Path $suiteDir "timing.json")
+Show ("finished in {0} ({1})" -f (Format-EstateDuration $suiteSeconds),
+    (($stageTimes.Keys | ForEach-Object { "$_ $(Format-EstateDuration $stageTimes[$_])" }) -join ", "))
 
 $all = @($results.Values)
 ConvertTo-Json -InputObject $all -Depth 4 | Set-Content -Path $resultFile

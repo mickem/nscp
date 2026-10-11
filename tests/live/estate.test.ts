@@ -34,6 +34,7 @@
  */
 import * as fs from "fs";
 import * as path from "path";
+import { spawnSync } from "child_process";
 import { liveLogin, liveExecute, readPwdFile, type LiveTarget } from "@fixtures/live-target";
 import { smokeCasesFor } from "@fixtures/live-smoke";
 import { messageOf, perfOf, type QueryResult } from "@fixtures/queries";
@@ -50,6 +51,28 @@ interface RoleCheck {
   expect?: string;
   perf?: string[];
   os?: string[];
+  /** Run once per machine of this role in the same manifest (a hub's targets). */
+  each?: string;
+}
+
+/** A role check made concrete for one machine: an "each" check is one of these per target. */
+interface RunCheck {
+  label: string;
+  command: string;
+  /** What is sent, with ${target.*} filled in. */
+  args: Record<string, string | string[]>;
+  /** What checks.json records: the role's own arguments, so no password is written out. */
+  shownArgs: Record<string, string | string[]>;
+  /** Why it cannot run at all (an "each" check with no target up). */
+  unrunnable?: string;
+  expect: string;
+  perf: string[];
+}
+
+interface Machine {
+  entry: ManifestEntry;
+  /** Every machine of its manifest that is up, itself included. */
+  peers: ManifestEntry[];
 }
 
 interface CheckRecord {
@@ -79,13 +102,17 @@ const only = (process.env.NSCP_ESTATE_MACHINES ?? "")
 const waitSeconds = Number(process.env.NSCP_ESTATE_CHECK_WAIT_SECONDS);
 const waitMs = (Number.isFinite(waitSeconds) && waitSeconds >= 0 ? waitSeconds : 60) * 1000;
 const resultsDir = process.env.NSCP_ESTATE_RESULTS_DIR;
+const checkNsclientExe = process.env.NSCP_ESTATE_CHECK_NSCLIENT || undefined;
 
 // A check may retry for the whole wait, plus the request that ends it.
 jest.setTimeout(waitMs + 90_000);
 
-function machines(): ManifestEntry[] {
-  const all = manifests.flatMap((m) => liveMachines(m));
-  return only.length > 0 ? all.filter((m) => only.includes(m.Name)) : all;
+function machines(): Machine[] {
+  const all = manifests.flatMap((file) => {
+    const peers = liveMachines(file);
+    return peers.map((entry) => ({ entry, peers }));
+  });
+  return only.length > 0 ? all.filter((m) => only.includes(m.entry.Name)) : all;
 }
 
 function roleChecks(role: string): RoleCheck[] {
@@ -99,9 +126,58 @@ function applies(check: RoleCheck, family: string): boolean {
   return family !== "windows" && check.os.includes("linux");
 }
 
-function label(check: RoleCheck): string {
-  const args = Object.entries(check.args ?? {}).map(([k, v]) => `${k}=${[v].flat().join(",")}`);
-  return [check.command, ...args].join(" ");
+/** One KEY=VALUE token per value: an array repeats the key, as REST does. */
+function argTokens(args: Record<string, string | string[]>): string[] {
+  return Object.entries(args).flatMap(([k, v]) => [v].flat().map((one) => `${k}=${one}`));
+}
+
+/** For a label: an array shown as one comma-joined value. */
+function argText(args: Record<string, string | string[]>): string[] {
+  return Object.entries(args).map(([k, v]) => `${k}=${[v].flat().join(",")}`);
+}
+
+/**
+ * The role's checks for one machine. An "each" check becomes one run per
+ * machine of that role in the same manifest, with ${target.ip},
+ * ${target.name} and ${target.password} (its web password, from its pwd
+ * file) filled in; with no such machine it becomes a run that fails saying so.
+ */
+function runChecks(checks: RoleCheck[], peers: ManifestEntry[]): RunCheck[] {
+  const base = (
+    c: RoleCheck,
+    label: string,
+    args: Record<string, string | string[]>,
+  ): RunCheck => ({
+    label,
+    command: c.command,
+    args,
+    shownArgs: c.args ?? {},
+    expect: c.expect ?? "OK",
+    perf: c.perf ?? [],
+  });
+  return checks.flatMap((c) => {
+    const plain = [c.command, ...argText(c.args ?? {})].join(" ");
+    if (!c.each) return [base(c, plain, c.args ?? {})];
+    const targets = peers.filter((p) => (p.Role || "base") === c.each);
+    if (targets.length === 0)
+      return [
+        { ...base(c, plain, {}), unrunnable: `no '${c.each}' machine is up in the manifest` },
+      ];
+    return targets.map((t) => {
+      const values: Record<string, string> = {
+        "${target.ip}": t.PublicIp ?? "",
+        "${target.name}": t.Name,
+        "${target.password}":
+          t.PwdFile && fs.existsSync(t.PwdFile) ? (readPwdFile(t.PwdFile).password ?? "") : "",
+      };
+      const fill = (s: string) =>
+        Object.entries(values).reduce((acc, [k, v]) => acc.split(k).join(v), s);
+      const args = Object.fromEntries(
+        Object.entries(c.args ?? {}).map(([k, v]) => [k, Array.isArray(v) ? v.map(fill) : fill(v)]),
+      );
+      return base(c, `${plain} -> ${t.Name}`, args);
+    });
+  });
 }
 
 /**
@@ -110,20 +186,46 @@ function label(check: RoleCheck): string {
  * workload returns) and every name in "perf" occurs in some perfdata key,
  * case-insensitively. Returns why the result fails, or undefined.
  */
-function judge(check: RoleCheck, q: QueryResult): string | undefined {
-  const state = STATES[q.result];
-  const expect = check.expect ?? "OK";
-  if (!state) return `no result state (got ${q.result})`;
-  if (expect === "any" && state === "UNKNOWN")
+function judge(check: RunCheck, result: number, perfKeys: string[]): string | undefined {
+  const state = STATES[result];
+  if (!state) return `no result state (got ${result})`;
+  if (check.expect === "any" && state === "UNKNOWN")
     return "returned UNKNOWN (expected any state but UNKNOWN)";
-  if (expect !== "any" && state !== expect) return `returned ${state}, expected ${expect}`;
-  const keys = Object.keys(perfOf(q));
-  const missing = (check.perf ?? []).filter(
-    (want) => !keys.some((k) => k.toLowerCase().includes(want.toLowerCase())),
+  if (check.expect !== "any" && state !== check.expect)
+    return `returned ${state}, expected ${check.expect}`;
+  const missing = check.perf.filter(
+    (want) => !perfKeys.some((k) => k.toLowerCase().includes(want.toLowerCase())),
   );
   if (missing.length > 0)
-    return `no perfdata matching ${missing.join(", ")} (got: ${keys.join(", ") || "none"})`;
+    return `no perfdata matching ${missing.join(", ")} (got: ${perfKeys.join(", ") || "none"})`;
   return undefined;
+}
+
+/** Perfdata keys of a Nagios line: what follows the first '|', quoted or bare. */
+function nagiosPerfKeys(line: string): string[] {
+  const bar = line.indexOf("|");
+  if (bar < 0) return [];
+  return [...line.slice(bar + 1).matchAll(/'([^']+)'=|(?:^|\s)([^\s'=]+)=/g)].map(
+    (m) => m[1] ?? m[2],
+  );
+}
+
+/**
+ * The check_nsclient plugin (NSCP_ESTATE_CHECK_NSCLIENT): the binary
+ * operators wire into Nagios, logged in to one profile per machine.
+ */
+function checkNsclient(
+  args: string[],
+  env: NodeJS.ProcessEnv = {},
+): { status: number; out: string } {
+  const r = spawnSync(checkNsclientExe!, ["nsclient", ...args], {
+    encoding: "utf8",
+    timeout: 120_000,
+    env: { ...process.env, ...env },
+  });
+  const out = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim();
+  if (r.error) return { status: -1, out: `${r.error.message} ${out}`.trim() };
+  return { status: r.status ?? -1, out };
 }
 
 /** The machine's pwd file, else the manifest's public IP on 8443. */
@@ -147,12 +249,16 @@ describeEstate("estate role checks", () => {
     expect(list.length).toBeGreaterThan(0);
   });
 
-  for (const m of list) {
+  for (const { entry: m, peers } of list) {
     const role = m.Role || "base";
     const family = m.Family || m.Os || "linux";
-    const checks = roleChecks(role).filter((c) => applies(c, family));
+    const checks = runChecks(
+      roleChecks(role).filter((c) => applies(c, family)),
+      peers,
+    );
     const agentChecks = smokeCasesFor(family === "windows" ? "windows" : "linux");
-    const total = checks.length + agentChecks.length;
+    const nsclientChecks = checkNsclientExe ? checks : [];
+    const total = checks.length + agentChecks.length + nsclientChecks.length;
 
     describe(`${m.Name} (${role}, ${family})`, () => {
       const { url, password } = credentials(m);
@@ -203,16 +309,16 @@ describeEstate("estate role checks", () => {
       });
 
       for (const check of checks) {
-        it(label(check), async () => {
+        it(check.label, async () => {
           if (loginError) throw new Error(loginError);
           const deadline = Date.now() + waitMs;
           let q: QueryResult | null = null;
-          let why: string | undefined;
-          for (;;) {
+          let why: string | undefined = check.unrunnable;
+          while (!check.unrunnable) {
             try {
               if (!target) target = await login();
-              q = await liveExecute(target, check.command, check.args ?? {});
-              why = judge(check, q);
+              q = await liveExecute(target, check.command, check.args);
+              why = judge(check, q.result, Object.keys(perfOf(q)));
             } catch (e) {
               q = null;
               why = `request failed: ${firstLine(e)}`;
@@ -225,11 +331,11 @@ describeEstate("estate role checks", () => {
           }
           const keys = q ? Object.keys(perfOf(q)) : [];
           records.push({
-            check: label(check),
+            check: check.label,
             command: check.command,
-            args: check.args ?? {},
-            expect: check.expect ?? "OK",
-            perf: check.perf ?? [],
+            args: check.shownArgs,
+            expect: check.expect,
+            perf: check.perf,
             passed: !why,
             state: q ? (STATES[q.result] ?? null) : null,
             reason: why ?? null,
@@ -269,6 +375,76 @@ describeEstate("estate role checks", () => {
             response: q ?? null,
           });
           expect(why).toBeUndefined();
+        });
+      }
+
+      // The same role checks through the check_nsclient plugin, the way a
+      // Nagios server runs them (-CheckNsclient on the gate). One profile per
+      // machine, logged in once and out again; its exit code is the state.
+      if (nsclientChecks.length > 0) {
+        const profile = `estate-${m.Name}`;
+        let pluginLoginError: string | undefined;
+        describe("check_nsclient", () => {
+          beforeAll(() => {
+            if (!url || !password) {
+              pluginLoginError = `no web address or password in ${m.PwdFile}`;
+              return;
+            }
+            const r = checkNsclient(
+              ["auth", "login", profile, "--url", url, "--username", "admin", "--insecure"],
+              {
+                CHECK_NSCLIENT_PASSWORD: password,
+              },
+            );
+            if (r.status !== 0)
+              pluginLoginError = `check_nsclient auth login failed (exit ${r.status}): ${r.out}`;
+          });
+          afterAll(() => {
+            checkNsclient(["auth", "logout", profile]);
+          });
+          for (const check of nsclientChecks) {
+            it(check.label, () => {
+              let why: string | undefined;
+              let state: string | null = null;
+              let out = "";
+              let keys: string[] = [];
+              if (pluginLoginError) why = pluginLoginError;
+              else if (check.unrunnable) why = check.unrunnable;
+              else {
+                const r = checkNsclient([
+                  "--profile",
+                  profile,
+                  "queries",
+                  "execute-nagios",
+                  check.command,
+                  ...argTokens(check.args),
+                ]);
+                out = r.out;
+                keys = nagiosPerfKeys(out.split("\n")[0]);
+                // A tool error exits 1 too, which reads as WARNING: tell them apart.
+                if (r.status < 0 || r.status > 3 || /^Error:/m.test(out))
+                  why = `check_nsclient failed (exit ${r.status}): ${out}`;
+                else {
+                  state = STATES[r.status];
+                  why = judge(check, r.status, keys);
+                }
+              }
+              records.push({
+                check: `check_nsclient: ${check.label}`,
+                command: check.command,
+                args: check.shownArgs,
+                expect: check.expect,
+                perf: check.perf,
+                passed: !why,
+                state,
+                reason: why ?? null,
+                message: out.split("|")[0].trim(),
+                perfKeys: keys,
+                response: null,
+              });
+              expect(why ? `${why} :: ${out}` : undefined).toBeUndefined();
+            });
+          }
         });
       }
     });

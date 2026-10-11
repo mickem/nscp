@@ -57,6 +57,10 @@
     The role's throwaway secret, handed to -RoleInstallScript as ROLE_PASSWORD.
 .PARAMETER RoleInstallTimeoutMinutes
     Wall-clock limit for -RoleInstallScript (default 10).
+.PARAMETER LocalSettings
+    An estate role's "localSettings", base64 JSON as provision-fleet-machines.ps1
+    passes it: written into the host's own nsclient.ini with `nscp settings
+    --set` after the modules are activated. A local key beats a bundle's.
 .NOTES
     Exit codes: 0 done, 1 provisioning/install failed, 2 the role install
     fragment failed, 3 fleet enrollment failed. run-estate.ps1 reads them to
@@ -86,7 +90,8 @@ param(
     [string]$Role = "",
     [string]$RoleInstallScript = "",
     [string]$RolePassword = "",
-    [int]$RoleInstallTimeoutMinutes = 10
+    [int]$RoleInstallTimeoutMinutes = 10,
+    [string]$LocalSettings = ""
 )
 
 # Fleet options are all-or-nothing: half of them means a machine that quietly
@@ -116,9 +121,14 @@ $extraModules = @($Modules -split ',' | ForEach-Object { $_.Trim() } | Where-Obj
 foreach ($m in $extraModules) {
     if ($m -notmatch '^[A-Za-z0-9_]+$') { Write-Error "❌ -Modules: '$m' is not a module name."; exit 1 }
 }
-if ($RoleInstallScript) {
-    if (-not (Test-Path $RoleInstallScript)) { Write-Error "❌ -RoleInstallScript '$RoleInstallScript' does not exist."; exit 1 }
+if ($RoleInstallScript -or $LocalSettings) {
+    if ($RoleInstallScript -and -not (Test-Path $RoleInstallScript)) { Write-Error "❌ -RoleInstallScript '$RoleInstallScript' does not exist."; exit 1 }
     . (Join-Path (Split-Path -Parent $PSScriptRoot) "estate/estate-api.ps1")
+}
+$localSettingRows = @()
+if ($LocalSettings) {
+    try { $localSettingRows = @(ConvertFrom-EstateLocalSettings -Encoded $LocalSettings) }
+    catch { Write-Error "❌ -LocalSettings: $($_.Exception.Message)"; exit 1 }
 }
 
 # Ensure required modules are installed
@@ -299,6 +309,9 @@ sudo nscp settings --activate-module NRDPClient || true
 sudo nscp settings --activate-module Scheduler || true
 # The estate role's own modules (-Modules), activated here for the same reason.
 $(($extraModules | ForEach-Object { "sudo nscp settings --activate-module $_ || true" }) -join "`n")
+# The estate role's localSettings (-LocalSettings): keys the host's own
+# nsclient.ini must carry, because a local key beats a bundle's.
+$(($localSettingRows | ForEach-Object { "sudo nscp settings --path '$($_.Path)' --key '$($_.Key)' --set '$($_.Value)' || true" }) -join "`n")
 
 # Configure firewall
 sudo dnf install -y firewalld

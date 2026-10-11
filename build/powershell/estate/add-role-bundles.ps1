@@ -71,7 +71,7 @@ $plans = foreach ($name in $roleNames) {
         # Implicit AND of one eq clause per tag; source defaults to manual, so
         # a host cannot put itself in the group by reporting the tag.
         Selector = @{ clauses = @($r.Tags.Keys | ForEach-Object { @{ op = "eq"; key = $_; value = $r.Tags[$_] } }) }
-        Config   = ConvertTo-EstateBundleConfig -Role $r -RolePassword $password
+        Config   = ConvertTo-EstateBundleConfig -Role $r -RolePassword $password -Machines $machines
         Password = $password
     }
 }

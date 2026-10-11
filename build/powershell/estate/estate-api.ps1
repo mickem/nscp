@@ -119,12 +119,21 @@ function Read-EstateRole {
                     throw "$Path : check '$command' is limited to os '$o', which is neither 'linux' nor in the role's 'os'."
                 }
             }
+            # "each": run the check once per machine of that role in the same
+            # suite, with ${target.ip}, ${target.name} and ${target.password}
+            # filled in by the jest suite (a hub checking its targets).
+            $each = $null
+            if ($c.each) {
+                $each = "$($c.each)"
+                if ($each -notmatch '^[a-z][a-z0-9]*$') { throw "$Path : check '$command' has 'each' = '$each', which is not a role name." }
+            }
             [pscustomobject]@{
                 Command = $command
                 Args    = $checkArgs
                 Expect  = $expect
                 Perf    = @($c.perf | Where-Object { $_ } | ForEach-Object { "$_" })
                 Os      = $checkOs
+                Each    = $each
             }
         })
 
@@ -143,6 +152,33 @@ function Read-EstateRole {
     $timeout = 10
     if ($role.installTimeoutMinutes) { $timeout = [int]$role.installTimeoutMinutes }
 
+    # Settings written into the host's own nsclient.ini at install time. A
+    # key there beats the same key from a bundle (fleet.ini is an include,
+    # and local settings win), so a key the installer already wrote - the
+    # MSI's NRPE preset - can only be changed here.
+    $localSettings = [ordered]@{}
+    if ($role.localSettings) {
+        foreach ($section in $role.localSettings.PSObject.Properties) {
+            $keys = [ordered]@{}
+            foreach ($k in $section.Value.PSObject.Properties) { $keys[$k.Name] = "$($k.Value)" }
+            $localSettings[$section.Name] = $keys
+        }
+        try { ConvertFrom-EstateLocalSettings -Encoded (ConvertTo-EstateLocalSettings -Settings $localSettings) | Out-Null }
+        catch { throw "$Path : $($_.Exception.Message)" }
+    }
+
+    # Machines of other roles a suite of this one brings along (a hub's
+    # targets); checked against the catalog once it is complete.
+    $companions = [ordered]@{}
+    if ($role.companions) {
+        foreach ($p in $role.companions.PSObject.Properties) {
+            if ($p.Name -eq $name) { throw "$Path : a role cannot be its own companion." }
+            $n = [int]$p.Value
+            if ($n -lt 1) { throw "$Path : companion '$($p.Name)' needs 1 or more machines." }
+            $companions[$p.Name] = $n
+        }
+    }
+
     $result = [pscustomobject]@{
         Name                  = $name
         Description           = "$($role.description)"
@@ -159,6 +195,11 @@ function Read-EstateRole {
         Bundle                = $role.bundle
         Checks                = $checks
         Logs                  = $logs
+        LocalSettings         = $localSettings
+        Companions            = $companions
+        # Only provisioned as another role's companion: `all` gives it no
+        # suite of its own.
+        CompanionOnly         = [bool]$role.companionOnly
     }
     # Compose the bundle once with a stand-in password: an unknown key or a
     # misspelt placeholder fails here, before any machine is created.
@@ -178,6 +219,19 @@ function Get-EstateRoleCatalog {
         $catalog[$role.Name] = $role
     }
     if ($catalog.Count -eq 0) { throw "No roles found under $RolesDir." }
+    # References between roles, now that every role is known.
+    foreach ($role in $catalog.Values) {
+        foreach ($c in $role.Companions.Keys) {
+            if (-not $catalog.Contains($c)) { throw "Role '$($role.Name)': companion '$c' is not a role." }
+            if ($catalog[$c].Companions.Count -gt 0) { throw "Role '$($role.Name)': companion '$c' has companions of its own." }
+        }
+        foreach ($check in $role.Checks) {
+            if (-not $check.Each) { continue }
+            if (-not $role.Companions.Contains($check.Each)) {
+                throw "Role '$($role.Name)': check '$($check.Command)' runs for each '$($check.Each)', which is not one of its companions."
+            }
+        }
+    }
     return $catalog
 }
 
@@ -208,6 +262,13 @@ function ConvertFrom-RoleSpec {
         if ($Matches[2]) { $count = [int]$Matches[2] }
         for ($i = 0; $i -lt $count; $i++) {
             $machines.Add([pscustomobject]@{ Role = $role; Os = $role.Os[$i % $role.Os.Count]; Index = $i })
+        }
+        # A role's companions come with it, whatever count it was asked for.
+        foreach ($c in $role.Companions.Keys) {
+            $companion = $Catalog[$c]
+            for ($i = 0; $i -lt $role.Companions[$c]; $i++) {
+                $machines.Add([pscustomobject]@{ Role = $companion; Os = $companion.Os[$i % $companion.Os.Count]; Index = $i })
+            }
         }
     }
     # Enumerated: callers wrap the call in @() to keep a one-machine plan a list.
@@ -511,12 +572,58 @@ function Wait-EstateFleetHosts {
     }
 }
 
+# "1h 02m 13s", "12m 05s", "45s": how long a run or a stage took.
+function Format-EstateDuration {
+    param([Parameter(Mandatory)][double]$Seconds)
+    $t = [TimeSpan]::FromSeconds([Math]::Round($Seconds))
+    if ($t.TotalHours -ge 1) { return "{0}h {1:00}m {2:00}s" -f [int][Math]::Floor($t.TotalHours), $t.Minutes, $t.Seconds }
+    if ($t.TotalMinutes -ge 1) { return "{0}m {1:00}s" -f $t.Minutes, $t.Seconds }
+    return "{0}s" -f $t.Seconds
+}
+
+# --- install-time settings --------------------------------------------------------
+
+# A role's "localSettings" travel to a setup script as one base64 JSON
+# argument (it runs as a child process through -File).
+function ConvertTo-EstateLocalSettings {
+    param([Parameter(Mandatory)]$Settings)
+    $json = ConvertTo-Json -InputObject $Settings -Depth 4 -Compress
+    return [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($json))
+}
+
+<#
+.SYNOPSIS
+    Decode -LocalSettings back into Path/Key/Value rows, refusing anything
+    that would not survive being quoted into a remote script.
+.DESCRIPTION
+    The values end up between single quotes in a PowerShell or bash script
+    on the VM, so a single quote, a backtick or a line break is refused rather
+    than escaped: no setting a role needs contains one.
+#>
+function ConvertFrom-EstateLocalSettings {
+    param([Parameter(Mandatory)][string]$Encoded)
+    $settings = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Encoded)) | ConvertFrom-Json
+    $rows = foreach ($section in $settings.PSObject.Properties) {
+        if ($section.Name -notmatch '^/[A-Za-z0-9_./ -]+$') { throw "localSettings: '$($section.Name)' is not a settings path (e.g. /settings/NRPE/server)." }
+        foreach ($k in $section.Value.PSObject.Properties) {
+            if ($k.Name -notmatch '^[A-Za-z0-9_. -]+$') { throw "localSettings: '$($k.Name)' under $($section.Name) is not a plain key." }
+            $value = "$($k.Value)"
+            if ($value -match "['``\r\n]") { throw "localSettings: the value of $($section.Name)/$($k.Name) contains a quote, backtick or line break." }
+            [pscustomobject]@{ Path = $section.Name; Key = $k.Name; Value = $value }
+        }
+    }
+    return @($rows)
+}
+
 # --- role bundles ---------------------------------------------------------------
 
 <#
 .SYNOPSIS
     The config_json a role's bundle is composed from: its modules enabled, its
-    "bundle.settings" with ${ROLE_PASSWORD} substituted.
+    "bundle.settings" with ${ROLE_PASSWORD} substituted, and
+    ${ESTATE_IPS:<role>} with the public IPs of that role's machines in
+    -Machines (the manifest), comma-separated: an allow-list for a server
+    that only the hub may reach.
 .DESCRIPTION
     The nested object path is the INI section path the agent renders into
     fleet.ini (libs/onboarding/sync.cpp), so { "settings": { "mysql": { ... } } }
@@ -527,7 +634,10 @@ function Wait-EstateFleetHosts {
 function ConvertTo-EstateBundleConfig {
     param(
         [Parameter(Mandatory)]$Role,
-        [Parameter(Mandatory)][string]$RolePassword
+        [Parameter(Mandatory)][string]$RolePassword,
+        # The manifest; without it (validating a descriptor) every
+        # ${ESTATE_IPS:...} becomes a documentation address.
+        [object[]]$Machines = $null
     )
     $bundle = $Role.Bundle
     foreach ($p in $bundle.PSObject.Properties) {
@@ -543,8 +653,20 @@ function ConvertTo-EstateBundleConfig {
         # password is letters and digits (New-EstateSecret): nothing to escape.
         $json = ConvertTo-Json -InputObject $bundle.settings -Depth 16 -Compress
         $json = $json.Replace('${ROLE_PASSWORD}', $RolePassword)
-        if ($json -match '\$\{[A-Za-z_]+\}') {
-            throw "Role '$($Role.Name)': bundle settings use $($Matches[0]); only `${ROLE_PASSWORD} is substituted."
+        foreach ($wanted in @([regex]::Matches($json, '\$\{ESTATE_IPS:([a-z][a-z0-9]*)\}') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)) {
+            $ips = @("192.0.2.1")
+            if ($null -ne $Machines) {
+                $ips = @($Machines | Where-Object { "$($_.Role)" -eq $wanted -and $_.PublicIp } | ForEach-Object { "$($_.PublicIp)" })
+            }
+            # Nothing to allow would leave the key empty, which a server reads
+            # as "reject everyone" - say so rather than ship it.
+            if ($ips.Count -eq 0) {
+                throw "Role '$($Role.Name)': `${ESTATE_IPS:$wanted} has no '$wanted' machine with a public IP in the manifest."
+            }
+            $json = $json.Replace("`${ESTATE_IPS:$wanted}", ($ips -join ","))
+        }
+        if ($json -match '\$\{[A-Za-z_:]+\}') {
+            throw "Role '$($Role.Name)': bundle settings use $($Matches[0]); only `${ROLE_PASSWORD} and `${ESTATE_IPS:<role>} are substituted."
         }
         $config.settings = $json | ConvertFrom-Json
     }

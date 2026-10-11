@@ -20,8 +20,9 @@
 
     At the end it prints the run folder and one verdict per machine; a failed
     one names the first stage that failed (provision, install, enroll, sync,
-    bundle, check), so the right log is the first one opened. The exit code is
-    non-zero if any suite failed.
+    bundle, check), so the right log is the first one opened. Then how long
+    each suite spent in each stage (from its timing.json) and the total
+    runtime. The exit code is non-zero if any suite failed.
 
     Suites run concurrently by default, each as its own process (so this works
     on Windows PowerShell 5.1 too), within -MaxParallel and -MaxMachines.
@@ -67,6 +68,9 @@
     Touches neither Azure nor the fleet server.
 .PARAMETER WaitMinutes
     How long a suite waits for its machines to enroll and sync (default 15).
+.PARAMETER CheckNsclient
+    Also run every role check through the check_nsclient plugin from this
+    machine, the way a Nagios server would (see estate/verify-estate.ps1).
 .EXAMPLE
     ./run-estate.ps1 base                            # today's estate, plus log collection
 .EXAMPLE
@@ -104,6 +108,7 @@ param(
     [switch]$DryRun,
     [ValidateRange(1, 120)]
     [int]$WaitMinutes = 15,
+    [switch]$CheckNsclient,
     [string]$Version = "",
     [string]$WindowsPackageUrl = "",
     [string]$UbuntuPackageUrl = "",
@@ -117,6 +122,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$runStart = Get-Date
 $scriptDir = $PSScriptRoot
 $estateDir = Join-Path $scriptDir "estate"
 . (Join-Path $scriptDir "fleet-api.ps1")
@@ -165,7 +171,8 @@ if ($specs -contains "all") {
     # Every role, keeping an explicit count given next to it ("all,base=3").
     $named = @($specs | Where-Object { $_ -ne "all" })
     $mentioned = @($named | ForEach-Object { ($_ -split '=')[0] })
-    $specs = $named + @($catalog.Keys | Where-Object { $mentioned -notcontains $_ })
+    # A companion-only role (a hub's targets) comes with the role that needs it.
+    $specs = $named + @($catalog.Keys | Where-Object { $mentioned -notcontains $_ -and -not $catalog[$_].CompanionOnly })
 }
 
 $suites = [System.Collections.Generic.List[object]]::new()
@@ -176,7 +183,10 @@ foreach ($spec in $specs) {
     if ($machines.Count -gt $MaxMachines) {
         throw "Suite '$($role.Name)' needs $($machines.Count) machines, more than -MaxMachines $MaxMachines on its own."
     }
-    $suites.Add([pscustomobject]@{ Role = $role.Name; Count = $machines.Count; Machines = $machines })
+    # Spec is what the suite provisions (its companions come along); Count is
+    # every machine that adds up to, which is what the budget counts.
+    $own = @($machines | Where-Object { $_.Role.Name -eq $role.Name }).Count
+    $suites.Add([pscustomobject]@{ Role = $role.Name; Spec = "$($role.Name)=$own"; Count = $machines.Count; Machines = $machines })
 }
 $total = ($suites | Measure-Object -Property Count -Sum).Sum
 
@@ -235,6 +245,7 @@ foreach ($s in $suites) {
     if (-not $Parallel) { $sharedPwd = Join-Path $scriptDir ".vm.pwd" }
     $config = [ordered]@{
         role          = $s.Role
+        spec          = $s.Spec
         count         = $s.Count
         runFolder     = $runFolder
         provisionArgs = $provisionArgs
@@ -242,6 +253,7 @@ foreach ($s in $suites) {
         fleetNoVerify = [bool]$FleetNoVerify
         waitMinutes   = $WaitMinutes
         keepVms       = [bool]$KeepVms
+        checkNsclient = [bool]$CheckNsclient
         sharedPwdFile = $sharedPwd
     }
     $s | Add-Member -NotePropertyName SuiteFile -NotePropertyValue (Join-Path $dir "suite.json")
@@ -318,6 +330,19 @@ foreach ($r in $results) {
     else { Write-Host ("   {0,-16} {1,-8} FAILED at {2}: {3}" -f $r.Machine, $r.Role, $r.Stage, $r.Detail) -ForegroundColor Red }
 }
 Write-Host "Logs: $runFolder"
+
+# Where the time went: each suite's stages (run-suite.ps1 writes timing.json),
+# then the whole run, preflight and queueing included.
+Write-Host "`n===== TIMING ====="
+foreach ($s in $suites) {
+    $timingFile = Join-Path (Split-Path -Parent $s.SuiteFile) "timing.json"
+    if (-not (Test-Path $timingFile)) { continue }
+    $t = Get-Content -Path $timingFile -Raw | ConvertFrom-Json
+    $stages = @($t.stages.PSObject.Properties | ForEach-Object { "$($_.Name) $(Format-EstateDuration $_.Value)" }) -join ", "
+    Write-Host ("   {0,-10} {1,-10} {2}" -f $s.Role, (Format-EstateDuration $t.seconds), $stages)
+}
+Write-Host "Total runtime: $(Format-EstateDuration ((Get-Date) - $runStart).TotalSeconds)"
+
 $failed = @($results | Where-Object { $_.Verdict -ne "PASSED" })
 if ($failed.Count -gt 0 -or $results.Count -eq 0) {
     Write-Host "❌ $($failed.Count)/$($results.Count) machine(s) failed." -ForegroundColor Red

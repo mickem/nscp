@@ -247,8 +247,10 @@ down again:
 ./run-estate.ps1 all -DryRun                     # the plan, touching nothing
 ```
 
-At the end it prints the run folder and one line per machine. A failed machine
-names the **first stage that failed**, so the right log is the first one opened:
+At the end it prints the run folder, one line per machine, how long each suite
+spent in each stage, and the total runtime (each suite also writes them to
+`suite-<role>/timing.json`). A failed machine names the **first stage that
+failed**, so the right log is the first one opened:
 
 | Stage       | Meaning                                                      | Look at              |
 | ----------- | ------------------------------------------------------------ | -------------------- |
@@ -393,8 +395,10 @@ estate/roles/mysql/
 | `modules` | Activated **at install time**. A bundle can enable a module in `fleet.ini` but cannot load it into a running agent, so this is what lets the bundle take effect on the first sync. |
 | `install` | Per OS, a fragment run as root/SYSTEM on the VM **before** NSClient++ is installed, with `ROLE_PASSWORD` in its environment and `installTimeoutMinutes` as its limit. Its output lands in `/var/log/nscp-role-install.log` or `C:\nscp-role-install.log`. Exit non-zero to fail the machine at the `install` stage. |
 | `tag` | Operator-set tags put on the fleet host **before** it enrolls, so its first desired state already carries the role's group. Required when the role has a `bundle`: the group selects on it, and an empty selector would match every host in the tenant. |
-| `bundle` | `{ "settings": { ... } }`: the nested object path is the INI section path in `fleet.ini` (`settings.mysql` → `[/settings/mysql]`); `${ROLE_PASSWORD}` is substituted and any other `${...}` is refused. The role's `modules` are enabled in the same bundle. |
-| `checks` | What the gate runs over REST. `args` are passed as `key=value` (an array repeats the key); `expect` is a Nagios state, or `any` for any state but UNKNOWN; every name in `perf` must occur in some perfdata key (case-insensitive, so `used %` matches `C:\ used %`); `os` limits a check to some families (`linux` means Ubuntu and Rocky). |
+| `bundle` | `{ "settings": { ... } }`: the nested object path is the INI section path in `fleet.ini` (`settings.mysql` → `[/settings/mysql]`); `${ROLE_PASSWORD}` is substituted, `${ESTATE_IPS:<role>}` becomes the public IPs of that role's machines in the suite (comma-separated: an allow-list for a server only the hub may reach), and any other `${...}` is refused. The role's `modules` are enabled in the same bundle. |
+| `checks` | What the gate runs over REST. `args` are passed as `key=value` (an array repeats the key); `expect` is a Nagios state, or `any` for any state but UNKNOWN; every name in `perf` must occur in some perfdata key (case-insensitive, so `used %` matches `C:\ used %`); `os` limits a check to some families (`linux` means Ubuntu and Rocky); `each: "<role>"` runs it once per machine of that companion role, with `${target.ip}`, `${target.name}` and `${target.password}` (its web password) filled in. |
+| `localSettings` | `{ "<settings path>": { "<key>": "<value>" } }`, written into the host's own `nsclient.ini` with `nscp settings --set` right after the modules are activated. Use it only for a key the installer itself writes: a local key beats the same key from a bundle (`fleet.ini` is an include, and local settings win). |
+| `companions`, `companionOnly` | `{ "<role>": <count> }`: machines of other roles a suite of this one provisions alongside it (a hub's targets). `companionOnly: true` keeps a role out of `all`; it only comes with the role that needs it. |
 | `logs` | Per OS, extra files the log collection picks up (saved as `role-<file>`). |
 
 **Writing a check that checks something.** The gate runs against
@@ -420,6 +424,7 @@ estate — never reuse the pattern for anything real.
 | `base` | Windows + Ubuntu, NSClient++ only | Enrollment, sync and the core checks (today's estate) |
 | `mysql` | MariaDB on Ubuntu or Rocky | `check_mysql`, `check_mysql_query` through a `[/settings/mysql]` bundle |
 | `mssql` | Marketplace SQL Server 2022 Developer on Windows Server 2022 | All 13 CheckMSSQL commands, OK with perfdata, through a `[/settings/mssql]` bundle |
+| `hub` | Ubuntu with CheckNet, NRPEClient and NSCPClient, plus two `target` machines (Windows and Ubuntu) | `check_nrpe`, `check_remote_nscp` and `check_nsclient_web_online` from the hub to each target |
 
 Notes on `mssql`:
 
@@ -438,6 +443,32 @@ Notes on `mssql`:
   `[/settings/mssql]`, which also exercises a valued boolean over REST.
 - `installTimeoutMinutes` is 20: the fragment restarts the engine twice and
   downloads the driver.
+
+Notes on `hub`:
+
+- The targets run NRPE over TLS with the agent's own certificate
+  (`insecure = false`) and `allow arguments` on. Their bundle sets `allowed
+  hosts` to the hub's public IP only (`${ESTATE_IPS:hub}`), so port 5666 is
+  open in the NSG but answers nobody else.
+- `verify mode = none` (no client certificate) is a `localSettings` key, not
+  a bundle one. A fresh MSI install writes its secure NRPE preset,
+  `verify mode = peer-cert`, into `nsclient.ini`, where it beats anything a
+  bundle sends; the Linux packages leave NRPEServer on its own default. Without
+  it the Windows target refuses the hub ("Failed to verify other ends
+  certificate"). The preset does not touch `allowed hosts`, so the bundle's
+  hub-only list applies on both platforms.
+- `check_remote_nscp` and `check_nsclient_web_online` reach the target's REST
+  API with its web password and `verify=none`: the agents' certificates are
+  self-signed. `checks.json` records `${target.password}`, not the password.
+- `target` is `companionOnly`: `all` provisions it only with the hub.
+
+**`-CheckNsclient`.** `./run-estate.ps1 <suite> -CheckNsclient` also runs every
+role check through the `check_nsclient` plugin from the runner, the way a
+Nagios server does: `check_nsclient nsclient auth login` to one profile per
+machine, then `queries execute-nagios <command> key=value...`, judged on its
+exit code and perfdata, and the profile is logged out again. The plugin is
+`check_nsclient` on PATH, else the one an NSClient++ install puts in its
+program folder (`verify-estate.ps1 -CheckNsclientPath` picks another).
 
 ## Turn-key Nagios monitoring for the fleet
 
