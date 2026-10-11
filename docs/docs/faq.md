@@ -286,7 +286,7 @@ If your command takes 60 seconds you need to set the timeouts like this:
 
 ```
 [/settings/external scripts/wrappings]
-vbs = cscript.exe //T:120 //NoLogo scripts\\lib\\wrapper.vbs %SCRIPT% %ARGS%
+vbs = cscript.exe //T:60 //NoLogo scripts\\lib\\wrapper.vbs %SCRIPT% %ARGS%
 ```
 
 #### 2. External script timeout: 65 seconds
@@ -299,7 +299,7 @@ timeout = 65
 #### 3. NRPE/server timeout: 70s
 
 ```
-[settings/NPRE/server]
+[/settings/NRPE/server]
 timeout = 70
 ```
 
