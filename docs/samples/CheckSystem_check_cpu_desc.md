@@ -15,9 +15,11 @@ for example `time=10m` or `time=30s time=2m`.
 Each sample is the share of time the CPU spent busy since the previous sample. It is computed from
 the operating system's cumulative CPU time counters, not from a performance counter:
 
-* **Windows:** the total comes from `GetSystemTimes()` and the per-core values from
-  `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`. Windows counts idle time
-  inside kernel time, so idle is subtracted from it; what is left is the `system` keyword.
+* **Windows:** the total comes from `GetSystemTimes()`. With `fetch core loads` enabled (the
+  default) the per-core values come from
+  `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`; with it disabled only the
+  total is read and there are no `core N` rows. Windows counts idle time inside kernel time, so
+  idle is subtracted from it; what is left is the `system` keyword.
 * **Linux:** the `cpu` and `cpuN` lines of `/proc/stat`. `idle` and `iowait` count as idle. Busy
   time is `user`, `nice`, `system`, `irq`, `softirq` and `steal`, so a VM that loses time to its
   host shows that time as load.
@@ -25,10 +27,11 @@ the operating system's cumulative CPU time counters, not from a performance coun
 
 On Windows the very first sample after the agent starts has no previous sample to compare with, so
 it holds the average load since the machine booted, and it goes into the buffer like any other.
-Right after a restart, while the windows still hold only a few samples, it pulls the short averages
-(`5s`, and less so `1m`) towards the host's long-term average. It drops out once the window has
-moved past it. Linux and macOS use their first reading only as the starting point and store no
-sample for it.
+Right after the agent (re)starts, while the windows still hold only a few samples, it pulls the
+short averages (`5s`, and less so `1m`) towards the host's long-term average. It drops out once the
+window has moved past it. This only matters when the agent restarts on a host that has been up for
+a while: after a reboot, "since boot" is only a few seconds. Linux and macOS use their first
+reading only as the starting point and store no sample for it.
 
 `check_cpu` does not read the `\Processor(_Total)\% Processor Time` PDH counter. It measures the
 same thing, so it tracks that counter in PerfMon closely, but the two will not match exactly:
@@ -37,16 +40,9 @@ Windows 8) shows a different counter, `% Processor Utility`, which is scaled by 
 frequency. On a laptop or a server with turbo boost, it can differ from `check_cpu` by tens of
 percent under steady load.
 
-If you want the PDH counter itself, read it with `check_pdh` and the `averages` option:
-
-```
-check_pdh counter='\Processor(_Total)\% Processor Time' averages
-```
-
-`% Processor Time` is a rate, so a single sample of it is meaningless; `averages` makes the check
-take two samples one second apart. The single quotes stop the `nscp test` prompt from treating the
-backslashes as escapes. For an average over a longer window, configure the counter with
-`collection strategy=rrd` and use `time=` (see the `check_pdh` samples).
+If you want the PDH counter itself, read it with `check_pdh` and `averages=true`. See
+*Instantaneous versus averaged counters* in the `check_pdh` reference for why `averages` matters
+there, and for averaging over a longer window.
 
 **Buffer size and configuration**
 

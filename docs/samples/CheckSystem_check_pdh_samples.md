@@ -58,10 +58,18 @@ Everything looks good
 'foo value'=3;80;90
 ```
 
-Checking **all instances** of a given counter::
+Checking **all instances** of a given counter (captured on a Swedish Windows, hence `processortid`)::
 
 ```
-    check_pdh "counter=\Processor(*)\% processortid" instances
+    check_pdh counter='\Processor(*)\% processortid' instances
 L     client OK: \\MIME-LAPTOP\Processor(0)\% processortid = 100, \\MIME-LAPTOP\Processor(1)\% processortid = 100, \\MIME-LAPTOP\Processor(2)\% processortid = 100, \\MIME-LAPTOP\Processor(3)\% processortid = 100, \\MIME-LAPTOP\Processor(4)\% processortid = 100, \\MIME-LAPTOP\Processor(5)\% processortid = 100, \\MIME-LAPTOP\Processor(6)\% processortid = 100, \\MIME-LAPTOP\Processor(7)\% processortid = 100, \\MIME-LAPTOP\Processor(_Total)\% processortid = 100
     L     client  Performance data: '\Processor(*)\% processortid_0'=100;0;0 '\Processor(*)\% processortid_1'=100;0;0 '\Processor(*)\% processortid_2'=100;0;0 '\Processor(*)\% processortid_3'=100;0;0 '\Processor(*)\% processortid_4'=100;0;0 '\Processor(*)\% processortid_5'=100;0;0 '\Processor(*)\% processortid_6'=100;0;0 '\Processor(*)\% processortid_7'=100;0;0 '\Processor(*)\% processortid__Total'=100;0;0
 ```
+
+Every instance reads 100 because this was a single sample of a rate counter; add `averages=true`
+to get real values (see *Instantaneous versus averaged counters* in the `check_pdh` description).
+
+At the `nscp test` prompt, put a counter path in single quotes as above. Inside double quotes the
+prompt treats a backslash as an escape and drops it, so `"counter=\Processor(*)\..."` reaches the
+check without its backslashes and the counter is not found. Doubling them (`\\Processor`) also
+works, as in the examples further up.
