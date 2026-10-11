@@ -15,6 +15,7 @@ set(SRCS
     ${NSCP_FILTER_CPP}
     tick_count.cpp
     pdh_thread.cpp
+    pdh_counter_set.cpp
     check_network.cpp
     check_temperature.cpp
     check_cpu_frequency.cpp
@@ -78,6 +79,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/win/processes.hpp
         ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.h
         pdh_thread.hpp
+        pdh_counter_set.hpp
         disable_list.hpp
         check_pdh.hpp
         check_memory.hpp
@@ -220,6 +222,7 @@ NSCP_CREATE_TEST(
         check_printjobs.cpp
         check_w32time.cpp
         pdh_thread.cpp
+        pdh_counter_set.cpp
         filter_config_object.cpp
         realtime_data.cpp
         check_process.cpp

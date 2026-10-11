@@ -172,7 +172,7 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
     ("expand-index", po::value<bool>(&expand_index)->implicit_value(true)->default_value(false), "Expand indexes in counter strings")
     ("resolution", po::value<std::string>(&resolution)->default_value("auto"), "How to resolve counter names against the system locale: auto (try the localized name, then the English API, then index expansion - the default), english (force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names)")
     ("instances", po::value<bool>(&expand_instance)->implicit_value(true)->default_value(false), "Expand wildcards and fetch all instances")
-    ("reload", po::value<bool>(&reload)->implicit_value(true)->default_value(false), "Reload counters on errors (useful to check counters which are not added at boot)")
+    ("reload", po::value<bool>(&reload)->implicit_value(true)->default_value(false), "Retry predefined counters that could not be added yet before reporting them missing (the collector also retries them in the background, every minute)")
     ("averages", po::value<bool>(&check_average)->implicit_value(true)->default_value(false), "Check average values (ie. wait for 1 second to collecting two samples)")
     ("time", po::value<std::vector<std::string>>(&times), "Timeframe to use for named rrd counters")
     ("flags", po::value<std::string>(&flags), "Extra flags to configure the counter (nocap100, 1000, noscale)")
@@ -300,6 +300,13 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
   for (const counter_list::value_type &vc : named_counters) {
     try {
       typedef std::map<std::string, double> value_list_type;
+
+      // A predefined counter the collector could not add yet (a service that
+      // registers it started after NSClient++) is retried now instead of at
+      // the collector's next scheduled attempt.
+      if (reload && !collector->has_counter(vc.second) && !collector->retry_unresolved_counters(5000)) {
+        NSC_DEBUG_MSG("Timed out waiting for the collector to retry counter " + vc.second);
+      }
 
       for (const std::string &time : times) {
         value_list_type values;

@@ -7,6 +7,7 @@
 #include <chrono>
 #include <list>
 #include <memory>
+#include <set>
 #include <string>
 #include <thread>
 #include <utility>
@@ -15,6 +16,8 @@
 #include <win/pdh/pdh_object_gather.hpp>
 #include <win/pdh/pdh_query.hpp>
 #include <win/pdh/thread_safe_impl.hpp>
+
+#include "pdh_counter_set.hpp"
 
 namespace {
 
@@ -30,6 +33,9 @@ class MockPdh : public PDH::impl_interface {
   PDH_STATUS formatted_value_status = ERROR_SUCCESS;
   PDH_STATUS expand_wild_card_status = ERROR_SUCCESS;
   bool throw_on_add_listener = false;
+  // Counter paths that do not exist (yet): adding one fails as PDH does for
+  // an object that is not registered.
+  std::set<std::wstring> missing_paths;
 
   // Observables
   int listener_count = 0;
@@ -77,12 +83,16 @@ class MockPdh : public PDH::impl_interface {
     --open_handles;
     return {};
   }
-  PDH::pdh_error PdhAddCounter(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
+  PDH::pdh_error PdhAddCounter(PDH::PDH_HQUERY, LPCWSTR path, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
     ++add_counter_calls;
     note_call();
     if (add_counter_status != ERROR_SUCCESS) {
       *phCounter = nullptr;
       return {add_counter_status};
+    }
+    if (missing_paths.count(path) > 0) {
+      *phCounter = nullptr;
+      return {static_cast<PDH_STATUS>(PDH_CSTATUS_NO_OBJECT)};
     }
     ++open_counter_handles;
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x2000 + add_counter_calls));
@@ -91,12 +101,16 @@ class MockPdh : public PDH::impl_interface {
   // Tracked separately from PdhAddCounter so resolution-mode tests can assert
   // which API was used, but it shares add_counter_status as its failure knob so
   // existing "add fails" tests still fail through both paths.
-  PDH::pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
+  PDH::pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY, LPCWSTR path, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
     ++add_english_counter_calls;
     note_call();
     if (add_counter_status != ERROR_SUCCESS) {
       *phCounter = nullptr;
       return {add_counter_status};
+    }
+    if (missing_paths.count(path) > 0) {
+      *phCounter = nullptr;
+      return {static_cast<PDH_STATUS>(PDH_CSTATUS_NO_OBJECT)};
     }
     ++open_counter_handles;
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x3000 + add_english_counter_calls));
@@ -714,4 +728,115 @@ TEST(ThreadedSafePdh, InstancesShareTheLockAndTheSubscribers) {
   older.unlock();
   other.join();
   EXPECT_TRUE(acquired);
+}
+
+// ----------------------------------------------------------------------------
+// Predefined counters: one missing counter must not take the others down, and
+// must be picked up once it exists (#634)
+// ----------------------------------------------------------------------------
+
+namespace {
+PDH::pdh_object make_config(const std::string &alias, const std::string &path) {
+  PDH::pdh_object obj;
+  obj.set_alias(alias);
+  obj.set_counter(path);
+  obj.set_type(PDH::pdh_object::type_long);
+  obj.set_strategy_static();
+  return obj;
+}
+}  // namespace
+
+TEST_F(PdhQueryLifecycleTest, CounterSetStartsWithEveryCounterUnresolved) {
+  pdh_counters::counter_set set;
+  set.configure({make_config("a", "\\A\\Value"), make_config("b", "\\B\\Value")});
+  EXPECT_TRUE(set.resolved().empty());
+  EXPECT_EQ(set.unresolved().size(), 2u);
+  EXPECT_FALSE(set.complete());
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetMissingCounterDoesNotFailTheOthers) {
+  mock->missing_paths.insert(L"\\Service\\Jobs");
+  pdh_counters::counter_set set;
+  set.configure({make_config("cpu", "\\Processor(_Total)\\% Processor Time"), make_config("jobs", "\\Service\\Jobs")});
+
+  const pdh_counters::counter_set::probe_result probe = set.probe();
+  ASSERT_EQ(probe.resolved.size(), 1u);
+  EXPECT_EQ(probe.resolved.front().config.alias, "cpu");
+  ASSERT_EQ(probe.unresolved.size(), 1u);
+  EXPECT_EQ(probe.unresolved.front().config.alias, "jobs");
+  EXPECT_FALSE(probe.unresolved.front().error.empty());
+
+  // probe() only reports; commit() adopts.
+  EXPECT_TRUE(set.resolved().empty());
+  set.commit(probe);
+  EXPECT_EQ(set.resolved().size(), 1u);
+  EXPECT_EQ(set.unresolved().size(), 1u);
+
+  // The query built from what resolved opens: the missing counter is not in it.
+  PDH::PDHQuery q;
+  set.fill(q);
+  EXPECT_NO_THROW(q.open());
+  EXPECT_TRUE(q.is_open());
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetProbeLeavesNoHandlesOpen) {
+  mock->missing_paths.insert(L"\\Service\\Jobs");
+  pdh_counters::counter_set set;
+  set.configure({make_config("cpu", "\\Processor(_Total)\\% Processor Time"), make_config("jobs", "\\Service\\Jobs")});
+  set.probe();
+  EXPECT_EQ(mock->open_handles, 0);
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  EXPECT_EQ(mock->listener_count, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetPicksUpACounterOnceItExists) {
+  mock->missing_paths.insert(L"\\Service\\Jobs");
+  pdh_counters::counter_set set;
+  set.configure({make_config("cpu", "\\Processor(_Total)\\% Processor Time"), make_config("jobs", "\\Service\\Jobs")});
+  set.commit(set.probe());
+  ASSERT_EQ(set.resolved().size(), 1u);
+  const PDH::pdh_instance cpu = set.resolved().front().instance;
+
+  // Still missing: a retry changes nothing.
+  set.commit(set.probe());
+  EXPECT_EQ(set.resolved().size(), 1u);
+  EXPECT_EQ(set.unresolved().size(), 1u);
+
+  // The service registered its counter.
+  mock->missing_paths.clear();
+  const pdh_counters::counter_set::probe_result probe = set.probe();
+  ASSERT_EQ(probe.resolved.size(), 1u);
+  EXPECT_EQ(probe.resolved.front().config.alias, "jobs");
+  set.commit(probe);
+  EXPECT_TRUE(set.complete());
+  ASSERT_EQ(set.resolved().size(), 2u);
+  // The counter that resolved first keeps its instance, and with it the values
+  // it has collected so far.
+  EXPECT_EQ(set.resolved().front().instance, cpu);
+
+  PDH::PDHQuery q;
+  set.fill(q);
+  EXPECT_NO_THROW(q.open());
+  EXPECT_EQ(mock->open_counter_handles, 2);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetDemoteAllRetriesEverything) {
+  pdh_counters::counter_set set;
+  set.configure({make_config("a", "\\A\\Value"), make_config("b", "\\B\\Value")});
+  set.commit(set.probe());
+  ASSERT_TRUE(set.complete());
+  set.demote_all("query failed");
+  EXPECT_TRUE(set.resolved().empty());
+  ASSERT_EQ(set.unresolved().size(), 2u);
+  EXPECT_EQ(set.unresolved().front().error, "query failed");
+}
+
+TEST(PdhCounterRetrySchedule, BacksOffThenSettlesOnTheSteadyCadence) {
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(0), 1000u);
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(1), 2000u);
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(5), 30000u);
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(pdh_counters::retry_schedule::fast_attempts), pdh_counters::retry_schedule::steady_delay_ms);
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(1000), pdh_counters::retry_schedule::steady_delay_ms);
 }

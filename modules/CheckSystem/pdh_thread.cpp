@@ -126,54 +126,75 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   have_prev_proc_cpu_ = true;
 }
 
-bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors) {
-  counters_.clear();
-  lookups_.clear();
-  pdh.removeAllCounters();
-
-  for (const PDH::pdh_object &obj : configs_) {
-    try {
-      PDH::pdh_instance instance = PDH::factory::create(obj);
-      if (instance->has_instances()) {
-        for (const PDH::pdh_instance &sc : instance->get_instances()) {
-          NSC_DEBUG_MSG("Loading counter: " + sc->get_name() + " = " + sc->get_counter());
-          pdh.addCounter(sc);
-        }
-      } else {
-        NSC_DEBUG_MSG("Loading counter: " + instance->get_name() + " = " + instance->get_counter());
-        pdh.addCounter(instance);
-      }
-      counters_.push_back(instance);
-      lookups_[instance->get_name()] = instance;
-    } catch (const std::exception &e) {
-      if (log_failures_as_errors) {
-        NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias, e);
-      } else {
-        NSC_DEBUG_MSG("Counter " + obj.alias + " not yet available, will retry: " + utf8::utf8_from_native(e.what()));
-      }
+bool pdh_thread::adopt_counters(const pdh_counters::counter_set::probe_result &probe, PDH::PDHQuery &pdh, const bool query_open) {
+  counter_set_.commit(probe);
+  if (probe.resolved.empty()) return query_open;
+  for (const pdh_counters::resolved_counter &c : probe.resolved) {
+    // A counter that was reported missing says so when it turns up, so the
+    // error in the log is not the last word on it.
+    if (reported_missing_.erase(c.config.alias) > 0) {
+      NSC_LOG_MESSAGE("Counter " + c.config.alias + " is now available");
+    } else {
+      NSC_DEBUG_MSG("Loading counter: " + c.config.alias + " = " + c.config.path);
     }
   }
 
-  if (counters_.empty()) {
-    if (log_failures_as_errors) {
-      NSC_LOG_MESSAGE("No PDH counters could be resolved (performance counters disabled)");
-    }
-    return false;
-  }
-
+  bool open = false;
   try {
+    counter_set_.fill(pdh);
     pdh.open();
     pdh.collect();
-    return true;
+    open = true;
+    query_failure_logged_ = false;
   } catch (const std::exception &e) {
-    if (log_failures_as_errors) {
-      NSC_LOG_ERROR_EXR("Failed to open PDH counters (performance counters disabled)", e);
+    // Every counter opened on its own a moment ago, so it is the query as a
+    // whole that failed: retry them all rather than collect none of them
+    // until the next restart.
+    const std::string error = utf8::utf8_from_native(e.what());
+    if (!query_failure_logged_) {
+      query_failure_logged_ = true;
+      NSC_LOG_ERROR("Failed to open PDH counters, will retry: " + error);
     } else {
-      NSC_DEBUG_MSG("PDH open/collect failed, will retry: " + utf8::utf8_from_native(e.what()));
+      NSC_DEBUG_MSG("Failed to open PDH counters, will retry: " + error);
     }
     pdh.removeAllCounters();
-    return false;
+    counter_set_.demote_all(error);
   }
+
+  counters_.clear();
+  lookups_.clear();
+  for (const pdh_counters::resolved_counter &c : counter_set_.resolved()) {
+    counters_.push_back(c.instance);
+    lookups_[c.instance->get_name()] = c.instance;
+  }
+  return open;
+}
+
+void pdh_thread::report_missing_counters() {
+  for (const pdh_counters::unresolved_counter &c : counter_set_.unresolved()) {
+    if (!reported_missing_.insert(c.config.alias).second) continue;
+    NSC_LOG_ERROR("Failed to add counter " + c.config.alias + " (" + c.config.path + "): " + c.error + " - retrying every " +
+                  str::xtos(pdh_counters::retry_schedule::steady_delay_ms / 1000) + " seconds");
+  }
+}
+
+unsigned long long pdh_thread::pending_retry_request() {
+  const boost::lock_guard<boost::mutex> guard(retry_mutex_);
+  return retry_requested_ > retry_completed_ ? retry_requested_ : 0;
+}
+
+void pdh_thread::complete_retry_request(const unsigned long long ticket) {
+  {
+    const boost::lock_guard<boost::mutex> guard(retry_mutex_);
+    if (ticket > retry_completed_) retry_completed_ = ticket;
+  }
+  retry_done_.notify_all();
+}
+
+bool pdh_thread::retry_unresolved_counters(const long timeout_ms) {
+  boost::unique_lock<boost::mutex> lock(retry_mutex_);
+  const unsigned long long ticket = ++retry_requested_;
+  return retry_done_.timed_wait(lock, boost::posix_time::milliseconds(timeout_ms), [this, ticket] { return retry_completed_ >= ticket; });
 }
 
 bool pdh_thread::store_tick(const cpu_reading *cpu_read, const load_fold *fold, const spi_container &handles, PDH::PDHQuery *pdh, const bool with_metrics,
@@ -291,25 +312,15 @@ void pdh_thread::thread_proc() {
   // fallback in pdh_counters.cpp is a safety net, not a substitute).
   SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT));
 
-  // Retry PDH counter setup with exponential back-off. Perflib registration
-  // is sometimes not complete when the service starts shortly after boot,
-  // which previously left PDH disabled until the next service restart (#634).
+  // Add every predefined counter that exists right now. One that does not
+  // (perflib still registering after boot, or a counter a service registers
+  // when it starts) no longer fails the others: it stays on the unresolved
+  // list and the loop below keeps retrying it (#634).
   if (!configs_.empty()) {
-    const DWORD backoff_ms[] = {1000, 2000, 4000, 8000, 16000, 30000};
-    const int max_attempts = sizeof(backoff_ms) / sizeof(backoff_ms[0]);
-    for (int attempt = 0; attempt < max_attempts; ++attempt) {
-      const bool is_last_attempt = (attempt + 1 == max_attempts);
-      if (try_setup_pdh_counters(pdh, is_last_attempt)) {
-        check_pdh = true;
-        break;
-      }
-      if (!is_last_attempt) {
-        // Interruptible back-off: if shutdown is signalled mid-wait, break
-        // out and let the main loop exit normally (mutex_ is unlocked there).
-        if (WaitForSingleObject(stop_signal_.native_handle(), backoff_ms[attempt]) == WAIT_OBJECT_0) {
-          break;
-        }
-      }
+    counter_set_.configure(configs_);
+    check_pdh = adopt_counters(counter_set_.probe(), pdh, false);
+    for (const pdh_counters::unresolved_counter &c : counter_set_.unresolved()) {
+      NSC_DEBUG_MSG("Counter " + c.config.alias + " not yet available, will retry: " + c.error);
     }
   }
 
@@ -444,9 +455,35 @@ void pdh_thread::thread_proc() {
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
   ULONGLONG last_load_tick = 0;  // tick_start of the previous load fold (0 = none yet)
+  unsigned counter_retry = 0;
+  ULONGLONG next_counter_retry = nscpGetTickCount64() + pdh_counters::retry_schedule::delay_ms(0);
   do {
     const ULONGLONG tick_start = nscpGetTickCount64();
     std::list<std::string> errors;
+    {
+      // Retry the predefined counters that could not be added, on the
+      // schedule or when check_pdh reload=true asks for it now.
+      const unsigned long long retry_ticket = pending_retry_request();
+      if (!disable_pdh && !counter_set_.complete() && (retry_ticket != 0 || tick_start >= next_counter_retry)) {
+        const pdh_counters::counter_set::probe_result probe = counter_set_.probe();
+        if (probe.resolved.empty()) {
+          counter_set_.commit(probe);
+        } else {
+          boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+          if (writeLock.owns_lock()) {
+            check_pdh = adopt_counters(probe, pdh, check_pdh);
+          } else {
+            // Nothing was adopted: the next attempt probes them again.
+            errors.emplace_back("Failed to get mutex for adding performance counters");
+          }
+        }
+        if (retry_ticket == 0) {
+          if (counter_retry + 1 == pdh_counters::retry_schedule::fast_attempts) report_missing_counters();
+          next_counter_retry = nscpGetTickCount64() + pdh_counters::retry_schedule::delay_ms(++counter_retry);
+        }
+      }
+      if (retry_ticket != 0) complete_retry_request(retry_ticket);
+    }
     {
       if (!disable_handles && i == 0) {
         try {
@@ -706,6 +743,12 @@ pdh_thread::non_atomic_count_map pdh_thread::get_realtime_filter_counts() {
     return non_atomic_count_map();
   }
   return non_atomic_count_map(realtime_filter_counts_);
+}
+
+bool pdh_thread::has_counter(const std::string &counter) {
+  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!readLock.owns_lock()) return false;
+  return lookups_.find(counter) != lookups_.end();
 }
 
 std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) {

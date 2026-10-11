@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <boost/optional.hpp>
+#include <boost/thread/condition_variable.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
@@ -15,6 +16,7 @@
 #include <nscapi/settings/proxy.hpp>
 #include <rrd_buffer.hpp>
 #include <sampling_state.hpp>
+#include <set>
 #include <threads/stop_signal.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_query.hpp>
@@ -29,6 +31,7 @@
 #include "check_process_history.hpp"
 #include "check_temperature.hpp"
 #include "filter_config_object.hpp"
+#include "pdh_counter_set.hpp"
 
 struct spi_container {
   long long handles;
@@ -88,6 +91,20 @@ class pdh_thread {
 
   std::list<PDH::pdh_object> configs_;
   std::list<PDH::pdh_instance> counters_;
+  // Which of configs_ have been added to the collector's query and which are
+  // still being retried. Touched only by thread_proc.
+  pdh_counters::counter_set counter_set_;
+  // Aliases of the counters reported missing, so each is reported once and
+  // announced when it turns up. Touched only by thread_proc.
+  std::set<std::string> reported_missing_;
+  bool query_failure_logged_ = false;
+  // check_pdh reload=true asks the collector to retry the missing counters now
+  // rather than at the next scheduled attempt: a request bumps
+  // retry_requested_, the collector sets retry_completed_ to what it served.
+  boost::mutex retry_mutex_;
+  boost::condition_variable retry_done_;
+  unsigned long long retry_requested_ = 0;
+  unsigned long long retry_completed_ = 0;
   rrd_buffer<windows::system_info::cpu_load> cpu;
   // Attempts to read the CPU load for `cpu`. Guarded by its own mutex rather
   // than mutex_, so an attempt is counted even when mutex_ cannot be had;
@@ -146,6 +163,12 @@ class pdh_thread {
   std::map<std::string, double> get_value(std::string counter);
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
+  // Whether a predefined counter has been added to the collector.
+  bool has_counter(const std::string &counter);
+  // Asks the collector to retry the predefined counters it has not managed to
+  // add yet, and waits up to timeout_ms for it to have done so. Returns false
+  // on a timeout (no running collector, or it is busy).
+  bool retry_unresolved_counters(long timeout_ms);
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
   // Whether the sampler has pushed a CPU sample yet, is still waiting for its
   // first tick, or has tried and failed (see sampling_state.hpp); none when
@@ -226,14 +249,18 @@ class pdh_thread {
                   error_list &errors);
   void write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors);
 
-  // Single attempt at resolving counters and opening the PDH query. Rebuilds
-  // counters_ and lookups_ from configs_ each call so that wildcard expansion
-  // re-runs (perflib may have finished registering since the previous attempt).
-  // Returns true on success; false on any per-counter or query-open failure.
-  // log_failures_as_errors selects the log level used for failures (true on
-  // the final attempt so the user sees what went wrong, false during retries
-  // to avoid spamming the log on transient boot races).
-  bool try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors);
+  // Adopts a probe of the unresolved counters: when it resolved any, rebuilds
+  // the query from every resolved counter and republishes counters_ and
+  // lookups_. Caller must hold the unique (write) lock on mutex_. Returns
+  // whether the query is open and worth gathering.
+  bool adopt_counters(const pdh_counters::counter_set::probe_result &probe, PDH::PDHQuery &pdh, bool query_open);
+  // Logs each counter still unresolved once the fast retries are spent, once
+  // per counter.
+  void report_missing_counters();
+  // The collector's side of retry_unresolved_counters(): the newest request
+  // not yet served, or 0.
+  unsigned long long pending_retry_request();
+  void complete_retry_request(unsigned long long ticket);
 
   filters::mem::filter_config_handler mem_filters_;
   filters::cpu::filter_config_handler cpu_filters_;
