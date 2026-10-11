@@ -343,3 +343,80 @@ TEST(ProcessOwner, DefaultsEmptyAndUidMirrorsSid) {
   EXPECT_EQ("PRICER\\michael.medin", p.get_username());
   EXPECT_EQ("S-1-5-21-1-2-3-1001", p.get_uid());  // uid is the SID string
 }
+
+// --- unread counter groups (protected / limited-access processes) -----------
+//
+// describe_pid() marks a real process's counter groups unread and sets each one
+// it manages to read. A group left unread must surface as "no value" (the
+// keyword renders "unknown" and never satisfies a threshold), never as a 0 that
+// reads like a measurement — the bug that kept `cpu > 50` and
+// `working_set > 2G` from ever firing on csrss.exe or MsMpEng.exe.
+
+TEST(ProcessCounters, SyntheticRowsAreKnown) {
+  // A named process that is not running, and the total row, really do use
+  // nothing: they keep reporting 0, not unknown.
+  const process_info missing("notepad.exe");
+  EXPECT_TRUE(missing.has_handles && missing.has_gui_handles && missing.has_times && missing.has_memory);
+  EXPECT_FALSE(missing.get_limited());
+  EXPECT_EQ(0, process_info::known_value(missing.has_memory, missing.get_WorkingSetSize()).value());
+}
+
+TEST(ProcessCounters, UnreadGroupHasNoValue) {
+  process_info p;
+  p.mark_counters_unread();
+  p.has_times = true;  // e.g. GetProcessTimes worked, the memory query was refused
+  p.total_time = 42;
+  EXPECT_EQ(42, process_info::known_value(p.has_times, p.get_total_time()).value());
+  EXPECT_FALSE(process_info::known_value(p.has_memory, p.get_WorkingSetSize()).is_initialized());
+  EXPECT_FALSE(process_info::known_value(p.has_handles, p.get_handleCount()).is_initialized());
+}
+
+TEST(ProcessCounters, TotalIsUnknownWhenAnyMemberIsAndCarriesLimited) {
+  auto total = process_info::get_total();
+  process_info readable;
+  readable.WorkingSetSize = 4096;
+  process_info limited;
+  limited.mark_counters_unread();
+  limited.has_times = true;
+  limited.limited = true;
+
+  *total += readable;
+  *total += limited;
+
+  EXPECT_FALSE(total->has_memory);  // a sum missing a member is not a reading
+  EXPECT_FALSE(total->has_handles);
+  EXPECT_TRUE(total->has_times);
+  EXPECT_TRUE(total->get_limited());
+}
+
+TEST(ProcessCounters, CpuDeltaKeepsProcessWithUnreadTimesAsUnknown) {
+  process_info previous;
+  previous.mark_counters_unread();
+  process_info current;
+  current.mark_counters_unread();
+
+  current -= previous;
+  // Kept (true), not dropped: the process is running, only its usage is unknown.
+  EXPECT_TRUE(current.make_cpu_delta(previous, 1000, 1000));
+  EXPECT_FALSE(current.has_times);
+  EXPECT_FALSE(process_info::known_value(current.has_times, current.get_total_time()).is_initialized());
+}
+
+TEST(ProcessCounters, CpuDeltaStillComputedWhenTimesWereRead) {
+  // A limited-only process whose GetProcessTimes worked gets a real percentage.
+  process_info previous;
+  previous.mark_counters_unread();
+  previous.has_times = true;
+  previous.limited = true;
+  previous.kernel_time_raw = 100;
+  previous.user_time_raw = 100;
+  process_info current = previous;
+  current.kernel_time_raw = 300;
+  current.user_time_raw = 300;
+
+  current -= previous;
+  ASSERT_TRUE(current.make_cpu_delta(previous, 1000, 1000));
+  EXPECT_TRUE(current.has_times);
+  EXPECT_EQ(20, current.get_total_time());  // (200 + 200) / 2000
+  EXPECT_FALSE(current.has_memory);         // never read, stays unknown
+}

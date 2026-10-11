@@ -85,6 +85,47 @@ To see every process's counters, the agent has to run as root; see [Installing
 on macOS](../../setup/installing.md#what-is-not-in-the-macos-build-yet) for the
 trade-off.
 
+#### Protected and other users' processes (Windows)
+
+The agent opens every process with full query rights where it can. Protected
+processes — `csrss.exe`, `smss.exe`, `wininit.exe`, `services.exe`,
+`MsMpEng.exe` and other anti-malware services — refuse that even to
+`SYSTEM`, and so do other users' processes when the agent runs under an
+unprivileged account. Those are opened with Windows' *limited* query right
+instead: they are listed and their `state` is `started` as usual, and the
+`limited` keyword is `true` for them. What can be read through that right:
+
+| Keywords | For a `limited` process |
+|----------|-------------------------|
+| `exe`, `filename`, `pid`, `state`, `started`, `thread_count` | always read |
+| `kernel`, `user`, `time` (also with `delta=true`), `creation` | read |
+| `handles`, `gdi_handles`, `user_handles` | read |
+| `username`, `uid` (with `resolve-owner=true`) | read when Windows hands out the process token; empty for some protected processes |
+| `virtual`, `peak_virtual`, `working_set`, `rss`, `peak_working_set`, `working_set_pct`, `page_fault`, `pagefile`, `peak_pagefile`, `pagefile_pct` | tried: read where the Windows version allows the memory query through the limited right, `unknown` where it does not |
+| `command_line` | always empty: it is read out of the process's memory, which the limited right does not allow |
+
+A counter that could not be read renders `unknown`, never satisfies a
+threshold in either direction and emits no performance data, rather than
+reporting a `0` that reads like a measurement: `crit=working_set > 2G` cannot
+fire on an `unknown` working set, and neither can `warn=working_set < 1M`.
+Test for it explicitly where it matters, with `= 'unknown'`:
+
+```
+check_process process=MsMpEng.exe delta=true "warn=time > 50" "crit=working_set > 2G or working_set = 'unknown'"
+```
+
+The same applies to a process that cannot be opened at all (only visible
+with `filter=none`, since the default filter drops `unreadable` processes) and
+to every process when `scan-info=false`, where no counter is read. A
+`total=true` row is `unknown` for a counter as soon as one of the processes it
+sums is, rather than an undercount.
+
+To keep such processes out of a check altogether, filter on `limited`:
+
+```
+check_process process=* "filter=limited = 0" "crit=working_set > 2G"
+```
+
 #### Process state: `state` vs `proc_state` (Linux)
 
 Two different questions, two keywords: `state` is the cross-platform
