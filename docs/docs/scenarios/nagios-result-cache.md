@@ -274,6 +274,8 @@ A feed of `0 result(s)` between two scheduler intervals is normal with `clear on
 nscp client --boot --query check_and_forward --argument command=check_cpu --argument alias="CPU Load" --argument channel=WEB
 ```
 
+Run one-shot like this, a collector-backed check such as `check_cpu` caches its warm-up result, not a load: the fresh process has no samples yet (see [collector-backed checks](../concepts/checks.md#8-collector-backed-checks-and-warm-up)). Use it to try the path; let the running agent's scheduler cache the real readings.
+
 **Inspecting the cache.** `results show winsrv01/Disk C` fetches one result without draining, `results delete <key>` drops a key that will never report again (a removed schedule), `results clear` resets the cache after maintenance.
 
 ---

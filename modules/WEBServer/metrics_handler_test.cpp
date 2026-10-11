@@ -4,9 +4,8 @@
 // The latched metrics snapshot the REST and OpenMetrics endpoints read.
 //
 // The daemon's metrics thread writes it once a second and any number of HTTP
-// workers read it; the five representations (the JSON blob, the flat list, the
-// described JSON and the two negotiated text expositions) are independent
-// latches, and confusing them serves a scrape the wrong body. Nothing covered
+// workers read it; the four representations (the flat list, the described
+// JSON and the two negotiated text expositions) are independent latches, and confusing them serves a scrape the wrong body. Nothing covered
 // that separation, nor the empty state a scrape gets before the first write.
 
 #include "metrics_handler.hpp"
@@ -19,17 +18,10 @@ TEST(MetricsHandler, ReadsAreEmptyBeforeTheFirstWrite) {
   // A scrape that arrives before the metrics thread has run must get an empty
   // body, not uninitialised memory or a fault.
   metrics_handler handler;
-  EXPECT_EQ(handler.get(), "");
   EXPECT_EQ(handler.get_list(), "");
   EXPECT_EQ(handler.get_described(), "");
   EXPECT_EQ(handler.get_openmetrics(), "");
   EXPECT_EQ(handler.get_prometheus_text(), "");
-}
-
-TEST(MetricsHandler, TheJsonBlobRoundTrips) {
-  metrics_handler handler;
-  handler.set("{\"cpu\":42}");
-  EXPECT_EQ(handler.get(), "{\"cpu\":42}");
 }
 
 TEST(MetricsHandler, TheFlatListRoundTrips) {
@@ -77,17 +69,15 @@ TEST(MetricsHandler, TheOpenmetricsExpositionRoundTrips) {
 }
 
 TEST(MetricsHandler, TheRepresentationsAreIndependent) {
-  // /metrics, /api/v2/metrics and the OpenMetrics scrape each latch their own
-  // rendering; writing one must not disturb the others.
+  // /api/v2/metrics and the OpenMetrics scrape each latch their own
+  // rendering; writing one must not disturb the other.
   metrics_handler handler;
-  handler.set("{\"cpu\":42}");
   handler.set_list("cpu", "{}");
   handler.set_openmetrics("nscp_cpu 42\n# EOF\n", "nscp_cpu 42\n# EOF\n");
 
-  handler.set("{\"cpu\":43}");
+  handler.set_list("mem", "{}");
 
-  EXPECT_EQ(handler.get(), "{\"cpu\":43}");
-  EXPECT_EQ(handler.get_list(), "cpu");
+  EXPECT_EQ(handler.get_list(), "mem");
   EXPECT_EQ(handler.get_openmetrics(), "nscp_cpu 42\n# EOF\n");
 }
 
@@ -120,9 +110,9 @@ TEST(MetricsHandler, EachWriteReplacesTheWholeSnapshot) {
 
 TEST(MetricsHandler, AnEmptyWriteClearsTheSnapshot) {
   metrics_handler handler;
-  handler.set("{\"cpu\":42}");
-  handler.set("");
-  EXPECT_EQ(handler.get(), "");
+  handler.set_list("{\"cpu\":42}", "{}");
+  handler.set_list("", "");
+  EXPECT_EQ(handler.get_list(), "");
 
   handler.set_openmetrics("a 1\n# EOF\n", "a 1\n# EOF\n");
   handler.set_openmetrics("", "");

@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <lua/lua_cpp.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
@@ -82,6 +83,31 @@ TEST(LuaWrapper, ANumericStringArgumentStillConverts) {
 
   EXPECT_TRUE(ok) << result;
   EXPECT_EQ(result, "42") << result;
+}
+
+TEST(LuaWrapper, ANumberOutsideTheIntRangeSaturates) {
+  // get_int cast lua_tonumber straight to int, which is undefined for a value
+  // that does not fit: set_persist(1e300), math.huge or 0/0 from a script.
+  const auto read = [](double value) {
+    std::string result;
+    static double pushed;
+    pushed = value;
+    const bool ok = call_protected(
+        [](lua_State *L) {
+          lua::lua_wrapper instance(L);
+          lua_pushnumber(L, pushed);
+          instance.push_int(instance.get_int());
+          return 1;
+        },
+        result);
+    EXPECT_TRUE(ok) << result;
+    return result;
+  };
+  EXPECT_EQ(read(1e300), std::to_string((std::numeric_limits<int>::max)()));
+  EXPECT_EQ(read(-1e300), std::to_string((std::numeric_limits<int>::min)()));
+  EXPECT_EQ(read(std::numeric_limits<double>::infinity()), std::to_string((std::numeric_limits<int>::max)()));
+  EXPECT_EQ(read(std::numeric_limits<double>::quiet_NaN()), "0");
+  EXPECT_EQ(read(-7.9), "-7");
 }
 
 namespace {

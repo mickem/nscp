@@ -737,7 +737,13 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
     fs::remove_all(staging, ignored);
     fs::create_directories(staging);
 
-    json::value merged = json::parse(state.merged_config_json.empty() ? "{}" : state.merged_config_json);
+    // The server's own document is the host override: what an operator set for this
+    // host alone. It has to outrank every bundle, so it is parsed up front (a bad one
+    // fails the apply before anything is downloaded) but merged in last. It used to be
+    // the base the bundles were merged onto, which let any bundle that set the same key
+    // silently win over the one setting written for exactly this host.
+    const json::value host_override = json::parse(state.merged_config_json.empty() ? "{}" : state.merged_config_json);
+    json::value merged = json::object();
 
     for (const onboarding::bundle_info &bundle : state.bundles) {
       std::string bytes, error;
@@ -828,6 +834,7 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
       new_installed.push_back(installed);
     }
 
+    merged = onboarding::json_merge_patch(merged, host_override);
     const std::string fleet_ini = onboarding::render_ini(merged);
     write_file(staging / "fleet.ini", fleet_ini);
 

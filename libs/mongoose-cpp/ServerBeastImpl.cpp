@@ -8,8 +8,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
-#include <boost/asio/post.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/beast/core.hpp>
@@ -628,12 +628,15 @@ void ServerBeastImpl::stop() {
   //   4. ioc_.run() exits naturally on every pool thread with no pending
   //      operations, so ~io_context() has nothing left to destroy.
   //
-  // The close is posted to the accept strand rather than made here: the
-  // accept coroutine may be inside async_accept on one of the pool threads,
-  // and an acceptor is not safe to touch from two threads at once. The posted
-  // handler is work of its own, so dropping the guard below cannot let run()
-  // return before it has executed.
-  asio::post(accept_strand_, [this] {
+  // The acceptor is closed on the accept strand, not here: a tcp::acceptor is
+  // not safe to share between threads, and the accept coroutine - which runs
+  // on that strand, on whichever pool thread - may be re-arming async_accept on
+  // it at this very moment. dispatch() runs it inline when stop() is already on
+  // the strand, and otherwise queues it ahead of the work guard's release - a
+  // queued handler is work, so run() executes it before it can return. If
+  // run() has already returned, the acceptor_.reset() after the join below
+  // closes it instead.
+  asio::dispatch(accept_strand_, [this] {
     if (acceptor_ && acceptor_->is_open()) {
       boost::system::error_code ec;
       acceptor_->cancel(ec);

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -319,6 +320,23 @@ TEST(CollectdBuilder, GaugeAcceptsLiteralValue) {
   ASSERT_EQ(lists.size(), 1u);
   ASSERT_EQ(lists[0].gauges.size(), 1u);
   EXPECT_DOUBLE_EQ(lists[0].gauges[0], 7.0);
+}
+
+TEST(CollectdBuilder, AnOutOfRangeDeriveLiteralSaturates) {
+  // A derive literal is parsed as a double; casting one past the int64 range
+  // to long long was undefined. It now clamps to the int64 range.
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("h");
+  b.add_metric("load-/derive-value", "derive:1e30,7.9");
+
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets);
+  const auto lists = decode_packet(packets.front().get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  ASSERT_EQ(lists[0].derives.size(), 2u);
+  EXPECT_EQ(lists[0].derives[0], (std::numeric_limits<int64_t>::max)());
+  EXPECT_EQ(lists[0].derives[1], 7);
 }
 
 TEST(CollectdBuilder, ExpandsVariablesFromMatchingMetricNames) {

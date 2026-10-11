@@ -29,6 +29,19 @@ size puts an upper bound on the time windows you can use:
   `warmup-state=ok` (or `warning`/`critical`) to report a different status meanwhile. Only that
   first-sample case is affected: a window that is merely not full yet answers from what it has.
 
+**One-shot `nscp client` cannot measure CPU load**
+
+The buffer lives in the running process, so it only has history in an agent that keeps running.
+`nscp client --module CheckSystem --boot --query check_cpu` starts a new process, loads the module,
+asks at once and exits. The collector has not sampled yet, so the answer is always the warm-up one,
+whatever `time=` says. This is also what you get from wrappers that run `nscp.exe client` once per
+check, such as the Icinga 2 `nscp-local-cpu` check command or a scheduled task. Results from
+`nscp test` look different because it keeps the agent running.
+
+Run `check_cpu` against the agent that is already running instead: over NRPE, over the REST API
+(for example with `check_nscp_api`), or from the agent's own scheduler with NSCA/NRDP.
+`warmup-state=ok` only turns the warm-up answer green; it does not produce a reading.
+
 If you need to check on longer windows (for example `2h` or `6h`) you must increase
 `default buffer length` accordingly. Note that a larger buffer uses more memory, so only increase
 it as far as you actually need.

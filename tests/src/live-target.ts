@@ -13,15 +13,25 @@
  *
  *   NSCP_TARGET_URL       Base URL of the REST API. Default https://127.0.0.1:8443
  *   NSCP_TARGET_USER      REST user to log in as.    Default "admin"
- *   NSCP_TARGET_PASSWORD  Password for that user.    REQUIRED
+ *   NSCP_TARGET_PASSWORD  Password for that user.    REQUIRED, unless a
+ *                         credentials file provides it (below)
  *   NSCP_TARGET_INSECURE  Skip TLS cert verification (VMs use a self-signed
  *                         cert). Default "1" (on); set to "0"/"false" to verify.
  *   NSCP_TARGET_OS        "windows" | "linux" — lets platform-specific checks
  *                         run without querying the server. Optional; when unset
  *                         the suite derives it from check_os_version.
+ *   NSCP_TARGET_PWD_FILE  A credentials file the build/powershell setup scripts
+ *                         write (.vm.pwd, .vm.<name>.pwd). Its "Web URL" and
+ *                         "Web Password" fill in whatever NSCP_TARGET_URL /
+ *                         NSCP_TARGET_PASSWORD leave unset. With neither a
+ *                         password nor this, build/powershell/.vm.pwd is used
+ *                         if it exists: the machine provisioned last.
  */
+import * as fs from "fs";
+import * as path from "path";
 import request from "supertest";
 import type { QueryResult } from "./queries";
+import { POWERSHELL_DIR } from "./estate-manifest";
 
 export type TargetOs = "windows" | "linux";
 
@@ -47,11 +57,36 @@ function withTls<T extends request.Test>(req: T, insecure: boolean): T {
   return insecure ? (req.disableTLSCerts() as T) : (req.trustLocalhost(true) as T);
 }
 
+/** The credentials file the setup scripts write for the machine they provisioned last. */
+export const DEFAULT_PWD_FILE = path.join(POWERSHELL_DIR, ".vm.pwd");
+
+/**
+ * Web URL and password from a .vm.pwd / .vm.<name>.pwd file: its own "Web URL"
+ * first (what the setup script configured), else its public IP on 8443.
+ */
+export function readPwdFile(file: string): { url?: string; password?: string } {
+  const text = fs.readFileSync(file, "utf8");
+  const field = (name: string) => new RegExp(`^\\s*${name}:\\s*(.+?)\\s*$`, "m").exec(text)?.[1];
+  const ip = field("Public IP");
+  return {
+    url: field("Web URL") ?? (ip ? `https://${ip}:8443` : undefined),
+    password: field("Web Password"),
+  };
+}
+
 /** Read + validate the NSCP_TARGET_* environment. Throws if password missing. */
 export function liveConfig(): LiveConfig {
-  const base = process.env.NSCP_TARGET_URL ?? "https://127.0.0.1:8443";
+  const pwdFile =
+    process.env.NSCP_TARGET_PWD_FILE ??
+    (!process.env.NSCP_TARGET_PASSWORD && fs.existsSync(DEFAULT_PWD_FILE)
+      ? DEFAULT_PWD_FILE
+      : undefined);
+  if (pwdFile && !fs.existsSync(pwdFile))
+    throw new Error(`NSCP_TARGET_PWD_FILE ${pwdFile} does not exist.`);
+  const fromFile = pwdFile ? readPwdFile(pwdFile) : {};
+  const base = process.env.NSCP_TARGET_URL ?? fromFile.url ?? "https://127.0.0.1:8443";
   const user = process.env.NSCP_TARGET_USER ?? "admin";
-  const password = process.env.NSCP_TARGET_PASSWORD ?? "";
+  const password = process.env.NSCP_TARGET_PASSWORD ?? fromFile.password ?? "";
   const insecureRaw = process.env.NSCP_TARGET_INSECURE ?? "1";
   const insecure = insecureRaw !== "0" && insecureRaw.toLowerCase() !== "false";
   const osRaw = process.env.NSCP_TARGET_OS?.toLowerCase();
@@ -60,8 +95,8 @@ export function liveConfig(): LiveConfig {
   if (!password) {
     throw new Error(
       "NSCP_TARGET_PASSWORD is not set. The live suite needs the WEB password of " +
-        `the running server (${base}). Set NSCP_TARGET_URL / NSCP_TARGET_PASSWORD ` +
-        "and re-run (see tests/live/README.md).",
+        `the running server (${base}). Set NSCP_TARGET_URL / NSCP_TARGET_PASSWORD, or ` +
+        "NSCP_TARGET_PWD_FILE to a .vm.pwd file, and re-run (see tests/live/README.md).",
     );
   }
   return { base, user, password, insecure, os };
@@ -93,7 +128,7 @@ export async function liveVersion(t: LiveTarget): Promise<string> {
 export async function liveExecute(
   t: LiveTarget,
   command: string,
-  args: Record<string, string> = {},
+  args: Record<string, string | string[]> = {},
 ): Promise<QueryResult> {
   const res = await withTls(
     request(t.base)

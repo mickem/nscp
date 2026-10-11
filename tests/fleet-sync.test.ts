@@ -157,7 +157,9 @@ describe("core fleet sync loop", () => {
         tenant_id: FLEET_TENANT_ID,
         state_hash: "h-good",
         next_poll_in_seconds: 1,
-        merged_config_json: {},
+        // The host override: one key the bundle also sets, which the override
+        // must win, and one only it sets.
+        merged_config_json: { settings: { "fleet demo": { greeting: "overridden" }, "fleet override": { only: "here" } } },
         bundles: [
           {
             id: "b-good",
@@ -432,6 +434,8 @@ describe("core fleet sync loop", () => {
     // applied. This suite enables a module locally, so it does - and the report
     // still carries no hint of *what* is configured.
     expect(report.body.local_config_present).toBe(true);
+    // This build applies the host override after the bundles, and says so.
+    expect(report.body.host_override_last).toBe(true);
     expect(JSON.stringify(report.body)).not.toContain(LOCAL_MODULE);
     // Nothing is enabled, so every report and every poll carries the hash of
     // the empty document. The server holds nothing, which is the same thing:
@@ -451,8 +455,13 @@ describe("core fleet sync loop", () => {
     expect(fleetIni).toContain("[/modules]");
     expect(fleetIni).toContain("CheckHelpers=enabled");
     expect(fleetIni).toContain("[/settings/fleet demo]");
-    expect(fleetIni).toContain("greeting=hello");
+    // The host override outranks the bundle on the key both set, and leaves the
+    // bundle's other keys alone.
+    expect(fleetIni).toContain("greeting=overridden");
+    expect(fleetIni).not.toContain("greeting=hello");
     expect(fleetIni).toContain("retries=3");
+    expect(fleetIni).toContain("[/settings/fleet override]");
+    expect(fleetIni).toContain("only=here");
 
     // Scripts staged under the managed path; bundle cached by id+sha.
     expect(

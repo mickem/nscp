@@ -1,0 +1,55 @@
+{
+  "name": "base",
+  "description": "NSClient++ only, no workload: today's fleet estate, one Windows and one Ubuntu machine",
+  "os": ["windows", "ubuntu", "rocky"],
+  "machines": 2,
+  "vcpus": 1,
+  "vmSize": null,
+  "image": null,
+  "modules": [],
+  "install": {},
+  "installTimeoutMinutes": 10,
+  "tag": {},
+  "bundle": null,
+  "checks": [
+    {
+      "command": "check_cpu",
+      "args": { "warning": "load > 100", "critical": "load > 100" },
+      "expect": "OK",
+      "perf": ["total 5m"]
+    },
+    {
+      "command": "check_memory",
+      "args": { "type": "physical", "warning": "used > 100%", "critical": "used > 100%" },
+      "expect": "OK",
+      "perf": ["physical"]
+    },
+    {
+      "command": "check_drivesize",
+      "args": { "drive": "C:", "warning": "used > 100%", "critical": "used > 100%" },
+      "expect": "OK",
+      "perf": ["used %"],
+      "os": ["windows"]
+    },
+    {
+      "command": "check_drivesize",
+      "args": { "drive": "/", "warning": "used > 100%", "critical": "used > 100%" },
+      "expect": "OK",
+      "perf": ["used %"],
+      "os": ["linux"]
+    },
+    {
+      "command": "check_service",
+      "args": { "service": "nscp" },
+      "expect": "OK",
+      "os": ["windows"]
+    },
+    {
+      "command": "check_service",
+      "args": { "service": "nsclient" },
+      "expect": "OK",
+      "os": ["linux"]
+    }
+  ],
+  "logs": {}
+}
