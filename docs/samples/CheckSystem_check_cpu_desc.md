@@ -12,8 +12,8 @@ for example `time=10m` or `time=30s time=2m`.
 
 **Where the numbers come from**
 
-Each sample is the share of time the CPU spent busy since the previous sample. It is computed from
-the operating system's cumulative CPU time counters, not from a performance counter:
+By default each sample is the share of time the CPU spent busy since the previous sample. It is
+computed from the operating system's cumulative CPU time counters, not from a performance counter:
 
 * **Windows:** the total comes from `GetSystemTimes()`. With `fetch core loads` enabled (the
   default) the per-core values come from
@@ -33,16 +33,31 @@ window has moved past it. This only matters when the agent restarts on a host th
 a while: after a reboot, "since boot" is only a few seconds. Linux and macOS use their first
 reading only as the starting point and store no sample for it.
 
-`check_cpu` does not read the `\Processor(_Total)\% Processor Time` PDH counter. It measures the
-same thing, so it tracks that counter in PerfMon closely, but the two will not match exactly:
-they sample at different moments and `check_cpu` reports an average. Task Manager (since
-Windows 8) shows a different counter, `% Processor Utility`, which is scaled by the current CPU
-frequency. On a laptop or a server with turbo boost, it can differ from `check_cpu` by tens of
-percent under steady load.
+The default Windows figure measures the same thing as the `\Processor(_Total)\% Processor Time`
+counter in PerfMon and tracks it closely, but the two will not match exactly: they sample at
+different moments and `check_cpu` reports an average. Task Manager (since Windows 8) shows
+`% Processor Utility` instead, which is scaled by the current CPU frequency. On a laptop or a
+server with turbo boost, it can differ from the default `check_cpu` figure by tens of percent under
+steady load. The `fetch core loads` setting does not change this: the total comes from
+`GetSystemTimes()` whether it is on or off.
 
-If you want the PDH counter itself, read it with `check_pdh` and `averages=true`. See
-*Instantaneous versus averaged counters* in the `check_pdh` reference for why `averages` matters
-there, and for averaging over a longer window.
+**Reading CPU load from PDH instead (`use pdh for cpu`, Windows only)**
+
+With `use pdh for cpu = true` in `[/settings/system/windows]`, the collector instead samples the
+PDH counters `\Processor Information(*)\% Processor Utility` and
+`\Processor Information(*)\% Privileged Utility` into their own buffers, and `check_cpu` answers
+from those, with the same `time=` windows. That is the counter Task Manager shows, so this is the
+way to make `check_cpu` match it. In this mode the Windows details above do not apply:
+
+* `GetSystemTimes()` and the first-sample skew play no part.
+* There is no warm-up answer, and `warmup-state` is refused: the PDH source cannot tell a warm-up
+  from a counter that is unavailable.
+* `disable = cpu` has no effect on it; `disable = pdh` stops those counters from being collected.
+* PDH counters are sometimes missing or have broken indexes, so this mode is not as dependable as
+  the default.
+
+To read `% Processor Time` itself once, use `check_pdh` with `averages=true`. See *Instantaneous
+versus averaged counters* in the `check_pdh` reference.
 
 **Buffer size and configuration**
 
