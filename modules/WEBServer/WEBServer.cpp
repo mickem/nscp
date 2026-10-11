@@ -313,6 +313,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_bool("info", sh::bool_key(&log_info, false), "Log info", "Enable logging of info messages from the web server.")
       .add_bool("debug", sh::bool_key(&log_debug, false), "Log debug", "Enable logging of debug messages from the web server.");
 
+  session->set_allowed_hosts_settings_path(settings.alias().get_settings_path(""));
   settings.alias()
       .add_parent("/settings/default")
       .add_key_to_settings()

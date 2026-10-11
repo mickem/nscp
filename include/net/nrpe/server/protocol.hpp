@@ -71,10 +71,7 @@ struct read_protocol : boost::noncopyable {
       log_debug(__FILE__, __LINE__, "Accepting connection from: " + s + ", count=" + str::xtos(count));
       return true;
     }
-    for (const std::string &e : errors) {
-      log_error(__FILE__, __LINE__, e);
-    }
-    log_error(__FILE__, __LINE__, "Rejected connection from: " + s);
+    log_error(__FILE__, __LINE__, info_.allowed_hosts.rejection_message(socket.remote_endpoint().address(), errors));
     return false;
   }
 

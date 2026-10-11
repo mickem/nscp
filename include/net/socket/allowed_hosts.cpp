@@ -212,3 +212,44 @@ std::string socket_helpers::allowed_hosts_manager::to_string() const {
   }
   return ret;
 }
+
+std::string socket_helpers::allowed_hosts_manager::rejection_message(const address &remote, const std::list<std::string> &errors) const {
+  // A v4 client on a dual-stack listener arrives as ::ffff:a.b.c.d; the operator
+  // configured, and will search the list for, a.b.c.d.
+  std::string who = remote.to_string();
+  if (remote.is_v6() && remote.to_v6().is_v4_mapped()) who = make_address_v4(v4_mapped, remote.to_v6()).to_string();
+
+  // The list as configured rather than as resolved: that is what the operator
+  // typed and has to edit. Capped, since a long list would bury the reason.
+  constexpr std::size_t max_listed = 10;
+  std::string listed;
+  bool usable = false;
+  std::size_t count = 0;
+  std::string where;
+  {
+    std::lock_guard<std::mutex> lock(entries_mutex_);
+    where = settings_path.empty() ? std::string("the module's server section") : settings_path;
+    usable = !entries_v4.empty() || !entries_v6.empty();
+    count = sources.size();
+    std::size_t i = 0;
+    for (const std::string &s : sources) {
+      if (i++ == max_listed) break;
+      str::format::append_list(listed, s, ", ");
+    }
+  }
+  if (count > max_listed) listed += ", ... (" + str::xtos(count - max_listed) + " more)";
+
+  // The prefix is unchanged from the old two-line form; log filters match on it.
+  std::string ret = "Rejected connection from: " + who + ", ";
+  if (count == 0) {
+    ret += "allowed hosts is empty, which rejects every connection";
+  } else if (!usable) {
+    ret += "no entry in allowed hosts could be used (" + listed + ")";
+  } else {
+    ret += "not in allowed hosts (" + listed + ")";
+  }
+  ret += "; set `allowed hosts` in " + where + ", or in /settings/default if that section does not set it";
+  if (count == 0) ret += " (`0.0.0.0/0,::/0` allows every address)";
+  if (!errors.empty()) ret += "; problems with the list: " + str::utils::joinEx(errors, "; ");
+  return ret;
+}
