@@ -499,6 +499,9 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
     if (plugin) break;
     plugin = w.slot.plugin();
   }
+  // Whatever brought it here, its load or start failed: an unknown command it
+  // provides then says so (see command_hints).
+  if (plugin) note_load_result(plugin->getModule(), false);
   const bool inside = plugin && plugin->is_dispatching_on_this_thread();
   // Each list is finished with its own outcome: a round stuck in the facts
   // list leaves only that slot closed, holding the module for stop_plugins
@@ -777,6 +780,8 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     bool loaded = false;
     plugin_type plugin = only_load_module(file_name, alias, loaded);
     if (!loaded) {
+      // Null when the file was not found (or refused); a duplicate otherwise.
+      note_load_result(file_name, static_cast<bool>(plugin));
       return plugin;
     }
     plugin_list_.append_plugin(plugin);
@@ -804,15 +809,19 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     const auto key = alias.empty() ? plugin->getModule() : alias;
     settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, key, "string", plugin->getName(), plugin->getDescription(), "0", false, false);
     plugin_cache_.add_plugin(plugin);
+    note_load_result(file_name, true);
     return plugin;
   } catch (const plugin_exception &e) {
     LOG_ERROR_CORE("Failed to load plugin " + e.file() + ": " + utf8::utf8_from_native(e.what()));
+    note_load_result(file_name, false);
     return plugin_type();
   } catch (const std::exception &e) {
     LOG_ERROR_CORE("Failed to load plugin " + file_name + ": " + utf8::utf8_from_native(e.what()));
+    note_load_result(file_name, false);
     return plugin_type();
   } catch (...) {
     LOG_ERROR_CORE("Failed to load plugin " + file_name);
+    note_load_result(file_name, false);
     return plugin_type();
   }
 }
@@ -1132,6 +1141,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
     command_chunk_type command_chunks;
 
     std::string missing_commands;
+    std::list<std::string> missing_list;
 
     // Compute the subject once per request. The header is the same for
     // every payload, so we don't pay re-extraction cost per command.
@@ -1158,6 +1168,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
         command_chunks[id].request.CopyFrom(request_message);
       } else {
         str::format::append_list(missing_commands, command);
+        missing_list.push_back(command);
       }
     } else {
       for (int i = 0; i < request_message.payload_size(); i++) {
@@ -1185,6 +1196,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
           command_chunks[id].request.add_payload()->CopyFrom(*payload);
         } else {
           str::format::append_list(missing_commands, payload->command());
+          missing_list.push_back(payload->command());
         }
       }
     }
@@ -1203,10 +1215,13 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
       //      once as a warning and return; the caller gets an empty
       //      response_message, which is what they implicitly asked for.
       if (!missing_commands.empty()) {
-        LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
+        // Same prefix as ever, so scripts matching on it still work; each
+        // command a built module provides says which one to enable.
+        const std::string message = unknown_commands_message("Unknown command(s): ", missing_list);
+        LOG_ERROR_CORE(message + " available commands: " + commands_.to_string());
         PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
         payload->set_command(missing_commands);
-        nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
+        nscapi::protobuf::functions::set_response_bad(*payload, message);
       } else if (response_message.payload_size() == 0) {
         LOG_DEBUG_CORE("Empty query request (no header command and no payloads); returning empty response");
       }
@@ -1348,8 +1363,9 @@ int nsclient::core::plugin_manager::simple_query(std::string module, std::string
 
   commands::plugin_type plugin = commands_.get(command);
   if (!plugin) {
-    LOG_ERROR_CORE("No handler for command: " + command + " available commands: " + commands_.to_string());
-    resp.push_back("No handler for command: " + command);
+    const std::string message = unknown_commands_message("No handler for command: ", {command});
+    LOG_ERROR_CORE(message + " available commands: " + commands_.to_string());
+    resp.push_back(message);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   std::string response;
@@ -1635,6 +1651,43 @@ struct metrics_fetcher {
 };
 
 bool nsclient::core::plugin_manager::is_enabled(const std::string module) { return parse_plugin(module).enabled; }
+
+void nsclient::core::plugin_manager::note_load_result(const std::string &module, const bool ok) {
+  if (module.empty()) return;
+  const std::string key = boost::algorithm::to_lower_copy(file_to_module(module));
+  const boost::mutex::scoped_lock lock(load_failures_mutex_);
+  if (ok)
+    load_failures_.erase(key);
+  else
+    load_failures_.insert(key);
+}
+
+nsclient::core::command_hints::module_state nsclient::core::plugin_manager::get_module_state(const std::string &module) {
+  for (const plugin_type &plugin : plugin_list_.get_plugins()) {
+    if (plugin && boost::algorithm::iequals(file_to_module(plugin->getModule()), module)) return command_hints::module_state::loaded;
+  }
+  {
+    const boost::mutex::scoped_lock lock(load_failures_mutex_);
+    if (load_failures_.count(boost::algorithm::to_lower_copy(module)) > 0) return command_hints::module_state::failed_to_load;
+  }
+  // Any [/modules] entry enabling it counts, including `alias = Module`.
+  try {
+    for (const std::string &key : settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION)) {
+      const plugin_status status = parse_plugin(key);
+      if (status.enabled && boost::algorithm::iequals(file_to_module(status.plugin), module)) return command_hints::module_state::enabled_not_loaded;
+    }
+  } catch (const std::exception &e) {
+    LOG_DEBUG_CORE_STD("Failed to read " + std::string(MAIN_MODULES_SECTION) + ": " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_DEBUG_CORE_STD("Failed to read " + std::string(MAIN_MODULES_SECTION));
+  }
+  return command_hints::module_state::not_enabled;
+}
+
+std::string nsclient::core::plugin_manager::unknown_commands_message(const std::string &prefix, const std::list<std::string> &commands) {
+  return command_hints::unknown_commands_message(prefix, commands, command_hints::providers_of,
+                                                 [this](const std::string &module) { return get_module_state(module); });
+}
 
 PB::Metrics::MetricsMessage nsclient::core::plugin_manager::process_metrics(PB::Metrics::MetricsBundle bundle) {
   metrics_fetcher f(log_instance_);
