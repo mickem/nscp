@@ -315,6 +315,9 @@ foreach ($family in @(@{ Os = "windows"; Count = $Windows }, @{ Os = "ubuntu"; C
     }
 }
 if ($requested.Count -lt 1) { throw "Nothing to do: no -Roles, and -Windows, -Ubuntu and -Rocky are all 0." }
+# Recounted from the plan, roles included: a Windows-only role (mssql) must
+# still trigger the release lookup below, or its setup gets an empty -Version.
+$Windows = @($requested | Where-Object { $_.Os -eq "windows" }).Count
 $Ubuntu = @($requested | Where-Object { $_.Os -eq "ubuntu" }).Count
 $Rocky = @($requested | Where-Object { $_.Os -eq "rocky" }).Count
 # The Linux setup scripts verify - as the service user - that the enrollment

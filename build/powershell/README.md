@@ -381,7 +381,7 @@ estate/roles/mysql/
 | `os` | Any of `windows`, `ubuntu`, `rocky`; a suite's machines round-robin over it. |
 | `machines` | How many machines a suite provisions (default 1); `run-estate.ps1 mysql=2` overrides it. |
 | `vcpus`, `vmSize` | What the quota preflight counts, and a size override for a role that needs more than the 1-vCPU default. |
-| `image` | `{ "publisher", "offer", "sku", "version"? }`: a Marketplace image instead of the family default (Windows-only roles), e.g. SQL Server Express. |
+| `image` | `{ "publisher", "offer", "sku", "version"? }`: a Marketplace image instead of the family default (Windows-only roles), e.g. SQL Server 2022 Developer for `mssql`. |
 | `modules` | Activated **at install time**. A bundle can enable a module in `fleet.ini` but cannot load it into a running agent, so this is what lets the bundle take effect on the first sync. |
 | `install` | Per OS, a fragment run as root/SYSTEM on the VM **before** NSClient++ is installed, with `ROLE_PASSWORD` in its environment and `installTimeoutMinutes` as its limit. Its output lands in `/var/log/nscp-role-install.log` or `C:\nscp-role-install.log`. Exit non-zero to fail the machine at the `install` stage. |
 | `tag` | Operator-set tags put on the fleet host **before** it enrolls, so its first desired state already carries the role's group. Required when the role has a `bundle`: the group selects on it, and an empty selector would match every host in the tenant. |
@@ -404,6 +404,32 @@ it, since one bundle carries it to all of them, and a role that already has
 machines in the manifest keeps theirs — and is recorded in each machine's
 `.vm.<name>.pwd` and the manifest. It is a throwaway secret on a throwaway
 estate — never reuse the pattern for anything real.
+
+### Shipped roles
+
+| Role | Machine | What the gate proves |
+| ---- | ------- | -------------------- |
+| `base` | Windows + Ubuntu, NSClient++ only | Enrollment, sync and the core checks (today's estate) |
+| `mysql` | MariaDB on Ubuntu or Rocky | `check_mysql`, `check_mysql_query` through a `[/settings/mysql]` bundle |
+| `mssql` | Marketplace SQL Server 2022 Developer on Windows Server 2022 | All 13 CheckMSSQL commands, OK with perfdata, through a `[/settings/mssql]` bundle |
+
+Notes on `mssql`:
+
+- There is no SQL Server 2022 **Express** image on Windows Server 2022
+  (`sql2022-ws2022` offers `enterprise`, `standard`, `web` and `sqldev`).
+  Developer is free on Azure too, and it has SQL Agent, so `check_mssql_jobs`
+  reads real jobs.
+- The fragment enables TCP 1433 and mixed-mode authentication, then restarts
+  the engine in single-user mode (`-m`, restricted to its own application
+  name) to create the `nscp` login. SYSTEM is not a sysadmin on the image, but
+  every local administrator is in single-user mode, so this does not depend on
+  how the image provisioned its logins.
+- It installs ODBC Driver 18, which encrypts by default against the
+  instance's self-signed certificate. Every check therefore passes
+  `trust-cert=true`. TLS trust is a per-check option and cannot go in
+  `[/settings/mssql]`, which also exercises a valued boolean over REST.
+- `installTimeoutMinutes` is 20: the fragment restarts the engine twice and
+  downloads the driver.
 
 ## Turn-key Nagios monitoring for the fleet
 
