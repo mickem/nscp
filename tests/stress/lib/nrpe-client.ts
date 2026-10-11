@@ -71,6 +71,12 @@ export interface NrpeAnswer {
   text: string;
   /** The text before the first `|`. */
   message: string;
+  /**
+   * How long the request waited for a local port before it could be sent at
+   * all (see query()). Time the agent never saw: subtract it from a latency
+   * that is meant to measure the agent.
+   */
+  localWaitMs: number;
 }
 
 export class NrpeClient {
@@ -87,21 +93,31 @@ export class NrpeClient {
     // holds them for minutes) and connect() fails locally with EADDRINUSE.
     // That request never reached the agent, so it is retried rather than
     // counted; any error after the connection is up still fails the request.
+    // On Linux, TIME_WAIT holds a port for 60 s, so a sustained few thousand
+    // requests a second exhausts the range; the wait is reported in
+    // localWaitMs and counted in localRetries.
+    const started = performance.now();
     for (let attempt = 0; ; attempt++) {
+      const sent = performance.now();
       try {
-        return await this.queryOnce(command, args);
+        const a = await this.queryOnce(command, args);
+        return { ...a, localWaitMs: sent - started };
       } catch (e) {
         if ((e as NodeJS.ErrnoException).code !== "EADDRINUSE" || attempt >= 20) {
           throw new Error(`NRPE ${command}: ${(e as Error).message}`);
         }
+        this.localRetries++;
         await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
       }
     }
   }
 
-  private queryOnce(command: string, args: string[]): Promise<NrpeAnswer> {
+  /** Requests that had to wait for a local port, summed over every query. */
+  localRetries = 0;
+
+  private queryOnce(command: string, args: string[]): Promise<Omit<NrpeAnswer, "localWaitMs">> {
     const payload = [command, ...args].join("!");
-    return new Promise<NrpeAnswer>((resolve, reject) => {
+    return new Promise<Omit<NrpeAnswer, "localWaitMs">>((resolve, reject) => {
       const socket = net.connect({ port: this.port, host: this.host });
       const chunks: Buffer[] = [];
       let received = 0;

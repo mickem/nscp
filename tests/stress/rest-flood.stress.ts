@@ -49,10 +49,11 @@ describe("stress: REST flood", () => {
     // snapshot, which it does every `metrics interval` (10 s by default) - so
     // a flood that starts straight after boot would count expected empties as
     // failures. Wait for the first snapshot the way the CPU ring was waited for.
-    const metricsDeadline = Date.now() + 30_000;
+    const metricsDeadline = performance.now() + 30_000;
     for (;;) {
       if ((await client.get("/api/v2/metrics")) !== "") break;
-      if (Date.now() >= metricsDeadline) throw new Error("no metrics snapshot within 30 s of boot");
+      if (performance.now() >= metricsDeadline)
+        throw new Error("no metrics snapshot within 30 s of boot");
       await new Promise((r) => setTimeout(r, 500));
     }
   });

@@ -3,6 +3,11 @@
  * optionally paced to a request rate, with every call timed and every failure
  * counted. It knows nothing about HTTP; the scenario decides what a request
  * is and throws when its answer is wrong.
+ *
+ * Every duration and deadline in the harness reads performance.now(), never
+ * Date.now(): the wall clock is not monotonic, and under WSL2 it steps back
+ * about 2.5 s every 30 s as the host corrects it - enough to make an 8 s check
+ * look like 5.5 s and a 2 ms probe look like 5 s.
  */
 
 export interface LoadOptions {
@@ -46,10 +51,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Hands out start times `1000 / rps` ms apart, shared by every worker. */
 class Pacer {
-  private next = Date.now();
+  private next = performance.now();
   constructor(private readonly intervalMs: number) {}
   async wait(): Promise<void> {
-    const now = Date.now();
+    const now = performance.now();
     const slot = Math.max(now, this.next);
     this.next = slot + this.intervalMs;
     if (slot > now) await sleep(slot - now);
@@ -62,14 +67,14 @@ export async function runLoad(opts: LoadOptions): Promise<LoadStats> {
   let errorCount = 0;
   const keep = opts.keepErrors ?? 10;
   const pacer = opts.rps > 0 ? new Pacer(1000 / opts.rps) : undefined;
-  const started = Date.now();
+  const started = performance.now();
   const deadline = started + opts.durationMs;
 
   const worker = async (id: number): Promise<void> => {
-    for (let n = 0; Date.now() < deadline; n++) {
+    for (let n = 0; performance.now() < deadline; n++) {
       if (pacer) {
         await pacer.wait();
-        if (Date.now() >= deadline) return;
+        if (performance.now() >= deadline) return;
       }
       const t0 = process.hrtime.bigint();
       try {
@@ -84,7 +89,7 @@ export async function runLoad(opts: LoadOptions): Promise<LoadStats> {
   };
 
   await Promise.all(Array.from({ length: opts.concurrency }, (_, i) => worker(i)));
-  const elapsedSeconds = (Date.now() - started) / 1000;
+  const elapsedSeconds = (performance.now() - started) / 1000;
   latencies.sort((a, b) => a - b);
   return {
     requests: latencies.length,

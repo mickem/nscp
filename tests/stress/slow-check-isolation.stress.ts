@@ -59,6 +59,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 interface Answer {
   result: number;
   message: string;
+  /** Time spent waiting for a local port before the request went out; not the agent's. */
+  localWaitMs?: number;
 }
 
 /** One way into the agent: `positional` is what NRPE sends, `options` what REST sends. */
@@ -98,7 +100,7 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
 
   const nrpeCall: Call = async (command, positional) => {
     const a = await agent.nrpe.query(command, positional);
-    return { result: a.result, message: a.message };
+    return { result: a.result, message: a.message, localWaitMs: a.localWaitMs };
   };
 
   const restCall: Call = async (command, _positional, options) => {
@@ -116,16 +118,16 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
    */
   async function round(call: Call, tag: string): Promise<RoundResult> {
     const markers = SLOW_CHECKS.map((s) => `${tag}_${s.command}`);
-    const t0 = Date.now();
+    const t0 = performance.now();
     let answered = 0;
     const slow = SLOW_CHECKS.map(async (s, i) => {
-      const started = Date.now();
+      const started = performance.now();
       try {
         const a = await call(s.command, [String(SLOW_MS), markers[i]], {
           [String(SLOW_MS)]: "",
           [markers[i]]: "",
         });
-        const ms = Date.now() - started;
+        const ms = performance.now() - started;
         const ok = a.result === 0 && a.message === s.expect(SLOW_MS);
         return {
           path: s.path,
@@ -134,7 +136,12 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
           detail: ok ? undefined : `${a.result} ${JSON.stringify(a.message)}`,
         };
       } catch (e) {
-        return { path: s.path, ms: Date.now() - started, ok: false, detail: (e as Error).message };
+        return {
+          path: s.path,
+          ms: performance.now() - started,
+          ok: false,
+          detail: (e as Error).message,
+        };
       } finally {
         answered++;
       }
@@ -145,8 +152,8 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
     // serialises behind another never gets there.
     const allRunning = () => markers.every((m) => agent.running().includes(m));
     const overlapDeadline = t0 + SLOW_MS / 2;
-    while (!allRunning() && Date.now() < overlapDeadline) await sleep(20);
-    const overlapAfterMs = Date.now() - t0;
+    while (!allRunning() && performance.now() < overlapDeadline) await sleep(20);
+    const overlapAfterMs = performance.now() - t0;
     if (!allRunning()) {
       const running = agent.running();
       await Promise.all(slow);
@@ -164,14 +171,14 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
     // here, a directory listing racing five writers is a poor clock.)
     const probes: Probe[] = [];
     let n = 0;
-    while (answered === 0 && Date.now() < t0 + SLOW_MS - PROBE_BUDGET_MS) {
+    while (answered === 0 && performance.now() < t0 + SLOW_MS - PROBE_BUDGET_MS) {
       const batch = await Promise.all(
         FAST_CHECKS.map(async (c): Promise<Probe> => {
           const token = `${tag}-${n}-${c.command}`;
-          const started = Date.now();
+          const started = performance.now();
           try {
             const a = await call(c.command, c.args(token), c.restArgs(token));
-            const ms = Date.now() - started;
+            const ms = performance.now() - started - (a.localWaitMs ?? 0);
             const right = a.result === 0 && a.message === c.expect(token);
             return {
               path: c.path,
@@ -186,7 +193,7 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
           } catch (e) {
             return {
               path: c.path,
-              ms: Date.now() - started,
+              ms: performance.now() - started,
               ok: false,
               detail: (e as Error).message,
             };
@@ -206,15 +213,15 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
     if (pid === undefined) throw new Error("the agent is not running");
     const sampler = startSampler(pid);
     const rounds: RoundResult[] = [];
-    const started = Date.now();
+    const started = performance.now();
     let responsiveAfterMs: number;
     try {
       // The first round is the warm-up: pools, interpreters and the scripts'
       // first calls all grow the process. The baseline is taken after it.
       rounds.push(await round(call, `${transport}0`));
       await sampler.markBaseline();
-      const deadline = Date.now() + knobs.durationSeconds * 1000;
-      for (let i = 1; Date.now() < deadline; i++)
+      const deadline = performance.now() + knobs.durationSeconds * 1000;
+      for (let i = 1; performance.now() < deadline; i++)
         rounds.push(await round(call, `${transport}${i}`));
       await sampler.markEnd();
       responsiveAfterMs = await expectResponsive(() => call("check_ok", [], {}));
@@ -238,13 +245,15 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
     const growth = rounds.length > 2 ? expectNoGrowth(sampler, knobs.rssTolerancePct) : undefined;
     writeReport({
       scenario: `slow-check-isolation-${transport}`,
-      startedAt: new Date(started).toISOString(),
+      startedAt: new Date(Date.now() - (performance.now() - started)).toISOString(),
       platform: process.platform,
       knobs,
       responsiveAfterMs,
       growth,
       samples,
       extra: {
+        // Requests that waited for a local port (client-side; see nrpe-client.ts).
+        nrpeLocalRetries: agent.nrpe.localRetries,
         slowMs: SLOW_MS,
         probeBudgetMs: PROBE_BUDGET_MS,
         rounds: rounds.length,
@@ -264,12 +273,12 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
     const unprobed = rounds
       .map((r, i) => ({ round: i, probes: r.probes.length }))
       .filter((r) => r.probes < FAST_CHECKS.length);
-    expect({ unprobed, count: unprobed.length }).toMatchObject({ count: 0 });
+    expect({ unprobed, count: unprobed.length }).toEqual({ unprobed: [], count: 0 });
     const badProbes = probes.filter((p) => !p.ok);
-    expect({ bad: badProbes.slice(0, 20), count: badProbes.length }).toMatchObject({ count: 0 });
+    expect({ bad: badProbes.slice(0, 20), count: badProbes.length }).toEqual({ bad: [], count: 0 });
     // Every slow check came back with its own answer, and none was cut short.
     const badSlow = slow.filter((s) => !s.ok || s.ms < SLOW_MS - 1_000);
-    expect({ bad: badSlow.slice(0, 20), count: badSlow.length }).toMatchObject({ count: 0 });
+    expect({ bad: badSlow.slice(0, 20), count: badSlow.length }).toEqual({ bad: [], count: 0 });
     expectCleanLog(agent.nscp, ENGINE_LOG_NOISE);
   }
 

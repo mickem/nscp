@@ -17,9 +17,9 @@ export async function expectResponsive(
   probe: () => Promise<unknown>,
   withinMs = 2_000,
 ): Promise<number> {
-  const t0 = Date.now();
+  const t0 = performance.now();
   await probe();
-  const tookMs = Date.now() - t0;
+  const tookMs = performance.now() - t0;
   expect({ tookMs, withinMs, responsive: tookMs <= withinMs }).toMatchObject({ responsive: true });
   return tookMs;
 }
@@ -76,6 +76,6 @@ export function expectCleanLog(nscp: NscpInstance, ignore: RegExp[] = []): void 
     .filter((l) => !ignore.some((re) => re.test(l)));
   const died = lines.filter((l) => /terminated by an uncaught exception/.test(l));
   const failed = lines.filter((l) => /Failed to /.test(l));
-  expect({ died, count: died.length }).toMatchObject({ count: 0 });
-  expect({ failed: failed.slice(0, 20), count: failed.length }).toMatchObject({ count: 0 });
+  expect({ died, count: died.length }).toEqual({ died: [], count: 0 });
+  expect({ failed: failed.slice(0, 20), count: failed.length }).toEqual({ failed: [], count: 0 });
 }

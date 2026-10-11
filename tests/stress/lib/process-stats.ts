@@ -75,14 +75,14 @@ export interface Sampler {
  * timer callback.
  */
 export function startSampler(pid: number, everyMs = 1_000): Sampler {
-  const started = Date.now();
+  const started = performance.now();
   const samples: ProcessSample[] = [];
   let lastError: Error | undefined;
   let inFlight: Promise<void> = Promise.resolve();
 
   const take = async (): Promise<ProcessSample> => {
     const s = await sampleProcess(pid);
-    const sample = { t: (Date.now() - started) / 1000, ...s };
+    const sample = { t: (performance.now() - started) / 1000, ...s };
     samples.push(sample);
     return sample;
   };

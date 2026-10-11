@@ -48,7 +48,7 @@ describeWithModules(
   });
 
   it("runs several Lua calls that sleep or call the core at once, each on its own stack", async () => {
-    const started = Date.now();
+    const started = performance.now();
     const calls = [
       ...[1, 2, 3].map((i) => ({
         command: "lua_sleep",
@@ -67,7 +67,7 @@ describeWithModules(
       },
     ];
     const answers = await Promise.all(calls.map((c) => agent.nrpe.query(c.command, c.args)));
-    const elapsed = Date.now() - started;
+    const elapsed = performance.now() - started;
 
     expect(answers.map((a) => ({ result: a.result, message: a.message }))).toEqual(
       calls.map((c) => ({ result: 0, message: c.expect })),
@@ -92,9 +92,9 @@ describeWithModules(
       const batch = await Promise.all(
         Array.from({ length: 8 }, async () => {
           const token = `p${n++}`;
-          const t0 = Date.now();
-          await agent.nrpe.expect("check_ok", [`message=${token}`], token);
-          return Date.now() - t0;
+          const t0 = performance.now();
+          const a = await agent.nrpe.expect("check_ok", [`message=${token}`], token);
+          return performance.now() - t0 - a.localWaitMs;
         }),
       );
       latencies.push(...batch);

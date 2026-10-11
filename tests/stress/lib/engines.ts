@@ -216,14 +216,14 @@ export async function startEngineAgent(extra: SettingsTree = {}): Promise<Engine
   const nrpe = new NrpeClient(NRPE_PORT);
   // The scripts register their commands as they load, which can finish after
   // the ports are up: wait until every path answers before handing over.
-  const deadline = Date.now() + 60_000;
+  const deadline = performance.now() + 60_000;
   for (const c of FAST_CHECKS) {
     for (;;) {
       try {
         await nrpe.expect(c.command, c.args("ready"), c.expect("ready"));
         break;
       } catch (e) {
-        if (Date.now() >= deadline) {
+        if (performance.now() >= deadline) {
           throw new Error(`${c.command} never became ready: ${(e as Error).message}`);
         }
         await new Promise((r) => setTimeout(r, 500));
