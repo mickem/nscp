@@ -412,6 +412,8 @@ check_service "top-syntax=%(list)" "detail-syntax=%(name): %(state)"
 A check that matches many items produces one long line, because list items are joined with `, `.
 `list-separator` changes what joins them. Its value accepts the escapes `\n`, `\r`, `\t` and `\\` —
 a configuration file value is a single line, so a real newline cannot be written into one.
+In an [alias](index.md#quoting-and-backslashes) the backslash itself has to be doubled
+(`"list-separator=\\n"`), because the alias definition is parsed first and refuses a bare `\n`.
 
 The templates themselves are **never** escape-decoded: a `top-syntax` containing `C:\temp` must keep
 its literal backslashes. To break the line before the *first* item, reference the decoded separator
