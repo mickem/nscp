@@ -460,8 +460,8 @@ TEST(str_utils, parse_prompt_command_single_quotes_elsewhere_are_ordinary) {
 }
 
 // ============================================================================
-// Tests for parse_alias_command: alias definitions accept only \\ and \" as
-// escapes and refuse every other backslash rather than guess.
+// Tests for parse_alias_command: alias definitions tokenize like parse_command
+// but refuse an argument that came out holding a line break.
 // ============================================================================
 namespace {
 std::list<std::string> alias_args(const std::string &line, std::string *cmd = nullptr) {
@@ -494,6 +494,12 @@ TEST(str_utils, parse_alias_command_keeps_doubled_backslashes_and_escaped_quotes
   EXPECT_EQ(alias_args(R"(check_x "msg=say \"hi\"")"), (std::list<std::string>{R"(msg=say "hi")"}));
 }
 
+TEST(str_utils, parse_alias_command_keeps_an_escaped_space) {
+  // A shell-style escaped space has always joined two words; it must not be
+  // caught in the line-break check.
+  EXPECT_EQ(alias_args(R"(check_files path=C:/Program\ Files/nsclient.log)"), (std::list<std::string>{"path=C:/Program Files/nsclient.log"}));
+}
+
 TEST(str_utils, parse_alias_command_passes_a_doubled_backslash_n_on_literally) {
   // list-separator decodes \n itself; the alias must hand it the two characters.
   EXPECT_EQ(alias_args(R"(check_users "list-separator=\\n")"), (std::list<std::string>{R"(list-separator=\n)"}));
@@ -502,22 +508,30 @@ TEST(str_utils, parse_alias_command_passes_a_doubled_backslash_n_on_literally) {
 TEST(str_utils, parse_alias_command_refuses_backslash_n_instead_of_a_newline) {
   // parse_command turns this into "C:" + newline + "scp" and accepts it.
   EXPECT_THROW(alias_args(R"(check_files "path=C:\nscp")"), std::invalid_argument);
-  EXPECT_NE(alias_error(R"(check_files "path=C:\nscp")").find("control characters"), std::string::npos);
+  const std::string error = alias_error(R"(check_files "path=C:\nscp")");
+  EXPECT_NE(error.find("control characters"), std::string::npos) << error;
+  EXPECT_NE(error.find("argument 'path=C:\\nscp'"), std::string::npos) << "names the argument with the newline shown as \\n: " << error;
+  EXPECT_NE(error.find("write \\\\n"), std::string::npos) << error;
+}
+
+TEST(str_utils, parse_alias_command_refuses_a_newline_in_the_command_word) {
+  EXPECT_THROW(alias_args("check\\nfiles path=x"), std::invalid_argument);
 }
 
 TEST(str_utils, parse_alias_command_refuses_other_control_escapes) {
+  // The tokenizer has no \r or \t escape, so these are unknown escapes.
   EXPECT_THROW(alias_args(R"(check_x "a=\r")"), std::invalid_argument);
   EXPECT_THROW(alias_args(R"(check_x "a=C:\temp")"), std::invalid_argument);
 }
 
 TEST(str_utils, parse_alias_command_refuses_an_undoubled_windows_path) {
   const std::string error = alias_error(R"(check_files "path=c:\program files\nsclient++\nsclient.log")");
-  EXPECT_NE(error.find("unknown escape '\\p'"), std::string::npos) << error;
+  EXPECT_NE(error.find("unknown escape sequence"), std::string::npos) << error;
+  EXPECT_NE(error.find("only \\\\, \\\" and \\<space> are escapes"), std::string::npos) << error;
   EXPECT_NE(error.find("use /"), std::string::npos) << error;
 }
 
-TEST(str_utils, parse_alias_command_refuses_a_trailing_backslash) { EXPECT_THROW(alias_args(R"(check_x arg\)"), std::invalid_argument); }
-
-TEST(str_utils, parse_alias_command_reports_the_position_of_the_bad_escape) {
-  EXPECT_NE(alias_error(R"(check_x "p=a\qb")").find("position 12"), std::string::npos);
+TEST(str_utils, parse_alias_command_refuses_a_trailing_backslash) {
+  EXPECT_THROW(alias_args(R"(check_x arg\)"), std::invalid_argument);
+  EXPECT_NE(alias_error(R"(check_x arg\)").find("cannot end with escape"), std::string::npos);
 }
