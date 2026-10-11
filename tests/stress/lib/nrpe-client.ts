@@ -1,5 +1,4 @@
 import * as net from "net";
-import * as zlib from "zlib";
 
 /**
  * A minimal NRPE v2 client over plain TCP, for driving the agent's NRPEServer
@@ -30,6 +29,25 @@ const QUERY = 1;
 const RESPONSE = 2;
 const MORE_RESPONSE = 3;
 
+// CRC-32 (IEEE 802.3, the zlib one NRPE uses), table-driven. Not zlib.crc32:
+// that only exists from Node 20.15, and the regular suites also run on the
+// Node 18 the Debian/Ubuntu integration job installs.
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+export function crc32(buf: Buffer): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
 function encodeQuery(payload: string): Buffer {
   const body = Buffer.from(payload, "utf8");
   if (body.length >= PAYLOAD_LENGTH) throw new Error(`NRPE payload too long: ${body.length} bytes`);
@@ -38,7 +56,7 @@ function encodeQuery(payload: string): Buffer {
   p.writeInt16BE(QUERY, 2);
   p.writeInt16BE(0, 8);
   body.copy(p, PAYLOAD_OFFSET);
-  p.writeUInt32BE(zlib.crc32(p), 4);
+  p.writeUInt32BE(crc32(p), 4);
   return p;
 }
 
@@ -54,7 +72,7 @@ function decode(p: Buffer): Packet {
   const crc = p.readUInt32BE(4);
   const copy = Buffer.from(p);
   copy.writeUInt32BE(0, 4);
-  if (zlib.crc32(copy) !== crc) throw new Error("NRPE answer failed its CRC32");
+  if (crc32(copy) !== crc) throw new Error("NRPE answer failed its CRC32");
   const body = p.subarray(PAYLOAD_OFFSET, PAYLOAD_OFFSET + PAYLOAD_LENGTH);
   const end = body.indexOf(0);
   return {

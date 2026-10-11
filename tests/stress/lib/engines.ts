@@ -1,11 +1,15 @@
 import * as fs from "fs";
+import * as https from "https";
 import * as os from "os";
 import * as path from "path";
 
 import { NscpInstance, onWindows, type SettingsTree } from "@fixtures/index";
 
 import { NrpeClient } from "./nrpe-client";
-import { RestClient } from "./rest-client";
+// Type only: rest-client loads undici, which needs Node 20, while the regular
+// suites that use this fixture also run on Node 18 (the Debian/Ubuntu
+// integration job installs the distro's nodejs). It is loaded on first use.
+import type { RestClient } from "./rest-client";
 
 /**
  * One agent with every kind of check engine loaded, for the scenarios that
@@ -110,8 +114,35 @@ export interface EngineAgent {
   markerDir: string;
   /** The markers present right now, by name. */
   running(): string[];
-  /** A logged-in REST client with `connections` connections. */
+  /** A logged-in pooled REST client with `connections` connections (undici: Node 20+). */
   rest(connections: number): Promise<RestClient>;
+  /**
+   * One REST query on its own connection, over node:https - for the regular
+   * suites, which must not depend on undici. Logs in on first use.
+   */
+  restQuery(
+    command: string,
+    options?: Record<string, string>,
+  ): Promise<{ result: number; message: string }>;
+}
+
+/** GET `url`; resolves with the status and body. The agent's certificate is self-signed. */
+function httpsGet(
+  url: string,
+  headers: Record<string, string>,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers, rejectUnauthorized: false, agent: false }, (res) => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk: string) => (body += chunk));
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+    });
+    req.on("error", reject);
+    req.setTimeout(120_000, () =>
+      req.destroy(new Error(`no answer from ${url.split("?")[0]} in 120 s`)),
+    );
+  });
 }
 
 /** The two external scripts: `ext_ok <token>` and `ext_sleep <ms> <marker>`. */
@@ -231,6 +262,7 @@ export async function startEngineAgent(extra: SettingsTree = {}): Promise<Engine
     }
   }
 
+  let restKey = "";
   return {
     nscp,
     nrpe,
@@ -241,9 +273,31 @@ export async function startEngineAgent(extra: SettingsTree = {}): Promise<Engine
         .filter((f) => f.endsWith(".running"))
         .map((f) => f.slice(0, -".running".length)),
     rest: async (connections: number) => {
-      const c = new RestClient(connections, WEB_URL);
+      const { RestClient: Client } = await import("./rest-client");
+      const c = new Client(connections, WEB_URL);
       await c.login();
       return c;
+    },
+    restQuery: async (command: string, options: Record<string, string> = {}) => {
+      if (!restKey) {
+        const auth = Buffer.from("admin:default-password").toString("base64");
+        const login = await httpsGet(`${WEB_URL}/api/v1/login`, { authorization: `Basic ${auth}` });
+        const key = (JSON.parse(login.body) as { key?: string }).key;
+        if (login.status !== 200 || !key)
+          throw new Error(`login failed: HTTP ${login.status} ${login.body.slice(0, 200)}`);
+        restKey = key;
+      }
+      const qs = new URLSearchParams(options).toString();
+      const r = await httpsGet(
+        `${WEB_URL}/api/v1/queries/${command}/commands/execute${qs ? `?${qs}` : ""}`,
+        {
+          authorization: `Bearer ${restKey}`,
+        },
+      );
+      if (r.status !== 200)
+        throw new Error(`${command} -> HTTP ${r.status}: ${r.body.slice(0, 200)}`);
+      const body = JSON.parse(r.body) as { result: number; lines?: { message: string }[] };
+      return { result: body.result, message: body.lines?.[0]?.message ?? "" };
     },
   };
 }
