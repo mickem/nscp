@@ -10,6 +10,27 @@ The time windows are controlled by the `time=` option. The default is to compute
 `total 1m load` and `total 5s load`). You can override this with one or more `time=` arguments,
 for example `time=10m` or `time=30s time=2m`.
 
+**Where the numbers come from**
+
+Each sample is the share of time the CPU spent busy since the previous sample. It is computed from
+the operating system's cumulative CPU time counters, not from a performance counter:
+
+* **Windows:** the total comes from `GetSystemTimes()` and the per-core values from
+  `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`. The idle time is subtracted
+  from the kernel time, because Windows counts idle inside kernel time; the `kernel` value is
+  what is left.
+* **Linux:** the `cpu` and `cpuN` lines of `/proc/stat`. `idle` and `iowait` count as idle. Busy
+  time is `user`, `nice`, `system`, `irq`, `softirq` and `steal`, so a VM that loses time to its
+  host shows that time as load.
+* **macOS:** `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`.
+
+`check_cpu` does not read the `\Processor(_Total)\% Processor Time` PDH counter. Its values are
+close to what PerfMon or Task Manager show, but they won't match exactly: the samples are taken at
+different moments and `check_cpu` reports an average. If you want that counter specifically, read
+it with `check_pdh`, for example
+`check_pdh "counter=\Processor(_Total)\% Processor Time"`. For an average over time, configure it
+as a counter with `collection strategy=rrd` (see the `check_pdh` samples).
+
 **Buffer size and configuration**
 
 The size of the historical buffer is controlled by the `default buffer length` setting on the
