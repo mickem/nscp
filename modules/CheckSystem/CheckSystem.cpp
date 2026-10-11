@@ -321,7 +321,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     "PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
     .add_bool("fetch core loads", sh::bool_key(&fresh->read_core_load, true),
-        "Fetch core load", "Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).", true)
+        "Fetch core load", "Set to false to read only the total CPU load and skip the per-core values (check_cpu then has no core rows). The total is read the same way either way, so this does not change how close the figures are to Task Manager; to match Task Manager, enable 'use pdh for cpu'.", true)
 
     .add_bool("use pdh for cpu", sh::bool_key(&fresh->use_pdh_for_cpu, false),
       "Use PDH to fetch CPU load", "When using PDH you might get better accuracy and hel alleviate invalid CPU values on multi core systems. The drawback is that PDH counters are sometimes missing and have invalid indexes so your milage may vary", true)
