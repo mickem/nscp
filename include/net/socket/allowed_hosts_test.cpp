@@ -462,3 +462,77 @@ TEST(AllowedHostsTest, ToStringListsAddressAndMask) {
   auto manager = refreshed("10.0.0.0/8,192.168.1.1,::1");
   EXPECT_EQ(manager.to_string(), "10.0.0.0(255.0.0.0), 192.168.1.1(255.255.255.255), ::1(ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff)");
 }
+
+// ---------------------------------------------------------------------------
+// A malformed prefix length is an error, not a guess. The parser used to take
+// the first run of digits after the `/` and ignore the rest, so `/-1` became
+// `/1` (half the IPv4 space), `/abc24` became `/24`, `/33` was quietly a
+// `/32` and a bare `/` a single host. Each is now reported and the entry is
+// dropped, the same as a malformed `*` range.
+// ---------------------------------------------------------------------------
+
+namespace {
+// Refreshes `source` and expects exactly one error naming it; returns the
+// manager so callers can check the bad entry granted nothing.
+allowed_hosts_manager rejected(const std::string &source) {
+  allowed_hosts_manager manager;
+  manager.set_source(source);
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_EQ(errors.size(), 1u) << source;
+  if (!errors.empty()) {
+    EXPECT_NE(errors.front().find(source), std::string::npos) << errors.front();
+  }
+  return manager;
+}
+}  // namespace
+
+TEST(AllowedHostsTest, ANegativePrefixIsAnError) {
+  auto manager = rejected("10.0.0.1/-1");
+  std::list<std::string> errors;
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("100.1.2.3"), errors));
+}
+
+TEST(AllowedHostsTest, APrefixWithTextIsAnError) {
+  rejected("10.0.0.0/abc24");
+  rejected("10.0.0.0/24abc");
+  rejected("10.0.0.0/2 4");
+  rejected("10.0.0.0/+24");
+}
+
+TEST(AllowedHostsTest, AnEmptyPrefixIsAnError) { rejected("10.0.0.1/"); }
+
+TEST(AllowedHostsTest, ADottedMaskIsAnError) {
+  // Never supported: it used to read as `/255`, i.e. a single host.
+  rejected("10.0.0.0/255.255.255.0");
+}
+
+TEST(AllowedHostsTest, APrefixLongerThanTheAddressIsAnError) {
+  rejected("10.0.0.1/33");
+  rejected("::1/129");
+  // Large enough to overflow if it were accumulated without a bound.
+  rejected("10.0.0.1/99999999999999999999999");
+}
+
+TEST(AllowedHostsTest, TheLongestV4PrefixIsNotAV6Prefix) {
+  // The bound is the family's, not a shared one.
+  refreshed("10.0.0.1/32,::1/128,2001:db8::/64");
+}
+
+TEST(AllowedHostsTest, ALeadingZeroInThePrefixIsAccepted) { refreshed("10.0.0.0/08,10.0.0.1/0032"); }
+
+TEST(AllowedHostsTest, ABadPrefixDoesNotDropTheRestOfTheList) {
+  allowed_hosts_manager manager;
+  manager.set_source("10.0.0.1/-1,10.0.0.2");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_EQ(errors.size(), 1u);
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.2"), errors));
+}
+
+TEST(AllowedHostsTest, AHostnameWithABadPrefixIsAnError) {
+  // Checked before the name is resolved, so this needs no working DNS.
+  rejected("localhost/abc");
+}

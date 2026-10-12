@@ -14,29 +14,13 @@
 using namespace boost::asio;
 using namespace boost::asio::ip;
 
-std::size_t extract_mask(const std::string &mask, std::size_t mask_length) {
-  if (!mask.empty()) {
-    const std::string::size_type start_pos_number = mask.find_first_of("0123456789");
-    if (start_pos_number != std::string::npos) {
-      const std::string::size_type end_pos_number = mask.find_first_not_of("0123456789", start_pos_number);
-      if (end_pos_number != std::string::npos) {
-        mask_length = str::stox<std::size_t>(mask.substr(start_pos_number, end_pos_number - start_pos_number));
-      } else {
-        mask_length = str::stox<std::size_t>(mask.substr(start_pos_number));
-      }
-    }
-  }
-  return static_cast<unsigned int>(mask_length);
-}
-
 template <class addr>
-addr calculate_mask(const std::string &mask_as_string) {
+addr calculate_mask(const std::size_t prefix_bits) {
   addr ret{};
   constexpr std::size_t byte_size = 8;
   constexpr std::size_t largest_byte = 0xff;
-  const std::size_t mask = extract_mask(mask_as_string, byte_size * ret.size());
-  const std::size_t index = mask / byte_size;
-  const std::size_t reminder = mask % byte_size;
+  const std::size_t index = prefix_bits / byte_size;
+  const std::size_t reminder = prefix_bits % byte_size;
 
   const std::size_t value = largest_byte - (largest_byte >> reminder);
 
@@ -52,6 +36,39 @@ addr calculate_mask(const std::string &mask_as_string) {
 }
 
 namespace {
+constexpr std::size_t max_prefix_v4 = 32;
+constexpr std::size_t max_prefix_v6 = 128;
+
+// Parse the `/N` suffix of an `allowed hosts` entry; `mask` is empty when the
+// entry has none, which means a single host. Anything but a `/` followed by
+// decimal digits naming at most `max_bits` is refused.
+//
+// This used to take the first run of digits anywhere after the `/` and ignore
+// the rest, so `/-1` read as `/1` (half the IPv4 space), `/abc24` as `/24`, a
+// dotted `/255.255.255.0` as `/255`, `/33` as a `/32` and a bare `/` as a
+// single host - a typo silently widened, or narrowed, the list.
+bool parse_prefix_length(const std::string &mask, const std::size_t max_bits, std::size_t &bits) {
+  if (mask.empty()) {
+    bits = max_bits;
+    return true;
+  }
+  if (mask.size() < 2 || mask[0] != '/') return false;
+  std::size_t value = 0;
+  for (std::size_t i = 1; i < mask.size(); i++) {
+    const char c = mask[i];
+    if (c < '0' || c > '9') return false;
+    value = value * 10 + static_cast<std::size_t>(c - '0');
+    // Checked per digit, so a long run of digits cannot overflow.
+    if (value > max_bits) return false;
+  }
+  bits = value;
+  return true;
+}
+
+std::string invalid_prefix_error(const std::string &record) {
+  return "Invalid address: " + record + " (the part after / must be a prefix length: 0-32 for IPv4, 0-128 for IPv6)";
+}
+
 // Expand the `*` range syntax the `allowed hosts` help text and the docs have
 // advertised for years: `192.168.1.*` means `192.168.1.0/24`, `192.168.*`
 // means `192.168.0.0/16`, `10.*` means `10.0.0.0/8` and a bare `*` means
@@ -147,6 +164,14 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
       addr = expanded_addr;
       mask = expanded_mask;
     }
+    // Refuse a malformed suffix before resolving anything: the family is not
+    // known yet for a host name, so this only checks the widest bound; the
+    // per-family bound is checked once the address is.
+    std::size_t prefix_bits = 0;
+    if (!parse_prefix_length(mask, max_prefix_v6, prefix_bits)) {
+      errors.push_back(invalid_prefix_error(record));
+      continue;
+    }
     if (is_numeric || is_wildcard) {
       // make_address throws, and this is not inside the try that wraps the DNS
       // branch: an unparseable numeric address used to take the exception all
@@ -160,21 +185,34 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
         continue;
       }
       if (a.is_v4()) {
-        entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
+        if (!parse_prefix_length(mask, max_prefix_v4, prefix_bits)) {
+          errors.push_back(invalid_prefix_error(record));
+          continue;
+        }
+        entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(prefix_bits));
       } else if (a.is_v6()) {
-        entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
+        entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(prefix_bits));
       } else {
         errors.push_back("Invalid address: " + record);
       }
     } else {
       try {
         auto endpoints = resolver.resolve(addr, "");
+        // A name with both A and AAAA records keeps the addresses whose family
+        // the prefix fits, and reports the rest once rather than per address.
+        bool reported_v4_prefix = false;
         for (const auto &entry : endpoints) {
           address a = entry.endpoint().address();
           if (a.is_v4()) {
-            entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask));
+            std::size_t prefix_bits_v4 = 0;
+            if (!parse_prefix_length(mask, max_prefix_v4, prefix_bits_v4)) {
+              if (!reported_v4_prefix) errors.push_back(invalid_prefix_error(record));
+              reported_v4_prefix = true;
+              continue;
+            }
+            entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(prefix_bits_v4));
           } else if (a.is_v6()) {
-            entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(mask));
+            entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(prefix_bits));
           } else {
             errors.emplace_back("Invalid address: " + record);
           }
