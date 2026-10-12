@@ -312,16 +312,22 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
       }
     }
   }
+  // A predefined counter the collector could not add yet (a service that
+  // registers it started after NSClient++) is retried now instead of at the
+  // collector's next scheduled attempt. One request covers every counter.
+  if (reload) {
+    bool any_missing = false;
+    for (const counter_list::value_type &vc : named_counters) {
+      if (!collector->has_counter(vc.second)) {
+        any_missing = true;
+        break;
+      }
+    }
+    if (any_missing && !collector->retry_unresolved_counters(5000)) NSC_DEBUG_MSG("Timed out waiting for the collector to retry the missing counters");
+  }
   for (const counter_list::value_type &vc : named_counters) {
     try {
       typedef std::map<std::string, double> value_list_type;
-
-      // A predefined counter the collector could not add yet (a service that
-      // registers it started after NSClient++) is retried now instead of at
-      // the collector's next scheduled attempt.
-      if (reload && !collector->has_counter(vc.second) && !collector->retry_unresolved_counters(5000)) {
-        NSC_DEBUG_MSG("Timed out waiting for the collector to retry counter " + vc.second);
-      }
 
       for (const std::string &time : times) {
         value_list_type values;

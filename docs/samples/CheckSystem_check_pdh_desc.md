@@ -48,8 +48,18 @@ per instance. `type=` picks the value format (`double`, `long`, `large`, default
 `nocap100` is the one you want for a counter that legitimately exceeds 100%,
 such as multi-core `% Processor Time`.
 
-`reload=true` re-reads the counter list on error, which helps with counters
-registered after boot by a service that starts late. `ignore-errors=true` makes a
+A counter defined in `[/settings/system/windows/counters]` that does not exist
+when NSClient++ starts - typically one a service registers when it starts, later
+than NSClient++ - does not stop the others from being collected. The collector
+keeps retrying it in the background: quickly during the first minute, then once
+a minute. It logs `Failed to add counter <name> (<path>): ...` once the first
+minute is over, and `Counter <name> is now available` once the counter is
+collected. Until then, naming it in `counter=` fails with `Failed to get value`.
+`reload=true` asks the collector to retry the missing counters right away, and
+waits up to 5 seconds for it, before the check reads a named counter that is not
+there yet; it changes nothing for a counter given as a path.
+
+`ignore-errors=true` makes a
 missing or invalid counter report `0` instead of failing the check — convenient
 for a configuration shared across differently-provisioned hosts, but be aware
 that it turns "the counter is gone" into a silent zero, which is exactly the

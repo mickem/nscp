@@ -23,6 +23,9 @@ class PDHQuery : public subscriber {
   PDHQuery() : hQuery_(nullptr), has_displayed_invalid_counter_(false), listener_registered_(false) {}
   virtual ~PDHQuery() noexcept;
 
+  // Adds the counter (every instance of a wildcard one). On a query that is
+  // already open it is added to PDH right away, and a counter PDH rejects
+  // throws and is not kept; otherwise it is added when the query is opened.
   void addCounter(const pdh_instance& instance);
   void removeAllCounters();
 

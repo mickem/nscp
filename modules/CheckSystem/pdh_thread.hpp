@@ -90,7 +90,6 @@ class pdh_thread {
   dimension_hash metric_dimensions;
 
   std::list<PDH::pdh_object> configs_;
-  std::list<PDH::pdh_instance> counters_;
   // Which of configs_ have been added to the collector's query and which are
   // still being retried. Touched only by thread_proc.
   pdh_counters::counter_set counter_set_;
@@ -105,6 +104,9 @@ class pdh_thread {
   boost::condition_variable retry_done_;
   unsigned long long retry_requested_ = 0;
   unsigned long long retry_completed_ = 0;
+  // Set when the collector stops: waiting requests are released and new ones
+  // return straight away.
+  bool retry_stopped_ = false;
   rrd_buffer<windows::system_info::cpu_load> cpu;
   // Attempts to read the CPU load for `cpu`. Guarded by its own mutex rather
   // than mutex_, so an attempt is counted even when mutex_ cannot be had;
@@ -249,18 +251,19 @@ class pdh_thread {
                   error_list &errors);
   void write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors);
 
-  // Adopts a probe of the unresolved counters: when it resolved any, rebuilds
-  // the query from every resolved counter and republishes counters_ and
-  // lookups_. Caller must hold the unique (write) lock on mutex_. Returns
-  // whether the query is open and worth gathering.
-  bool adopt_counters(const pdh_counters::counter_set::probe_result &probe, PDH::PDHQuery &pdh, bool query_open);
-  // Logs each counter still unresolved once the fast retries are spent, once
-  // per counter.
+  // Adds the counters prepare() created to the collector's query, opening it
+  // first when it is not, and publishes them in lookups_. Caller must hold
+  // the unique (write) lock on mutex_.
+  void adopt_counters(PDH::PDHQuery &pdh, const pdh_counters::counter_set::candidates &candidates);
+  // Logs each unresolved counter that has not been reported yet. Called after
+  // every attempt once the fast retries are spent.
   void report_missing_counters();
   // The collector's side of retry_unresolved_counters(): the newest request
   // not yet served, or 0.
   unsigned long long pending_retry_request();
   void complete_retry_request(unsigned long long ticket);
+  // Releases every waiting retry request; see retry_stopped_.
+  void cancel_retry_requests();
 
   filters::mem::filter_config_handler mem_filters_;
   filters::cpu::filter_config_handler cpu_filters_;

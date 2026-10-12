@@ -18,7 +18,7 @@ namespace pdh_counters {
 // (#634).
 struct retry_schedule {
   // The fast attempts after the initial one; a counter still missing after
-  // them is reported as an error, once.
+  // them is reported as an error.
   static constexpr unsigned fast_attempts = 6;
   static constexpr unsigned long long steady_delay_ms = 60000;
   // How long to wait before retry number `attempt` (0-based).
@@ -31,41 +31,47 @@ struct unresolved_counter {
   std::string error;
 };
 
-// A configured counter that was added, and the instance that collects it. The
-// instance is kept across query rebuilds, so its history survives another
-// counter being added later.
+// A configured counter and the instance that collects it.
 struct resolved_counter {
   PDH::pdh_object config;
   PDH::pdh_instance instance;
 };
 
-// The predefined counters, split into the ones that resolved and the ones that
-// have not (yet). Each counter is probed in a query of its own, so one missing
-// counter can no longer fail the query the others are collected in.
+// The predefined counters, split into the ones in the collector's query and
+// the ones that are not (yet). Each counter is added to the open query on its
+// own, so one missing counter no longer fails the others, and adding one
+// later leaves the counters already collected - and their previous sample -
+// alone.
 //
 // Not thread-safe: owned by the collector thread.
 class counter_set {
  public:
-  struct probe_result {
-    std::list<resolved_counter> resolved;
-    std::list<unresolved_counter> unresolved;
+  // What prepare() made of the unresolved counters.
+  struct candidates {
+    // Instances created, to be added to the query.
+    std::list<resolved_counter> created;
+    // Not there yet (a wildcard over an object that is not registered, or
+    // with no instances): retried.
+    std::list<unresolved_counter> missing;
+    // Rejected by the counter's own configuration: retrying cannot help.
+    std::list<unresolved_counter> invalid;
+  };
+  // What adopt() did with them.
+  struct adoption {
+    std::list<resolved_counter> added;
+    std::list<unresolved_counter> invalid;
   };
 
   // Every counter starts unresolved.
   void configure(const std::list<PDH::pdh_object> &configs);
-  // Tries each unresolved counter in a throwaway query. Changes nothing: the
-  // caller adopts the result with commit() once it may touch the shared state.
-  probe_result probe() const;
-  // Adopts a probe: its resolved counters join resolved(), its unresolved
-  // ones replace unresolved().
-  void commit(const probe_result &probe);
-  // Puts every resolved counter back on the unresolved list, for when the
-  // query they were installed in failed as a whole.
-  void demote_all(const std::string &error);
-
-  // Adds every resolved counter to `query` after dropping what it held. The
-  // query is left closed; the caller opens it.
-  void fill(PDH::PDHQuery &query) const;
+  // Creates the instances of the unresolved counters, expanding wildcards.
+  // Changes nothing, so it can run without the lock the query is used under.
+  candidates prepare() const;
+  // Adds each created instance to `query`, which must be open. The ones PDH
+  // accepts become resolved; the ones it rejects (an object or counter that
+  // is not registered) stay unresolved, as do prepare()'s missing ones; the
+  // invalid ones are dropped and handed back for the caller to report.
+  adoption adopt(const candidates &c, PDH::PDHQuery &query);
 
   const std::list<resolved_counter> &resolved() const { return resolved_; }
   const std::list<unresolved_counter> &unresolved() const { return unresolved_; }

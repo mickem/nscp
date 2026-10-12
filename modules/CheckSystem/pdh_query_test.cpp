@@ -928,78 +928,113 @@ TEST_F(PdhQueryLifecycleTest, CounterSetMissingCounterDoesNotFailTheOthers) {
   pdh_counters::counter_set set;
   set.configure({make_config("cpu", "\\Processor(_Total)\\% Processor Time"), make_config("jobs", "\\Service\\Jobs")});
 
-  const pdh_counters::counter_set::probe_result probe = set.probe();
-  ASSERT_EQ(probe.resolved.size(), 1u);
-  EXPECT_EQ(probe.resolved.front().config.alias, "cpu");
-  ASSERT_EQ(probe.unresolved.size(), 1u);
-  EXPECT_EQ(probe.unresolved.front().config.alias, "jobs");
-  EXPECT_FALSE(probe.unresolved.front().error.empty());
-
-  // probe() only reports; commit() adopts.
-  EXPECT_TRUE(set.resolved().empty());
-  set.commit(probe);
-  EXPECT_EQ(set.resolved().size(), 1u);
-  EXPECT_EQ(set.unresolved().size(), 1u);
-
-  // The query built from what resolved opens: the missing counter is not in it.
   PDH::PDHQuery q;
-  set.fill(q);
-  EXPECT_NO_THROW(q.open());
+  q.open();
+  const pdh_counters::counter_set::adoption adoption = set.adopt(set.prepare(), q);
+  ASSERT_EQ(adoption.added.size(), 1u);
+  EXPECT_EQ(adoption.added.front().config.alias, "cpu");
+  EXPECT_TRUE(adoption.invalid.empty());
+  ASSERT_EQ(set.resolved().size(), 1u);
+  ASSERT_EQ(set.unresolved().size(), 1u);
+  EXPECT_EQ(set.unresolved().front().config.alias, "jobs");
+  EXPECT_FALSE(set.unresolved().front().error.empty());
+
+  // The query stayed open with the counter that exists in it, and the one PDH
+  // rejected left no handle behind.
   EXPECT_TRUE(q.is_open());
+  EXPECT_EQ(mock->open_counter_handles, 1);
   q.close();
-}
-
-TEST_F(PdhQueryLifecycleTest, CounterSetProbeLeavesNoHandlesOpen) {
-  mock->missing_paths.insert(L"\\Service\\Jobs");
-  pdh_counters::counter_set set;
-  set.configure({make_config("cpu", "\\Processor(_Total)\\% Processor Time"), make_config("jobs", "\\Service\\Jobs")});
-  set.probe();
-  EXPECT_EQ(mock->open_handles, 0);
   EXPECT_EQ(mock->open_counter_handles, 0);
-  EXPECT_EQ(mock->listener_count, 0);
+  EXPECT_EQ(mock->open_handles, 0);
 }
 
-TEST_F(PdhQueryLifecycleTest, CounterSetPicksUpACounterOnceItExists) {
+TEST_F(PdhQueryLifecycleTest, CounterSetAddsALateCounterWithoutRebuildingTheQuery) {
   mock->missing_paths.insert(L"\\Service\\Jobs");
   pdh_counters::counter_set set;
   set.configure({make_config("cpu", "\\Processor(_Total)\\% Processor Time"), make_config("jobs", "\\Service\\Jobs")});
-  set.commit(set.probe());
+  PDH::PDHQuery q;
+  q.open();
+  set.adopt(set.prepare(), q);
   ASSERT_EQ(set.resolved().size(), 1u);
   const PDH::pdh_instance cpu = set.resolved().front().instance;
 
   // Still missing: a retry changes nothing.
-  set.commit(set.probe());
-  EXPECT_EQ(set.resolved().size(), 1u);
+  EXPECT_TRUE(set.adopt(set.prepare(), q).added.empty());
   EXPECT_EQ(set.unresolved().size(), 1u);
 
   // The service registered its counter.
   mock->missing_paths.clear();
-  const pdh_counters::counter_set::probe_result probe = set.probe();
-  ASSERT_EQ(probe.resolved.size(), 1u);
-  EXPECT_EQ(probe.resolved.front().config.alias, "jobs");
-  set.commit(probe);
+  const pdh_counters::counter_set::adoption adoption = set.adopt(set.prepare(), q);
+  ASSERT_EQ(adoption.added.size(), 1u);
+  EXPECT_EQ(adoption.added.front().config.alias, "jobs");
   EXPECT_TRUE(set.complete());
   ASSERT_EQ(set.resolved().size(), 2u);
-  // The counter that resolved first keeps its instance, and with it the values
-  // it has collected so far.
+  // The counter that resolved first keeps its instance and its handle: the
+  // query was neither reopened nor stripped, so its previous sample survives.
   EXPECT_EQ(set.resolved().front().instance, cpu);
-
-  PDH::PDHQuery q;
-  set.fill(q);
-  EXPECT_NO_THROW(q.open());
+  EXPECT_EQ(mock->open_calls, 1);
+  EXPECT_EQ(mock->remove_counter_calls, 0);
   EXPECT_EQ(mock->open_counter_handles, 2);
   q.close();
 }
 
-TEST_F(PdhQueryLifecycleTest, CounterSetDemoteAllRetriesEverything) {
+TEST_F(PdhQueryLifecycleTest, CounterSetDropsAnInvalidCounterInsteadOfRetryingIt) {
+  PDH::pdh_object broken = make_config("broken", "\\A\\Value");
+  broken.set_strategy("rrd");
+  broken.buffer_size = 0;  // what rrd_collector refuses
   pdh_counters::counter_set set;
-  set.configure({make_config("a", "\\A\\Value"), make_config("b", "\\B\\Value")});
-  set.commit(set.probe());
-  ASSERT_TRUE(set.complete());
-  set.demote_all("query failed");
-  EXPECT_TRUE(set.resolved().empty());
-  ASSERT_EQ(set.unresolved().size(), 2u);
-  EXPECT_EQ(set.unresolved().front().error, "query failed");
+  set.configure({make_config("a", "\\A\\Value"), broken});
+
+  PDH::PDHQuery q;
+  q.open();
+  const pdh_counters::counter_set::adoption adoption = set.adopt(set.prepare(), q);
+  EXPECT_EQ(adoption.added.size(), 1u);
+  ASSERT_EQ(adoption.invalid.size(), 1u);
+  EXPECT_EQ(adoption.invalid.front().config.alias, "broken");
+  EXPECT_TRUE(set.complete()) << "a counter its configuration rejects must not be retried";
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetRetriesAWildcardItCannotExpandYet) {
+  mock->expand_wild_card_status = PDH_INVALID_PATH;
+  PDH::pdh_object wildcard = make_config("jobs", "\\Service($INSTANCE$)\\Jobs");
+  pdh_counters::counter_set set;
+  set.configure({wildcard});
+
+  PDH::PDHQuery q;
+  q.open();
+  const pdh_counters::counter_set::adoption adoption = set.adopt(set.prepare(), q);
+  EXPECT_TRUE(adoption.added.empty());
+  EXPECT_TRUE(adoption.invalid.empty());
+  ASSERT_EQ(set.unresolved().size(), 1u);
+  EXPECT_EQ(set.unresolved().front().config.alias, "jobs");
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, AddCounterToAnOpenQueryAddsItNow) {
+  PDH::PDHQuery q;
+  q.open();
+  q.addCounter(make_counter("a", "\\A\\Value"));
+  EXPECT_EQ(mock->open_counter_handles, 1);
+  EXPECT_TRUE(q.has_counters());
+  q.close();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, AddCounterRejectedByAnOpenQueryIsNotKept) {
+  mock->missing_paths.insert(L"\\Service\\Jobs");
+  PDH::PDHQuery q;
+  q.open();
+  EXPECT_THROW(q.addCounter(make_counter("jobs", "\\Service\\Jobs")), PDH::pdh_exception);
+  EXPECT_FALSE(q.has_counters());
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  // A PDH reload re-adds what the query holds: the rejected counter is not in
+  // it, even once it would be accepted.
+  mock->missing_paths.clear();
+  q.on_unload();
+  q.on_reload();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  q.close();
 }
 
 TEST(PdhCounterRetrySchedule, BacksOffThenSettlesOnTheSteadyCadence) {

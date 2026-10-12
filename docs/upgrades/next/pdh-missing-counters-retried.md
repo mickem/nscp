@@ -15,6 +15,8 @@ says `Counter <name> is now available`. The error is still logged once, after
 the first minute, and now reads
 `Failed to add counter <name> (<path>): <reason> - retrying every 60 seconds`
 instead of `Exception in Failed to add counter <name>:`. Update a log alert
-that matches the old wording. `check_pdh reload=true` was accepted but ignored;
-it now retries the missing predefined counters before the check reads its
-value.
+that matches the old wording. At startup, `Not checking PDH data` is now only
+logged when no counters are configured; with counters still pending it says how
+many are being retried. `check_pdh reload=true` was accepted but ignored; it now
+asks the collector to retry the missing predefined counters, and waits up to
+5 seconds for that, before the check reads them.

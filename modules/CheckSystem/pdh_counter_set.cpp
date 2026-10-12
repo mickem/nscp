@@ -18,40 +18,40 @@ void counter_set::configure(const std::list<PDH::pdh_object> &configs) {
   for (const PDH::pdh_object &config : configs) unresolved_.push_back({config, ""});
 }
 
-counter_set::probe_result counter_set::probe() const {
-  probe_result result;
+counter_set::candidates counter_set::prepare() const {
+  candidates result;
   for (const unresolved_counter &counter : unresolved_) {
     try {
       // A wildcard counter is expanded here, so instances that appeared since
       // the previous attempt are picked up.
-      PDH::pdh_instance instance = PDH::factory::create(counter.config);
-      // PdhAddCounter is where a counter that does not exist fails, and the
-      // shared query adds every counter in one go: try this one on its own.
-      PDH::PDHQuery query;
-      query.addCounter(instance);
-      query.open();
-      query.close();
-      result.resolved.push_back({counter.config, instance});
+      result.created.push_back({counter.config, PDH::factory::create(counter.config)});
+    } catch (const PDH::pdh_no_instance_exception &e) {
+      result.missing.push_back({counter.config, utf8::utf8_from_native(e.what())});
+    } catch (const PDH::pdh_expand_exception &e) {
+      // The wildcard form of a counter that is not registered yet.
+      result.missing.push_back({counter.config, utf8::utf8_from_native(e.what())});
     } catch (const std::exception &e) {
-      result.unresolved.push_back({counter.config, utf8::utf8_from_native(e.what())});
+      result.invalid.push_back({counter.config, utf8::utf8_from_native(e.what())});
     }
   }
   return result;
 }
 
-void counter_set::commit(const probe_result &probe) {
-  resolved_.insert(resolved_.end(), probe.resolved.begin(), probe.resolved.end());
-  unresolved_ = probe.unresolved;
-}
-
-void counter_set::demote_all(const std::string &error) {
-  for (const resolved_counter &counter : resolved_) unresolved_.push_back({counter.config, error});
-  resolved_.clear();
-}
-
-void counter_set::fill(PDH::PDHQuery &query) const {
-  query.removeAllCounters();
-  for (const resolved_counter &counter : resolved_) query.addCounter(counter.instance);
+counter_set::adoption counter_set::adopt(const candidates &c, PDH::PDHQuery &query) {
+  adoption result;
+  result.invalid = c.invalid;
+  unresolved_ = c.missing;
+  for (const resolved_counter &counter : c.created) {
+    try {
+      // PdhAddCounter is where a counter that does not exist fails.
+      query.addCounter(counter.instance);
+      resolved_.push_back(counter);
+      result.added.push_back(counter);
+    } catch (const std::exception &e) {
+      unresolved_.push_back({counter.config, utf8::utf8_from_native(e.what())});
+    }
+  }
+  return result;
 }
 
 }  // namespace pdh_counters

@@ -91,6 +91,15 @@ class pdh_no_instance_exception : public pdh_exception {
   explicit pdh_no_instance_exception(const std::string &error) : pdh_exception(error) {}
 };
 
+// Thrown by factory::create() when a wildcard path could not be expanded,
+// typically because the object it names is not registered (yet). Distinct
+// from the other failures of create(), which are about the counter's own
+// configuration and do not change by trying again.
+class pdh_expand_exception : public pdh_exception {
+ public:
+  explicit pdh_expand_exception(const std::string &error) : pdh_exception(error) {}
+};
+
 // Thrown by PDHQuery::collect() when PdhCollectQueryData returns PDH_NO_DATA
 // (see pdh_error::is_no_data()). Still a pdh_exception, so every caller keeps
 // treating it as a failure; PDHQuery::gatherData() catches it to take one

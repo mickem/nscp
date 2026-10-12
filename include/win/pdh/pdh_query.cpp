@@ -18,12 +18,37 @@ PDHQuery::~PDHQuery() noexcept {
 }
 
 void PDHQuery::addCounter(const pdh_instance& instance) {
+  counter_list_type added;
   if (instance->has_instances()) {
     for (const pdh_instance& child : instance->get_instances()) {
-      counters_.push_back(std::make_shared<PDHCounter>(child));
+      added.push_back(std::make_shared<PDHCounter>(child));
     }
   } else
-    counters_.push_back(std::make_shared<PDHCounter>(instance));
+    added.push_back(std::make_shared<PDHCounter>(instance));
+
+  // On an open query the counters go in now, all of them or none: the
+  // counters already in the query keep their handles, and with them the
+  // previous sample a rate counter is computed from. A query that a reload
+  // left closed adds them when it reopens, as it does the others.
+  if (hQuery_ != nullptr) {
+    const std::shared_ptr<impl_interface> impl = this->impl();
+    std::lock_guard<impl_interface> guard(*impl);
+    if (hQuery_ != nullptr) {
+      try {
+        for (const counter_type& c : added) c->addToQuery(impl, hQuery_);
+      } catch (...) {
+        for (const counter_type& c : added) {
+          try {
+            c->remove();
+          } catch (...) {
+            // Best effort: the counter is not kept either way.
+          }
+        }
+        throw;
+      }
+    }
+  }
+  counters_.splice(counters_.end(), added);
 }
 
 bool PDHQuery::has_counters() const { return !counters_.empty(); }
