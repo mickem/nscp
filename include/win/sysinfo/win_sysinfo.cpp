@@ -289,13 +289,16 @@ std::string system_info::get_version_string() {
   if (majorVersion == 5 && minorVersion == 2) return "Windows Server 2003";
   if (majorVersion == 6 && minorVersion == 0 && type == VER_NT_WORKSTATION) return "Windows Vista";
   if (majorVersion == 6 && minorVersion == 0) return "Windows Server 2008";
-  if (majorVersion == 6 && minorVersion == 1 && type == VER_NT_WORKSTATION) return "Windows Server 2008 R2";
-  if (majorVersion == 6 && minorVersion == 1) return "Windows 7";
+  if (majorVersion == 6 && minorVersion == 1 && type == VER_NT_WORKSTATION) return "Windows 7";
+  if (majorVersion == 6 && minorVersion == 1) return "Windows Server 2008 R2";
   if (majorVersion == 6 && minorVersion == 2 && type == VER_NT_WORKSTATION) return "Windows 8";
   if (majorVersion == 6 && minorVersion == 2) return "Windows Server 2012";
   if (majorVersion == 6 && minorVersion == 3 && type == VER_NT_WORKSTATION) return "Windows 8.1";
   if (majorVersion == 6 && minorVersion == 3) return "Windows Server 2012 R2";
   if (majorVersion == 10 && minorVersion == 0 && type == VER_NT_WORKSTATION) {
+    if (buildNumber >= 26200) {
+      return "Windows 11 25H2";
+    }
     if (buildNumber >= 26100) {
       return "Windows 11 24H2";
     }

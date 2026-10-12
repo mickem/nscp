@@ -154,6 +154,25 @@ Then on the monitoring side:
 check_nrpe -H <agent-ip> -c my_check_process -a w3wp.exe
 ```
 
+### Quoting and backslashes
+
+The value is split into arguments on spaces, and `"…"` keeps an argument with spaces together. Inside an alias a
+backslash is an escape character, and only three escapes exist: `\\` for a backslash, `\"` for a quote and
+`\<space>` for a space that does not split the argument. Any other backslash makes NSClient++ refuse the alias at
+startup, with `Refusing alias '…' - command line did not parse cleanly` and the offending input in the log, so a
+typo cannot quietly change what the check runs. `\n` is refused too, because an argument can never contain a line
+break. In practice that means Windows paths are written with `/` or doubled backslashes:
+
+```ini
+[/settings/check helpers/alias]
+; All three work. "path=C:\Program Files\..." with single backslashes is refused.
+check_log_size = check_files "path=C:/Program Files/NSClient++/nsclient.log" "crit=size > 1G"
+check_log_size2 = check_files "path=C:\\Program Files\\NSClient++\\nsclient.log" "crit=size > 1G"
+check_log_size3 = check_files path=C:/Program\ Files/NSClient++/nsclient.log "crit=size > 1G"
+; An option that decodes \n itself (list-separator) gets it as \\n.
+check_users_list = check_users "list-separator=\\n"
+```
+
 ### Which module to use
 
 Prefer to use `CheckHelpers` for new instances and use only `CheckExternalScripts`for hstorical reasons.
