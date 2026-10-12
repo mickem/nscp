@@ -323,38 +323,29 @@ class INISettings : public settings_interface_impl {
     load_data();
   }
 
-  error_list validate() override {
-    error_list ret;
+  void get_real_inventory(settings::inventory &out) override {
+    load_data();
+    // Named by file rather than by context: the context of an include is the
+    // alias it was given, and the operator needs to know which file to edit.
+    std::string source = get_file_name().string();
+    if (source.empty()) source = context_;
     CSimpleIni::TNamesDepend sections;
     ini.GetAllSections(sections);
+    // GetAllSections hands sections back in hash order; the file's own order
+    // is what the operator reads them in.
+    sections.sort(CSimpleIni::Entry::LoadOrder());
     for (const CSimpleIni::Entry &ePath : sections) {
-      std::string path = utf8::cvt<std::string>(ePath.pItem);
-      try {
-        get_core()->get_registered_path(path);
-      } catch (const settings_exception &) {
-        ret.push_back(std::string("Invalid path: ") + path);
-      }
       CSimpleIni::TNamesDepend keys;
       ini.GetAllKeys(ePath.pItem, keys);
-      for (const CSimpleIni::Entry &eKey : keys) {
-        std::string key = utf8::cvt<std::string>(eKey.pItem);
-        // FIXME: this never reports anything against the production core.
-        // get_registered_key returns boost::none for an unknown key
-        // (settings_handler_impl) and only throws when it cannot take the
-        // registry lock, so the catch below is dead and `nscp settings
-        // --validate` cannot flag a mistyped key. Testing the optional
-        // instead is the fix, but it also starts reporting every key of
-        // every module that is not currently loaded, so it needs its own
-        // change with a decision about that output.
-        try {
-          get_core()->get_registered_key(path, key);
-        } catch (const settings_exception &) {
-          ret.push_back(std::string("Invalid key: ") + settings::key_to_string(path, key));
-        }
-      }
+      keys.sort(CSimpleIni::Entry::LoadOrder());
+      std::list<std::string> key_names;
+      for (const CSimpleIni::Entry &eKey : keys) key_names.push_back(utf8::cvt<std::string>(eKey.pItem));
+      // The unnamed section holds keys written above the first header. It is
+      // listed even when empty, which is no finding.
+      const std::string path = utf8::cvt<std::string>(ePath.pItem);
+      if (path.empty() && key_names.empty()) continue;
+      out.emplace_back(source, path, key_names);
     }
-
-    return ret;
   }
 
   void real_clear_cache() override {

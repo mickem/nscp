@@ -78,10 +78,12 @@ TEST(settings_dummy, get_real_keys_leaves_list_unchanged) {
   EXPECT_TRUE(out.empty());
 }
 
-TEST(settings_dummy, validate_returns_no_errors) {
+TEST(settings_dummy, inventory_is_empty) {
   mock_settings_core core;
   settings::settings_dummy d(&core, "test", "dummy://");
-  EXPECT_TRUE(d.validate().empty());
+  settings::inventory inv;
+  d.get_inventory(inv);
+  EXPECT_TRUE(inv.empty());
 }
 
 TEST(settings_dummy, context_exists_always_true) {

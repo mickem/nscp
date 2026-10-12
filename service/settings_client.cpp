@@ -286,12 +286,27 @@ int nsclient_core::settings_client::list(std::string path) {
 
   return 0;
 }
+// Exit code 1 when anything is certainly wrong, so a deployment pipeline can
+// gate on it. Info lines - sections and keys only a module that is not loaded
+// would use - are listed but do not fail the run, unless --load-all loaded
+// every module and nothing at all claims them.
 int nsclient_core::settings_client::validate() {
-  settings::error_list errors = get_core()->validate();
-  for (const std::string &e : errors) {
-    std::cerr << e << std::endl;
+  const settings::validation_result problems = get_core()->validate(load_all_);
+  const std::size_t warnings = settings::count_warnings(problems);
+  std::string source;
+  for (const settings::validation_finding &f : problems) {
+    if (f.source != source) {
+      source = f.source;
+      std::cout << source << ":" << std::endl;
+    }
+    std::cout << "  " << (f.level == settings::validation_finding::severity::warning ? "warning: " : "info:    ") << f.message << std::endl;
   }
-  return 0;
+  if (problems.empty()) {
+    std::cout << "No problems found in " << get_core()->get()->get_context() << std::endl;
+  } else {
+    std::cout << warnings << " warning(s), " << (problems.size() - warnings) << " info" << std::endl;
+  }
+  return warnings > 0 ? 1 : 0;
 }
 
 int nsclient_core::settings_client::sort() {

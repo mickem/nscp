@@ -75,8 +75,10 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
         ("generate", po::value<std::string>()->implicit_value("settings"), "Deprecated use update in stead.")
         ("update", po::value<std::string>()->implicit_value("settings"), "Save config file (adding comments in place and moving sensitive keys to/from credential manager).")
         ("add-missing", "Add all default values for all missing keys.")
-        ("validate", "Validate the current configuration (or a given configuration).")
-        ("load-all", "Load all plugins (currently only used with generate).")
+        ("validate", "Report sections and keys in the configuration that nothing reads: a missing leading '/', a misspelled key or "
+                     "section (warnings, exit code 1), and ones only a module that is not loaded would use (info). "
+                     "With --load-all every installed module is loaded first, so anything still unclaimed is a warning.")
+        ("load-all", "Load all plugins (used with --update/--generate and --validate).")
         ("path", po::value<std::string>()->default_value(""), "Path of key to work with.")
         ("key", po::value<std::string>()->default_value(""), "Key to work with.")
         ("set", po::value<std::string>()->implicit_value(""), "Set a key and path to a given value (use --key and --path).")

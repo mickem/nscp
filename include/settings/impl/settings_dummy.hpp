@@ -74,10 +74,6 @@ class settings_dummy : public settings::settings_interface_impl {
   /// Save the settings store
   virtual void save(bool re_save_all) { settings_interface_impl::save(re_save_all); }
   virtual std::string get_info() { return "dummy settings"; }
-  settings::error_list validate() {
-    settings::error_list ret;
-    return ret;
-  }
   virtual std::string get_type() { return "dummy"; }
 
  public:

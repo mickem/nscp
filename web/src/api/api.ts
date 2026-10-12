@@ -314,6 +314,39 @@ export interface SettingsDiff {
   count: number;
 }
 
+// What GET /v2/settings/problems reports: sections and keys in the saved
+// configuration that nothing reads. A `warning` is certainly wrong (a section
+// without its leading '/', a misspelled section or key); an `info` entry is
+// only unused by the modules that are loaded, and may belong to one that is
+// not enabled.
+export type SettingsProblemKind =
+  | "orphan_key"
+  | "relative_path"
+  | "unknown_path"
+  | "unknown_key"
+  | "unused_path"
+  | "unused_key";
+
+export interface SettingsProblem {
+  kind: SettingsProblemKind;
+  severity: "warning" | "info";
+  /** The file (or store) the entry is in. */
+  source: string;
+  path: string;
+  key: string;
+  /** The section or key the entry most likely meant, when there is one. */
+  suggestion: string;
+  message: string;
+}
+
+export interface SettingsProblems {
+  problems: SettingsProblem[];
+  count: number;
+  warnings: number;
+  /** The caller lacks settings.get: the report is left empty, not clean. */
+  restricted?: boolean;
+}
+
 // Normalized shape for metadata autocomplete endpoints (counters, channels…).
 // `value` is what's persisted; `label` is what the dropdown displays.
 export interface MetadataOption {
@@ -406,6 +439,7 @@ export const ALL_API_TAGS = [
   "Settings",
   "SettingsStatus",
   "SettingsDescriptions",
+  "SettingsProblems",
   "LogStatus",
   "Metrics",
   "Events",
@@ -430,6 +464,7 @@ export const nsclientApi = createApi({
     "Settings",
     "SettingsStatus",
     "SettingsDescriptions",
+    "SettingsProblems",
     "LogStatus",
     "Metrics",
     "Events",
@@ -594,6 +629,14 @@ export const nsclientApi = createApi({
         url: "/v2/settings/diff",
       }),
       providesTags: ["SettingsStatus", "Settings"],
+    }),
+    // Recomputed whenever the configuration or the set of loaded modules
+    // changes: either can make an entry used or unused.
+    getSettingsProblems: builder.query<SettingsProblems, void>({
+      query: () => ({
+        url: "/v2/settings/problems",
+      }),
+      providesTags: ["SettingsProblems", "Settings", "Modules"],
     }),
     getSettings: builder.query<Settings[], void>({
       query: () => ({
@@ -774,6 +817,7 @@ export const {
   useGetSettingsQuery,
   useGetSettingsDescriptionsQuery,
   useGetSettingsDiffQuery,
+  useGetSettingsProblemsQuery,
   useUpdateSettingsMutation,
   useDeleteSettingsMutation,
   useSettingsCommandMutation,

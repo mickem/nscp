@@ -301,6 +301,9 @@ void nsclient::core::plugin_manager::load_permissions() {
                         "Rule table. Each key is a subject pattern (module[:principal]); the value is a comma-separated list of "
                         "object patterns (module.command). Rules merge additively.",
                         true, false);
+    // Every key is a rule the operator names; settings validation must not
+    // report them as unknown.
+    core->register_user_keys(0xffff, policies_section);
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("permissions: failed to register the settings keys: " + utf8::utf8_from_native(e.what()));
   } catch (...) {

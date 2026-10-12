@@ -210,16 +210,39 @@ TEST(settings_ini, ensure_exists_does_not_throw_on_existing_file) {
   EXPECT_TRUE(boost::filesystem::exists(file));
 }
 
-TEST(settings_ini, validate_flags_unregistered_paths_and_keys) {
+TEST(settings_ini, inventory_lists_sections_and_keys_in_file_order) {
   temp_dir dir;
   auto file = dir.file("a.ini");
-  write_file(file, "[/unknown]\nfoo=bar\n");
+  write_file(file, "orphan=1\n[/z]\nb=1\na=2\n[settings/no slash]\nk=v\n[/a]\n");
   mock_settings_core core;
   settings::INISettings s(&core, "test", ini_context(file));
-  // mock_settings_core::get_registered_path returns a default-constructed path
-  // description (no throw), so validate doesn't surface unknown sections here.
-  // It still runs to completion without exception, which is what we assert.
-  EXPECT_NO_THROW(s.validate());
+  settings::inventory inv;
+  s.get_inventory(inv);
+  ASSERT_EQ(inv.size(), 4u);
+  auto it = inv.begin();
+  EXPECT_EQ(it->path, "");
+  EXPECT_EQ(it->keys, std::list<std::string>({"orphan"}));
+  ++it;
+  EXPECT_EQ(it->path, "/z");
+  EXPECT_EQ(it->keys, std::list<std::string>({"b", "a"}));
+  ++it;
+  EXPECT_EQ(it->path, "settings/no slash");
+  ++it;
+  EXPECT_EQ(it->path, "/a");
+  EXPECT_TRUE(it->keys.empty());
+  EXPECT_NE(it->source.find("a.ini"), std::string::npos) << it->source;
+}
+
+TEST(settings_ini, inventory_without_orphan_keys_has_no_unnamed_section) {
+  temp_dir dir;
+  auto file = dir.file("a.ini");
+  write_file(file, "; comment only\n[/a]\nk=v\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  settings::inventory inv;
+  s.get_inventory(inv);
+  ASSERT_EQ(inv.size(), 1u);
+  EXPECT_EQ(inv.front().path, "/a");
 }
 
 TEST(settings_ini, context_exists_for_real_file) {

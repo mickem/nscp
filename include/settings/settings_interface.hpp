@@ -6,6 +6,7 @@
 #include <boost/optional.hpp>
 #include <list>
 #include <memory>
+#include <settings/settings_validation.hpp>
 #include <settings/settings_value.hpp>
 #include <string>
 #include <utility>
@@ -38,8 +39,6 @@ class settings_exception : public std::exception {
 class settings_interface;
 typedef std::shared_ptr<settings_interface> instance_ptr;
 typedef std::shared_ptr<settings_interface> instance_raw_ptr;
-
-typedef std::list<std::string> error_list;
 
 class settings_interface {
  public:
@@ -177,8 +176,11 @@ class settings_interface {
 
   virtual std::string get_type() = 0;
   //////////////////////////////////////////////////////////////////////////
-  /// Validate the settings store and report all missing/invalid and superfluous keys.
-  virtual settings::error_list validate() = 0;
+  /// Append every section this store holds on disk, with the keys under it,
+  /// followed by those of the stores it includes. Unsaved changes are not part
+  /// of it: this is what the agent reads at its next start. The settings core
+  /// compares it against the registry (settings_core::validate()).
+  virtual void get_inventory(settings::inventory& out) = 0;
 
   virtual std::string to_string() = 0;
 

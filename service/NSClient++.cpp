@@ -343,7 +343,7 @@ bool NSClientT::load_configuration_2(const bool override_log) {
     // clang-format off
     settings.add_path()
       (MAIN_MODULES_SECTION, "MODULES", "A list of modules.")
-      ("settings", "Settings", "Core configuration.")
+      ("/settings", "Settings", "Core configuration.")
     ;
 
     settings.add_path_to_settings()
@@ -366,6 +366,9 @@ bool NSClientT::load_configuration_2(const bool override_log) {
                     "The folder to archive crash dumps in. A relative name is taken relative to the crash folder; an absolute path is used as given.");
 
     settings.register_all();
+    // Every key under /modules names a module, so settings validation accepts
+    // any key there.
+    settings_manager::get_core()->register_user_keys(0xffff, MAIN_MODULES_SECTION);
     settings.notify();
     if (use_credentials) {
       settings_manager::get_settings()->enable_credentials();
@@ -551,9 +554,34 @@ bool NSClientT::boot_start_plugins(bool boot) {
     // correct a minute later.
     process_facts("startup");
     boot_fleet_sync();
+    report_settings_problems();
   }
   LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
   return true;
+}
+
+void NSClientT::report_settings_problems() {
+  try {
+    const settings::validation_result problems = settings_manager::get_core()->validate();
+    const std::size_t warnings = settings::count_warnings(problems);
+    if (warnings > 0) {
+      LOG_WARN_CORE_STD("Configuration: " + str::xtos(warnings) +
+                        (warnings == 1 ? " entry is ignored because nothing reads it" : " entries are ignored because nothing reads them") +
+                        ". Run 'nscp settings --validate', or see Configuration problems in the web UI, for details.");
+    }
+    for (const settings::validation_finding &f : problems) {
+      const std::string line = "Configuration: " + f.message + " (" + f.source + ")";
+      if (f.level == settings::validation_finding::severity::warning) {
+        LOG_WARN_CORE_STD(line);
+      } else {
+        LOG_DEBUG_CORE_STD(line);
+      }
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to validate the configuration: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to validate the configuration: UNKNOWN");
+  }
 }
 
 // Register the core's facts settings and, when a module can produce facts at
@@ -820,6 +848,7 @@ void NSClientT::reloadPlugins() {
   // TODO: a module *disabled* since the last load is still left running; that
   // needs unloading a live plugin, which is a different problem from this one.
   settings_manager::get_core()->set_reload(false);
+  report_settings_problems();
   // The reloaded configuration may have enabled or disabled fact sets, and a
   // set that is no longer enabled has to leave the document now rather than at
   // the next hourly round.
@@ -847,6 +876,7 @@ bool NSClientT::do_reload(const std::string module) {
         read_facts_max_size();
         collect_agent_facts();
       }
+      report_settings_problems();
       return true;
     } catch (const std::exception &e) {
       LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));

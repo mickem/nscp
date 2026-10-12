@@ -229,6 +229,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ../libs/settings_manager/settings_manager_impl.cpp
     ../libs/settings_manager/settings_handler_impl.cpp
+    ../libs/settings_manager/settings_validation.cpp
     # Shared with the service (which exports the same bundle at boot): the
     # installer needs a trust anchor of its own to verify an https:// settings
     # source, since it runs before any file is installed.

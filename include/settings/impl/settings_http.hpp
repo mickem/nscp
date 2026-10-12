@@ -710,10 +710,6 @@ class settings_http : public settings::settings_interface_impl {
     throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
   }
 
-  settings::error_list validate() {
-    settings::error_list ret;
-    return ret;
-  }
   void ensure_exists() {}
 
   virtual std::string get_type() { return "http"; }

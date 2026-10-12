@@ -57,6 +57,21 @@ void nscapi::settings_proxy::register_subkey(std::string path, std::string title
   }
   report_errors(response, core_, "register" + path);
 }
+void nscapi::settings_proxy::register_user_keys(std::string path) {
+  PB::Settings::SettingsRequestMessage request;
+  auto *payload = request.add_payload();
+  payload->set_plugin_id(plugin_id_);
+  auto *regitem = payload->mutable_registration();
+  regitem->mutable_node()->set_path(path);
+  regitem->mutable_info()->set_user_keys(true);
+  std::string response_string;
+  core_->settings_query(request.SerializeAsString(), response_string);
+  PB::Settings::SettingsResponseMessage response;
+  if (!response.ParseFromString(response_string)) {
+    core_->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to de-serialize the payload for " + path);
+  }
+  report_errors(response, core_, "register" + path);
+}
 void nscapi::settings_proxy::register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defValue,
                                           bool advanced, bool sample, bool sensitive) {
   PB::Settings::SettingsRequestMessage request;

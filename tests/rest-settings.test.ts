@@ -7,6 +7,7 @@
  * under a dedicated /settings/rest-test/scratch path so it can't
  * perturb anything the rest of the suite relies on.
  */
+import * as fs from "fs";
 import request from "supertest";
 import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
 
@@ -19,6 +20,10 @@ describe("REST settings controller", () => {
 
   beforeAll(async () => {
     nscp = new NscpInstance();
+    // A section written without its leading '/', for /problems to find. The
+    // `settings --set` calls setupRestNscp makes keep it: they rewrite the
+    // file from what they loaded.
+    fs.writeFileSync(nscp.settingsFile, "[settings/rest-test/no slash]\nkey = value\n");
     await setupRestNscp(nscp);
 
     await request(REST_URL)
@@ -66,6 +71,50 @@ describe("REST settings controller", () => {
         .then((response) => {
           expect(response.body).toBeDefined();
         });
+    });
+  });
+
+  describe("GET /api/v2/settings/problems", () => {
+    it("requires authentication", async () => {
+      await request(REST_URL).get("/api/v2/settings/problems").trustLocalhost(true).expect(403);
+    });
+
+    // The web UI polls this from every page and takes a 403 for an expired
+    // session; a role without settings.get gets an empty report instead.
+    it("answers a role without settings.get with an empty, restricted report", async () => {
+      const login = await request(REST_URL)
+        .get("/api/v2/login")
+        .auth("client", "client-password")
+        .trustLocalhost(true)
+        .expect(200);
+      const response = await request(REST_URL)
+        .get("/api/v2/settings/problems")
+        .set("Authorization", `Bearer ${login.body.key}`)
+        .trustLocalhost(true)
+        .expect(200);
+      expect(response.body).toEqual({ problems: [], count: 0, warnings: 0, restricted: true });
+    });
+
+    it("reports a section without its leading slash as a warning", async () => {
+      const response = await request(REST_URL)
+        .get("/api/v2/settings/problems")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+
+      const problem = response.body.problems.find(
+        (p: { path: string }) => p.path === "settings/rest-test/no slash",
+      );
+      expect(problem).toMatchObject({
+        kind: "relative_path",
+        severity: "warning",
+        key: "",
+        suggestion: "/settings/rest-test/no slash",
+      });
+      expect(problem.source).toContain("nsclient.ini");
+      expect(response.body.warnings).toBeGreaterThanOrEqual(1);
+      expect(response.body.count).toBe(response.body.problems.length);
+      expect(response.body.restricted).toBe(false);
     });
   });
 
