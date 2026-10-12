@@ -257,21 +257,40 @@ If you are migrating from a very old (0.3.x) setup, refer to the legacy upgrade 
 
 ### 4.1 Rejected connection from: your IP address here
 
-This is due to invalid configuration.
-One important thing you '''NEED''' to configure is which hosts are allowed to connect. If this configuration is missing or invalid you will get the following error:
+Every network server (NRPE, NSCA, check_nt, check_mk and the web server) only accepts connections from the
+addresses in its `allowed hosts` setting. The socket servers drop anything else before a single byte is read;
+the web server answers it with `403 Forbidden`. Either way the agent logs one line saying who was turned away,
+what the list holds and where to change it:
 
 ```
-2013-04-02 16:34:07: e:D:\source\nscp\trunk\include\check_nt/server/protocol.hpp:65: Rejected connection from: ::ffff:10.83.14.251
+Rejected connection from: 192.168.5.7, not in allowed hosts (127.0.0.1); set `allowed hosts` in /settings/NRPE/server, or in /settings/default if that section does not set it
 ```
 
-To resolve this please update your configuration:
+The default is `127.0.0.1`, so a fresh install rejects your monitoring server until you add it. Add the
+address the agent actually sees (behind NAT or a proxy that is not the server's own address):
 
-```
+```ini
 [/settings/default]
-
-; ALLOWED HOSTS - A coma separated list of hosts which are allowed to connect. You can use netmasks (/ syntax) or * to create ranges.
-allowed hosts = 10.11.12.0/24
+allowed hosts = 127.0.0.1, 192.168.5.7, 10.0.0.0/24
 ```
+
+`allowed hosts` in `[/settings/default]` applies to every server that does not set its own; a value in the
+server's section (`[/settings/NRPE/server]`, `[/settings/WEB/server]`, ...) replaces it for that server
+only. If the log names the server section and you edited `[/settings/default]`, the section's own value is
+the one in force. Entries can be addresses, host names, networks (`10.0.0.0/24`, `2001:db8::/32`) or a
+trailing wildcard (`10.0.0.*`). Restart the agent after changing it.
+
+Two variants of the same line point at the list itself rather than at your address:
+
+| The log says                                                     | Meaning                                                                                                                           |
+|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `allowed hosts is empty, which rejects every connection`         | The setting is present but blank. An empty list rejects everything; write `allowed hosts = 0.0.0.0/0,::/0` if you really mean any address. |
+| `no entry in allowed hosts could be used (...)`                   | Every entry failed to parse or resolve. Which one and why was logged as an error when the module loaded, so look in the log from the agent's start. With `cache allowed hosts = false` the list is re-read on every connection, and the errors ride the rejection line instead, after `problems with the list:`. |
+
+On the monitoring server a rejected NRPE check shows up as a reset connection, a failed SSL handshake or
+*"No output returned from plugin"*. Those have another common cause that the agent does not log as a
+rejection: a `check_nrpe` whose TLS settings do not match the agent's. If no `Rejected connection` line appears
+when the check runs, follow [Troubleshooting in the NRPE guide](scenarios/nrpe.md#troubleshooting) instead.
 
 ### 4.2 Timeout issues
 

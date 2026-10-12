@@ -78,6 +78,7 @@ struct settings_helper {
   }
 
   static void add_core_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_) {
+    info_.allowed_hosts.set_settings_path(settings.alias().get_settings_path(""));
     settings.alias()
         .add_parent("/settings/default")
         .add_key_to_settings()

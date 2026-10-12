@@ -48,15 +48,13 @@ struct read_protocol : boost::noncopyable {
   bool on_accept(const tcp::socket &socket, int count) {
     std::list<std::string> errors;
     parser_.reset();
-    const std::string s = socket.remote_endpoint().address().to_string();
-    if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {
+    const boost::asio::ip::address remote = socket.remote_endpoint().address();
+    const std::string s = remote.to_string();
+    if (info_.allowed_hosts.is_allowed(remote, errors)) {
       log_debug(__FILE__, __LINE__, "Accepting connection from: " + s);
       return true;
     }
-    for (const std::string &e : errors) {
-      log_error(__FILE__, __LINE__, e);
-    }
-    log_error(__FILE__, __LINE__, "Rejected connection from: " + s);
+    log_error(__FILE__, __LINE__, info_.allowed_hosts.rejection_message(remote, errors));
     return false;
   }
 

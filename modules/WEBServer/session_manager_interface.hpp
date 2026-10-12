@@ -137,6 +137,8 @@ struct session_manager_interface {
   void reset_log() const;
 
   void set_allowed_hosts(const std::string &host);
+  // Where `allowed hosts` is configured, for the rejection message.
+  void set_allowed_hosts_settings_path(const std::string &path);
   void set_allowed_hosts_cache(bool value);
   void set_allow_anonymous(bool value) { allow_anonymous_ = value; }
   void set_auth_rate_limit_max_failures(int value) { rate_limiter.set_max_failures(value); }

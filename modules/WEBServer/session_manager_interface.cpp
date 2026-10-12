@@ -207,9 +207,9 @@ bool session_manager_interface::log_in(const std::string &grant, Mongoose::Reque
 bool session_manager_interface::is_logged_in(const grant_options &grants, Mongoose::Request &request, Mongoose::StreamResponse &response,
                                              std::string *matched_grant, const bool issue_token) {
   std::list<std::string> errors;
-  if (!allowed_hosts.is_allowed(boost::asio::ip::make_address(request.getRemoteIp()), errors)) {
-    const std::string error = str::utils::joinEx(errors, ", ");
-    NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to " + error);
+  const boost::asio::ip::address remote = boost::asio::ip::make_address(request.getRemoteIp());
+  if (!allowed_hosts.is_allowed(remote, errors)) {
+    NSC_LOG_ERROR(allowed_hosts.rejection_message(remote, errors));
     response.setCodeForbidden(NOT_ALLOWED);
     return false;
   }
@@ -435,6 +435,7 @@ error_handler_interface *session_manager_interface::get_log_data() const { retur
 void session_manager_interface::reset_log() const { log_data->reset(); }
 
 void session_manager_interface::set_allowed_hosts(const std::string &host) { allowed_hosts.set_source(host); }
+void session_manager_interface::set_allowed_hosts_settings_path(const std::string &path) { allowed_hosts.set_settings_path(path); }
 void session_manager_interface::set_allowed_hosts_cache(const bool value) { allowed_hosts.cached = value; }
 
 bool session_manager_interface::is_allowed(const std::string &ip) {
