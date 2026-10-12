@@ -1,6 +1,6 @@
 ---
 title: "PythonScript: reading and deleting scripts over REST and the CLI"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Low"
 modules: [PythonScript, WEBServer]
 action: conditional

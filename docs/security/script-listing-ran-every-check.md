@@ -1,6 +1,6 @@
 ---
 title: "Listing scripts over REST ran every check"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Low"
 modules: [WEBServer, LUAScript, PythonScript]
 action: none

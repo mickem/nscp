@@ -1,6 +1,6 @@
 ---
 title: "Undefined-behaviour sweep: filter arithmetic, collector and status races, process memory, log truncation and the HTTP settings cache"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Low–Medium"
 modules: [filters, core, CheckSystem, CheckSystemUnix, WEBServer]
 action: none

@@ -1,6 +1,6 @@
 ---
 title: "Audit follow-ups: administrator-equivalent grants, USER_WRITABLE_CONFIG, process command lines and the dead /metrics route"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Informational"
 modules: [WEBServer, CheckSystem, CheckSystemUnix, packaging]
 action: conditional
