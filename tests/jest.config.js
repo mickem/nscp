@@ -14,6 +14,9 @@ module.exports = {
   },
   moduleNameMapper: {
     "^@fixtures/(.*)$": "<rootDir>/src/$1",
+    // The stress harness's helpers (an NRPE client, the all-engines agent),
+    // for the regular suites that pin what a stress scenario found.
+    "^@stress/(.*)$": "<rootDir>/stress/lib/$1",
   },
   modulePaths: ["<rootDir>/node_modules"],
   maxWorkers: 1,

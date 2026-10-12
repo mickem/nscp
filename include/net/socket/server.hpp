@@ -49,7 +49,10 @@ class server : boost::noncopyable {
   tcp::acceptor acceptor_v4;
   tcp::acceptor acceptor_v6;
 #if BOOST_VERSION >= 106800
-  boost::asio::io_context::strand accept_strand_;
+  // An executor strand for the same reason as connection::strand_: a legacy
+  // io_context::strand could share its implementation with a connection whose
+  // check is running, and accepting would stop until that check returned.
+  boost::asio::strand<boost::asio::io_context::executor_type> accept_strand_;
 #else
   boost::asio::strand accept_strand_;
 #endif
@@ -78,7 +81,11 @@ class server : boost::noncopyable {
         handler_(handler),
         acceptor_v4(io_service_),
         acceptor_v6(io_service_),
+#if BOOST_VERSION >= 106800
+        accept_strand_(io_service_.get_executor()),
+#else
         accept_strand_(io_service_),
+#endif
         logger_(protocol_type::create(info_, handler_))
 #ifdef USE_SSL
 #if BOOST_VERSION >= 106800
