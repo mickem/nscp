@@ -18,6 +18,7 @@
 #include <vector>
 #include <win/processes.hpp>
 #include <win/psapi.hpp>
+#include <win/registry.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/win_defines.hpp>
 #include <win/windows.hpp>
@@ -104,11 +105,6 @@ void set_image_path(process_info &entry, const std::wstring &path) {
     entry.exe = tmp;
 }
 
-// Convert a FILETIME (split 64-bit value) into a single 64-bit tick count.
-unsigned long long filetime_to_u64(const FILETIME &ft) {
-  return (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) + static_cast<unsigned long long>(ft.dwLowDateTime);
-}
-
 // Reads every counter a PROCESS_QUERY_LIMITED_INFORMATION handle is enough for
 // (Vista+), so the full and the limited-only paths of describe_pid() share it.
 // A PROCESS_QUERY_INFORMATION handle - all XP has - grants the limited right
@@ -123,16 +119,16 @@ void read_query_counters(const HANDLE handle, process_info &entry, const bool re
     entry.has_handles = true;
   }
   // GetGuiResources returns 0 both on failure and for a process that owns no
-  // GUI objects (every service), so only the last error tells them apart. Only
-  // an access denial counts as unread: no other error is documented for it,
-  // and a stray code left by a successful call must not hide a real 0.
+  // GUI objects (every service), so only the last error tells them apart: a 0
+  // with any error set is unread, not a count. Microsoft does not document
+  // whether a limited handle is enough, so this is simply tried.
   SetLastError(ERROR_SUCCESS);
   const DWORD gdi = GetGuiResources(handle, GR_GDIOBJECTS);
-  const bool gdi_denied = gdi == 0 && GetLastError() == ERROR_ACCESS_DENIED;
+  const bool gdi_failed = gdi == 0 && GetLastError() != ERROR_SUCCESS;
   SetLastError(ERROR_SUCCESS);
   const DWORD user = GetGuiResources(handle, GR_USEROBJECTS);
-  const bool user_denied = user == 0 && GetLastError() == ERROR_ACCESS_DENIED;
-  if (!gdi_denied && !user_denied) {
+  const bool user_failed = user == 0 && GetLastError() != ERROR_SUCCESS;
+  if (!gdi_failed && !user_failed) {
     entry.gdiHandleCount = gdi;
     entry.userHandleCount = user;
     entry.has_gui_handles = true;
@@ -143,8 +139,8 @@ void read_query_counters(const HANDLE handle, process_info &entry, const bool re
   FILETIME kernelTime;
   FILETIME userTime;
   if (GetProcessTimes(handle, &creationTime, &exitTime, &kernelTime, &userTime)) {
-    entry.kernel_time_raw = filetime_to_u64(kernelTime);
-    entry.user_time_raw = filetime_to_u64(userTime);
+    entry.kernel_time_raw = win_registry::filetime_to_ull(kernelTime);
+    entry.user_time_raw = win_registry::filetime_to_ull(userTime);
     entry.kernel_time = entry.kernel_time_raw / 10000000;
     entry.user_time = entry.user_time_raw / 10000000;
     // total_time is the cumulative user+kernel CPU seconds. The delta path
@@ -155,7 +151,7 @@ void read_query_counters(const HANDLE handle, process_info &entry, const bool re
     entry.total_time = entry.kernel_time + entry.user_time;
     // The creation time is also what delta=true matches the collector's CPU%
     // on, so a process without it can never get a CPU reading.
-    entry.creation_time = str::format::filetime_to_time(filetime_to_u64(creationTime));
+    entry.creation_time = str::format::filetime_to_time(win_registry::filetime_to_ull(creationTime));
     entry.has_times = true;
   }
 
@@ -389,7 +385,13 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
     if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessBasicInformation, &pbi, sizeof(windows::winapi::PROCESS_BASIC_INFORMATION),
                                                    &ReturnLength) >= 0 &&
         pbi.PebBaseAddress) {
-      nscpGetCommandLine(handle, pbi.PebBaseAddress, entry);
+      // A failed read leaves command_line empty and the rest of the entry
+      // intact. Letting it escape made enumerate_processes() retry without
+      // deep_scan, which threw away every counter read above.
+      try {
+        nscpGetCommandLine(handle, pbi.PebBaseAddress, entry);
+      } catch (const nsclient::nsclient_exception &) {
+      }
     }
   }
 
@@ -398,13 +400,10 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
   // Get the first module (the process itself)
   if (EnumProcessModules(handle, &hMod, sizeof(hMod), &size)) {
     TCHAR buffer2[MAX_FILENAME + 1];
-    if (!GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer2), MAX_FILENAME)) {
-      // The RAII wrapper owns `handle`; closing it here as well closed a
-      // value the kernel may already have reissued.
-      throw nsclient::nsclient_exception("Failed to find name for: " + str::xtos(pid) + ": " + error::lookup::last_error());
-    } else {
-      set_image_path(entry, std::wstring(buffer2));
-    }
+    // On failure the name GetProcessImageFileName gave above stands. Throwing
+    // here, as this used to, made enumerate_processes() retry without
+    // deep_scan and discard every counter already read.
+    if (GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer2), MAX_FILENAME)) set_image_path(entry, std::wstring(buffer2));
   }
   return entry;
 }
@@ -619,8 +618,8 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
   unsigned long long kernel_time = 0;
   unsigned long long user_time = 0;
   if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-    kernel_time = filetime_to_u64(kernelTime);
-    user_time = filetime_to_u64(userTime);
+    kernel_time = win_registry::filetime_to_ull(kernelTime);
+    user_time = win_registry::filetime_to_ull(userTime);
   }
 
   const process_map p1 = get_process_data(ignore_unreadable, error_interface);
@@ -628,8 +627,8 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
   process_map p2 = get_process_data(ignore_unreadable, error_interface);
 
   if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-    kernel_time = filetime_to_u64(kernelTime) - kernel_time;
-    user_time = filetime_to_u64(userTime) - user_time;
+    kernel_time = win_registry::filetime_to_ull(kernelTime) - kernel_time;
+    user_time = win_registry::filetime_to_ull(userTime) - user_time;
   }
   // Capacity = kernel + user. GetSystemTimes() already folds idle time into the
   // kernel figure, so idle is NOT added again here (doing so used to inflate

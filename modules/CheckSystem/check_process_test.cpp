@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/optional.hpp>
 #include <list>
 #include <string>
 #include <win/processes.hpp>
@@ -358,7 +359,7 @@ TEST(ProcessCounters, SyntheticRowsAreKnown) {
   const process_info missing("notepad.exe");
   EXPECT_TRUE(missing.has_handles && missing.has_gui_handles && missing.has_times && missing.has_memory);
   EXPECT_FALSE(missing.get_limited());
-  EXPECT_EQ(0, process_info::known_value(missing.has_memory, missing.get_WorkingSetSize()).value());
+  EXPECT_EQ(0, boost::make_optional(missing.has_memory, missing.get_WorkingSetSize()).value());
 }
 
 TEST(ProcessCounters, UnreadGroupHasNoValue) {
@@ -366,9 +367,9 @@ TEST(ProcessCounters, UnreadGroupHasNoValue) {
   p.mark_counters_unread();
   p.has_times = true;  // e.g. GetProcessTimes worked, the memory query was refused
   p.total_time = 42;
-  EXPECT_EQ(42, process_info::known_value(p.has_times, p.get_total_time()).value());
-  EXPECT_FALSE(process_info::known_value(p.has_memory, p.get_WorkingSetSize()).is_initialized());
-  EXPECT_FALSE(process_info::known_value(p.has_handles, p.get_handleCount()).is_initialized());
+  EXPECT_EQ(42, boost::make_optional(p.has_times, p.get_total_time()).value());
+  EXPECT_FALSE(boost::make_optional(p.has_memory, p.get_WorkingSetSize()).is_initialized());
+  EXPECT_FALSE(boost::make_optional(p.has_handles, p.get_handleCount()).is_initialized());
 }
 
 TEST(ProcessCounters, TotalIsUnknownWhenAnyMemberIsAndCarriesLimited) {
@@ -394,12 +395,19 @@ TEST(ProcessCounters, CpuDeltaKeepsProcessWithUnreadTimesAsUnknown) {
   previous.mark_counters_unread();
   process_info current;
   current.mark_counters_unread();
+  current.kernel_time = 12;  // cumulative seconds that must not survive as a percentage
+  current.user_time = 34;
+  current.total_time = 46;
 
   current -= previous;
   // Kept (true), not dropped: the process is running, only its usage is unknown.
   EXPECT_TRUE(current.make_cpu_delta(previous, 1000, 1000));
   EXPECT_FALSE(current.has_times);
-  EXPECT_FALSE(process_info::known_value(current.has_times, current.get_total_time()).is_initialized());
+  // ...and the percent fields hold no leftover cumulative seconds.
+  EXPECT_EQ(0, current.get_kernel_time());
+  EXPECT_EQ(0, current.get_user_time());
+  EXPECT_EQ(0, current.get_total_time());
+  EXPECT_FALSE(boost::make_optional(current.has_times, current.get_total_time()).is_initialized());
 }
 
 TEST(ProcessCounters, CpuDeltaStillComputedWhenTimesWereRead) {
