@@ -9,7 +9,7 @@
     },
     {
       "name": "@base-ui/utils",
-      "version": "0.3.2",
+      "version": "0.4.0",
       "license": "MIT",
       "url": "https://github.com/mui/base-ui"
     },
@@ -99,73 +99,73 @@
     },
     {
       "name": "@mui/core-downloads-tracker",
-      "version": "9.4.0",
+      "version": "9.5.0",
       "license": "MIT",
       "url": "https://mui.com/"
     },
     {
       "name": "@mui/icons-material",
-      "version": "9.4.0",
+      "version": "9.5.0",
       "license": "MIT",
       "url": "https://mui.com/material-ui/material-icons/"
     },
     {
       "name": "@mui/material",
-      "version": "9.4.0",
+      "version": "9.5.0",
       "license": "MIT",
       "url": "https://mui.com/material-ui/"
     },
     {
       "name": "@mui/private-theming",
-      "version": "9.4.0",
+      "version": "9.5.0",
       "license": "MIT",
       "url": "https://github.com/mui/material-ui/tree/master/packages/mui-private-theming"
     },
     {
       "name": "@mui/styled-engine",
-      "version": "9.4.0",
+      "version": "9.5.0",
       "license": "MIT",
       "url": "https://mui.com/system/styled/"
     },
     {
       "name": "@mui/system",
-      "version": "9.4.0",
+      "version": "9.5.0",
       "license": "MIT",
       "url": "https://mui.com/system/getting-started/"
     },
     {
       "name": "@mui/types",
-      "version": "9.4.0",
+      "version": "9.5.0",
       "license": "MIT",
       "url": "https://github.com/mui/material-ui/tree/master/packages/mui-types"
     },
     {
       "name": "@mui/utils",
-      "version": "9.4.0",
+      "version": "9.5.0",
       "license": "MIT",
       "url": "https://github.com/mui/material-ui/tree/master/packages/mui-utils"
     },
     {
       "name": "@mui/x-charts",
-      "version": "9.12.0",
+      "version": "9.15.0",
       "license": "MIT",
       "url": "https://mui.com/x/react-charts/"
     },
     {
       "name": "@mui/x-charts-vendor",
-      "version": "9.11.1",
+      "version": "9.15.0",
       "license": "MIT AND ISC",
       "url": "https://github.com/mui/mui-x"
     },
     {
       "name": "@mui/x-internal-gestures",
-      "version": "9.12.0",
+      "version": "9.15.0",
       "license": "MIT",
       "url": "https://mui.com/x/"
     },
     {
       "name": "@mui/x-internals",
-      "version": "9.12.0",
+      "version": "9.15.0",
       "license": "MIT",
       "url": "https://mui.com/x/"
     },
@@ -177,9 +177,15 @@
     },
     {
       "name": "@reduxjs/toolkit",
-      "version": "2.12.0",
+      "version": "2.13.0",
       "license": "MIT",
       "url": "https://redux-toolkit.js.org"
+    },
+    {
+      "name": "@remix-run/route-pattern",
+      "version": "0.22.1",
+      "license": "MIT",
+      "url": "https://github.com/remix-run/remix/tree/main/packages/route-pattern#readme"
     },
     {
       "name": "@standard-schema/spec",
@@ -195,7 +201,7 @@
     },
     {
       "name": "bezier-easing",
-      "version": "3.0.1",
+      "version": "3.2.0",
       "license": "MIT",
       "url": "https://github.com/gre/bezier-easing"
     },
@@ -339,19 +345,19 @@
     },
     {
       "name": "react",
-      "version": "19.2.8",
+      "version": "19.3.0",
       "license": "MIT",
       "url": "https://react.dev/"
     },
     {
       "name": "react-dom",
-      "version": "19.2.8",
+      "version": "19.3.0",
       "license": "MIT",
       "url": "https://react.dev/"
     },
     {
       "name": "react-is",
-      "version": "19.2.8",
+      "version": "19.3.0",
       "license": "MIT",
       "url": "https://react.dev/"
     },
@@ -363,7 +369,7 @@
     },
     {
       "name": "react-router",
-      "version": "8.3.1",
+      "version": "8.4.0",
       "license": "MIT",
       "url": "https://github.com/remix-run/react-router"
     },
@@ -393,7 +399,7 @@
     },
     {
       "name": "scheduler",
-      "version": "0.27.0",
+      "version": "0.28.0",
       "license": "MIT",
       "url": "https://react.dev/"
     },
@@ -405,13 +411,13 @@
     },
     {
       "name": "use-sync-external-store",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT",
-      "url": "https://github.com/facebook/react"
+      "url": "https://github.com/react/react"
     },
     {
       "name": "zod",
-      "version": "4.5.4",
+      "version": "4.6.6",
       "license": "MIT",
       "url": "https://zod.dev"
     }
