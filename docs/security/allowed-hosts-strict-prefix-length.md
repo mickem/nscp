@@ -16,6 +16,7 @@ changed what the entry meant without a word in the log:
 | `10.0.0.0/255.255.255.0`  | `10.0.0.0/255`     | a dotted mask became a single host          |
 | `10.0.0.1/33`, `::1/129`  | `/32`, `/128`      | an impossible prefix became a single host   |
 | `10.0.0.1/`               | `/32`              | an empty prefix became a single host        |
+| `/24`                     | *(skipped)*        | dropped without an error being logged       |
 
 Only the first row widens access, and it needs a typo of an unusual shape, so
 this is hardening rather than a bypass. The rest narrowed the list or kept it
@@ -27,8 +28,13 @@ for an IPv4 address and 128 for an IPv6 one (leading zeros are fine). Anything
 else is reported as `Invalid address: <entry> (the part after / must be a
 prefix length: 0-32 for IPv4, 0-128 for IPv6)` and the entry is dropped; the
 other entries in the list still apply. That is the same handling a malformed
-`*` range already gets. For a host name the suffix is checked before the name
-is resolved.
+`*` range already gets. An entry with nothing before the `/` is reported too.
+
+For a host name the suffix is checked for shape before the name is resolved,
+and its length against every address the name resolves to. If it is too long
+for any one of them the whole entry is dropped: a name with both an A and an
+AAAA record written as `name/40` is refused outright rather than kept as a
+`/40` IPv6 range, since that is almost always an IPv4 typo.
 
 **What to do:** check the log after upgrading for `Invalid address:` lines
 naming an `allowed hosts` entry. Rewrite a dotted mask as a prefix length

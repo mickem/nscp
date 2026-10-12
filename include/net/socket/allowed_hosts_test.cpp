@@ -3,7 +3,9 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <net/socket/allowed_hosts.hpp>
 
 using namespace socket_helpers;
@@ -535,4 +537,81 @@ TEST(AllowedHostsTest, ABadPrefixDoesNotDropTheRestOfTheList) {
 TEST(AllowedHostsTest, AHostnameWithABadPrefixIsAnError) {
   // Checked before the name is resolved, so this needs no working DNS.
   rejected("localhost/abc");
+}
+
+TEST(AllowedHostsTest, APrefixWithoutAnAddressIsAnError) {
+  // It used to be skipped without a word, while a rejected connection points
+  // at the errors logged when the list was read.
+  rejected("/24");
+}
+
+// ---------------------------------------------------------------------------
+// Host names: the prefix length is checked against every resolved address.
+// These resolve `localhost`, so they need it to have an IPv4 address.
+// ---------------------------------------------------------------------------
+
+namespace {
+bool localhost_has_v4() {
+  try {
+    boost::asio::io_context io;
+    tcp::resolver resolver(io);
+    for (const auto &entry : resolver.resolve("localhost", "")) {
+      if (entry.endpoint().address().is_v4()) return true;
+    }
+  } catch (const std::exception &) {
+  }
+  return false;
+}
+}  // namespace
+
+TEST(AllowedHostsTest, AMixedFamilyRecordWhosePrefixDoesNotFitEveryAddressAddsNothing) {
+  // What a name with an A and an AAAA record resolves to. /40 fits the v6
+  // address but not the v4 one: keeping the v6 half would grant a /40.
+  allowed_hosts_manager manager;
+  std::list<std::string> errors;
+  manager.add_record("dualstack/40", std::size_t{40}, {make_address("10.0.0.1"), make_address("2001:db8::1")}, errors);
+  ASSERT_EQ(errors.size(), 1u);
+  EXPECT_NE(errors.front().find("dualstack/40"), std::string::npos) << errors.front();
+  EXPECT_TRUE(manager.entries_v4.empty());
+  EXPECT_TRUE(manager.entries_v6.empty());
+}
+
+TEST(AllowedHostsTest, AMixedFamilyRecordWhosePrefixFitsBothAddsBoth) {
+  allowed_hosts_manager manager;
+  std::list<std::string> errors;
+  manager.add_record("dualstack/24", std::size_t{24}, {make_address("10.0.0.1"), make_address("2001:db8::1")}, errors);
+  EXPECT_TRUE(errors.empty());
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.200"), errors));
+  // As a v6 prefix /24 is 2001:0d00::/24, so 2001:db8:ffff:: is inside it.
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8:ffff::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("2002::1"), errors));
+}
+
+TEST(AllowedHostsTest, AMixedFamilyRecordWithoutAPrefixIsTwoSingleHosts) {
+  allowed_hosts_manager manager;
+  std::list<std::string> errors;
+  manager.add_record("dualstack", boost::none, {make_address("10.0.0.1"), make_address("2001:db8::1")}, errors);
+  EXPECT_TRUE(errors.empty());
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.2"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("2001:db8::2"), errors));
+}
+
+TEST(AllowedHostsTest, AHostNameTakesAPrefixLength) {
+  if (!localhost_has_v4()) GTEST_SKIP() << "localhost does not resolve to an IPv4 address here";
+  auto manager = refreshed("localhost/8");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("127.1.2.3"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("128.0.0.1"), errors));
+}
+
+TEST(AllowedHostsTest, AHostNamePrefixTooLongForOneOfItsAddressesDropsTheWholeEntry) {
+  // localhost commonly resolves to ::1 as well as 127.0.0.1. /33 is too long
+  // for the A record; the AAAA record must not be kept on its own, or the
+  // entry would grant a v6 range while the log says it was dropped.
+  if (!localhost_has_v4()) GTEST_SKIP() << "localhost does not resolve to an IPv4 address here";
+  auto manager = rejected("localhost/33");
+  EXPECT_TRUE(manager.entries_v4.empty());
+  EXPECT_TRUE(manager.entries_v6.empty());
 }

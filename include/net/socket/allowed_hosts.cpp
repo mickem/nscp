@@ -3,6 +3,7 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/optional.hpp>
 #include <mutex>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/format.hpp>
@@ -39,19 +40,20 @@ namespace {
 constexpr std::size_t max_prefix_v4 = 32;
 constexpr std::size_t max_prefix_v6 = 128;
 
-// Parse the `/N` suffix of an `allowed hosts` entry; `mask` is empty when the
-// entry has none, which means a single host. Anything but a `/` followed by
-// decimal digits naming at most `max_bits` is refused.
+// Parse the `/N` suffix of an `allowed hosts` entry. `mask` is empty when the
+// entry has none, which means a single host of whatever family the address
+// turns out to be; `prefix` is then left disengaged. Anything but a `/`
+// followed by decimal digits naming at most 128 bits is refused here; whether
+// the length fits the address's own family is prefix_fits()'s job, since a
+// host name's family is only known once it resolves.
 //
 // This used to take the first run of digits anywhere after the `/` and ignore
 // the rest, so `/-1` read as `/1` (half the IPv4 space), `/abc24` as `/24`, a
 // dotted `/255.255.255.0` as `/255`, `/33` as a `/32` and a bare `/` as a
 // single host - a typo silently widened, or narrowed, the list.
-bool parse_prefix_length(const std::string &mask, const std::size_t max_bits, std::size_t &bits) {
-  if (mask.empty()) {
-    bits = max_bits;
-    return true;
-  }
+bool parse_prefix_length(const std::string &mask, boost::optional<std::size_t> &prefix) {
+  prefix = boost::none;
+  if (mask.empty()) return true;
   if (mask.size() < 2 || mask[0] != '/') return false;
   std::size_t value = 0;
   for (std::size_t i = 1; i < mask.size(); i++) {
@@ -59,10 +61,14 @@ bool parse_prefix_length(const std::string &mask, const std::size_t max_bits, st
     if (c < '0' || c > '9') return false;
     value = value * 10 + static_cast<std::size_t>(c - '0');
     // Checked per digit, so a long run of digits cannot overflow.
-    if (value > max_bits) return false;
+    if (value > max_prefix_v6) return false;
   }
-  bits = value;
+  prefix = value;
   return true;
+}
+
+bool prefix_fits(const boost::optional<std::size_t> &prefix, const address &a) {
+  return !prefix || prefix.value() <= (a.is_v4() ? max_prefix_v4 : max_prefix_v6);
 }
 
 std::string invalid_prefix_error(const std::string &record) {
@@ -142,7 +148,12 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
       addr = record.substr(0, pos);
       mask = record.substr(pos);
     }
-    if (addr.empty()) continue;
+    // `/24` alone: a prefix of nothing. Reported, since a rejected connection
+    // points the operator at the errors logged here.
+    if (addr.empty()) {
+      errors.push_back("Invalid address: " + record + " (no address before the /)");
+      continue;
+    }
 
     // Numeric IPv4 addresses start with a digit; numeric IPv6 addresses
     // contain a `:` (potentially as the very first character, e.g. `::/0`).
@@ -164,14 +175,14 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
       addr = expanded_addr;
       mask = expanded_mask;
     }
-    // Refuse a malformed suffix before resolving anything: the family is not
-    // known yet for a host name, so this only checks the widest bound; the
-    // per-family bound is checked once the address is.
-    std::size_t prefix_bits = 0;
-    if (!parse_prefix_length(mask, max_prefix_v6, prefix_bits)) {
+    // Refuse a malformed suffix before resolving anything; whether its length
+    // fits the address family is checked once the addresses are known.
+    boost::optional<std::size_t> prefix;
+    if (!parse_prefix_length(mask, prefix)) {
       errors.push_back(invalid_prefix_error(record));
       continue;
     }
+    std::list<address> addresses;
     if (is_numeric || is_wildcard) {
       // make_address throws, and this is not inside the try that wraps the DNS
       // branch: an unparseable numeric address used to take the exception all
@@ -184,42 +195,37 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
         errors.push_back("Failed to parse address " + record + ": " + utf8::utf8_from_native(ec.message()));
         continue;
       }
-      if (a.is_v4()) {
-        if (!parse_prefix_length(mask, max_prefix_v4, prefix_bits)) {
-          errors.push_back(invalid_prefix_error(record));
-          continue;
-        }
-        entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(prefix_bits));
-      } else if (a.is_v6()) {
-        entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(prefix_bits));
-      } else {
-        errors.push_back("Invalid address: " + record);
-      }
+      addresses.push_back(a);
     } else {
       try {
-        auto endpoints = resolver.resolve(addr, "");
-        // A name with both A and AAAA records keeps the addresses whose family
-        // the prefix fits, and reports the rest once rather than per address.
-        bool reported_v4_prefix = false;
-        for (const auto &entry : endpoints) {
-          address a = entry.endpoint().address();
-          if (a.is_v4()) {
-            std::size_t prefix_bits_v4 = 0;
-            if (!parse_prefix_length(mask, max_prefix_v4, prefix_bits_v4)) {
-              if (!reported_v4_prefix) errors.push_back(invalid_prefix_error(record));
-              reported_v4_prefix = true;
-              continue;
-            }
-            entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(prefix_bits_v4));
-          } else if (a.is_v6()) {
-            entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(prefix_bits));
-          } else {
-            errors.emplace_back("Invalid address: " + record);
-          }
-        }
+        for (const auto &entry : resolver.resolve(addr, "")) addresses.push_back(entry.endpoint().address());
       } catch (const std::exception &e) {
         errors.emplace_back("Failed to parse host " + record + ": " + utf8::utf8_from_native(e.what()));
+        continue;
       }
+    }
+    add_record(record, prefix, addresses, errors);
+  }
+}
+
+void socket_helpers::allowed_hosts_manager::add_record(const std::string &record, const boost::optional<std::size_t> &prefix,
+                                                       const std::list<address> &addresses, std::list<std::string> &errors) {
+  // A name with both A and AAAA records and a `/40` is a v4 typo far more
+  // often than a deliberate v6 range; keeping the AAAA half would grant 2^88
+  // addresses while the log says the entry was dropped.
+  for (const address &a : addresses) {
+    if (!prefix_fits(prefix, a)) {
+      errors.push_back(invalid_prefix_error(record));
+      return;
+    }
+  }
+  for (const address &a : addresses) {
+    if (a.is_v4()) {
+      entries_v4.emplace_back(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(prefix.get_value_or(max_prefix_v4)));
+    } else if (a.is_v6()) {
+      entries_v6.emplace_back(record, a.to_v6().to_bytes(), calculate_mask<addr_v6>(prefix.get_value_or(max_prefix_v6)));
+    } else {
+      errors.push_back("Invalid address: " + record);
     }
   }
 }
