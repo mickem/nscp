@@ -143,11 +143,6 @@ struct process_info {
   bool_var limited;
   BOL_GETTER(limited);
 
-  // A counter's value, or none when its group could not be read.
-  static boost::optional<long long> known_value(const bool readable, const long long value) {
-    return readable ? boost::optional<long long>(value) : boost::none;
-  }
-
   process_info() = default;
   explicit process_info(const std::string &s) : exe(s) {}
 
@@ -401,6 +396,11 @@ struct process_info {
   // with its CPU fields unknown: it is running, only its usage is not known.
   bool make_cpu_delta(const process_info &previous, const unsigned long long sys_kernel, const unsigned long long sys_user) {
     if (!has_times || !previous.has_times) {
+      // Zeroed like the rejected path below, so nothing that skips the flag
+      // reads cumulative seconds as a percentage.
+      kernel_time = 0;
+      user_time = 0;
+      total_time = 0;
       has_times = false;
       return true;
     }

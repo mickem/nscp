@@ -343,6 +343,31 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(msg).not.toMatch(/created=0(\s|,|$)/);
   });
 
+  it("check_process reports unread counters as unknown, not 0 (Windows)", async () => {
+    if (!onWindows) return;
+    // scan-info=false reads no counters at all, so this pins the contract
+    // deterministically: every counter keyword renders unknown, the thresholds
+    // on them do not fire (creation used to read as 1970, which tripped
+    // "creation < -7d"), and they emit no perf data. csrss.exe is a protected
+    // process, opened with the limited right only, so limited is set.
+    const q = await executeQuery(key, "check_process", {
+      process: "csrss.exe",
+      "scan-info": "false",
+      warning: "handles < 1000000",
+      critical: "creation < -7d or working_set < 1G or time < 1000000",
+      "top-syntax": "${list}",
+      "detail-syntax":
+        "${exe}=${state} limited=${limited} handles=${handles} ws=${working_set} time=${time} created=${creation}",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    expect(msg).toMatch(
+      /csrss\.exe=started limited=(1|true) handles=unknown ws=unknown time=unknown created=unknown/i,
+    );
+    const labels = Object.keys(perfOf(q)).join(" | ");
+    expect(labels).not.toMatch(/handle count|ws_size|total|creation/);
+  });
+
   it("check_process leaves username empty without resolve-owner (Windows)", async () => {
     if (!onWindows) return;
     const q = await executeQuery(key, "check_process", {

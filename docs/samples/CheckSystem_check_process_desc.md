@@ -99,7 +99,8 @@ instead: they are listed and their `state` is `started` as usual, and the
 |----------|-------------------------|
 | `exe`, `filename`, `pid`, `state`, `started`, `thread_count` | always read |
 | `kernel`, `user`, `time` (also with `delta=true`), `creation` | read |
-| `handles`, `gdi_handles`, `user_handles` | read |
+| `handles` | read |
+| `gdi_handles`, `user_handles` | tried: Microsoft does not document whether the limited right is enough, so they read `unknown` where Windows refuses |
 | `username`, `uid` (with `resolve-owner=true`) | read when Windows hands out the process token; empty for some protected processes |
 | `virtual`, `peak_virtual`, `working_set`, `rss`, `peak_working_set`, `working_set_pct`, `page_fault`, `pagefile`, `peak_pagefile`, `pagefile_pct` | tried: read where the Windows version allows the memory query through the limited right, `unknown` where it does not |
 | `command_line` | always empty: it is read out of the process's memory, which the limited right does not allow |
@@ -119,6 +120,11 @@ with `filter=none`, since the default filter drops `unreadable` processes) and
 to every process when `scan-info=false`, where no counter is read. A
 `total=true` row is `unknown` for a counter as soon as one of the processes it
 sums is, rather than an undercount.
+
+`fetch-only`, the check_mk `<<<ps>>>` feed, is the exception, as on macOS: its
+format has no way to say unknown and leaving the process out would undercount
+what check_mk matches, so it lists an unread `vsz`, `rss` or `cputime` as `0`.
+Put thresholds on those values in `check_process` itself.
 
 To keep such processes out of a check altogether, filter on `limited`:
 

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+#include <boost/optional.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -54,42 +55,45 @@ filter_obj_handler::filter_obj_handler() {
   // satisfies a threshold and emits no perf data, rather than a 0 that looks
   // like a reading. Perf data is unchanged for everything that was read.
   // clang-format off
-  registry_.add_optional_int_var("handles", [](auto obj) { return filter_obj::known_value(obj->has_handles, obj->get_handleCount()); }, "unknown", "Number of handles")
+  registry_.add_optional_int_var("handles", [](auto obj) { return boost::make_optional(obj->has_handles, obj->get_handleCount()); }, "unknown", "Number of handles")
       .add_int_perf("", "", " handle count")
-      .add_optional_int_var("gdi_handles", [](auto obj) { return filter_obj::known_value(obj->has_gui_handles, obj->get_gdiHandleCount()); }, "unknown", "Number of GDI handles")
+      .add_optional_int_var("gdi_handles", [](auto obj) { return boost::make_optional(obj->has_gui_handles, obj->get_gdiHandleCount()); }, "unknown", "Number of GDI handles")
       .add_int_perf("", "", " GDI handle count")
-      .add_optional_int_var("user_handles", [](auto obj) { return filter_obj::known_value(obj->has_gui_handles, obj->get_userHandleCount()); }, "unknown", "Number of USER handles")
+      .add_optional_int_var("user_handles", [](auto obj) { return boost::make_optional(obj->has_gui_handles, obj->get_userHandleCount()); }, "unknown", "Number of USER handles")
       .add_int_perf("", "", " USER handle count");
   registry_.add_int_legacy()
     ("thread_count", [](auto obj, auto context) {return obj->get_threadCount(); }, "Number of threads").add_perf("", "", " threads");
-  registry_.add_optional_int_var("peak_virtual", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PeakVirtualSize()); }, "unknown", "Peak virtual size in bytes (g,m,k,b)")
+  registry_.add_optional_int_var("peak_virtual", parsers::where::type_size, [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_PeakVirtualSize()); }, "unknown", "Peak virtual size in bytes (g,m,k,b)")
       .add_scaled_byte_perf(std::string(""), " pv_size")
-      .add_optional_int_var("virtual", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_VirtualSize()); }, "unknown", "Virtual size in bytes (g,m,k,b)")
+      .add_optional_int_var("virtual", parsers::where::type_size, [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_VirtualSize()); }, "unknown", "Virtual size in bytes (g,m,k,b)")
       .add_scaled_byte_perf(std::string(""), " v_size")
-      .add_optional_int_var("page_fault", [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PageFaultCount()); }, "unknown", "Page fault count")
+      .add_optional_int_var("page_fault", [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_PageFaultCount()); }, "unknown", "Page fault count")
       .add_int_perf("", "", " pf_count")
-      .add_optional_int_var("peak_working_set", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PeakWorkingSetSize()); }, "unknown", "Peak working set in bytes (g,m,k,b)")
+      .add_optional_int_var("peak_working_set", parsers::where::type_size, [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_PeakWorkingSetSize()); }, "unknown", "Peak working set in bytes (g,m,k,b)")
       .add_scaled_byte_perf(std::string(""), " pws_size")
-      .add_optional_int_var("working_set", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_WorkingSetSize()); }, "unknown", "Working set in bytes (g,m,k,b)")
+      .add_optional_int_var("working_set", parsers::where::type_size, [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_WorkingSetSize()); }, "unknown", "Working set in bytes (g,m,k,b)")
       .add_scaled_byte_perf(std::string(""), " ws_size")
-      .add_optional_int_var("rss", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_WorkingSetSize()); }, "unknown", "Resident set size; alias for working_set (g,m,k,b)")
+      .add_optional_int_var("rss", parsers::where::type_size, [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_WorkingSetSize()); }, "unknown", "Resident set size; alias for working_set (g,m,k,b)")
       .add_scaled_byte_perf(std::string(""), " rss")
-      .add_optional_int_var("working_set_pct", [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_working_set_pct()); }, "unknown", "Working set as a percentage of total physical RAM")
+      .add_optional_int_var("working_set_pct", [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_working_set_pct()); }, "unknown", "Working set as a percentage of total physical RAM")
       .add_int_perf("%", "", " ws_pct")
-      .add_optional_int_var("peak_pagefile", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PageFileUsage()); }, "unknown", "Page file usage in bytes (g,m,k,b)")
+      .add_optional_int_var("peak_pagefile", parsers::where::type_size, [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_PageFileUsage()); }, "unknown", "Page file usage in bytes (g,m,k,b)")
       .add_scaled_byte_perf(std::string(""), " ppf_use")
-      .add_optional_int_var("pagefile", parsers::where::type_size, [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_PeakPageFileUsage()); }, "unknown", "Peak page file use in bytes (g,m,k,b)")
+      .add_optional_int_var("pagefile", parsers::where::type_size, [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_PeakPageFileUsage()); }, "unknown", "Peak page file use in bytes (g,m,k,b)")
       .add_scaled_byte_perf(std::string(""), " pf_use")
-      .add_optional_int_var("pagefile_pct", [](auto obj) { return filter_obj::known_value(obj->has_memory, obj->get_pagefile_pct()); }, "unknown", "Page file usage as a percentage of the system commit limit")
+      .add_optional_int_var("pagefile_pct", [](auto obj) { return boost::make_optional(obj->has_memory, obj->get_pagefile_pct()); }, "unknown", "Page file usage as a percentage of the system commit limit")
       .add_int_perf("%", "", " pf_pct");
 
-  registry_.add_int_legacy()
-    ("creation", parsers::where::type_date, [](auto obj, auto context) {return obj->get_creation_time(); }, "Creation time").add_perf("", "", " creation");
-  registry_.add_optional_int_var("kernel", [](auto obj) { return filter_obj::known_value(obj->has_times, obj->get_kernel_time()); }, "unknown", "Kernel CPU time: cumulative seconds, or % of total CPU with delta=true")
+  // creation is read together with the CPU times (GetProcessTimes), so it is
+  // unknown exactly when they are: an unread creation time rendered as 1970
+  // made "creation < -7d" fire on every protected process.
+  registry_.add_optional_int_var("creation", parsers::where::type_date, [](auto obj) { return boost::make_optional(obj->has_times, obj->get_creation_time()); }, "unknown", "Creation time")
+      .add_int_perf("", "", " creation")
+      .add_optional_int_var("kernel", [](auto obj) { return boost::make_optional(obj->has_times, obj->get_kernel_time()); }, "unknown", "Kernel CPU time: cumulative seconds, or % of total CPU with delta=true")
       .add_int_perf("", "", " kernel")
-      .add_optional_int_var("user", [](auto obj) { return filter_obj::known_value(obj->has_times, obj->get_user_time()); }, "unknown", "User CPU time: cumulative seconds, or % of total CPU with delta=true")
+      .add_optional_int_var("user", [](auto obj) { return boost::make_optional(obj->has_times, obj->get_user_time()); }, "unknown", "User CPU time: cumulative seconds, or % of total CPU with delta=true")
       .add_int_perf("", "", " user")
-      .add_optional_int_var("time", [](auto obj) { return filter_obj::known_value(obj->has_times, obj->get_total_time()); }, "unknown", "User+kernel CPU time: cumulative seconds, or % of total CPU with delta=true")
+      .add_optional_int_var("time", [](auto obj) { return boost::make_optional(obj->has_times, obj->get_total_time()); }, "unknown", "User+kernel CPU time: cumulative seconds, or % of total CPU with delta=true")
       .add_int_perf("", "", " total");
 
   registry_.add_int_legacy()
