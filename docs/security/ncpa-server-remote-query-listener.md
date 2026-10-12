@@ -16,12 +16,17 @@ so an existing install is not affected until it is enabled.
 How it is protected:
 
 - **No default token.** Until `token` is set every request is refused. The
-  token is compared in constant time, never logged and never echoed back;
-  repeated wrong tokens from one address are blocked by the same rate limiter
-  the WEB server uses.
+  token is never logged and never echoed back; repeated wrong tokens from one
+  address are blocked by the same rate limiter the WEB server uses.
+- **Stored hashed.** `nscp ncpa token --set <token>` stores a `pbkdf2-sha256`
+  hash, the form the WEB password uses, so someone who can read the
+  configuration does not get the token. A clear-text value written by hand is
+  still accepted (compared in constant time).
 - **No cleartext.** The listener refuses to start unless a certificate and
-  key actually load (not merely exist), unless `allow insecure = true` is set.
-  The token travels in the query string, so it is only as private as the
+  key actually load (not merely exist). `allow insecure = true` lets it serve
+  plain HTTP when there is no certificate at all; a certificate that is
+  configured but does not load stops the listener whatever the flag says. The
+  token travels in the query string, so it is only as private as the
   connection.
 - **No arguments by default.** `allow arguments = false` refuses a request that
   carries arguments, exactly as the NRPE server does; external scripts still
@@ -33,7 +38,8 @@ How it is protected:
   here. Queries are attributed to `NCPAServer` in the core permission policy.
 
 **What to do:** nothing unless you enable `NCPAServer`. If you do, set a long
-random `token`, restrict `allowed hosts` to your Nagios servers, set
+random token with `nscp ncpa token --set`, restrict `allowed hosts` to your
+Nagios servers, set
 `bind to` if the listener belongs on one interface only, keep
 `allow arguments = false` unless you need it, and consider `plugins = scripts`
 or an explicit list.

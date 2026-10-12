@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/json.hpp>
+#include <nscp/password_hash.hpp>
 #include <string>
 #include <vector>
 
@@ -129,6 +130,35 @@ TEST(NcpaToken, PrimaryAndBackup) {
 TEST(NcpaToken, AnEmptyTokenNeverMatchesAnEmptyBackup) {
   EXPECT_EQ(ncpa::check_token("", "one", ""), ncpa::token_result::rejected);
   EXPECT_EQ(ncpa::check_token("", "one", "two"), ncpa::token_result::rejected);
+}
+
+// The token is stored hashed by `nscp ncpa token --set`; the check takes the
+// hash and the clear text alike, in either slot.
+TEST(NcpaToken, AHashedTokenVerifiesTheClearTextItWasMadeFrom) {
+  const std::string primary = password_hash::hash_password("one");
+  const std::string backup = password_hash::hash_password("two");
+  ASSERT_TRUE(password_hash::is_hashed(primary));
+  EXPECT_EQ(ncpa::check_token("one", primary, ""), ncpa::token_result::accepted);
+  EXPECT_EQ(ncpa::check_token("two", primary, backup), ncpa::token_result::accepted);
+  EXPECT_EQ(ncpa::check_token("three", primary, backup), ncpa::token_result::rejected);
+  // Mixed: a hashed primary and a clear-text backup, and the other way round.
+  EXPECT_EQ(ncpa::check_token("two", primary, "two"), ncpa::token_result::accepted);
+  EXPECT_EQ(ncpa::check_token("two", "one", backup), ncpa::token_result::accepted);
+}
+
+TEST(NcpaToken, TheStoredHashIsNotItselfAToken) {
+  const std::string primary = password_hash::hash_password("one");
+  EXPECT_EQ(ncpa::check_token(primary, primary, ""), ncpa::token_result::rejected);
+  EXPECT_EQ(ncpa::check_token("", primary, ""), ncpa::token_result::rejected);
+}
+
+TEST(NcpaToken, ADamagedHashMatchesNothing) {
+  // Carries the prefix but does not parse: a broken hash, not a clear-text
+  // token that happens to start with it, so it must not fall through to the
+  // constant-time compare.
+  const std::string damaged = "pbkdf2-sha256$100000$zz$zz";
+  EXPECT_EQ(ncpa::check_token(damaged, damaged, ""), ncpa::token_result::rejected);
+  EXPECT_EQ(ncpa::check_token("one", damaged, ""), ncpa::token_result::rejected);
 }
 
 // ---- Plugin policy ---------------------------------------------------------

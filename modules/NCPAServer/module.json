@@ -8,5 +8,6 @@
 		"reload"		: true,
 		"experimental"	: true
 	},
+	"command line exec" : true,
 	"prepare_shutdown" : true
 }

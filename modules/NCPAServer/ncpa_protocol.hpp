@@ -60,8 +60,10 @@ enum class token_result {
   rejected
 };
 // Check `given` against the primary token and, when one is set, the backup
-// token, with str::constant_time_eq. Both comparisons always run, so the time
-// taken does not say which one matched.
+// token. Each is either a stored hash (`pbkdf2-sha256$...`, what
+// `nscp ncpa token --set` writes) or a clear-text value, verified through
+// password_hash::verify_password: a hash with PBKDF2, clear text in constant
+// time. A damaged hash matches nothing.
 token_result check_token(const std::string &given, const std::string &primary, const std::string &backup);
 
 // Which registered queries `plugins/` exposes.

@@ -12,6 +12,9 @@ set(SRCS
     ncpa_controller.cpp
     ncpa_protocol.cpp
     ncpa_sources.cpp
+    # The token is stored hashed (pbkdf2-sha256$...) and verified through the
+    # same helper as the WEB and check_nt passwords.
+    ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -41,6 +44,7 @@ if(WIN32)
         ncpa_sources.hpp
         ${NSCP_INCLUDEDIR}/net/auth_rate_limiter.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
+        ${NSCP_INCLUDEDIR}/nscp/password_hash.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )
 endif(WIN32)
@@ -64,16 +68,19 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
 # The wire contract (path splitting, argument splitting, the token check, the
 # plugin policy and the JSON bodies) is dispatch-free, so it tests without a
-# core. It decodes with the HTTP layer's own helpers, hence nscp_mongoose.
+# core. It decodes with the HTTP layer's own helpers, hence nscp_mongoose, and
+# verifies the token through password_hash, hence OpenSSL (${EXTRA_LIBS}).
 NSCP_CREATE_TEST(
     ${TARGET}_test
     SOURCES
         ncpa_protocol_test.cpp
         ncpa_protocol.cpp
+        ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_json
         nscp_mongoose
+        ${EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}

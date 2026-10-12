@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/json.hpp>
-#include <str/constant_time.hpp>
+#include <nscp/password_hash.hpp>
 #include <str/utils.hpp>
 
 namespace json = boost::json;
@@ -56,11 +56,17 @@ std::vector<std::string> split_args(const std::string &value) {
 
 token_result check_token(const std::string &given, const std::string &primary, const std::string &backup) {
   if (primary.empty()) return token_result::not_configured;
-  // An empty token never matches, even against an empty backup.
-  const bool primary_ok = str::constant_time_eq(given, primary);
-  const bool backup_ok = !backup.empty() && str::constant_time_eq(given, backup);
+  // An empty token never matches: not a clear-text value (which would have
+  // to be empty too, and then nothing is configured) and not a hash.
   if (given.empty()) return token_result::rejected;
-  return (primary_ok || backup_ok) ? token_result::accepted : token_result::rejected;
+  // verify_password takes either form: a stored hash (PBKDF2, ~100k rounds)
+  // or a clear-text value (compared in constant time). The backup is only
+  // tried when the primary did not match, so a poller sending the primary
+  // pays for one derivation and not two; the time taken then says which
+  // token matched, which is something the caller knows already.
+  if (password_hash::verify_password(given, primary)) return token_result::accepted;
+  if (!backup.empty() && password_hash::verify_password(given, backup)) return token_result::accepted;
+  return token_result::rejected;
 }
 
 bool plugin_policy::parse(const std::string &value, plugin_policy &out, std::string &error) {

@@ -24,12 +24,18 @@ To use this module you need to enable it and give it a token:
 [/modules]
 NCPAServer = enabled
 
-[/settings/NCPA/server]
-token = <a long random string>
-
 [/settings/default]
 allowed hosts = 127.0.0.1,192.168.0.10
 ```
+
+```
+nscp ncpa token --set <a long random string>
+```
+
+The command stores a hash of the token (`pbkdf2-sha256$...`) under `[/settings/NCPA/server]`, so the token cannot be
+read back out of the configuration; the agent verifies the clear text `check_ncpa.py` sends against it. Writing
+`token = <the string>` into the file by hand works too, and is compared in constant time, but then anyone who can read
+the file has the token.
 
 #### Running checks with check_ncpa.py
 
@@ -65,11 +71,14 @@ double quote, put the value in single quotes.
 
 *   **`token`** - required. There is no default: until one is set every request is refused, and the log says why. The
     plugin passes it with `-t`, and it travels in the query string, so it is only as private as the connection: keep
-    TLS on. The token is compared in constant time and never logged. A wrong or missing token is answered with
+    TLS on. `nscp ncpa token --set <token>` stores it hashed (`pbkdf2-sha256$...`, the same form as the WEB password),
+    so reading the configuration does not give it away; a clear-text value written by hand is accepted as well and
+    compared in constant time. The token is never logged. A wrong or missing token is answered with
     `{"error": "Incorrect credentials given."}`, which `check_ncpa.py` reports as `CRITICAL`, and ten wrong tokens in a
     row from one address block it for a minute (`auth rate limit max failures`, `auth rate limit block seconds`). A
     block survives a settings reload.
 *   **`backup token`** - a second accepted token, so the token can be rotated without a window where pollers fail.
+    `nscp ncpa token --set <token> --backup` stores it hashed.
 *   **`allowed hosts`** - which addresses may connect at all, inherited from `[/settings/default]`. A connection from
     a host outside the list is closed as soon as it is accepted, before the TLS handshake, and logged - once a minute
     per address, with a count of the refusals left out in between. Host names in the list are resolved when the
@@ -91,7 +100,9 @@ refuses to start rather than send the token in clear.
 
 To serve plain HTTP, for instance behind a TLS-terminating proxy, both settings are needed: an empty `certificate`
 (otherwise the default one is generated and used) and `allow insecure = true` (otherwise a missing certificate stops
-the listener):
+the listener). `allow insecure` covers a *missing* certificate only, as on the WEB server: a certificate that is
+configured but does not load (no key, a key for another certificate, an unreadable file) stops the listener whatever
+the flag says, so a damaged file never turns into a cleartext listener.
 
 ```
 [/settings/NCPA/server]
@@ -194,7 +205,7 @@ allow arguments=false
 
 #### ALLOW INSECURE (CLEARTEXT HTTP) <a id="/settings/NCPA/server/allow insecure"></a>
 
-When false (the default) the listener refuses to start unless its TLS certificate loads, rather than serve the token in clear. A missing default certificate is generated, so it never counts as missing: to serve plain HTTP - behind a TLS-terminating proxy, or on loopback - set \`certificate\` to empty as well as this to true. Note that check_ncpa.py always connects with https.
+When false (the default) the listener refuses to start without a TLS certificate, rather than serve the token in clear. True covers a *missing* certificate only, as on the WEB server: a certificate that is there but does not load (no key, a key for another certificate, an unreadable file) stops the listener whatever this says, since serving in clear would turn a broken file into a leaked token. A missing default certificate is generated, so it never counts as missing: to serve plain HTTP - behind a TLS-terminating proxy, or on loopback - set \`certificate\` to empty as well as this to true. Note that check_ncpa.py always connects with https.
 
 
 | Key            | Description                                     |
@@ -294,7 +305,7 @@ auth rate limit max failures=10
 
 #### BACKUP TOKEN <a id="/settings/NCPA/server/backup token"></a>
 
-A second accepted token (NCPA's \`backup_community_string\`), so the token can be rotated without a window where pollers fail. Empty (the default) accepts only \`token\`.
+A second accepted token (NCPA's \`backup_community_string\`), so the token can be rotated without a window where pollers fail. Empty (the default) accepts only \`token\`. Stored hashed by \`nscp ncpa token --set <token> --backup\`, or written in clear.
 
 
 | Key            | Description                                     |
@@ -474,7 +485,7 @@ tls version=1.2+
 
 #### TOKEN <a id="/settings/NCPA/server/token"></a>
 
-The NCPA token (NCPA's \`community_string\`), passed by check_ncpa.py as -t. There is no default: until one is set every request is refused. Compared in constant time, and never logged.
+The NCPA token (NCPA's \`community_string\`), passed by check_ncpa.py as -t. There is no default: until one is set every request is refused. Set it with \`nscp ncpa token --set <token>\`, which stores a hash (\`pbkdf2-sha256$...\`) rather than the token itself, so reading the configuration does not give the token away. A clear-text value written by hand works too (compared in constant time) and is never logged. The agent verifies either form.
 
 
 | Key            | Description                                     |

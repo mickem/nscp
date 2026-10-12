@@ -6,6 +6,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
 #include <net/connection_log_throttle.hpp>
 #include <net/socket/allowed_hosts.hpp>
@@ -14,8 +15,12 @@
 #include <net/web_server_tls.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/settings_functions.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
+#include <nscp/password_hash.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
@@ -27,7 +32,7 @@ namespace sh = nscapi::settings_helper;
 
 namespace {
 const char *const kDefaultPort = "5693";
-
+const char *const kSettingsPath = "/settings/NCPA/server";
 }  // namespace
 
 NCPAServer::NCPAServer() : auth_(std::make_shared<ncpa_auth_state>()) {}
@@ -98,10 +103,12 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
       .add_string("port", sh::string_key(&port, kDefaultPort), "PORT NUMBER", "Port to listen on. 5693 is the port check_ncpa.py and the XI wizard default to.")
       .add_password("token", sh::string_key(&config.token, ""), "TOKEN",
                     "The NCPA token (NCPA's `community_string`), passed by check_ncpa.py as -t. There is no default: until one is set every request is "
-                    "refused. Compared in constant time, and never logged.")
+                    "refused. Set it with `nscp ncpa token --set <token>`, which stores a hash (`pbkdf2-sha256$...`) rather than the token itself, so "
+                    "reading the configuration does not give the token away. A clear-text value written by hand works too (compared in constant "
+                    "time) and is never logged. The agent verifies either form.")
       .add_password("backup token", sh::string_key(&config.backup_token, ""), "BACKUP TOKEN",
                     "A second accepted token (NCPA's `backup_community_string`), so the token can be rotated without a window where pollers fail. "
-                    "Empty (the default) accepts only `token`.")
+                    "Empty (the default) accepts only `token`. Stored hashed by `nscp ncpa token --set <token> --backup`, or written in clear.")
       .add_bool("allow arguments", sh::bool_key(&config.allow_arguments, false), "ALLOW ARGUMENTS",
                 "Whether a request to the plugins node may carry arguments - path segments after the query name (check_ncpa -a) or `args=` "
                 "parameters. False (the default) runs only the commands the agent defines, exactly as the NRPE server's `allow arguments`; define an "
@@ -120,9 +127,12 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
                "How many requests are answered at the same time. A check blocks the thread answering it until it returns, so a slow external "
                "script only delays the polls behind it once all threads are busy. Default 10.")
       .add_bool("allow insecure", sh::bool_key(&allow_insecure, false), "ALLOW INSECURE (CLEARTEXT HTTP)",
-                "When false (the default) the listener refuses to start unless its TLS certificate loads, rather than serve the token in clear. "
-                "A missing default certificate is generated, so it never counts as missing: to serve plain HTTP - behind a TLS-terminating "
-                "proxy, or on loopback - set `certificate` to empty as well as this to true. Note that check_ncpa.py always connects with https.");
+                "When false (the default) the listener refuses to start without a TLS certificate, rather than serve the token in clear. True "
+                "covers a *missing* certificate only, as on the WEB server: a certificate that is there but does not load (no key, a key for "
+                "another certificate, an unreadable file) stops the listener whatever this says, since serving in clear would turn a broken "
+                "file into a leaked token. A missing default certificate is generated, so it never counts as missing: to serve plain HTTP - "
+                "behind a TLS-terminating proxy, or on loopback - set `certificate` to empty as well as this to true. Note that check_ncpa.py "
+                "always connects with https.");
   settings.alias()
       .add_key_to_settings()
       .add_string("certificate", sh::path_key(&certificate, "${certificate-path}/certificate.pem"), "TLS CERTIFICATE",
@@ -191,24 +201,33 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     // Both backends serve TLS exactly when a certificate *loaded*, so the file
     // existing is not enough: a missing key or an unreadable file would leave
     // the listener on plain HTTP. What decides is whether setSsl() succeeded.
-    const bool tls = !cert_missing && server_->setSsl(certificate, key);
-    if (!tls) {
-      if (!allow_insecure) {
+    //
+    // `allow insecure` covers a missing certificate only, as on the WEB
+    // server. A certificate that is there but does not load is a broken file,
+    // and a broken file must not turn into a cleartext listener - an operator
+    // who set the flag for a proxied setup would otherwise find the token on
+    // the wire the day the certificate was damaged.
+    bool tls = false;
+    if (!cert_missing) {
+      tls = server_->setSsl(certificate, key);
+      if (!tls) {
         NSC_LOG_ERROR("NCPA: the certificate at '" + certificate +
                       "' (or its key) could not be loaded: refusing to start the NCPA listener in cleartext HTTP, which would send the token in clear. "
-                      "Fix the certificate, or set 'allow insecure = true' under /settings/NCPA/server. The NCPA listener has NOT been started.");
+                      "Fix the certificate, or remove it and set 'allow insecure = true' under /settings/NCPA/server to serve plain HTTP on purpose "
+                      "('allow insecure' covers a missing certificate only). The NCPA listener has NOT been started.");
         server_.reset();
         return true;
       }
-      const std::string why = certificate.empty() ? std::string("no certificate is configured") : "no usable certificate at '" + certificate + "'";
+    } else if (!allow_insecure) {
+      const std::string why = certificate.empty() ? std::string("no certificate is configured") : "no certificate at '" + certificate + "'";
+      NSC_LOG_ERROR("NCPA: " + why +
+                    ": refusing to start the NCPA listener in cleartext HTTP, which would send the token in clear. Configure a "
+                    "certificate, or set 'allow insecure = true' under /settings/NCPA/server. The NCPA listener has NOT been started.");
+      server_.reset();
+      return true;
+    } else {
+      const std::string why = certificate.empty() ? std::string("no certificate is configured") : "no certificate at '" + certificate + "'";
       NSC_LOG_ERROR("NCPA: " + why + " and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port + ". The token travels in clear.");
-      // A server whose setSsl() failed refuses to start (it never falls back
-      // to cleartext on its own), so the explicit opt-in gets a fresh one that
-      // was never asked for TLS.
-      if (!cert_missing) {
-        server_.reset(Mongoose::Server::make_server(logger));
-        net::apply_tls_options(*server_, tls_version, allowed_ciphers);
-      }
     }
     // `allowed hosts` decides who may connect at all, so it is applied as a
     // connection is accepted - before the TLS handshake, before a worker is
@@ -285,5 +304,88 @@ bool NCPAServer::unloadModule() {
     NSC_LOG_ERROR_EX("unload");
     return false;
   }
+  return true;
+}
+
+bool NCPAServer::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
+                                 PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &) {
+  // `nscp ncpa <command> ...` from the CLI, or `nscp --module NCPAServer
+  // <command> ...`: as the WEB server's `nscp web ...`.
+  std::string command = request.command();
+  if (command == "ncpa" && request.arguments_size() > 0)
+    command = request.arguments(0);
+  else if (target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+    command = request.arguments(0);
+  else if (command.empty() && target_mode == NSCAPI::target_module)
+    command = "help";
+  if (command == "token") return cli_token(request, response);
+  if (target_mode == NSCAPI::target_module) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ncpa token --help");
+    return true;
+  }
+  return false;
+}
+
+bool NCPAServer::cli_token(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+  namespace po = boost::program_options;
+  namespace pf = nscapi::protobuf::functions;
+  po::variables_map vm;
+  po::options_description desc;
+
+  std::string token;
+  bool backup = false;
+
+  const std::string set_help = "Set the token. It is stored hashed (pbkdf2-sha256$...) under " + std::string(kSettingsPath) +
+                               ", so reading the configuration does not give the token away; the agent verifies the clear text check_ncpa.py "
+                               "sends (-t) against the hash. A value that already carries the hash prefix (copied from another agent) is stored "
+                               "as it is.";
+  // clang-format off
+  desc.add_options()
+      ("help", "Show help.")
+      ("set,s", po::value<std::string>(&token), set_help.c_str())
+      ("backup", po::bool_switch(&backup),
+       "Set `backup token` instead of `token`: the second accepted token, for rotating without a window where pollers fail.")
+      ;
+  // clang-format on
+  try {
+    nscapi::program_options::basic_command_line_parser cmd(request);
+    cmd.options(desc);
+    po::parsed_options parsed = cmd.allow_unregistered().run();
+    po::store(parsed, vm);
+    po::notify(vm);
+    if (vm.count("help")) {
+      pf::set_response_good(*response, nscapi::program_options::help(desc));
+      return true;
+    }
+  } catch (const std::exception &e) {
+    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+    return true;
+  }
+  if (token.empty()) {
+    pf::set_response_bad(*response, nscapi::program_options::help(desc));
+    return true;
+  }
+  const std::string key = backup ? "backup token" : "token";
+  std::string stored = token;
+  if (!password_hash::is_hashed(token)) {
+    stored = password_hash::hash_password(token);
+    if (stored.empty()) {
+      pf::set_response_bad(*response, "Failed to hash the token (RNG / KDF failure)");
+      return true;
+    }
+  }
+  pf::settings_query s(get_id());
+  s.set(kSettingsPath, key, stored);
+  s.save();
+  get_core()->settings_query(s.request(), s.response());
+  if (!s.validate_response()) {
+    pf::set_response_bad(*response, s.get_response_error());
+    return true;
+  }
+  // Without OpenSSL hash_password() hands back the clear text; say what was
+  // actually written rather than claim a hash this build cannot make.
+  const std::string how = password_hash::is_hashed(stored) ? "stored hashed" : "stored in clear text: this build has no password hashing";
+  pf::set_response_good(*response, "The " + key + " under " + kSettingsPath + " has been updated (" + how + ")." + "\n" +
+                                       "Reload the NCPA server or restart NSClient++ for the change to take effect.");
   return true;
 }

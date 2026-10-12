@@ -4,8 +4,9 @@
  * without Docker. Covers the token gate (primary, backup, wrong, missing, none
  * configured), the `plugins/` node (listing, dispatch, argument handling and
  * the `allow arguments` / `plugins` policies), the NCPA error shapes, a POST
- * form body, `allowed hosts`, `bind to`, and the refusal to serve the token in
- * clear when there is no certificate (and plain HTTP when asked for it).
+ * form body, `allowed hosts`, `bind to`, the refusal to serve the token in
+ * clear when there is no certificate (and plain HTTP when asked for it), and
+ * the hashed form of the token that `nscp ncpa token --set` stores.
  *
  * NCPA answers authentication and lookup failures with HTTP 200 and a JSON
  * body (check_ncpa.py turns `{"error": ...}` into CRITICAL). A host outside
@@ -17,7 +18,17 @@ import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import request from "supertest";
-import { NscpInstance, OK, executeQuery, onWindows, setupQueryNscp } from "@fixtures/index";
+import {
+  NscpInstance,
+  OK,
+  executeQuery,
+  iniValue,
+  isStoredHash,
+  onWindows,
+  pbkdf2StoredForm,
+  setupQueryNscp,
+  storedHashMatches,
+} from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -610,9 +621,10 @@ Registry():simple_function('reload_ncpa', reload_ncpa, 'reload the NCPA server')
       await nscp?.stop();
     });
 
-    it("serves plain HTTP, because it was asked to", async () => {
-      // A failed setSsl() makes a server refuse to start; the explicit opt-in
-      // gets a server that was never asked for TLS.
+    it("still refuses to fall back to cleartext: the flag covers a missing certificate only", async () => {
+      // As on the WEB server. An operator who set the flag for a proxied
+      // setup must not find the token on the wire the day the certificate
+      // file is damaged.
       nscp = new NscpInstance();
       const junk = path.join(nscp.workDir, "junk.pem");
       fs.writeFileSync(junk, "this is not a certificate\n");
@@ -623,11 +635,9 @@ Registry():simple_function('reload_ncpa', reload_ncpa, 'reload the NCPA server')
       });
       await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
       nscp.start();
-      await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
-      const res = await request(`http://127.0.0.1:${PORT}`)
-        .get(`/api/plugins/check_ok?token=${TOKEN}&check=1`)
-        .expect(200);
-      expect(res.body.returncode).toBe(0);
+      await waitForLog(nscp, "NCPA listener has NOT been started");
+      expect(nscp.capturedStdout()).toContain("'allow insecure' covers a missing certificate only");
+      await expect(nscp.waitForPort(PORT, { timeoutMs: 2_000 })).rejects.toThrow();
     });
   });
 
@@ -662,6 +672,104 @@ Registry():simple_function('reload_ncpa', reload_ncpa, 'reload the NCPA server')
         .expect(200);
       expect(res.body.returncode).toBe(0);
       expect(nscp.capturedStdout()).toContain("no certificate is configured");
+    });
+  });
+
+  describe("with a hashed token", () => {
+    // What `nscp ncpa token --set` stores: a pbkdf2-sha256 hash, verified
+    // against the clear text check_ncpa.py sends. Written here by hand, so
+    // the server side is tested apart from the command that writes it.
+    let nscp: NscpInstance;
+
+    beforeAll(async () => {
+      nscp = await startNcpa({
+        token: pbkdf2StoredForm(TOKEN),
+        "backup token": pbkdf2StoredForm(BACKUP),
+      });
+    });
+
+    afterAll(async () => {
+      await nscp.stop();
+    });
+
+    it("accepts the clear-text token the hash was made from", async () => {
+      const res = await get(`/api/plugins/check_ok?token=${TOKEN}&check=1`).expect(200);
+      expect(res.body.returncode).toBe(0);
+    });
+
+    it("accepts the clear-text backup token", async () => {
+      const res = await get(`/api/plugins/check_ok?token=${BACKUP}&check=1`).expect(200);
+      expect(res.body.returncode).toBe(0);
+    });
+
+    it("refuses a wrong token, and the stored hash itself", async () => {
+      const wrong = await get(`/api/plugins/check_ok?token=not-it&check=1`).expect(200);
+      expect(wrong.body).toEqual({ error: "Incorrect credentials given." });
+      // Someone who read the configuration has the hash, not the token.
+      const hash = encodeURIComponent(
+        iniValue(nscp.settingsFile, "/settings/NCPA/server", "token") ?? "",
+      );
+      const asToken = await get(`/api/plugins/check_ok?token=${hash}&check=1`).expect(200);
+      expect(asToken.body).toEqual({ error: "Incorrect credentials given." });
+    });
+  });
+
+  describe("nscp ncpa token --set", () => {
+    const SECTION = "/settings/NCPA/server";
+    let nscp: NscpInstance;
+    const token = () => iniValue(nscp.settingsFile, SECTION, "token");
+    const backup = () => iniValue(nscp.settingsFile, SECTION, "backup token");
+
+    beforeAll(() => {
+      nscp = new NscpInstance();
+    });
+
+    afterAll(async () => {
+      await nscp.stop();
+    });
+
+    it("stores a hash of the token, not the token", async () => {
+      const r = await nscp.run(["ncpa", "token", "--set", TOKEN]);
+      expect(r.all).toContain("stored hashed");
+      expect(r.all).not.toContain(TOKEN);
+      expect(isStoredHash(token())).toBe(true);
+      expect(storedHashMatches(token(), TOKEN)).toBe(true);
+    });
+
+    it("--backup stores the backup token the same way and leaves the token alone", async () => {
+      const before = token();
+      const r = await nscp.run(["ncpa", "token", "--set", BACKUP, "--backup"]);
+      expect(r.all).toContain("backup token");
+      expect(token()).toBe(before);
+      expect(isStoredHash(backup())).toBe(true);
+      expect(storedHashMatches(backup(), BACKUP)).toBe(true);
+    });
+
+    it("stores a value that already is a hash as it is", async () => {
+      // Copied from another agent: hashing it again would lock the poller out.
+      const copied = pbkdf2StoredForm("copied-token");
+      await nscp.run(["ncpa", "token", "--set", copied]);
+      expect(token()).toBe(copied);
+      // Back to the suite's token for the end-to-end check below.
+      await nscp.run(["ncpa", "token", "--set", TOKEN]);
+      expect(storedHashMatches(token(), TOKEN)).toBe(true);
+    });
+
+    it("the agent then verifies check_ncpa's clear-text token against the hash", async () => {
+      await nscp.configure({
+        "/modules": { NCPAServer: "enabled", CheckHelpers: "enabled" },
+        "/settings/default": { "allowed hosts": "127.0.0.1" },
+        [SECTION]: { "auth rate limit max failures": 0 },
+      });
+      await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
+      nscp.start();
+      await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
+      const primary = await get(`/api/plugins/check_ok?token=${TOKEN}&check=1`).expect(200);
+      expect(primary.body.returncode).toBe(0);
+      const second = await get(`/api/plugins/check_ok?token=${BACKUP}&check=1`).expect(200);
+      expect(second.body.returncode).toBe(0);
+      const wrong = await get(`/api/plugins/check_ok?token=${TOKEN}x&check=1`).expect(200);
+      expect(wrong.body).toEqual({ error: "Incorrect credentials given." });
     });
   });
 

@@ -9,6 +9,7 @@
 #include <list>
 #include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/protobuf/command.hpp>
 
 struct ncpa_auth_state;
 
@@ -25,8 +26,13 @@ class NCPAServer : public nscapi::impl::simple_plugin {
   void prepareShutdown();
   bool unloadModule();
 
+  // `nscp ncpa token --set <token> [--backup]`: store the token hashed.
+  bool commandLineExec(int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
+                       const PB::Commands::ExecuteRequestMessage &request_message);
+
  private:
   void stop_server();
+  bool cli_token(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
   std::shared_ptr<Mongoose::Server> server_;
   // The token rate limiter. Created once and handed to every controller, so a
