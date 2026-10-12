@@ -1770,6 +1770,35 @@ TEST_F(WriteCertsFixture, ValidateCertificateDoesNotHandOverAnExistingCertificat
   EXPECT_TRUE(messages.empty()) << boost::algorithm::join(messages, "\n");
   EXPECT_EQ(owner_of(cert), before);
 }
+
+// A certificate folder that cannot be created is an ordinary outcome of
+// `nscp web install` run from an unprivileged shell against a packaged layout
+// (/usr/local/lib/nsclient). It is reported as a warning that says what to do;
+// the filesystem_error used to escape into the command's catch-all, which
+// printed it as "Invalid command line" followed by the whole option list.
+// The parent is a regular file so the failure reproduces as root too (a
+// chmod-based one would not: root ignores directory permissions).
+TEST_F(WriteCertsFixture, ValidateCertificateReportsAFolderItCannotCreate) {
+  const std::string blocker = path_of("blocker");
+  {
+    std::ofstream(blocker.c_str()) << "not a directory";
+  }
+  const std::string cert = blocker + "/security/certificate.pem";
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+
+  std::list<std::string> messages;
+  ASSERT_NO_THROW(socket_helpers::validate_certificate(cert, messages, reference));
+
+  EXPECT_FALSE(boost::filesystem::exists(cert));
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("WARNING: Could not create the certificate folder " + blocker + "/security"), std::string::npos) << joined;
+  EXPECT_NE(joined.find("No certificate was generated"), std::string::npos) << joined;
+  EXPECT_NE(joined.find("--certificate"), std::string::npos) << joined;
+  // The folder was never made, so there is nothing to announce or to hand over.
+  EXPECT_EQ(joined.find("Creating certificate folder"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("generating a default certificate"), std::string::npos) << joined;
+}
 #endif
 
 // =============================================================================

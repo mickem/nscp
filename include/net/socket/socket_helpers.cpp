@@ -293,13 +293,24 @@ namespace {
 // create is opened to traversal (0755 - the private key inside carries its
 // own 0600), through a descriptor on the directory we just made rather than a
 // path, since the parent can be a directory the service account writes to.
-void create_certificate_folder(const boost::filesystem::path &dir, std::vector<std::string> &created) {
+//
+// Returns the reason the folder could not be created, or an empty string. A
+// failure here is an ordinary outcome of `nscp web install` run from an
+// unprivileged shell against a packaged layout (the folder sits under
+// /usr/local/lib or /etc), so it is reported to the operator as such rather
+// than thrown: a boost::filesystem::filesystem_error escaping from here used to
+// land in the command's catch-all, which printed it as "Invalid command line"
+// followed by the whole option list.
+std::string create_certificate_folder(const boost::filesystem::path &dir, std::vector<std::string> &created) {
   std::vector<boost::filesystem::path> missing;
-  for (boost::filesystem::path level = dir; !level.empty() && !boost::filesystem::exists(level); level = level.parent_path()) {
+  boost::system::error_code ec;
+  for (boost::filesystem::path level = dir; !level.empty() && !boost::filesystem::exists(level, ec); level = level.parent_path()) {
     missing.push_back(level);
   }
   for (auto level = missing.rbegin(); level != missing.rend(); ++level) {
-    if (!boost::filesystem::create_directory(*level)) continue;  // appeared meanwhile: not ours
+    const bool made = boost::filesystem::create_directory(*level, ec);
+    if (ec) return "Could not create the certificate folder " + level->string() + ": " + ec.message();
+    if (!made) continue;  // appeared meanwhile: not ours
 #ifndef WIN32
     const int fd = ::open(level->string().c_str(), O_RDONLY | O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC);
     if (fd >= 0) {
@@ -310,6 +321,7 @@ void create_certificate_folder(const boost::filesystem::path &dir, std::vector<s
 #endif
     created.push_back(level->string());
   }
+  return "";
 }
 }  // namespace
 #endif
@@ -340,8 +352,18 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
   if (!certificate.empty() && !boost::filesystem::is_regular_file(certificate)) {
     const auto parent_path = boost::filesystem::path(certificate).parent_path();
     std::vector<std::string> created;
-    if (!exists(parent_path)) {
-      create_certificate_folder(parent_path, created);
+    boost::system::error_code probe;  // a parent this process may not even stat is reported below, not thrown
+    if (!exists(parent_path, probe)) {
+      const std::string error = create_certificate_folder(parent_path, created);
+      if (!error.empty()) {
+        // Nothing can be generated into a folder that does not exist, so say
+        // what is missing and what to do about it instead of letting
+        // write_certs() fail on the same folder with a less helpful message.
+        list.emplace_back("WARNING: " + error +
+                          ". No certificate was generated: re-run this command with write access to that folder (as root on a "
+                          "packaged install), or point --certificate at a file in a folder you can write to.");
+        return;
+      }
       list.emplace_back("Creating certificate folder: " + parent_path.string());
     }
     // A folder we created holds nothing shipped, so it goes to the service

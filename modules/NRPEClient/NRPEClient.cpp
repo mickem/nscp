@@ -337,11 +337,17 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
+  } catch (const po::error &e) {
     nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
     return true;
+  } catch (const std::exception &e) {
+    // Not a parse error (a filesystem_error from the certificate folder, a
+    // settings exception): report the reason on its own, without the option
+    // list that "Invalid command line" drags along.
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to install the NRPE server: " + utf8::utf8_from_native(e.what()));
+    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to install the NRPE server: unknown exception");
     return true;
   }
 }
