@@ -170,14 +170,37 @@ jobs:
     - name: Run stress scenarios under sanitizers (60 s each)
       working-directory: tests
       env:
-        NSCP_BIN: ${{ github.workspace }}/tmp/nscp/nscp
         NSCP_STRESS_DURATION: "60"
         NSCP_STRESS_CONCURRENCY: "16"
         NSCP_STRESS_RSS_TOLERANCE: "50"
         ASAN_OPTIONS: halt_on_error=1:abort_on_error=1:detect_leaks=1:detect_odr_violation=0:check_initialization_order=1:detect_stack_use_after_return=1:print_stacktrace=1
-        UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1:suppressions=${{ github.workspace }}/tools/sanitizers/ubsan-suppressions.txt
-        LSAN_OPTIONS: suppressions=${{ github.workspace }}/tools/sanitizers/lsan-suppressions.txt
-      run: npx jest --config jest.stress.config.js --runInBand rest-flood scheduler-load slow-check-isolation mixed-flood
+      run: |
+        # Build the workspace paths from the shell variable $GITHUB_WORKSPACE,
+        # not the template expression ${{ github.workspace }} (as
+        # build-debian.yml does). The expression is evaluated on the host, so
+        # in this container job it names /home/runner/work/..., which does not
+        # exist here; the shell variable is the container-side mount
+        # (/__w/nscp/nscp). The runner rewrites an env value that *starts*
+        # with the host path, which is why NSCP_BIN came out right before,
+        # but a path after `suppressions=` is left alone.
+        #
+        # That was easy to miss: LSan opens its suppressions file lazily, on
+        # the first leak candidate it classifies at exit, so an agent that
+        # leaked nothing ran fine and only the `nscp settings` runs that
+        # loaded a module with the load_dll shutdown-ordering leak died with
+        # "failed to read suppressions file". The check below fails the step
+        # on an unreadable file before any scenario starts instead.
+        export NSCP_BIN="$GITHUB_WORKSPACE/tmp/nscp/nscp"
+        suppressions="$GITHUB_WORKSPACE/tools/sanitizers"
+        for f in "$suppressions/ubsan-suppressions.txt" "$suppressions/lsan-suppressions.txt"; do
+          if [ ! -r "$f" ]; then
+            echo "::error::sanitizer suppressions file not readable: $f"
+            exit 1
+          fi
+        done
+        export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1:suppressions=$suppressions/ubsan-suppressions.txt"
+        export LSAN_OPTIONS="suppressions=$suppressions/lsan-suppressions.txt"
+        npx jest --config jest.stress.config.js --runInBand rest-flood scheduler-load slow-check-isolation mixed-flood
 
     - name: Upload stress results
       if: always()
