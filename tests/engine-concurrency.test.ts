@@ -93,26 +93,50 @@ describeWithModules(
     for (const p of slow) void p.then(() => answered++);
 
     // Probe in parallel batches until the first slow check answers.
-    const latencies: number[] = [];
+    const batches: number[][] = [];
     let n = 0;
     while (answered === 0) {
-      const batch = await Promise.all(
-        Array.from({ length: 8 }, async () => {
-          const token = `p${n++}`;
-          const t0 = performance.now();
-          const a = await agent.nrpe.expect("check_ok", [`message=${token}`], token);
-          return performance.now() - t0 - a.localWaitMs;
-        }),
+      batches.push(
+        await Promise.all(
+          Array.from({ length: 8 }, async () => {
+            const token = `p${n++}`;
+            const t0 = performance.now();
+            const a = await agent.nrpe.expect("check_ok", [`message=${token}`], token);
+            return performance.now() - t0 - a.localWaitMs;
+          }),
+        ),
       );
-      latencies.push(...batch);
     }
     const answers = await Promise.all(slow);
+    const latencies = batches.flat();
 
     expect(answers.map((a) => a.result)).toEqual(SLOW_CHECKS.map(() => 0));
     // A probe queued behind a slow check takes the rest of that check; a
     // second is far beyond anything a check_ok costs on any runner.
-    const queued = latencies.filter((ms) => ms >= 1_000);
+    //
+    // The eight probes of a batch leave at the same instant, each on a
+    // connection of its own. A strand collision holds one of them while the
+    // rest are answered in milliseconds, so a batch in which every probe
+    // waited a second or more was held up as a whole: the agent or the host
+    // stalled under it. One Windows x86 runner did that for 2.2 s, and the
+    // same stall put one of the slow checks two seconds behind its sleep. That
+    // is not a connection queued behind another connection's check, which is
+    // what this case pins, so such a batch is reported rather than counted -
+    // the stress harness is where whole-agent stalls are measured. Two in one
+    // run is a pattern, and fails.
+    const waited = (ms: number) => ms >= 1_000;
+    const stalled = batches.filter((batch) => batch.every(waited));
+    const queued = batches
+      .filter((batch) => !batch.every(waited))
+      .flat()
+      .filter(waited);
+    for (const batch of stalled) {
+      console.warn(
+        `a whole batch of ${batch.length} probes stalled: ${batch.map((ms) => ms.toFixed(0)).join(", ")} ms`,
+      );
+    }
     expect({ probes: latencies.length, queued }).toMatchObject({ queued: [] });
+    expect({ stalled: stalled.length > 1 ? stalled : [] }).toMatchObject({ stalled: [] });
     // And enough probes for a collision to have been all but certain on the
     // old strands; a first batch stuck behind a slow check also ends here.
     expect(latencies.length).toBeGreaterThanOrEqual(400);
