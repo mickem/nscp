@@ -80,24 +80,30 @@ class pdh_exception : public std::exception {
   std::string reason() const { return error_ ? *error_ : std::string(); }
 };
 
-// Thrown by factory::create() for a wildcard counter whose object resolved
-// but has no instances at the moment. It is still a pdh_exception, so every
-// caller that treats a counter it cannot add as a failure (the collector's
-// boot-time retry, check_pdh) keeps doing exactly that; a caller for which an
-// empty object is a legitimate empty set (gather_object_instances) catches
-// this type ahead of pdh_exception.
-class pdh_no_instance_exception : public pdh_exception {
+// A failure that is about the system as it is right now rather than about the
+// counter's configuration: trying the same counter again later can succeed.
+// Still a pdh_exception, so a caller that does not care about the difference
+// keeps treating it as a failure.
+class pdh_transient_exception : public pdh_exception {
  public:
-  explicit pdh_no_instance_exception(const std::string &error) : pdh_exception(error) {}
+  explicit pdh_transient_exception(const std::string &error) : pdh_exception(error) {}
+};
+
+// Thrown by factory::create() for a wildcard counter whose object resolved
+// but has no instances at the moment. Every caller that treats a counter it
+// cannot add as a failure (check_pdh) keeps doing exactly that; a caller for
+// which an empty object is a legitimate empty set (gather_object_instances)
+// catches this type ahead of pdh_exception.
+class pdh_no_instance_exception : public pdh_transient_exception {
+ public:
+  explicit pdh_no_instance_exception(const std::string &error) : pdh_transient_exception(error) {}
 };
 
 // Thrown by factory::create() when a wildcard path could not be expanded,
-// typically because the object it names is not registered (yet). Distinct
-// from the other failures of create(), which are about the counter's own
-// configuration and do not change by trying again.
-class pdh_expand_exception : public pdh_exception {
+// typically because the object it names is not registered (yet).
+class pdh_expand_exception : public pdh_transient_exception {
  public:
-  explicit pdh_expand_exception(const std::string &error) : pdh_exception(error) {}
+  explicit pdh_expand_exception(const std::string &error) : pdh_transient_exception(error) {}
 };
 
 // Thrown by PDHQuery::collect() when PdhCollectQueryData returns PDH_NO_DATA

@@ -96,6 +96,9 @@ class pdh_thread {
   // Aliases of the counters reported missing, so each is reported once and
   // announced when it turns up. Touched only by thread_proc.
   std::set<std::string> reported_missing_;
+  // Counters added to the query that no tick has sampled yet; store_tick
+  // moves them into lookups_. Guarded by mutex_.
+  std::list<PDH::pdh_instance> unpublished_;
   bool query_failure_logged_ = false;
   // check_pdh reload=true asks the collector to retry the missing counters now
   // rather than at the next scheduled attempt: a request bumps
@@ -104,9 +107,10 @@ class pdh_thread {
   boost::condition_variable retry_done_;
   unsigned long long retry_requested_ = 0;
   unsigned long long retry_completed_ = 0;
-  // Set when the collector stops: waiting requests are released and new ones
-  // return straight away.
-  bool retry_stopped_ = false;
+  // Set while no collector thread runs - before start(), and once it stops:
+  // waiting requests are released and new ones return straight away, rather
+  // than wait out their timeout for a thread that is not there.
+  bool retry_stopped_ = true;
   rrd_buffer<windows::system_info::cpu_load> cpu;
   // Attempts to read the CPU load for `cpu`. Guarded by its own mutex rather
   // than mutex_, so an attempt is counted even when mutex_ cannot be had;
@@ -165,8 +169,10 @@ class pdh_thread {
   std::map<std::string, double> get_value(std::string counter);
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
-  // Whether a predefined counter has been added to the collector.
-  bool has_counter(const std::string &counter);
+  // Whether a predefined counter is being collected and has been sampled;
+  // unknown when the collector's lock could not be had within timeout_ms.
+  enum class counter_presence { present, missing, unknown };
+  counter_presence find_counter(const std::string &counter, long timeout_ms);
   // Asks the collector to retry the predefined counters it has not managed to
   // add yet, and waits up to timeout_ms for it to have done so. Returns false
   // on a timeout (no running collector, or it is busy).
@@ -252,8 +258,8 @@ class pdh_thread {
   void write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors);
 
   // Adds the counters prepare() created to the collector's query, opening it
-  // first when it is not, and publishes them in lookups_. Caller must hold
-  // the unique (write) lock on mutex_.
+  // first when it is not; the next store_tick publishes them in lookups_.
+  // Caller must hold the unique (write) lock on mutex_.
   void adopt_counters(PDH::PDHQuery &pdh, const pdh_counters::counter_set::candidates &candidates);
   // Logs each unresolved counter that has not been reported yet. Called after
   // every attempt once the fast retries are spent.

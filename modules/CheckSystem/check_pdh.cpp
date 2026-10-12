@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <algorithm>
 #include <boost/program_options.hpp>
 #include <boost/regex.hpp>
 #include <map>
@@ -314,16 +315,25 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
   }
   // A predefined counter the collector could not add yet (a service that
   // registers it started after NSClient++) is retried now instead of at the
-  // collector's next scheduled attempt. One request covers every counter.
-  if (reload) {
+  // collector's next scheduled attempt. One request covers every counter,
+  // and the lookups and the wait share one budget, so reload=true adds at
+  // most that to the check whatever the collector is doing.
+  if (reload && !named_counters.empty()) {
+    const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(5);
+    const auto remaining_ms = [&deadline]() { return std::max(0L, static_cast<long>((deadline - boost::get_system_time()).total_milliseconds())); };
     bool any_missing = false;
     for (const counter_list::value_type &vc : named_counters) {
-      if (!collector->has_counter(vc.second)) {
+      // A collector whose lock is held (its setup, or a tick) counts as not
+      // having the counter: the retry request is served by the tick that
+      // follows, which is also the one that publishes what setup added.
+      if (collector->find_counter(vc.second, std::min(1000L, remaining_ms())) != pdh_thread::counter_presence::present) {
         any_missing = true;
         break;
       }
     }
-    if (any_missing && !collector->retry_unresolved_counters(5000)) NSC_DEBUG_MSG("Timed out waiting for the collector to retry the missing counters");
+    if (any_missing && !collector->retry_unresolved_counters(remaining_ms())) {
+      NSC_DEBUG_MSG("Timed out waiting for the collector to retry the missing counters");
+    }
   }
   for (const counter_list::value_type &vc : named_counters) {
     try {

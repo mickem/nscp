@@ -9,15 +9,17 @@
  * next restart. Each counter is now added on its own and a missing one is
  * retried in the background; `reload=true` asks for that retry right away.
  *
- * Each case runs a one-shot client query, so `reload=true` also waits for the
- * collector thread to have finished its setup, which keeps the "the valid
- * counter is served" assertion independent of thread start-up timing. PDH is
+ * Each case runs a one-shot client query, so the check arrives while the
+ * collector is still starting: `reload=true` waits for the collector's first
+ * tick, which is also the one that samples the counters setup added, so the
+ * "the valid counter is served" assertion can demand a real value. PDH is
  * Windows-only, so the suite is skipped elsewhere.
  */
 import { NscpInstance, describeOnWindows } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
+const OK = 0;
 const UNKNOWN = 3;
 /** Present on every Windows install. */
 const THREADS = "\\System\\Threads";
@@ -45,16 +47,18 @@ describeOnWindows("CheckSystem predefined counters with one missing", () => {
     });
   });
 
-  it("still serves the counters that exist", async () => {
+  it("still serves the counters that exist, with a sampled value", async () => {
+    // Every Windows host runs threads, so a value below 1 means the check read
+    // a counter that was added but not sampled yet: CRITICAL, not OK.
     const { out, code } = await check([
       "counter=threads",
       "reload=true",
       "warning=value < 0",
-      "critical=value < 0",
+      "critical=value < 1",
     ]);
     expect(out).not.toMatch(/Failed to get value/);
     expect(out).not.toMatch(/does not take any arguments/);
-    expect(code).not.toBe(UNKNOWN);
+    expect(code).toBe(OK);
   });
 
   it("reports the missing counter as missing", async () => {

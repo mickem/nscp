@@ -26,26 +26,30 @@ void PDHQuery::addCounter(const pdh_instance& instance) {
   } else
     added.push_back(std::make_shared<PDHCounter>(instance));
 
-  // On an open query the counters go in now, all of them or none: the
-  // counters already in the query keep their handles, and with them the
-  // previous sample a rate counter is computed from. A query that a reload
-  // left closed adds them when it reopens, as it does the others.
-  if (hQuery_ != nullptr) {
+  // A query that was never opened adds the counters when it is. Once it has
+  // been, they go in now, all of them or none, and only a counter PDH
+  // accepted is kept: the counters already in the query keep their handles,
+  // and with them the previous sample a rate counter is computed from. The
+  // check is made under the implementation's lock, as a reload changes
+  // hQuery_ under it.
+  if (listener_registered_ || hQuery_ != nullptr) {
     const std::shared_ptr<impl_interface> impl = this->impl();
     std::lock_guard<impl_interface> guard(*impl);
-    if (hQuery_ != nullptr) {
-      try {
-        for (const counter_type& c : added) c->addToQuery(impl, hQuery_);
-      } catch (...) {
-        for (const counter_type& c : added) {
-          try {
-            c->remove();
-          } catch (...) {
-            // Best effort: the counter is not kept either way.
-          }
+    // A reload that could not reopen the query left it closed but still
+    // subscribed: reopen it first, as gatherData() does, rather than keep a
+    // counter nobody validated, which every later reload would then fail on.
+    if (listener_registered_ && hQuery_ == nullptr) on_reload();
+    try {
+      for (const counter_type& c : added) c->addToQuery(impl, hQuery_);
+    } catch (...) {
+      for (const counter_type& c : added) {
+        try {
+          c->remove();
+        } catch (...) {
+          // Best effort: the counter is not kept either way.
         }
-        throw;
       }
+      throw;
     }
   }
   counters_.splice(counters_.end(), added);
@@ -121,6 +125,9 @@ void PDHQuery::open() {
   std::lock_guard<impl_interface> guard(*impl);
   if (hQuery_ != nullptr) throw pdh_exception("query was already opened when trying to open query!");
   on_reload();
+  // A query a reload left closed is still subscribed: reopening it is all
+  // there is to do, and subscribing it again would call it back twice.
+  if (listener_registered_) return;
   try {
     impl->add_listener(this);
     listener_registered_ = true;

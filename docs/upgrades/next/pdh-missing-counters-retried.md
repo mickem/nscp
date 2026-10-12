@@ -19,4 +19,7 @@ that matches the old wording. At startup, `Not checking PDH data` is now only
 logged when no counters are configured; with counters still pending it says how
 many are being retried. `check_pdh reload=true` was accepted but ignored; it now
 asks the collector to retry the missing predefined counters, and waits up to
-5 seconds for that, before the check reads them.
+5 seconds in all for that, before the check reads them. A predefined counter is
+now visible to checks once the collector has sampled it: a check in the first
+second after startup that used to read `0` reports `Failed to get value`
+instead, or the real value with `reload=true`.

@@ -25,10 +25,9 @@ counter_set::candidates counter_set::prepare() const {
       // A wildcard counter is expanded here, so instances that appeared since
       // the previous attempt are picked up.
       result.created.push_back({counter.config, PDH::factory::create(counter.config)});
-    } catch (const PDH::pdh_no_instance_exception &e) {
-      result.missing.push_back({counter.config, utf8::utf8_from_native(e.what())});
-    } catch (const PDH::pdh_expand_exception &e) {
-      // The wildcard form of a counter that is not registered yet.
+    } catch (const PDH::pdh_transient_exception &e) {
+      // A wildcard over an object that is not registered yet, or that has no
+      // instances right now.
       result.missing.push_back({counter.config, utf8::utf8_from_native(e.what())});
     } catch (const std::exception &e) {
       result.invalid.push_back({counter.config, utf8::utf8_from_native(e.what())});

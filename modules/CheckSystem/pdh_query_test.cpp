@@ -1037,6 +1037,51 @@ TEST_F(PdhQueryLifecycleTest, AddCounterRejectedByAnOpenQueryIsNotKept) {
   q.close();
 }
 
+// A reload that cannot reopen a query leaves it closed but still subscribed.
+static void leave_closed_by_a_failed_reload(PDH::PDHQuery &q, MockPdh &mock) {
+  q.on_unload();
+  mock.open_status = PDH_INVALID_HANDLE;
+  EXPECT_THROW(q.on_reload(), PDH::pdh_exception);
+  mock.open_status = ERROR_SUCCESS;
+  ASSERT_FALSE(q.is_open());
+}
+
+TEST_F(PdhQueryLifecycleTest, AddCounterReopensAQueryAFailedReloadLeftClosed) {
+  PDH::PDHQuery q;
+  q.open();
+  leave_closed_by_a_failed_reload(q, *mock);
+  q.addCounter(make_counter("a", "\\A\\Value"));
+  EXPECT_TRUE(q.is_open());
+  EXPECT_EQ(mock->open_counter_handles, 1) << "the counter must have been added to PDH, not just kept";
+  EXPECT_EQ(mock->add_listener_calls, 1);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, AddCounterKeepsNothingWhenAFailedReloadQueryCannotReopen) {
+  PDH::PDHQuery q;
+  q.open();
+  leave_closed_by_a_failed_reload(q, *mock);
+  mock->open_status = PDH_INVALID_HANDLE;
+  EXPECT_THROW(q.addCounter(make_counter("a", "\\A\\Value")), PDH::pdh_exception);
+  EXPECT_FALSE(q.has_counters()) << "an unvalidated counter would fail every later reload";
+  mock->open_status = ERROR_SUCCESS;
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, OpenOnAQueryAFailedReloadLeftClosedDoesNotSubscribeTwice) {
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\A\\Value"));
+  q.open();
+  leave_closed_by_a_failed_reload(q, *mock);
+  EXPECT_NO_THROW(q.open());
+  EXPECT_TRUE(q.is_open());
+  EXPECT_EQ(mock->add_listener_calls, 1);
+  EXPECT_EQ(mock->listener_count, 1);
+  EXPECT_EQ(mock->open_counter_handles, 1);
+  q.close();
+  EXPECT_EQ(mock->listener_count, 0);
+}
+
 TEST(PdhCounterRetrySchedule, BacksOffThenSettlesOnTheSteadyCadence) {
   EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(0), 1000u);
   EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(1), 2000u);
