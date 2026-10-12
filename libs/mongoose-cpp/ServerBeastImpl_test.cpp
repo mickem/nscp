@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <memory>
@@ -1165,4 +1166,110 @@ TEST(ServerBeastImpl, RegisterControllerAfterStartIsThreadSafe) {
   done = true;
   registrar.join();
   fx.server->stop();
+}
+
+// ---- Request thread pool ---------------------------------------------------
+
+namespace {
+// Answers after `delay`, flagging `entered` first so a test knows the request
+// is inside the handler - holding its thread - before it sends the next one.
+class SlowHandler : public RequestHandlerBase {
+ public:
+  explicit SlowHandler(std::chrono::milliseconds delay) : delay(delay) {}
+  Response* process(Request& /*request*/) override {
+    entered = true;
+    std::this_thread::sleep_for(delay);
+    auto* r = new StreamResponse(200);
+    r->setCode(200, "OK");
+    r->append("slow");
+    return r;
+  }
+  std::chrono::milliseconds delay;
+  std::atomic<bool> entered{false};
+};
+
+// How long a fast request takes while a slow one is inside its handler.
+struct SlowNeighbourResult {
+  RawResponse slow;
+  RawResponse fast;
+  std::chrono::milliseconds fast_took{0};
+};
+
+SlowNeighbourResult fetch_next_to_slow(const ServerFixture& fx, int port_offset) {
+  auto* controller = new MatchController();
+  auto* slow = new SlowHandler(std::chrono::milliseconds(1500));
+  controller->registerRoute("GET", "/slow", slow);
+  controller->registerRoute("GET", "/fast", new FixedHandler(200, "fast"));
+  const int port = fx.start(choose_port_base() + port_offset, controller);
+  SlowNeighbourResult out;
+  if (!wait_listening(port, std::chrono::seconds(2))) {
+    ADD_FAILURE() << "server never listened";
+    return out;
+  }
+  std::thread slow_client([&] { out.slow = beast_fetch("127.0.0.1", port, "/slow"); });
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  while (!slow->entered && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  EXPECT_TRUE(slow->entered) << "the slow request never reached its handler";
+  const auto t0 = std::chrono::steady_clock::now();
+  out.fast = beast_fetch("127.0.0.1", port, "/fast");
+  out.fast_took = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0);
+  slow_client.join();
+  fx.server->stop();
+  return out;
+}
+}  // namespace
+
+TEST(ServerBeastImpl, SlowRequestDoesNotHoldUpOthers) {
+  // A request holds the thread it is dispatched on until its handler returns
+  // - for the agent, until the check it runs is done. With the io_context on
+  // one thread that was every request on the server; on the pool a fast
+  // request is answered while a slow one is still inside its handler.
+  const ServerFixture fx;
+  fx.server->setThreads(4);
+  const auto r = fetch_next_to_slow(fx, 57);
+  ASSERT_TRUE(r.fast.received) << "fast request got no answer";
+  EXPECT_EQ(r.fast.status, 200);
+  EXPECT_LT(r.fast_took.count(), 500) << "the fast request waited for the slow one";
+  ASSERT_TRUE(r.slow.received) << "slow request got no answer";
+  EXPECT_EQ(r.slow.body, "slow");
+}
+
+TEST(ServerBeastImpl, OneThreadServesOneRequestAtATime) {
+  // The other side of the test above, so it cannot pass for the wrong reason:
+  // with a pool of one, the fast request does wait for the slow one.
+  const ServerFixture fx;
+  fx.server->setThreads(1);
+  const auto r = fetch_next_to_slow(fx, 58);
+  ASSERT_TRUE(r.fast.received) << "fast request got no answer";
+  EXPECT_GE(r.fast_took.count(), 1000) << "one thread answered two requests at once";
+}
+
+TEST(ServerBeastImpl, SetThreadsAfterStartIsRejected) {
+  const ServerFixture fx;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/", new FixedHandler(200, "ok"));
+  const int port = fx.start(choose_port_base() + 59, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+  fx.server->setThreads(1);
+  fx.server->stop();
+  bool found = false;
+  for (const auto& e : fx.logger->errors) {
+    if (e.find("setThreads()") != std::string::npos && e.find("after start") != std::string::npos) found = true;
+  }
+  EXPECT_TRUE(found) << "expected 'setThreads after start' warning in log";
+}
+
+TEST(ServerBeastImpl, ZeroThreadsStillServes) {
+  // Zero is read as one: a pool of none would accept connections and never
+  // answer them.
+  const ServerFixture fx;
+  fx.server->setThreads(0);
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/", new FixedHandler(200, "ok"));
+  const int port = fx.start(choose_port_base() + 60, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+  const auto resp = beast_fetch("127.0.0.1", port, "/");
+  fx.server->stop();
+  ASSERT_TRUE(resp.received);
+  EXPECT_EQ(resp.status, 200);
 }

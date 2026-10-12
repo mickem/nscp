@@ -23,17 +23,19 @@
  * run of overlapping slow checks; the usual leak canary and clean-log check
  * apply. NSCP_STRESS_SLOW_MS (default 8000) is how long each slow check runs.
  *
- * Over NRPE, whose server runs a worker pool, this is expected to pass. Over
- * REST it cannot today: the web server (mongoose and beast alike) runs every
- * request on its single io thread, so the first slow check holds up every
- * other request and the slow checks never overlap. That case is `it.failing`:
- * it records the limitation, and it starts failing - telling whoever fixed the
- * web server to flip it to `it` - the day REST dispatch moves off the io thread.
+ * Over NRPE, whose server runs a worker pool, this is expected to pass, and
+ * over REST on the beast backend (Linux, macOS), which runs requests on the
+ * WEB server's `threads` pool. The mongoose backend (Windows) serves one
+ * request at a time, so there the first slow check holds up every other
+ * request and the slow checks never overlap: that case is `it.failing`, and it
+ * starts failing - telling whoever fixed it to drop the special case - the
+ * day Windows serves REST concurrently too.
  *
  * Not asserted: a Lua check that spins without calling nscp.sleep or the core
  * holds the one Lua lock and serialises every other Lua check behind it. That
  * is how the Lua runtime is built, not a regression this scenario could catch.
  */
+import { onWindows } from "@fixtures/index";
 import { expectCleanLog, expectNoGrowth, expectResponsive } from "@stress/invariants";
 import {
   ENGINE_LOG_NOISE,
@@ -286,10 +288,12 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
     await soak(nrpeCall, "nrpe");
   });
 
-  // Known limitation, see the header: the web server dispatches every request
-  // on its one io thread, so the slow checks never overlap. Flip to `it` once
-  // REST dispatch moves to a worker pool.
-  it.failing("over REST: every engine answers promptly while every other one is busy", async () => {
-    await soak(restCall, "rest");
-  });
+  // Known limitation on Windows, see the header: the mongoose backend serves
+  // one request at a time, so the slow checks never overlap there.
+  (onWindows ? it.failing : it)(
+    "over REST: every engine answers promptly while every other one is busy",
+    async () => {
+      await soak(restCall, "rest");
+    },
+  );
 });

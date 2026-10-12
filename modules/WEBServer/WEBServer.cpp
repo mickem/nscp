@@ -197,7 +197,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.alias()
       .add_key_to_settings()
       .add_string("port", sh::string_key(&port, "8443"), "Server port", "Port to use for WEB server.")
-      .add_int("threads", sh::int_key(&threads, 10), "Server threads", "The number of threads in the sever response pool.")
+      .add_int("threads", sh::int_key(&threads, 10), "Server threads",
+               "How many requests the WEB server serves at once. A request holds its thread until the check it runs returns, so this is "
+               "how many slow checks can be in flight before the next request waits. Honoured by the beast backend (Linux, macOS); "
+               "the mongoose backend (Windows) serves one request at a time.")
       .add_bool(
           "allow anonymous access", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allow_anonymous(value); }, false),
           "ALLOW ANONYMOUS ACCESS",
@@ -559,6 +562,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       Mongoose::Controller::setErrorSink([](const std::string &message) { NSC_LOG_ERROR(message); });
     }
     server.reset(Server::make_server(logger));
+    server->setThreads(threads > 0 ? static_cast<std::size_t>(threads) : 1);
     // An untouched `tls version` is passed as empty rather than as its default
     // value: the mongoose backend cannot honour the setting and logs that it is
     // ignoring it, which on a stock agent would mean an error on every start
