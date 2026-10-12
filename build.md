@@ -984,7 +984,10 @@ There are three kinds of tests in this repo:
    them. These replace the old `tests/<proto>/run-test.bat` scripts and
    run on both Linux and Windows.
    The in-process Python scripts (`scripts/python/test_*.py`) run from
-   here as well, through `nscp unit` (`scripting-unit-python.test.ts`).
+   here as well, through `nscp unit` (`scripting-unit-python.test.ts`), and
+   an opt-in **stress harness** (`tests/stress/`, `npm run test:stress`)
+   shares the runner but never the default run; see
+   [Stress tests](#stress-tests).
 3. **Live / remote acceptance tests** — the same Jest harness, but pointed
    at an nscp that is **already installed and running** (a provisioned
    Azure VM, a package install, or a dev build you started by hand) rather
@@ -1235,6 +1238,56 @@ you want it to.
 
 See `tests/README.md` for the full layout, fixture documentation and the
 per-suite table.
+
+### Stress tests
+
+An opt-in Jest harness under `tests/stress/` (`*.stress.ts`, its own
+`jest.stress.config.js`) replaces the old `scripts/python/test_stress.py` and
+the scheduler-throughput half of `test_python.py`, neither of which ran
+anywhere. Each scenario loads one agent for a configurable window and **passes
+or fails on invariants, not on a throughput bar**: zero failed requests and zero
+lost submissions, `check_ok` answered within 2 s after the load stops, RSS at
+the end within 20 % of RSS after warm-up and a flat thread count (the leak
+canary), and a log with no `terminated by an uncaught exception` and no
+`Failed to` lines. Throughput, latency percentiles and the RSS/thread samples
+are recorded to `tests/stress/results/<scenario>.json` for a baseline to grow
+from.
+
+```bash
+cd tests
+export NSCP_BIN=/abs/path/to/nscp
+npm run test:stress                                              # every scenario, 60 s each
+NSCP_STRESS_DURATION=300 npx jest --config jest.stress.config.js rest-flood
+NSCP_STRESS_DURATION=1800 npm run test:stress                    # a soak
+```
+
+| Variable                    | Default | Effect                                                      |
+| --------------------------- | ------- | ----------------------------------------------------------- |
+| `NSCP_STRESS_DURATION`      | `60`    | Seconds of load per scenario                                |
+| `NSCP_STRESS_CONCURRENCY`   | `32`    | Parallel workers, one connection each                       |
+| `NSCP_STRESS_RPS`           | `0`     | Requests per second across all workers; `0` is unbounded    |
+| `NSCP_STRESS_RSS_TOLERANCE` | `20`    | Percent RSS may grow from warm-up to end before failing     |
+| `NSCP_STRESS_SCHEDULES`     | `1000`  | Schedules the scheduler scenarios install (200 for scheduler-slow-neighbour) |
+| `NSCP_STRESS_SLOW_MS`       | `8000`  | How long each slow check in the engine scenarios runs       |
+| `NSCP_STRESS_NRPE_PORT`     | `15666` | NRPE port of the engine scenarios                           |
+| `NSCP_STRESS_WEB_PORT`      | `8443`  | REST port of the engine scenarios; move it off 8443 where an installed agent holds that |
+
+Besides the REST flood and the scheduler load, three scenarios drive every
+check engine at once - C++ modules, an external process, Python, Lua, and the
+calls from one script engine into another through the core - over NRPE, whose
+socket server runs a worker pool: `slow-check-isolation` (a slow check in every
+engine at once, every other path probed meanwhile), `mixed-flood` (a flood with
+slow checks running behind it) and `scheduler-slow-neighbour` (quick schedules
+next to slow ones). They pass when no check ever waits for another engine's
+slow one. Over REST it still does: the web server runs every request on one
+thread, which `slow-check-isolation` records as an expected failure.
+
+The scenarios are never part of `npm test` or a pull request build; what they
+found is pinned in the regular `engine-concurrency.test.ts`. The sanitizer job
+(`tests-sanitizers.yml`) runs `rest-flood`, `scheduler-load`,
+`slow-check-isolation` and `mixed-flood` for a minute each against the
+ASan/UBSan build after ctest, which is where leaks and races actually show. See
+`tests/README.md` for the scenario list.
 
 ### Live / remote acceptance tests
 

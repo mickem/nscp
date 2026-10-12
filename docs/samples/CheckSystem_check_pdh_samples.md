@@ -58,10 +58,16 @@ Everything looks good
 'foo value'=3;80;90
 ```
 
-Checking **all instances** of a given counter::
+Checking **all instances** of a given counter (captured on a Swedish Windows, hence `processortid`,
+and from the command line with `nscp client`)::
 
 ```
     check_pdh "counter=\Processor(*)\% processortid" instances
 L     client OK: \\MIME-LAPTOP\Processor(0)\% processortid = 100, \\MIME-LAPTOP\Processor(1)\% processortid = 100, \\MIME-LAPTOP\Processor(2)\% processortid = 100, \\MIME-LAPTOP\Processor(3)\% processortid = 100, \\MIME-LAPTOP\Processor(4)\% processortid = 100, \\MIME-LAPTOP\Processor(5)\% processortid = 100, \\MIME-LAPTOP\Processor(6)\% processortid = 100, \\MIME-LAPTOP\Processor(7)\% processortid = 100, \\MIME-LAPTOP\Processor(_Total)\% processortid = 100
     L     client  Performance data: '\Processor(*)\% processortid_0'=100;0;0 '\Processor(*)\% processortid_1'=100;0;0 '\Processor(*)\% processortid_2'=100;0;0 '\Processor(*)\% processortid_3'=100;0;0 '\Processor(*)\% processortid_4'=100;0;0 '\Processor(*)\% processortid_5'=100;0;0 '\Processor(*)\% processortid_6'=100;0;0 '\Processor(*)\% processortid_7'=100;0;0 '\Processor(*)\% processortid__Total'=100;0;0
 ```
+
+That form is for the command line, where the shell passes the backslashes through. The `nscp test`
+prompt treats a backslash as an escape everywhere except inside single quotes, so there either
+single-quote the path, `check_pdh counter='\Processor(*)\% processortid' instances`, or double
+every backslash, as in the examples further up.

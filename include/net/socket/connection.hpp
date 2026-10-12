@@ -55,7 +55,7 @@ class connection : public std::enable_shared_from_this<connection<protocol_type,
 
  public:
   connection(boost::asio::io_context& io_service, std::shared_ptr<protocol_type> protocol)
-      : is_active_(true), strand_(io_service), timer_(io_service), protocol_(protocol) {}
+      : is_active_(true), strand_(io_service.get_executor()), timer_(io_service), protocol_(protocol) {}
   virtual ~connection() {}
 
   inline void trace(std::string msg) const {
@@ -208,7 +208,13 @@ class connection : public std::enable_shared_from_this<connection<protocol_type,
   }
 
   bool is_active_;
-  boost::asio::io_context::strand strand_;
+  // An executor strand, not io_context::strand: the legacy strands share a
+  // fixed pool of 193 implementations, so two unrelated connections could
+  // land on the same one. The check runs inside the strand-bound read handler,
+  // so a connection that collided with a slow check's waited for it to finish
+  // - about one request in every few hundred, while a long check was running.
+  // Executor strands each get their own implementation.
+  boost::asio::strand<boost::asio::io_context::executor_type> strand_;
   boost::array<char, N> buffer_;
   boost::asio::steady_timer timer_;
   std::list<typename protocol_type::outbound_buffer_type> buffers_;
