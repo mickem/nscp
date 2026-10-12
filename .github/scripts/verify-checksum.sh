@@ -4,7 +4,7 @@
 # .github/dependency-checksums.txt. See .github/actions/verify-checksum for why
 # this exists; this script is the implementation and is also runnable by hand:
 #
-#   .github/scripts/verify-checksum.sh openssl 3.5.8 tmp/openssl-3.5.8.tar.gz
+#   .github/scripts/verify-checksum.sh openssl 3.5.9 tmp/openssl-3.5.9.tar.gz
 #
 # Exit status: 0 when the digest matches (or the entry is deliberately marked
 # unrecorded), 1 for a mismatch, a missing entry, or a missing file.
