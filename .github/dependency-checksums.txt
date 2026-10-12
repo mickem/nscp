@@ -41,7 +41,7 @@
 # digests here record the bytes a fetch returned; they still turn a later
 # substitution of the asset into a build failure, which is what this file is
 # for.
-openssl         3.5.8     a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2  # matches the upstream openssl-3.5.8.tar.gz.sha256
+openssl         3.5.9     603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  # matches the upstream openssl-3.5.9.tar.gz.sha256
 protobuf        21.12     29b0f6b6d5714f212b8549cd0cb6fc531672630e41fb99d445421bc4d1bbb9cd
 cryptopp        8.9.0     4cc0ccc324625b80b695fcd3dee63a66f1a460d3e51b71640cdbfc4cd1a3779c
 miniz           3.1.1     cb28402bb2af93bdc331b60d16807e89727d1712a2d0a7ba0cac79a3e406fe40

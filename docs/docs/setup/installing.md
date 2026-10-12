@@ -528,9 +528,9 @@ the SBOM and, where the upstream project publishes one, the upstream
 checksum:
 
 ```
-curl -sSfLO https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz
-sha256sum openssl-3.5.8.tar.gz
-curl -sSfL https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz.sha256
+curl -sSfLO https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz
+sha256sum openssl-3.5.9.tar.gz
+curl -sSfL https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz.sha256
 ```
 
 | Component                                          | Where upstream publishes the checksum                                                                                   |
