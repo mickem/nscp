@@ -293,3 +293,172 @@ TEST(AllowedHostsRejection, TheSettingsPathSurvivesACopy) {
   EXPECT_EQ(copy.settings_path, "/settings/NSCA/server");
   EXPECT_EQ(assigned.settings_path, "/settings/NSCA/server");
 }
+
+// ---------------------------------------------------------------------------
+// Prefix lengths as an operator writes them in `allowed hosts`. The tests above
+// mostly inject entries directly; these go through set_source() + refresh(),
+// which is where the mask text is parsed.
+// ---------------------------------------------------------------------------
+
+namespace {
+allowed_hosts_manager refreshed(const std::string &source) {
+  allowed_hosts_manager manager;
+  manager.set_source(source);
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_TRUE(errors.empty()) << source << ": " << (errors.empty() ? "" : errors.front());
+  return manager;
+}
+}  // namespace
+
+TEST(AllowedHostsTest, ByteAlignedPrefixFromTheSetting) {
+  auto manager = refreshed("192.168.1.0/24");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("192.168.1.0"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("192.168.1.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.2.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.0.255"), errors));
+}
+
+TEST(AllowedHostsTest, PrefixShorterThanAByte) {
+  // /23 leaves one bit of the third octet free: 10.0.2.0 - 10.0.3.255.
+  auto manager = refreshed("10.0.2.0/23");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.2.0"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.3.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.1.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.4.0"), errors));
+}
+
+TEST(AllowedHostsTest, PrefixLongerThanAByte) {
+  // /25 splits the last octet: 10.0.0.128 - 10.0.0.255.
+  auto manager = refreshed("10.0.0.128/25");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.128"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.127"), errors));
+}
+
+TEST(AllowedHostsTest, FullLengthPrefixIsASingleHost) {
+  auto manager = refreshed("10.0.0.1/32,::1/128");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.2"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("::2"), errors));
+}
+
+TEST(AllowedHostsTest, V6PrefixFromTheSetting) {
+  auto manager = refreshed("2001:db8::/32");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8::1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8:ffff:ffff::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("2001:db9::1"), errors));
+}
+
+TEST(AllowedHostsTest, V6PrefixShorterThanAByte) {
+  // /33 leaves the top bit of the third group: 2001:db8:0:: - 2001:db8:7fff::.
+  auto manager = refreshed("2001:db8::/33");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8:7fff::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("2001:db8:8000::1"), errors));
+}
+
+TEST(AllowedHostsTest, AV4MappedRuleMatchesAV4MappedClient) {
+  auto manager = refreshed("::ffff:10.0.0.1");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("::ffff:10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("::ffff:10.0.0.2"), errors));
+}
+
+// ---------------------------------------------------------------------------
+// set_source(): splitting the comma separated list.
+// ---------------------------------------------------------------------------
+
+TEST(AllowedHostsTest, SourceListIgnoresWhitespaceAndEmptyItems) {
+  allowed_hosts_manager manager;
+  manager.set_source(" 10.0.0.1 , , ::1 ,");
+  EXPECT_EQ(manager.sources, (std::list<std::string>{"10.0.0.1", "::1"}));
+
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_TRUE(errors.empty()) << (errors.empty() ? "" : errors.front());
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("::1"), errors));
+}
+
+TEST(AllowedHostsTest, SetSourceReplacesThePreviousList) {
+  allowed_hosts_manager manager;
+  manager.set_source("10.0.0.1");
+  manager.set_source("10.0.0.2");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.2"), errors));
+}
+
+TEST(AllowedHostsTest, RefreshOnAnEmptySourceEmptiesTheEntries) {
+  // A reload that clears the setting must not leave the old entries behind.
+  allowed_hosts_manager manager;
+  manager.set_source("10.0.0.1");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  ASSERT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+
+  manager.set_source("");
+  manager.refresh(errors);
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+}
+
+// ---------------------------------------------------------------------------
+// `cache allowed hosts = false`: is_allowed() re-reads the list itself.
+// ---------------------------------------------------------------------------
+
+TEST(AllowedHostsTest, UncachedManagerRefreshesOnEveryCheck) {
+  allowed_hosts_manager manager;
+  manager.cached = false;
+  manager.set_source("10.0.0.1");
+  std::list<std::string> errors;
+  // No explicit refresh(): is_allowed() does it.
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+
+  manager.set_source("10.0.0.2");
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.2"), errors));
+}
+
+TEST(AllowedHostsTest, CachedManagerKeepsEntriesUntilRefreshed) {
+  allowed_hosts_manager manager;
+  manager.set_source("10.0.0.1");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+
+  manager.set_source("10.0.0.2");
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.2"), errors));
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostics.
+// ---------------------------------------------------------------------------
+
+TEST(AllowedHostsTest, AcceptedConnectionReportsNoError) {
+  auto manager = refreshed("10.0.0.1");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(errors.empty());
+}
+
+TEST(AllowedHostsTest, V4MappedFallbackMatchLeavesNoError) {
+  // The client arrives as ::ffff:192.168.0.1, misses the v6 list and matches
+  // through its v4 form. The v6 miss must not leave a rejection behind.
+  auto manager = refreshed("192.168.0.1");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("::ffff:192.168.0.1"), errors));
+  EXPECT_TRUE(errors.empty()) << errors.front();
+}
+
+TEST(AllowedHostsTest, ToStringListsAddressAndMask) {
+  auto manager = refreshed("10.0.0.0/8,192.168.1.1,::1");
+  EXPECT_EQ(manager.to_string(), "10.0.0.0(255.0.0.0), 192.168.1.1(255.255.255.255), ::1(ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff)");
+}
