@@ -1,6 +1,6 @@
 ---
 title: "LUAScript: concurrent calls into one script crashed the agent"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Medium where a Lua check that sleeps or calls the core can run twice at once; none otherwise"
 modules: [LUAScript, CheckMKServer, CheckMKClient]
 action: none

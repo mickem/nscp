@@ -1,6 +1,6 @@
 ---
 title: "Undefined-behaviour sweep: process listing, remote registry, real-time log files and remote JSON values"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Low–Medium"
 modules: [CheckSystem, CheckLogFile, CheckNet, NRPEServer, NSCAServer, NRPEClient, NSCAClient]
 action: none

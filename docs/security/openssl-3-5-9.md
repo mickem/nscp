@@ -1,6 +1,6 @@
 ---
 title: "OpenSSL 3.5.9 — bundled OpenSSL updated to the 29 September 2026 security release"
-fixed_in: next
+fixed_in: 0.25.0
 fixed_in_note: "bundles OpenSSL 3.5.9"
 severity: "Low (highest fix reachable through NSClient++)"
 modules: [packaging]

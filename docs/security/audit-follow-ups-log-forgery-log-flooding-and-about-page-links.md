@@ -1,6 +1,6 @@
 ---
 title: "Audit follow-ups: NRPE log escaping, check_nt log flooding and About-page link schemes"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Low"
 modules: [NRPEServer, NSClientServer, WEBServer]
 action: none

@@ -1,6 +1,6 @@
 ---
 title: "Settings reload races: included settings stores and the permission table"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Low; Medium where an HTTP settings source enables the permission policy"
 modules: [core]
 action: conditional
