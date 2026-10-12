@@ -29,6 +29,14 @@ class MockPdh : public PDH::impl_interface {
   PDH_STATUS remove_counter_status = ERROR_SUCCESS;
   PDH_STATUS formatted_value_status = ERROR_SUCCESS;
   PDH_STATUS expand_wild_card_status = ERROR_SUCCESS;
+  PDH_STATUS collect_status = ERROR_SUCCESS;
+  // Transient failures: the next N calls return the failing_* status, then
+  // the call falls back to its permanent knob above. This is what a briefly
+  // missing instance looks like (#648).
+  int fail_next_collects = 0;
+  PDH_STATUS failing_collect_status = PDH_NO_DATA;
+  int fail_next_formatted_values = 0;
+  PDH_STATUS failing_formatted_value_status = PDH_CSTATUS_NO_INSTANCE;
   bool throw_on_add_listener = false;
 
   // Observables
@@ -112,7 +120,11 @@ class MockPdh : public PDH::impl_interface {
   PDH::pdh_error PdhCollectQueryData(PDH::PDH_HQUERY) override {
     ++collect_calls;
     note_call();
-    return {};
+    if (fail_next_collects > 0) {
+      --fail_next_collects;
+      return {failing_collect_status};
+    }
+    return {collect_status};
   }
 
   void add_listener(PDH::subscriber *) override {
@@ -136,6 +148,10 @@ class MockPdh : public PDH::impl_interface {
   PDH::pdh_error PdhGetRawCounterValue(PDH::PDH_HCOUNTER, LPDWORD, PPDH_RAW_COUNTER) override { return {}; }
   PDH::pdh_error PdhGetFormattedCounterValue(PDH::PDH_HCOUNTER, DWORD, LPDWORD, PPDH_FMT_COUNTERVALUE) override {
     note_call();
+    if (fail_next_formatted_values > 0) {
+      --fail_next_formatted_values;
+      return {failing_formatted_value_status};
+    }
     return {formatted_value_status};
   }
   PDH::pdh_error PdhValidatePath(LPCWSTR, bool) override { return {}; }
@@ -562,6 +578,159 @@ TEST_F(PdhQueryLifecycleTest, CollectOnQueryWithoutCountersIsANoOp) {
   EXPECT_EQ(mock->collect_calls, 0);
   q.close();
   EXPECT_EQ(mock->open_handles, 0);
+}
+
+// ----------------------------------------------------------------------------
+// PDH_NO_DATA from PdhCollectQueryData (#648)
+// ----------------------------------------------------------------------------
+
+TEST_F(PdhQueryLifecycleTest, CollectWithNoDataThrowsNoDataExceptionNamingTheCounter) {
+  // PdhAddCounter accepts a path whose instance does not exist right now; it
+  // only surfaces as PDH_NO_DATA from the collect. The report has to say which
+  // counter it was about - it used to read "PdhCollectQueryData failed: : ...".
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("queue", "\\PhysicalDisk(4 C: F:)\\Avg. Disk Queue Length"));
+  q.open();
+  mock->collect_status = PDH_NO_DATA;
+  try {
+    q.gatherData(false);
+    FAIL() << "gatherData did not throw";
+  } catch (const PDH::pdh_no_data_exception &e) {
+    const std::string what = e.what();
+    EXPECT_NE(what.find("\\PhysicalDisk(4 C: F:)\\Avg. Disk Queue Length"), std::string::npos) << what;
+    EXPECT_NE(what.find("0x800007D5"), std::string::npos) << what;
+    EXPECT_EQ(what.find(": :"), std::string::npos) << what;
+  }
+  q.close();
+  EXPECT_EQ(mock->open_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, CollectWithNoDataIsStillAPdhException) {
+  // Every caller that treats a failed collect as a failure keeps doing so;
+  // only gatherData() singles the no-data case out, to take one more sample
+  // when its caller asks for that (retry_missing).
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("queue", "\\PhysicalDisk(_Total)\\Avg. Disk Queue Length"));
+  q.open();
+  mock->collect_status = PDH_NO_DATA;
+  EXPECT_THROW(q.collect(), PDH::pdh_exception);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, OtherCollectFailuresAreNotReportedAsNoData) {
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("queue", "\\PhysicalDisk(_Total)\\Avg. Disk Queue Length"));
+  q.open();
+  mock->collect_status = PDH_INVALID_HANDLE;
+  try {
+    q.collect();
+    FAIL() << "collect did not throw";
+  } catch (const PDH::pdh_no_data_exception &) {
+    FAIL() << "PDH_INVALID_HANDLE reported as no data";
+  } catch (const PDH::pdh_exception &e) {
+    const std::string what = e.what();
+    EXPECT_NE(what.find("\\PhysicalDisk(_Total)\\Avg. Disk Queue Length"), std::string::npos) << what;
+  }
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, CollectFailureListsOnlyTheFirstFewCounters) {
+  // A wildcard can expand to hundreds of instances; the message names a few.
+  PDH::PDHQuery q;
+  for (int i = 0; i < 5; ++i) {
+    q.addCounter(make_counter("c" + std::to_string(i), "\\Foo\\Bar" + std::to_string(i)));
+  }
+  q.open();
+  mock->collect_status = PDH_NO_DATA;
+  try {
+    q.collect();
+    FAIL() << "collect did not throw";
+  } catch (const PDH::pdh_no_data_exception &e) {
+    const std::string what = e.what();
+    EXPECT_NE(what.find("\\Foo\\Bar0, \\Foo\\Bar1, \\Foo\\Bar2 and 2 more"), std::string::npos) << what;
+    EXPECT_EQ(what.find("\\Foo\\Bar3"), std::string::npos) << what;
+  }
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherDataRetriesOnceWhenTheQueryHadNoData) {
+  // The instance was missing for one sample and is back on the next.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("queue", "\\PhysicalDisk(4 C: F:)\\Avg. Disk Queue Length"));
+  q.open();
+  mock->fail_next_collects = 1;
+  EXPECT_NO_THROW(q.gatherData(false, true));
+  EXPECT_EQ(mock->collect_calls, 2);
+  EXPECT_EQ(mock->fail_next_collects, 0);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherDataRetriesNoDataOnlyOnce) {
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("queue", "\\PhysicalDisk(4 C: F:)\\Avg. Disk Queue Length"));
+  q.open();
+  mock->fail_next_collects = 2;
+  EXPECT_THROW(q.gatherData(false, true), PDH::pdh_no_data_exception);
+  EXPECT_EQ(mock->collect_calls, 2);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherDataDoesNotRetryMissingInstancesByDefault) {
+  // The retry is opt-in: the 1 Hz collector cannot spend the second, and the
+  // other callers read counters whose instances do not come and go.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("queue", "\\PhysicalDisk(4 C: F:)\\Avg. Disk Queue Length"));
+  q.open();
+  mock->fail_next_collects = 1;
+  EXPECT_THROW(q.gatherData(), PDH::pdh_no_data_exception);
+  EXPECT_EQ(mock->collect_calls, 1);
+  mock->collect_calls = 0;
+  mock->fail_next_formatted_values = 1;
+  EXPECT_THROW(q.gatherData(), PDH::pdh_exception);
+  EXPECT_EQ(mock->collect_calls, 1);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherDataRetriesACounterWhoseInstanceIsMissing) {
+  // PdhCollectQueryData succeeds for the query, but one counter's instance is
+  // gone for this sample: that surfaces per counter, as NO_INSTANCE.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("queue", "\\PhysicalDisk(4 C: F:)\\Avg. Disk Queue Length"));
+  q.open();
+  mock->fail_next_formatted_values = 1;
+  EXPECT_NO_THROW(q.gatherData(false, true));
+  EXPECT_EQ(mock->collect_calls, 2);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherDataReportsACounterWhoseInstanceStaysMissing) {
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("queue", "\\PhysicalDisk(4 C: F:)\\Avg. Disk Queue Length"));
+  q.open();
+  mock->formatted_value_status = PDH_CSTATUS_NO_INSTANCE;
+  try {
+    q.gatherData(false, true);
+    FAIL() << "gatherData did not throw";
+  } catch (const PDH::pdh_exception &e) {
+    const std::string what = e.what();
+    EXPECT_NE(what.find("\\PhysicalDisk(4 C: F:)\\Avg. Disk Queue Length"), std::string::npos) << what;
+  }
+  EXPECT_EQ(mock->collect_calls, 2);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherDataTakesOneExtraSampleForAllMissingInstances) {
+  // Several counters missing their instance cost one extra second, not one
+  // each.
+  PDH::PDHQuery q;
+  for (int i = 0; i < 3; ++i) {
+    q.addCounter(make_counter("c" + std::to_string(i), "\\PhysicalDisk(" + std::to_string(i) + ")\\Avg. Disk Queue Length"));
+  }
+  q.open();
+  mock->formatted_value_status = PDH_CSTATUS_NO_INSTANCE;
+  EXPECT_NO_THROW(q.gatherData(true, true));
+  EXPECT_EQ(mock->collect_calls, 2);
+  q.close();
 }
 
 // ----------------------------------------------------------------------------
