@@ -143,7 +143,13 @@ bool pdh_thread::adopt_counters(const pdh_counters::counter_set::probe_result &p
   try {
     counter_set_.fill(pdh);
     pdh.open();
-    pdh.collect();
+    try {
+      pdh.collect();
+    } catch (const PDH::pdh_no_data_exception &) {
+      // Only the priming sample: the query is open and its counters were
+      // added, an instance they name is just not there right now (#648).
+      // The next tick samples again.
+    }
     open = true;
     query_failure_logged_ = false;
   } catch (const std::exception &e) {
