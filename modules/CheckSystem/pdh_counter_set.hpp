@@ -37,50 +37,26 @@ struct resolved_counter {
   PDH::pdh_instance instance;
 };
 
-// The predefined counters, split into the ones in the collector's query and
-// the ones that are not (yet). Each counter is added to the open query on its
-// own, so one missing counter no longer fails the others, and adding one
-// later leaves the counters already collected - and their previous sample -
-// alone.
+// The predefined counters that are not in the collector's query yet. Each is
+// added to the open query on its own, so one that is missing no longer fails
+// the others, and adding one later leaves the counters already collected -
+// and their previous sample - alone.
 //
 // Not thread-safe: owned by the collector thread.
 class counter_set {
  public:
-  // What prepare() made of the unresolved counters.
-  struct candidates {
-    // Instances created, to be added to the query.
-    std::list<resolved_counter> created;
-    // Not there yet (a wildcard over an object that is not registered, or
-    // with no instances): retried.
-    std::list<unresolved_counter> missing;
-    // Rejected by the counter's own configuration: retrying cannot help.
-    std::list<unresolved_counter> invalid;
-  };
-  // What adopt() did with them.
-  struct adoption {
-    std::list<resolved_counter> added;
-    std::list<unresolved_counter> invalid;
-  };
-
   // Every counter starts unresolved.
   void configure(const std::list<PDH::pdh_object> &configs);
-  // Creates the instances of the unresolved counters, expanding wildcards.
-  // Changes nothing, so it can run without the lock the query is used under.
-  candidates prepare() const;
-  // Adds each created instance to `query`, which must be open. The ones PDH
-  // accepts become resolved; the ones it rejects because the object is not
-  // registered (yet) stay unresolved, as do prepare()'s missing ones. The
-  // invalid ones - prepare()'s, and the ones PDH rejects for good (no such
-  // counter in the object, a malformed path) - are dropped and handed back
-  // for the caller to report.
-  adoption adopt(const candidates &c, PDH::PDHQuery &query);
+  // Tries every unresolved counter: creates its instance (expanding a
+  // wildcard, so instances that appeared since are picked up) and adds it to
+  // `query`, which must be open. Returns the ones added; the others stay
+  // unresolved with the reason they failed, whatever it was.
+  std::list<resolved_counter> retry(PDH::PDHQuery &query);
 
-  const std::list<resolved_counter> &resolved() const { return resolved_; }
   const std::list<unresolved_counter> &unresolved() const { return unresolved_; }
   bool complete() const { return unresolved_.empty(); }
 
  private:
-  std::list<resolved_counter> resolved_;
   std::list<unresolved_counter> unresolved_;
 };
 

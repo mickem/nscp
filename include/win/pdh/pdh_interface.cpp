@@ -152,7 +152,7 @@ pdh_instance factory::create(const pdh_object &object) {
       sub.path = s;
       sub_counters.push_back(sub);
     }
-    if (!err.empty()) throw pdh_expand_exception("Failed to expand path: " + err);
+    if (!err.empty()) throw pdh_exception("Failed to expand path: " + err);
     // An object with nothing behind the wildcard is reported, not returned as
     // a childless container: a container that publishes nothing would read as
     // success to the collector, which would stop retrying it at boot (#634)

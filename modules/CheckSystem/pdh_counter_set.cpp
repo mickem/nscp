@@ -13,53 +13,25 @@ unsigned long long retry_schedule::delay_ms(const unsigned attempt) {
 }
 
 void counter_set::configure(const std::list<PDH::pdh_object> &configs) {
-  resolved_.clear();
   unresolved_.clear();
   for (const PDH::pdh_object &config : configs) unresolved_.push_back({config, ""});
 }
 
-counter_set::candidates counter_set::prepare() const {
-  candidates result;
+std::list<resolved_counter> counter_set::retry(PDH::PDHQuery &query) {
+  std::list<resolved_counter> added;
+  std::list<unresolved_counter> still_missing;
   for (const unresolved_counter &counter : unresolved_) {
     try {
-      // A wildcard counter is expanded here, so instances that appeared since
-      // the previous attempt are picked up.
-      result.created.push_back({counter.config, PDH::factory::create(counter.config)});
-    } catch (const PDH::pdh_transient_exception &e) {
-      // A wildcard over an object that is not registered yet, or that has no
-      // instances right now.
-      result.missing.push_back({counter.config, utf8::utf8_from_native(e.what())});
-    } catch (const std::exception &e) {
-      result.invalid.push_back({counter.config, utf8::utf8_from_native(e.what())});
-    }
-  }
-  return result;
-}
-
-counter_set::adoption counter_set::adopt(const candidates &c, PDH::PDHQuery &query) {
-  adoption result;
-  result.invalid = c.invalid;
-  unresolved_ = c.missing;
-  for (const resolved_counter &counter : c.created) {
-    try {
+      PDH::pdh_instance instance = PDH::factory::create(counter.config);
       // PdhAddCounter is where a counter that does not exist fails.
-      query.addCounter(counter.instance);
-      resolved_.push_back(counter);
-      result.added.push_back(counter);
-    } catch (const PDH::pdh_exception &e) {
-      // A counter the object does not have, or a malformed path, stays that
-      // way; an object that is not registered yet may still turn up.
-      const unresolved_counter failed{counter.config, utf8::utf8_from_native(e.what())};
-      if (e.status().is_permanent_add_failure()) {
-        result.invalid.push_back(failed);
-      } else {
-        unresolved_.push_back(failed);
-      }
+      query.addCounter(instance);
+      added.push_back({counter.config, instance});
     } catch (const std::exception &e) {
-      unresolved_.push_back({counter.config, utf8::utf8_from_native(e.what())});
+      still_missing.push_back({counter.config, utf8::utf8_from_native(e.what())});
     }
   }
-  return result;
+  unresolved_.swap(still_missing);
+  return added;
 }
 
 }  // namespace pdh_counters

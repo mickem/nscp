@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-#include <algorithm>
 #include <boost/program_options.hpp>
 #include <boost/regex.hpp>
 #include <map>
@@ -173,7 +172,7 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
     ("expand-index", po::value<bool>(&expand_index)->implicit_value(true)->default_value(false), "Expand indexes in counter strings")
     ("resolution", po::value<std::string>(&resolution)->default_value("auto"), "How to resolve counter names against the system locale: auto (try the localized name, then the English API, then index expansion - the default), english (force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names)")
     ("instances", po::value<bool>(&expand_instance)->implicit_value(true)->default_value(false), "Expand wildcards and fetch all instances")
-    ("reload", po::value<bool>(&reload)->implicit_value(true)->default_value(false), "Retry predefined counters that could not be added yet before reporting them missing (the collector also retries them in the background, every minute)")
+    ("reload", po::value<bool>(&reload)->implicit_value(true)->default_value(false), "Have the collector retry the predefined counters it could not add yet on its next tick rather than at its next scheduled attempt (it retries them in the background anyway, every minute). The check does not wait for that.")
     ("averages", po::value<bool>(&check_average)->implicit_value(true)->default_value(false), "Check average values (ie. wait for 1 second to collecting two samples)")
     ("time", po::value<std::vector<std::string>>(&times), "Timeframe to use for named rrd counters")
     ("flags", po::value<std::string>(&flags), "Extra flags to configure the counter (nocap100, 1000, noscale)")
@@ -314,24 +313,10 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
     }
   }
   // A predefined counter the collector could not add yet (a service that
-  // registers it started after NSClient++) is retried now instead of at the
-  // collector's next scheduled attempt. One look covers every named counter,
-  // and that look and the wait share one budget, so reload=true adds at most
-  // that to the check whatever the collector is doing.
-  if (reload && !named_counters.empty()) {
-    const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(5);
-    const auto remaining_ms = [&deadline]() { return std::max(0L, static_cast<long>((deadline - boost::get_system_time()).total_milliseconds())); };
-    std::list<std::string> names;
-    for (const counter_list::value_type &vc : named_counters) names.push_back(vc.second);
-    // A name that is not configured (or was dropped as invalid) fails below
-    // straight away: no retry can bring it. A collector whose lock is held
-    // (its start-up, or a tick) is asked anyway: the request is served by
-    // the tick that follows, which is also the one that publishes counters.
-    const pdh_thread::counter_presence presence = collector->find_counters(names, std::min(1000L, remaining_ms()));
-    if (presence == pdh_thread::counter_presence::awaited || presence == pdh_thread::counter_presence::unknown) {
-      if (!collector->retry_unresolved_counters(remaining_ms())) NSC_DEBUG_MSG("Timed out waiting for the collector to retry the missing counters");
-    }
-  }
+  // registers it started after NSClient++) is retried on the collector's next
+  // tick instead of at its next scheduled attempt. The check does not wait
+  // for that: the counter is there for the checks that follow.
+  if (reload && !named_counters.empty()) collector->request_counter_retry();
   for (const counter_list::value_type &vc : named_counters) {
     try {
       typedef std::map<std::string, double> value_list_type;

@@ -55,12 +55,9 @@ keeps retrying it in the background: quickly during the first minute, then once
 a minute. It logs `Failed to add counter <name> (<path>): ...` once the first
 minute is over, and `Counter <name> is now available` once the counter is
 collected. Until then, naming it in `counter=` fails with `Failed to get value`.
-A counter that can never resolve - its object exists but has no counter by that
-name, typically a typo - is logged once as `Ignoring counter <name> (<path>): ...`
-and not retried.
-`reload=true` asks the collector to retry the missing counters right away, and
-waits up to 5 seconds for it, before the check reads a named counter that is not
-there yet; it changes nothing for a counter given as a path.
+`reload=true` has the collector retry on its next tick instead of at its next
+scheduled attempt; the check does not wait for it, so the counter is there for
+the next check. It changes nothing for a counter given as a path.
 
 `ignore-errors=true` makes a
 missing or invalid counter report `0` instead of failing the check — convenient

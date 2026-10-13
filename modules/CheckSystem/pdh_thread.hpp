@@ -5,7 +5,6 @@
 
 #include <atomic>
 #include <boost/optional.hpp>
-#include <boost/thread/condition_variable.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
@@ -90,8 +89,8 @@ class pdh_thread {
   dimension_hash metric_dimensions;
 
   std::list<PDH::pdh_object> configs_;
-  // Which of configs_ have been added to the collector's query and which are
-  // still being retried. Touched only by thread_proc.
+  // Which of configs_ are not in the collector's query yet. Touched only by
+  // thread_proc.
   pdh_counters::counter_set counter_set_;
   // Aliases of the counters reported missing, so each is reported once and
   // announced when it turns up. Touched only by thread_proc.
@@ -99,22 +98,10 @@ class pdh_thread {
   // Counters added to the query that no tick has sampled yet; store_tick
   // moves them into lookups_. Guarded by mutex_.
   std::list<PDH::pdh_instance> unpublished_;
-  // Aliases of the configured counters that are not in lookups_ yet but may
-  // still get there (not dropped as invalid), so check_pdh can tell a counter
-  // worth a retry from a name that will never resolve. Guarded by mutex_.
-  std::set<std::string> awaited_;
   bool query_failure_logged_ = false;
-  // check_pdh reload=true asks the collector to retry the missing counters now
-  // rather than at the next scheduled attempt: a request bumps
-  // retry_requested_, the collector sets retry_completed_ to what it served.
-  boost::mutex retry_mutex_;
-  boost::condition_variable retry_done_;
-  unsigned long long retry_requested_ = 0;
-  unsigned long long retry_completed_ = 0;
-  // Set while no collector thread runs - before start(), and once it stops:
-  // waiting requests are released and new ones return straight away, rather
-  // than wait out their timeout for a thread that is not there.
-  bool retry_stopped_ = true;
+  // Set by check_pdh reload=true: the collector retries the missing counters
+  // on its next tick instead of at the next scheduled attempt.
+  std::atomic<bool> retry_requested_{false};
   rrd_buffer<windows::system_info::cpu_load> cpu;
   // Attempts to read the CPU load for `cpu`. Guarded by its own mutex rather
   // than mutex_, so an attempt is counted even when mutex_ cannot be had;
@@ -173,17 +160,10 @@ class pdh_thread {
   std::map<std::string, double> get_value(std::string counter);
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
-  // Where the named predefined counters stand, with one look under the
-  // collector's lock: all collected and sampled (present); some still being
-  // retried, or added and waiting for their first tick (awaited); some
-  // neither - not configured, or dropped as invalid - (absent, which wins);
-  // or unknown when the lock could not be had within timeout_ms.
-  enum class counter_presence { present, awaited, absent, unknown };
-  counter_presence find_counters(const std::list<std::string> &counters, long timeout_ms);
   // Asks the collector to retry the predefined counters it has not managed to
-  // add yet, and waits up to timeout_ms for it to have done so. Returns false
-  // on a timeout (no running collector, or it is busy).
-  bool retry_unresolved_counters(long timeout_ms);
+  // add yet on its next tick. Does not wait: a counter that turns up is read
+  // by the checks after that tick.
+  void request_counter_retry() { retry_requested_ = true; }
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
   // Whether the sampler has pushed a CPU sample yet, is still waiting for its
   // first tick, or has tried and failed (see sampling_state.hpp); none when
@@ -267,20 +247,14 @@ class pdh_thread {
   bool gather_counters(PDH::PDHQuery &pdh, error_list &errors);
   void write_metrics(const spi_container &handles, error_list &errors);
 
-  // Adds the counters prepare() created to the collector's query, opening it
-  // first when it is not, and takes their first sample; the next store_tick
-  // publishes them in lookups_. Call it right after a gather. Caller must
-  // hold the unique (write) lock on mutex_.
-  void adopt_counters(PDH::PDHQuery &pdh, const pdh_counters::counter_set::candidates &candidates);
+  // Tries the predefined counters not in the collector's query yet, opening
+  // it first when it is not, and takes the first sample of the ones it adds;
+  // the next store_tick publishes them in lookups_. Call it right after a
+  // gather. Caller must hold the unique (write) lock on mutex_.
+  void retry_counters(PDH::PDHQuery &pdh);
   // Logs each unresolved counter that has not been reported yet. Called after
   // every attempt once the fast retries are spent.
   void report_missing_counters();
-  // The collector's side of retry_unresolved_counters(): the newest request
-  // not yet served, or 0.
-  unsigned long long pending_retry_request();
-  void complete_retry_request(unsigned long long ticket);
-  // Releases every waiting retry request; see retry_stopped_.
-  void cancel_retry_requests();
 
   filters::mem::filter_config_handler mem_filters_;
   filters::cpu::filter_config_handler cpu_filters_;

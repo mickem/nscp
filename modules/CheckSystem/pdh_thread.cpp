@@ -126,13 +126,13 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   have_prev_proc_cpu_ = true;
 }
 
-void pdh_thread::adopt_counters(PDH::PDHQuery &pdh, const pdh_counters::counter_set::candidates &candidates) {
+void pdh_thread::retry_counters(PDH::PDHQuery &pdh) {
   if (!pdh.is_open()) {
     try {
       pdh.open();
       query_failure_logged_ = false;
     } catch (const std::exception &e) {
-      // Nothing is adopted: the next attempt prepares the counters again.
+      // Nothing is added: the next attempt tries them again.
       const std::string error = utf8::utf8_from_native(e.what());
       if (!query_failure_logged_) {
         query_failure_logged_ = true;
@@ -144,12 +144,8 @@ void pdh_thread::adopt_counters(PDH::PDHQuery &pdh, const pdh_counters::counter_
     }
   }
 
-  const pdh_counters::counter_set::adoption adoption = counter_set_.adopt(candidates, pdh);
-  for (const pdh_counters::unresolved_counter &c : adoption.invalid) {
-    NSC_LOG_ERROR("Ignoring counter " + c.config.alias + " (" + c.config.path + "): " + c.error);
-    awaited_.erase(c.config.alias);
-  }
-  if (adoption.added.empty()) return;
+  const std::list<pdh_counters::resolved_counter> added = counter_set_.retry(pdh);
+  if (added.empty()) return;
 
   // Give the new counters their first sample now. This runs right after the
   // tick's gather, so the next gather is a full tick away for the new
@@ -165,7 +161,7 @@ void pdh_thread::adopt_counters(PDH::PDHQuery &pdh, const pdh_counters::counter_
     NSC_DEBUG_MSG("Failed to take the first sample of the new counters: " + utf8::utf8_from_native(e.what()));
   }
 
-  for (const pdh_counters::resolved_counter &c : adoption.added) {
+  for (const pdh_counters::resolved_counter &c : added) {
     // Readers see the counter once the next tick has sampled it (store_tick),
     // not before: until then it would read as zero.
     unpublished_.push_back(c.instance);
@@ -185,35 +181,6 @@ void pdh_thread::report_missing_counters() {
     NSC_LOG_ERROR("Failed to add counter " + c.config.alias + " (" + c.config.path + "): " + c.error + " - retrying every " +
                   str::xtos(pdh_counters::retry_schedule::steady_delay_ms / 1000) + " seconds");
   }
-}
-
-unsigned long long pdh_thread::pending_retry_request() {
-  const boost::lock_guard<boost::mutex> guard(retry_mutex_);
-  return retry_requested_ > retry_completed_ ? retry_requested_ : 0;
-}
-
-void pdh_thread::complete_retry_request(const unsigned long long ticket) {
-  {
-    const boost::lock_guard<boost::mutex> guard(retry_mutex_);
-    if (ticket > retry_completed_) retry_completed_ = ticket;
-  }
-  retry_done_.notify_all();
-}
-
-void pdh_thread::cancel_retry_requests() {
-  {
-    const boost::lock_guard<boost::mutex> guard(retry_mutex_);
-    retry_stopped_ = true;
-  }
-  retry_done_.notify_all();
-}
-
-bool pdh_thread::retry_unresolved_counters(const long timeout_ms) {
-  boost::unique_lock<boost::mutex> lock(retry_mutex_);
-  if (retry_stopped_) return false;
-  const unsigned long long ticket = ++retry_requested_;
-  retry_done_.timed_wait(lock, boost::posix_time::milliseconds(timeout_ms), [this, ticket] { return retry_completed_ >= ticket || retry_stopped_; });
-  return retry_completed_ >= ticket;
 }
 
 bool pdh_thread::store_tick(const cpu_reading *cpu_read, const load_fold *fold, const spi_container &handles, PDH::PDHQuery *pdh, const bool with_metrics,
@@ -247,12 +214,9 @@ bool pdh_thread::store_tick(const cpu_reading *cpu_read, const load_fold *fold, 
   const bool gathered = pdh == nullptr || gather_counters(*pdh, errors);
   if (with_metrics && gathered) write_metrics(handles, errors);
   if (pdh != nullptr) {
-    // The counters adopted last tick have now had their second sample, so
+    // The counters added last tick have now had their second sample, so
     // readers may have them.
-    for (const PDH::pdh_instance &instance : unpublished_) {
-      lookups_[instance->get_name()] = instance;
-      awaited_.erase(instance->get_name());
-    }
+    for (const PDH::pdh_instance &instance : unpublished_) lookups_[instance->get_name()] = instance;
     unpublished_.clear();
   }
   return true;
@@ -328,12 +292,6 @@ void pdh_thread::thread_proc() {
   // The scoped lock also releases on every exit path from setup, not just the
   // success path, so a throw here no longer wedges every accessor.
   boost::unique_lock<boost::shared_mutex> setup_lock(mutex_);
-  // However this thread ends, a check waiting on it to retry the counters is
-  // released instead of sitting out its timeout.
-  struct retry_releaser {
-    pdh_thread *owner;
-    ~retry_releaser() { owner->cancel_retry_requests(); }
-  } release_retry_waiters{this};
 
   memory_checks::realtime::helper memory_helper(core_, plugin_id);
   process_checks::realtime::helper process_helper(core_, plugin_id);
@@ -365,7 +323,6 @@ void pdh_thread::thread_proc() {
   // registering after boot, or a counter a service registers when it starts)
   // no longer fails the others, and is retried until it does (#634).
   counter_set_.configure(configs_);
-  for (const PDH::pdh_object &config : configs_) awaited_.insert(config.alias);
 
   bool has_mem_realtime = !mem_filters_.empty() || !legacy_filters_.empty();
   bool has_cpu_realtime = !cpu_filters_.empty() || !legacy_filters_.empty();
@@ -503,16 +460,9 @@ void pdh_thread::thread_proc() {
   // on the retry schedule for as long as any is missing.
   unsigned counter_attempts = 0;
   ULONGLONG next_counter_attempt = 0;
-  // The newest reload=true request an attempt was made for, and the one still
-  // to be completed: it is, by the store that follows the attempt, which is
-  // the one that publishes what the attempt added.
-  unsigned long long attempted_request = 0;
-  unsigned long long request_to_complete = 0;
   do {
     const ULONGLONG tick_start = nscpGetTickCount64();
     std::list<std::string> errors;
-    const unsigned long long requested = pending_retry_request();
-    bool stored = false;
     {
       if (!disable_handles && i == 0) {
         try {
@@ -567,39 +517,31 @@ void pdh_thread::thread_proc() {
       load_fold fold;
       if (!disable_load) fold = prepare_load_fold(queue, cpu_read.ok, cpu_read.load, handles, elapsed_seconds);
       // One exclusive lock for the CPU sample, the load fold and the metrics.
-      stored = store_tick(disable_cpu ? nullptr : &cpu_read, disable_load ? nullptr : &fold, handles, check_pdh ? &pdh : nullptr, !disable_metrics, errors);
+      const bool stored =
+          store_tick(disable_cpu ? nullptr : &cpu_read, disable_load ? nullptr : &fold, handles, check_pdh ? &pdh : nullptr, !disable_metrics, errors);
       if (stored && !disable_load) last_load_tick = tick_start;
     }
-    if (stored && request_to_complete != 0) {
-      complete_retry_request(request_to_complete);
-      request_to_complete = 0;
-    }
     // Try the predefined counters not in the query yet: on the schedule, or
-    // now when check_pdh reload=true asks. After the gather, so that the
-    // first sample adopt_counters() takes leaves a full tick before the next.
-    const bool new_request = requested > attempted_request;
+    // on this tick when check_pdh reload=true asked. After the gather, so that
+    // the first sample retry_counters() takes leaves a full tick before the
+    // next one.
+    const bool retry_requested = retry_requested_.exchange(false);
     const bool attempt_due = tick_start >= next_counter_attempt;
-    if (!disable_pdh && !counter_set_.complete() && (new_request || attempt_due)) {
-      const pdh_counters::counter_set::candidates candidates = counter_set_.prepare();
+    if (!disable_pdh && !counter_set_.complete() && (retry_requested || attempt_due)) {
       {
         boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
         if (writeLock.owns_lock()) {
-          adopt_counters(pdh, candidates);
+          retry_counters(pdh);
           // Once opened, the query stays gathered: a query a reload left
           // closed is reopened by the gather (or the next add), not by
           // turning gathering off.
           check_pdh = check_pdh || pdh.is_open();
-          if (new_request) {
-            attempted_request = requested;
-            request_to_complete = requested;
-          }
         } else {
-          // Nothing was adopted: the request stays new for the next tick.
           errors.emplace_back("Failed to get mutex for adding performance counters");
         }
       }
-      // An attempt made for a request also counts as the scheduled one when
-      // that was due, so the two do not run back to back.
+      // A requested attempt also counts as the scheduled one when that was
+      // due, so the two do not run back to back.
       if (attempt_due) next_counter_attempt = nscpGetTickCount64() + pdh_counters::retry_schedule::delay_ms(counter_attempts++);
       if (counter_attempts == 1 && !counter_set_.complete()) {
         NSC_LOG_MESSAGE(str::xtos(counter_set_.unresolved().size()) + " of " + str::xtos(configs_.size()) +
@@ -611,11 +553,6 @@ void pdh_thread::thread_proc() {
       // Once the fast attempts are spent, every attempt reports the counters
       // still missing that it has not reported yet.
       if (counter_attempts > pdh_counters::retry_schedule::fast_attempts) report_missing_counters();
-    } else if (new_request && stored) {
-      // Nothing to try (every counter is in, or PDH is disabled), and this
-      // tick's store has published what there is.
-      attempted_request = requested;
-      complete_retry_request(requested);
     }
     // network, temperature, cpu_frequency, battery and os_updates are collected
     // on aux_thread_proc() so a slow WMI provider cannot freeze this 1 Hz loop
@@ -818,20 +755,6 @@ pdh_thread::non_atomic_count_map pdh_thread::get_realtime_filter_counts() {
     return non_atomic_count_map();
   }
   return non_atomic_count_map(realtime_filter_counts_);
-}
-
-pdh_thread::counter_presence pdh_thread::find_counters(const std::list<std::string> &counters, const long timeout_ms) {
-  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::milliseconds(timeout_ms));
-  if (!readLock.owns_lock()) return counter_presence::unknown;
-  counter_presence ret = counter_presence::present;
-  for (const std::string &counter : counters) {
-    if (lookups_.find(counter) != lookups_.end()) continue;
-    // Neither collected nor on its way: not configured, or dropped as
-    // invalid. No retry can bring it.
-    if (awaited_.find(counter) == awaited_.end()) return counter_presence::absent;
-    ret = counter_presence::awaited;
-  }
-  return ret;
 }
 
 std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) {
@@ -1048,20 +971,7 @@ bool pdh_thread::start() {
     NSC_LOG_ERROR("Failed to create stop event, the PDH collector is disabled: " + error);
     return false;
   }
-  // Accept retry requests from here on: there is a collector to serve them.
-  // Cleared before the thread starts rather than after, so a thread that ends
-  // straight away (and releases the waiters on its way out) is not undone by
-  // this.
-  {
-    const boost::lock_guard<boost::mutex> guard(retry_mutex_);
-    retry_stopped_ = false;
-  }
-  try {
-    thread_ = threads::start_guarded_thread("checksystem collector", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
-  } catch (...) {
-    cancel_retry_requests();
-    throw;
-  }
+  thread_ = threads::start_guarded_thread("checksystem collector", [this]() { this->thread_proc(); }, NSC_THREAD_REPORTER);
   aux_thread_ = threads::start_guarded_thread("checksystem aux collector", [this]() { this->aux_thread_proc(); }, NSC_THREAD_REPORTER);
   return true;
 }
@@ -1073,7 +983,6 @@ const long aux_join_warn_seconds = 5;
 
 bool pdh_thread::stop() {
   stop_signal_.signal();
-  cancel_retry_requests();
   // Reset after joining so a second call (the destructor always calls stop())
   // is a no-op instead of joining an already-joined thread.
   if (thread_) {
