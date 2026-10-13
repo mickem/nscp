@@ -1271,6 +1271,9 @@ NSCP_STRESS_DURATION=1800 npm run test:stress                    # a soak
 | `NSCP_STRESS_SLOW_MS`       | `8000`  | How long each slow check in the engine scenarios runs       |
 | `NSCP_STRESS_NRPE_PORT`     | `15666` | NRPE port of the engine scenarios                           |
 | `NSCP_STRESS_WEB_PORT`      | `8443`  | REST port of the engine scenarios; move it off 8443 where an installed agent holds that |
+| `NSCP_STRESS_NSCA_PORT`     | `15667` | NSCA port of `passive-flood`                                |
+| `NSCP_STRESS_NSCA_CIPHER`   | `aes256`| Cipher `passive-flood` submits with: none, xor, aes128, aes192 or aes256 |
+| `NSCP_STRESS_RELOAD_EVERY`  | `5`     | Seconds between two reload rounds of `reload-soak`          |
 
 Besides the REST flood and the scheduler load, three scenarios drive every
 check engine at once - C++ modules, an external process, Python, Lua, and the
@@ -1282,11 +1285,26 @@ next to slow ones). They pass when no check ever waits for another engine's
 slow one. Over REST it still does: the web server runs every request on one
 thread, which `slow-check-isolation` records as an expected failure.
 
+Two more drive the wire protocols from TypeScript clients, so a request costs
+the runner no process spawn: `nrpe-flood` (NRPE v2 in the clear and over
+mutual TLS against the server's cert mode, every answer checked against its
+own request's token) and `passive-flood` (NSCA submissions into NSCAServer,
+every one read back from the result cache under its own key with its own
+status and message). `reload-soak` runs the REST flood and a scheduler load
+while CheckHelpers, the Scheduler and LUAScript are reloaded in turn every
+few seconds, each round preceded by a settings write over REST and complete
+only once the reload is seen to apply - the loadModuleEx re-entry rule under
+load. It runs for three minutes by default; `NSCP_STRESS_DURATION=1800` makes
+it a soak.
+
 The scenarios are never part of `npm test` or a pull request build; what they
 found is pinned in the regular `engine-concurrency.test.ts`. The sanitizer job
 (`tests-sanitizers.yml`) runs `rest-flood`, `scheduler-load`,
 `slow-check-isolation` and `mixed-flood` for a minute each against the
-ASan/UBSan build after ctest, which is where leaks and races actually show. See
+ASan/UBSan build after ctest, which is where leaks and races actually show.
+`stress-tests.yml` runs every scenario against a fresh Ubuntu package once a
+week and on demand, with the window, the scenario subset and a Windows run as
+its inputs, and uploads `tests/stress/results/` as an artifact. See
 `tests/README.md` for the scenario list.
 
 ### Live / remote acceptance tests

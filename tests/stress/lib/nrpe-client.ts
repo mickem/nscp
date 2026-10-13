@@ -1,4 +1,5 @@
 import * as net from "net";
+import * as tls from "tls";
 
 /**
  * A minimal NRPE v2 client over plain TCP, for driving the agent's NRPEServer
@@ -19,6 +20,13 @@ import * as net from "net";
  * NUL-terminated payload from offset 10, padded to 1024 bytes plus two bytes
  * of struct alignment. Arguments ride in the payload separated by `!`, which
  * the server only accepts with `allow arguments = true`.
+ *
+ * With `tlsOptions` the same packets go over node:tls: the server's cert
+ * mode (`use ssl = true` with a certificate, and `verify mode = peer-cert`
+ * when it wants the client's), with the CA, client certificate and key the
+ * caller passes. The anonymous `insecure` preset is out of reach - node has
+ * no anonymous Diffie-Hellman suites - and the flood does not want it anyway:
+ * the handshake with certificates is what a monitoring server pays per check.
  */
 
 const PAYLOAD_LENGTH = 1024;
@@ -102,6 +110,8 @@ export class NrpeClient {
     private readonly port: number,
     private readonly host = "127.0.0.1",
     private readonly timeoutMs = 120_000,
+    /** Set to speak TLS; the connection options are passed to tls.connect() as given. */
+    private readonly tlsOptions?: tls.ConnectionOptions,
   ) {}
 
   /** One query on its own connection, as check_nrpe does. */
@@ -136,7 +146,9 @@ export class NrpeClient {
   private queryOnce(command: string, args: string[]): Promise<Omit<NrpeAnswer, "localWaitMs">> {
     const payload = [command, ...args].join("!");
     return new Promise<Omit<NrpeAnswer, "localWaitMs">>((resolve, reject) => {
-      const socket = net.connect({ port: this.port, host: this.host });
+      const socket: net.Socket = this.tlsOptions
+        ? tls.connect({ port: this.port, host: this.host, ...this.tlsOptions })
+        : net.connect({ port: this.port, host: this.host });
       const chunks: Buffer[] = [];
       let received = 0;
       const packets: Packet[] = [];
@@ -155,7 +167,11 @@ export class NrpeClient {
       };
       socket.setTimeout(this.timeoutMs, () => done(new Error(`no answer in ${this.timeoutMs} ms`)));
       socket.on("error", (e) => done(e));
-      socket.on("connect", () => socket.write(encodeQuery(payload)));
+      // Over TLS the packet goes out once the handshake is done, not when
+      // the TCP connection is up.
+      socket.on(this.tlsOptions ? "secureConnect" : "connect", () =>
+        socket.write(encodeQuery(payload)),
+      );
       socket.on("data", (data) => {
         chunks.push(data);
         received += data.length;
