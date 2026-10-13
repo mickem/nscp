@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+#include "Helpers.h"
+
 using namespace std;
 
 namespace {
@@ -77,32 +79,8 @@ long long mg_get_cookie(const char *cookie_header, const char *var_name, char *d
 }
 
 // Decode an application/x-www-form-urlencoded fragment: "%XX" -> the byte,
-// "+" -> space, everything else passthrough. Invalid / truncated "%XX"
-// escapes are copied through verbatim (matches mg_url_decode with
-// is_form_url_encoded=1, which only failed on undersized output buffers —
-// not reachable here since we always size to the input length).
-std::string decode_form(const char *data, std::size_t len) {
-  std::string out;
-  out.reserve(len);
-  const auto hex_val = [](char c) -> int {
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
-    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
-    return 0;
-  };
-  for (std::size_t i = 0; i < len; ++i) {
-    const char c = data[i];
-    if (c == '+') {
-      out.push_back(' ');
-    } else if (c == '%' && i + 2 < len && std::isxdigit(static_cast<unsigned char>(data[i + 1])) && std::isxdigit(static_cast<unsigned char>(data[i + 2]))) {
-      out.push_back(static_cast<char>((hex_val(data[i + 1]) << 4) | hex_val(data[i + 2])));
-      i += 2;
-    } else {
-      out.push_back(c);
-    }
-  }
-  return out;
-}
+// "+" -> space, everything else passthrough (Helpers::url_decode).
+std::string decode_form(const char *data, std::size_t len) { return Mongoose::Helpers::url_decode(std::string(data, len), true); }
 
 inline std::string decode_form(const std::string &s) { return decode_form(s.data(), s.size()); }
 
@@ -168,6 +146,8 @@ Request::arg_vector get_var_vector(const char *data, size_t data_len) {
 }
 
 Request::arg_vector Request::getVariablesVector() const { return get_var_vector(query.c_str(), query.size()); }
+
+Request::arg_vector Request::parseVariables(const std::string &encoded) { return get_var_vector(encoded.c_str(), encoded.size()); }
 
 std::string Request::readHeader(const std::string &key) const {
   const auto it = headers.find(key);

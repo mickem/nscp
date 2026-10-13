@@ -85,6 +85,10 @@ class NSCP_MONGOOSE_EXPORT Request {
   const std::string& getRemoteIp() const { return ip; }
 
   arg_vector getVariablesVector() const;
+  // Parse `a=1&b=2` (a query string or a form-encoded body) the way
+  // getVariablesVector() parses the query string: order and repeats kept,
+  // a bare `key` with an empty value.
+  static arg_vector parseVariables(const std::string& encoded);
   std::string readHeader(const std::string& key) const;
 
   std::string get_host() const;

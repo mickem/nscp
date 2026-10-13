@@ -58,4 +58,27 @@ void Helpers::add_security_headers(Response &response, const bool is_tls) {
   }
 }
 
+std::string Helpers::url_decode(const std::string &str, const bool form) {
+  const auto hex_val = [](const char c) -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+    return -1;
+  };
+  std::string out;
+  out.reserve(str.size());
+  for (std::size_t i = 0; i < str.size(); ++i) {
+    const char c = str[i];
+    if (c == '+' && form) {
+      out.push_back(' ');
+    } else if (c == '%' && i + 2 < str.size() && hex_val(str[i + 1]) >= 0 && hex_val(str[i + 2]) >= 0) {
+      out.push_back(static_cast<char>((hex_val(str[i + 1]) << 4) | hex_val(str[i + 2])));
+      i += 2;
+    } else {
+      out.push_back(c);
+    }
+  }
+  return out;
+}
+
 }  // namespace Mongoose

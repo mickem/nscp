@@ -96,6 +96,7 @@ nav:
       - Clients & Servers:
         - WEBServer: reference/generic/WEBServer.md
         - NRPEServer: reference/client/NRPEServer.md
+        - NCPAServer: reference/client/NCPAServer.md
         - NRPEClient: reference/client/NRPEClient.md
         - NSClientServer: reference/windows/NSClientServer.md
         - NSCAServer: reference/client/NSCAServer.md

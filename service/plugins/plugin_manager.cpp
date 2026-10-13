@@ -63,6 +63,8 @@ std::string installer_feature_hint(const std::string &module) {
       {"NSClientServer", "check_nt support"},
       // WEB Server
       {"WEBServer", "WEB Server"},
+      // NCPA support
+      {"NCPAServer", "NCPA support"},
       // NSCA plugin
       {"NSCAClient", "NSCA plugin"},
       {"NSCAServer", "NSCA plugin"},

@@ -120,6 +120,8 @@ required_files:
     - modules/NSClientServer.dll
     # WEB Server (WEBPlugins)
     - modules/WEBServer.dll
+    # NCPA support (NCPAPlugins)
+    - modules/NCPAServer.dll
     # NSCA plugin (NSCAPlugin)
     - modules/NSCAClient.dll
     - modules/NSCAServer.dll

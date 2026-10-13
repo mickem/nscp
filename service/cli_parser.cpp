@@ -212,6 +212,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
   aliases["ext-scr"] = "CheckExternalScripts";
   aliases["ext"] = "CheckExternalScripts";
   aliases["web"] = "WEBServer";
+  aliases["ncpa"] = "NCPAServer";
   aliases["test"] = "CommandClient";
   aliases["op5"] = "Op5Client";
   return aliases;

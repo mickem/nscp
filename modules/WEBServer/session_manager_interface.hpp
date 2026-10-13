@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-#include "auth_rate_limiter.hpp"
+#include <net/auth_rate_limiter.hpp>
 #include "error_handler_interface.hpp"
 #include "metrics_handler.hpp"
 #include "token_store.hpp"
