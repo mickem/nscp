@@ -2,6 +2,7 @@ import * as crypto from "crypto";
 import * as net from "net";
 
 import { crc32 } from "./nrpe-client";
+import { SocketPump, socketTransport } from "./socket-pump";
 
 /**
  * A minimal NSCA (packet version 3) client, for flooding the agent's
@@ -122,6 +123,9 @@ export class NscaClient {
   private readonly payloadLength: number;
   private readonly timeoutMs: number;
 
+  /** Set when the connections go through the Python socket pump (see socket-pump.ts). */
+  private readonly pump: SocketPump | undefined;
+
   /** Submissions that had to wait for a local port, summed over every submit(). */
   localRetries = 0;
 
@@ -132,6 +136,12 @@ export class NscaClient {
     this.password = opts.password;
     this.payloadLength = opts.payloadLength ?? 512;
     this.timeoutMs = opts.timeoutMs ?? 120_000;
+    this.pump = socketTransport() === "python" ? new SocketPump() : undefined;
+  }
+
+  /** Stop the socket pump, if there is one. */
+  close(): void {
+    this.pump?.close();
   }
 
   /**
@@ -143,10 +153,26 @@ export class NscaClient {
    * `localWaitMs` is how long the submission waited for a local port before
    * it could connect at all: NSCA is one connection per submission, and a
    * flood runs the client's ephemeral ports into TIME_WAIT (see
-   * NrpeClient.query() for the same retry).
+   * NrpeClient.query() for the same retry). Through the pump it is
+   * everything but the exchange itself: the port waits and the hop to the
+   * pump and back.
    */
   async submit(s: NscaSubmission): Promise<{ localWaitMs: number }> {
     const started = performance.now();
+    if (this.pump) {
+      try {
+        const r = await this.pump.handshake(
+          { host: this.host, port: this.port, timeoutMs: this.timeoutMs },
+          IV_PACKET_LENGTH,
+          (iv) => this.encrypted(s, iv),
+        );
+        this.localRetries += r.retries;
+        return { localWaitMs: Math.max(0, performance.now() - started - r.exchangeMs) };
+      } catch (e) {
+        this.localRetries += (e as { retries?: number }).retries ?? 0;
+        throw new Error(`NSCA ${s.service}: ${(e as Error).message}`);
+      }
+    }
     for (let attempt = 0; ; attempt++) {
       const sent = performance.now();
       try {

@@ -2,8 +2,9 @@
  * Scenario 4: a passive flood, NSCA submissions at rate into the agent's own
  * listener, every one of them accounted for.
  *
- * N workers submit from a TypeScript NSCA client (stress/lib/nsca-client.ts)
- * to NSCAServer, one connection per submission as send_nsca does. The sink is
+ * N workers submit from a TypeScript NSCA client (stress/lib/nsca-client.ts,
+ * its connections made by the Python socket pump - see socket-pump.ts) to
+ * NSCAServer, one connection per submission as send_nsca does. The sink is
  * the web server's passive result cache: the server posts every packet it
  * decodes on `CHANNEL`, WEBServer caches it under the service name, and the
  * test drains the cache ten times a second over REST. Every submission
@@ -124,6 +125,7 @@ describe("stress: passive flood, NSCA into the result cache", () => {
   });
 
   afterAll(async () => {
+    nsca?.close();
     await client?.close();
     await nscp?.stop();
   });

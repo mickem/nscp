@@ -1,5 +1,8 @@
+import * as fs from "fs";
 import * as net from "net";
 import * as tls from "tls";
+
+import { PumpTls, SocketPump, socketTransport } from "./socket-pump";
 
 /**
  * A minimal NRPE v2 client over plain TCP, for driving the agent's NRPEServer
@@ -21,12 +24,18 @@ import * as tls from "tls";
  * of struct alignment. Arguments ride in the payload separated by `!`, which
  * the server only accepts with `allow arguments = true`.
  *
- * With `tlsOptions` the same packets go over node:tls: the server's cert
- * mode (`use ssl = true` with a certificate, and `verify mode = peer-cert`
- * when it wants the client's), with the CA, client certificate and key the
- * caller passes. The anonymous `insecure` preset is out of reach - node has
- * no anonymous Diffie-Hellman suites - and the flood does not want it anyway:
- * the handshake with certificates is what a monitoring server pays per check.
+ * With `tls` the same packets go over TLS: the server's cert mode (`use ssl
+ * = true` with a certificate, and `verify mode = peer-cert` when it wants the
+ * client's), with the CA, client certificate and key the caller passes as
+ * files. The anonymous `insecure` preset is out of reach - neither node nor
+ * Python's ssl offers anonymous Diffie-Hellman suites by default - and the
+ * flood does not want it anyway: the handshake with certificates is what a
+ * monitoring server pays per check.
+ *
+ * The connections are node's own or the Python socket pump's, per
+ * `NSCP_STRESS_SOCKETS` (see socket-pump.ts): the stress harness pumps them,
+ * because node's loopback connect crashes now and then on Windows. Either
+ * way the packets are built and checked here.
  */
 
 const PAYLOAD_LENGTH = 1024;
@@ -90,6 +99,25 @@ function decode(p: Buffer): Packet {
   };
 }
 
+/**
+ * The answer in `data`, everything the server sent before it closed: whole
+ * packets, more-response ones ahead of the final response when the output is
+ * long.
+ */
+function answerOf(data: Buffer): Omit<NrpeAnswer, "localWaitMs"> {
+  const packets: Packet[] = [];
+  for (let at = 0; at + PACKET_LENGTH <= data.length; at += PACKET_LENGTH) {
+    const p = decode(data.subarray(at, at + PACKET_LENGTH));
+    packets.push(p);
+    if (p.type === RESPONSE) {
+      const text = packets.map((x) => x.payload).join("");
+      return { result: p.result, text, message: text.split("|")[0] };
+    }
+    if (p.type !== MORE_RESPONSE) throw new Error(`unexpected packet type ${p.type}`);
+  }
+  throw new Error(`connection closed after ${packets.length} packet(s) and ${data.length} bytes`);
+}
+
 export interface NrpeAnswer {
   /** The Nagios status, 0 OK .. 3 UNKNOWN. */
   result: number;
@@ -106,13 +134,32 @@ export interface NrpeAnswer {
 }
 
 export class NrpeClient {
+  /** Set when the connections go through the Python socket pump. */
+  private readonly pump: SocketPump | undefined;
+  /** node:tls options built from `tls`, for node's own connections. */
+  private readonly tlsOptions: tls.ConnectionOptions | undefined;
+
   constructor(
     private readonly port: number,
     private readonly host = "127.0.0.1",
     private readonly timeoutMs = 120_000,
-    /** Set to speak TLS; the connection options are passed to tls.connect() as given. */
-    private readonly tlsOptions?: tls.ConnectionOptions,
-  ) {}
+    /** Set to speak TLS: the CA, and the client certificate and key, as files. */
+    private readonly tls?: PumpTls,
+  ) {
+    this.pump = socketTransport() === "python" ? new SocketPump() : undefined;
+    this.tlsOptions = tls && {
+      ca: fs.readFileSync(tls.ca),
+      cert: tls.cert ? fs.readFileSync(tls.cert) : undefined,
+      key: tls.key ? fs.readFileSync(tls.key) : undefined,
+      servername: tls.servername ?? host,
+      rejectUnauthorized: true,
+    };
+  }
+
+  /** Stop the socket pump, if there is one. */
+  close(): void {
+    this.pump?.close();
+  }
 
   /** One query on its own connection, as check_nrpe does. */
   async query(command: string, args: string[] = []): Promise<NrpeAnswer> {
@@ -123,8 +170,26 @@ export class NrpeClient {
     // counted; any error after the connection is up still fails the request.
     // On Linux, TIME_WAIT holds a port for 60 s, so a sustained few thousand
     // requests a second exhausts the range; the wait is reported in
-    // localWaitMs and counted in localRetries.
+    // localWaitMs and counted in localRetries. Through the pump the retry is
+    // the pump's, and localWaitMs everything but the exchange itself.
     const started = performance.now();
+    if (this.pump) {
+      try {
+        const r = await this.pump.request(
+          { host: this.host, port: this.port, timeoutMs: this.timeoutMs },
+          encodeQuery([command, ...args].join("!")),
+          this.tls,
+        );
+        this.localRetries += r.retries;
+        return {
+          ...answerOf(r.data),
+          localWaitMs: Math.max(0, performance.now() - started - r.exchangeMs),
+        };
+      } catch (e) {
+        this.localRetries += (e as { retries?: number }).retries ?? 0;
+        throw new Error(`NRPE ${command}: ${(e as Error).message}`);
+      }
+    }
     for (let attempt = 0; ; attempt++) {
       const sent = performance.now();
       try {

@@ -21,8 +21,6 @@
  * answered with its own token, the agent prompt once the load stops, no
  * growth from warm-up to end, a clean log.
  */
-import * as tls from "tls";
-
 import { NscpInstance, OK, bundledSecurityFile, generateCertChain } from "@fixtures/index";
 
 import { ENGINE_LOG_NOISE, NRPE_PORT } from "@stress/engines";
@@ -32,6 +30,7 @@ import { runLoad } from "@stress/load";
 import { NrpeClient } from "@stress/nrpe-client";
 import { startSampler } from "@stress/process-stats";
 import { writeReport } from "@stress/report";
+import type { PumpTls } from "@stress/socket-pump";
 
 const knobs = readKnobs();
 jest.setTimeout(scenarioTimeoutMs(knobs));
@@ -70,7 +69,7 @@ describe.each<Mode>(["plain", "tls"])("stress: NRPE flood, %s", (mode) => {
       "thread pool": String(knobs.concurrency + 4),
       "use ssl": String(mode === "tls"),
     };
-    let tlsOptions: tls.ConnectionOptions | undefined;
+    let tlsFiles: PumpTls | undefined;
     if (mode === "tls") {
       const certs = generateCertChain({
         outDir: nscp.scratch("certs"),
@@ -90,12 +89,11 @@ describe.each<Mode>(["plain", "tls"])("stress: NRPE flood, %s", (mode) => {
         // it against the CA that issued its own.
         "verify mode": "peer-cert",
       });
-      tlsOptions = {
-        ca: certs.ca.certPem,
-        cert: certs.signed.client.certPem,
-        key: certs.signed.client.keyPem,
+      tlsFiles = {
+        ca: certs.ca.certPath,
+        cert: certs.signed.client.certPath,
+        key: certs.signed.client.keyPath,
         servername: "localhost",
-        rejectUnauthorized: true,
       };
     }
     await nscp.configure({
@@ -105,7 +103,7 @@ describe.each<Mode>(["plain", "tls"])("stress: NRPE flood, %s", (mode) => {
     await nscp.waitForPortFree(NRPE_PORT, { timeoutMs: 30_000 });
     nscp.start();
     await nscp.waitForPort(NRPE_PORT, { timeoutMs: 30_000 });
-    nrpe = new NrpeClient(NRPE_PORT, "127.0.0.1", 120_000, tlsOptions);
+    nrpe = new NrpeClient(NRPE_PORT, "127.0.0.1", 120_000, tlsFiles);
 
     // check_cpu answers UNKNOWN until the collector has pushed its first sample.
     const deadline = performance.now() + 60_000;
@@ -120,6 +118,7 @@ describe.each<Mode>(["plain", "tls"])("stress: NRPE flood, %s", (mode) => {
   });
 
   afterAll(async () => {
+    nrpe?.close();
     await nscp?.stop();
   });
 

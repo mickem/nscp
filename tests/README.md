@@ -226,6 +226,17 @@ and `NSCP_STRESS_NSCA_CIPHER` (aes256; none, xor, aes128, aes192 or aes256 - the
 `nsca-loopback.test.ts`) for `passive-flood`, `NSCP_STRESS_NRPE_PORT` (below) for `nrpe-flood`, and
 `NSCP_STRESS_RELOAD_EVERY` (seconds between rounds, 5) for `reload-soak`.
 
+The NRPE and NSCA clients build and check every packet in TypeScript, but the stress harness has their connections made
+by a Python helper, `stress/lib/socket_pump.py` (standard library only, any Python 3.8+), driven over stdin/stdout by
+`stress/lib/socket-pump.ts`. Node's own loopback `connect()` crashes now and then on Windows: every libuv to date passes
+an uninitialised `OSVERSIONINFOW` to `RtlGetVersion` (libuv #5106, fixed in 1.53.0, which no Node release ships yet),
+and at a connection per request node dies on its stack cookie - exit `0xC0000409`, no output, Jest's `RUNS` line just
+stops. The pump also hangs up with a reset once the agent has closed, so neither side piles up `TIME_WAIT`. Its knobs:
+`NSCP_STRESS_SOCKETS` (`python`, the stress default; `node` puts the connections back on node, which is what the regular
+suites borrowing the NRPE client use), `NSCP_STRESS_PUMPS` (pump processes, 4 - one tops out below the agent) and
+`NSCP_STRESS_PYTHON` (`python` on Windows, `python3` elsewhere). The REST client keeps its undici keep-alive pool: it
+opens a handful of connections, not one per request.
+
 The engine scenarios (`slow-check-isolation`, `mixed-flood`, `scheduler-slow-neighbour`) share one agent setup,
 `stress/lib/engines.ts`: CheckHelpers, CheckExternalScripts, PythonScript and LUAScript with the fixture scripts in
 `stress/fixtures/`, every path answering with a message built from a caller-chosen token, and every slow check holding a

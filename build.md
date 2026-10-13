@@ -1253,6 +1253,11 @@ after warm-up and a flat thread count (the leak canary), and a log with no
 latency percentiles and the RSS/thread samples are recorded to
 `tests/stress/results/<scenario>.json` for a baseline to grow from.
 
+The harness needs Python 3.8+ on the `PATH` besides Node: the NRPE and NSCA
+floods have their connections made by a small standard-library helper
+(`tests/stress/lib/socket_pump.py`), because Node's own loopback `connect()`
+crashes now and then on Windows (libuv #5106; see `tests/README.md`).
+
 ```bash
 cd tests
 export NSCP_BIN=/abs/path/to/nscp
@@ -1274,6 +1279,9 @@ NSCP_STRESS_DURATION=1800 npm run test:stress                    # a soak
 | `NSCP_STRESS_NSCA_PORT`     | `15667` | NSCA port of `passive-flood`                                |
 | `NSCP_STRESS_NSCA_CIPHER`   | `aes256`| Cipher `passive-flood` submits with: none, xor, aes128, aes192 or aes256 |
 | `NSCP_STRESS_RELOAD_EVERY`  | `5`     | Seconds between two reload rounds of `reload-soak`          |
+| `NSCP_STRESS_SOCKETS`       | `python`| Who makes the NRPE/NSCA flood connections: the Python socket pump, or `node` (crashes now and then on Windows, libuv #5106) |
+| `NSCP_STRESS_PUMPS`         | `4`     | Socket pump processes the requests are spread over          |
+| `NSCP_STRESS_PYTHON`        | `python`/`python3` | Interpreter for the socket pump (`python` on Windows, `python3` elsewhere) |
 
 Besides the REST flood and the scheduler load, three scenarios drive every
 check engine at once - C++ modules, an external process, Python, Lua, and the
