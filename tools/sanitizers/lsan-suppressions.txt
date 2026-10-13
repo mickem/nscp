@@ -1,4 +1,5 @@
-# LeakSanitizer suppressions for unit tests built with NSCP_SANITIZE=address.
+# LeakSanitizer suppressions for the unit tests and the stress scenarios run
+# against a build with NSCP_SANITIZE=address.
 #
 # Format (one per line):
 #   leak:<symbol or library substring>
@@ -13,3 +14,16 @@
 # this is a shutdown-ordering false positive rather than a real leak. Every
 # such allocation passes through the plugin loader's load_dll/dlopen path.
 leak:nsclient::core::dll_plugin::load_dll
+
+# The CPython runtime behind PythonScript. python_script::init() brings the
+# interpreter up once per process and python_script::destroy() leaves the
+# Py_FinalizeEx() call commented out, so every process that loads the module -
+# the agent, and each `nscp settings` run that boots the enabled plugins -
+# exits with the interpreter state still allocated: the imported encodings
+# and io modules, the codec registry, the type caches. LSan then reports a
+# few hundred allocations and 400 KiB per process, all reached through
+# libpython. That is one bounded interpreter per process, not growth, and
+# CPython does not free all of it even when it is finalized. Matched on the
+# module name rather than python_script::init(), because the default 30-frame
+# stack LSan captures often ends inside libpython before reaching our frame.
+leak:libpython
