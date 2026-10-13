@@ -46,6 +46,15 @@ counter_set::adoption counter_set::adopt(const candidates &c, PDH::PDHQuery &que
       query.addCounter(counter.instance);
       resolved_.push_back(counter);
       result.added.push_back(counter);
+    } catch (const PDH::pdh_exception &e) {
+      // A counter the object does not have, or a malformed path, stays that
+      // way; an object that is not registered yet may still turn up.
+      const unresolved_counter failed{counter.config, utf8::utf8_from_native(e.what())};
+      if (e.status().is_permanent_add_failure()) {
+        result.invalid.push_back(failed);
+      } else {
+        unresolved_.push_back(failed);
+      }
     } catch (const std::exception &e) {
       unresolved_.push_back({counter.config, utf8::utf8_from_native(e.what())});
     }

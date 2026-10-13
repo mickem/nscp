@@ -44,6 +44,8 @@ class MockPdh : public PDH::impl_interface {
   // Counter paths that do not exist (yet): adding one fails as PDH does for
   // an object that is not registered.
   std::set<std::wstring> missing_paths;
+  // Counter paths whose object exists but has no such counter.
+  std::set<std::wstring> no_counter_paths;
 
   // Observables
   int listener_count = 0;
@@ -102,6 +104,10 @@ class MockPdh : public PDH::impl_interface {
       *phCounter = nullptr;
       return {static_cast<PDH_STATUS>(PDH_CSTATUS_NO_OBJECT)};
     }
+    if (no_counter_paths.count(path) > 0) {
+      *phCounter = nullptr;
+      return {static_cast<PDH_STATUS>(PDH_CSTATUS_NO_COUNTER)};
+    }
     ++open_counter_handles;
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x2000 + add_counter_calls));
     return {};
@@ -119,6 +125,10 @@ class MockPdh : public PDH::impl_interface {
     if (missing_paths.count(path) > 0) {
       *phCounter = nullptr;
       return {static_cast<PDH_STATUS>(PDH_CSTATUS_NO_OBJECT)};
+    }
+    if (no_counter_paths.count(path) > 0) {
+      *phCounter = nullptr;
+      return {static_cast<PDH_STATUS>(PDH_CSTATUS_NO_COUNTER)};
     }
     ++open_counter_handles;
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x3000 + add_english_counter_calls));
@@ -992,6 +1002,47 @@ TEST_F(PdhQueryLifecycleTest, CounterSetDropsAnInvalidCounterInsteadOfRetryingIt
   ASSERT_EQ(adoption.invalid.size(), 1u);
   EXPECT_EQ(adoption.invalid.front().config.alias, "broken");
   EXPECT_TRUE(set.complete()) << "a counter its configuration rejects must not be retried";
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetDropsACounterTheObjectDoesNotHave) {
+  // \System exists, \System\Threds never will: retrying it is pointless.
+  mock->no_counter_paths.insert(L"\\System\\Threds");
+  pdh_counters::counter_set set;
+  set.configure({make_config("typo", "\\System\\Threds")});
+  PDH::PDHQuery q;
+  q.open();
+  const pdh_counters::counter_set::adoption adoption = set.adopt(set.prepare(), q);
+  EXPECT_TRUE(adoption.added.empty());
+  ASSERT_EQ(adoption.invalid.size(), 1u);
+  EXPECT_EQ(adoption.invalid.front().config.alias, "typo");
+  EXPECT_TRUE(set.complete());
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetKeepsRetryingAnObjectThatIsNotRegisteredYet) {
+  mock->missing_paths.insert(L"\\Service\\Jobs");
+  pdh_counters::counter_set set;
+  set.configure({make_config("jobs", "\\Service\\Jobs")});
+  PDH::PDHQuery q;
+  q.open();
+  const pdh_counters::counter_set::adoption adoption = set.adopt(set.prepare(), q);
+  EXPECT_TRUE(adoption.invalid.empty());
+  EXPECT_EQ(set.unresolved().size(), 1u);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, PdhExceptionKeepsTheStatus) {
+  mock->no_counter_paths.insert(L"\\System\\Threds");
+  PDH::PDHQuery q;
+  q.open();
+  try {
+    q.addCounter(make_counter("typo", "\\System\\Threds"));
+    FAIL() << "expected the add to fail";
+  } catch (const PDH::pdh_exception &e) {
+    EXPECT_EQ(e.status().get_status(), static_cast<PDH_STATUS>(PDH_CSTATUS_NO_COUNTER));
+    EXPECT_TRUE(e.status().is_permanent_add_failure());
+  }
   q.close();
 }
 

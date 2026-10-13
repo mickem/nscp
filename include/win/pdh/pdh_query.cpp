@@ -32,6 +32,9 @@ void PDHQuery::addCounter(const pdh_instance& instance) {
   // and with them the previous sample a rate counter is computed from. The
   // check is made under the implementation's lock, as a reload changes
   // hQuery_ under it.
+  //
+  // The list is changed under the lock too: a reload walks it from another
+  // thread, and must see the new counters with their handles or not at all.
   if (listener_registered_ || hQuery_ != nullptr) {
     const std::shared_ptr<impl_interface> impl = this->impl();
     std::lock_guard<impl_interface> guard(*impl);
@@ -51,6 +54,8 @@ void PDHQuery::addCounter(const pdh_instance& instance) {
       }
       throw;
     }
+    counters_.splice(counters_.end(), added);
+    return;
   }
   counters_.splice(counters_.end(), added);
 }

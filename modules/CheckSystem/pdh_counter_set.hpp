@@ -68,9 +68,11 @@ class counter_set {
   // Changes nothing, so it can run without the lock the query is used under.
   candidates prepare() const;
   // Adds each created instance to `query`, which must be open. The ones PDH
-  // accepts become resolved; the ones it rejects (an object or counter that
-  // is not registered) stay unresolved, as do prepare()'s missing ones; the
-  // invalid ones are dropped and handed back for the caller to report.
+  // accepts become resolved; the ones it rejects because the object is not
+  // registered (yet) stay unresolved, as do prepare()'s missing ones. The
+  // invalid ones - prepare()'s, and the ones PDH rejects for good (no such
+  // counter in the object, a malformed path) - are dropped and handed back
+  // for the caller to report.
   adoption adopt(const candidates &c, PDH::PDHQuery &query);
 
   const std::list<resolved_counter> &resolved() const { return resolved_; }

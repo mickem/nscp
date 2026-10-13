@@ -21,5 +21,11 @@ many are being retried. `check_pdh reload=true` was accepted but ignored; it now
 asks the collector to retry the missing predefined counters, and waits up to
 5 seconds in all for that, before the check reads them. A predefined counter is
 now visible to checks once the collector has sampled it: a check in the first
-second after startup that used to read `0` reports `Failed to get value`
-instead, or the real value with `reload=true`.
+seconds after startup that used to read `0` reports `Failed to get value`
+instead, or the real value with `reload=true`. A counter that can never resolve
+- a counter name its object does not have, such as a typo in
+`\System\Threds` - is logged once as `Ignoring counter <name> (<path>): ...`
+and not retried. With `disable = metrics` the predefined counters are now still
+sampled (they used to read `0` forever); with `disable = pdh` they are not
+loaded at all and `check_pdh` reports `Failed to get value` for them instead of
+`0`.

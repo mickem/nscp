@@ -62,6 +62,13 @@ class pdh_error {
   // "counter exists but PDH couldn't resolve it in the current locale" case.
   // PdhAddEnglishCounter is worth a second try whenever this is true.
   bool is_possible_locale_mismatch() const { return is_not_found() || is_invalid_argument(); }
+
+  // PdhAddCounter failed in a way that trying the same path again cannot
+  // change: the object exists but has no such counter, or the path is
+  // malformed. An object that is not registered (PDH_CSTATUS_NO_OBJECT) is
+  // not one of them: a service registers its object when it starts (#634).
+  bool is_permanent_add_failure() const { return status_ == PDH_CSTATUS_NO_COUNTER || status_ == PDH_CSTATUS_BAD_COUNTERNAME; }
+  PDH_STATUS get_status() const { return status_; }
 };
 
 class pdh_exception : public std::exception {
@@ -69,15 +76,18 @@ class pdh_exception : public std::exception {
   // shared_ptr is used (instead of std::string directly) so the copy constructor
   // is nothrow — required for any type used as an exception (CERT-ERR60-CPP).
   std::shared_ptr<const std::string> error_;
+  // The PDH status the failure came with, when there was one.
+  PDH_STATUS status_ = ERROR_SUCCESS;
 
  public:
   pdh_exception(const std::string &name, const std::string &str) : error_(std::make_shared<const std::string>(name + ": " + str)) {}
   pdh_exception(const std::string &str, const pdh_error &error)
-      : error_(std::make_shared<const std::string>(error.is_error() ? str + ": " + error.get_message() : str)) {}
+      : error_(std::make_shared<const std::string>(error.is_error() ? str + ": " + error.get_message() : str)), status_(error.get_status()) {}
   explicit pdh_exception(std::string error) : error_(std::make_shared<const std::string>(std::move(error))) {}
   const char *what() const noexcept override { return error_ ? error_->c_str() : ""; }
 
   std::string reason() const { return error_ ? *error_ : std::string(); }
+  pdh_error status() const { return pdh_error(status_); }
 };
 
 // A failure that is about the system as it is right now rather than about the
