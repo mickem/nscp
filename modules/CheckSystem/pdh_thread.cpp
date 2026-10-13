@@ -126,59 +126,66 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   have_prev_proc_cpu_ = true;
 }
 
-bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors) {
-  counters_.clear();
-  lookups_.clear();
-  pdh.removeAllCounters();
-
-  for (const PDH::pdh_object &obj : configs_) {
+void pdh_thread::retry_counters(PDH::PDHQuery &pdh) {
+  if (!pdh.is_open()) {
     try {
-      PDH::pdh_instance instance = PDH::factory::create(obj);
-      if (instance->has_instances()) {
-        for (const PDH::pdh_instance &sc : instance->get_instances()) {
-          NSC_DEBUG_MSG("Loading counter: " + sc->get_name() + " = " + sc->get_counter());
-          pdh.addCounter(sc);
-        }
-      } else {
-        NSC_DEBUG_MSG("Loading counter: " + instance->get_name() + " = " + instance->get_counter());
-        pdh.addCounter(instance);
-      }
-      counters_.push_back(instance);
-      lookups_[instance->get_name()] = instance;
+      pdh.open();
+      query_failure_logged_ = false;
     } catch (const std::exception &e) {
-      if (log_failures_as_errors) {
-        NSC_LOG_ERROR_EXR("Failed to add counter " + obj.alias, e);
+      // Nothing is added: the next attempt tries them again.
+      const std::string error = utf8::utf8_from_native(e.what());
+      if (!query_failure_logged_) {
+        query_failure_logged_ = true;
+        NSC_LOG_ERROR("Failed to open the PDH query, will retry: " + error);
       } else {
-        NSC_DEBUG_MSG("Counter " + obj.alias + " not yet available, will retry: " + utf8::utf8_from_native(e.what()));
+        NSC_DEBUG_MSG("Failed to open the PDH query, will retry: " + error);
       }
+      return;
     }
   }
 
-  if (counters_.empty()) {
-    if (log_failures_as_errors) {
-      NSC_LOG_MESSAGE("No PDH counters could be resolved (performance counters disabled)");
-    }
-    return false;
-  }
+  const std::list<pdh_counters::resolved_counter> added = counter_set_.retry(pdh);
+  if (added.empty()) return;
 
+  // Give the new counters their first sample now. This runs right after the
+  // tick's gather, so the next gather is a full tick away for the new
+  // counters and for the ones already in the query alike: neither is
+  // computed over a few milliseconds, and the new ones do not come up
+  // INVALID_DATA (and a one-second sleep under the lock) in the gather.
   try {
-    pdh.open();
     pdh.collect();
-    return true;
+  } catch (const PDH::pdh_no_data_exception &) {
+    // An instance a counter names is not there right now (#648); the next
+    // tick samples again.
   } catch (const std::exception &e) {
-    if (log_failures_as_errors) {
-      NSC_LOG_ERROR_EXR("Failed to open PDH counters (performance counters disabled)", e);
+    NSC_DEBUG_MSG("Failed to take the first sample of the new counters: " + utf8::utf8_from_native(e.what()));
+  }
+
+  for (const pdh_counters::resolved_counter &c : added) {
+    // Readers see the counter once the next tick has sampled it (store_tick),
+    // not before: until then it would read as zero.
+    unpublished_.push_back(c.instance);
+    // A counter that was reported missing says so once it is collected, so
+    // the error in the log is not the last word on it.
+    if (reported_missing_.erase(c.config.alias) > 0) {
+      NSC_LOG_MESSAGE("Counter " + c.config.alias + " is now available");
     } else {
-      NSC_DEBUG_MSG("PDH open/collect failed, will retry: " + utf8::utf8_from_native(e.what()));
+      NSC_DEBUG_MSG("Loading counter: " + c.config.alias + " = " + c.config.path);
     }
-    pdh.removeAllCounters();
-    return false;
+  }
+}
+
+void pdh_thread::report_missing_counters() {
+  for (const pdh_counters::unresolved_counter &c : counter_set_.unresolved()) {
+    if (!reported_missing_.insert(c.config.alias).second) continue;
+    NSC_LOG_ERROR("Failed to add counter " + c.config.alias + " (" + c.config.path + "): " + c.error + " - retrying every " +
+                  str::xtos(pdh_counters::retry_schedule::steady_delay_ms / 1000) + " seconds");
   }
 }
 
 bool pdh_thread::store_tick(const cpu_reading *cpu_read, const load_fold *fold, const spi_container &handles, PDH::PDHQuery *pdh, const bool with_metrics,
                             error_list &errors) {
-  if (cpu_read == nullptr && fold == nullptr && !with_metrics) return true;
+  if (cpu_read == nullptr && fold == nullptr && !with_metrics && pdh == nullptr) return true;
   boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!writeLock.owns_lock()) {
     errors.emplace_back("Failed to get mutex for writing");
@@ -202,15 +209,41 @@ bool pdh_thread::store_tick(const cpu_reading *cpu_read, const load_fold *fold, 
     }
   }
   if (fold != nullptr) fold_load_avg(*fold);
-  if (with_metrics) write_metrics(handles, pdh, errors);
+  // The predefined counters are sampled whether or not metrics are written:
+  // check_pdh reads them too.
+  const bool gathered = pdh == nullptr || gather_counters(*pdh, errors);
+  if (with_metrics && gathered) write_metrics(handles, errors);
+  if (pdh != nullptr) {
+    // The counters added last tick have now had their second sample, so
+    // readers may have them.
+    for (const PDH::pdh_instance &instance : unpublished_) lookups_[instance->get_name()] = instance;
+    unpublished_.clear();
+  }
   return true;
 }
 
 // Caller must hold the unique (write) lock on mutex_.
-void pdh_thread::write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors) {
+bool pdh_thread::gather_counters(PDH::PDHQuery &pdh, error_list &errors) {
   try {
-    if (pdh != nullptr) pdh->gatherData();
+    pdh.gatherData();
+    return true;
+  } catch (const PDH::pdh_exception &e) {
+    if (first_time) {
+      // If this is the first run an error will be thrown since the data is not yet available
+      // This is "ok" but perhaps another solution would be better, but this works :)
+      first_time = false;
+    } else {
+      errors.push_back("Failed to query performance counters: " + e.reason());
+    }
+  } catch (...) {
+    errors.emplace_back("Failed to query performance counters: ");
+  }
+  return false;
+}
 
+// Caller must hold the unique (write) lock on mutex_.
+void pdh_thread::write_metrics(const spi_container &handles, error_list &errors) {
+  try {
     for (const lookup_type::value_type &e : lookups_) {
       if (e.second->has_instances()) {
         const std::string family = "pdh." + e.first;
@@ -231,15 +264,9 @@ void pdh_thread::write_metrics(const spi_container &handles, PDH::PDHQuery *pdh,
     metrics["procs.threads"] = handles.threads;
     metrics["procs.procs"] = handles.procs;
   } catch (const PDH::pdh_exception &e) {
-    if (first_time) {
-      // If this is the first run an error will be thrown since the data is not yet available
-      // This is "ok" but perhaps another solution would be better, but this works :)
-      first_time = false;
-    } else {
-      errors.push_back("Failed to query performance counters: " + e.reason());
-    }
+    errors.push_back("Failed to read performance counters: " + e.reason());
   } catch (...) {
-    errors.emplace_back("Failed to query performance counters: ");
+    errors.emplace_back("Failed to read performance counters");
   }
 }
 
@@ -291,27 +318,11 @@ void pdh_thread::thread_proc() {
   // fallback in pdh_counters.cpp is a safety net, not a substitute).
   SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT));
 
-  // Retry PDH counter setup with exponential back-off. Perflib registration
-  // is sometimes not complete when the service starts shortly after boot,
-  // which previously left PDH disabled until the next service restart (#634).
-  if (!configs_.empty()) {
-    const DWORD backoff_ms[] = {1000, 2000, 4000, 8000, 16000, 30000};
-    const int max_attempts = sizeof(backoff_ms) / sizeof(backoff_ms[0]);
-    for (int attempt = 0; attempt < max_attempts; ++attempt) {
-      const bool is_last_attempt = (attempt + 1 == max_attempts);
-      if (try_setup_pdh_counters(pdh, is_last_attempt)) {
-        check_pdh = true;
-        break;
-      }
-      if (!is_last_attempt) {
-        // Interruptible back-off: if shutdown is signalled mid-wait, break
-        // out and let the main loop exit normally (mutex_ is unlocked there).
-        if (WaitForSingleObject(stop_signal_.native_handle(), backoff_ms[attempt]) == WAIT_OBJECT_0) {
-          break;
-        }
-      }
-    }
-  }
+  // The predefined counters are added by the loop below, right after its
+  // first gather, one at a time: one that does not exist (perflib still
+  // registering after boot, or a counter a service registers when it starts)
+  // no longer fails the others, and is retried until it does (#634).
+  counter_set_.configure(configs_);
 
   bool has_mem_realtime = !mem_filters_.empty() || !legacy_filters_.empty();
   bool has_cpu_realtime = !cpu_filters_.empty() || !legacy_filters_.empty();
@@ -374,7 +385,6 @@ void pdh_thread::thread_proc() {
   DWORD waitStatus = 0;
   int i = 0;
 
-  if (!check_pdh) NSC_LOG_MESSAGE("Not checking PDH data");
   if (has_realtime) NSC_DEBUG_MSG("Real time checks enabled");
 
   // Setup is done: publish the collector state to readers.
@@ -405,6 +415,8 @@ void pdh_thread::thread_proc() {
   if (disable_pdh) {
     check_pdh = false;
     NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
+  } else if (configs_.empty()) {
+    NSC_LOG_MESSAGE("Not checking PDH data: no counters are configured");
   }
   const bool disable_load = disabled.count("load") > 0;
   if (disable_load) {
@@ -444,6 +456,10 @@ void pdh_thread::thread_proc() {
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
   ULONGLONG last_load_tick = 0;  // tick_start of the previous load fold (0 = none yet)
+  // Attempts at the predefined counters: the first on the first tick, then
+  // on the retry schedule for as long as any is missing.
+  unsigned counter_attempts = 0;
+  ULONGLONG next_counter_attempt = 0;
   do {
     const ULONGLONG tick_start = nscpGetTickCount64();
     std::list<std::string> errors;
@@ -504,6 +520,39 @@ void pdh_thread::thread_proc() {
       const bool stored =
           store_tick(disable_cpu ? nullptr : &cpu_read, disable_load ? nullptr : &fold, handles, check_pdh ? &pdh : nullptr, !disable_metrics, errors);
       if (stored && !disable_load) last_load_tick = tick_start;
+    }
+    // Try the predefined counters not in the query yet: on the schedule, or
+    // on this tick when check_pdh reload=true asked. After the gather, so that
+    // the first sample retry_counters() takes leaves a full tick before the
+    // next one.
+    const bool retry_requested = retry_requested_.exchange(false);
+    const bool attempt_due = tick_start >= next_counter_attempt;
+    if (!disable_pdh && !counter_set_.complete() && (retry_requested || attempt_due)) {
+      {
+        boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+        if (writeLock.owns_lock()) {
+          retry_counters(pdh);
+          // Once opened, the query stays gathered: a query a reload left
+          // closed is reopened by the gather (or the next add), not by
+          // turning gathering off.
+          check_pdh = check_pdh || pdh.is_open();
+        } else {
+          errors.emplace_back("Failed to get mutex for adding performance counters");
+        }
+      }
+      // A requested attempt also counts as the scheduled one when that was
+      // due, so the two do not run back to back.
+      if (attempt_due) next_counter_attempt = nscpGetTickCount64() + pdh_counters::retry_schedule::delay_ms(counter_attempts++);
+      if (counter_attempts == 1 && !counter_set_.complete()) {
+        NSC_LOG_MESSAGE(str::xtos(counter_set_.unresolved().size()) + " of " + str::xtos(configs_.size()) +
+                        " performance counters are not available yet; retrying them in the background");
+        for (const pdh_counters::unresolved_counter &c : counter_set_.unresolved()) {
+          NSC_DEBUG_MSG("Counter " + c.config.alias + " not yet available, will retry: " + c.error);
+        }
+      }
+      // Once the fast attempts are spent, every attempt reports the counters
+      // still missing that it has not reported yet.
+      if (counter_attempts > pdh_counters::retry_schedule::fast_attempts) report_missing_counters();
     }
     // network, temperature, cpu_frequency, battery and os_updates are collected
     // on aux_thread_proc() so a slow WMI provider cannot freeze this 1 Hz loop

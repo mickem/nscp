@@ -7,6 +7,7 @@
 #include <chrono>
 #include <list>
 #include <memory>
+#include <set>
 #include <string>
 #include <thread>
 #include <utility>
@@ -15,6 +16,8 @@
 #include <win/pdh/pdh_object_gather.hpp>
 #include <win/pdh/pdh_query.hpp>
 #include <win/pdh/thread_safe_impl.hpp>
+
+#include "pdh_counter_set.hpp"
 
 namespace {
 
@@ -38,6 +41,9 @@ class MockPdh : public PDH::impl_interface {
   int fail_next_formatted_values = 0;
   PDH_STATUS failing_formatted_value_status = PDH_CSTATUS_NO_INSTANCE;
   bool throw_on_add_listener = false;
+  // Counter paths that do not exist (yet): adding one fails as PDH does for
+  // an object that is not registered.
+  std::set<std::wstring> missing_paths;
 
   // Observables
   int listener_count = 0;
@@ -85,12 +91,16 @@ class MockPdh : public PDH::impl_interface {
     --open_handles;
     return {};
   }
-  PDH::pdh_error PdhAddCounter(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
+  PDH::pdh_error PdhAddCounter(PDH::PDH_HQUERY, LPCWSTR path, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
     ++add_counter_calls;
     note_call();
     if (add_counter_status != ERROR_SUCCESS) {
       *phCounter = nullptr;
       return {add_counter_status};
+    }
+    if (missing_paths.count(path) > 0) {
+      *phCounter = nullptr;
+      return {static_cast<PDH_STATUS>(PDH_CSTATUS_NO_OBJECT)};
     }
     ++open_counter_handles;
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x2000 + add_counter_calls));
@@ -99,12 +109,16 @@ class MockPdh : public PDH::impl_interface {
   // Tracked separately from PdhAddCounter so resolution-mode tests can assert
   // which API was used, but it shares add_counter_status as its failure knob so
   // existing "add fails" tests still fail through both paths.
-  PDH::pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
+  PDH::pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY, LPCWSTR path, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
     ++add_english_counter_calls;
     note_call();
     if (add_counter_status != ERROR_SUCCESS) {
       *phCounter = nullptr;
       return {add_counter_status};
+    }
+    if (missing_paths.count(path) > 0) {
+      *phCounter = nullptr;
+      return {static_cast<PDH_STATUS>(PDH_CSTATUS_NO_OBJECT)};
     }
     ++open_counter_handles;
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x3000 + add_english_counter_calls));
@@ -883,4 +897,167 @@ TEST(ThreadedSafePdh, InstancesShareTheLockAndTheSubscribers) {
   older.unlock();
   other.join();
   EXPECT_TRUE(acquired);
+}
+
+// ----------------------------------------------------------------------------
+// Predefined counters: one missing counter must not take the others down, and
+// must be picked up once it exists (#634)
+// ----------------------------------------------------------------------------
+
+namespace {
+PDH::pdh_object make_config(const std::string &alias, const std::string &path) {
+  PDH::pdh_object obj;
+  obj.set_alias(alias);
+  obj.set_counter(path);
+  obj.set_type(PDH::pdh_object::type_long);
+  obj.set_strategy_static();
+  return obj;
+}
+}  // namespace
+
+TEST_F(PdhQueryLifecycleTest, CounterSetStartsWithEveryCounterUnresolved) {
+  pdh_counters::counter_set set;
+  set.configure({make_config("a", "\\A\\Value"), make_config("b", "\\B\\Value")});
+  EXPECT_EQ(set.unresolved().size(), 2u);
+  EXPECT_FALSE(set.complete());
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetMissingCounterDoesNotFailTheOthers) {
+  mock->missing_paths.insert(L"\\Service\\Jobs");
+  pdh_counters::counter_set set;
+  set.configure({make_config("cpu", "\\Processor(_Total)\\% Processor Time"), make_config("jobs", "\\Service\\Jobs")});
+
+  PDH::PDHQuery q;
+  q.open();
+  const std::list<pdh_counters::resolved_counter> added = set.retry(q);
+  ASSERT_EQ(added.size(), 1u);
+  EXPECT_EQ(added.front().config.alias, "cpu");
+  ASSERT_EQ(set.unresolved().size(), 1u);
+  EXPECT_EQ(set.unresolved().front().config.alias, "jobs");
+  EXPECT_FALSE(set.unresolved().front().error.empty());
+
+  // The query stayed open with the counter that exists in it, and the one PDH
+  // rejected left no handle behind.
+  EXPECT_TRUE(q.is_open());
+  EXPECT_EQ(mock->open_counter_handles, 1);
+  q.close();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  EXPECT_EQ(mock->open_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetAddsALateCounterWithoutRebuildingTheQuery) {
+  mock->missing_paths.insert(L"\\Service\\Jobs");
+  pdh_counters::counter_set set;
+  set.configure({make_config("cpu", "\\Processor(_Total)\\% Processor Time"), make_config("jobs", "\\Service\\Jobs")});
+  PDH::PDHQuery q;
+  q.open();
+  ASSERT_EQ(set.retry(q).size(), 1u);
+
+  // Still missing: a retry changes nothing.
+  EXPECT_TRUE(set.retry(q).empty());
+  EXPECT_EQ(set.unresolved().size(), 1u);
+
+  // The service registered its counter.
+  mock->missing_paths.clear();
+  const std::list<pdh_counters::resolved_counter> added = set.retry(q);
+  ASSERT_EQ(added.size(), 1u);
+  EXPECT_EQ(added.front().config.alias, "jobs");
+  EXPECT_TRUE(set.complete());
+  // The counter already in the query keeps its handle: the query was neither
+  // reopened nor stripped, so its previous sample survives.
+  EXPECT_EQ(mock->open_calls, 1);
+  EXPECT_EQ(mock->remove_counter_calls, 0);
+  EXPECT_EQ(mock->open_counter_handles, 2);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, CounterSetRetriesAWildcardItCannotExpandYet) {
+  mock->expand_wild_card_status = PDH_INVALID_PATH;
+  pdh_counters::counter_set set;
+  set.configure({make_config("jobs", "\\Service($INSTANCE$)\\Jobs")});
+  PDH::PDHQuery q;
+  q.open();
+  EXPECT_TRUE(set.retry(q).empty());
+  ASSERT_EQ(set.unresolved().size(), 1u);
+  EXPECT_EQ(set.unresolved().front().config.alias, "jobs");
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, AddCounterToAnOpenQueryAddsItNow) {
+  PDH::PDHQuery q;
+  q.open();
+  q.addCounter(make_counter("a", "\\A\\Value"));
+  EXPECT_EQ(mock->open_counter_handles, 1);
+  EXPECT_TRUE(q.has_counters());
+  q.close();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, AddCounterRejectedByAnOpenQueryIsNotKept) {
+  mock->missing_paths.insert(L"\\Service\\Jobs");
+  PDH::PDHQuery q;
+  q.open();
+  EXPECT_THROW(q.addCounter(make_counter("jobs", "\\Service\\Jobs")), PDH::pdh_exception);
+  EXPECT_FALSE(q.has_counters());
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  // A PDH reload re-adds what the query holds: the rejected counter is not in
+  // it, even once it would be accepted.
+  mock->missing_paths.clear();
+  q.on_unload();
+  q.on_reload();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  q.close();
+}
+
+// A reload that cannot reopen a query leaves it closed but still subscribed.
+static void leave_closed_by_a_failed_reload(PDH::PDHQuery &q, MockPdh &mock) {
+  q.on_unload();
+  mock.open_status = PDH_INVALID_HANDLE;
+  EXPECT_THROW(q.on_reload(), PDH::pdh_exception);
+  mock.open_status = ERROR_SUCCESS;
+  ASSERT_FALSE(q.is_open());
+}
+
+TEST_F(PdhQueryLifecycleTest, AddCounterReopensAQueryAFailedReloadLeftClosed) {
+  PDH::PDHQuery q;
+  q.open();
+  leave_closed_by_a_failed_reload(q, *mock);
+  q.addCounter(make_counter("a", "\\A\\Value"));
+  EXPECT_TRUE(q.is_open());
+  EXPECT_EQ(mock->open_counter_handles, 1) << "the counter must have been added to PDH, not just kept";
+  EXPECT_EQ(mock->add_listener_calls, 1);
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, AddCounterKeepsNothingWhenAFailedReloadQueryCannotReopen) {
+  PDH::PDHQuery q;
+  q.open();
+  leave_closed_by_a_failed_reload(q, *mock);
+  mock->open_status = PDH_INVALID_HANDLE;
+  EXPECT_THROW(q.addCounter(make_counter("a", "\\A\\Value")), PDH::pdh_exception);
+  EXPECT_FALSE(q.has_counters()) << "an unvalidated counter would fail every later reload";
+  mock->open_status = ERROR_SUCCESS;
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, OpenOnAQueryAFailedReloadLeftClosedDoesNotSubscribeTwice) {
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\A\\Value"));
+  q.open();
+  leave_closed_by_a_failed_reload(q, *mock);
+  EXPECT_NO_THROW(q.open());
+  EXPECT_TRUE(q.is_open());
+  EXPECT_EQ(mock->add_listener_calls, 1);
+  EXPECT_EQ(mock->listener_count, 1);
+  EXPECT_EQ(mock->open_counter_handles, 1);
+  q.close();
+  EXPECT_EQ(mock->listener_count, 0);
+}
+
+TEST(PdhCounterRetrySchedule, BacksOffThenSettlesOnTheSteadyCadence) {
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(0), 1000u);
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(1), 2000u);
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(5), 30000u);
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(pdh_counters::retry_schedule::fast_attempts), pdh_counters::retry_schedule::steady_delay_ms);
+  EXPECT_EQ(pdh_counters::retry_schedule::delay_ms(1000), pdh_counters::retry_schedule::steady_delay_ms);
 }
