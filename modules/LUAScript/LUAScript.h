@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include <memory>
 #include <boost/scoped_ptr.hpp>
 #include <lua/lua_core.hpp>
 #include <lua/lua_script.hpp>
+#include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <scripts/script_interface.hpp>
@@ -14,11 +14,15 @@
 
 class LUAScript : public nscapi::impl::simple_plugin {
  private:
-  // Shared so a dispatch can hold its own reference across unloadModule.
+  // Shared so a dispatch can hold its own reference across unloadModule; all
+  // three are replaced on every reload, so they are read and written with
+  // std::atomic_load / atomic_store only.
   std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
   std::shared_ptr<lua::lua_runtime> lua_runtime_;
   std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
   boost::filesystem::path root_;
+
+  void start_scripts();
 
  public:
   LUAScript() {}
@@ -33,6 +37,8 @@ class LUAScript : public nscapi::impl::simple_plugin {
   bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
                        PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
   void execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool exec_script_command(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
+                           const PB::Commands::ExecuteRequestMessage &request_message);
   void handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
                           PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message);
 

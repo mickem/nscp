@@ -35,6 +35,7 @@ class NSCAPI_EXPORT settings_proxy : public settings_helper::settings_impl_inter
   void register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defValue, bool advanced,
                     bool sample, bool sensitive) override;
   void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample) override;
+  void register_user_keys(std::string path) override;
   void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) override;
 
   std::string get_string(std::string path, std::string key, std::string def) override;

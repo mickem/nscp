@@ -1,6 +1,6 @@
 ---
 title: "Undefined-behaviour sweep: perfdata parsing, filter_perf sorting, saturating casts and script bindings"
-fixed_in: next
+fixed_in: 0.25.0
 severity: "Low"
 modules: [filters, CheckHelpers, CheckSystemUnix, CheckDocker, CheckKubernetes, PythonScript, LUAScript, CheckMKServer, CheckWMI, CheckSystem, CheckExternalScripts]
 action: none

@@ -1433,6 +1433,14 @@ TEST(SyncReport, ReportsWhetherLocalConfigurationOutranksTheFleet) {
   EXPECT_TRUE(with.at("local_config_present").as_bool());
 }
 
+TEST(SyncReport, SaysTheHostOverrideIsAppliedLast) {
+  // Every report, whatever else it carries: the server warns about a host
+  // override on any agent that does not say this.
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
+  ASSERT_NE(root.if_contains("host_override_last"), nullptr);
+  EXPECT_TRUE(root.at("host_override_last").as_bool());
+}
+
 TEST(SyncReport, LocalConfigFlagCarriesNoConfigurationContent) {
   // The point of the flag is that the server learns a host is partly
   // self-managed without the agent uploading configuration that routinely
@@ -1445,10 +1453,10 @@ TEST(SyncReport, LocalConfigFlagCarriesNoConfigurationContent) {
   for (const auto &member : root) {
     const std::string name(member.key());
     EXPECT_TRUE(name == "applied_state_hash" || name == "bundles_installed" || name == "errors" || name == "reported_tags" ||
-                name == "local_config_present" || name == "facts_hash")
+                name == "local_config_present" || name == "facts_hash" || name == "host_override_last")
         << "unexpected member in the state report: " << name;
   }
-  EXPECT_EQ(root.size(), 6u);
+  EXPECT_EQ(root.size(), 7u);
   EXPECT_TRUE(root.at("local_config_present").as_bool());
 }
 

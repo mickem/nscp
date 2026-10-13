@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/tokenizer.hpp>
+#include <stdexcept>
 #include <str/utils_no_boost.hpp>
 
 namespace str {
@@ -116,6 +117,43 @@ inline void parse_command(const std::string &cmd_line, std::string &cmd, std::li
       }
     }
   }
+}
+
+// parse_command for alias definitions (`my_alias = check_x "arg" ...`), which
+// an operator types into a configuration file. The tokenizer accepts four
+// escapes: `\\`, `\"`, `\ ` and `\n`, the last of which it turns into a real
+// newline. That is never what an alias means: `"path=C:\nscp"` became `C:` +
+// newline + `scp` and the alias registered without a word, while the same path
+// with any other letter after the backslash was refused. So the parsed
+// arguments are checked afterwards and one holding a line break is refused
+// with a message naming the fix; the tokenizer's own refusal of an unknown
+// escape (an undoubled Windows path, a typo) is passed on with the same hint.
+// A value that needs a newline (list-separator) takes `\\n`, which reaches the
+// check as the two characters `\n` for it to decode.
+inline void parse_alias_command(const std::string &cmd_line, std::string &cmd, std::list<std::string> &args) {
+  try {
+    parse_command(cmd_line, cmd, args);
+  } catch (const boost::escaped_list_error &e) {
+    throw std::invalid_argument(std::string(e.what()) +
+                                ": only \\\\, \\\" and \\<space> are escapes in an alias. In a Windows path write the backslash as \\\\ or use /");
+  }
+  const auto refuse_line_breaks = [](const std::string &token) {
+    if (token.find_first_of("\r\n") == std::string::npos) return;
+    std::string shown;
+    for (const char c : token) {
+      if (c == '\n')
+        shown += "\\n";
+      else if (c == '\r')
+        shown += "\\r";
+      else
+        shown += c;
+    }
+    throw std::invalid_argument("argument '" + shown +
+                                "' contains a line break: an alias cannot contain control characters. In a Windows path write the backslash as \\\\ or "
+                                "use /; to pass the two characters on (e.g. list-separator=\\n) write \\\\n");
+  };
+  refuse_line_breaks(cmd);
+  for (const std::string &arg : args) refuse_line_breaks(arg);
 }
 }  // namespace utils
 }  // namespace str

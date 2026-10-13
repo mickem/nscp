@@ -1104,7 +1104,10 @@ TEST_F(SettingsContextTest, ValidateReportsSectionsNobodyRegistered) {
   settings_test::write_file(file, "[/nobody-registered-this]\nk = v\n");
   impl_->set_instance("master", ini_context(file));
 
-  EXPECT_FALSE(impl_->validate().empty());
+  const settings::validation_result r = impl_->validate();
+  ASSERT_EQ(r.size(), 1u);
+  EXPECT_EQ(r.front().type, settings::validation_finding::kind::unused_path);
+  EXPECT_EQ(r.front().path, "/nobody-registered-this");
 }
 
 TEST_F(SettingsContextTest, ValidateIsQuietForRegisteredConfiguration) {
@@ -1118,27 +1121,66 @@ TEST_F(SettingsContextTest, ValidateIsQuietForRegisteredConfiguration) {
   EXPECT_TRUE(impl_->validate().empty());
 }
 
-TEST_F(SettingsContextTest, ValidateDoesNotFlagUnregisteredKeys) {
-  // CHARACTERIZATION TEST - this pins current behaviour, which is wrong.
-  //
-  // settings_ini::validate() spots an unregistered key by catching an
-  // exception out of get_registered_key(). The production core does not throw
-  // for an unknown key, it returns boost::none (settings_handler_impl), so
-  // that half of --validate never fires and a typo in a key name is reported
-  // by nothing. Only the test core in test_helpers.hpp throws, which is why
-  // settings_ini_test's own validate test sees the errors this one cannot.
-  //
-  // See the FIXME in settings_ini.hpp: the fix is to test the optional rather
-  // than wait for an exception, but it widens what --validate prints (every
-  // key of every module that is not currently loaded), so it wants its own
-  // change.
+// The production core answers an unknown key with boost::none rather than an
+// exception; validate() used to wait for an exception and so never reported a
+// key at all.
+TEST_F(SettingsContextTest, ValidateReportsUnregisteredKeys) {
   settings_test::temp_dir dir;
   const boost::filesystem::path file = dir.file("typo.ini");
-  settings_test::write_file(file, "[/sec]\nunregistered-key = v\n");
+  settings_test::write_file(file, "[/sec]\nunregistered-key = v\nalow arguments = true\n");
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "allow arguments", "bool", "", "", "false", false, false, true);
+  impl_->set_instance("master", ini_context(file));
+
+  const settings::validation_result r = impl_->validate();
+  ASSERT_EQ(r.size(), 2u);
+  EXPECT_EQ(r.front().type, settings::validation_finding::kind::unused_key);
+  EXPECT_EQ(r.front().key, "unregistered-key");
+  EXPECT_EQ(r.back().type, settings::validation_finding::kind::unknown_key);
+  EXPECT_EQ(r.back().suggestion, "allow arguments");
+  EXPECT_EQ(settings::count_warnings(r), 1u);
+}
+
+// #647: the section was written without its leading '/'.
+TEST_F(SettingsContextTest, ValidateWarnsAboutSectionsWithoutLeadingSlash) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("noslash.ini");
+  settings_test::write_file(file, "[/sec]\n[settings/external scripts/scripts]\ncheck = cmd\n");
   impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
   impl_->set_instance("master", ini_context(file));
 
-  EXPECT_TRUE(impl_->validate().empty()) << "documenting the defect: the unknown key is not reported";
+  const settings::validation_result r = impl_->validate();
+  ASSERT_EQ(r.size(), 1u);
+  EXPECT_EQ(r.front().type, settings::validation_finding::kind::relative_path);
+  EXPECT_EQ(r.front().suggestion, "/settings/external scripts/scripts");
+  EXPECT_EQ(settings::count_warnings(r), 1u);
+}
+
+// [/settings/WEB/server/roles] registers its built-in roles as keys but reads
+// every key in the section; a custom role one letter off a built-in one is
+// not a typo.
+TEST_F(SettingsContextTest, ValidateAcceptsAnyKeyUnderAUserKeyedPath) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("roles.ini");
+  settings_test::write_file(file, "[/roles]\nclient = a\nclients = b\n");
+  impl_->register_path(0xffff, "/roles", "Roles", "", false, false, true);
+  impl_->register_key(0xffff, "/roles", "client", "string", "", "", "", false, false, true);
+  impl_->register_user_keys(0xffff, "/roles");
+  impl_->set_instance("master", ini_context(file));
+
+  EXPECT_TRUE(impl_->validate().empty());
+}
+
+// The core marks /modules this way at boot (load_configuration_2); there is
+// no special case for it in validate().
+TEST_F(SettingsContextTest, ValidateAcceptsAnyModuleName) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("modules.ini");
+  settings_test::write_file(file, "[/modules]\nCheckSystem = enabled\nNotInstalled = disabled\n");
+  impl_->register_user_keys(0xffff, "/modules");
+  impl_->set_instance("master", ini_context(file));
+
+  EXPECT_TRUE(impl_->validate().empty());
 }
 
 TEST_F(SettingsDefaultsTest, UseSensitiveKeysDefaultsToFalse) { EXPECT_FALSE(impl_->use_sensitive_keys()); }

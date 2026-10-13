@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <str/xtos.hpp>
+#include <vector>
 
 #include "../core_api.h"
 #include "NSCAPI.h"
@@ -153,22 +154,20 @@ nsclient::core::dll_plugin::~dll_plugin() {
  * @throws NSPluginException if the module is not loaded.
  */
 std::string nsclient::core::dll_plugin::getName() {
-  char *buffer = new char[1024];
-  if (!getName_(buffer, 1023)) {
+  // Zero-filled and one byte longer than the module is told, so the read
+  // below always stops inside the buffer whatever the module wrote.
+  std::vector<char> buffer(1024, '\0');
+  if (!getName_(buffer.data(), static_cast<unsigned int>(buffer.size() - 1))) {
     return "Could not get name";
   }
-  std::string ret = buffer;
-  delete[] buffer;
-  return ret;
+  return buffer.data();
 }
 std::string nsclient::core::dll_plugin::getDescription() {
-  char *buffer = new char[4096];
-  if (!getDescription_(buffer, 4095)) {
+  std::vector<char> buffer(4096, '\0');
+  if (!getDescription_(buffer.data(), static_cast<unsigned int>(buffer.size() - 1))) {
     throw plugin_exception(get_alias_or_name(), "Could not get description");
   }
-  std::string ret = buffer;
-  delete[] buffer;
-  return ret;
+  return buffer.data();
 }
 
 /**
@@ -200,6 +199,13 @@ bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
   if (fLoadModule(get_id(), get_alias().c_str(), mode)) {
     loaded_ = true;
     loading_ = false;
+    // A reload replaces what startModule started (LUAScript's scripts and
+    // their on_start, Scheduler's run-on-startup schedules), so the module is
+    // owed a new start. The caller gives it once everything the reload loads
+    // is loaded: reload_plugin right away, a service reload after the modules
+    // it enabled. Modules used to start themselves from loadModuleEx instead,
+    // which on a service reload ran ahead of those modules.
+    if (mode == NSCAPI::reloadStart) started_ = false;
     return true;
   }
   return false;
@@ -600,7 +606,9 @@ void nsclient::core::dll_plugin::unload_dll() {
 bool nsclient::core::dll_plugin::getName_(char *buf, unsigned int buflen) {
   if (fGetName == nullptr) return false;
   try {
-    return fGetName(buf, buflen) ? true : false;
+    // Only isSuccess means the module wrote the buffer: a name too long for
+    // it comes back as isInvalidBufferLen (-2), which is non-zero too.
+    return fGetName(buf, buflen) == NSCAPI::api_return_codes::isSuccess;
   } catch (...) {
     return false;
   }
@@ -608,7 +616,7 @@ bool nsclient::core::dll_plugin::getName_(char *buf, unsigned int buflen) {
 bool nsclient::core::dll_plugin::getDescription_(char *buf, unsigned int buflen) {
   if (fGetDescription == nullptr) throw plugin_exception(get_alias_or_name(), "Critical error (fGetDescription)");
   try {
-    return fGetDescription(buf, buflen) ? true : false;
+    return fGetDescription(buf, buflen) == NSCAPI::api_return_codes::isSuccess;
   } catch (...) {
     throw plugin_exception(get_alias_or_name(), "Unhandled exception in getDescription.");
   }

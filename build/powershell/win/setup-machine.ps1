@@ -41,6 +41,35 @@
     Azure VM size. The default is a 1-vCPU size: a subscription's vCPU quota is
     what caps the size of an estate, so halving the vCPUs per machine doubles
     how many fit. Must be a Generation 2 size (every image below is Gen2).
+.PARAMETER ImageUrn
+    Use this Marketplace image ("publisher:offer:sku:version") instead of the
+    one -WindowsVersion picks - for an estate role that needs a workload
+    preinstalled, such as SQL Server Express. Must be a Gen2 image.
+.PARAMETER Modules
+    Extra NSClient++ modules to activate, comma-separated, on top of the
+    standard ones (an estate role's "modules").
+.PARAMETER Role
+    The estate role this machine plays; only recorded in the credentials file.
+.PARAMETER RoleInstallScript
+    A local PowerShell script (an estate role's install fragment) to run on the
+    VM before NSClient++ is installed, with ROLE_PASSWORD in its environment.
+    Its output goes to C:\nscp-role-install.log on the VM; a non-zero exit
+    fails the run with exit code 2.
+.PARAMETER RolePassword
+    The role's throwaway secret, handed to -RoleInstallScript as ROLE_PASSWORD.
+    Defaults to $env:NSCP_ROLE_PASSWORD_<ROLE>, which is how
+    provision-fleet-machines.ps1 passes it: a command line shows in the
+    process list for the whole install.
+.PARAMETER RoleInstallTimeoutMinutes
+    Wall-clock limit for -RoleInstallScript (default 10).
+.PARAMETER LocalSettings
+    An estate role's "localSettings", base64 JSON as provision-fleet-machines.ps1
+    passes it: written into the host's own nsclient.ini with `nscp settings
+    --set` after the modules are activated. A local key beats a bundle's.
+.NOTES
+    Exit codes: 0 done, 1 provisioning/install failed, 2 the role install
+    fragment failed, 3 fleet enrollment failed. run-estate.ps1 reads them to
+    name the stage that failed.
 #>
 param(
     [string]$ResourceGroupName = "NSCP-RG",
@@ -61,7 +90,14 @@ param(
     [switch]$FleetInsecure,
     [switch]$FleetNoVerify,
     [string]$FleetCaFile = "",
-    [string]$VmSize = "Standard_F1as_v7"
+    [string]$VmSize = "Standard_F1as_v7",
+    [string]$ImageUrn = "",
+    [string]$Modules = "",
+    [string]$Role = "",
+    [string]$RoleInstallScript = "",
+    [string]$RolePassword = "",
+    [int]$RoleInstallTimeoutMinutes = 10,
+    [string]$LocalSettings = ""
 )
 
 # Fleet options are all-or-nothing: half of them means a machine that quietly
@@ -85,6 +121,23 @@ if ($FleetToken -and -not $FleetServer) {
 if ($FleetCaFile -and -not (Test-Path $FleetCaFile)) {
     Write-Error "❌ -FleetCaFile '$FleetCaFile' does not exist."
     exit 1
+}
+# Passed through `-File`, so a list arrives as one comma-separated string.
+$extraModules = @($Modules -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+foreach ($m in $extraModules) {
+    if ($m -notmatch '^[A-Za-z0-9_]+$') { Write-Error "❌ -Modules: '$m' is not a module name."; exit 1 }
+}
+if ($RoleInstallScript -or $LocalSettings) {
+    if ($RoleInstallScript -and -not (Test-Path $RoleInstallScript)) { Write-Error "❌ -RoleInstallScript '$RoleInstallScript' does not exist."; exit 1 }
+    . (Join-Path (Split-Path -Parent $PSScriptRoot) "estate/estate-api.ps1")
+}
+if (-not $RolePassword -and $Role) {
+    $RolePassword = [Environment]::GetEnvironmentVariable("NSCP_ROLE_PASSWORD_$($Role.ToUpperInvariant())")
+}
+$localSettingRows = @()
+if ($LocalSettings) {
+    try { $localSettingRows = @(ConvertFrom-EstateLocalSettings -Encoded $LocalSettings) }
+    catch { Write-Error "❌ -LocalSettings: $($_.Exception.Message)"; exit 1 }
 }
 
 # Ensure required modules are installed
@@ -132,7 +185,10 @@ $credential = New-Object System.Management.Automation.PSCredential($AdminUsernam
 Write-Host "● Generated VM admin password."
 
 Write-Host "● Creating resource group: $ResourceGroupName..."
-New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force
+# nscp-created lets estate/cleanup-estate.ps1 tell a group still being set
+# up (no manifest lists it yet) from a leftover.
+New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force `
+    -Tag @{ "nscp-created" = (Get-Date).ToUniversalTime().ToString("o") }
 
 Write-Host "● Configuring virtual network and security rules..."
 $subnetConfig = New-AzVirtualNetworkSubnetConfig -Name "default-subnet" -AddressPrefix "10.0.0.0/24"
@@ -192,6 +248,12 @@ switch ($WindowsVersion) {
 # client rights (Visual Studio / Enterprise Dev-Test / multi-session AVD); a
 # plain pay-as-you-go subscription may reject the image.
 $isClient = $WindowsVersion -in @("windows-10", "windows-11")
+if ($ImageUrn) {
+    $urn = $ImageUrn -split ':'
+    if ($urn.Count -ne 4) { Write-Error "❌ -ImageUrn '$ImageUrn' is not publisher:offer:sku:version."; exit 1 }
+    $PublisherName, $Offer, $Skus, $VmVersion = $urn
+    $isClient = $false
+}
 
 Write-Host "● Creating the Virtual Machine: $VmName with $Skus..."
 if ($isClient) {
@@ -223,6 +285,23 @@ Admin Username: $AdminUsername
 Admin Password: $AdminPassword
 "@ | Set-Content -Path $pwdFile -Force
 Write-Host "● RDP credentials saved to $pwdFile (web password will be added after install)."
+
+# The workload goes on before NSClient++, so the agent finds it already running
+# and the role's checks can be verified as soon as the agent is up.
+if ($RoleInstallScript) {
+    Write-Host "● Running the $Role role install fragment ($(Split-Path -Leaf $RoleInstallScript), up to $RoleInstallTimeoutMinutes min)..."
+    $scriptBlock = New-WindowsRoleInstallScript -FragmentPath $RoleInstallScript -RolePassword $RolePassword `
+        -TimeoutMinutes $RoleInstallTimeoutMinutes
+    $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
+    $messages = @($result.Value | ForEach-Object { $_.Message })
+    $messages | ForEach-Object { $_ }
+    $rc = Get-RoleInstallExitCode -Messages $messages
+    if ($rc -ne 0) {
+        Write-Error "❌ The $Role role install fragment failed (exit $rc); its output is in C:\nscp-role-install.log on the VM."
+        exit 2
+    }
+    Write-Host "✅ Role $Role installed."
+}
 
 Write-Host "● Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
@@ -313,13 +392,13 @@ if (Test-Path `$state) {
     $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
     if ($result.Status -ne "Succeeded") {
         Write-Error "❌ Failed to verify fleet enrollment on VM. Status: $($result.Status)"
-        exit 1
+        exit 3
     }
     $messages = @($result.Value | ForEach-Object { $_.Message })
     $messages | ForEach-Object { $_ }
     if (-not ($messages -match 'FLEET: enrolled')) {
         Write-Error "❌ The machine did not enroll with $FleetServer (see the output above)."
-        exit 1
+        exit 3
     }
     Write-Host "✅ Enrolled with the fleet server."
 }
@@ -346,6 +425,13 @@ $scriptBlock = @"
 # anything without configuration) and keeps the monitoring flow turn-key.
 & 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module NRDPClient
 & 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module Scheduler
+# The estate role's own modules (-Modules), activated here for the same reason.
+$(($extraModules | ForEach-Object { "& 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module $_" }) -join "`n")
+# The estate role's localSettings (-LocalSettings): keys the host's own
+# nsclient.ini must carry, because a local key beats a bundle's (the MSI
+# writes its NRPE preset there).
+# Each key is read back; a miss prints LOCALSETTING-FAILED, checked below.
+$(if ($localSettingRows.Count) { New-EstateLocalSettingsScript -Rows $localSettingRows -Shell powershell })
 
 # Configure Windows Firewall
 New-NetFirewallRule -DisplayName 'NSClient++ HTTPS' -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -ErrorAction SilentlyContinue
@@ -367,6 +453,13 @@ if ($result.Status -ne "Succeeded") {
     exit 1
 }
 $Result.Value | ForEach-Object { $_.Message }
+if ($localSettingRows.Count) {
+    $missed = @(Get-EstateLocalSettingFailures -Messages @($result.Value | ForEach-Object { $_.Message }))
+    if ($missed.Count) {
+        Write-Error "❌ The $Role role's localSettings did not apply: $($missed -join '; ')"
+        exit 2
+    }
+}
 
 if ($SkipVersionCheck) {
     # -PackageUrl without a -Version to compare against (a local build's version
@@ -417,6 +510,8 @@ $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $
 # Save credentials to .vm.pwd file
 if (-not $PwdFile) { $PwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd" }
 $fleetLine = if ($FleetServer) { "`nFleet Server:   $FleetServer" } else { "" }
+if ($Role) { $fleetLine += "`nRole:           $Role" }
+if ($RolePassword) { $fleetLine += "`nRole Password:  $RolePassword" }
 @"
 VM Name:        $VmName
 Resource Group: $ResourceGroupName
@@ -432,7 +527,9 @@ Write-Host "● Credentials saved to $pwdFile"
 Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been installed."
 Write-Host "Connect via RDP: $vmPublicIp"
 Write-Host "Web interface: https://$($vmPublicIp):8443"
-Write-Host "Web password: $WebPassword"
+# The password itself stays in the credentials file: this output ends up in
+# run logs (suite.log) that get attached to issues.
+Write-Host "Credentials file (web password included): $pwdFile"
 Write-Host ""
 Write-Host "Run the acceptance suite against it with:"
-Write-Host "  ./build/powershell/run-tests.ps1 -VmName $VmName -Os windows"
+Write-Host "  `$env:NSCP_TARGET_PWD_FILE = '$pwdFile'; npm --prefix tests run test:live -- live-checks"

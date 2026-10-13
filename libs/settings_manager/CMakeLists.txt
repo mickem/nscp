@@ -10,6 +10,7 @@ set(EXTRA_LIBS)
 set(service_SRCS
     settings_manager_impl.cpp
     settings_handler_impl.cpp
+    settings_validation.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
@@ -75,6 +76,7 @@ NSCP_CREATE_TEST(
     settings_manager_test
     SOURCES
         settings_manager_impl_test.cpp
+        settings_validation_test.cpp
     LIBRARIES
         GTest::gtest_main
         settings_manager

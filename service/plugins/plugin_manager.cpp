@@ -303,6 +303,9 @@ void nsclient::core::plugin_manager::load_permissions() {
                         "Rule table. Each key is a subject pattern (module[:principal]); the value is a comma-separated list of "
                         "object patterns (module.command). Rules merge additively.",
                         true, false);
+    // Every key is a rule the operator names; settings validation must not
+    // report them as unknown.
+    core->register_user_keys(0xffff, policies_section);
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("permissions: failed to register the settings keys: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
@@ -824,9 +827,17 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string &module) {
   const plugin_type plugin = plugin_list_.find_by_alias(module);
   if (plugin) {
     LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
-    plugin->load_plugin(NSCAPI::reloadStart);
+    if (!plugin->load_plugin(NSCAPI::reloadStart)) {
+      LOG_ERROR_CORE_STD("Plugin refused to reload: " + plugin->get_alias_or_name());
+      return false;
+    }
     if (plugin->reload_raced()) {
       LOG_ERROR_CORE_STD("Reloaded " + plugin->get_alias_or_name() + " while calls into it were still running: a check held it for over 5s");
+    }
+    // Every other module is loaded already, so the reloaded one can be
+    // started straight away (see dll_plugin::load_plugin).
+    if (plugin->has_start() && !plugin->start_plugin()) {
+      LOG_ERROR_CORE_STD("Plugin refused to start: " + plugin->get_alias_or_name());
     }
     return true;
   }

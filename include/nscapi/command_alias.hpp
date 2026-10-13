@@ -79,7 +79,7 @@ struct command_object : public nscapi::settings_objects::object_instance_interfa
   void set_command(std::string str) {
     if (str.empty()) return;
     try {
-      str::utils::parse_command(str, command, arguments);
+      str::utils::parse_alias_command(str, command, arguments);
     } catch (const std::exception &e) {
       // No fallback parser. The previous implementation attempted a naive
       // split-on-space with no quote-escape handling, which silently
@@ -134,7 +134,7 @@ inline simple_command_map make_simple_command_map() {
         simple_command def;
         def.name = name;
         try {
-          str::utils::parse_command(raw, def.command, def.arguments);
+          str::utils::parse_alias_command(raw, def.command, def.arguments);
         } catch (const std::exception &e) {
           NSC_LOG_ERROR_STD("Refusing alias '" + name + "' - command line did not parse cleanly: " + utf8::utf8_from_native(e.what()) + " (input: " + raw +
                             ")");

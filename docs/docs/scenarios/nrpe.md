@@ -486,6 +486,17 @@ NSClient++.cpp Injecting: foobar:
 NSClient++.cpp No handler for command: 'foobar'
 ```
 
+A request from an address that is not in `allowed hosts` never gets that far.
+It is dropped on connect, and the log says which address, what the list holds
+and which section to change:
+
+```
+Rejected connection from: 192.168.5.7, not in allowed hosts (127.0.0.1); set `allowed hosts` in /settings/NRPE/server, or in /settings/default if that section does not set it
+```
+
+See the [FAQ](../faq.md#41-rejected-connection-from-your-ip-address-here) for
+what each variant of that line means.
+
 Other useful tools:
 
 - **`openssl s_client -connect 127.0.0.1:5666 -cert client.pem -key client.key`**

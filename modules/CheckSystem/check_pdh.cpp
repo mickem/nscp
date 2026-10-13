@@ -280,18 +280,33 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
     }
   }
   if (!free_counters.empty()) {
+    // open() opens the query and adds the counters to it; a failure after
+    // that is in collecting them. Calling everything "add counter" sent
+    // operators looking at a counter definition that was fine (#648).
+    std::string failure = "Failed to open counter query";
     try {
       pdh.open();
+      failure = "Failed to poll counter";
       if (check_average) {
-        pdh.collect();
+        try {
+          pdh.collect();
+        } catch (const PDH::pdh_no_data_exception &) {
+          // Only the first of the two samples: gatherData() takes the second
+          // one after the sleep, and retries a missing instance itself.
+        }
         Sleep(1000);
       }
-      pdh.gatherData(expand_instance);
+      // Skipping a counter that has no value this tick is what ignore-errors
+      // asks for, and what an expanded wildcard needs (an instance can go away
+      // between expansion and collection). The retry for a missing instance is
+      // skipped under ignore-errors: the result would be the same, a second
+      // later on every poll.
+      pdh.gatherData(ignore_errors || expand_instance, !ignore_errors);
       pdh.close();
     } catch (const PDH::pdh_exception &e) {
       if (!ignore_errors) {
-        NSC_LOG_ERROR_EXR("Failed to poll counter", e);
-        return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
+        NSC_LOG_ERROR_EXR(failure, e);
+        return nscapi::protobuf::functions::set_response_bad(*response, failure + ": " + utf8::utf8_from_native(e.what()));
       } else {
         NSC_DEBUG_MSG_STD("Ignoring counter failure: " + utf8::utf8_from_native(e.what()));
       }

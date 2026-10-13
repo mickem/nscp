@@ -244,11 +244,6 @@ class REGSettings : public settings::settings_interface_impl {
       }
     }
   }
-  settings::error_list validate() {
-    settings::error_list ret;
-    return ret;
-  }
-
   virtual std::string get_info() { return "Registry settings: (" + context_ + "," + root.to_string() + ")"; }
   virtual std::string get_type() { return "registry"; }
 

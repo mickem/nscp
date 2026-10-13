@@ -61,6 +61,7 @@ class MockSettingsInterface : public settings_impl_interface {
   std::vector<RegisteredKey> registered_keys;
   std::vector<RegisteredSubkey> registered_subkeys;
   std::vector<RegisteredTpl> registered_tpls;
+  std::vector<std::string> registered_user_keys;
   std::map<std::string, std::map<std::string, std::string>> settings_data;
   std::map<std::string, string_list> sections_data;
   std::map<std::string, string_list> keys_data;
@@ -82,6 +83,8 @@ class MockSettingsInterface : public settings_impl_interface {
   void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample) override {
     registered_subkeys.push_back({path, title, description, advanced, sample});
   }
+
+  void register_user_keys(std::string path) override { registered_user_keys.push_back(path); }
 
   void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) override {
     registered_tpls.push_back({path, title, icon, description, fields});
@@ -146,6 +149,7 @@ class MockSettingsInterface : public settings_impl_interface {
     registered_paths.clear();
     registered_keys.clear();
     registered_subkeys.clear();
+    registered_user_keys.clear();
     registered_tpls.clear();
     settings_data.clear();
     sections_data.clear();
@@ -532,6 +536,26 @@ TEST_F(SettingsRegistryTest, RegisterPath) {
   EXPECT_EQ("/settings/test", mock_->registered_paths[0].path);
   EXPECT_EQ("Test Path", mock_->registered_paths[0].title);
   EXPECT_EQ("Test path description", mock_->registered_paths[0].description);
+}
+
+// A values path reads every key in its section, so validation has to accept
+// any key there; one with a subkey description is already marked that way.
+TEST_F(SettingsRegistryTest, ValuesPathDeclaresUserKeys) {
+  settings_registry registry(mock_);
+  std::map<std::string, std::string> roles, targets;
+
+  // clang-format off
+  registry.add_path_to_settings()
+      ("roles", string_map_path(&roles), "Roles", "Role list")
+      ("targets", string_map_path(&targets), "Targets", "Target list", "TARGET", "A target")
+      ("plain", "Plain", "No values");
+  // clang-format on
+
+  registry.register_all();
+
+  EXPECT_EQ(std::vector<std::string>({"/settings/roles"}), mock_->registered_user_keys);
+  ASSERT_EQ(1u, mock_->registered_subkeys.size());
+  EXPECT_EQ("/settings/targets", mock_->registered_subkeys[0].path);
 }
 
 TEST_F(SettingsRegistryTest, NotifyKey) {

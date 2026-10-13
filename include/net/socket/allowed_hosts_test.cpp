@@ -20,7 +20,9 @@ TEST(AllowedHostsTest, EmptyConfigRejectsAll) {
   std::list<std::string> errors;
   EXPECT_FALSE(manager.is_allowed(make_address("127.0.0.1"), errors));
   EXPECT_FALSE(manager.is_allowed(make_address("::1"), errors));
-  EXPECT_FALSE(errors.empty()) << "rejection should produce a clear error message";
+  const std::string msg = manager.rejection_message(make_address("127.0.0.1"), errors);
+  EXPECT_NE(msg.find("allowed hosts is empty"), std::string::npos) << msg;
+  EXPECT_NE(msg.find("0.0.0.0/0,::/0"), std::string::npos) << msg;
 }
 
 TEST(AllowedHostsTest, ExplicitAllAllowsAll) {
@@ -187,4 +189,107 @@ TEST(AllowedHostsTest, AnUnparseableNumericAddressIsReportedNotThrown) {
   EXPECT_FALSE(errors.empty());
   // The good entry in the same list still works.
   EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+}
+
+// ---------------------------------------------------------------------------
+// rejection_message(): the one line a rejected connection logs (#657).
+// ---------------------------------------------------------------------------
+
+namespace {
+allowed_hosts_manager configured(const std::string &source, const std::string &path = "/settings/NRPE/server") {
+  allowed_hosts_manager manager;
+  manager.set_settings_path(path);
+  manager.set_source(source);
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  return manager;
+}
+bool contains(const std::string &haystack, const std::string &needle) { return haystack.find(needle) != std::string::npos; }
+}  // namespace
+
+TEST(AllowedHostsRejection, AnAddressNotInTheListSaysWhoWhatAndWhere) {
+  allowed_hosts_manager manager = configured("127.0.0.1,::1,10.0.0.0/24");
+  std::list<std::string> errors;
+  ASSERT_FALSE(manager.is_allowed(make_address("192.168.5.7"), errors));
+  // A plain miss is not a problem with the list: the message carries the reason.
+  EXPECT_TRUE(errors.empty());
+
+  EXPECT_EQ(manager.rejection_message(make_address("192.168.5.7"), errors),
+            "Rejected connection from: 192.168.5.7, not in allowed hosts (127.0.0.1, ::1, 10.0.0.0/24); set `allowed hosts` in "
+            "/settings/NRPE/server, or in /settings/default if that section does not set it");
+}
+
+TEST(AllowedHostsRejection, AV4MappedClientIsNamedByItsV4Address) {
+  // What a dual-stack listener reports for a v4 client; the list holds the v4 form.
+  const allowed_hosts_manager manager = configured("127.0.0.1");
+  const std::string msg = manager.rejection_message(make_address("::ffff:10.1.2.3"), {});
+  EXPECT_TRUE(contains(msg, "Rejected connection from: 10.1.2.3,")) << msg;
+}
+
+TEST(AllowedHostsRejection, AV4MappedMissIsNotReportedAsAListProblem) {
+  // It used to append "IP address not allowed" twice, once per form tried.
+  allowed_hosts_manager manager = configured("127.0.0.1");
+  std::list<std::string> errors;
+  EXPECT_FALSE(manager.is_allowed(make_address("::ffff:10.1.2.3"), errors));
+  EXPECT_TRUE(errors.empty());
+}
+
+TEST(AllowedHostsRejection, AnUnusableCachedListPointsAtTheLoadTimeErrors) {
+  // The default: the module parses the list once at load and logs its errors
+  // there, so an accept has nothing in `errors` to append.
+  allowed_hosts_manager manager;
+  manager.cached = true;
+  manager.set_source("192.168.1.999");
+  std::list<std::string> load_errors;
+  manager.refresh(load_errors);
+  ASSERT_FALSE(load_errors.empty());
+
+  std::list<std::string> errors;
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.1.1"), errors));
+  EXPECT_TRUE(errors.empty());
+  const std::string msg = manager.rejection_message(make_address("192.168.1.1"), errors);
+  EXPECT_TRUE(contains(msg, "no entry in allowed hosts could be used (192.168.1.999)")) << msg;
+  EXPECT_FALSE(contains(msg, "problems with the list")) << msg;
+  EXPECT_TRUE(contains(msg, "logged when the module loaded")) << msg;
+}
+
+TEST(AllowedHostsRejection, AnUnusableUncachedListCarriesItsErrors) {
+  // `cache allowed hosts = false`: is_allowed() re-reads the list on every
+  // connection, so the reasons are fresh and ride the rejection line.
+  allowed_hosts_manager manager;
+  manager.cached = false;
+  manager.set_source("192.168.1.999");
+
+  std::list<std::string> errors;
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.1.1"), errors));
+  ASSERT_FALSE(errors.empty());
+  const std::string msg = manager.rejection_message(make_address("192.168.1.1"), errors);
+  EXPECT_TRUE(contains(msg, "no entry in allowed hosts could be used (192.168.1.999)")) << msg;
+  EXPECT_TRUE(contains(msg, "; problems with the list: ")) << msg;
+  EXPECT_FALSE(contains(msg, "logged when the module loaded")) << msg;
+}
+
+TEST(AllowedHostsRejection, ALongListIsCapped) {
+  std::string source;
+  for (int i = 1; i <= 13; i++) source += (source.empty() ? "" : ",") + std::string("10.0.0.") + std::to_string(i);
+  const allowed_hosts_manager manager = configured(source);
+  const std::string msg = manager.rejection_message(make_address("192.168.0.1"), {});
+  EXPECT_TRUE(contains(msg, "10.0.0.10, ... (3 more))")) << msg;
+  EXPECT_FALSE(contains(msg, "10.0.0.11")) << msg;
+}
+
+TEST(AllowedHostsRejection, WithoutASettingsPathTheSettingIsStillNamed) {
+  const allowed_hosts_manager manager = configured("127.0.0.1", "");
+  const std::string msg = manager.rejection_message(make_address("10.0.0.1"), {});
+  EXPECT_TRUE(contains(msg, "set `allowed hosts` in the module's server section, or in /settings/default")) << msg;
+}
+
+TEST(AllowedHostsRejection, TheSettingsPathSurvivesACopy) {
+  // connection_info, and with it the manager, is copied into each server.
+  const allowed_hosts_manager manager = configured("127.0.0.1", "/settings/NSCA/server");
+  const allowed_hosts_manager copy(manager);
+  allowed_hosts_manager assigned;
+  assigned = manager;
+  EXPECT_EQ(copy.settings_path, "/settings/NSCA/server");
+  EXPECT_EQ(assigned.settings_path, "/settings/NSCA/server");
 }

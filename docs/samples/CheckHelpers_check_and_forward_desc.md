@@ -30,6 +30,14 @@ channel, or the client module failed to send). It does **not** return the status
 of the wrapped check — that status is what was submitted, and is visible on the
 monitoring server.
 
+Run as `nscp client --boot --query check_and_forward ...`, the wrapped check runs
+in a freshly started process. Checks that answer from a background collector
+(`check_cpu`, `check_load`, `check_network`, `check_disk_io`, …) have nothing
+sampled yet there, and submit their warm-up result rather than a reading — see
+[collector-backed checks](../../concepts/checks.md#8-collector-backed-checks-and-warm-up).
+To forward one of those, call `check_and_forward` on the running agent instead,
+for example over the REST API as shown in the samples.
+
 !!! note
 
     The wrapped check runs with the permissions of whoever called

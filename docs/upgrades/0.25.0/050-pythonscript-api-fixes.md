@@ -28,7 +28,8 @@ turned up these, now fixed:
   existed. The option is `--replace`, and the message now says so.
 - `nscp py show --script <name>` prints the script and `nscp py delete --script
   <name>` deletes it and removes every `/settings/python/scripts` entry that
-  loads it, however the entry is written. Both
+  loads it, however the entry is written - for a symlink, the entries that
+  load the link, never those of the file it points at. Both
   answered with nothing before, so `GET` and `DELETE` on
   `/api/v2/scripts/py/<name>` returned an empty `200` and changed nothing.
   They now act, on files under `${scripts}/python` only, symlinks resolved.

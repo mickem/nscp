@@ -4,11 +4,11 @@
 #pragma once
 
 extern "C" {
+#include <lauxlib.h>
 #include <lua.h>
 }
 
 #include <boost/thread/recursive_mutex.hpp>
-
 #include <list>
 #include <lua/lua_script.hpp>
 #include <memory>
@@ -75,14 +75,39 @@ struct lua_runtime : public scripts::script_runtime_interface<lua::lua_traits> {
 
   void register_plugin(lua_runtime_plugin_type plugin) { plugins.push_back(plugin); }
 
-  static lua_State *prep_function(const lua::script_information *information, const lua::lua_traits::function_type &c) {
-    lua_State *L = information->user_data.L;
+  // The stack one call into a script runs on: a Lua thread of its own, sharing
+  // the script's globals and registry, anchored in the registry for as long as
+  // the call lasts. Construct and destroy it under the GIL.
+  //
+  // Calls used to run on the script's main lua_State. The GIL is released while
+  // a handler sleeps or calls back into the core, and another thread may then
+  // enter the same script - a second NRPE request, a scheduler tick - which
+  // pushed its frames onto the stack the parked call was still running on. Two
+  // concurrent nscp.sleep calls in one script were enough to crash the agent
+  // with an access violation inside lua.dll.
+  class call_state {
+   public:
+    explicit call_state(const lua::script_information *information) : main_(information->user_data.L) {
+      L = lua_newthread(main_);
+      // Pops the thread off the main stack and keeps it alive until unref.
+      ref_ = luaL_ref(main_, LUA_REGISTRYINDEX);
+    }
+    ~call_state() { luaL_unref(main_, LUA_REGISTRYINDEX, ref_); }
+    call_state(const call_state &) = delete;
+    call_state &operator=(const call_state &) = delete;
+    lua_State *L;
+
+   private:
+    lua_State *main_;
+    int ref_;
+  };
+
+  static lua_State *prep_function(lua_State *L, const lua::lua_traits::function_type &c) {
     lua_rawgeti(L, LUA_REGISTRYINDEX, c.function_ref);
     if (c.object_ref != 0) lua_rawgeti(L, LUA_REGISTRYINDEX, c.object_ref);
     return L;
   }
-  static lua_State *prep_function(const lua::script_information *information, const std::string &f) {
-    lua_State *L = information->user_data.L;
+  static lua_State *prep_function(lua_State *L, const std::string &f) {
     lua_getglobal(L, f.c_str());
     return L;
   }

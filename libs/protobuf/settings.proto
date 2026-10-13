@@ -30,6 +30,11 @@ option optimize_for = LITE_RUNTIME;
 		repeated string plugin = 9;
 		bool subkey = 12;
 		string type = 15;
+		// A registration carrying only this flag (and the path) says the
+		// path's keys are named by the user - a values path read whole, such
+		// as a list of roles or queries - without making it an object
+		// collection the way `subkey` does. The validator reads it.
+		bool user_keys = 16;
 	};
 	enum Command {
 		DUMMY	= 0;
@@ -82,6 +87,10 @@ message SettingsRequestMessage {
 			Node node = 1;
 			bool recursive = 2;
 		};
+		// Compare the saved configuration against what the loaded modules
+		// registered (settings_core::validate()).
+		message Validate {
+		};
 		int64 id = 1;
 		int32 plugin_id = 3;
 
@@ -92,6 +101,7 @@ message SettingsRequestMessage {
 		Control control = 14;
 		Status status = 15;
 		Diff diff = 16;
+		Validate validate = 17;
 	};
 	PB.Common.Header header = 1;
 	repeated Request payload = 2;
@@ -135,6 +145,31 @@ message SettingsResponseMessage {
 			};
 			repeated Entry entries = 1;
 		};
+		message Validate {
+			// Mirrors settings::validation_finding::kind.
+			enum Kind {
+				ORPHAN_KEY = 0;
+				RELATIVE_PATH = 1;
+				UNKNOWN_PATH = 2;
+				UNKNOWN_KEY = 3;
+				UNUSED_PATH = 4;
+				UNUSED_KEY = 5;
+			};
+			enum Severity {
+				WARNING = 0;
+				INFO = 1;
+			};
+			message Finding {
+				Kind kind = 1;
+				Severity severity = 2;
+				string source = 3;
+				string path = 4;
+				string key = 5;
+				string suggestion = 6;
+				string message = 7;
+			};
+			repeated Finding findings = 1;
+		};
 		int64 id = 1;
 		PB.Common.Result result = 2;
 
@@ -145,6 +180,7 @@ message SettingsResponseMessage {
 		Control control = 14;
 		Status status = 15;
 		Diff diff = 16;
+		Validate validate = 17;
 	};
 
 	PB.Common.Header header = 1;

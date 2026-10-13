@@ -1,16 +1,15 @@
 # Metrics
 
 NSClient++ exposes the metrics gathered by the running modules
-(`CheckSystem`, `CheckDisk`, …) through three endpoints:
+(`CheckSystem`, `CheckDisk`, …) through two endpoints:
 
 * [List metrics](#list-metrics) — `/api/v2/metrics` (JSON), with
   [`?meta=1`](#described-metrics) for what each metric means
 * [OpenMetrics](#openmetrics) — `/api/v2/openmetrics` (text exposition)
-* [Legacy /metrics](#legacy-metrics) — root `/metrics` (nested JSON)
 
 The current API (`/api/v2`) only exposes metrics on `/api/v2`. There is no
-`/api/v1/metrics` route — `/api/v1` clients should use the legacy `/metrics`
-endpoint described below.
+`/api/v1/metrics` route, and no root `/metrics` one either (see
+[Legacy /metrics](#legacy-metrics)).
 
 Modules that submit metrics push them through the core's metrics bus. The
 WEBServer caches the latest snapshot; reads are non-blocking and serve the
@@ -401,51 +400,9 @@ curl -s -k -u admin https://localhost:8443/api/v2/openmetrics
 
 ## Legacy /metrics
 
-The legacy controller exposes a `/metrics` endpoint at the root (no
-`/api/` prefix) that returns a nested-object form of the same data. This
-endpoint pre-dates the `/api/v*` controllers and is preserved for backward
-compatibility.
-
-| Key       | Value     |
-|-----------|-----------|
-| Verb      | GET       |
-| Address   | /metrics  |
-| Privilege | legacy    |
-
-### Request
-
-```
-GET /metrics
-```
-
-### Response
-
-```json
-{
-    "system": {
-        "cpu": {
-            "total": {
-                "5m": 12,
-                "1m": 8,
-                "5s": 6
-            }
-        },
-        "mem": {
-            "physical": { "percent": 73 },
-            "committed": { "percent": 81 }
-        },
-        "uptime": 36370
-    }
-}
-```
-
-### Example
-
-```
-curl -s -k -u admin https://localhost:8443/metrics | python -m json.tool
-```
-
-New integrations should prefer `/api/v2/metrics` (flat keys) or
-`/api/v2/openmetrics` (Prometheus); the legacy nested form is harder to
-consume and is gated behind the broad `legacy` privilege rather than a
-dedicated `metrics.*` grant.
+Earlier documentation described a root `/metrics` endpoint (no `/api/`
+prefix) returning a nested-object form of the same data. Current releases
+never served it: the web UI's static file handler answers every URL starting with
+`/metrics` with the UI's `index.html`, so a request for it got the web UI
+back. The route has been removed. Use `/api/v2/metrics` (flat keys) or
+`/api/v2/openmetrics` (Prometheus) instead.

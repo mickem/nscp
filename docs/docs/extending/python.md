@@ -28,7 +28,7 @@ The key is the script's alias, and `add` uses the file name unless you pass `--a
 
 | Command                                               | What it does                                                                 |
 |-------------------------------------------------------|------------------------------------------------------------------------------|
-| `nscp py list [--json]`                               | List the files under `${scripts}/python` (helpers in `lib` are left out)      |
+| `nscp py list [--json] [--include-lib]`               | List the files under `${scripts}/python`; helpers in a `lib` folder only with `--include-lib` |
 | `nscp py add --script <file> [--alias <name>]`        | Configure a script and enable the module; `--no-config` loads it without saving |
 | `nscp py add --script <file> --import <path> [--replace]` | Copy a script into `${scripts}/python` first; an existing file is only overwritten with `--replace` |
 | `nscp py show --script <file>`                        | Print a script                                                               |
@@ -344,7 +344,9 @@ Registry.cmdline(command_name, function)
 
 Register a **command-line command** with a protobuf-based callback. Use `simple_cmdline` unless you
 need raw access. A command-line command is run with `nscp client --module PythonScript --exec <command>
-[arguments...]`, or from a script with [`Core.simple_exec`](#coresimple_exec).
+[arguments...]`, or from a script with [`Core.simple_exec`](#coresimple_exec). The module's own verbs
+come first, so a command registered under one of their names is never reached: `help`, `execute`,
+`python-script`, `add`, `install`, `list`, `show` and `delete`.
 
 | Option         | Description                                                       |
 |----------------|-------------------------------------------------------------------|

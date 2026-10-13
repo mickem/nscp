@@ -52,7 +52,20 @@ class settings_handler_impl : public settings_core {
     // key, not of which consumer happens to be enabled, so seed it here.
     sensitive_keys_.emplace(make_sensitive_key("/settings/default", "password"));
   }
-  virtual ~settings_handler_impl() { destroy_all_instances(); }
+  // A destructor is noexcept: destroy_all_instances() throws when it cannot
+  // take the instance mutex within its timeout, and letting that escape here
+  // calls std::terminate(). The instance_ member is released by the member
+  // destructors either way, so the only thing lost is the lock around it.
+  virtual ~settings_handler_impl() {
+    try {
+      destroy_all_instances();
+    } catch (const std::exception &e) {
+      try {
+        logger_->error("settings", __FILE__, __LINE__, std::string("Failed to destroy settings instances: ") + e.what());
+      } catch (...) {
+      }
+    }
+  }
   bool is_ready() { return ready_flag; }
   void set_ready(bool flag = true) { ready_flag = flag; }
   bool is_dirty() { return dirty_flag; }
@@ -80,7 +93,7 @@ class settings_handler_impl : public settings_core {
   /// @return the path to the settings files
   boost::filesystem::path get_base() { return base_path_; }
 
-  settings::error_list validate();
+  settings::validation_result validate(bool complete_registry = false) override;
 
   void house_keeping();
 
@@ -206,6 +219,16 @@ class settings_handler_impl : public settings_core {
         registred_paths_[path].subkey = subkey_description(title, description, advanced, is_sample);
       }
     }
+  }
+
+  void register_user_keys(unsigned int plugin_id, const std::string &path) override {
+    boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+    if (!writeLock.owns_lock()) {
+      throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
+    }
+    reg_paths_type::iterator it = registred_paths_.find(path);
+    if (it == registred_paths_.end()) it = registred_paths_.emplace(path, path_description(plugin_id)).first;
+    it->second.user_keys = true;
   }
 
   //////////////////////////////////////////////////////////////////////////

@@ -21,9 +21,30 @@ LUAScript = enabled
 my_script = my_script.lua
 ```
 
-Scripts are resolved against `${scripts}` (typically `scripts/lua/`) and may be specified with or
-without the `.lua` extension. A `lib/` folder under `scripts/lua/` is added to `package.path`
-automatically, so shared helpers can live in `scripts/lua/lib/`.
+The key is the script's alias, and `add` uses the file name without `.lua` unless you pass
+`--alias my_script`. Scripts are resolved against `${scripts}` (typically `scripts/lua/`) and may be
+specified with or without the `.lua` extension. A `lib/` folder under `scripts/lua/` is added to
+`package.path` automatically, so shared helpers can live in `scripts/lua/lib/`.
+
+## Managing scripts
+
+| Command                                                    | What it does                                                                 |
+|------------------------------------------------------------|------------------------------------------------------------------------------|
+| `nscp lua list [--json] [--include-lib]`                   | List the files under `${scripts}/lua`; helpers in a `lib` folder only with `--include-lib` |
+| `nscp lua add --script <file> [--alias <name>]`            | Configure a script and enable the module; `--no-config` leaves the configuration alone |
+| `nscp lua add --script <file> --import <path> [--replace]` | Copy a script into `${scripts}/lua` first; an existing file is only overwritten with `--replace` |
+| `nscp lua show --script <file>`                            | Print a script                                                               |
+| `nscp lua delete --script <file>`                          | Delete a script and every `[/settings/lua/scripts]` entry that loads it      |
+| `nscp lua install --add <file>` / `--remove <file>`        | Add or remove a configured script                                            |
+| `nscp lua execute --script <file> [args...]`               | Run a script's `main` (see below)                                            |
+
+A script added this way loads the next time LUAScript loads or reloads. `show` and `delete` only reach
+`${scripts}/lua`; a name that resolves anywhere else is refused, and so is a path through a symlinked
+folder that leads out of it. `show` reads a symlink only when its target is inside the folder too.
+`delete` removes the entry in the folder - a file, or a symlink itself, whatever it points at,
+dangling or not - and never what a link points to. A deleted script stays loaded until the module
+reloads. The same operations are available over REST under
+[`/api/v2/scripts/lua`](../api/rest/scripts.md).
 
 ## Lifecycle
 
@@ -31,9 +52,20 @@ A Lua script can hook into three lifecycle moments:
 
 - **Top-level code** — runs once when the script is loaded. Use this to register check commands,
   channel subscriptions, and event handlers.
-- `on_start` — optional global function, invoked after every script has loaded. Use it for work that
-  needs other modules to be ready.
+- `on_start` — optional global function, invoked once every script and every module has loaded. Use
+  it for work that needs other modules to be ready.
 - `main` — optional global function, invoked when the script is run from the command line.
+
+A script that does not parse, or whose top-level code raises an error, is logged and never started:
+its `on_start` does not run, though whatever its top-level code registered before the error stays
+registered. An `on_start` that raises is logged. Either way the other scripts load and start
+regardless.
+
+A reload of the module (`Core():reload("LUAScript")`, or a reload of the service) loads every script
+afresh: the top-level code runs again in a new Lua state, so any state a script kept in its variables
+starts over, and `on_start` runs again once the reload is complete - on a reload of the service, after
+any module the same reload enabled has loaded. Commands and channels a script no longer registers -
+because it was deleted, or changed - are gone after the reload.
 
 ### Top-level code
 
@@ -71,8 +103,9 @@ end
 nscp lua execute --script my_script.lua install --root /tmp
 ```
 
-The function receives the command-line arguments as an array (Lua table) and must return a
-2-tuple `(code, message)`:
+The script is loaded as a second copy for the run - its top-level code runs, `on_start` does not -
+and `main` receives the command-line arguments as an array (Lua table). It must return a 2-tuple
+`(code, message)`; a script with no `main` fails with `Failed to handle command main`:
 
 ```lua
 function main(args)
@@ -95,7 +128,25 @@ Throughout the API, status codes are represented as **strings**:
 | `"unknown"`| Nagios unknown    |
 
 The wrapper also accepts the corresponding integer codes (`0`/`1`/`2`/`3`) on input, but always
-produces strings when handing values to your callbacks. Prefer the string form in your own code.
+produces strings when handing values to your callbacks. Prefer the string form in your own code. Any
+other value - a string not in the table, or an integer outside `0`-`3` - is read as `"unknown"`.
+
+## Errors in handlers
+
+A handler that raises an error does not take the agent down. The caller gets an answer it can act on,
+and the error is logged:
+
+| Handler                      | Raises an error                                            | Returns no status                                                 |
+|------------------------------|------------------------------------------------------------|-------------------------------------------------------------------|
+| `simple_query` (a check)     | `unknown`, `Failed to handle command: <command>: <error>`  | `unknown`, `Invalid return from <command>: expected (code, message, perf)` |
+| `simple_cmdline`             | `Failed to handle command: <command>: <error>`, non-zero exit | `Invalid return from <command>: expected (code, message)`, non-zero exit |
+| `simple_subscription`        | the submission fails with `Failed to handle channel: <channel>: <error>` | the submission fails                                  |
+
+The message and the performance data are optional: a handler that returns only `"warning"` is a
+warning with an empty message.
+
+A call into the API with too few arguments raises a Lua error naming the expected syntax (for example
+`Incorrect syntax: simple_query(command, args)`), which the script can catch with `pcall`.
 
 ## API
 
@@ -178,11 +229,45 @@ code, message, perf = core:simple_query(command, args)
 ```
 
 Run a check command. `args` can be a Lua table of argument strings or a single argument string.
-Returns the Nagios status string, the message, and the performance data.
+Returns the Nagios status string, the message, and the performance data. A command nobody registered
+returns `"unknown"` and `Unknown command(s): <command>`.
 
 ```lua
 local code, msg, perf = core:simple_query("check_cpu", {"warn=load > 80", "crit=load > 90"})
 nscp.info(string.format("%s: %s (%s)", code, msg, perf))
+```
+
+#### `Core:query_target`
+
+```lua
+code, message, perf = core:query_target(target, command, args)
+```
+
+Like `simple_query`, but the request names `target` - one configured for a client module, such as
+`[/settings/NRPE/client/targets/<target>]` - in its header. A client module's query command that is
+given no `target=` of its own, such as `nrpe_query`, runs on the target named there. `args` can be a
+Lua table or a single string.
+
+```lua
+local code, msg = Core():query_target("backup-server", "nrpe_query", {"command=check_cpu"})
+```
+
+Only a command that takes its target from the request does anything with it: any other command - one a
+module or script on this agent serves - runs here as `simple_query` would, whatever `target` says. To
+run an arbitrary command on a remote agent, use `query_forward`.
+
+#### `Core:query_forward`
+
+```lua
+code, message, perf = core:query_forward(forward_command, target, command, args)
+```
+
+Relay a command to a target through a client module's forwarding command (`nrpe_forward` for NRPE).
+Unlike `query_target`, the command and its arguments are sent on the wire exactly as given, so the
+remote agent receives them unchanged. Returns the remote answer.
+
+```lua
+local code, msg, perf = Core():query_forward("nrpe_forward", "backup-server", "check_drivesize", {"drive=C:"})
 ```
 
 #### `Core:query`
@@ -215,11 +300,23 @@ local ok, resp = core:query(req)
 code, results = core:simple_exec(target, command, args)
 ```
 
-Execute a command-line command against `target`. `target` is a remote NSClient++ instance name, or
-`""` for in-process. `results` is a Lua array of result strings.
+Execute a command-line command - one a script registered with `Registry:simple_cmdline`, or one a
+module provides. `args` is a Lua table. `target` picks the module to run it in:
+
+| `target`               | Runs the command in                         |
+|------------------------|---------------------------------------------|
+| a module name or alias | that module (`"LUAScript"`, `"CheckSystem"`) |
+| `"any"`                | the first module that has the command       |
+| `"all"` or `"*"`       | every module that has the command           |
+
+The name is matched as a substring of each module's name. Avoid `""`: it matches every module as
+though each had been named. `code` is the status string the command answered with, and `results` a
+Lua array of strings, one per module that answered. When nothing could run it - no such module, or no
+such command in it - `code` is `"unknown"` and `results` holds the reason,
+`Failed to execute <command> on <target>`.
 
 ```lua
-local code, lines = core:simple_exec("", "list-modules", {})
+local code, lines = core:simple_exec("LUAScript", "say_hello", {"world"})
 for _, line in ipairs(lines) do nscp.info(line) end
 ```
 
@@ -239,6 +336,10 @@ Submit a passive check result on a channel (e.g. `"NSCA"`, `"NRDP"`).
 | `message` | Message text                                     |
 | `perf`    | Performance data string                          |
 
+`ok` is `true` when every handler on the channel accepted the result, and `response` is what it
+answered. A handler that rejects it makes `ok` `false`, with the handler's message; a channel nobody
+listens on returns `false` and `Failed to submit message: <channel>`.
+
 ```lua
 core:simple_submit("NSCA", "check_battery", "warning", "Battery low (15%)", "")
 ```
@@ -249,16 +350,26 @@ core:simple_submit("NSCA", "check_battery", "warning", "Battery low (15%)", "")
 core:reload(module)
 ```
 
-Reload the given module by name. Pass `"service"` to reload the entire service.
+Reload the given module by name. Pass `"service"` to reload the entire service. A script that asks
+for its own module (`"LUAScript"`) to be reloaded gets its answer first: the core runs the reload once
+the call has returned, and the script then starts over as described under [Lifecycle](#lifecycle).
 
 #### `Core:log`
 
 ```lua
-core:log(level, message)
+core:log([level], message)
 ```
 
-Log a message at the specified level. `level` is a string: `"info"`, `"error"`, `"debug"`, etc.
-`nscp.info()` / `nscp.error()` are usually more convenient.
+Log a message at the specified level, or at `"info"` when only the message is given. `level` is a
+string: `"info"`, `"error"`, `"debug"`, etc. The
+line is attributed to the script and the line that called `log`. `nscp.info()` / `nscp.error()` are
+usually more convenient.
+
+#### Not implemented
+
+`Core:exec` and `Core:submit`, the raw protobuf variants of `simple_exec` and `simple_submit`, are not
+implemented: calling one raises the Lua error `Unsupported API called: Core:exec` (or `Core:submit`).
+Use the simple variants.
 
 ### Registry
 
@@ -316,8 +427,11 @@ where `response_bytes` is a serialized `QueryResponseMessage`.
 reg:simple_cmdline(name, function, description)
 ```
 
-Register a **command-line command** invoked via `nscp ext --command <name>`. Callback signature is
-`(command, args) -> (code, message)`:
+Register a **command-line command**, run with `nscp client --module LUAScript --exec <name> [args...]`
+or from a script with `Core:simple_exec`. Callback signature is `(command, args) -> (code, message)`.
+
+The module's own verbs come first, so a handler registered under one of their names is never reached:
+`help`, `execute`, `lua-script`, `lua-run`, `add`, `install`, `list`, `show` and `delete`.
 
 ```lua
 local function do_something(command, args)
@@ -348,7 +462,7 @@ end
 Registry():simple_subscription("MY-CHANNEL", on_submit, "Custom submission handler")
 ```
 
-Return `(success_bool, message)`.
+Return `(success_bool, message)`. Returning `false` fails the submission.
 
 To route real-time submissions through your handler, point a filter or client at the channel name
 you registered:
@@ -363,6 +477,11 @@ log=Security
 filter=id=4624
 target=MY-CHANNEL
 ```
+
+#### `Registry:cmdline` / `Registry:subscription`
+
+The raw protobuf variants of `simple_cmdline` and `simple_subscription` are not implemented: calling
+one raises the Lua error `Unsupported API called: Registry:cmdline` (or `Registry:subscription`).
 
 ### Settings
 
@@ -410,7 +529,8 @@ value = config:get_bool(path, key, default)
 config:set_bool(path, key, value)
 ```
 
-Read or write a boolean.
+Read or write a boolean. `true`, `1` and `yes` read as `true`; any other value reads as `false`, and
+`default` is returned only when the key is not set.
 
 #### `Settings:get_int` / `Settings:set_int`
 
@@ -419,7 +539,7 @@ value = config:get_int(path, key, default)
 config:set_int(path, key, value)
 ```
 
-Read or write an integer.
+Read or write an integer. A value that is not a number reads as `default`.
 
 ```lua
 local port = Settings():get_int("/settings/NRPE/server", "port", 5666)

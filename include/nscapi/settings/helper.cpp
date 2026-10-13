@@ -528,6 +528,11 @@ void settings_registry::register_all() const {
     core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced, v->is_sample);
     if (v->is_subkey) {
       core_->register_subkey(v->path_name, v->subkey_description.title, v->subkey_description.description, v->subkey_description.advanced, true);
+    } else if (v->path) {
+      // A values path (fun_values_path, string_map_path) reads every key in
+      // the section: roles, predefined queries, aliases. Say so, or settings
+      // validation takes a user-named entry for a misspelling of a default.
+      core_->register_user_keys(v->path_name);
     }
   }
   for (const tpl_list_type::value_type &v : tpl_) {

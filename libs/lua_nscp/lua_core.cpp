@@ -19,6 +19,25 @@ boost::recursive_mutex &lua::lua_gil::mutex() {
   return m;
 }
 
+namespace {
+// pcall pads a handler's results to the count asked for, so a value the
+// handler did not return is a nil in its slot - never a short stack. The
+// handlers used to count the stack instead, which never came up short on a
+// query (a missing message read as the string "NIL") and always did on a
+// command-line handler, whose every answer was refused as an invalid return.
+bool top_is_nil(lua::lua_wrapper &lua) { return lua_isnil(lua.L, -1) != 0; }
+
+// The string on top of the stack, or "" for a nil: a handler that returns only
+// a status has no message.
+std::string pop_optional_string(lua::lua_wrapper &lua) {
+  if (top_is_nil(lua)) {
+    lua.pop();
+    return "";
+  }
+  return lua.pop_string();
+}
+}  // namespace
+
 void lua::lua_runtime::register_query(const std::string &command, const std::string &description) {
   throw lua_exception("The method or operation is not implemented(reg_query).");
 }
@@ -31,7 +50,8 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
                                 const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                 const PB::Commands::QueryRequestMessage &request_message) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  call_state call(information);
+  lua_wrapper lua(prep_function(call.L, function));
   int args = 2;
   if (function.object_ref != 0) args = 3;
   if (simple) {
@@ -41,16 +61,16 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
     lua.push_array(argslist);
     if (lua.pcall(args, 3, 0) != 0)
       return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command: " + command + ": " + lua.pop_string());
-    NSCAPI::nagiosReturn ret = NSCAPI::query_return_codes::returnUNKNOWN;
-    if (lua.size() < 3) {
-      NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
-      nscapi::protobuf::functions::append_simple_query_response_payload(response, command, NSCAPI::query_return_codes::returnUNKNOWN, "Invalid return", "");
+    const std::string perf = pop_optional_string(lua);
+    const std::string msg = pop_optional_string(lua);
+    if (top_is_nil(lua)) {
+      lua.pop();
+      const std::string error = "Invalid return from " + command + ": expected (code, message, perf)";
+      NSC_LOG_ERROR_STD(error);
+      nscapi::protobuf::functions::append_simple_query_response_payload(response, command, NSCAPI::query_return_codes::returnUNKNOWN, error, "");
       return;
     }
-    std::string msg, perf;
-    perf = lua.pop_string();
-    msg = lua.pop_string();
-    ret = lua.pop_code();
+    const NSCAPI::nagiosReturn ret = lua.pop_code();
     lua.gc(LUA_GCCOLLECT, 0);
     nscapi::protobuf::functions::append_simple_query_response_payload(response, command, ret, msg, perf);
   } else {
@@ -76,18 +96,19 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
 void lua::lua_runtime::exec_main(script_information *information, const std::vector<std::string> &opts,
                                  PB::Commands::ExecuteResponseMessage::Response *response) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, "main"));
+  call_state call(information);
+  lua_wrapper lua(prep_function(call.L, "main"));
   lua.push_array(opts);
   if (lua.pcall(1, 2, 0) != 0) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command main: " + lua.pop_string());
-  NSCAPI::nagiosReturn ret = NSCAPI::exec_return_codes::returnERROR;
-  if (lua.size() < 2) {
-    NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
-    nscapi::protobuf::functions::append_simple_exec_response_payload(response, "", NSCAPI::exec_return_codes::returnERROR, "Invalid return");
+  const std::string msg = pop_optional_string(lua);
+  if (top_is_nil(lua)) {
+    lua.pop();
+    const std::string error = "Invalid return from main: expected (code, message)";
+    NSC_LOG_ERROR_STD(error);
+    nscapi::protobuf::functions::append_simple_exec_response_payload(response, "", NSCAPI::exec_return_codes::returnERROR, error);
     return;
   }
-  std::string msg;
-  msg = lua.pop_string();
-  ret = lua.pop_code();
+  const NSCAPI::nagiosReturn ret = lua.pop_code();
   lua.gc(LUA_GCCOLLECT, 0);
   nscapi::protobuf::functions::append_simple_exec_response_payload(response, "", ret, msg);
 }
@@ -95,7 +116,8 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
                                const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
                                const PB::Commands::ExecuteRequestMessage &request_message) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  call_state call(information);
+  lua_wrapper lua(prep_function(call.L, function));
   int args = 2;
   if (function.object_ref != 0) args = 3;
   if (simple) {
@@ -105,15 +127,15 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
     lua.push_array(argslist);
     if (lua.pcall(args, 2, 0) != 0)
       return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command: " + command + ": " + lua.pop_string());
-    NSCAPI::nagiosReturn ret = NSCAPI::exec_return_codes::returnERROR;
-    if (lua.size() < 3) {
-      NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
-      nscapi::protobuf::functions::append_simple_exec_response_payload(response, command, NSCAPI::exec_return_codes::returnERROR, "Invalid return");
+    const std::string msg = pop_optional_string(lua);
+    if (top_is_nil(lua)) {
+      lua.pop();
+      const std::string error = "Invalid return from " + command + ": expected (code, message)";
+      NSC_LOG_ERROR_STD(error);
+      nscapi::protobuf::functions::append_simple_exec_response_payload(response, command, NSCAPI::exec_return_codes::returnERROR, error);
       return;
     }
-    std::string msg, perf;
-    msg = lua.pop_string();
-    ret = lua.pop_code();
+    const NSCAPI::nagiosReturn ret = lua.pop_code();
     lua.gc(LUA_GCCOLLECT, 0);
     nscapi::protobuf::functions::append_simple_exec_response_payload(response, command, ret, msg);
   } else {
@@ -138,7 +160,8 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
 void lua::lua_runtime::on_submit(std::string channel, script_information *information, lua::lua_traits::function_type function, bool simple,
                                  const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response) {
   lua_gil::guard gil;
-  lua_wrapper lua(prep_function(information, function));
+  call_state call(information);
+  lua_wrapper lua(prep_function(call.L, function));
   // cmd_args is the leading self argument (1 when the handler is a bound method,
   // 0 otherwise); the fixed channel/command/... args are added on at each pcall.
   int cmd_args = 0;
@@ -156,17 +179,15 @@ void lua::lua_runtime::on_submit(std::string channel, script_information *inform
       lua_settable(lua.L, -3);
     }
     if (lua.pcall(cmd_args + 4, 2, 0) != 0) {
-      NSC_LOG_ERROR_STD("Failed to handle channel: " + channel + ": " + lua.pop_string());
+      // Answered, not just logged: with no payload the caller could only
+      // report an invalid response, not what went wrong.
+      const std::string error = "Failed to handle channel: " + channel + ": " + lua.pop_string();
+      NSC_LOG_ERROR_STD(error);
+      nscapi::protobuf::functions::append_simple_submit_response_payload(response, channel, NSCAPI::bool_return::isfalse, error);
       return;
     }
-    if (lua.size() < 2) {
-      NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
-      nscapi::protobuf::functions::append_simple_submit_response_payload(response, channel, NSCAPI::bool_return::isfalse, "Invalid return");
-      return;
-    }
-    std::string msg, perf;
-    msg = lua.pop_string();
-    bool ret = lua.pop_boolean();
+    const std::string msg = pop_optional_string(lua);
+    const bool ret = lua.pop_boolean();
     lua.gc(LUA_GCCOLLECT, 0);
     nscapi::protobuf::functions::append_simple_submit_response_payload(response, channel, ret ? NSCAPI::bool_return::istrue : NSCAPI::bool_return::isfalse,
                                                                        msg);
@@ -190,7 +211,14 @@ void lua::lua_runtime::on_submit(std::string channel, script_information *inform
 
 void lua::lua_runtime::create_user_data(scripts::script_information<lua_traits> *info) { info->user_data.base_path_ = base_path; }
 
+// load, start and unload run script code too - the top-level code, on_start,
+// the plugins' unload hooks - so they hold the GIL like every other entry
+// into Lua. They used not to, and the Core calls release the GIL around the
+// core call they make: an on_start that queried anything unlocked a mutex its
+// thread did not hold and then took it for good, and every Lua call after
+// that waited forever.
 void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
+  lua_gil::guard gil;
   const std::string &script_base_path = info->user_data.base_path_;
   lua_wrapper lua_instance(info->user_data.L);
   lua_instance.set_userdata(lua::lua_traits::user_data_tag, info);
@@ -204,12 +232,18 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
   // Windows: on Linux the base is the directory holding the binary, so
   // require() of anything in lua/lib could not work from a package.
   lua_instance.append_path(script_base_path + "/lua/lib/?.lua;" + script_base_path + "/lua/?.lua");
-  if (lua_instance.loadfile(info->script) != 0) throw lua::lua_exception("Failed to load script: " + info->script + ": " + lua_instance.pop_string());
-  if (lua_instance.pcall(0, 0, 0) != 0) throw lua::lua_exception("Failed to execute script: " + info->script + ": " + lua_instance.pop_string());
+  // The top-level code runs on a call stack of its own too: it may register a
+  // handler and then sleep, and the handler can be called meanwhile.
+  call_state call(info);
+  lua_wrapper chunk(call.L);
+  if (chunk.loadfile(info->script) != 0) throw lua::lua_exception("Failed to load script: " + info->script + ": " + chunk.pop_string());
+  if (chunk.pcall(0, 0, 0) != 0) throw lua::lua_exception("Failed to execute script: " + info->script + ": " + chunk.pop_string());
   lua_instance.gc(LUA_GCCOLLECT, 0);
 }
 void lua::lua_runtime::start(scripts::script_information<lua_traits> *info) {
-  lua_wrapper lua_instance(info->user_data.L);
+  lua_gil::guard gil;
+  call_state call(info);
+  lua_wrapper lua_instance(call.L);
   lua_instance.getglobal("on_start");
   if (lua_instance.is_function()) {
     lua_instance.getglobal("on_start");
@@ -220,6 +254,7 @@ void lua::lua_runtime::start(scripts::script_information<lua_traits> *info) {
 }
 
 void lua::lua_runtime::unload(scripts::script_information<lua_traits> *info) {
+  lua_gil::guard gil;
   lua_wrapper lua_instance(info->user_data.L);
   for (lua_runtime_plugin_type &plugin : plugins) {
     plugin->unload(lua_instance);

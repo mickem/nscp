@@ -412,6 +412,8 @@ check_service "top-syntax=%(list)" "detail-syntax=%(name): %(state)"
 A check that matches many items produces one long line, because list items are joined with `, `.
 `list-separator` changes what joins them. Its value accepts the escapes `\n`, `\r`, `\t` and `\\` —
 a configuration file value is a single line, so a real newline cannot be written into one.
+In an [alias](index.md#quoting-and-backslashes) the backslash itself has to be doubled
+(`"list-separator=\\n"`), because the alias definition is parsed first and refuses a bare `\n`.
 
 The templates themselves are **never** escape-decoded: a `top-syntax` containing `C:\temp` must keep
 its literal backslashes. To break the line before the *first* item, reference the decoded separator
@@ -810,6 +812,15 @@ This matters most when the agent is started just to answer one query. `nscp clie
 check_cpu` loads the module, asks at once and exits — it always lands in the warm-up window. Run
 collector-backed checks against a running agent (the service, or `nscp test`), and when you script
 against a freshly started one, retry until the message no longer says *initializing*.
+
+The same goes for anything that wraps `nscp client` and runs it once per check: a monitoring agent
+that runs `nscp.exe client ... --query check_cpu` as a local plugin (the Icinga 2 `nscp-local-*`
+check commands work this way), a scheduled task, or `check_and_forward` run from the command line.
+Each run starts a new process with an empty buffer, so a collector-backed check never gets past
+warm-up there, however often it runs. `warmup-state=ok` only hides that; it does not produce a
+reading. Ask the agent that is already running instead, over NRPE, the REST API (`check_nscp_api`),
+or NSCA/NRDP from its own scheduler. Point-in-time checks (`check_drivesize`, `check_service`,
+`check_memory` on Windows, …) are not affected and work fine one-shot.
 
 ---
 

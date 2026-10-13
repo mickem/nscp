@@ -47,7 +47,8 @@ struct core_provider_impl : public core_provider {
                                             std::string &perf);
   virtual NSCAPI::nagiosReturn query_forward(const std::string &forward_command, const std::string &target, const std::string &command,
                                              const std::list<std::string> &argument, std::string &msg, std::string &perf);
-  virtual bool exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> &result);
+  virtual NSCAPI::nagiosReturn exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
+                                                   std::list<std::string> &result);
   virtual bool exec_command(const std::string target, const std::string &request, std::string &response);
   virtual bool query(const std::string &request, std::string &response);
   virtual bool submit(const std::string target, const std::string &request, std::string &response);
@@ -64,6 +65,7 @@ struct nscp_runtime_impl : public nscp_runtime_interface {
       : plugin_id(plugin_id), core_(core), settings_(new settings_provider_impl(plugin_id, core)), core_provider_(new core_provider_impl(core)) {}
 
   virtual void register_command(const std::string type, const std::string &command, const std::string &description);
+  virtual void unregister_command(const std::string type, const std::string &command);
 
   virtual std::shared_ptr<settings_provider> get_settings_provider() { return settings_; }
   virtual std::shared_ptr<core_provider> get_core_provider() { return core_provider_; }

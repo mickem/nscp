@@ -10,12 +10,14 @@
  * (de)serializer on both ends. The packet is padded to the configured length
  * on the wire whatever the message size, which is where the buffer bugs live.
  *
- * Three ways in, all over REST:
+ * Four ways in, all over REST:
  *   - nrpe_query against the configured `valid` target;
  *   - nrpe_query against an unconfigured target whose address, SSL mode and
  *     length come from the request (the legacy `test_rp` target);
  *   - a Lua `relay` check calling Core:query_forward('nrpe_forward', ...), the
- *     binding that ships a command and its arguments onto the wire as-is.
+ *     binding that ships a command and its arguments onto the wire as-is;
+ *   - a Lua `target_relay` check calling Core:query_target, which names the
+ *     target in the request header for nrpe_query to pick up.
  *
  * The server and client are reconfigured for each SSL mode and length through
  * PUT /api/v2/settings and a reload of the running modules (the loadModuleEx
@@ -91,6 +93,19 @@ local function relay(command, args)
   return code, msg, ''
 end
 
+-- Core:query_target names the target in the request header, and a client
+-- command that takes one from there - nrpe_query, given no target= - runs on
+-- it. args: <target> <command> <state> <message>; a command other than
+-- nrpe_query is handed the state and message as they are.
+local function target_relay(command, args)
+  local inner = { args[3], args[4] }
+  if args[2] == 'nrpe_query' then
+    inner = { 'command=check_echo', 'argument=' .. args[3], 'argument=' .. args[4] }
+  end
+  local code, msg = Core():query_target(args[1], args[2], inner)
+  return code, msg, ''
+end
+
 -- Reload the named modules (REST passes a parameter with no value as a bare
 -- argument). From inside a REST call the core hands the reload to the
 -- scheduler, so this returns before it has applied.
@@ -103,6 +118,7 @@ end
 local reg = Registry()
 reg:simple_function('check_echo', check_echo, 'echo the state and message back')
 reg:simple_function('relay', relay, 'check_echo over NRPE via query_forward')
+reg:simple_function('target_relay', target_relay, 'check_echo over NRPE via query_target')
 reg:simple_function('reload_modules', reload_modules, 'reload the named modules')
 `;
 
@@ -322,6 +338,31 @@ describe("NRPE client -> server loopback", () => {
     beforeAll(async () => {
       // The targets above are written for TLS at 1024 bytes.
       await reconfigure(true, 1024);
+    });
+
+    it("Core:query_target hands a client command the target it names", async () => {
+      const relay = (target: string, command: string, state: string, message: string) =>
+        executeQuery(key, "target_relay", {
+          [target]: "",
+          [command]: "",
+          [state]: "",
+          [message]: "",
+        });
+
+      const q = await relay("valid", "nrpe_query", "warning", "via query_target");
+      expect(q.result).toBe(WARNING);
+      expect(messageOf(q)).toBe("via query_target");
+
+      // The target really is where it runs: one nobody listens on fails.
+      const dead = await relay("dead", "nrpe_query", "ok", "nobody home");
+      expect(dead.result).toBe(UNKNOWN);
+      expect(messageOf(dead)).not.toBe("nobody home");
+
+      // A command served here takes no target from the header and runs
+      // locally - which is what lua.md warns about.
+      const local = await relay("dead", "check_echo", "ok", "ran here");
+      expect(local.result).toBe(OK);
+      expect(messageOf(local)).toBe("ran here");
     });
 
     it("a target verifying the server's CA gets through", async () => {

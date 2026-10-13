@@ -9,6 +9,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <limits>
 #include <lua/lua_cpp.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
@@ -83,6 +85,31 @@ TEST(LuaWrapper, ANumericStringArgumentStillConverts) {
   EXPECT_EQ(result, "42") << result;
 }
 
+TEST(LuaWrapper, ANumberOutsideTheIntRangeSaturates) {
+  // get_int cast lua_tonumber straight to int, which is undefined for a value
+  // that does not fit: set_persist(1e300), math.huge or 0/0 from a script.
+  const auto read = [](double value) {
+    std::string result;
+    static double pushed;
+    pushed = value;
+    const bool ok = call_protected(
+        [](lua_State *L) {
+          lua::lua_wrapper instance(L);
+          lua_pushnumber(L, pushed);
+          instance.push_int(instance.get_int());
+          return 1;
+        },
+        result);
+    EXPECT_TRUE(ok) << result;
+    return result;
+  };
+  EXPECT_EQ(read(1e300), std::to_string((std::numeric_limits<int>::max)()));
+  EXPECT_EQ(read(-1e300), std::to_string((std::numeric_limits<int>::min)()));
+  EXPECT_EQ(read(std::numeric_limits<double>::infinity()), std::to_string((std::numeric_limits<int>::max)()));
+  EXPECT_EQ(read(std::numeric_limits<double>::quiet_NaN()), "0");
+  EXPECT_EQ(read(-7.9), "-7");
+}
+
 namespace {
 // Stands in for the Check_MK data objects: a heap object owned by a userdata
 // slot, registered under the internal instance prefix the wrapper looks up.
@@ -122,4 +149,24 @@ TEST(LuaWrapper, AnExplicitGcFollowedByAMethodRaisesInsteadOfCrashing) {
   EXPECT_FALSE(ok) << message;
   EXPECT_NE(message.find("probe: object was already destroyed"), std::string::npos) << message;
   EXPECT_EQ(probe_object::live, 0);
+}
+
+TEST(LuaWrapper, OnlyTheFourNagiosCodesReadAsThemselves) {
+  // A numeric status was cast to int before anything checked it: a script
+  // returning 0/0, math.huge or 1e20 made that cast undefined, and anything
+  // else in range of an int passed through as a result code nothing knows.
+  lua::Lua_State state;
+  lua_State *L = state.get_state();
+  lua::lua_wrapper instance(L);
+  const auto code_of = [&](const lua_Number n) {
+    lua_pushnumber(L, n);
+    return instance.pop_code();
+  };
+  EXPECT_EQ(code_of(0), NSCAPI::query_return_codes::returnOK);
+  EXPECT_EQ(code_of(1), NSCAPI::query_return_codes::returnWARN);
+  EXPECT_EQ(code_of(2), NSCAPI::query_return_codes::returnCRIT);
+  EXPECT_EQ(code_of(3), NSCAPI::query_return_codes::returnUNKNOWN);
+  for (const lua_Number bad : {-1.0, 4.0, 1.5, 1e20, -1e20, HUGE_VAL, -HUGE_VAL, std::nan("")}) {
+    EXPECT_EQ(code_of(bad), NSCAPI::query_return_codes::returnUNKNOWN) << bad;
+  }
 }

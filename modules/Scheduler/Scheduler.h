@@ -20,10 +20,9 @@ class Scheduler : public schedules::task_handler, public nscapi::impl::simple_pl
   // startup runs are safe to fire. Reloads happen after that point and are
   // never followed by another startModule (the core calls it once per plugin
   // lifetime), so loadModuleEx has to fire the startup runs itself when set.
-  bool started_;
 
  public:
-  Scheduler() : startup_window_(boost::posix_time::seconds(0)), started_(false) { scheduler_.set_handler(this); }
+  Scheduler() : startup_window_(boost::posix_time::seconds(0)) { scheduler_.set_handler(this); }
   virtual ~Scheduler() { scheduler_.set_handler(nullptr); }
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);

@@ -188,7 +188,7 @@ alias_antivirus   = check_antivirus
 alias_bitlocker   = check_bitlocker "filter=drive = 'C:'" "crit=protected = 0"
 alias_secureboot  = check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
 alias_activation  = check_activation
-alias_datadir_acl = check_file_security "path=C:\ProgramData\app-data" "expected-owner=BUILTIN\Administrators"
+alias_datadir_acl = check_file_security path=C:/ProgramData/app-data "expected-owner=BUILTIN\\Administrators"
 ```
 
 On a **Linux** host the cross-platform subset applies:

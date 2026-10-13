@@ -53,7 +53,6 @@ class legacy_controller : public Mongoose::MatchController {
 
   void log_status(Mongoose::Request &request, Mongoose::StreamResponse &response);
   void log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response);
-  void get_metrics(Mongoose::Request &request, Mongoose::StreamResponse &response);
   void log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response);
   void reload(Mongoose::Request &request, Mongoose::StreamResponse &response);
   void alive(Mongoose::Request &request, Mongoose::StreamResponse &response);

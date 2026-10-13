@@ -401,6 +401,55 @@ This command also accepts the standard [help options](../common-options.md#stand
     `total 1m load` and `total 5s load`). You can override this with one or more `time=` arguments,
     for example `time=10m` or `time=30s time=2m`.
 
+    **Where the numbers come from**
+
+    By default each sample is the share of time the CPU spent busy since the previous sample. It is
+    computed from the operating system's cumulative CPU time counters, not from a performance counter:
+
+    * **Windows:** the total comes from `GetSystemTimes()`. With `fetch core loads` enabled (the
+      default) the per-core values come from
+      `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`; with it disabled only the
+      total is read and there are no `core N` rows. Windows counts idle time inside kernel time, so
+      idle is subtracted from it; what is left is the `system` keyword.
+    * **Linux:** the `cpu` and `cpuN` lines of `/proc/stat`. `idle` and `iowait` count as idle. Busy
+      time is `user`, `nice`, `system`, `irq`, `softirq` and `steal`, so a VM that loses time to its
+      host shows that time as load.
+    * **macOS:** `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`.
+
+    On Windows the very first sample after the agent starts has no previous sample to compare with, so
+    it holds the average load since the machine booted, and it goes into the buffer like any other.
+    Right after the agent (re)starts, while the windows still hold only a few samples, it pulls the
+    short averages (`5s`, and less so `1m`) towards the host's long-term average. It drops out once the
+    window has moved past it. This only matters when the agent restarts on a host that has been up for
+    a while: after a reboot, "since boot" is only a few seconds. Linux and macOS use their first
+    reading only as the starting point and store no sample for it.
+
+    The default Windows figure measures the same thing as the `\Processor(_Total)\% Processor Time`
+    counter in PerfMon and tracks it closely, but the two will not match exactly: they sample at
+    different moments and `check_cpu` reports an average. Task Manager (since Windows 8) shows
+    `% Processor Utility` instead, which is scaled by the current CPU frequency. On a laptop or a
+    server with turbo boost, it can differ from the default `check_cpu` figure by tens of percent under
+    steady load. The `fetch core loads` setting does not change this: the total comes from
+    `GetSystemTimes()` whether it is on or off.
+
+    **Reading CPU load from PDH instead (`use pdh for cpu`, Windows only)**
+
+    With `use pdh for cpu = true` in `[/settings/system/windows]`, the collector instead samples the
+    PDH counters `\Processor Information(*)\% Processor Utility` and
+    `\Processor Information(*)\% Privileged Utility` into their own buffers, and `check_cpu` answers
+    from those, with the same `time=` windows. That is the counter Task Manager shows, so this is the
+    way to make `check_cpu` match it. In this mode the Windows details above do not apply:
+
+    * `GetSystemTimes()` and the first-sample skew play no part.
+    * There is no warm-up answer, and `warmup-state` is refused: the PDH source cannot tell a warm-up
+      from a counter that is unavailable.
+    * `disable = cpu` has no effect on it; `disable = pdh` stops those counters from being collected.
+    * PDH counters are sometimes missing or have broken indexes, so this mode is not as dependable as
+      the default.
+
+    To read `% Processor Time` itself once, use `check_pdh` with `averages=true`. See *Instantaneous
+    versus averaged counters* in the `check_pdh` reference.
+
     **Buffer size and configuration**
 
     The size of the historical buffer is controlled by the `default buffer length` setting on the
@@ -414,6 +463,24 @@ This command also accepts the standard [help options](../common-options.md#stand
     * If NSClient++ was started **less time ago than the requested window**, the result will only
       reflect the samples collected since startup. Right after start-up `5m` and `1m` averages will
       therefore be based on fewer samples than they normally would be.
+    * Before the collector has taken its **first** sample (the first second or so after the agent
+      starts) there is nothing to average, and the check answers
+      `No CPU data available yet (collector still initializing)`. That is UNKNOWN by default; set
+      `warmup-state=ok` (or `warning`/`critical`) to report a different status meanwhile. Only that
+      first-sample case is affected: a window that is merely not full yet answers from what it has.
+
+    **One-shot `nscp client` cannot measure CPU load**
+
+    The buffer lives in the running process, so it only has history in an agent that keeps running.
+    `nscp client --module CheckSystem --boot --query check_cpu` starts a new process, loads the module,
+    asks at once and exits. The collector has not sampled yet, so the answer is always the warm-up one,
+    whatever `time=` says. This is also what you get from wrappers that run `nscp.exe client` once per
+    check, such as the Icinga 2 `nscp-local-cpu` check command or a scheduled task. Results from
+    `nscp test` look different because it keeps the agent running.
+
+    Run `check_cpu` against the agent that is already running instead: over NRPE, over the REST API
+    (for example with `check_nscp_api`), or from the agent's own scheduler with NSCA/NRDP.
+    `warmup-state=ok` only turns the warm-up answer green; it does not produce a reading.
 
     If you need to check on longer windows (for example `2h` or `6h`) you must increase
     `default buffer length` accordingly. Note that a larger buffer uses more memory, so only increase
@@ -467,6 +534,55 @@ This command also accepts the standard [help options](../common-options.md#stand
     `total 1m load` and `total 5s load`). You can override this with one or more `time=` arguments,
     for example `time=10m` or `time=30s time=2m`.
 
+    **Where the numbers come from**
+
+    By default each sample is the share of time the CPU spent busy since the previous sample. It is
+    computed from the operating system's cumulative CPU time counters, not from a performance counter:
+
+    * **Windows:** the total comes from `GetSystemTimes()`. With `fetch core loads` enabled (the
+      default) the per-core values come from
+      `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`; with it disabled only the
+      total is read and there are no `core N` rows. Windows counts idle time inside kernel time, so
+      idle is subtracted from it; what is left is the `system` keyword.
+    * **Linux:** the `cpu` and `cpuN` lines of `/proc/stat`. `idle` and `iowait` count as idle. Busy
+      time is `user`, `nice`, `system`, `irq`, `softirq` and `steal`, so a VM that loses time to its
+      host shows that time as load.
+    * **macOS:** `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`.
+
+    On Windows the very first sample after the agent starts has no previous sample to compare with, so
+    it holds the average load since the machine booted, and it goes into the buffer like any other.
+    Right after the agent (re)starts, while the windows still hold only a few samples, it pulls the
+    short averages (`5s`, and less so `1m`) towards the host's long-term average. It drops out once the
+    window has moved past it. This only matters when the agent restarts on a host that has been up for
+    a while: after a reboot, "since boot" is only a few seconds. Linux and macOS use their first
+    reading only as the starting point and store no sample for it.
+
+    The default Windows figure measures the same thing as the `\Processor(_Total)\% Processor Time`
+    counter in PerfMon and tracks it closely, but the two will not match exactly: they sample at
+    different moments and `check_cpu` reports an average. Task Manager (since Windows 8) shows
+    `% Processor Utility` instead, which is scaled by the current CPU frequency. On a laptop or a
+    server with turbo boost, it can differ from the default `check_cpu` figure by tens of percent under
+    steady load. The `fetch core loads` setting does not change this: the total comes from
+    `GetSystemTimes()` whether it is on or off.
+
+    **Reading CPU load from PDH instead (`use pdh for cpu`, Windows only)**
+
+    With `use pdh for cpu = true` in `[/settings/system/windows]`, the collector instead samples the
+    PDH counters `\Processor Information(*)\% Processor Utility` and
+    `\Processor Information(*)\% Privileged Utility` into their own buffers, and `check_cpu` answers
+    from those, with the same `time=` windows. That is the counter Task Manager shows, so this is the
+    way to make `check_cpu` match it. In this mode the Windows details above do not apply:
+
+    * `GetSystemTimes()` and the first-sample skew play no part.
+    * There is no warm-up answer, and `warmup-state` is refused: the PDH source cannot tell a warm-up
+      from a counter that is unavailable.
+    * `disable = cpu` has no effect on it; `disable = pdh` stops those counters from being collected.
+    * PDH counters are sometimes missing or have broken indexes, so this mode is not as dependable as
+      the default.
+
+    To read `% Processor Time` itself once, use `check_pdh` with `averages=true`. See *Instantaneous
+    versus averaged counters* in the `check_pdh` reference.
+
     **Buffer size and configuration**
 
     The size of the historical buffer is controlled by the `default buffer length` setting on the
@@ -480,6 +596,24 @@ This command also accepts the standard [help options](../common-options.md#stand
     * If NSClient++ was started **less time ago than the requested window**, the result will only
       reflect the samples collected since startup. Right after start-up `5m` and `1m` averages will
       therefore be based on fewer samples than they normally would be.
+    * Before the collector has taken its **first** sample (the first second or so after the agent
+      starts) there is nothing to average, and the check answers
+      `No CPU data available yet (collector still initializing)`. That is UNKNOWN by default; set
+      `warmup-state=ok` (or `warning`/`critical`) to report a different status meanwhile. Only that
+      first-sample case is affected: a window that is merely not full yet answers from what it has.
+
+    **One-shot `nscp client` cannot measure CPU load**
+
+    The buffer lives in the running process, so it only has history in an agent that keeps running.
+    `nscp client --module CheckSystem --boot --query check_cpu` starts a new process, loads the module,
+    asks at once and exits. The collector has not sampled yet, so the answer is always the warm-up one,
+    whatever `time=` says. This is also what you get from wrappers that run `nscp.exe client` once per
+    check, such as the Icinga 2 `nscp-local-cpu` check command or a scheduled task. Results from
+    `nscp test` look different because it keeps the agent running.
+
+    Run `check_cpu` against the agent that is already running instead: over NRPE, over the REST API
+    (for example with `check_nscp_api`), or from the agent's own scheduler with NSCA/NRDP.
+    `warmup-state=ok` only turns the warm-up answer green; it does not produce a reading.
 
     If you need to check on longer windows (for example `2h` or `6h`) you must increase
     `default buffer length` accordingly. Note that a larger buffer uses more memory, so only increase
@@ -594,16 +728,30 @@ CPU Load ok
 === "Windows"
 
     <a id="check_cpu_time"></a>
-    <a id="check_cpu_cores"></a>
 
 
 
-    | Option | Default Value | Description                                                                                 |
-    |--------|---------------|---------------------------------------------------------------------------------------------|
-    | time   |               | The time to check                                                                           |
-    | cores  | N/A           | This will remove the filter to  include the cores, if you use filter dont use this as well. |
+
+    | Option                                  | Default Value | Description                                                                                                                                                             |
+    |-----------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [warmup-state](#check_cpu_warmup-state) | unknown       | Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown. |
+    | time                                    |               | The time to check                                                                                                                                                       |
+    | [cores](#check_cpu_cores)               | false         | This will remove the filter to  include the cores, if you use filter dont use this as well.                                                                             |
 
 
+
+    <h5 id="check_cpu_warmup-state">warmup-state:</h5>
+
+    Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+    The message still says that the collector is initializing, so a warm-up result is never mistaken for a reading. A collector that has tried to sample and failed is not warming up: that is always UNKNOWN.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_cpu_cores">cores:</h5>
+
+    This will remove the filter to  include the cores, if you use filter dont use this as well.
+
+    *Default Value:* `false`
 
 
     **Common options:**
@@ -641,16 +789,30 @@ CPU Load ok
 === "Linux"
 
     <a id="check_cpu_time"></a>
-    <a id="check_cpu_cores"></a>
 
 
 
-    | Option | Default Value | Description                                                                                 |
-    |--------|---------------|---------------------------------------------------------------------------------------------|
-    | time   |               | The time to check                                                                           |
-    | cores  | N/A           | This will remove the filter to include the cores, if you use filter don't use this as well. |
+
+    | Option                                  | Default Value | Description                                                                                                                                                             |
+    |-----------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [warmup-state](#check_cpu_warmup-state) | unknown       | Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown. |
+    | time                                    |               | The time to check                                                                                                                                                       |
+    | [cores](#check_cpu_cores)               | false         | This will remove the filter to include the cores, if you use filter don't use this as well.                                                                             |
 
 
+
+    <h5 id="check_cpu_warmup-state">warmup-state:</h5>
+
+    Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+    The message still says that the collector is initializing, so a warm-up result is never mistaken for a reading. A collector that has tried to sample and failed is not warming up: that is always UNKNOWN.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_cpu_cores">cores:</h5>
+
+    This will remove the filter to include the cores, if you use filter don't use this as well.
+
+    *Default Value:* `false`
 
 
     **Common options:**
@@ -2523,14 +2685,15 @@ OK - Context Switches 57111.0/s, Process Creations 317.0/s
     divided by `percpu` — it is an absolute thread count.
 
     **Windows caveats:** the averages live in the collector, so the check reports
-    *"Load average data is not available yet"* right after service start. 
+    *"Load average data is not available yet"* right after service start - UNKNOWN by
+    default, or whatever status `warmup-state=` names (`ok`, `warning`, `critical`). 
     If the `\System\Processor Queue Length` counter is unavailable (corrupt perflib), 
     the load degrades to the CPU-utilization component and a warning is logged. 
     Some hypervisors report a small nonzero queue on idle guests — the smoothing 
     absorbs the noise, but baseline before alerting tightly on `queue`. 
     Load sampling can be turned off with `disable = load` in 
-    `/settings/system/windows` (the check then reports data-unavailable rather 
-    than zeros).
+    `/settings/system/windows` (the check then reports UNKNOWN *"Load average 
+    sampling is disabled"* rather than zeros, whatever `warmup-state` says).
 
 === "Linux"
 
@@ -2588,14 +2751,15 @@ OK - Context Switches 57111.0/s, Process Creations 317.0/s
     divided by `percpu` — it is an absolute thread count.
 
     **Windows caveats:** the averages live in the collector, so the check reports
-    *"Load average data is not available yet"* right after service start. 
+    *"Load average data is not available yet"* right after service start - UNKNOWN by
+    default, or whatever status `warmup-state=` names (`ok`, `warning`, `critical`). 
     If the `\System\Processor Queue Length` counter is unavailable (corrupt perflib), 
     the load degrades to the CPU-utilization component and a warning is logged. 
     Some hypervisors report a small nonzero queue on idle guests — the smoothing 
     absorbs the noise, but baseline before alerting tightly on `queue`. 
     Load sampling can be turned off with `disable = load` in 
-    `/settings/system/windows` (the check then reports data-unavailable rather 
-    than zeros).
+    `/settings/system/windows` (the check then reports UNKNOWN *"Load average 
+    sampling is disabled"* rather than zeros, whatever `warmup-state` says).
 
 **Jump to section:**
 
@@ -2674,67 +2838,145 @@ OK: total load average: 2.33528, 1.84625, 1.74261
 <a id="check_load_options"></a>
 #### Command-line Arguments
 
-        
-| Option                       | Default Value | Description                                                                         |
-|------------------------------|---------------|-------------------------------------------------------------------------------------|
-| [percpu](#check_load_percpu) | false         | Divide the load averages by the number of CPUs (reports the 'scaled' per-core load) |
+=== "Windows"
 
 
 
-<h5 id="check_load_percpu">percpu:</h5>
-
-Divide the load averages by the number of CPUs (reports the 'scaled' per-core load)
-
-*Default Value:* `false`
-
-
-**Common options:**
-
-These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+    | Option                                   | Default Value | Description                                                                                                                                                             |
+    |------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [warmup-state](#check_load_warmup-state) | unknown       | Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown. |
+    | [percpu](#check_load_percpu)             | false         | Divide the load averages by the number of CPUs (reports the 'scaled' per-core load)                                                                                     |
 
 
-| Option                                                                                                     | Default Value                                       |
-|------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| <a id="check_load_filter"></a>[filter](../common-options.md#filter)                                        |                                                     |
-| <a id="check_load_warning"></a>[warning](../common-options.md#warning)                                     |                                                     |
-| <a id="check_load_warn"></a>[warn](../common-options.md#warn)                                              |                                                     |
-| <a id="check_load_critical"></a>[critical](../common-options.md#critical)                                  |                                                     |
-| <a id="check_load_crit"></a>[crit](../common-options.md#crit)                                              |                                                     |
-| <a id="check_load_ok"></a>[ok](../common-options.md#ok)                                                    |                                                     |
-| <a id="check_load_debug"></a>[debug](../common-options.md#debug)                                           | false                                               |
-| <a id="check_load_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                               |
-| <a id="check_load_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                             |
-| <a id="check_load_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                     |
-| <a id="check_load_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                               |
-| <a id="check_load_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                   |
-| <a id="check_load_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                  |
-| <a id="check_load_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                     |
-| <a id="check_load_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                     |
-| <a id="check_load_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${type} load average: ${load1}, ${load5}, ${load15} |
-| <a id="check_load_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${type}                                             |
-| <a id="check_load_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                     |
-| <a id="check_load_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                     |
-| <a id="check_load_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                  |
-| <a id="check_load_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                     |
+
+    <h5 id="check_load_warmup-state">warmup-state:</h5>
+
+    Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+    The message still says that the collector is initializing, so a warm-up result is never mistaken for a reading. A collector that has tried to sample and failed is not warming up: that is always UNKNOWN.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_load_percpu">percpu:</h5>
+
+    Divide the load averages by the number of CPUs (reports the 'scaled' per-core load)
+
+    *Default Value:* `false`
 
 
-This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                                     | Default Value                                       |
+    |------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+    | <a id="check_load_filter"></a>[filter](../common-options.md#filter)                                        |                                                     |
+    | <a id="check_load_warning"></a>[warning](../common-options.md#warning)                                     |                                                     |
+    | <a id="check_load_warn"></a>[warn](../common-options.md#warn)                                              |                                                     |
+    | <a id="check_load_critical"></a>[critical](../common-options.md#critical)                                  |                                                     |
+    | <a id="check_load_crit"></a>[crit](../common-options.md#crit)                                              |                                                     |
+    | <a id="check_load_ok"></a>[ok](../common-options.md#ok)                                                    |                                                     |
+    | <a id="check_load_debug"></a>[debug](../common-options.md#debug)                                           | false                                               |
+    | <a id="check_load_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                               |
+    | <a id="check_load_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                             |
+    | <a id="check_load_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                     |
+    | <a id="check_load_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                               |
+    | <a id="check_load_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                   |
+    | <a id="check_load_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                  |
+    | <a id="check_load_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                     |
+    | <a id="check_load_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                     |
+    | <a id="check_load_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${type} load average: ${load1}, ${load5}, ${load15} |
+    | <a id="check_load_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${type}                                             |
+    | <a id="check_load_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                     |
+    | <a id="check_load_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                     |
+    | <a id="check_load_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                  |
+    | <a id="check_load_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                     |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+=== "Linux"
+
+
+    | Option                       | Default Value | Description                                                                         |
+    |------------------------------|---------------|-------------------------------------------------------------------------------------|
+    | [percpu](#check_load_percpu) | false         | Divide the load averages by the number of CPUs (reports the 'scaled' per-core load) |
+
+
+
+    <h5 id="check_load_percpu">percpu:</h5>
+
+    Divide the load averages by the number of CPUs (reports the 'scaled' per-core load)
+
+    *Default Value:* `false`
+
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                                     | Default Value                                       |
+    |------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+    | <a id="check_load_filter"></a>[filter](../common-options.md#filter)                                        |                                                     |
+    | <a id="check_load_warning"></a>[warning](../common-options.md#warning)                                     |                                                     |
+    | <a id="check_load_warn"></a>[warn](../common-options.md#warn)                                              |                                                     |
+    | <a id="check_load_critical"></a>[critical](../common-options.md#critical)                                  |                                                     |
+    | <a id="check_load_crit"></a>[crit](../common-options.md#crit)                                              |                                                     |
+    | <a id="check_load_ok"></a>[ok](../common-options.md#ok)                                                    |                                                     |
+    | <a id="check_load_debug"></a>[debug](../common-options.md#debug)                                           | false                                               |
+    | <a id="check_load_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                               |
+    | <a id="check_load_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                             |
+    | <a id="check_load_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                     |
+    | <a id="check_load_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                               |
+    | <a id="check_load_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                   |
+    | <a id="check_load_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                  |
+    | <a id="check_load_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                     |
+    | <a id="check_load_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                     |
+    | <a id="check_load_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${type} load average: ${load1}, ${load5}, ${load15} |
+    | <a id="check_load_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${type}                                             |
+    | <a id="check_load_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                     |
+    | <a id="check_load_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                     |
+    | <a id="check_load_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                  |
+    | <a id="check_load_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                     |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 <a id="check_load_filter_keys"></a>
 #### Filter keywords
 
-| Option        | Description                                                                                             |
-|---------------|---------------------------------------------------------------------------------------------------------|
-| load          | The largest of load1, load5 and load15                                                                  |
-| load1         | Load average over the last 1 minute                                                                     |
-| load15        | Load average over the last 15 minutes                                                                   |
-| load5         | Load average over the last 5 minutes                                                                    |
-| procs_running | Number of currently runnable kernel scheduling entities ('unknown' on macOS, which keeps no such count) |
-| procs_total   | Total number of kernel scheduling entities (threads)                                                    |
-| type          | 'total' or (with --percpu) 'scaled'                                                                     |
+=== "Windows"
 
-This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+    | Option        | Description                                                                                                              |
+    |---------------|--------------------------------------------------------------------------------------------------------------------------|
+    | cores         | Number of logical processors                                                                                             |
+    | load          | The largest of load1, load5 and load15 — threshold on it to alert when any window is high                                |
+    | load1         | Load average over the last 1 minute                                                                                      |
+    | load15        | Load average over the last 15 minutes                                                                                    |
+    | load5         | Load average over the last 5 minutes                                                                                     |
+    | procs_running | Runnable + running kernel scheduling entities (instantaneous last-tick estimate)                                         |
+    | procs_total   | Total number of kernel scheduling entities (threads)                                                                     |
+    | queue         | Smoothed (1-minute) processor queue length: threads waiting to run, excluding those running — the pure saturation signal |
+    | samples       | Collector ticks folded into the averages (the 5/15m values converge as this grows)                                       |
+    | type          | 'total', or 'scaled' with percpu=true (the averages divided by the core count)                                           |
+
+    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+=== "Linux"
+
+    | Option        | Description                                                                                             |
+    |---------------|---------------------------------------------------------------------------------------------------------|
+    | load          | The largest of load1, load5 and load15                                                                  |
+    | load1         | Load average over the last 1 minute                                                                     |
+    | load15        | Load average over the last 15 minutes                                                                   |
+    | load5         | Load average over the last 5 minutes                                                                    |
+    | procs_running | Number of currently runnable kernel scheduling entities ('unknown' on macOS, which keeps no such count) |
+    | procs_total   | Total number of kernel scheduling entities (threads)                                                    |
+    | type          | 'total' or (with --percpu) 'scaled'                                                                     |
+
+    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_memory
 
@@ -2769,6 +3011,26 @@ file-backed and purgeable pages as free as well, the same two Activity Monitor
 adds up as Cached Files. `swap` is the dynamic swap files, so its size is zero
 until macOS has needed swap. On macOS the system metrics also carry
 `system.mem.wired` and `system.mem.compressed`.
+
+#### Right after the agent starts (Linux and macOS)
+
+On Linux and macOS the figures come from the 1 Hz background collector rather
+than from a direct read, so for the first second after the agent (or the module)
+starts there is nothing to report yet:
+
+```
+check_memory
+UNKNOWN: No memory data available yet (collector still initializing)
+```
+
+`warmup-state` picks the status reported during that window (`ok`, `warning`,
+`critical` or `unknown`, the default); the message stays the same. A collector
+that has tried to sample and failed - an unreadable `/proc` inside a locked-down
+container, for instance - is not warming up: the check then answers UNKNOWN
+*"No memory data available: the collector failed to sample it: ..."* whatever
+`warmup-state` says. On Windows `check_memory` reads the system directly and has no
+warm-up, so the option is not accepted there. See
+[Collector-backed checks and warm-up](../../concepts/checks.md#8-collector-backed-checks-and-warm-up).
 
 **Jump to section:**
 
@@ -2876,11 +3138,20 @@ page = 8.05G, physical = 7.85G
     <a id="check_memory_type"></a>
 
 
-    | Option | Default Value | Description                                                                                        |
-    |--------|---------------|----------------------------------------------------------------------------------------------------|
-    | type   |               | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE) |
+
+    | Option                                     | Default Value | Description                                                                                                                                                             |
+    |--------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [warmup-state](#check_memory_warmup-state) | unknown       | Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown. |
+    | type                                       |               | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)                                                                      |
 
 
+
+    <h5 id="check_memory_warmup-state">warmup-state:</h5>
+
+    Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+    The message still says that the collector is initializing, so a warm-up result is never mistaken for a reading. A collector that has tried to sample and failed is not warming up: that is always UNKNOWN.
+
+    *Default Value:* `unknown`
 
 
     **Common options:**
@@ -3347,6 +3618,14 @@ check_network
 UNKNOWN: No network data available yet (collector still initializing)
 ```
 
+On Linux and macOS, `warmup-state` picks the status reported during that window, for
+instance to keep a freshly restarted agent from paging anyone:
+
+```
+check_network warmup-state=ok
+OK: No network data available yet (collector still initializing)
+```
+
 **Over NRPE against a remote host:**
 
 ```
@@ -3408,6 +3687,21 @@ OK: eth0 >659B/s <659B/s, lo >0B/s <0B/s
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 === "Linux"
+
+
+    | Option                                      | Default Value | Description                                                                                                                                                             |
+    |---------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [warmup-state](#check_network_warmup-state) | unknown       | Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown. |
+
+
+
+    <h5 id="check_network_warmup-state">warmup-state:</h5>
+
+    Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+    The message still says that the collector is initializing, so a warm-up result is never mistaken for a reading. A collector that has tried to sample and failed is not warming up: that is always UNKNOWN.
+
+    *Default Value:* `unknown`
+
 
     **Common options:**
 
@@ -4239,6 +4533,26 @@ Swap comes from `vm.swapusage`, reported as the single `total` record. macOS
 creates its swap files on demand, so a Mac that has not needed swap reports a
 size of zero, and the same `filter=size > 0` guard applies.
 
+#### Right after the agent starts (Linux and macOS)
+
+On Linux and macOS the figures come from the 1 Hz background collector rather
+than from a direct read, so for the first second after the agent (or the module)
+starts there is nothing to report yet:
+
+```
+check_pagefile
+UNKNOWN: No pagefile/swap data available yet (collector still initializing)
+```
+
+`warmup-state` picks the status reported during that window (`ok`, `warning`,
+`critical` or `unknown`, the default); the message stays the same. A collector
+that has tried to sample and failed - an unreadable `/proc` inside a locked-down
+container, for instance - is not warming up: the check then answers UNKNOWN
+*"No pagefile/swap data available: the collector failed to sample it: ..."* whatever
+`warmup-state` says. On Windows `check_pagefile` reads the system directly and has no
+warm-up, so the option is not accepted there. See
+[Collector-backed checks and warm-up](../../concepts/checks.md#8-collector-backed-checks-and-warm-up).
+
 **Jump to section:**
 
 * [Sample Commands](#check_pagefile_samples)
@@ -4307,37 +4621,88 @@ check_pagefile help
 <a id="check_pagefile_options"></a>
 #### Command-line Arguments
 
-**Common options:**
+=== "Windows"
 
-These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+    **Common options:**
 
-
-| Option                                                                                                         | Default Value             |
-|----------------------------------------------------------------------------------------------------------------|---------------------------|
-| <a id="check_pagefile_filter"></a>[filter](../common-options.md#filter)                                        |                           |
-| <a id="check_pagefile_warning"></a>[warning](../common-options.md#warning)                                     | used > 60%                |
-| <a id="check_pagefile_warn"></a>[warn](../common-options.md#warn)                                              |                           |
-| <a id="check_pagefile_critical"></a>[critical](../common-options.md#critical)                                  | used > 80%                |
-| <a id="check_pagefile_crit"></a>[crit](../common-options.md#crit)                                              |                           |
-| <a id="check_pagefile_ok"></a>[ok](../common-options.md#ok)                                                    |                           |
-| <a id="check_pagefile_debug"></a>[debug](../common-options.md#debug)                                           | false                     |
-| <a id="check_pagefile_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                     |
-| <a id="check_pagefile_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                   |
-| <a id="check_pagefile_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                           |
-| <a id="check_pagefile_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                     |
-| <a id="check_pagefile_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                         |
-| <a id="check_pagefile_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}        |
-| <a id="check_pagefile_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                           |
-| <a id="check_pagefile_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                           |
-| <a id="check_pagefile_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} ${used} (${size}) |
-| <a id="check_pagefile_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                   |
-| <a id="check_pagefile_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                           |
-| <a id="check_pagefile_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                           |
-| <a id="check_pagefile_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                        |
-| <a id="check_pagefile_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                           |
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+    | Option                                                                                                         | Default Value             |
+    |----------------------------------------------------------------------------------------------------------------|---------------------------|
+    | <a id="check_pagefile_filter"></a>[filter](../common-options.md#filter)                                        |                           |
+    | <a id="check_pagefile_warning"></a>[warning](../common-options.md#warning)                                     | used > 60%                |
+    | <a id="check_pagefile_warn"></a>[warn](../common-options.md#warn)                                              |                           |
+    | <a id="check_pagefile_critical"></a>[critical](../common-options.md#critical)                                  | used > 80%                |
+    | <a id="check_pagefile_crit"></a>[crit](../common-options.md#crit)                                              |                           |
+    | <a id="check_pagefile_ok"></a>[ok](../common-options.md#ok)                                                    |                           |
+    | <a id="check_pagefile_debug"></a>[debug](../common-options.md#debug)                                           | false                     |
+    | <a id="check_pagefile_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                     |
+    | <a id="check_pagefile_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                   |
+    | <a id="check_pagefile_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                           |
+    | <a id="check_pagefile_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                     |
+    | <a id="check_pagefile_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                         |
+    | <a id="check_pagefile_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}        |
+    | <a id="check_pagefile_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                           |
+    | <a id="check_pagefile_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                           |
+    | <a id="check_pagefile_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} ${used} (${size}) |
+    | <a id="check_pagefile_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                   |
+    | <a id="check_pagefile_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                           |
+    | <a id="check_pagefile_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                           |
+    | <a id="check_pagefile_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                        |
+    | <a id="check_pagefile_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                           |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+=== "Linux"
+
+
+    | Option                                       | Default Value | Description                                                                                                                                                             |
+    |----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [warmup-state](#check_pagefile_warmup-state) | unknown       | Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown. |
+
+
+
+    <h5 id="check_pagefile_warmup-state">warmup-state:</h5>
+
+    Return status to use while the background collector has not produced its first sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+    The message still says that the collector is initializing, so a warm-up result is never mistaken for a reading. A collector that has tried to sample and failed is not warming up: that is always UNKNOWN.
+
+    *Default Value:* `unknown`
+
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                                         | Default Value             |
+    |----------------------------------------------------------------------------------------------------------------|---------------------------|
+    | <a id="check_pagefile_filter"></a>[filter](../common-options.md#filter)                                        |                           |
+    | <a id="check_pagefile_warning"></a>[warning](../common-options.md#warning)                                     | used > 60%                |
+    | <a id="check_pagefile_warn"></a>[warn](../common-options.md#warn)                                              |                           |
+    | <a id="check_pagefile_critical"></a>[critical](../common-options.md#critical)                                  | used > 80%                |
+    | <a id="check_pagefile_crit"></a>[crit](../common-options.md#crit)                                              |                           |
+    | <a id="check_pagefile_ok"></a>[ok](../common-options.md#ok)                                                    |                           |
+    | <a id="check_pagefile_debug"></a>[debug](../common-options.md#debug)                                           | false                     |
+    | <a id="check_pagefile_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                     |
+    | <a id="check_pagefile_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                   |
+    | <a id="check_pagefile_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                           |
+    | <a id="check_pagefile_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                     |
+    | <a id="check_pagefile_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                         |
+    | <a id="check_pagefile_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}        |
+    | <a id="check_pagefile_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                           |
+    | <a id="check_pagefile_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                           |
+    | <a id="check_pagefile_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} ${used} (${size}) |
+    | <a id="check_pagefile_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                   |
+    | <a id="check_pagefile_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                           |
+    | <a id="check_pagefile_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                           |
+    | <a id="check_pagefile_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                        |
+    | <a id="check_pagefile_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                           |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 <a id="check_pagefile_filter_keys"></a>
@@ -4662,13 +5027,19 @@ Everything looks good
 'foo value'=3;80;90
 ```
 
-Checking **all instances** of a given counter::
+Checking **all instances** of a given counter (captured on a Swedish Windows, hence `processortid`,
+and from the command line with `nscp client`)::
 
 ```
     check_pdh "counter=\Processor(*)\% processortid" instances
 L     client OK: \\MIME-LAPTOP\Processor(0)\% processortid = 100, \\MIME-LAPTOP\Processor(1)\% processortid = 100, \\MIME-LAPTOP\Processor(2)\% processortid = 100, \\MIME-LAPTOP\Processor(3)\% processortid = 100, \\MIME-LAPTOP\Processor(4)\% processortid = 100, \\MIME-LAPTOP\Processor(5)\% processortid = 100, \\MIME-LAPTOP\Processor(6)\% processortid = 100, \\MIME-LAPTOP\Processor(7)\% processortid = 100, \\MIME-LAPTOP\Processor(_Total)\% processortid = 100
     L     client  Performance data: '\Processor(*)\% processortid_0'=100;0;0 '\Processor(*)\% processortid_1'=100;0;0 '\Processor(*)\% processortid_2'=100;0;0 '\Processor(*)\% processortid_3'=100;0;0 '\Processor(*)\% processortid_4'=100;0;0 '\Processor(*)\% processortid_5'=100;0;0 '\Processor(*)\% processortid_6'=100;0;0 '\Processor(*)\% processortid_7'=100;0;0 '\Processor(*)\% processortid__Total'=100;0;0
 ```
+
+That form is for the command line, where the shell passes the backslashes through. The `nscp test`
+prompt treats a backslash as an escape everywhere except inside single quotes, so there either
+single-quote the path, `check_pdh counter='\Processor(*)\% processortid' instances`, or double
+every backslash, as in the examples further up.
 
 
 
@@ -5337,6 +5708,17 @@ Check state/metrics of one or more of the processes running on the computer.
 agents: `rss` is a straight alias for `working_set` (same bytes and human
 value), and `state` accepts `running` as a synonym for `started` (the rendered
 value stays `started`), so the same expressions work on both platforms.
+
+#### `command_line` may carry secrets
+
+The `command_line` keyword returns each process's full command line, read with
+the agent's privileges (`SYSTEM` or `root`). Command lines routinely carry
+passwords, API tokens and connection strings, and none of it is redacted. The
+default syntax does not render it, but a caller who may pass arguments can ask
+for it with `detail-syntax=${command_line}`, and `fetch-only` (the check_mk
+`<<<ps>>>` feed) lists every process's command line unconditionally. Use them
+in your own aliases rather than exposing them to callers; see
+[Data disclosure](../../setup/securing.md#data-disclosure-restricting-what-a-check-may-read).
 
 #### Process owner (`username` / `uid`)
 
@@ -9134,7 +9516,7 @@ disable=
 
 #### Fetch core load <a id="/settings/system/windows/fetch core loads"></a>
 
-Set to false to use a different API for fetching CPU load (will not provide core load, and will not show exact same values as task manager).
+Set to false to read only the total CPU load and skip the per-core values (check_cpu then has no core rows). The total is read the same way either way, so this does not change how close the figures are to Task Manager; to match Task Manager, enable 'use pdh for cpu'.
 
 
 | Key            | Description                                           |

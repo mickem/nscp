@@ -10,6 +10,55 @@ The time windows are controlled by the `time=` option. The default is to compute
 `total 1m load` and `total 5s load`). You can override this with one or more `time=` arguments,
 for example `time=10m` or `time=30s time=2m`.
 
+**Where the numbers come from**
+
+By default each sample is the share of time the CPU spent busy since the previous sample. It is
+computed from the operating system's cumulative CPU time counters, not from a performance counter:
+
+* **Windows:** the total comes from `GetSystemTimes()`. With `fetch core loads` enabled (the
+  default) the per-core values come from
+  `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`; with it disabled only the
+  total is read and there are no `core N` rows. Windows counts idle time inside kernel time, so
+  idle is subtracted from it; what is left is the `system` keyword.
+* **Linux:** the `cpu` and `cpuN` lines of `/proc/stat`. `idle` and `iowait` count as idle. Busy
+  time is `user`, `nice`, `system`, `irq`, `softirq` and `steal`, so a VM that loses time to its
+  host shows that time as load.
+* **macOS:** `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`.
+
+On Windows the very first sample after the agent starts has no previous sample to compare with, so
+it holds the average load since the machine booted, and it goes into the buffer like any other.
+Right after the agent (re)starts, while the windows still hold only a few samples, it pulls the
+short averages (`5s`, and less so `1m`) towards the host's long-term average. It drops out once the
+window has moved past it. This only matters when the agent restarts on a host that has been up for
+a while: after a reboot, "since boot" is only a few seconds. Linux and macOS use their first
+reading only as the starting point and store no sample for it.
+
+The default Windows figure measures the same thing as the `\Processor(_Total)\% Processor Time`
+counter in PerfMon and tracks it closely, but the two will not match exactly: they sample at
+different moments and `check_cpu` reports an average. Task Manager (since Windows 8) shows
+`% Processor Utility` instead, which is scaled by the current CPU frequency. On a laptop or a
+server with turbo boost, it can differ from the default `check_cpu` figure by tens of percent under
+steady load. The `fetch core loads` setting does not change this: the total comes from
+`GetSystemTimes()` whether it is on or off.
+
+**Reading CPU load from PDH instead (`use pdh for cpu`, Windows only)**
+
+With `use pdh for cpu = true` in `[/settings/system/windows]`, the collector instead samples the
+PDH counters `\Processor Information(*)\% Processor Utility` and
+`\Processor Information(*)\% Privileged Utility` into their own buffers, and `check_cpu` answers
+from those, with the same `time=` windows. That is the counter Task Manager shows, so this is the
+way to make `check_cpu` match it. In this mode the Windows details above do not apply:
+
+* `GetSystemTimes()` and the first-sample skew play no part.
+* There is no warm-up answer, and `warmup-state` is refused: the PDH source cannot tell a warm-up
+  from a counter that is unavailable.
+* `disable = cpu` has no effect on it; `disable = pdh` stops those counters from being collected.
+* PDH counters are sometimes missing or have broken indexes, so this mode is not as dependable as
+  the default.
+
+To read `% Processor Time` itself once, use `check_pdh` with `averages=true`. See *Instantaneous
+versus averaged counters* in the `check_pdh` reference.
+
 **Buffer size and configuration**
 
 The size of the historical buffer is controlled by the `default buffer length` setting on the
@@ -28,6 +77,19 @@ size puts an upper bound on the time windows you can use:
   `No CPU data available yet (collector still initializing)`. That is UNKNOWN by default; set
   `warmup-state=ok` (or `warning`/`critical`) to report a different status meanwhile. Only that
   first-sample case is affected: a window that is merely not full yet answers from what it has.
+
+**One-shot `nscp client` cannot measure CPU load**
+
+The buffer lives in the running process, so it only has history in an agent that keeps running.
+`nscp client --module CheckSystem --boot --query check_cpu` starts a new process, loads the module,
+asks at once and exits. The collector has not sampled yet, so the answer is always the warm-up one,
+whatever `time=` says. This is also what you get from wrappers that run `nscp.exe client` once per
+check, such as the Icinga 2 `nscp-local-cpu` check command or a scheduled task. Results from
+`nscp test` look different because it keeps the agent running.
+
+Run `check_cpu` against the agent that is already running instead: over NRPE, over the REST API
+(for example with `check_nscp_api`), or from the agent's own scheduler with NSCA/NRDP.
+`warmup-state=ok` only turns the warm-up answer green; it does not produce a reading.
 
 If you need to check on longer windows (for example `2h` or `6h`) you must increase
 `default buffer length` accordingly. Note that a larger buffer uses more memory, so only increase

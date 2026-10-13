@@ -1011,6 +1011,20 @@ unix:
         description: Check that the load of the CPU(s) are within bounds.
       params:
       - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+
+          The message still says that the collector is initializing, so a warm-up result is never mistaken
+          for a reading. A collector that has tried to sample and failed is not warming up: that is always
+          UNKNOWN.'
+        name: warmup-state
+        repeatable: false
+        required: false
+        short_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.'
+      - content_type: 2
         default_value: ''
         is_simple: true
         long_description: The time to check
@@ -1019,8 +1033,8 @@ unix:
         required: false
         short_description: The time to check
       - content_type: 4
-        default_value: ''
-        is_simple: true
+        default_value: 'false'
+        is_simple: false
         long_description: This will remove the filter to include the cores, if you use filter don't use
           this as well.
         name: cores
@@ -1582,6 +1596,20 @@ unix:
         description: Check free/used memory on the system.
       params:
       - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+
+          The message still says that the collector is initializing, so a warm-up result is never mistaken
+          for a reading. A collector that has tried to sample and failed is not warming up: that is always
+          UNKNOWN.'
+        name: warmup-state
+        repeatable: false
+        required: false
+        short_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.'
+      - content_type: 2
         default_value: ''
         is_simple: true
         long_description: The type of memory to check (physical = Physical memory (RAM), committed = total
@@ -1741,6 +1769,21 @@ unix:
         short_description: ''
       info:
         description: Check network interface status and throughput.
+      params:
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+
+          The message still says that the collector is initializing, so a warm-up result is never mistaken
+          for a reading. A collector that has tried to sample and failed is not warming up: that is always
+          UNKNOWN.'
+        name: warmup-state
+        repeatable: false
+        required: false
+        short_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.'
     check_os_updates:
       common_fields:
       - count
@@ -1975,6 +2018,21 @@ unix:
         short_description: ''
       info:
         description: Check the size of the system pagefile(s).
+      params:
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+
+          The message still says that the collector is initializing, so a warm-up result is never mistaken
+          for a reading. A collector that has tried to sample and failed is not warming up: that is always
+          UNKNOWN.'
+        name: warmup-state
+        repeatable: false
+        required: false
+        short_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.'
     check_process:
       common_fields:
       - count
@@ -2680,8 +2738,9 @@ windows:
         fetch core loads:
           advanced: true
           default_value: 'true'
-          description: Set to false to use a different API for fetching CPU load (will not provide core
-            load, and will not show exact same values as task manager).
+          description: Set to false to read only the total CPU load and skip the per-core values (check_cpu
+            then has no core rows). The total is read the same way either way, so this does not change
+            how close the figures are to Task Manager; to match Task Manager, enable 'use pdh for cpu'.
           sample: false
           title: Fetch core load
         process cpu:
@@ -3858,6 +3917,20 @@ windows:
           which defines when a check returns warning or critical.'
       params:
       - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+
+          The message still says that the collector is initializing, so a warm-up result is never mistaken
+          for a reading. A collector that has tried to sample and failed is not warming up: that is always
+          UNKNOWN.'
+        name: warmup-state
+        repeatable: false
+        required: false
+        short_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.'
+      - content_type: 2
         default_value: ''
         is_simple: true
         long_description: The time to check
@@ -3866,8 +3939,8 @@ windows:
         required: false
         short_description: The time to check
       - content_type: 4
-        default_value: ''
-        is_simple: true
+        default_value: 'false'
+        is_simple: false
         long_description: This will remove the filter to  include the cores, if you use filter dont use
           this as well.
         name: cores
@@ -4410,9 +4483,120 @@ windows:
         short_description: 'Select metric type(s) to show: ctxt, syscalls, processes or threads (repeatable;
           default: all)'
     check_load:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${type} load average: ${load1}, ${load5}, ${load15}'
+        empty-state: ignored
+        empty-syntax: ''
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${type}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Number of logical processors
+        name: cores
+        short_description: ''
+      - generic: false
+        long_description: The largest of load1, load5 and load15 — threshold on it to alert when any window
+          is high
+        name: load
+        short_description: ''
+      - generic: false
+        long_description: Load average over the last 1 minute
+        name: load1
+        short_description: ''
+      - generic: false
+        long_description: Load average over the last 15 minutes
+        name: load15
+        short_description: ''
+      - generic: false
+        long_description: Load average over the last 5 minutes
+        name: load5
+        short_description: ''
+      - generic: false
+        long_description: Runnable + running kernel scheduling entities (instantaneous last-tick estimate)
+        name: procs_running
+        short_description: ''
+      - generic: false
+        long_description: Total number of kernel scheduling entities (threads)
+        name: procs_total
+        short_description: ''
+      - generic: false
+        long_description: 'Smoothed (1-minute) processor queue length: threads waiting to run, excluding
+          those running — the pure saturation signal'
+        name: queue
+        short_description: ''
+      - generic: false
+        long_description: Collector ticks folded into the averages (the 5/15m values converge as this
+          grows)
+        name: samples
+        short_description: ''
+      - generic: false
+        long_description: '''total'', or ''scaled'' with percpu=true (the averages divided by the core
+          count)'
+        name: type
+        short_description: ''
       info:
         description: Check the system load average (1/5/15 minutes), synthesised from the processor queue
           length plus busy cores.
+      params:
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.
+
+          The message still says that the collector is initializing, so a warm-up result is never mistaken
+          for a reading. A collector that has tried to sample and failed is not warming up: that is always
+          UNKNOWN.'
+        name: warmup-state
+        repeatable: false
+        required: false
+        short_description: 'Return status to use while the background collector has not produced its first
+          sample yet (shortly after the agent or module starts): ok, warning, critical or unknown.'
+      - content_type: 4
+        default_value: 'false'
+        is_simple: false
+        long_description: Divide the load averages by the number of CPUs (reports the 'scaled' per-core
+          load)
+        name: percpu
+        repeatable: false
+        required: false
+        short_description: Divide the load averages by the number of CPUs (reports the 'scaled' per-core
+          load)
     check_memory:
       common_fields:
       - count

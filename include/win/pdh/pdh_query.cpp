@@ -4,6 +4,7 @@
 #include <exception>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <win/pdh/pdh_query.hpp>
 
 namespace PDH {
@@ -137,7 +138,7 @@ void PDHQuery::close() {
   if (unload_error) std::rethrow_exception(unload_error);
 }
 
-void PDHQuery::gatherData(const bool ignore_errors) {
+void PDHQuery::gatherData(const bool ignore_errors, const bool retry_missing) {
   // A concurrent reload closes and reopens this query's handles, so each
   // read of one happens under the implementation's lock (as in collect()).
   // Step by step rather than across the loop: the sleeps below must not hold
@@ -155,9 +156,27 @@ void PDHQuery::gatherData(const bool ignore_errors) {
     std::lock_guard<impl_interface> guard(*impl);
     return c->collect();
   };
-  collect();
+  // A missing instance (a physical disk whose instance name changed, a RAID
+  // volume that dropped out for a moment) is often back on the next sample
+  // (#648). One extra sample per gather, whichever counter needed it.
+  bool retried_missing = false;
+  const auto resample_missing = [&]() {
+    retried_missing = true;
+    Sleep(1000);
+    collect();
+  };
+  try {
+    collect();
+  } catch (const pdh_no_data_exception&) {
+    if (!retry_missing) throw;
+    resample_missing();
+  }
   for (const counter_type c : counters_) {
     pdh_error status = collect_counter(c);
+    if (status.is_no_instance() && retry_missing && !retried_missing) {
+      resample_missing();
+      status = collect_counter(c);
+    }
     if (status.is_invalid_data()) {
       // First call after open() routinely returns INVALID_DATA for derived
       // counters (e.g. percentages need two samples). Give PDH a second
@@ -203,7 +222,27 @@ void PDHQuery::collect() const {
   const std::shared_ptr<impl_interface> impl = this->impl();
   std::lock_guard<impl_interface> guard(*impl);
   const pdh_error status = impl->PdhCollectQueryData(hQuery_);
-  if (status.is_error()) throw pdh_exception("PdhCollectQueryData failed: ", status);
+  if (status.is_no_data()) throw pdh_no_data_exception("No data for " + describe_counters() + " (does the instance exist right now?)", status);
+  if (status.is_error()) throw pdh_exception("PdhCollectQueryData failed for " + describe_counters(), status);
+}
+
+// The counter paths of this query, for error messages: a collect failure is
+// about the query as a whole, and without the paths the report did not say
+// which counter it was about. A wildcard can expand to many instances, so
+// only the first few are listed.
+std::string PDHQuery::describe_counters() const {
+  constexpr std::size_t max_listed = 3;
+  std::string ret;
+  std::size_t listed = 0;
+  for (const counter_type& c : counters_) {
+    if (listed == max_listed) {
+      ret += " and " + std::to_string(counters_.size() - max_listed) + " more";
+      break;
+    }
+    if (listed++ > 0) ret += ", ";
+    ret += c->get_path();
+  }
+  return ret;
 }
 
 PDH_HQUERY PDHQuery::getQueryHandle() const { return hQuery_; }

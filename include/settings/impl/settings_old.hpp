@@ -158,10 +158,6 @@ class OLDSettings : public settings::settings_interface_impl {
         add_child_unsafe(key, key);
     }
   }
-  settings::error_list validate() {
-    settings::error_list ret;
-    return ret;
-  }
   virtual void real_clear_cache() {}
   bool supports_updates() override { return false; }
 

@@ -123,14 +123,13 @@ struct session_manager_interface {
   void set_sessions_revoked_handler(std::function<void()> handler);
   std::string generate_token(const std::string &user);
 
-  std::string get_metrics();
   std::string get_metrics_v2();
   // `/api/v2/metrics?meta=1`: the same keys and values, each with what the
   // producer said the metric means.
   std::string get_metrics_v2_described();
   std::string get_open_metrics();
   std::string get_prometheus_metrics();
-  void set_metrics(const std::string &metrics, const std::string &metrics_list, const std::string &metrics_metadata, const std::string &open_metrics,
+  void set_metrics(const std::string &metrics_list, const std::string &metrics_metadata, const std::string &open_metrics,
                    const std::string &prometheus_metrics);
 
   void add_log_message(bool is_error, const error_handler_interface::log_entry &entry) const;
@@ -138,6 +137,8 @@ struct session_manager_interface {
   void reset_log() const;
 
   void set_allowed_hosts(const std::string &host);
+  // Where `allowed hosts` is configured, for the rejection message.
+  void set_allowed_hosts_settings_path(const std::string &path);
   void set_allowed_hosts_cache(bool value);
   void set_allow_anonymous(bool value) { allow_anonymous_ = value; }
   void set_auth_rate_limit_max_failures(int value) { rate_limiter.set_max_failures(value); }

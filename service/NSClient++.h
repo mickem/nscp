@@ -142,6 +142,10 @@ class NSClientT : public nsclient::core::core_interface {
   // Register [/settings/facts] and, when a fact set is enabled, schedule the
   // refresh round. Done at boot, before the first round runs.
   void boot_facts();
+  // Log what `nscp settings --validate` would report: a warning per section or
+  // key that is certainly wrong, debug lines for the ones that only nothing
+  // loaded happens to use. Runs once every module has registered its settings.
+  void report_settings_problems();
   void read_facts_max_size();
   // Build the `agent` fact set (or drop it, when [/settings/facts] agent is
   // off) ahead of every facts round.

@@ -29,4 +29,5 @@ class settings_controller : public Mongoose::RegexpController {
   void command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void status(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void diff(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void problems(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 };

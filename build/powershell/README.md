@@ -37,7 +37,7 @@ later).
    │ (Windows)             setup-rocky-machine.ps1 (Linux) │  install NSCP,
    └──────────────────────┼───────────────────────────────┘  nscp web install,
                           │                                   write .vm.pwd
-                 run-tests.ps1        →  live acceptance suite (tests/live)
+                 npm run test:live    →  live acceptance suite (tests/live)
                           │
                  connect-machine.ps1  →  RDP (Windows) / SSH (Linux) into the VM
                           │
@@ -165,8 +165,9 @@ quick).
 ./provision-fleet-machines.ps1 -Destroy -Force             # later: confirm + clear the manifest
 ```
 
-Useful options: `-Version` (release to install, default 0.17.0; Linux machines
-need 0.16.2 or newer - the script refuses older releases up front, see above),
+Useful options: `-Version` (release to install; by default the latest GitHub
+release, looked up when the run starts - Linux machines need 0.16.2 or newer,
+and the script refuses older releases up front, see above),
 `-WindowsPackageUrl` / `-UbuntuPackageUrl` / `-RockyPackageUrl` to install a
 build from your own url instead — needed to exercise the installer's own fleet
 enrollment before it ships in a release — `-WindowsVersions` (round-robined over
@@ -193,6 +194,10 @@ the Windows machines), `-Location`, `-VmSize` (see the quota note below),
 > quota allows: tear down an old estate, spread across `-Location`s (the quota is
 > per region), or raise it in the portal (*Subscription → Usage + quotas* — on
 > pay-as-you-go a modest increase is usually auto-approved).
+>
+> `-MaxMachines` (default 5) is the cheaper guard in front of that: the run is
+> refused before anything is checked against Azure when it, plus the machines
+> still in the manifest, would exceed it. Raise it when the quota allows.
 
 > **The VMs enroll from Azure**, so the fleet server url has to be reachable from
 > the internet. A `localhost` dev server passes the preflight check on your
@@ -222,6 +227,264 @@ you want one enrolled machine with a name you choose:
 ./win/setup-machine.ps1 -VmName NSCP-Test -Version 0.15.0 `
     -FleetServer https://fleet.example.com -FleetToken <bootstrap-token>
 ```
+
+## Role-based estate: one command per suite
+
+`run-estate.ps1` turns the fleet estate into an acceptance lab. A **role** is a
+machine that carries a workload next to NSClient++ (MariaDB, SQL Server, IIS);
+a **suite** provisions the machines one role needs, waits for them to enroll
+with the fleet server and report in sync, collects their logs and tears them
+down again:
+
+```powershell
+# (NSCLIENT_FLEET_SERVER and NSCLIENT_FLEET_API_KEY are set - see above)
+./run-estate.ps1 base                            # today's estate, plus log collection
+./run-estate.ps1 mysql,mssql,hub                 # three suites, concurrently
+./run-estate.ps1 all -MaxMachines 8              # everything, as the quota allows
+./run-estate.ps1 mysql,mssql -Sequential         # one after another, -StopOnFirstFailure applies
+./run-estate.ps1 mssql -KeepVms                  # leave it up, then connect-machine.ps1
+./run-estate.ps1 -Collect                        # just pull logs from .fleet-machines.json
+./run-estate.ps1 all -DryRun                     # the plan, touching nothing
+```
+
+At the end it prints the run folder, one line per machine, how long each suite
+spent in each stage, and the total runtime (each suite also writes them to
+`suite-<role>/timing.json`). A failed machine names the **first stage that
+failed**, so the right log is the first one opened:
+
+| Stage       | Meaning                                                      | Look at              |
+| ----------- | ------------------------------------------------------------ | -------------------- |
+| `provision` | VM create or NSClient++ install failed                       | the run output       |
+| `install`   | the role's install fragment exited non-zero (or timed out)   | `role-install.log`   |
+| `enroll`    | the agent never enrolled with the fleet server               | `nsclient.log`, `journal.txt` / `events.txt` |
+| `sync`      | it enrolled but never reported `in_sync`                     | `fleet.ini`, `fleet-host.json` |
+| `bundle`    | the role bundle could not be composed                        | the run output       |
+| `check`     | a role check did not return what it should                   | `checks.json`        |
+
+**The gate.** After enroll and sync, a suite composes the role's bundle
+(`estate/add-role-bundles.ps1`) and runs `estate/verify-estate.ps1`, in two
+stages:
+
+1. **sync** — it polls the fleet server (up to the suite's wait) until
+   `GET /api/hosts/<id>/desired` carries the role's bundle (`role-<name>-<estate id>`)
+   and the host reports it applied. This is `in_sync` against the state
+   *with* the bundle in it, not whatever the host synced before the bundle was
+   assigned.
+2. **check** — it runs the jest suite `tests/live/estate.test.ts` once for
+   every machine that synced. Jest logs in to each agent over REST and runs
+   every role check that applies to the machine's OS. Each check must return
+   its `expect` state with its `perf` keys, and is retried for
+   `-CheckWaitSeconds` (default 120) to wait out a collector warming up or the
+   web server restarting after the bundle reload.
+
+Jest is the only check runner: the gate takes each machine's verdict from the
+`checks.json` jest writes into its folder (the verdict, the reason and the raw
+REST result of every check's last attempt), and adds the sync state to it. It
+needs node and `npm install` in `tests/`. The jest output shows one line per
+check, and the gate ends with one line per machine:
+
+```
+mysql-fra-02: FAILED at check - 1 of 2 check(s) failing; first: check_mysql ...: returned UNKNOWN, expected OK
+```
+
+**Running the checks by hand.** Against an estate kept with `-KeepVms`, the
+checks are one command from `tests/`. It finds every estate that is still up
+(every manifest under `build/powershell` that lists a machine whose
+`.vm.<name>.pwd` still exists), so there is no path to type:
+
+```sh
+cd tests && npm run test:estate                 # every estate that is up
+cd tests && npm run test:estate -- -t mssql     # one role's machines
+```
+
+After editing a role's bundle, re-apply it and run the whole gate again:
+
+```powershell
+./estate/add-role-bundles.ps1 -ManifestFile <manifest>
+./estate/verify-estate.ps1 -ManifestFile <manifest> -WaitMinutes 2
+```
+
+**Logs.** Every run writes `.estate-runs/<timestamp>/<machine>/` — on success
+and failure alike, before teardown — with `nsclient.log`, `role-install.log`,
+`fleet.ini`, `agent-state.json` (private key redacted), `fleet-host.json`,
+`journal.txt` (Linux) or `events.txt` and `msi-install.log` (Windows), and any
+extra files the role lists. Each suite's `suite.json`, `manifest.json` and
+`result.json` sit in `suite-<role>/` next to them. Run
+`./estate/collect-logs.ps1 -ManifestFile <manifest>` against a kept estate to
+refresh them; it gathers everything into one archive on the VM, so a machine
+costs a minute or two of RunCommand round trips, not one per file.
+
+**Cleanup.** Kept estates, suites that died half way and `-NoWait` teardowns
+accumulate. `./run-estate.ps1 -Cleanup` (`estate/cleanup-estate.ps1`) tears
+down everything the tooling ever left behind: every machine in every manifest
+(`.fleet-machines.json` and each run's `suite-<role>/manifest.json`, through
+the ordinary `-Destroy -RemoveFleetHosts`), every `NSCP-Fleet-*` resource
+group in Azure that no manifest lists, and the fleet host whose hostname is
+that machine's name, and the role groups and bundles of estates that are gone.
+A stray group younger than `-MinStrayAgeHours` (default 3, from the
+`nscp-created` tag the setup scripts put on it) is listed but kept: a suite
+still provisioning has no manifest yet, and its groups look like leftovers
+(`-IncludeRecent` removes them too). It then removes the run folders nothing
+live is left in and the `.vm.<name>.pwd` files of machines that no longer
+exist. It prints the
+plan and asks first; `-DryRun` only prints it, `-Force` skips the question,
+`-KeepLogs` keeps the run folders. Whatever could not be removed stays in its
+manifest, so the next `-Cleanup` picks it up.
+
+```powershell
+./run-estate.ps1 -Cleanup -DryRun     # what would go
+./run-estate.ps1 -Cleanup -Force      # remove it all
+```
+
+**Concurrency and the quota.** Suites run concurrently by default, each as
+its own process (it works on Windows PowerShell 5.1 too). A suite starts only
+while the machines in flight stay within `-MaxMachines` (default 5), so `all`
+queues instead of failing ten minutes in when the quota runs out.
+`-MaxParallel` (default 4) caps the suites in flight. `-Sequential` runs them
+one after another in the order given; it is the only mode where
+`-StopOnFirstFailure` applies, and it also copies each machine's credentials to
+the shared `.vm.pwd`, so `connect-machine.ps1` finds the latest one. `-KeepVms`
+prints the `-Destroy` command for each suite's manifest.
+
+`-Version`, `-*PackageUrl`, `-Location`, `-WindowsVersions` and the `-Fleet*`
+switches are passed on to `provision-fleet-machines.ps1`, which also takes the
+roles directly: `-Roles mysql=1,base=2`. There, `-Windows`/`-Ubuntu`/`-Rocky`
+are shorthand for that many `base` machines on one family.
+
+### Adding a role
+
+A role is one folder under `estate/roles/`; nothing in the runner changes.
+
+```
+estate/roles/mysql/
+  role.json            # the descriptor below
+  install-ubuntu.sh    # one install fragment per OS it supports
+  install-rocky.sh
+```
+
+```json
+{
+  "name": "mysql",
+  "description": "MariaDB server on Linux, checked with CheckMySQL",
+  "os": ["ubuntu", "rocky"],
+  "machines": 1,
+  "vcpus": 1,
+  "vmSize": null,
+  "image": null,
+  "modules": ["CheckMySQL"],
+  "install": { "ubuntu": "install-ubuntu.sh", "rocky": "install-rocky.sh" },
+  "installTimeoutMinutes": 10,
+  "tag": { "role": "mysql" },
+  "bundle": {
+    "settings": { "mysql": { "hostname": "127.0.0.1", "user": "nscp", "password": "${ROLE_PASSWORD}" } }
+  },
+  "checks": [
+    {
+      "command": "check_mysql",
+      "args": { "warning": "connections_pct > 100", "critical": "uptime < 1s" },
+      "expect": "OK",
+      "perf": ["mariadb_uptime", "mariadb_connections_pct"]
+    }
+  ],
+  "logs": { "ubuntu": ["/var/log/mysql/error.log"], "rocky": ["/var/log/mariadb/mariadb.log"] }
+}
+```
+
+| Key | Meaning |
+| --- | ------- |
+| `name` | Must match the folder: lowercase letters and digits. It becomes the machine-name prefix (`mysql-fra-02`), so a role that runs on Windows gets at most 8 characters (the computer name is capped at 15). `base` keeps the made-up names. |
+| `os` | Any of `windows`, `ubuntu`, `rocky`; a suite's machines round-robin over it. |
+| `machines` | How many machines a suite provisions (default 1); `run-estate.ps1 mysql=2` overrides it. |
+| `vcpus`, `vmSize` | What the quota preflight counts, and a size override for a role that needs more than the 1-vCPU default. |
+| `image` | `{ "publisher", "offer", "sku", "version"? }`: a Marketplace image instead of the family default (Windows-only roles), e.g. SQL Server 2022 Developer for `mssql`. |
+| `modules` | Activated **at install time**. A bundle can enable a module in `fleet.ini` but cannot load it into a running agent, so this is what lets the bundle take effect on the first sync. |
+| `install` | Per OS, a fragment run as root/SYSTEM on the VM **before** NSClient++ is installed, with `ROLE_PASSWORD` in its environment and `installTimeoutMinutes` as its limit. Its output lands in `/var/log/nscp-role-install.log` or `C:\nscp-role-install.log`. Exit non-zero to fail the machine at the `install` stage. |
+| `tag` | Operator-set tags put on the fleet host **before** it enrolls, so its first desired state already carries the role's group. Required when the role has a `bundle`: the group selects on it, and an empty selector would match every host in the tenant. |
+| `bundle` | `{ "settings": { ... } }`: the nested object path is the INI section path in `fleet.ini` (`settings.mysql` → `[/settings/mysql]`); `${ROLE_PASSWORD}` is substituted, `${ESTATE_IPS:<role>}` becomes the public IPs of that role's machines in the suite (comma-separated: an allow-list for a server only the hub may reach), and any other `${...}` is refused. The role's `modules` are enabled in the same bundle. |
+| `checks` | What the gate runs over REST. `args` are passed as `key=value` (an array repeats the key); `expect` is a Nagios state, or `any` for any state but UNKNOWN; every name in `perf` must occur in some perfdata key (case-insensitive, so `used %` matches `C:\ used %`); `os` limits a check to some families (`linux` means Ubuntu and Rocky); `each: "<role>"` runs it once per machine of that companion role, with `${target.ip}`, `${target.name}` and `${target.password}` (its web password) filled in. |
+| `localSettings` | `{ "<settings path>": { "<key>": "<value>" } }`, written into the host's own `nsclient.ini` with `nscp settings --set` right after the modules are activated. Use it only for a key the installer itself writes: a local key beats the same key from a bundle (`fleet.ini` is an include, and local settings win). |
+| `companions`, `companionOnly` | `{ "<role>": <count> }`: machines of other roles a suite of this one provisions alongside it (a hub's targets). `companionOnly: true` keeps a role out of `all`; it only comes with the role that needs it. |
+| `logs` | Per OS, extra files the log collection picks up (saved as `role-<file>`). |
+
+**Writing a check that checks something.** The gate runs against
+unmanipulated machines, so a check must not depend on host state: pin
+`warning`/`critical` to something that cannot trip (`load > 100`,
+`used > 100%`) rather than leaving the defaults, which can (`check_uptime`
+warns for the first two days of a fresh VM). Pin them rather than setting
+`none`: perfdata is only emitted for the variables a threshold references, so
+`none` also silently drops every `perf` key. Then ask for `expect: "OK"` and
+the perf keys — `any` with no perf only proves the command answers. The
+forced WARNING/CRITICAL cases stay in the self-spawning `tests/` suites.
+
+`ROLE_PASSWORD` is generated once per role in an estate — every machine of a
+role shares it, since one bundle carries it to all of them, and a role that
+already has machines in the manifest keeps theirs — and is recorded only in
+each machine's `.vm.<name>.pwd`. It reaches the setup script through the
+environment (`NSCP_ROLE_PASSWORD_<ROLE>`), not its command line, and
+`suite.log` masks credential lines (`ConvertTo-EstateRedactedLine`). It is a
+throwaway secret on a throwaway estate — never reuse the pattern for anything
+real.
+
+**Estates.** Every manifest is an estate with its own id (printed when it is
+provisioned). Its machines are tagged `estate=<id>` and its role groups and
+bundles are named `role-<role>-<id>`, selecting on the role's tags and the
+estate tag, so two estates of the same role — a kept `-KeepVms` estate and a
+new run, or two suites at once — never share a bundle, a password or an
+allow-list. `-Destroy -RemoveFleetHosts` removes the estate's groups and
+bundles with its last machine.
+
+### Shipped roles
+
+| Role | Machine | What the gate proves |
+| ---- | ------- | -------------------- |
+| `base` | Windows + Ubuntu, NSClient++ only | Enrollment, sync and the core checks (today's estate) |
+| `mysql` | MariaDB on Ubuntu or Rocky | `check_mysql`, `check_mysql_query` through a `[/settings/mysql]` bundle |
+| `mssql` | Marketplace SQL Server 2022 Developer on Windows Server 2022 | All 13 CheckMSSQL commands, OK with perfdata, through a `[/settings/mssql]` bundle |
+| `hub` | Ubuntu with CheckNet, NRPEClient and NSCPClient, plus two `target` machines (Windows and Ubuntu) | `check_nrpe`, `check_remote_nscp` and `check_nsclient_web_online` from the hub to each target |
+
+Notes on `mssql`:
+
+- There is no SQL Server 2022 **Express** image on Windows Server 2022
+  (`sql2022-ws2022` offers `enterprise`, `standard`, `web` and `sqldev`).
+  Developer is free on Azure too, and it has SQL Agent, so `check_mssql_jobs`
+  reads real jobs.
+- The fragment enables TCP 1433 and mixed-mode authentication, then restarts
+  the engine in single-user mode (`-m`, restricted to its own application
+  name) to create the `nscp` login. SYSTEM is not a sysadmin on the image, but
+  every local administrator is in single-user mode, so this does not depend on
+  how the image provisioned its logins.
+- It installs ODBC Driver 18, which encrypts by default against the
+  instance's self-signed certificate. Every check therefore passes
+  `trust-cert=true`. TLS trust is a per-check option and cannot go in
+  `[/settings/mssql]`, which also exercises a valued boolean over REST.
+- `installTimeoutMinutes` is 20: the fragment restarts the engine twice and
+  downloads the driver.
+
+Notes on `hub`:
+
+- The targets run NRPE over TLS with the agent's own certificate
+  (`insecure = false`) and `allow arguments` on. Their bundle sets `allowed
+  hosts` to the hub's public IP only (`${ESTATE_IPS:hub}`), so port 5666 is
+  open in the NSG but answers nobody else.
+- `verify mode = none` (no client certificate) is a `localSettings` key, not
+  a bundle one. A fresh MSI install writes its secure NRPE preset,
+  `verify mode = peer-cert`, into `nsclient.ini`, where it beats anything a
+  bundle sends; the Linux packages leave NRPEServer on its own default. Without
+  it the Windows target refuses the hub ("Failed to verify other ends
+  certificate"). The preset does not touch `allowed hosts`, so the bundle's
+  hub-only list applies on both platforms.
+- `check_remote_nscp` and `check_nsclient_web_online` reach the target's REST
+  API with its web password and `verify=none`: the agents' certificates are
+  self-signed. `checks.json` records `${target.password}`, not the password.
+- `target` is `companionOnly`: `all` provisions it only with the hub.
+
+**`-CheckNsclient`.** `./run-estate.ps1 <suite> -CheckNsclient` also runs every
+role check through the `check_nsclient` plugin from the runner, the way a
+Nagios server does: `check_nsclient nsclient auth login` to one profile per
+machine, then `queries execute-nagios <command> key=value...`, judged on its
+exit code and perfdata, and the profile is logged out again. The plugin is
+`check_nsclient` on PATH, else the one an NSClient++ install puts in its
+program folder (`verify-estate.ps1 -CheckNsclientPath` picks another).
 
 ## Turn-key Nagios monitoring for the fleet
 
@@ -336,59 +599,37 @@ finds `mstsc.exe` / `cmdkey.exe` under `/mnt/c/Windows/System32`).
 
 Since `.vm.pwd` only describes the **last** machine provisioned, to debug a
 specific VM either pass its details explicitly, or keep it alive when you
-provision it — e.g. `./run-all-tests.ps1 -Target windows -WindowsVersions windows-2025 -KeepVms`,
-then `./connect-machine.ps1` to RDP in.
+provision it — e.g. `./run-estate.ps1 base -Sequential -KeepVms`, which also
+copies the credentials to `.vm.pwd` — then `./connect-machine.ps1` to RDP in.
 
 ## Run everything in one command
 
-`run-all-tests.ps1` chains the three steps above (provision → test → teardown)
-for one or several machine types. Each machine gets its own resource group and
-is torn down when it finishes.
+The [role-based estate](#role-based-estate-one-command-per-suite) is the
+one-command path: provision, enroll, check, collect logs, tear down. The
+`base` role is NSClient++ alone, and its machines round-robin over Windows,
+Ubuntu and Rocky, so the old whole-OS matrix is one suite:
 
 ```powershell
-# The whole matrix: Windows Server (latest + oldest) + Ubuntu + Rocky
-./run-all-tests.ps1 -Target all -Version 0.14.0
+# Windows Server 2025, Ubuntu, Rocky and Windows Server 2019, latest release
+./run-estate.ps1 base=4 -WindowsVersions windows-2025,windows-2019
 
-# Same, but concurrently — much faster (most of the time is Azure create/destroy)
-./run-all-tests.ps1 -Target all -Version 0.14.0 -Parallel
-
-# A single family
-./run-all-tests.ps1 -Target ubuntu  -Version 0.14.0
-./run-all-tests.ps1 -Target windows -Version 0.14.0     # windows-2025 + windows-2019
-./run-all-tests.ps1 -Target rocky   -Version 0.14.0     # 'redhat' is an alias
+# A pinned release
+./run-estate.ps1 base=3 -Version 0.24.1
 ```
 
-**Sequential vs. `-Parallel`.** By default machines run one at a time and share
-`build/powershell/.vm.pwd` (so `connect-machine.ps1` and a bare `run-tests`
-still find the last one). `-Parallel` (PowerShell 7+) runs them concurrently,
-each with its own `.vm.<name>.pwd`, capped by `-MaxParallel` (default 4 — mind
-your Azure vCPU quota). It logs in once up front so the concurrent setups don't
-each prompt. Output from the machines interleaves (every line is prefixed with
-the machine label); the pass/fail summary at the end is what matters. With
-`-Parallel -KeepVms`, point at a specific box with
-`./connect-machine.ps1 -PwdFile .vm.<name>.pwd`.
-
-| `-Target`           | Machines provisioned                                  |
-| ------------------- | ----------------------------------------------------- |
-| `all`               | Windows 2025 + Windows 2019 + Ubuntu 24.04 + Rocky 9  |
-| `windows`           | `-WindowsVersions` (default latest + oldest server)   |
-| `ubuntu`            | `-UbuntuVersion` (default 24.04)                      |
-| `rocky` / `redhat`  | `-RockyVersion` (default 9)                           |
-
-It prints a pass/fail summary at the end and exits non-zero if any machine
-failed. Useful switches: `-KeepVms` (skip teardown for debugging — only the last
-machine's `.vm.pwd` survives), `-StopOnFirstFailure`, and `-WindowsVersions` /
-`-UbuntuVersion` / `-RockyVersion` to override the images (e.g.
-`-WindowsVersions windows-2025` for just the latest). The first machine performs
-the Azure login (device-code on WSL); run `./install-azure.ps1` once beforehand
-if the Az modules are missing.
+Every machine gets the role checks and the agent checks of the live suite
+(`check_cpu`, `check_memory`, `check_uptime`, `check_drivesize`, plus the
+Linux- or Windows-only ones), all in jest. The estate needs a fleet server
+(see [Build a fleet](#build-a-fleet-machines-enrolled-with-a-fleet-server)).
+Without one, provision a single machine with a setup script and run the live
+suite against it ([below](#2-run-the-acceptance-suite)).
 
 Supported `-WindowsVersions` values: `windows-2025`, `windows-2022`,
 `windows-2019` (Windows Server), and `windows-11`, `windows-10` (client). Mix
 them freely, e.g. test every Windows:
 
 ```powershell
-./run-all-tests.ps1 -Target windows -Version 0.14.0 `
+./run-estate.ps1 base=5 -Version 0.14.0 -MaxMachines 5 `
   -WindowsVersions windows-2025,windows-2022,windows-2019,windows-11,windows-10
 ```
 
@@ -419,29 +660,32 @@ directory.
 
 ## 2. Run the acceptance suite
 
-[`run-tests.ps1`](run-tests.ps1) points the Jest **live** suite
-([`tests/live`](../../tests/live)) at the VM. It reads the public IP + web
-password from `.vm.pwd` (falling back to explicit `-PublicIp`/`-Password`, or an
-Azure lookup for the IP), sets the `NSCP_TARGET_*` environment, and runs
-`npm run test:live` in `tests/`.
+The Jest **live** suite ([`tests/live`](../../tests/live)) reads the VM's
+address and web password from the credentials file the setup script wrote.
+With no `NSCP_TARGET_PASSWORD` set it uses `build/powershell/.vm.pwd`, the
+machine provisioned last, so from the repository root:
 
 ```powershell
-./run-tests.ps1 -VmName NSCP-Ubuntu-Test -Os linux
-./run-tests.ps1 -VmName NSCP-Test        -Os windows
+npm --prefix tests run test:live -- live-checks
+```
+
+Another machine's file goes in `NSCP_TARGET_PWD_FILE` (the setup script
+prints the full line when it finishes):
+
+```powershell
+$env:NSCP_TARGET_PWD_FILE = 'build/powershell/.vm.web-ams-04.pwd'; npm --prefix tests run test:live -- live-checks
 ```
 
 The suite connects over REST (HTTPS/8443, self-signed cert accepted), logs in,
-and asserts the standard checks work on the real machine — cross-platform
+and asserts the standard checks work on the real machine: cross-platform
 (`check_cpu`, `check_memory`, `check_uptime`, `check_drivesize`) plus
 platform-specific ones (Linux: `check_load`, `check_swap_io`, `check_service`,
-`check_mount`; Windows: `check_service`, `check_eventlog`).
+`check_mount`; Windows: `check_service`, `check_eventlog`). The estate runs the
+same cases on every machine.
 
-It also runs **locally without a VM** for debugging — see
-[`tests/live/README.md`](../../tests/live/README.md):
-
-```powershell
-./run-tests.ps1 -Local -Password <web-pw> -Os linux
-```
+It also runs **locally without a VM** for debugging: set `NSCP_TARGET_URL` and
+`NSCP_TARGET_PASSWORD` instead (see
+[`tests/live/README.md`](../../tests/live/README.md)).
 
 ## 3. Logs / teardown
 
@@ -455,6 +699,7 @@ It also runs **locally without a VM** for debugging — see
 - `.vm.pwd` holds a live web password — it is intentionally not committed
   (add it to your local ignore if needed) and is overwritten by each setup run.
 - One `.vm.pwd` at a time: provision, test, tear down before the next VM, or
-  pass `-PublicIp`/`-Password` to `run-tests.ps1` explicitly for parallel VMs.
-- A GitHub Actions pipeline that downloads a release's artifacts, calls these
-  scripts, runs `run-tests.ps1`, and always tears down is the natural next step.
+  pass `-PwdFile .vm.<name>.pwd` to the setup script and `NSCP_TARGET_PWD_FILE`
+  to the suite for parallel VMs.
+- A GitHub Actions pipeline that wraps `run-estate.ps1` and always tears down
+  is the natural next step.

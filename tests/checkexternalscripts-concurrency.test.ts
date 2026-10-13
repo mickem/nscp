@@ -40,6 +40,18 @@
  * then runs down its clock. Overlap is therefore constructed rather than hoped
  * for, and a core that serialised dispatch still cannot produce it - the first
  * script would wait out the barrier alone, and `bothAlive` would stay false.
+ *
+ * The barrier is only as good as its length, though. On the Windows x86 runner
+ * the agent logged alpha's dispatch before beta's connection was even
+ * accepted, and the case took two full barrier-plus-hold cycles back to back:
+ * the second client process had reached the agent more than fifteen seconds
+ * after the first, alpha had given up waiting, and beta then waited out the
+ * barrier alone. Nothing on the agent's side holds a second request back - the
+ * socket server runs each connection on its own pool thread, and neither
+ * launcher keeps a lock across a running child. So the barrier is now long
+ * enough to absorb a client that slow, every timeout on the path (script, NRPE
+ * server, NRPE client) is raised to cover it, and a failure reports when each
+ * script was seen running, so the next one says how far apart they were.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -47,7 +59,7 @@ import path from "node:path";
 
 import { NscpInstance, onWindows } from "@fixtures/index";
 
-jest.setTimeout(180_000);
+jest.setTimeout(300_000);
 
 const NRPE_PORT = 5666;
 
@@ -60,14 +72,20 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
   const ALPHA = "alpha-3f2a1c";
   const BETA = "beta-9d4b7e";
   // How long a script waits for its peer to show up before giving up and
-  // finishing alone. Only reached when the two never overlap, which is the
-  // failure this suite exists to catch; kept short enough that the case
-  // reports promptly.
-  const BARRIER_SECONDS = 15;
+  // finishing alone. This is the slack for the second client process reaching
+  // the agent late, which a loaded Windows runner has been seen to stretch past
+  // fifteen seconds; it costs nothing when the two meet, and is only waited out
+  // in full when they never overlap.
+  const BARRIER_SECONDS = 45;
   // How long both markers stay up once the two have met. This is the window
   // the test polls for, so it wants to be comfortably wider than a starved
   // event loop's polling interval - not long, just not marginal.
   const HOLD_SECONDS = 2;
+  // Every timeout between the client and the script - the script's own, the
+  // NRPE server's socket and the NRPE client's - has to outlast a script that
+  // waits out the whole barrier, or a late peer turns into a timeout instead
+  // of a rendezvous. Comfortably longer than that, so nothing here is one.
+  const IO_TIMEOUT_SECONDS = 120;
 
   const scriptFile = (name: string) => path.join(scriptsDir, `${name}.${onWindows ? "bat" : "sh"}`);
 
@@ -139,10 +157,12 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
         "--insecure",
         "--version",
         "2",
+        "--timeout",
+        String(IO_TIMEOUT_SECONDS),
         "--command",
         command,
       ],
-      { allowFailure: true, timeout: 60_000 },
+      { allowFailure: true, timeout: (IO_TIMEOUT_SECONDS + 30) * 1000 },
     );
     return r.all ?? `${r.stdout}\n${r.stderr}`;
   }
@@ -155,8 +175,7 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
     nscp = new NscpInstance();
     await nscp.configure({
       "/modules": { CheckExternalScripts: "enabled", NRPEServer: "enabled" },
-      // Comfortably longer than the scripts, so nothing here is a timeout.
-      "/settings/external scripts": { timeout: "60" },
+      "/settings/external scripts": { timeout: String(IO_TIMEOUT_SECONDS) },
       "/settings/external scripts/scripts": {
         check_alpha: runner("alpha"),
         check_beta: runner("beta"),
@@ -170,6 +189,9 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
       "--insecure",
       "--verify=none",
     ]);
+    // After the install, so nothing it writes to this section can reset it.
+    // The socket timeout bounds the whole request, check included.
+    await nscp.configure({ "/settings/NRPE/server": { timeout: String(IO_TIMEOUT_SECONDS) } });
 
     await nscp.waitForPortFree(NRPE_PORT, { timeoutMs: 30_000 });
     nscp.start();
@@ -191,13 +213,28 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
 
     // Watch for the moment both markers exist. Polling rather than sleeping a
     // fixed time: once the two have met they both hold their markers for
-    // HOLD_SECONDS, which is thousands of samples at this interval.
+    // HOLD_SECONDS, which is thousands of samples at this interval. Kept up
+    // until both queries return, so that a failure can say when each script
+    // was actually running rather than only that the two never met.
     let bothAlive = false;
-    const deadline = Date.now() + 120_000;
-    while (!settled && !bothAlive && Date.now() < deadline) {
+    const seen: Record<string, { first: number; last: number }> = {};
+    const deadline = Date.now() + (2 * (BARRIER_SECONDS + HOLD_SECONDS) + 60) * 1000;
+    while (!settled && Date.now() < deadline) {
+      const now = Date.now() - started;
+      for (const name of ["alpha", "beta"]) {
+        if (!fs.existsSync(runningFile(name))) continue;
+        seen[name] = { first: seen[name]?.first ?? now, last: now };
+      }
       if (runningCount() === 2) bothAlive = true;
-      else await new Promise((r) => setTimeout(r, 25));
+      await new Promise((r) => setTimeout(r, 25));
     }
+    const ranFor = (name: string) =>
+      seen[name]
+        ? `${name} ran ${seen[name].first / 1000}s-${seen[name].last / 1000}s`
+        : `${name} never seen running`;
+    const overlap = bothAlive
+      ? "overlapped"
+      : `never overlapped: ${ranFor("alpha")}, ${ranFor("beta")}`;
 
     const [alphaOut, betaOut] = await inFlight;
     const elapsed = (Date.now() - started) / 1000;
@@ -213,7 +250,10 @@ describe("CheckExternalScripts — concurrent scripts keep their streams apart",
     // ...and the assertions above mean something, because the two scripts were
     // demonstrably inside the agent at the same instant rather than run back
     // to back. This is the claim the old wall-clock bound was standing in for.
-    expect(bothAlive).toBe(true);
+    // On failure the message gives when each script was seen running: two
+    // disjoint windows, each about the length of the barrier, mean the second
+    // script only started after the first had given up waiting for it.
+    expect(overlap).toBe("overlapped");
 
     // Loose backstop only, and deliberately never the assertion that reports
     // a real problem: two scripts that meet promptly are done in about

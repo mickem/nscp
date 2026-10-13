@@ -4,6 +4,7 @@ import AppNavbar from "../components/AppNavbar.tsx";
 import { Outlet } from "react-router";
 import { useState } from "react";
 import SettingsChangedWidget from "../components/atoms/SettingsChangedWidget.tsx";
+import SettingsProblemsWidget from "../components/atoms/SettingsProblemsWidget.tsx";
 
 const drawerWidth = 240;
 
@@ -39,6 +40,7 @@ export default function MainPage() {
       >
         <Toolbar />
         <SettingsChangedWidget />
+        <SettingsProblemsWidget />
         <Outlet />
       </Box>
     </Box>
