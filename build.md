@@ -1246,12 +1246,12 @@ An opt-in Jest harness under `tests/stress/` (`*.stress.ts`, its own
 the scheduler-throughput half of `test_python.py`, neither of which ran
 anywhere. Each scenario loads one agent for a configurable window and **passes
 or fails on invariants, not on a throughput bar**: zero failed requests and zero
-lost submissions, `check_ok` answered within 2 s after the load stops, RSS at
-the end within 20 % of RSS after warm-up and a flat thread count (the leak
-canary), and a log with no `terminated by an uncaught exception` and no
-`Failed to` lines. Throughput, latency percentiles and the RSS/thread samples
-are recorded to `tests/stress/results/<scenario>.json` for a baseline to grow
-from.
+lost submissions, `check_ok` answered within 2 s after the load stops, the RSS
+peak over the last 5 s of the load within 20 % of the peak over the first 5 s
+after warm-up and a flat thread count (the leak canary), and a log with no
+`terminated by an uncaught exception` and no `Failed to` lines. Throughput,
+latency percentiles and the RSS/thread samples are recorded to
+`tests/stress/results/<scenario>.json` for a baseline to grow from.
 
 ```bash
 cd tests
@@ -1266,7 +1266,7 @@ NSCP_STRESS_DURATION=1800 npm run test:stress                    # a soak
 | `NSCP_STRESS_DURATION`      | `60`    | Seconds of load per scenario                                |
 | `NSCP_STRESS_CONCURRENCY`   | `32`    | Parallel workers, one connection each                       |
 | `NSCP_STRESS_RPS`           | `0`     | Requests per second across all workers; `0` is unbounded    |
-| `NSCP_STRESS_RSS_TOLERANCE` | `20`    | Percent RSS may grow from warm-up to end before failing     |
+| `NSCP_STRESS_RSS_TOLERANCE` | `20`    | Percent the RSS peak may grow from warm-up to end before failing |
 | `NSCP_STRESS_SCHEDULES`     | `1000`  | Schedules the scheduler scenarios install (200 for scheduler-slow-neighbour) |
 | `NSCP_STRESS_SLOW_MS`       | `8000`  | How long each slow check in the engine scenarios runs       |
 | `NSCP_STRESS_NRPE_PORT`     | `15666` | NRPE port of the engine scenarios                           |

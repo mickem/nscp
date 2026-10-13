@@ -41,7 +41,7 @@ export function writeReport(report: ScenarioReport): string {
   if (report.growth) {
     const g = report.growth;
     parts.push(
-      `RSS ${(g.baseline.rssBytes / 1048576).toFixed(1)} -> ${(g.final.rssBytes / 1048576).toFixed(1)} MiB ` +
+      `RSS peak ${(g.baselinePeakRss / 1048576).toFixed(1)} -> ${(g.finalPeakRss / 1048576).toFixed(1)} MiB ` +
         `(${g.rssGrowthPct >= 0 ? "+" : ""}${g.rssGrowthPct.toFixed(1)}%), threads ${g.baseline.threads} -> ${g.final.threads};`,
     );
   }

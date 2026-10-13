@@ -5,8 +5,8 @@
  *   NSCP_STRESS_DURATION       seconds of load, default 60
  *   NSCP_STRESS_CONCURRENCY    parallel workers (open connections), default 32
  *   NSCP_STRESS_RPS            requests per second across all workers, 0 = unbounded
- *   NSCP_STRESS_RSS_TOLERANCE  percent the RSS may grow from after warm-up to
- *                              the end before the leak canary fails, default 20
+ *   NSCP_STRESS_RSS_TOLERANCE  percent the RSS peak may grow from after warm-up
+ *                              to the end before the leak canary fails, default 20
  *
  * A soak is the same scenario with a long duration: NSCP_STRESS_DURATION=1800.
  */

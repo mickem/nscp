@@ -6,12 +6,12 @@
  * to NSCAServer, one connection per submission as send_nsca does. The sink is
  * the web server's passive result cache: the server posts every packet it
  * decodes on `CHANNEL`, WEBServer caches it under the service name, and the
- * test drains the cache twice a second over REST. Every submission carries a
- * service name of its own and a message built from the same worker and
- * sequence numbers, so a result is only counted when it comes back under the
- * right key with the right status and the right text: a packet lost on the
- * way, dropped by the server, or crossed with a concurrent one all show up as
- * a lost or a mismatched submission.
+ * test drains the cache ten times a second over REST. Every submission
+ * carries a service name of its own and a message built from the same worker
+ * and sequence numbers, so a result is only counted when it comes back under
+ * the right key with the right status and the right text: a packet lost on
+ * the way, dropped by the server, or crossed with a concurrent one all show up
+ * as a lost or a mismatched submission.
  *
  * NSCA is the one passive protocol the agent receives. NRDP and NSCA-ng have
  * clients here but no server, so a flood of those would be a flood of
@@ -51,7 +51,15 @@ const PAYLOAD_LENGTH = 512;
 const CHANNEL = "STRESS_PASSIVE";
 /** What the client claims to be; the server passes it through as the result's host. */
 const SENDER = "stress-sender";
-const POLL_MS = 500;
+/**
+ * Ten times a second, not twice: every poll's reply is built in the agent's
+ * heap, and at a few thousand submissions a second a half-second drain is a
+ * few thousand results in one response. The heap then swung 8 MiB with every
+ * poll and its high-water mark took 40 s to settle, so the leak canary read
+ * +22% from an agent that held 50 MiB flat for five minutes. A tenth of a
+ * second keeps the swing at 3 MiB, about the agent rather than the poller.
+ */
+const POLL_MS = 100;
 /**
  * The cache keeps `max entries` keyed results and evicts the oldest beyond
  * that: 1000 by default, which a flood of unique keys at a few thousand a
@@ -173,7 +181,7 @@ describe("stress: passive flood, NSCA into the result cache", () => {
       return n;
     };
 
-    // The drain runs beside the load, once a second, until told to stop.
+    // The drain runs beside the load, every POLL_MS, until told to stop.
     let draining = true;
     const drainLoop = (async () => {
       while (draining) {

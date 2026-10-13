@@ -201,7 +201,8 @@ sample per second into `stress/results/<scenario>.json` (git-ignored; uploaded a
 
 - zero failed requests and zero lost submissions;
 - the agent answers `check_ok` within 2 s after the load stops;
-- RSS at the end of the load within 20 % of RSS after warm-up, thread count flat (the leak canary);
+- the RSS peak over the last 5 s of the load within 20 % of the peak over the first 5 s after warm-up, thread count flat
+  (the leak canary; peaks, because RSS under load is a sawtooth and two single samples measure where each landed);
 - the log has no `terminated by an uncaught exception` and no `Failed to` lines.
 
 Throughput is recorded, never asserted; a baseline file with regression bars comes once a few runs exist.
@@ -214,7 +215,7 @@ Throughput is recorded, never asserted; a baseline file with regression bars com
 | `stress/mixed-flood.stress.ts`              | N NRPE workers over every fast path (C++, Python, Lua, the cross-engine calls, an external process), each request checked against its own token, with one slow check per engine running behind for the whole window; no request may take as long as a slow check                                                                                                                                                       |
 | `stress/scheduler-slow-neighbour.stress.ts` | 200 quick schedules over every fast path plus one slow schedule per engine on the default 10-thread pool, into the result cache; every quick schedule on time with its own message, no late starts                                                                                                                                                                                                                     |
 | `stress/nrpe-flood.stress.ts`               | N NRPE workers from a TypeScript NRPE v2 client (`stress/lib/nrpe-client.ts`) on a token-echoing `check_ok` and the collector-backed `check_cpu`, once in the clear and once over mutual TLS against the server's cert mode, one agent and one report per mode; every answer its own request's                                                                                                                         |
-| `stress/passive-flood.stress.ts`            | N workers submitting NSCA results from a TypeScript client (`stress/lib/nsca-client.ts`) into NSCAServer, drained from the result cache twice a second (its `max entries` raised for the run: the default 1000 would evict a flood of unique keys between two polls); every submission back under its own key with its own status, host and message, nothing lost. NSCA is the one passive protocol the agent receives |
+| `stress/passive-flood.stress.ts`            | N workers submitting NSCA results from a TypeScript client (`stress/lib/nsca-client.ts`) into NSCAServer, drained from the result cache ten times a second (its `max entries` raised for the run: the default 1000 would evict a flood of unique keys between two polls); every submission back under its own key with its own status, host and message, nothing lost. NSCA is the one passive protocol the agent receives |
 | `stress/reload-soak.stress.ts`              | The REST flood and 200 schedules running while CheckHelpers, the Scheduler and LUAScript are reloaded in turn every 5 s, each round preceded by a settings write over REST and complete only once the reload is seen to apply; every round completed, every schedule seen, no failed request. Three minutes by default, `NSCP_STRESS_DURATION=1800` for a soak                                                         |
 
 Knobs, all environment variables: `NSCP_STRESS_DURATION` (seconds, default 60; 180 for `reload-soak`),

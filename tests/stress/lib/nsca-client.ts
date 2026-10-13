@@ -11,9 +11,10 @@ import { crc32 } from "./nrpe-client";
  * The exchange (include/net/nsca/client/nsca_client_protocol.hpp): the client
  * connects, the server sends an IV packet - 128 bytes of IV and its own Unix
  * time, big-endian - the client builds one data packet stamped with that
- * time, encrypts it with the key and the IV, writes it and hangs up. There is
- * no acknowledgement; whether a submission landed is only visible at the
- * sink, which is why the scenario reads the result cache back.
+ * time, encrypts it with the key and the IV and writes it; the server hangs
+ * up once it has read it. There is no acknowledgement; whether a submission
+ * landed is only visible at the sink, which is why the scenario reads the
+ * result cache back.
  *
  * Data packet (include/net/nsca/nsca_packet.hpp, all big-endian):
  * int16 version (3), two bytes of alignment, uint32 CRC32 of the packet with
@@ -135,8 +136,9 @@ export class NscaClient {
 
   /**
    * One submission on its own connection, as send_nsca does. Resolves once
-   * the packet has been flushed and the connection closed; whether the server
-   * accepted it is not something the protocol says.
+   * the packet has been flushed and the server has closed the connection,
+   * which it does after reading the packet; whether it accepted the packet is
+   * not something the protocol says.
    *
    * `localWaitMs` is how long the submission waited for a local port before
    * it could connect at all: NSCA is one connection per submission, and a
@@ -160,11 +162,23 @@ export class NscaClient {
     }
   }
 
+  /** The encrypted data packet for `s`, from the server's IV packet. */
+  private encrypted(s: NscaSubmission, ivPacket: Buffer): Buffer {
+    const timestamp = ivPacket.readUInt32BE(IV_LENGTH);
+    return encryptPacket(
+      encodePacket(s, this.payloadLength, timestamp),
+      this.cipher,
+      this.password,
+      ivPacket.subarray(0, IV_LENGTH),
+    );
+  }
+
   private submitOnce(s: NscaSubmission): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const socket = net.connect({ port: this.port, host: this.host });
       let iv = Buffer.alloc(0);
       let sent = false;
+      let written = false;
       let settled = false;
       const done = (err?: Error) => {
         if (settled) return;
@@ -174,7 +188,13 @@ export class NscaClient {
         else resolve();
       };
       socket.setTimeout(this.timeoutMs, () =>
-        done(new Error(`no IV packet in ${this.timeoutMs} ms`)),
+        done(
+          new Error(
+            sent
+              ? `server did not close within ${this.timeoutMs} ms of the packet`
+              : `no IV packet in ${this.timeoutMs} ms`,
+          ),
+        ),
       );
       socket.on("error", (e) => done(e));
       socket.on("data", (chunk: Buffer) => {
@@ -185,23 +205,27 @@ export class NscaClient {
         sent = true;
         let packet: Buffer;
         try {
-          const timestamp = iv.readUInt32BE(IV_LENGTH);
-          packet = encryptPacket(
-            encodePacket(s, this.payloadLength, timestamp),
-            this.cipher,
-            this.password,
-            iv.subarray(0, IV_LENGTH),
-          );
+          packet = this.encrypted(s, iv);
         } catch (e) {
           done(e as Error);
           return;
         }
-        // end() sends the FIN after the packet; the callback fires once both
-        // are out, which is as much as the protocol lets a sender know.
-        socket.end(packet, () => done());
+        // Write, but let the server hang up first: it closes as soon as it has
+        // read a whole packet, and the side that closes first is the one left
+        // holding TIME_WAIT. Ending from here put every submission's local
+        // port into TIME_WAIT, and a flood at a few thousand a second ran the
+        // whole ephemeral range (16384 ports on Windows) dry within seconds -
+        // after which node itself died (0xC0000409) rather than the run
+        // failing. The server's close is also as close to an acknowledgement
+        // as the protocol has: it only comes once the packet was read.
+        socket.write(packet, (e) => {
+          if (e) done(e);
+          else written = true;
+        });
       });
       socket.on("close", () => {
-        if (!settled) {
+        if (written) done();
+        else
           done(
             new Error(
               sent
@@ -209,7 +233,6 @@ export class NscaClient {
                 : `connection closed after ${iv.length} of ${IV_PACKET_LENGTH} IV bytes`,
             ),
           );
-        }
       });
     });
   }
