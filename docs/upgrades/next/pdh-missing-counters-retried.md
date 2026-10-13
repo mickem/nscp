@@ -21,7 +21,9 @@ the whole collector query, so every predefined counter answered
   it. A check in the first seconds after startup that used to read `0` reports
   `Failed to get value` instead.
 - `check_pdh reload=true` was accepted but ignored. It now has the collector
-  retry the missing counters on its next tick; the check itself does not wait.
+  retry the missing counters on its next tick; the check itself does not wait,
+  so the call that asks still answers `Failed to get value` and a counter that
+  turned up is there for the checks after it.
 - With `disable = metrics` the predefined counters are still sampled (they
   used to read `0` forever). With `disable = pdh` they are not loaded, and
   `check_pdh` reports `Failed to get value` for them instead of `0`.
