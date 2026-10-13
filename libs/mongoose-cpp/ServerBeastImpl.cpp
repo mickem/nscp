@@ -280,8 +280,8 @@ void ServerBeastImpl::setThreadReporting(const std::string& thread_name, thread_
 }
 
 bool ServerBeastImpl::isServerThread() const {
-  return std::any_of(threads_.begin(), threads_.end(),
-                     [](const std::shared_ptr<boost::thread>& thread) { return thread->get_id() == boost::this_thread::get_id(); });
+  const std::lock_guard<std::mutex> lock(thread_ids_mu_);
+  return thread_ids_.count(boost::this_thread::get_id()) > 0;
 }
 
 void ServerBeastImpl::setAcceptFilter(accept_filter filter) {
@@ -534,6 +534,10 @@ bool ServerBeastImpl::start(const std::string& bind) {
   const std::string name = thread_name_;
   for (std::size_t i = 0; i < worker_threads_; ++i) {
     threads_.push_back(threads::start_guarded_thread(name, [this, name, report] { threads::run_io_context_guarded(name, ioc_, report); }, report));
+    // Registered one by one: a handler can run on the first thread before the
+    // last is started, and must already find itself.
+    const std::lock_guard<std::mutex> lock(thread_ids_mu_);
+    thread_ids_.insert(threads_.back()->get_id());
   }
   return true;
 }
@@ -717,8 +721,7 @@ void ServerBeastImpl::stop() {
   // others keep running the io_context until it has no work left, and the
   // handler that called us is work until it returns - so they would wait on
   // it while it waits on them. Each returns once the last handler does.
-  const bool from_own_thread = std::any_of(threads_.begin(), threads_.end(),
-                                           [](const std::shared_ptr<boost::thread>& thread) { return thread->get_id() == boost::this_thread::get_id(); });
+  const bool from_own_thread = isServerThread();
   if (from_own_thread) {
     // Leave acceptor_ and ssl_ctx_ alone: the other threads are still running
     // the io_context, and a session accepted just before the acceptor closed
@@ -727,10 +730,16 @@ void ServerBeastImpl::stop() {
     // frees it through stop_and_release() rather than a delete.
     for (const std::shared_ptr<boost::thread>& thread : threads_) thread->detach();
     threads_.clear();
+    const std::lock_guard<std::mutex> lock(thread_ids_mu_);
+    thread_ids_.clear();
     return;
   }
   for (const std::shared_ptr<boost::thread>& thread : threads_) thread->join();
   threads_.clear();
+  {
+    const std::lock_guard<std::mutex> lock(thread_ids_mu_);
+    thread_ids_.clear();
+  }
   acceptor_.reset();
   ssl_ctx_.reset();
 }

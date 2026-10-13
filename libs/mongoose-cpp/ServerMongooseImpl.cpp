@@ -213,6 +213,16 @@ void ServerMongooseImpl::thread_proc() {
         mg_mgr_poll(&mgr, 50);
         deliver_ready();
       }
+      // The manager goes away now, so the pool is orphaned here, by the
+      // thread that frees it and under the lock hand_back() holds across its
+      // mg_wakeup(). stop() marks it too, but only after joining this thread:
+      // a worker it detached (stop() called from a worker) that finished in
+      // between would hand its answer to a freed manager.
+      if (pool_) {
+        const std::lock_guard<std::mutex> lock(pool_->mutex);
+        pool_->orphaned = true;
+        pool_->mgr = nullptr;
+      }
       mg_mgr_free(&mgr);
       return;
     }

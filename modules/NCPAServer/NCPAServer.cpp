@@ -236,6 +236,8 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     // connection with `cache allowed hosts = false`.
     auto hosts = std::make_shared<socket_helpers::allowed_hosts_manager>();
     hosts->cached = cache_allowed_hosts;
+    // Where the list is read from, so a rejection can say where to fix it.
+    hosts->set_settings_path(settings.alias().get_settings_path(""));
     hosts->set_source(allowed_hosts);
     {
       std::list<std::string> host_errors;
@@ -249,16 +251,20 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     server_->setAcceptFilter([hosts, refusals](const std::string &remote) {
       std::list<std::string> host_errors;
       bool allowed = false;
+      // The same line as the other listeners (rejection_message: who, why,
+      // what the list holds and where to change it), under this module's
+      // prefix. Only an address that does not parse gets a line of its own.
+      std::string why;
       try {
-        allowed = hosts->is_allowed(boost::asio::ip::make_address(remote), host_errors);
+        const boost::asio::ip::address address = boost::asio::ip::make_address(remote);
+        allowed = hosts->is_allowed(address, host_errors);
+        if (!allowed) why = hosts->rejection_message(address, host_errors);
       } catch (const std::exception &e) {
-        host_errors.push_back(std::string("unparsable peer address: ") + e.what());
+        why = "Rejected connection from: " + remote + ", unparsable peer address: " + e.what();
       }
       std::size_t suppressed = 0;
       if (!allowed && refusals->should_log(remote, suppressed)) {
-        NSC_LOG_ERROR("NCPA: rejected connection from " + remote + (host_errors.empty() ? std::string() : " (" + str::utils::joinEx(host_errors, ", ") + ")") +
-                      ": not in 'allowed hosts'." +
-                      (suppressed == 0 ? std::string() : " " + str::xtos(suppressed) + " more refused since the last report, not logged."));
+        NSC_LOG_ERROR("NCPA: " + why + (suppressed == 0 ? std::string() : "; " + str::xtos(suppressed) + " more refused since the last report, not logged"));
       }
       return allowed;
     });

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -121,6 +122,12 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   // setWorkerThreads() asked for it, so a handler that blocks holds up only
   // the thread it runs on.
   std::vector<std::shared_ptr<boost::thread>> threads_;
+  // The ids of threads_, for isServerThread(): asked from a request handler
+  // on one of those threads while stop() on another may be joining, detaching
+  // and clearing threads_ itself, so it reads a copy under its own lock. Kept
+  // in step with threads_ where that changes. Never held across a join.
+  mutable std::mutex thread_ids_mu_;
+  std::set<boost::thread::id> thread_ids_;
   std::size_t worker_threads_ = 1;
   accept_filter accept_filter_;
   std::string thread_name_ = "web server";

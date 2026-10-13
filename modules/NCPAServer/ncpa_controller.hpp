@@ -5,9 +5,13 @@
 
 #include <RegexController.h>
 
+#include <array>
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <net/auth_rate_limiter.hpp>
+#include <net/connection_log_throttle.hpp>
 #include <string>
 #include <vector>
 
@@ -26,13 +30,31 @@ struct ncpa_config {
   int auth_block_seconds = auth_rate_limiter::kDefaultBlockSeconds;
 };
 
-// The token rate limiter and the lock that makes its check-compare-count one
+// The token rate limiter and the locks that make its check-compare-count one
 // step. Owned by the module and handed to each controller, so a settings
 // reload - which builds a new controller - does not hand a blocked guesser a
 // fresh set of tries or reset its backoff.
 struct ncpa_auth_state {
+  // Guards the limiter's check-and-count and the controller's digest cache.
+  // Held only across in-memory work, never across a token derivation.
   std::mutex mutex;
   auth_rate_limiter limiter;
+  // Verifying a hashed token is a PBKDF2 derivation, tens of milliseconds, and
+  // it must not be done under `mutex`: every request on every worker would
+  // queue behind it, and a host sending wrong tokens could stall the poller.
+  // It still has to be one step per *address* - with several workers,
+  // parallel guesses from one host would otherwise all pass is_blocked()
+  // before any of them was counted. So an address holds one of these for the
+  // check, the derivation and the count, and other addresses go on. Striped
+  // rather than one per address so the table cannot grow; two addresses that
+  // share a stripe wait for each other, which is rare and harmless.
+  static constexpr std::size_t kVerifyStripes = 64;
+  std::array<std::mutex, kVerifyStripes> verify_stripes;
+  std::mutex &verify_lock_for(const std::string &remote) { return verify_stripes[std::hash<std::string>()(remote) % kVerifyStripes]; }
+  // Any host in `allowed hosts` can make the listener refuse a request, so
+  // refusals are logged through this: one line per address per minute,
+  // counting the ones left out. Locks for itself.
+  net::connection_log_throttle refusals;
 };
 
 // The one controller on /api. It authenticates the request, resolves the node
@@ -61,4 +83,8 @@ class ncpa_controller : public Mongoose::RegexpController {
   std::shared_ptr<ncpa_sources> sources_;
   // Shared with the module; see ncpa_auth_state.
   std::shared_ptr<ncpa_auth_state> auth_;
+  // The tokens accepted so far, so a poller pays the derivation once rather
+  // than on every request. Guarded by auth_->mutex. Per controller, as the
+  // tokens are: a reload with new tokens starts with an empty cache.
+  ncpa::accepted_tokens accepted_;
 };

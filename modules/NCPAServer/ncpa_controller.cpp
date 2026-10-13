@@ -11,6 +11,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
+#include <str/xtos.hpp>
 #include <utility>
 
 namespace {
@@ -52,23 +53,43 @@ bool ncpa_controller::authenticate(const Mongoose::Request &request, const ncpa:
   // `allowed hosts` is not checked here: the server refuses those peers as
   // it accepts them (NCPAServer's accept filter), before the handshake.
   const std::string &remote = request.getRemoteIp();
-  // One step under a lock: the block check, the comparison and the count.
+  const std::string given = ncpa::form_value(args, "token");
+  // One step per address: the block check, the comparison and the count.
   // With several workers, parallel guesses from one host used to all pass
   // is_blocked() before any of them was counted, getting about twice the
-  // documented number of tries per block. The comparison is in-memory and
-  // constant-time, so holding the lock across it costs nothing. The log line
-  // is only composed under it and written after: logging goes through the
-  // core and must not serialise every other request behind it.
+  // documented number of tries per block. The step is serialised per address
+  // (see ncpa_auth_state::verify_stripes), not for the listener: verifying a
+  // hashed token is a PBKDF2 derivation, and under the one shared lock every
+  // poll from every host queued behind every derivation. The shared lock is
+  // taken only around the in-memory parts. The log line is only composed
+  // under the locks and written after: logging goes through the core and
+  // must not serialise every other request behind it.
   std::string failure;
   bool blocked = false;
   {
-    const std::lock_guard<std::mutex> auth_lock(auth_->mutex);
-    if (auth_->limiter.is_blocked(remote)) {
-      blocked = true;
-      failure = "blocked after repeated failed tokens.";
-    } else {
-      switch (ncpa::check_token(ncpa::form_value(args, "token"), config_.token, config_.backup_token)) {
+    const std::lock_guard<std::mutex> address_lock(auth_->verify_lock_for(remote));
+    bool verify = false;
+    {
+      const std::lock_guard<std::mutex> auth_lock(auth_->mutex);
+      if (auth_->limiter.is_blocked(remote)) {
+        blocked = true;
+        failure = "blocked after repeated failed tokens.";
+      } else if (accepted_.contains(given)) {
+        // A token accepted before: matched on its digest, so a poller pays
+        // the derivation on its first request only.
+        auth_->limiter.record_success(remote);
+        return true;
+      } else {
+        verify = true;
+      }
+    }
+    if (verify) {
+      // The derivation, outside the shared lock.
+      const ncpa::token_result result = ncpa::check_token(given, config_.token, config_.backup_token);
+      const std::lock_guard<std::mutex> auth_lock(auth_->mutex);
+      switch (result) {
         case ncpa::token_result::accepted:
+          accepted_.remember(given);
           auth_->limiter.record_success(remote);
           return true;
         case ncpa::token_result::not_configured:
@@ -83,7 +104,14 @@ bool ncpa_controller::authenticate(const Mongoose::Request &request, const ncpa:
       }
     }
   }
-  NSC_LOG_ERROR("NCPA: rejected request from " + remote + ": " + failure);
+  // Throttled: a host in `allowed hosts` looping wrong tokens would otherwise
+  // write a line per request, and a blocked one faster still, since the
+  // blocked path is the cheap one.
+  std::size_t suppressed = 0;
+  if (auth_->refusals.should_log(remote, suppressed)) {
+    NSC_LOG_ERROR("NCPA: rejected request from " + remote + ": " + failure +
+                  (suppressed == 0 ? std::string() : " " + str::xtos(suppressed) + " more refused since the last report, not logged."));
+  }
   answer_json(response, ncpa::error_body(blocked ? kBlocked : kBadCredentials));
   return false;
 }

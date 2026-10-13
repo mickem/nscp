@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <set>
 #include <string>
 #include <utility>
@@ -65,6 +66,25 @@ enum class token_result {
 // password_hash::verify_password: a hash with PBKDF2, clear text in constant
 // time. A damaged hash matches nothing.
 token_result check_token(const std::string &given, const std::string &primary, const std::string &backup);
+
+// The tokens check_token() has accepted, kept as SHA-256 digests. A hashed
+// token costs a PBKDF2 derivation (~100k rounds) to verify, which a poller
+// would otherwise pay on every request; the next request with a token that was
+// already accepted is matched here instead, in one digest and a constant-time
+// compare. There are only two tokens to accept (primary and backup), so this
+// holds at most two digests, and the clear text is never kept. Not locked:
+// the controller holds its lock across the calls.
+class accepted_tokens {
+ public:
+  // Whether `given` has been accepted before. Never true for an empty token,
+  // and never true where no SHA-256 is available (nothing is remembered then).
+  bool contains(const std::string &given) const;
+  void remember(const std::string &given);
+  std::size_t size() const { return digests_.size(); }
+
+ private:
+  std::vector<std::string> digests_;
+};
 
 // Which registered queries `plugins/` exposes.
 struct plugin_policy {

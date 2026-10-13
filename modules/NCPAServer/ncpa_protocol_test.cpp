@@ -146,6 +146,41 @@ TEST(NcpaToken, AHashedTokenVerifiesTheClearTextItWasMadeFrom) {
   EXPECT_EQ(ncpa::check_token("two", "one", backup), ncpa::token_result::accepted);
 }
 
+// A poller's second request with the token that was accepted the first time
+// is matched from the digest cache, without another PBKDF2 derivation.
+TEST(NcpaToken, AnAcceptedTokenIsRememberedByDigest) {
+  ncpa::accepted_tokens accepted;
+  EXPECT_FALSE(accepted.contains("one"));
+  accepted.remember("one");
+  EXPECT_TRUE(accepted.contains("one"));
+  EXPECT_FALSE(accepted.contains("two"));
+  EXPECT_FALSE(accepted.contains("on"));
+  EXPECT_FALSE(accepted.contains("one "));
+  accepted.remember("two");
+  EXPECT_TRUE(accepted.contains("two"));
+  EXPECT_EQ(accepted.size(), 2u);
+}
+
+TEST(NcpaToken, TheDigestCacheNeverAcceptsAnEmptyToken) {
+  ncpa::accepted_tokens accepted;
+  accepted.remember("");
+  EXPECT_EQ(accepted.size(), 0u);
+  EXPECT_FALSE(accepted.contains(""));
+  accepted.remember("one");
+  EXPECT_FALSE(accepted.contains(""));
+}
+
+TEST(NcpaToken, TheDigestCacheHoldsAtMostTheTwoConfiguredTokens) {
+  ncpa::accepted_tokens accepted;
+  accepted.remember("one");
+  accepted.remember("one");
+  EXPECT_EQ(accepted.size(), 1u);
+  accepted.remember("two");
+  accepted.remember("three");
+  EXPECT_EQ(accepted.size(), 2u);
+  EXPECT_FALSE(accepted.contains("three"));
+}
+
 TEST(NcpaToken, TheStoredHashIsNotItselfAToken) {
   const std::string primary = password_hash::hash_password("one");
   EXPECT_EQ(ncpa::check_token(primary, primary, ""), ncpa::token_result::rejected);

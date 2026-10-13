@@ -9,6 +9,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/json.hpp>
 #include <nscp/password_hash.hpp>
+#include <nscp/sha256.hpp>
+#include <str/constant_time.hpp>
 #include <str/utils.hpp>
 
 namespace json = boost::json;
@@ -67,6 +69,24 @@ token_result check_token(const std::string &given, const std::string &primary, c
   if (password_hash::verify_password(given, primary)) return token_result::accepted;
   if (!backup.empty() && password_hash::verify_password(given, backup)) return token_result::accepted;
   return token_result::rejected;
+}
+
+bool accepted_tokens::contains(const std::string &given) const {
+  if (given.empty() || digests_.empty()) return false;
+  const std::string digest = web_digest::sha256_hex(given);
+  if (digest.empty()) return false;
+  // Every digest is compared, so the time taken does not say which one matched.
+  bool found = false;
+  for (const std::string &known : digests_) found |= str::constant_time_eq(digest, known);
+  return found;
+}
+
+void accepted_tokens::remember(const std::string &given) {
+  // Two tokens exist (primary and backup), so a third distinct value cannot
+  // have been accepted; the cap only bounds what a bug upstream could add.
+  if (given.empty() || digests_.size() >= 2 || contains(given)) return;
+  const std::string digest = web_digest::sha256_hex(given);
+  if (!digest.empty()) digests_.push_back(digest);
 }
 
 bool plugin_policy::parse(const std::string &value, plugin_policy &out, std::string &error) {

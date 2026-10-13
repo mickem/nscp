@@ -129,6 +129,20 @@ describe("NCPA server", () => {
       expect(res.text).not.toContain(TOKEN);
     });
 
+    it("logs one refused request per address per minute, not one per request", async () => {
+      // A host in allowed hosts looping wrong tokens could otherwise fill the
+      // log at wire speed. The refusals above and these all fall in the same
+      // minute, so the whole suite so far has produced exactly one line.
+      for (let i = 0; i < 10; i++) {
+        await get(`/api/plugins?token=wrong-${i}`).expect(200);
+      }
+      const lines = nscp
+        .capturedStdout()
+        .split(/\r?\n/)
+        .filter((l) => l.includes("NCPA: rejected request from"));
+      expect(lines).toHaveLength(1);
+    });
+
     it("lists the registered queries under plugins", async () => {
       const res = await get(`/api/plugins?token=${TOKEN}`).expect(200);
       expect(res.headers["content-type"]).toContain("application/json");
@@ -502,7 +516,7 @@ Registry():simple_function('reload_ncpa', reload_ncpa, 'reload the NCPA server')
           request(URL)[verb](`/api/plugins?token=${TOKEN}`).trustLocalhost(true),
         ).rejects.toThrow();
       }
-      expect(nscp.capturedStdout()).toContain("not in 'allowed hosts'");
+      expect(nscp.capturedStdout()).toContain("not in allowed hosts (192.0.2.10)");
     });
 
     it("logs one line per refused address per minute, not one per connection", async () => {
@@ -514,7 +528,7 @@ Registry():simple_function('reload_ncpa', reload_ncpa, 'reload the NCPA server')
       const lines = nscp
         .capturedStdout()
         .split(/\r?\n/)
-        .filter((l) => l.includes("NCPA: rejected connection from"));
+        .filter((l) => l.includes("NCPA: Rejected connection from:"));
       expect(lines).toHaveLength(1);
     });
   });

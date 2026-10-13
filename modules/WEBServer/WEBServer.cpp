@@ -555,6 +555,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         NSC_LOG_ERROR("WEB certificate at '" + certificate +
                       "' (or its key) could not be loaded: refusing to serve the WEB server in cleartext HTTP. Fix the certificate, or remove it and "
                       "set 'allow insecure = true' to accept unencrypted HTTP. The WEB server has NOT been started.");
+        // Said once, and nothing built for a server that will not start:
+        // start() would refuse the same way after every controller had been
+        // registered, and the caller would log a third line pointing at the
+        // other two. As NCPAServer does.
+        server.reset();
+        return true;
       }
     }
 
