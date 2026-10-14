@@ -155,6 +155,18 @@ describeWithModules("CheckSystem", "CheckDisk")("REST facts", () => {
     expect(response.body.facts.os.name).toBeTruthy();
     expect(response.body.facts.os.version).toBeTruthy();
     expect(response.body.facts.os.arch).toMatch(/^[a-z0-9_]+$/);
+    if (onWindows) {
+      // A CI runner may be joined or not; either way it is one of the three,
+      // and a workgroup or domain member names what it joined (#1672).
+      expect(["domain", "workgroup", "standalone"]).toContain(response.body.facts.os.join);
+      if (response.body.facts.os.join !== "standalone") {
+        expect(response.body.facts.os.join_name).toBeTruthy();
+      }
+    } else {
+      // The join is a Windows notion; elsewhere it is absent, not "standalone".
+      expect(response.body.facts.os.join).toBeUndefined();
+      expect(response.body.facts.os.join_name).toBeUndefined();
+    }
     // Numbers cross the wire as numbers here, unlike in the string-valued
     // tag map - that is half the reason the document exists.
     expect(typeof response.body.facts.hardware.cpu_cores).toBe("number");
