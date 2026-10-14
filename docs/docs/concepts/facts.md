@@ -141,7 +141,7 @@ report, on Windows only:
 
 | `join`       | `join_name`                          |
 |--------------|--------------------------------------|
-| `domain`     | the Active Directory domain (NetBIOS name), e.g. `CORP` |
+| `domain`     | the Active Directory domain as the join API reports it (usually the DNS name), e.g. `corp.example.com` |
 | `workgroup`  | the workgroup, e.g. `WORKGROUP`      |
 | `standalone` | omitted                              |
 

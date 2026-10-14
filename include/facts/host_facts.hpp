@@ -55,7 +55,7 @@ struct facts {
   std::string model;           // system model, e.g. "PowerEdge R650"
   std::string domain;          // DNS domain the host is in; empty when it is in none
   std::string join;            // Windows join state: "domain", "workgroup" or "standalone"; empty unknown
-  std::string join_name;       // the AD domain (NetBIOS name) or workgroup joined; empty when none
+  std::string join_name;       // the AD domain as the join API reports it (usually the DNS name) or the workgroup; empty when none
   long long cpu_cores;         // logical processors; 0 unknown
   long long memory_gb;         // installed physical memory in whole GB; 0 unknown
 
