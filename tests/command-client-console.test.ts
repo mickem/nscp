@@ -361,6 +361,62 @@ describe("nscp test console", () => {
     expect(r.exitCode).toBe(0);
   });
 
+  it("finishes a reload that is still running when exit is typed", async () => {
+    // The reload runs on the core's maintenance thread, and shutdown stops
+    // that thread with an interrupt. Every boost join or wait a module makes
+    // while it reloads is an interruption point - CheckSystem joining its
+    // collector is one - so an `exit` landing mid-reload used to abort that
+    // module's reload half way, and the core then purged and loaded it again
+    // under the shutdown: the test above died with an access violation on
+    // Windows when its `exit` happened to land there. The reload is now run
+    // to the end before shutdown proceeds.
+    //
+    // The test above only overlaps a reload by chance: the delayed reload
+    // waits for the maintenance thread's next round, which is the metrics
+    // round, up to ten seconds out. A short metrics interval makes it start
+    // at once, and typing `exit` as soon as the reload is logged puts the
+    // two together deterministically: the reload is then waiting on this
+    // very console (it is a call into CommandClient that never returns while
+    // the console is up), which holds it open until `exit` releases it.
+    await nscp.configure({ "/settings/core": { "metrics interval": "1s" } });
+    try {
+      const overrides: string[] = [];
+      for (const [k, v] of Object.entries(nscp.pathOverrides))
+        overrides.push("--path-override", `${k}=${v}`);
+      const proc = execa(
+        process.env.NSCP_BIN as string,
+        ["test", "--settings", nscp.settingsFile, ...overrides],
+        { cwd: nscp.workDir, all: true, timeout: 60_000, reject: false, env: process.env },
+      );
+      const stdin = proc.stdin;
+      const all = proc.all;
+      if (!stdin || !all) throw new Error("no stdio pipes");
+      let seen = "";
+      const reloading = new Promise<void>((resolve) => {
+        all.on("data", (chunk: Buffer) => {
+          seen += chunk.toString();
+          if (seen.includes("Reloading all modules")) resolve();
+        });
+      });
+      stdin.write("reload\n");
+      await Promise.race([reloading, new Promise((resolve) => setTimeout(resolve, 30_000))]);
+      stdin.write("check_ok message=during-reload\nexit\n");
+      stdin.end();
+      const r = await proc;
+      // What the listener collected, not r.all: once a listener has the
+      // stream flowing, execa's buffer misses what was read before it.
+      const out = seen;
+      expect(out).toContain("Reloading all modules");
+      expect(out).toContain("during-reload");
+      // An interrupted reload shows up as a module refusing to load.
+      expect(out).not.toMatch(/refused to load|Failed to load|Unknown exception in: NSLoadModuleEx/);
+      expect(r.timedOut).toBe(false);
+      expect(r.exitCode).toBe(0);
+    } finally {
+      await nscp.configure({ "/settings/core": { "metrics interval": "10s" } });
+    }
+  });
+
   // Facts are opt-in and nothing in this configuration produces any, so what
   // these cover is the empty-install contract — which is every install until
   // a fact set is enabled: each verb has to say what is going on rather than

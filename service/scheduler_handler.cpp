@@ -29,7 +29,20 @@ void scheduler::handle_plugin(const schedule_metadata &data) {
   if (!plugin) return;  // unloaded since the schedule was registered
   plugin->handle_schedule("");
 }
-void scheduler::handle_reload(const schedule_metadata &data) { mainClient->do_reload(data.info); }
+void scheduler::handle_reload(const schedule_metadata &data) {
+  // A reload must run to the end once it has started. Shutdown stops this
+  // pool with interrupt_all(), and every boost join, sleep or condition wait
+  // a module makes from loadModuleEx is an interruption point - CheckSystem
+  // joining its collector on reloadStart is the one that was hit. The
+  // interrupt then aborts that module's reload half way, the core purges and
+  // loads it again, and all of it runs under a shutdown that is about to
+  // unload it - the path `exit` typed at `nscp test` during a reload took
+  // before that process died with an access violation on Windows. With
+  // interruption off, stop() simply waits for the reload to finish, as it
+  // waits for any other task.
+  const boost::this_thread::disable_interruption no_interrupt;
+  mainClient->do_reload(data.info);
+}
 void scheduler::handle_settings() {
   settings_manager::get_core()->house_keeping();
   if (settings_manager::get_core()->needs_reload()) {
