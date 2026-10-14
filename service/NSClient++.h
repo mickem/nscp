@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <map>
 #include <nsclient/logger/logger.hpp>
 #include <service/system_service.hpp>
@@ -62,6 +63,10 @@ class NSClientT : public nsclient::core::core_interface {
   std::map<std::string, std::string> cli_path_overrides_;
 
   task_scheduler::scheduler scheduler_;
+  // Set first thing in stop_nsclient. A reload that is only picked up after
+  // that - a delayed one the scheduler worker reaches as it is being stopped
+  // - is dropped rather than run into the teardown that follows.
+  std::atomic<bool> stopping_{false};
 
 #ifdef HAVE_ONBOARDING
   // Fleet configuration sync (see service/fleet_sync.hpp). Only running when

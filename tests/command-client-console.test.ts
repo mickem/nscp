@@ -351,11 +351,19 @@ describe("nscp test console", () => {
     // The reload is queued ("delayed,service") and runs on a core thread a
     // moment later; give it time to complete before typing the next command
     // so that command really does run after loadModuleEx has been re-entered.
+    // The scheduler worker used to sleep on the next metrics tick, which this
+    // push did not wake it from: the reload then only ran when that tick
+    // came - which is when `exit` arrives below - or not at all, and the
+    // assertion on the log line is what tells the two apart.
     await new Promise((resolve) => setTimeout(resolve, 5_000));
     stdin.write("check_ok message=after-reload\nexit\n");
     stdin.end();
     const r = await proc;
     const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+    // nscp test logs at debug level, so the core's own line says the reload
+    // actually ran before the command did.
+    expect(out).toContain("Reloading all modules.");
+    expect(out.indexOf("Reloading all modules.")).toBeLessThan(out.indexOf("after-reload"));
     expect(out).toContain("after-reload");
     expect(r.timedOut).toBe(false);
     expect(r.exitCode).toBe(0);

@@ -238,7 +238,15 @@ void scheduler::thread_proc(const int id) {
         }
         const boost::posix_time::time_duration wait = instance.value().time - now();
         if (wait.total_microseconds() > 0) {
-          boost::this_thread::sleep(wait);
+          const wait_outcome outcome = wait_for_due(instance.value());
+          if (outcome != wait_outcome::due) {
+            if (!queue_.push(instance.value())) log_error(__FILE__, __LINE__, "Failed to push item");
+            if (outcome == wait_outcome::stopping) {
+              log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
+              return;
+            }
+            continue;
+          }
         }
       } catch (const boost::thread_interrupted &) {
         if (!queue_.push(instance.value())) log_error(__FILE__, __LINE__, "Failed to push item");
@@ -299,6 +307,30 @@ void scheduler::thread_proc(const int id) {
     log_error(__FILE__, __LINE__, "Exception in scheduler thread (thread will be killed)");
   }
   log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
+}
+
+// Wait until the instance this worker holds is due - or until something due
+// before it is queued, in which case the caller hands the instance back and
+// takes the earliest again. The plain sleep this replaces slept through such
+// a push: a worker holding the next metrics tick stayed asleep on it while a
+// task queued for right now - a delayed reload, a schedule a reload added -
+// sat behind it. With the one worker the core runs by default, a reload typed
+// at the nscp test prompt, or pushed by the fleet sync, ran when the metrics
+// tick came, up to the whole interval later; when that coincided with the
+// console leaving, it ran inside the shutdown. reschedule_at() notifies
+// idle_thread_cond_ on every push, so a sleeper sees it. A boost condition
+// wait is an interruption point like the sleep was, so stop() still gets the
+// worker out the same way.
+scheduler::wait_outcome scheduler::wait_for_due(const schedule_instance &instance) {
+  boost::unique_lock<boost::mutex> lock(idle_thread_mutex_);
+  while (!stop_requested_) {
+    const schedule_queue_type::value_type top = queue_.top();
+    if (top && top.value().time < instance.time) return wait_outcome::preempted;
+    const boost::posix_time::time_duration wait = instance.time - now();
+    if (wait.total_microseconds() <= 0) return wait_outcome::due;
+    idle_thread_cond_.timed_wait(lock, wait);
+  }
+  return wait_outcome::stopping;
 }
 
 void scheduler::reschedule(const task &item, boost::posix_time::ptime now_time) {

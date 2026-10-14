@@ -51,6 +51,17 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // a dispatch's entry against the cutoff those waits take.
   mutable boost::mutex dispatch_mutex_;
   threads::in_flight dispatchers_;
+  // Command-line sessions are tracked apart from the dispatches. `nscp test`
+  // is one commandLineExec that lasts until the operator leaves, so a reload
+  // cannot be gated on it: it waited the whole 5 s for the console, then went
+  // ahead and reported the module as raced - on every reload typed at the
+  // prompt or pushed by the fleet sync while a prompt was open. A reload now
+  // applies under a session straight away, as it does under a check that
+  // outlasts the wait; the handlers a session runs read their settings
+  // through the core, which the barrier does not cover anyway. An unload
+  // still waits for sessions as it does for dispatches, and refuses while
+  // either is inside: a session returns into the module.
+  threads::in_flight sessions_;
   // Set by unload_plugin before it waits: no dispatch may enter after it.
   bool unloading_ = false;
   // Set by load_plugin(reloadStart) for as long as loadModuleEx runs on the
@@ -93,7 +104,9 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
     threads::in_flight::guard guard_;
 
    public:
-    explicit dispatch_lock(dll_plugin &owner);
+    // A session (commandLineExec) is counted in sessions_, which a reload
+    // does not wait for; everything else in dispatchers_.
+    explicit dispatch_lock(dll_plugin &owner, bool session = false);
     ~dispatch_lock();
     bool entered() const { return guard_.entered(); }
     dispatch_lock(const dispatch_lock &) = delete;

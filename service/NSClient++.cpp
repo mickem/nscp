@@ -753,6 +753,11 @@ void NSClientT::stop_fleet_sync() {
 }
 
 bool NSClientT::stop_nsclient() {
+  // Nothing reloads from here on: a reload that lands now would apply
+  // settings and start modules into the teardown below. The scheduler stop
+  // waits for one already running, so plugins are only stopped once it is
+  // through.
+  stopping_ = true;
   // Stop the fleet sync first: it can request (delayed) reloads, which make
   // no sense once shutdown has begun.
   stop_fleet_sync();
@@ -856,6 +861,10 @@ void NSClientT::reloadPlugins() {
 }
 
 bool NSClientT::do_reload(const std::string module) {
+  if (stopping_) {
+    LOG_DEBUG_CORE_STD("Not reloading " + module + ": the agent is shutting down");
+    return false;
+  }
   if (module == "settings") {
     try {
       settings_manager::get_settings()->clear_cache();

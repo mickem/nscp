@@ -323,6 +323,30 @@ TEST(simple_scheduler_running, handle_schedule_fires_for_zero_duration_task) {
   s.unset_handler();
 }
 
+TEST(simple_scheduler_running, a_task_queued_while_the_worker_waits_on_a_later_one_runs_at_once) {
+  // One worker, as the core runs by default. It takes the only instance - due
+  // in half a minute - and waits on it. A task queued for right now (a
+  // delayed reload is one) must run now, not when that wait ends: the worker
+  // used to sleep through the push.
+  simple_scheduler::scheduler s;
+  counting_handler h;
+  h.reschedule_after = false;
+  s.set_handler(&h);
+  s.set_threads(1);
+  s.add_task("later", boost::posix_time::seconds(30), 0.0);
+  s.start();
+  // Let the worker pick the far instance up before the near one exists.
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  EXPECT_EQ(0, h.calls.load());
+
+  s.add_task("now", boost::posix_time::seconds(0), 0.0);
+
+  EXPECT_TRUE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::seconds(3)));
+
+  s.stop();
+  s.unset_handler();
+}
+
 TEST(simple_scheduler_running, set_threads_while_running_keeps_the_pool_working) {
   // set_threads() is the /settings/scheduler/threads notify callback, so it
   // re-runs on every settings reload - with the pool already up and the

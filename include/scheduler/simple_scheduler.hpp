@@ -272,6 +272,9 @@ class scheduler : public boost::noncopyable {
  private:
   void watch_dog(int id);
   void thread_proc(int id);
+  // How a worker's wait for the instance it holds ended.
+  enum class wait_outcome { due, preempted, stopping };
+  wait_outcome wait_for_due(const schedule_instance& instance);
 
   void reschedule(const task& item, boost::posix_time::ptime now_time);
   void reschedule_at(const std::string& tag, int id, boost::posix_time::ptime new_time, bool suppress_late_warning = false);
