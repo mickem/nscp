@@ -74,7 +74,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
     aliases_.set_path(settings.alias().get_settings_path("alias"));
     std::string wrappings_path = settings.alias().get_settings_path("wrappings");
-    boost::filesystem::path scriptRoot;
+    std::string scriptRoot;
     std::string scriptDirectory;
     std::map<std::string, std::string> wrappings;
 
@@ -177,17 +177,36 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
                   "Load all scripts in a given directory and use them as commands. SECURITY: every file in this directory becomes a runnable command (with "
                   "%ARGS% appended when arguments are allowed), so write/create access to the directory is equivalent to command execution as the service "
                   "account - restrict it with filesystem ACLs. Prefer listing individual scripts explicitly under the scripts section over pointing this at a "
-                  "shared or writable folder.")
+                  "shared or writable folder.");
 
-        .add_file("script root", sh::path_key(&scriptRoot, "${scripts}"), "Script root folder",
-                  "Root path used to sandbox the ext-scr show/delete operations and the destination of ext-scr add --import: those cannot read, remove, or "
-                  "import a file outside this folder. Note this does NOT bound ext-scr add --script <path>, which can still register an existing file anywhere "
-                  "on disk as a command (an administrator-only action, equivalent to editing the configuration directly).");
+    // Shared with PythonScript and LUAScript, and read from [/settings/default]
+    // when the module's own section does not set it, so one line in a fleet
+    // bundle moves every script module to the tree the bundle shipped.
+    settings.alias()
+        .add_parent("/settings/default")
+        .add_key_to_settings()
+        .add_string("script root", sh::string_key(&scriptRoot, ""), "Script root",
+                    scripts::root::description() +
+                        " The scripts folder below the root is also what ext-scr show/delete are confined to and where ext-scr add --import copies "
+                        "to; ext-scr add --script <path> is not bounded by it (an administrator-only action, equivalent to editing the configuration "
+                        "directly).");
 
     settings.register_all();
     settings.notify();
     settings.clear();
-    provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), scriptRoot, wrappings));
+
+    const scripts::root::layout layout = scripts::root::resolve_or_default(
+        scriptRoot, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); });
+    if (layout.custom()) {
+      NSC_DEBUG_MSG_STD("Script root: " + layout.root.string() + " (scripts in " + layout.scripts.string() + ")");
+      // Every script is started in this directory, and a directory that is
+      // not there fails each of them: say so once, here, where the operator
+      // can connect it to the option.
+      if (!boost::filesystem::is_directory(layout.root)) {
+        NSC_LOG_ERROR_STD("The script root " + layout.root.string() + " does not exist: external scripts will fail until it does");
+      }
+    }
+    provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), layout, wrappings));
 
     // clang-format off
     settings.alias().add_path_to_settings()
@@ -251,7 +270,12 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
     aliases_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
-    root_ = get_base_path();
+    // Where a relative command is rooted and - with a configured root - where
+    // the script runs. The built-in layout keeps the launcher's historical
+    // behaviour: rooted at the installation directory, started there on
+    // Windows and wherever the service was started on Unix.
+    root_ = layout.custom() ? layout.root.string() : std::string(get_base_path());
+    working_directory_ = layout.custom() ? layout.root.string() : "";
 
     nscapi::core_helper core(get_core(), get_id());
     for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
@@ -530,6 +554,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 #endif
 
   process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork, kill_tree);
+  arg.working_directory = working_directory_;
   if (argv_ok) {
     arg.argv = argv;
   }

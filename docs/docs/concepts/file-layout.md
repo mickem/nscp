@@ -32,7 +32,7 @@ configuration, and the writable state.
 │   ├── fleet.ini                           rendered fleet configuration (included by nsclient.ini)
 │   ├── applied-state.json                  what is currently applied
 │   ├── cache/                              downloaded bundles
-│   └── scripts/                            scripts staged from bundles
+│   └── scripts/                            scripts staged from bundles (`script root = fleet`)
 └── nsclient.db                             agent storage (event log bookmarks, ...)
 
 /var/log/nsclient/            nsclient      ${log-path}

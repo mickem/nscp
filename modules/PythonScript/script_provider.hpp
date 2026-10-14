@@ -28,6 +28,7 @@ struct script_provider : public script_provider_interface {
   std::shared_ptr<nscapi::settings_proxy> get_settings_proxy();
 
   boost::filesystem::path get_root();
+  void set_scripts_folder(const boost::filesystem::path &scripts);
   boost::optional<boost::filesystem::path> find_file(std::string file);
 
   void add_command(std::string script_alias, std::string script, std::string plugin_alias);

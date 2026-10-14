@@ -650,6 +650,34 @@ whatever that happened to be, so prefer an absolute path there.
 the platform it runs on: `scripts\<name>` on Windows, and the destination's absolute path
 everywhere else.
 
+### Moving the whole tree: `script root`
+
+Every script-carrying module (`CheckExternalScripts`, `PythonScript`, `LUAScript`, `CheckMKClient`,
+`CheckMKServer`) reads a `script root` setting - from its own section, or from `[/settings/default]`
+to move them all at once. It names the folder the scripts tree hangs from, and a configured root
+always has the install layout below it:
+
+| Value | Root | Scripts |
+|---|---|---|
+| empty, `default` | the built-in layout | `${scripts}`, `${scripts}/python`, `${scripts}/lua` |
+| `fleet` | `${fleet-folder}` | `${fleet-folder}/scripts`, `…/scripts/python`, `…/scripts/lua` |
+| `shared` | `${shared-path}` | `${shared-path}/scripts`, … |
+| a folder (`${...}` tokens expanded) | that folder | `<root>/scripts`, … |
+
+With a root configured, an external script is **started in the root, on every platform**, and a
+relative command with a folder in it (`scripts\check_foo.bat`, `sh scripts/check_foo.sh`) is
+resolved against it rather than the installation directory. That is what keeps a tree relocatable:
+a script that calls a sibling as `scripts\helper.bat` finds it wherever the tree lives, Python and
+Lua find their `lib` helpers beside them, and `ext-scr add --import` records `scripts/<name>`
+relative to the root. The show/delete sandbox of the `ext-scr`, `py` and `lua` commands and the
+`/api/v2/scripts` routes moves with it.
+
+`fleet` is the case it exists for: the fleet sync stages a bundle's `scripts/` entries under
+`${fleet-folder}/scripts`, so a bundle that ships scripts sets `[/settings/default] script root =
+fleet` in its own configuration and names no host path at all - see
+[Bundles that ship scripts](../setup/fleet.md#bundles-that-ship-scripts). Whoever can write to the
+root can change what the service runs, so treat the folder as you treat `${scripts}`.
+
 ### Overriding
 
 All paths can also be overridden using the `[paths]` section in `boot.ini`.

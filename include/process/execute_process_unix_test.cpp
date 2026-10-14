@@ -109,6 +109,43 @@ TEST(ExecuteProcessUnix, ArgvExecFailureReturns127) {
   EXPECT_EQ(output, "");
 }
 
+// A configured `script root` is where the child runs, so a script that reaches
+// a helper as `scripts/helper.sh` finds it wherever the tree was placed.
+TEST(ExecuteProcessUnix, ArgvRunsInTheWorkingDirectoryWhenOneIsSet) {
+  process::exec_arguments args = make_args("pwd");
+  args.argv = {"/bin/sh", "-c", "pwd"};
+  args.working_directory = "/tmp";
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, 0);
+  EXPECT_EQ(output, "/tmp\n");
+}
+
+// No working directory configured: the child inherits the service's, as it
+// always did on Unix - an existing script that relied on it keeps working.
+TEST(ExecuteProcessUnix, ArgvInheritsTheWorkingDirectoryByDefault) {
+  char here[4096];
+  ASSERT_NE(getcwd(here, sizeof(here)), nullptr);
+  process::exec_arguments args = make_args("pwd");
+  args.argv = {"/bin/sh", "-c", "pwd"};
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, 0);
+  EXPECT_EQ(output, std::string(here) + "\n");
+}
+
+// A root that cannot be entered fails the check and says so, rather than
+// running the script from wherever the service happened to be.
+TEST(ExecuteProcessUnix, ArgvRefusesAWorkingDirectoryThatDoesNotExist) {
+  process::exec_arguments args = make_args("pwd");
+  args.argv = {"/bin/sh", "-c", "pwd"};
+  args.working_directory = "/no/such/script/root";
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, 127);
+  EXPECT_NE(output.find("Failed to enter the script root directory"), std::string::npos) << output;
+}
+
 TEST(ExecuteProcessUnix, ArgvTimeoutKillsChildAndReportsUnknown) {
   process::exec_arguments args = make_args("sleep", 1);
   args.argv = {"/bin/sleep", "30"};
