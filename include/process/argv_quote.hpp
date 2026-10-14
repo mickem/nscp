@@ -22,9 +22,12 @@ namespace process {
 // been started from the installation directory.
 //
 // The legacy single-string form (lpApplicationName NULL, the module name
-// parsed out of the command line) does not have this problem - that lookup
-// honours lpCurrentDirectory - so before argv-isolation existed the relative
-// form worked from anywhere. Rooting argv[0] here is what restores parity, and
+// parsed out of the command line) searches the directory the *calling*
+// executable was loaded from first, and nscp.exe sits in the installation
+// directory, so before argv-isolation existed the relative form worked from
+// anywhere - as long as the root was the installation directory. It does not
+// honour lpCurrentDirectory either; resolve_command_line() below roots that
+// form for a configured `script root`. Rooting argv[0] here is what restores parity, and
 // it is a fix rather than a policy change: nothing that already worked starts
 // resolving somewhere else, and ${scripts} is ${exe-path}/scripts on Windows,
 // so `scripts\check_foo.bat` joined onto ${base-path} names the same file the
@@ -40,6 +43,19 @@ namespace process {
 //     wrapping that leans on PATH;
 //   * an empty argv[0], or an empty root, which leaves nothing to root at.
 std::string resolve_application_path(const std::string& root_path, const std::string& argv0);
+
+// resolve_application_path() for the legacy single-string command, the form
+// a template takes when it cannot be tokenised (any Windows backslash path,
+// `scripts\check_foo.bat`): the first token - quoted, or up to the first
+// space or tab - is rooted the same way, and the rest of the line is kept
+// byte for byte, since the operator owns its quoting. A rooted token is
+// quoted when it holds a space (`C:\Program Files\...`).
+//
+// CreateProcess resolves that first token against the directory nscp.exe was
+// loaded from and then the agent's own working directory, never
+// lpCurrentDirectory, so without this a command under a configured `script
+// root` (the fleet tree) is not found at all.
+std::string resolve_command_line(const std::string& root_path, const std::string& command);
 
 // Quote a single argument for inclusion in a Windows command line so that
 // CommandLineToArgvW round-trips it back to the original byte sequence.

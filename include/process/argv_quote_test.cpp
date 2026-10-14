@@ -22,6 +22,7 @@
 using process::build_command_line_w;
 using process::quote_argv_w;
 using process::resolve_application_path;
+using process::resolve_command_line;
 
 #ifdef _WIN32
 // Round-trip a single argument through quote_argv_w and CommandLineToArgvW.
@@ -177,5 +178,30 @@ TEST(ResolveApplicationPath, ARootRelativePathIsLeftAlone) {
 TEST(ResolveApplicationPath, NothingToRootIsReturnedUnchanged) {
   EXPECT_EQ(resolve_application_path(kRoot, ""), "");
   EXPECT_EQ(resolve_application_path("", "scripts\\check_foo.bat"), "scripts\\check_foo.bat");
+}
+
+// The single-string form a backslash template falls back to. CreateProcess
+// looks for its first token beside nscp.exe and in the agent's working
+// directory, never in lpCurrentDirectory, so `scripts\fleet_a.bat` under
+// `script root = fleet` was not found until the launcher rooted it.
+TEST(ResolveCommandLine, TheFirstTokenIsRootedAndTheRestKept) {
+  EXPECT_EQ(resolve_command_line("C:\\ProgramData\\NSClient++\\fleet", "scripts\\fleet_a.bat"), "C:\\ProgramData\\NSClient++\\fleet\\scripts\\fleet_a.bat");
+  EXPECT_EQ(resolve_command_line("C:\\fleet", "scripts\\check.bat -w \"a b\" %ARG1%"), "C:\\fleet\\scripts\\check.bat -w \"a b\" %ARG1%");
+}
+
+TEST(ResolveCommandLine, ARootedTokenWithASpaceIsQuoted) {
+  EXPECT_EQ(resolve_command_line(kRoot, "scripts\\check_foo.bat -x"), "\"C:\\Program Files\\NSClient++\\scripts\\check_foo.bat\" -x");
+}
+
+TEST(ResolveCommandLine, AQuotedFirstTokenIsRootedInsideItsQuotes) {
+  EXPECT_EQ(resolve_command_line("C:\\fleet", "\"scripts\\my check.bat\" -x"), "\"C:\\fleet\\scripts\\my check.bat\" -x");
+}
+
+TEST(ResolveCommandLine, WhatResolveApplicationPathLeavesAloneIsReturnedVerbatim) {
+  EXPECT_EQ(resolve_command_line(kRoot, "cmd /c scripts\\check_foo.bat"), "cmd /c scripts\\check_foo.bat");
+  EXPECT_EQ(resolve_command_line(kRoot, "C:\\tools\\check.exe -x"), "C:\\tools\\check.exe -x");
+  EXPECT_EQ(resolve_command_line("", "scripts\\check_foo.bat"), "scripts\\check_foo.bat");
+  EXPECT_EQ(resolve_command_line(kRoot, "\"scripts\\unbalanced.bat -x"), "\"scripts\\unbalanced.bat -x");
+  EXPECT_EQ(resolve_command_line(kRoot, "   "), "   ");
 }
 #endif

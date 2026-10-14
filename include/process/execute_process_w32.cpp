@@ -404,7 +404,11 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     lpApplicationName = app_name_storage.c_str();
     cmd_line_w = process::build_command_line_w(argv);
   } else {
-    cmd_line_w = utf8::cvt<std::wstring>(args.command);
+    // The same rooting for the single-string form: CreateProcess would look
+    // for a relative `scripts\check_foo.bat` beside nscp.exe and in the
+    // agent's working directory, which is the installation directory's tree
+    // and never a configured `script root`.
+    cmd_line_w = utf8::cvt<std::wstring>(process::resolve_command_line(args.root_path, args.command));
   }
   hlp::tchar_buffer tmpCmd(cmd_line_w);
   tmpCmd[cmd_line_w.length()] = 0;
@@ -483,8 +487,8 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       output = "Failed to prepare pipes for " + args.alias + ": " + error::lookup::last_error();
       return NSCAPI::query_return_codes::returnUNKNOWN;
     }
-    processOK = CreateProcess(lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE, creation_flags, nullptr, lpCurrentDirectory,
-                              &si, &pi);
+    processOK =
+        CreateProcess(lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE, creation_flags, nullptr, lpCurrentDirectory, &si, &pi);
   }
   // Captured here: the reset and unlock below may touch the thread's last
   // error, and the failure report at the end reads this local instead.
