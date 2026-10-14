@@ -116,7 +116,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     }
   } else {
     for (const std::string &s :
-         scripts::files::list_files(provider_->get_core()->expand_path("${scripts}/lua"), provider_->get_core()->expand_path("${scripts}"), lib)) {
+         scripts::files::list_files(provider_->get_root(), provider_->get_root().parent_path(), lib)) {
       if (json) {
         data.push_back(json::value(s));
       } else {

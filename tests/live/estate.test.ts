@@ -50,6 +50,8 @@ interface RoleCheck {
   args?: Record<string, string | string[]>;
   expect?: string;
   perf?: string[];
+  /** Text the message must contain (case-insensitively). */
+  message?: string;
   os?: string[];
   /** Run once per machine of this role in the same manifest (a hub's targets). */
   each?: string;
@@ -72,6 +74,7 @@ interface RunCheck {
   unrunnable?: string;
   expect: string;
   perf: string[];
+  message: string;
 }
 
 interface Machine {
@@ -161,6 +164,7 @@ function runChecks(checks: RoleCheck[], peers: ManifestEntry[]): RunCheck[] {
     secrets,
     expect: c.expect ?? "OK",
     perf: c.perf ?? [],
+    message: c.message ?? "",
   });
   return checks.flatMap((c) => {
     const plain = [c.command, ...argText(c.args ?? {})].join(" ");
@@ -192,10 +196,16 @@ function runChecks(checks: RoleCheck[], peers: ManifestEntry[]): RunCheck[] {
 /**
  * Passes when the state is the expected one ("any" accepts every state but
  * UNKNOWN, which is what a missing module, a bad argument or an unreachable
- * workload returns) and every name in "perf" occurs in some perfdata key,
- * case-insensitively. Returns why the result fails, or undefined.
+ * workload returns), every name in "perf" occurs in some perfdata key,
+ * case-insensitively, and the message contains "message" when the check
+ * names one. Returns why the result fails, or undefined.
  */
-function judge(check: RunCheck, result: number, perfKeys: string[]): string | undefined {
+function judge(
+  check: RunCheck,
+  result: number,
+  perfKeys: string[],
+  message = "",
+): string | undefined {
   const state = STATES[result];
   if (!state) return `no result state (got ${result})`;
   if (check.expect === "any" && state === "UNKNOWN")
@@ -207,6 +217,8 @@ function judge(check: RunCheck, result: number, perfKeys: string[]): string | un
   );
   if (missing.length > 0)
     return `no perfdata matching ${missing.join(", ")} (got: ${perfKeys.join(", ") || "none"})`;
+  if (check.message && !message.toLowerCase().includes(check.message.toLowerCase()))
+    return `message does not contain "${check.message}"`;
   return undefined;
 }
 
@@ -332,7 +344,7 @@ describeEstate("estate role checks", () => {
             try {
               if (!target) target = await login();
               q = await liveExecute(target, check.command, check.args);
-              why = judge(check, q.result, Object.keys(perfOf(q)));
+              why = judge(check, q.result, Object.keys(perfOf(q)), messageOf(q));
             } catch (e) {
               q = null;
               why = `request failed: ${firstLine(e)}`;
@@ -452,7 +464,7 @@ describeEstate("estate role checks", () => {
                   why = `check_nsclient failed (exit ${r.status}): ${out}`;
                 else {
                   state = STATES[r.status];
-                  why = judge(check, r.status, keys);
+                  why = judge(check, r.status, keys, out.split("|")[0]);
                 }
               }
               records.push({

@@ -10,6 +10,7 @@
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <scripts/script_root.hpp>
 
 #include "handler_impl.hpp"
 
@@ -35,7 +36,23 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   // default_check_mk.lua silently failed because the .lua lives under
   // scripts/, not directly under base/. LuaScript module uses the same
   // expansion.
-  root_ = get_core()->expand_path("${scripts}");
+  // A configured `script root` moves it, as for LUAScript: read first, on its
+  // own, since the runtime is built around the folder.
+  {
+    sh::settings_registry root_settings(nscapi::settings_proxy::create(get_id(), get_core()));
+    root_settings.set_alias("check_mk", alias, "server");
+    std::string script_root;
+    root_settings.alias()
+        .add_parent("/settings/default")
+        .add_key_to_settings()
+        .add_string("script root", sh::string_key(&script_root, ""), "Script root", scripts::root::description());
+    root_settings.register_all();
+    root_settings.notify();
+    root_ = scripts::root::resolve_or_default(
+                script_root, [this](const std::string &value) { return get_core()->expand_path(value); },
+                [](const std::string &why) { NSC_LOG_ERROR_STD(why); })
+                .scripts;
+  }
   nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
   lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
   lua_runtime_->register_plugin(std::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));

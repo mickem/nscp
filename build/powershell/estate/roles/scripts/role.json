@@ -1,0 +1,52 @@
+{
+  "name": "scripts",
+  "description": "A script of each kind delivered by a fleet bundle - Python, Lua and an external script - run from the fleet tree through `script root = fleet`",
+  "os": ["windows", "ubuntu", "rocky"],
+  "machines": 3,
+  "vcpus": 1,
+  "vmSize": null,
+  "image": null,
+  "modules": ["CheckExternalScripts", "LUAScript", "PythonScript"],
+  "install": {},
+  "installTimeoutMinutes": 10,
+  "tag": { "role": "scripts" },
+  "bundle": {
+    "scripts": "scripts",
+    "settings": {
+      "default": { "script root": "fleet" },
+      "python": { "scripts": { "fleet_py": "fleet_check.py" } },
+      "lua": { "scripts": { "fleet_lua": "fleet_check.lua" } },
+      "external scripts": {
+        "scripts": {
+          "fleet_ext_sh": "sh scripts/fleet_a.sh",
+          "fleet_ext_bat": "scripts\\fleet_a.bat"
+        }
+      }
+    }
+  },
+  "checks": [
+    {
+      "command": "fleet_ext_sh",
+      "expect": "OK",
+      "message": "external helper from the fleet bundle",
+      "os": ["linux"]
+    },
+    {
+      "command": "fleet_ext_bat",
+      "expect": "OK",
+      "message": "external helper from the fleet bundle",
+      "os": ["windows"]
+    },
+    {
+      "command": "fleet_lua",
+      "expect": "OK",
+      "message": "lua helper from the fleet bundle"
+    },
+    {
+      "command": "fleet_py",
+      "expect": "OK",
+      "message": "python helper from the fleet bundle"
+    }
+  ],
+  "logs": {}
+}

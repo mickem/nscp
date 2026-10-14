@@ -15,7 +15,12 @@ class CheckExternalScripts : public nscapi::impl::simple_plugin {
   alias::command_handler aliases_;
   unsigned int timeout;
   bool kill_tree;
+  // The base a relative command is rooted at: ${base-path}, or the configured
+  // `script root`.
   std::string root_;
+  // The directory a script is started in; empty for the built-in layout,
+  // where the launcher keeps its historical choice (see exec_arguments).
+  std::string working_directory_;
   bool allowArgs_;
   bool allowNasty_;
 
