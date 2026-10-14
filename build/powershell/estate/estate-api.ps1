@@ -143,6 +143,51 @@ function Read-EstateRole {
             }
         })
 
+    # "rest": requests to the agent's own API, for what a role delivers that
+    # no check reports - the scripts a runtime lists, what one of them holds,
+    # or one added (PUT, with a `body`) and removed again (DELETE). They run
+    # in order. The suite passes each when it answers `status` (200) and its
+    # body contains every `contains` and none of the `excludes`.
+    $rest = @($role.rest | Where-Object { $_ } | ForEach-Object {
+            $r = $_
+            $restPath = "$($r.path)"
+            if ($restPath -notmatch '^/api/[A-Za-z0-9_./?=&%-]+$' -or $restPath -match '\.\.') {
+                throw "$Path : rest path '$restPath' must be an /api/... path on the agent, without '..'."
+            }
+            $method = "GET"
+            if ($r.method) { $method = "$($r.method)" }
+            if (@("GET", "PUT", "DELETE") -cnotcontains $method) {
+                throw "$Path : rest '$restPath' has method '$method' (one of GET, PUT, DELETE)."
+            }
+            $body = $null
+            if ($null -ne $r.body) { $body = "$($r.body)" }
+            if (($method -eq "PUT") -ne ($null -ne $body)) {
+                throw "$Path : rest '$method $restPath' - a PUT needs a 'body', and only a PUT takes one."
+            }
+            $status = 200
+            if ($null -ne $r.status) { $status = [int]$r.status }
+            $contains = @($r.contains | Where-Object { $_ } | ForEach-Object { "$_" })
+            $excludes = @($r.excludes | Where-Object { $_ } | ForEach-Object { "$_" })
+            if ($status -eq 200 -and $contains.Count -eq 0) {
+                throw "$Path : rest '$restPath' needs at least one 'contains' (a 200 alone proves nothing about the content)."
+            }
+            $restOs = @($r.os | Where-Object { $_ } | ForEach-Object { "$_" })
+            foreach ($o in $restOs) {
+                if ($o -ne "linux" -and $os -notcontains $o) {
+                    throw "$Path : rest '$restPath' is limited to os '$o', which is neither 'linux' nor in the role's 'os'."
+                }
+            }
+            [pscustomobject]@{
+                Method   = $method
+                Path     = $restPath
+                Body     = $body
+                Status   = $status
+                Contains = $contains
+                Excludes = $excludes
+                Os       = $restOs
+            }
+        })
+
     # A bundle lands on the hosts its group selects, and the group selects on
     # the role's tags; with no tag the selector would be empty, which the fleet
     # server reads as "every host" - every machine in the tenant would get it.
@@ -211,7 +256,8 @@ function Read-EstateRole {
         Bundle                = $role.bundle
         BundleScriptsDir      = $bundleScriptsDir
         Checks                = $checks
-        Logs                  = $logs
+        Rest                  = $rest
+        Logs                = $logs
         LocalSettings         = $localSettings
         Companions            = $companions
         # Only provisioned as another role's companion: `all` gives it no

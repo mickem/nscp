@@ -35,27 +35,26 @@
 import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
-import { liveLogin, liveExecute, readPwdFile, type LiveTarget } from "@fixtures/live-target";
+import {
+  liveLogin,
+  liveExecute,
+  liveRequest,
+  readPwdFile,
+  type LiveTarget,
+} from "@fixtures/live-target";
 import { smokeCasesFor } from "@fixtures/live-smoke";
 import { messageOf, perfOf, type QueryResult } from "@fixtures/queries";
+import { liveMachines, type ManifestEntry } from "@fixtures/estate-manifest";
 import {
-  liveMachines,
-  readJson,
-  POWERSHELL_DIR,
-  type ManifestEntry,
-} from "@fixtures/estate-manifest";
-
-interface RoleCheck {
-  command: string;
-  args?: Record<string, string | string[]>;
-  expect?: string;
-  perf?: string[];
-  /** Text the message must contain (case-insensitively). */
-  message?: string;
-  os?: string[];
-  /** Run once per machine of this role in the same manifest (a hub's targets). */
-  each?: string;
-}
+  ESTATE_ROLES_DIR,
+  ESTATE_STATES,
+  applies,
+  judgeCheck,
+  attemptRoleRest,
+  restLabel,
+  readRole,
+  type RoleCheck,
+} from "@fixtures/estate-roles";
 
 /** A role check made concrete for one machine: an "each" check is one of these per target. */
 interface RunCheck {
@@ -97,12 +96,10 @@ interface CheckRecord {
   response: QueryResult | null;
 }
 
-const STATES = ["OK", "WARNING", "CRITICAL", "UNKNOWN"];
-
 const manifests = (process.env.NSCP_ESTATE_MANIFEST ?? "")
   .split(path.delimiter)
   .filter((p) => p.trim());
-const rolesDir = process.env.NSCP_ESTATE_ROLES ?? path.join(POWERSHELL_DIR, "estate", "roles");
+const rolesDir = process.env.NSCP_ESTATE_ROLES ?? ESTATE_ROLES_DIR;
 const only = (process.env.NSCP_ESTATE_MACHINES ?? "")
   .split(",")
   .map((n) => n.trim())
@@ -121,17 +118,6 @@ function machines(): Machine[] {
     return peers.map((entry) => ({ entry, peers }));
   });
   return only.length > 0 ? all.filter((m) => only.includes(m.entry.Name)) : all;
-}
-
-function roleChecks(role: string): RoleCheck[] {
-  return readJson<{ checks?: RoleCheck[] }>(path.join(rolesDir, role, "role.json")).checks ?? [];
-}
-
-/** No "os" is everywhere; "linux" is every non-Windows family. */
-function applies(check: RoleCheck, family: string): boolean {
-  if (!check.os || check.os.length === 0) return true;
-  if (check.os.includes(family)) return true;
-  return family !== "windows" && check.os.includes("linux");
 }
 
 /** One KEY=VALUE token per value: an array repeats the key, as REST does. */
@@ -193,35 +179,6 @@ function runChecks(checks: RoleCheck[], peers: ManifestEntry[]): RunCheck[] {
   });
 }
 
-/**
- * Passes when the state is the expected one ("any" accepts every state but
- * UNKNOWN, which is what a missing module, a bad argument or an unreachable
- * workload returns), every name in "perf" occurs in some perfdata key,
- * case-insensitively, and the message contains "message" when the check
- * names one. Returns why the result fails, or undefined.
- */
-function judge(
-  check: RunCheck,
-  result: number,
-  perfKeys: string[],
-  message = "",
-): string | undefined {
-  const state = STATES[result];
-  if (!state) return `no result state (got ${result})`;
-  if (check.expect === "any" && state === "UNKNOWN")
-    return "returned UNKNOWN (expected any state but UNKNOWN)";
-  if (check.expect !== "any" && state !== check.expect)
-    return `returned ${state}, expected ${check.expect}`;
-  const missing = check.perf.filter(
-    (want) => !perfKeys.some((k) => k.toLowerCase().includes(want.toLowerCase())),
-  );
-  if (missing.length > 0)
-    return `no perfdata matching ${missing.join(", ")} (got: ${perfKeys.join(", ") || "none"})`;
-  if (check.message && !message.toLowerCase().includes(check.message.toLowerCase()))
-    return `message does not contain "${check.message}"`;
-  return undefined;
-}
-
 /** Perfdata keys of a Nagios line: what follows the first '|', quoted or bare. */
 function nagiosPerfKeys(line: string): string[] {
   const bar = line.indexOf("|");
@@ -279,12 +236,13 @@ describeEstate("estate role checks", () => {
     const role = m.Role || "base";
     const family = m.Family || m.Os || "linux";
     const checks = runChecks(
-      roleChecks(role).filter((c) => applies(c, family)),
+      (readRole(role, rolesDir).checks ?? []).filter((c) => applies(c, family)),
       peers,
     );
+    const rests = (readRole(role, rolesDir).rest ?? []).filter((r) => applies(r, family));
     const agentChecks = smokeCasesFor(family === "windows" ? "windows" : "linux");
     const nsclientChecks = checkNsclientExe ? checks : [];
-    const total = checks.length + agentChecks.length + nsclientChecks.length;
+    const total = checks.length + rests.length + agentChecks.length + nsclientChecks.length;
 
     describe(`${m.Name} (${role}, ${family})`, () => {
       const { url, password } = credentials(m);
@@ -344,7 +302,7 @@ describeEstate("estate role checks", () => {
             try {
               if (!target) target = await login();
               q = await liveExecute(target, check.command, check.args);
-              why = judge(check, q.result, Object.keys(perfOf(q)), messageOf(q));
+              why = judgeCheck(check, q.result, Object.keys(perfOf(q)), messageOf(q));
             } catch (e) {
               q = null;
               why = `request failed: ${firstLine(e)}`;
@@ -370,7 +328,7 @@ describeEstate("estate role checks", () => {
             expect: check.expect,
             perf: check.perf,
             passed: !why,
-            state: q ? (STATES[q.result] ?? null) : null,
+            state: q ? (ESTATE_STATES[q.result] ?? null) : null,
             reason: why ?? null,
             message: shown ? messageOf(shown) : "",
             perfKeys: keys,
@@ -378,6 +336,40 @@ describeEstate("estate role checks", () => {
           });
           // The reason and the check's own output, so a failure reads on its own.
           expect(why ? `${why} :: ${shown ? messageOf(shown) : ""}` : undefined).toBeUndefined();
+        });
+      }
+
+      // The role's reads of the agent's own API, retried like a check: the
+      // bundle that delivers what they look at may still be on its way.
+      for (const r of rests) {
+        it(restLabel(r), async () => {
+          if (loginError) throw new Error(loginError);
+          const { why, res } = await attemptRoleRest(
+            r,
+            async () => {
+              if (!target) target = await login();
+              return liveRequest(target, r.method ?? "GET", r.path, r.body);
+            },
+            async () => {
+              target = undefined;
+            },
+            waitMs,
+          );
+          const body = res ? res.text.slice(0, 2_000) : "";
+          records.push({
+            check: restLabel(r),
+            command: restLabel(r),
+            args: {},
+            expect: `HTTP ${r.status ?? 200}`,
+            perf: [],
+            passed: !why,
+            state: res ? `HTTP ${res.status}` : null,
+            reason: why ?? null,
+            message: body,
+            perfKeys: [],
+            response: null,
+          });
+          expect(why ? `${why} :: ${body}` : undefined).toBeUndefined();
         });
       }
 
@@ -401,7 +393,7 @@ describeEstate("estate role checks", () => {
             expect: "agent",
             perf: [],
             passed: !why,
-            state: q ? (STATES[q.result] ?? null) : null,
+            state: q ? (ESTATE_STATES[q.result] ?? null) : null,
             reason: why ?? null,
             message: q ? messageOf(q) : "",
             perfKeys: q ? Object.keys(perfOf(q)) : [],
@@ -463,8 +455,8 @@ describeEstate("estate role checks", () => {
                 if (r.status < 0 || r.status > 3 || /^Error:/m.test(out))
                   why = `check_nsclient failed (exit ${r.status}): ${out}`;
                 else {
-                  state = STATES[r.status];
-                  why = judge(check, r.status, keys, out.split("|")[0]);
+                  state = ESTATE_STATES[r.status];
+                  why = judgeCheck(check, r.status, keys, out.split("|")[0]);
                 }
               }
               records.push({

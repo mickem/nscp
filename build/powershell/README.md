@@ -402,6 +402,7 @@ estate/roles/mysql/
 | `tag` | Operator-set tags put on the fleet host **before** it enrolls, so its first desired state already carries the role's group. Required when the role has a `bundle`: the group selects on it, and an empty selector would match every host in the tenant. |
 | `bundle` | `{ "settings": { ... } }`: the nested object path is the INI section path in `fleet.ini` (`settings.mysql` → `[/settings/mysql]`); `${ROLE_PASSWORD}` is substituted, `${ESTATE_IPS:<role>}` becomes the public IPs of that role's machines in the suite (comma-separated: an allow-list for a server only the hub may reach), and any other `${...}` is refused. The role's `modules` are enabled in the same bundle. `"scripts": "<folder>"` names a folder under the role whose files ship as the bundle's `scripts/` entries, laid out as the agent's own scripts folder is (`python/`, `lua/`, and the external scripts at the top); the agent stages them under `${fleet-folder}/scripts`, and the bundle's settings then point the script modules at them with `[/settings/default] script root = fleet`. Such a bundle is built by the runner and uploaded whole (`POST /api/bundles`) instead of composed on the server. |
 | `checks` | What the gate runs over REST. `args` are passed as `key=value` (an array repeats the key); `expect` is a Nagios state, or `any` for any state but UNKNOWN; every name in `perf` must occur in some perfdata key (case-insensitive, so `used %` matches `C:\ used %`); `message` is text the check's message must contain (case-insensitive), for a check whose proof is what it prints rather than a perfdata key; `os` limits a check to some families (`linux` means Ubuntu and Rocky); `each: "<role>"` runs it once per machine of that companion role, with `${target.ip}`, `${target.name}` and `${target.password}` (its web password) filled in. |
+| `rest` | Requests to the agent's own API, run in order, for what a role delivers that no check reports. Each has a `path` (`/api/...`), a `method` (`GET` by default, `PUT` with a text `body`, or `DELETE`), an optional `status` (default 200), `contains` (text the body must hold; required with a 200), `excludes`, and `os` as on a check. Matching ignores case and reads a backslash as `/`, so one entry covers a Windows and a Linux listing. A GET is retried like a check; a PUT or DELETE only on a dropped connection or a lost session, never after it was answered. Recorded in `checks.json` as `<method> <path>`. |
 | `localSettings` | `{ "<settings path>": { "<key>": "<value>" } }`, written into the host's own `nsclient.ini` with `nscp settings --set` right after the modules are activated. Use it only for a key the installer itself writes: a local key beats the same key from a bundle (`fleet.ini` is an include, and local settings win). |
 | `companions`, `companionOnly` | `{ "<role>": <count> }`: machines of other roles a suite of this one provisions alongside it (a hub's targets). `companionOnly: true` keeps a role out of `all`; it only comes with the role that needs it. |
 | `logs` | Per OS, extra files the log collection picks up (saved as `role-<file>`). |
@@ -472,9 +473,24 @@ Notes on `scripts`:
   `${fleet-folder}` wherever that is, and the external script is started
   there, so `scripts/fleet_b.sh` resolves from inside `fleet_a.sh` exactly as
   `scripts\check.bat` resolves from the installation directory today.
-- The same bundle, served by a fake fleet server, is what
-  `tests/fleet-sync-scripts.test.ts` applies on every CI platform; this role
-  is the real-server, real-package counterpart.
+- Its `rest` reads list each runtime under `/api/v2/scripts` (`ext`, `lua`,
+  `py`) and show each runtime's `lib` helper or second script by a name
+  relative to the runtime's folder. Those files exist only in the fleet
+  tree, so the listings and the show sandbox are proven to follow the root.
+- It then adds a script to each runtime over REST (`PUT /api/v2/scripts/...`),
+  lists and shows it, and deletes it again: the add must record it relative
+  to the root (`scripts/`, `lua/`, `python/`) and the delete must name a file
+  under `fleet/scripts`. External scripts take two deletes - the definition
+  by its alias, then the file by its path. The local twin below also drives
+  the same steps through the `nscp ext-scr|lua|py` command line.
+- The role itself also runs on every CI build, without Azure:
+  `tests/estate-roles-local.test.ts` builds its bundle the way the estate does
+  (`tests/src/estate-roles.ts`, and where PowerShell is installed it asserts
+  `New-EstateBundleZip` produces the same zip), serves it from a fake fleet
+  server to a local agent, and judges the role's `checks` and `rest` with the
+  functions `tests/live/estate.test.ts` uses. A change that breaks the role's
+  descriptor fails there first; an estate run is left to prove the real fleet
+  server, the packages and the operating systems.
 
 Notes on `hub`:
 

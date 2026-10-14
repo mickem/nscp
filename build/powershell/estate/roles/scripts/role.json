@@ -48,5 +48,110 @@
       "message": "python helper from the fleet bundle"
     }
   ],
+  "rest": [
+    {
+      "path": "/api/v2/scripts/ext?all=true",
+      "contains": ["scripts/fleet_a.sh", "scripts/fleet_a.bat", "scripts/fleet_b.sh", "scripts/fleet_b.bat"]
+    },
+    {
+      "path": "/api/v2/scripts/lua?all=true",
+      "contains": ["lua/fleet_check.lua"],
+      "excludes": ["lua/lib/fleet_helper.lua"]
+    },
+    {
+      "path": "/api/v2/scripts/py?all=true",
+      "contains": ["python/fleet_check.py"],
+      "excludes": ["python/lib/fleet_helper.py"]
+    },
+    {
+      "path": "/api/v2/scripts/ext/scripts/fleet_b.sh",
+      "contains": ["external helper from the fleet bundle"]
+    },
+    {
+      "path": "/api/v2/scripts/lua/lib/fleet_helper.lua",
+      "contains": ["lua helper from the fleet bundle"]
+    },
+    {
+      "path": "/api/v2/scripts/py/lib/fleet_helper.py",
+      "contains": ["python helper from the fleet bundle"]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v2/scripts/ext/estate_rest.sh",
+      "body": "#!/bin/sh\n# added over REST\necho added\n",
+      "contains": ["Added estate_rest as scripts/estate_rest.sh"]
+    },
+    {
+      "path": "/api/v2/scripts/ext?all=true",
+      "contains": ["scripts/estate_rest.sh"]
+    },
+    {
+      "path": "/api/v2/scripts/ext/scripts/estate_rest.sh",
+      "contains": ["added over REST"]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v2/scripts/ext/estate_rest",
+      "contains": ["Script definition has been removed"]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v2/scripts/ext/scripts/estate_rest.sh",
+      "contains": ["Script file was removed"]
+    },
+    {
+      "path": "/api/v2/scripts/ext?all=true",
+      "contains": ["scripts/fleet_a.sh"],
+      "excludes": ["estate_rest"]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v2/scripts/lua/estate_rest.lua",
+      "body": "-- added over REST\n",
+      "contains": ["Added estate_rest as lua/estate_rest.lua"]
+    },
+    {
+      "path": "/api/v2/scripts/lua?all=true",
+      "contains": ["lua/estate_rest.lua"]
+    },
+    {
+      "path": "/api/v2/scripts/lua/estate_rest.lua",
+      "contains": ["added over REST"]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v2/scripts/lua/estate_rest.lua",
+      "contains": ["Deleted", "fleet/scripts/lua/estate_rest.lua"]
+    },
+    {
+      "path": "/api/v2/scripts/lua?all=true",
+      "contains": ["lua/fleet_check.lua"],
+      "excludes": ["estate_rest"]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v2/scripts/py/estate_rest.py",
+      "body": "# added over REST\ndef init(plugin_id, plugin_alias, script_alias):\n    pass\n",
+      "contains": ["Added estate_rest.py as python/estate_rest.py"]
+    },
+    {
+      "path": "/api/v2/scripts/py?all=true",
+      "contains": ["python/estate_rest.py"]
+    },
+    {
+      "path": "/api/v2/scripts/py/estate_rest.py",
+      "contains": ["added over REST"]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v2/scripts/py/estate_rest.py",
+      "contains": ["Deleted", "fleet/scripts/python/estate_rest.py"]
+    },
+    {
+      "path": "/api/v2/scripts/py?all=true",
+      "contains": ["python/fleet_check.py"],
+      "excludes": ["estate_rest"]
+    }
+  ],
   "logs": {}
 }

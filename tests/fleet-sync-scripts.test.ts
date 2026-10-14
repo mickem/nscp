@@ -41,6 +41,7 @@ import {
   REST_URL,
   type QueryResult,
 } from "@fixtures/index";
+import { rawText } from "@fixtures/live-target";
 
 jest.setTimeout(240_000);
 
@@ -261,7 +262,7 @@ describe("fleet bundle with scripts of every kind", () => {
         last = await executeQuery(key, command);
         if (last.result === OK) return last;
       } catch (e) {
-        if (!/got 40[13]/.test(String(e))) throw e;
+        if (!/got 40[13]|ECONNRESET|ECONNREFUSED|socket hang up/.test(String(e))) throw e;
         await login().catch(() => undefined);
       }
       if (Date.now() >= deadline) {
@@ -349,6 +350,27 @@ describe("fleet bundle with scripts of every kind", () => {
       expect(pyNames).toContain("python/fleet_check.py");
       expect(pyNames).not.toContain("python/lib/fleet_helper.py");
     }
+  });
+
+  it("shows each runtime's fleet-delivered helper over REST", async () => {
+    await login();
+    // The helpers exist only in the fleet tree, so reaching them by a name
+    // relative to the runtime's folder proves the sandbox moved there. The
+    // Azure `scripts` estate role makes the same reads against real agents.
+    const show = async (runtime: string, name: string) =>
+      (
+        await request(REST_URL)
+          .get(`/api/v2/scripts/${runtime}/${name}`)
+          .set("Authorization", `Bearer ${key}`)
+          .trustLocalhost(true)
+          .buffer(true)
+          .parse(rawText)
+          .expect(200)
+      ).body as string;
+    expect(await show("ext", "scripts/fleet_b.sh")).toContain(EXT_HELPER);
+    expect(await show("lua", "lib/fleet_helper.lua")).toContain(LUA_HELPER);
+    if (moduleBuiltHere("PythonScript"))
+      expect(await show("py", "lib/fleet_helper.py")).toContain(PY_HELPER);
   });
 
   it("moves the show/delete sandbox with the root", async () => {
