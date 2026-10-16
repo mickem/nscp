@@ -12,6 +12,7 @@
 #include <scheduler/simple_scheduler.hpp>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace {
 
@@ -43,6 +44,47 @@ class counting_handler : public simple_scheduler::handler {
     return reschedule_after.load(std::memory_order_relaxed);
   }
   void on_error(const char* /*file*/, int /*line*/, std::string /*err*/) override {}
+  void on_trace(const char* /*file*/, int /*line*/, std::string /*msg*/) override {}
+};
+
+// A handler whose task blocks until the test releases it, and which records
+// how it ended and every error the scheduler reports.
+class blocking_handler : public simple_scheduler::handler {
+ public:
+  std::atomic<bool> started{false};
+  std::atomic<bool> finished{false};
+  std::atomic<bool> interrupted{false};
+  boost::mutex mutex;
+  boost::condition_variable cond;
+  bool released = false;
+  std::vector<std::string> errors;
+
+  bool handle_schedule(simple_scheduler::task /*item*/) override {
+    started = true;
+    try {
+      // A boost wait on purpose: it is an interruption point, which is what
+      // stop() used to throw through.
+      boost::mutex::scoped_lock lock(mutex);
+      while (!released) cond.wait(lock);
+      finished = true;
+    } catch (const boost::thread_interrupted&) {
+      interrupted = true;
+      throw;
+    }
+    return false;
+  }
+  void release() {
+    {
+      boost::mutex::scoped_lock lock(mutex);
+      released = true;
+    }
+    cond.notify_all();
+  }
+  std::string describe(const simple_scheduler::task& item) override { return "the blocking task " + item.tag; }
+  void on_error(const char* /*file*/, int /*line*/, std::string err) override {
+    boost::mutex::scoped_lock lock(mutex);
+    errors.push_back(err);
+  }
   void on_trace(const char* /*file*/, int /*line*/, std::string /*msg*/) override {}
 };
 
@@ -506,5 +548,80 @@ TEST(simple_scheduler_running, run_now_honours_the_delay) {
   EXPECT_TRUE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::seconds(5)));
 
   s.stop();
+  s.unset_handler();
+}
+
+// --- stop() lets running tasks finish -----------------------------------------
+
+TEST(simple_scheduler_running, stop_returns_promptly_while_workers_wait_for_a_task_not_yet_due) {
+  // The workers and the watchdog are all waiting: one for a task a minute
+  // out, the rest for anything at all. They used to be woken by
+  // interrupt_all(); stop() must still end those waits at once.
+  simple_scheduler::scheduler s;
+  counting_handler h;
+  s.set_handler(&h);
+  s.set_threads(2);
+  s.add_task("later", boost::posix_time::seconds(60), 0.0);
+  s.start();
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+  const auto before = std::chrono::steady_clock::now();
+  EXPECT_TRUE(s.stop());
+  EXPECT_LT(std::chrono::steady_clock::now() - before, std::chrono::seconds(2));
+  EXPECT_EQ(h.calls.load(), 0);
+  s.unset_handler();
+}
+
+TEST(simple_scheduler_running, stop_waits_for_a_running_task_instead_of_interrupting_it) {
+  // A task in flight when the pool stops - the core's delayed reload, at
+  // shutdown - used to have every boost wait it made throw
+  // thread_interrupted, abandoning it half way.
+  simple_scheduler::scheduler s;
+  blocking_handler h;
+  s.set_handler(&h);
+  s.set_threads(1);
+  s.add_task("busy", boost::posix_time::seconds(0), 0.0);
+  s.start();
+  ASSERT_TRUE(wait_for([&] { return h.started.load(); }, std::chrono::seconds(5)));
+
+  std::thread releaser([&h] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    h.release();
+  });
+  EXPECT_TRUE(s.stop());
+  releaser.join();
+
+  EXPECT_TRUE(h.finished.load());
+  EXPECT_FALSE(h.interrupted.load());
+  s.unset_handler();
+}
+
+TEST(simple_scheduler_running, stop_with_a_timeout_gives_up_on_a_hung_task_and_names_it) {
+  // A service stop must complete with nobody watching, so a task that has
+  // genuinely hung is reported and left behind rather than waited for.
+  simple_scheduler::scheduler s;
+  blocking_handler h;
+  s.set_handler(&h);
+  s.set_threads(1);
+  s.add_task("stuck", boost::posix_time::seconds(0), 0.0);
+  s.start();
+  ASSERT_TRUE(wait_for([&] { return h.started.load(); }, std::chrono::seconds(5)));
+
+  const auto before = std::chrono::steady_clock::now();
+  EXPECT_FALSE(s.stop(boost::posix_time::milliseconds(300)));
+  EXPECT_LT(std::chrono::steady_clock::now() - before, std::chrono::seconds(3));
+  {
+    boost::mutex::scoped_lock lock(h.mutex);
+    ASSERT_EQ(h.errors.size(), 1u);
+    EXPECT_NE(h.errors[0].find("still running the blocking task stuck"), std::string::npos) << h.errors[0];
+  }
+  EXPECT_FALSE(h.finished.load());
+
+  // The worker was detached, not stopped: let it finish before the scheduler
+  // and the handler it is using go out of scope.
+  h.release();
+  ASSERT_TRUE(wait_for([&] { return h.finished.load(); }, std::chrono::seconds(5)));
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  EXPECT_FALSE(h.interrupted.load());
   s.unset_handler();
 }

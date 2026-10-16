@@ -29,20 +29,7 @@ void scheduler::handle_plugin(const schedule_metadata &data) {
   if (!plugin) return;  // unloaded since the schedule was registered
   plugin->handle_schedule("");
 }
-void scheduler::handle_reload(const schedule_metadata &data) {
-  // A reload must run to the end once it has started. Shutdown stops this
-  // pool with interrupt_all(), and every boost join, sleep or condition wait
-  // a module makes from loadModuleEx is an interruption point - CheckSystem
-  // joining its collector on reloadStart is the one that was hit. The
-  // interrupt then aborts that module's reload half way, the core purges and
-  // loads it again, and all of it runs under a shutdown that is about to
-  // unload it - the path `exit` typed at `nscp test` during a reload took
-  // before that process died with an access violation on Windows. With
-  // interruption off, stop() simply waits for the reload to finish, as it
-  // waits for any other task.
-  const boost::this_thread::disable_interruption no_interrupt;
-  mainClient->do_reload(data.info);
-}
+void scheduler::handle_reload(const schedule_metadata &data) { mainClient->do_reload(data.info); }
 void scheduler::handle_settings() {
   settings_manager::get_core()->house_keeping();
   if (settings_manager::get_core()->needs_reload()) {
@@ -56,9 +43,39 @@ void scheduler::start() {
   tasks.set_handler(this);
   tasks.start();
 }
+namespace {
+// How long shutdown waits for a maintenance task that is still running. The
+// task is let finish rather than interrupted - interrupting a module reload
+// half way is how a shutdown came to unload a module in the middle of it -
+// but a service stop is a maintenance operation, often with nobody watching,
+// and must complete even if a task has genuinely hung. One that has is named
+// in the log and left running while the shutdown goes on without it.
+const boost::posix_time::seconds stop_timeout(30);
+}  // namespace
+
 void scheduler::stop() {
-  tasks.stop();
+  tasks.stop(stop_timeout);
   tasks.unset_handler();
+}
+
+std::string scheduler::describe(const simple_scheduler::task &item) {
+  const schedule_metadata data = get(item.id);
+  switch (data.source) {
+    case schedule_metadata::MODULE: {
+      const nsclient::core::plugin_manager::plugin_type plugin = mainClient->get_plugin_manager()->find_plugin(data.plugin_id);
+      return "the schedule of " + (plugin ? plugin->get_alias_or_name() : "module " + str::xtos(data.plugin_id));
+    }
+    case schedule_metadata::SETTINGS:
+      return "the settings maintenance";
+    case schedule_metadata::METRICS:
+      return "a metrics round";
+    case schedule_metadata::FACTS:
+      return "a facts round";
+    case schedule_metadata::RELOAD:
+      return "a reload of " + data.info;
+    default:
+      return item.tag + "(" + str::xtos(item.id) + ")";
+  }
 }
 
 boost::posix_time::seconds parse_interval(const std::string &str) {
