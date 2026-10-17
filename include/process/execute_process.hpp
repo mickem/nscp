@@ -38,7 +38,17 @@ class exec_arguments {
         kill_tree(kill_tree) {}
 
   std::string alias;
+  // The base a relative argv[0] with a directory component is resolved
+  // against (resolve_application_path): ${base-path}, or the configured
+  // `script root`. On Windows it is also the child's working directory when
+  // `working_directory` is empty.
   std::string root_path;
+  // The directory the child is started in. Empty means the launcher's
+  // historical behaviour: root_path on Windows, the service's own working
+  // directory on Unix. Set by CheckExternalScripts when a `script root` is
+  // configured, so scripts that call each other by relative path keep
+  // working wherever the tree lives.
+  std::string working_directory;
   std::string command;
   // When non-empty, argv is the authoritative argument vector and the launcher
   // must use it directly (Unix: execvp, Windows: lpApplicationName + a

@@ -396,6 +396,11 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     cargs.push_back(const_cast<char*>(a.c_str()));
   }
   cargs.push_back(nullptr);
+  // The directory the child runs in, when one is configured (a `script root`
+  // outside the built-in layout). Taken before the fork for the same reason
+  // as the argv: c_str() on a string the parent owns is not an allocation,
+  // and the child's copy of that memory outlives the exec.
+  const char* const working_directory = args.working_directory.empty() ? nullptr : args.working_directory.c_str();
 
   // Close-on-exec from the moment the pipe exists: another worker may fork
   // between pipe() and this fork, and its child would otherwise carry this
@@ -513,6 +518,16 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
       // the script itself fails with EPERM (the setsid utility forks first and
       // is unaffected).
       if (args.kill_tree) setsid();
+      // chdir() is async-signal-safe. A root that cannot be entered fails the
+      // check out loud rather than running the script from wherever the
+      // service happened to be started: a script reaching a helper by
+      // relative path would otherwise run the wrong one, or none, with
+      // nothing in its output to say why.
+      if (working_directory != nullptr && chdir(working_directory) != 0) {
+        static const char message[] = "Failed to enter the script root directory\n";
+        (void)!write(STDOUT_FILENO, message, sizeof(message) - 1);
+        _exit(127);
+      }
       close_above_stdio(max_fd);
       execvp(cargs[0], cargs.data());
       // execvp only returns on error.

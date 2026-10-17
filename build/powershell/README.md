@@ -400,8 +400,9 @@ estate/roles/mysql/
 | `modules` | Activated **at install time**. A bundle can enable a module in `fleet.ini` but cannot load it into a running agent, so this is what lets the bundle take effect on the first sync. |
 | `install` | Per OS, a fragment run as root/SYSTEM on the VM **before** NSClient++ is installed, with `ROLE_PASSWORD` in its environment and `installTimeoutMinutes` as its limit. Its output lands in `/var/log/nscp-role-install.log` or `C:\nscp-role-install.log`. Exit non-zero to fail the machine at the `install` stage. |
 | `tag` | Operator-set tags put on the fleet host **before** it enrolls, so its first desired state already carries the role's group. Required when the role has a `bundle`: the group selects on it, and an empty selector would match every host in the tenant. |
-| `bundle` | `{ "settings": { ... } }`: the nested object path is the INI section path in `fleet.ini` (`settings.mysql` → `[/settings/mysql]`); `${ROLE_PASSWORD}` is substituted, `${ESTATE_IPS:<role>}` becomes the public IPs of that role's machines in the suite (comma-separated: an allow-list for a server only the hub may reach), and any other `${...}` is refused. The role's `modules` are enabled in the same bundle. |
-| `checks` | What the gate runs over REST. `args` are passed as `key=value` (an array repeats the key); `expect` is a Nagios state, or `any` for any state but UNKNOWN; every name in `perf` must occur in some perfdata key (case-insensitive, so `used %` matches `C:\ used %`); `os` limits a check to some families (`linux` means Ubuntu and Rocky); `each: "<role>"` runs it once per machine of that companion role, with `${target.ip}`, `${target.name}` and `${target.password}` (its web password) filled in. |
+| `bundle` | `{ "settings": { ... } }`: the nested object path is the INI section path in `fleet.ini` (`settings.mysql` → `[/settings/mysql]`); `${ROLE_PASSWORD}` is substituted, `${ESTATE_IPS:<role>}` becomes the public IPs of that role's machines in the suite (comma-separated: an allow-list for a server only the hub may reach), and any other `${...}` is refused. The role's `modules` are enabled in the same bundle. `"scripts": "<folder>"` names a folder under the role whose files ship as the bundle's `scripts/` entries, laid out as the agent's own scripts folder is (`python/`, `lua/`, and the external scripts at the top); the agent stages them under `${fleet-folder}/scripts`, and the bundle's settings then point the script modules at them with `[/settings/default] script root = fleet`. Such a bundle is built by the runner and uploaded whole (`POST /api/bundles`) instead of composed on the server. |
+| `checks` | What the gate runs over REST. `args` are passed as `key=value` (an array repeats the key); `expect` is a Nagios state, or `any` for any state but UNKNOWN; every name in `perf` must occur in some perfdata key (case-insensitive, so `used %` matches `C:\ used %`); `message` is text the check's message must contain (case-insensitive), for a check whose proof is what it prints rather than a perfdata key; `os` limits a check to some families (`linux` means Ubuntu and Rocky); `each: "<role>"` runs it once per machine of that companion role, with `${target.ip}`, `${target.name}` and `${target.password}` (its web password) filled in. |
+| `rest` | Requests to the agent's own API, run in order, for what a role delivers that no check reports. Each has a `path` (`/api/...`), a `method` (`GET` by default, `PUT` with a text `body`, or `DELETE`), an optional `status` (default 200), `contains` (text the body must hold; required with a 200), `excludes`, and `os` as on a check. Matching ignores case and reads a backslash as `/`, so one entry covers a Windows and a Linux listing. A GET is retried like a check; a PUT or DELETE only on a dropped connection or a lost session, never after it was answered. Recorded in `checks.json` as `<method> <path>`. |
 | `localSettings` | `{ "<settings path>": { "<key>": "<value>" } }`, written into the host's own `nsclient.ini` with `nscp settings --set` right after the modules are activated. Use it only for a key the installer itself writes: a local key beats the same key from a bundle (`fleet.ini` is an include, and local settings win). |
 | `companions`, `companionOnly` | `{ "<role>": <count> }`: machines of other roles a suite of this one provisions alongside it (a hub's targets). `companionOnly: true` keeps a role out of `all`; it only comes with the role that needs it. |
 | `logs` | Per OS, extra files the log collection picks up (saved as `role-<file>`). |
@@ -441,6 +442,7 @@ bundles with its last machine.
 | `mysql` | MariaDB on Ubuntu or Rocky | `check_mysql`, `check_mysql_query` through a `[/settings/mysql]` bundle |
 | `mssql` | Marketplace SQL Server 2022 Developer on Windows Server 2022 | All 13 CheckMSSQL commands, OK with perfdata, through a `[/settings/mssql]` bundle |
 | `hub` | Ubuntu with CheckNet, NRPEClient and NSCPClient, plus two `target` machines (Windows and Ubuntu) | `check_nrpe`, `check_remote_nscp` and `check_nsclient_web_online` from the hub to each target |
+| `scripts` | Windows, Ubuntu and Rocky with CheckExternalScripts, LUAScript and PythonScript | A bundle that ships a script of each kind plus the file each one depends on (a Python and a Lua helper in `lib`, a second shell/batch script called by relative path), run from the fleet tree through `[/settings/default] script root = fleet`; each check's message proves the dependency was reached |
 
 Notes on `mssql`:
 
@@ -459,6 +461,36 @@ Notes on `mssql`:
   `[/settings/mssql]`, which also exercises a valued boolean over REST.
 - `installTimeoutMinutes` is 20: the fragment restarts the engine twice and
   downloads the driver.
+
+Notes on `scripts`:
+
+- One bundle serves all three operating systems: it carries both `fleet_a.sh`
+  and `fleet_a.bat`, registers `fleet_ext_sh` (`sh scripts/fleet_a.sh`) and
+  `fleet_ext_bat` (`scripts\fleet_a.bat`), and the role's `os` filter picks
+  the check. The shell script is run through `sh` because the sync writes
+  files without an execute bit.
+- Nothing in the bundle names a host path: `script root = fleet` is
+  `${fleet-folder}` wherever that is, and the external script is started
+  there, so `scripts/fleet_b.sh` resolves from inside `fleet_a.sh` exactly as
+  `scripts\check.bat` resolves from the installation directory today.
+- Its `rest` reads list each runtime under `/api/v2/scripts` (`ext`, `lua`,
+  `py`) and show each runtime's `lib` helper or second script by a name
+  relative to the runtime's folder. Those files exist only in the fleet
+  tree, so the listings and the show sandbox are proven to follow the root.
+- It then adds a script to each runtime over REST (`PUT /api/v2/scripts/...`),
+  lists and shows it, and deletes it again: the add must record it relative
+  to the root (`scripts/`, `lua/`, `python/`) and the delete must name a file
+  under `fleet/scripts`. External scripts take two deletes - the definition
+  by its alias, then the file by its path. The local twin below also drives
+  the same steps through the `nscp ext-scr|lua|py` command line.
+- The role itself also runs on every CI build, without Azure:
+  `tests/estate-roles-local.test.ts` builds its bundle the way the estate does
+  (`tests/src/estate-roles.ts`, and where PowerShell is installed it asserts
+  `New-EstateBundleZip` produces the same zip), serves it from a fake fleet
+  server to a local agent, and judges the role's `checks` and `rest` with the
+  functions `tests/live/estate.test.ts` uses. A change that breaks the role's
+  descriptor fails there first; an estate run is left to prove the real fleet
+  server, the packages and the operating systems.
 
 Notes on `hub`:
 
