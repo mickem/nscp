@@ -130,8 +130,23 @@ string or zero. A consumer reads an absent key as unknown.
 
 | Set        | Fields |
 |------------|--------|
-| `os`       | `family`, `name`, `version`, `arch`, `virtualization`, `domain` |
+| `os`       | `family`, `name`, `version`, `arch`, `virtualization`, `domain`, `join`, `join_name` |
 | `hardware` | `manufacturer`, `model`, `cpu_cores`, `memory_gb` |
+
+`domain` is the host's **DNS** domain: the primary DNS suffix on Windows, the
+host name minus its first label elsewhere. It says nothing about membership: a
+workgroup computer can have a DNS suffix, and a domain member's suffix need not
+match its Active Directory domain. Membership is what `join` and `join_name`
+report, on Windows only:
+
+| `join`       | `join_name`                          |
+|--------------|--------------------------------------|
+| `domain`     | the Active Directory domain as the join API reports it (usually the DNS name), e.g. `corp.example.com` |
+| `workgroup`  | the workgroup, e.g. `WORKGROUP`      |
+| `standalone` | omitted                              |
+
+These are the values `check_hostname` reports as its `join` and `join_name`
+keywords. On other platforms both fields are omitted.
 
 Both are read once, when the module starts, because none of it can change
 without a reboot. A manual refresh reads them again.

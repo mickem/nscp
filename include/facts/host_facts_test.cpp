@@ -264,10 +264,38 @@ TEST(host_facts_sets, a_fact_that_was_not_determined_is_omitted_not_written_empt
   EXPECT_EQ("{}", json_of(out, "hardware"));
 }
 
+TEST(host_facts_sets, the_os_set_carries_the_join_state_after_the_domain) {
+  // A workgroup host with a DNS suffix: the domain alone would make it look
+  // like a domain member, which is why the join is published beside it (#1672).
+  host_facts::facts f = sample_row();
+  f.os_name = "Windows Server 2022";
+  f.os_version = "10.0.20348";
+  f.os_family = "windows";
+  f.join = "workgroup";
+  f.join_name = "WORKGROUP";
+  nscapi::facts::response out;
+  host_facts::publish_facts(sample_snapshot(f), true, false, out);
+  EXPECT_EQ(
+      "{\"family\":\"windows\",\"name\":\"Windows Server 2022\",\"version\":\"10.0.20348\","
+      "\"arch\":\"x86_64\",\"virtualization\":\"kvm\",\"domain\":\"corp.example.com\","
+      "\"join\":\"workgroup\",\"join_name\":\"WORKGROUP\"}",
+      json_of(out, "os"));
+}
+
+TEST(host_facts_sets, a_standalone_host_publishes_its_join_without_a_name) {
+  host_facts::facts f = sample_row();
+  f.join = "standalone";
+  nscapi::facts::response out;
+  host_facts::publish_facts(sample_snapshot(f), true, false, out);
+  EXPECT_NE(std::string::npos, json_of(out, "os").find("\"join\":\"standalone\""));
+  EXPECT_EQ(std::string::npos, json_of(out, "os").find("join_name"));
+}
+
 TEST(host_facts_sets, the_keys_are_valid_document_keys) {
   // The builder drops a key that breaks the document rules and records a
   // problem against the set, so a typo here would silently lose a field.
-  for (const char *key : {"family", "name", "version", "arch", "virtualization", "domain", "manufacturer", "model", "cpu_cores", "memory_gb"}) {
+  for (const char *key :
+       {"family", "name", "version", "arch", "virtualization", "domain", "join", "join_name", "manufacturer", "model", "cpu_cores", "memory_gb"}) {
     EXPECT_TRUE(nscapi::facts::is_valid_key(key)) << key;
   }
 }
