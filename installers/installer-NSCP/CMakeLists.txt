@@ -170,6 +170,18 @@ if(NSCP_OPENSSL_CRYPTO_DLL AND NSCP_OPENSSL_SSL_DLL)
         -dOpenSSLSslDll=${NSCP_OPENSSL_SSL_DLL}
     )
 endif()
+# The Boost DLLs only the Beast web backend links (Boost.Coroutine and
+# Boost.Context, behind nscp_mongoose.dll's sessions). The top-level
+# CMakeLists.txt names them when it copies them for NSCP_WEB_BACKEND=beast; a
+# mongoose build leaves both undefined and the installer ships neither.
+if(NSCP_BOOST_COROUTINE_DLL AND NSCP_BOOST_CONTEXT_DLL)
+    list(
+        APPEND
+        WIX_CANDLE_FLAGS
+        -dBoostCoroutineDll=${NSCP_BOOST_COROUTINE_DLL}
+        -dBoostContextDll=${NSCP_BOOST_CONTEXT_DLL}
+    )
+endif()
 
 # The Windows build signs exactly the binaries this installer ships
 # (build/python/signing_list.py). It takes their names from the File elements
