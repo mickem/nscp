@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <net/socket/socket_helpers.hpp>
+#include <net/web_server_limits.hpp>
 #include <net/web_server_logger.hpp>
 #include <net/web_server_tls.hpp>
 #include <nscapi/nscapi_common_options.hpp>
@@ -125,6 +126,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::string tls_version;
   std::string allowed_ciphers;
   std::string admin_password;
+  std::string max_request_size;
   int threads;
   bool allow_insecure = false;
   bool log_errors = true;
@@ -178,6 +180,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_key_to_settings()
       .add_string("port", sh::string_key(&port, "8443"), "Server port", "Port to use for WEB server.")
       .add_int("threads", sh::int_key(&threads, 10), "Server threads", "The number of threads in the sever response pool.")
+      .add_string("max request size", sh::string_key(&max_request_size, net::kDefaultWebMaxRequestSize), "MAX REQUEST SIZE",
+                  "The largest request body the server accepts, as a byte count with an optional k, m or g unit (`512k`, `3MiB`). A request "
+                  "declaring more is answered 413 and logged, and nothing of its body is kept. The default, 3MiB, is what the server has always "
+                  "buffered on Windows; raise it for a script upload or a bulk result submission that is larger. A value the server cannot read "
+                  "is logged and the default used. On the mongoose web backend (Windows) values above 3MiB are capped at 3MiB by the backend's "
+                  "receive buffer.")
       .add_bool(
           "allow anonymous access", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allow_anonymous(value); }, false),
           "ALLOW ANONYMOUS ACCESS",
@@ -542,6 +550,18 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // The guard line of a dying server thread reaches the log as written.
     server->setThreadReporting("web server", NSC_THREAD_REPORTER);
     net::apply_tls_options(*server, tls_version, allowed_ciphers);
+    {
+      // Falls back rather than refusing to start: the default is the safe
+      // side of this setting, and a REST API that is down over a typo in a
+      // size would cost more than a cap the operator did not get.
+      std::size_t max_request_bytes = 0;
+      std::string size_error;
+      if (!net::parse_request_size(max_request_size, max_request_bytes, size_error)) {
+        NSC_LOG_ERROR("Ignoring 'max request size = " + max_request_size + "': " + size_error + "; using the default " + net::kDefaultWebMaxRequestSize + ".");
+        net::parse_request_size(net::kDefaultWebMaxRequestSize, max_request_bytes, size_error);
+      }
+      server->setBodyLimit(max_request_bytes);
+    }
     if (cert_missing) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {

@@ -94,6 +94,12 @@ std::string remote_address(const mg_connection *connection) {
   }
   return text;
 }
+
+// Marker in mg_connection::data[0] (the user bytes of a connection, zeroed
+// when it is created) for a connection whose current request was answered
+// 413 from its headers: the request is dropped when it completes. Mongoose
+// keeps its own bookkeeping at the far end of `data`, not here.
+constexpr char kBodyRefused = 'R';
 }  // namespace
 
 namespace Mongoose {
@@ -195,6 +201,23 @@ void ServerMongooseImpl::setTlsOptions(const std::string &tls_version, const std
   }
   if (!ciphers.empty()) {
     logger_->log_error("Ignoring 'allowed ciphers': the mongoose web backend does not expose the TLS cipher list.");
+  }
+}
+
+void ServerMongooseImpl::setBodyLimit(const std::size_t bytes) {
+  if (thread_) {
+    logger_->log_error("setBodyLimit() called after start() — ignored; restart the server to apply");
+    return;
+  }
+  body_limit_ = bytes;
+  // The cap is applied to the declared Content-Length when the headers
+  // arrive, but mongoose buffers a whole request before handing it over and
+  // drops the connection - without an answer - once the buffer is full. A cap
+  // above the buffer is therefore honoured only up to the buffer, and the
+  // operator who raised it should know which of the two is answering.
+  if (bytes > MG_MAX_RECV_SIZE) {
+    logger_->log_error("'max request size' is " + std::to_string(bytes) + " bytes, but the mongoose web backend never buffers more than " +
+                       std::to_string(static_cast<unsigned long>(MG_MAX_RECV_SIZE)) + " bytes of a request: anything larger is dropped unanswered.");
   }
 }
 
@@ -466,6 +489,24 @@ void ServerMongooseImpl::reply_stopping(mg_connection *connection) {
   connection->is_draining = 1;
 }
 
+void ServerMongooseImpl::reject_oversized(mg_connection *connection) {
+  logger_->log_error(Helpers::request_too_large_log(remote_address(connection), body_limit_));
+  std::ostringstream headers;
+  headers << "Content-Type: text/plain\r\nConnection: close\r\n";
+  for (const auto &header : Helpers::security_headers(connection->is_tls)) {
+    headers << header.first << ": " << header.second << "\r\n";
+  }
+  const std::string body = Helpers::request_too_large_body(body_limit_);
+  mg_http_reply(connection, HTTP_PAYLOAD_TOO_LARGE, headers.str().c_str(), "%s", body.c_str());
+  // Not draining yet: a connection closed with unread bytes in its socket is
+  // reset rather than finished, and the reset can reach the client before the
+  // answer does. The body is read to its end instead, and the connection is
+  // closed when the request completes (MG_EV_HTTP_MSG), which the marker tells
+  // apart from a request to serve. A body too big for the receive buffer
+  // never completes; mongoose drops that connection itself.
+  connection->data[0] = kBodyRefused;
+}
+
 bool ServerMongooseImpl::admits(mg_connection *connection) const {
   if (!accept_filter_) {
     return true;
@@ -494,7 +535,24 @@ void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *
       impl->logger_->log_error("Not compiled with TLS support");
 #endif
     }
+    if (ev == MG_EV_HTTP_HDRS) {
+      // Judged on the declared Content-Length, before the body is buffered:
+      // what the answer refuses is never held in memory. A chunked body
+      // declares nothing and is bounded by MG_MAX_RECV_SIZE instead.
+      const auto *message = static_cast<struct mg_http_message *>(ev_data);
+      if (message->body.len > impl->body_limit_) {
+        impl->reject_oversized(connection);
+        return;
+      }
+    }
     if (ev == MG_EV_HTTP_MSG) {
+      if (connection->data[0] == kBodyRefused) {
+        // The request reject_oversized() already answered, complete now that
+        // its body has been read. Mongoose reads nothing further on this
+        // connection (is_resp stays set) and closes it once the 413 is out.
+        connection->is_draining = 1;
+        return;
+      }
       if (!impl->accepting_) {
         // A keep-alive connection asking for more while the server stops.
         // With a worker pool the stop can take a while (it waits for running

@@ -90,6 +90,7 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   void initTls(mg_connection *connection) const;
 #endif
   bool setSsl(std::string &certificate, std::string &key) override;
+  void setBodyLimit(std::size_t bytes) override;
   void setWorkerThreads(std::size_t threads) override;
   void setAcceptFilter(accept_filter filter) override;
   bool isServerThread() const override;
@@ -175,6 +176,11 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   void forget(unsigned long connection_id);
   // 503 "Server is stopping" and close (poll thread).
   void reply_stopping(mg_connection *connection);
+  // 413 for a request whose declared body is over body_limit_, answered when
+  // its headers arrive (poll thread). The body is still read, so the client
+  // gets the answer rather than a reset; the request it belongs to is then
+  // dropped and the connection closed - see event_handler().
+  void reject_oversized(mg_connection *connection);
 
  protected:
   WebLoggerPtr logger_;
@@ -196,6 +202,7 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   log_target log_target_;
 
   std::size_t worker_threads_ = 1;
+  std::size_t body_limit_ = Server::kDefaultBodyLimit;
   accept_filter accept_filter_;
   std::string thread_name_ = "web server";
   thread_reporter thread_reporter_;

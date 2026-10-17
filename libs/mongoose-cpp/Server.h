@@ -90,11 +90,21 @@ class NSCP_MONGOOSE_EXPORT Server {
   /**
    * Cap the per-request HTTP body size the server will buffer (bytes).
    *
-   * Honored by the Beast backend (default 1 MiB). The mongoose backend
-   * uses a compile-time limit and ignores this call. Must be set before
-   * `start()` for the change to take effect.
+   * A request declaring more is answered 413 with Helpers::request_too_large_body()
+   * and the connection is closed; the server logs
+   * Helpers::request_too_large_log() about it. Must be set before `start()`.
+   *
+   * The Beast backend enforces it exactly, from the parser. The mongoose
+   * backend judges the declared Content-Length when the headers arrive, under
+   * its compile-time receive buffer (MG_MAX_RECV_SIZE, 3 MiB): a value above
+   * that is logged and anything larger than the buffer is still dropped by
+   * mongoose itself, without an answer.
    */
   virtual void setBodyLimit(std::size_t /*bytes*/) {}
+
+  /** What a server accepts when setBodyLimit() is never called: what the
+   *  mongoose backend has always accepted, so the two backends agree. */
+  static constexpr std::size_t kDefaultBodyLimit = 3u * 1024u * 1024u;
 
   /**
    * How many threads run request handlers. Must be set before `start()`.

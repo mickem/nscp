@@ -81,4 +81,12 @@ std::string Helpers::url_decode(const std::string &str, const bool form) {
   return out;
 }
 
+std::string Helpers::request_too_large_body(const std::size_t limit) {
+  return "Request body too large: this server accepts at most " + std::to_string(limit) + " bytes per request (the WEB server setting 'max request size').";
+}
+
+std::string Helpers::request_too_large_log(const std::string &remote, const std::size_t limit) {
+  return "Rejected a request from " + remote + ": its body is larger than the " + std::to_string(limit) + " bytes 'max request size' allows.";
+}
+
 }  // namespace Mongoose

@@ -856,3 +856,59 @@ TEST(ServerImpl, AHandlerCanReleaseItsOwnServer) {
   ASSERT_TRUE(state->releaser);
   state->releaser->join();
 }
+
+namespace {
+std::string make_post_request(const std::string& path, int port, std::size_t body_size) {
+  std::ostringstream oss;
+  oss << "POST " << path << " HTTP/1.1\r\n"
+      << "Host: 127.0.0.1:" << port << "\r\n"
+      << "Content-Type: application/octet-stream\r\n"
+      << "Content-Length: " << body_size << "\r\n"
+      << "\r\n"
+      << std::string(body_size, 'x');
+  return oss.str();
+}
+
+class EchoBodySizeHandler : public RequestHandlerBase {
+ public:
+  Response* process(Request& request) override {
+    auto* r = new StreamResponse(200);
+    r->setCode(200, "OK");
+    r->append("body=" + std::to_string(request.getData().size()));
+    return r;
+  }
+};
+}  // namespace
+
+TEST(ServerImpl, BodyLimitIsEnforced) {
+  // The cap used to be mongoose's receive buffer alone, which drops the
+  // connection without a word. The declared Content-Length is now judged
+  // when the headers arrive, and the client told.
+  const int port = choose_port_base() + 43;
+  auto* controller = new MatchController();
+  controller->registerRoute("POST", "/", new EchoBodySizeHandler());
+  const ServerFixture fx;
+  fx.server->setBodyLimit(1024);
+  fx.start(port, controller);
+
+  const RawResponse ok = raw_fetch(bind_url(port), make_post_request("/", port, 256));
+  const RawResponse too_big = raw_fetch(bind_url(port), make_post_request("/", port, 4096));
+  fx.server->stop();
+
+  ASSERT_TRUE(ok.received);
+  EXPECT_EQ(ok.status, 200);
+  EXPECT_EQ(ok.body, "body=256");
+  ASSERT_TRUE(too_big.received) << "the oversized request got no answer";
+  EXPECT_EQ(too_big.status, 413);
+  EXPECT_NE(too_big.body.find("max request size"), std::string::npos) << too_big.body;
+  bool logged = false;
+  for (const std::string& line : fx.logger->errors) logged = logged || line.find("Rejected a request from 127.0.0.1") != std::string::npos;
+  EXPECT_TRUE(logged) << "the refusal is logged";
+}
+
+TEST(ServerImpl, ABodyLimitAboveTheReceiveBufferIsSaidToBeCapped) {
+  const ServerFixture fx;
+  fx.server->setBodyLimit(static_cast<std::size_t>(MG_MAX_RECV_SIZE) + 1);
+  ASSERT_EQ(fx.logger->errors.size(), 1u);
+  EXPECT_NE(fx.logger->errors[0].find("never buffers more than"), std::string::npos) << fx.logger->errors[0];
+}
