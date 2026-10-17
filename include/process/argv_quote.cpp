@@ -7,6 +7,8 @@
 #include <nscp/path_rooting.hpp>
 #include <str/utf8.hpp>
 
+#include <cstddef>
+
 namespace process {
 
 std::string resolve_application_path(const std::string& root_path, const std::string& argv0) {
@@ -70,6 +72,24 @@ std::wstring build_command_line_w(const std::vector<std::string>& argv) {
     out.append(quote_argv_w(utf8::cvt<std::wstring>(argv[i])));
   }
   return out;
+}
+
+bool is_batch_target(const std::string& program) {
+  std::string name = program;
+  // A template token may still carry the quotes an operator wrote around a
+  // path with spaces.
+  while (!name.empty() && (name.front() == '"' || name.front() == '\'')) name.erase(name.begin());
+  while (!name.empty() && (name.back() == '"' || name.back() == '\'')) name.pop_back();
+  const auto ends_with = [&name](const std::string& suffix) {
+    if (name.size() < suffix.size()) return false;
+    for (std::size_t i = 0; i < suffix.size(); ++i) {
+      const char c = name[name.size() - suffix.size() + i];
+      const char lower = (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+      if (lower != suffix[i]) return false;
+    }
+    return true;
+  };
+  return ends_with(".bat") || ends_with(".cmd");
 }
 
 }  // namespace process
