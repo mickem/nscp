@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <net/connection_log_throttle.hpp>
 #include <set>
 #include <string>
 #include <threads/queue.hpp>
@@ -90,6 +91,7 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   void initTls(mg_connection *connection) const;
 #endif
   bool setSsl(std::string &certificate, std::string &key) override;
+  void setBodyLimit(std::size_t bytes) override;
   void setWorkerThreads(std::size_t threads) override;
   void setAcceptFilter(accept_filter filter) override;
   bool isServerThread() const override;
@@ -131,10 +133,13 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
     std::unique_ptr<Request> request;
     bool is_ssl = false;
     bool close = false;
+    // A HEAD request: the answer goes out without its body.
+    bool head = false;
   };
   struct pending_reply {
     reply answer;
     bool close = false;
+    bool head = false;
   };
   // Everything the workers share with the server, held by shared_ptr so the
   // workers' own bookkeeping never goes through the server object: a stop()
@@ -175,6 +180,11 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   void forget(unsigned long connection_id);
   // 503 "Server is stopping" and close (poll thread).
   void reply_stopping(mg_connection *connection);
+  // 413 for a request whose declared body is over body_limit_, answered when
+  // its headers arrive (poll thread). The body is still read, so the client
+  // gets the answer rather than a reset; the request it belongs to is then
+  // dropped and the connection closed - see event_handler().
+  void reject_oversized(mg_connection *connection);
 
  protected:
   WebLoggerPtr logger_;
@@ -196,6 +206,11 @@ class NSCP_MONGOOSE_EXPORT ServerMongooseImpl final : public Server {
   log_target log_target_;
 
   std::size_t worker_threads_ = 1;
+  std::size_t body_limit_ = Server::kDefaultBodyLimit;
+  // The body cap is applied before authentication, so any host that can reach
+  // the port can have a line logged per request; this lets one through per
+  // address per minute, with the count of the rest. Poll thread only.
+  net::connection_log_throttle oversized_log_;
   accept_filter accept_filter_;
   std::string thread_name_ = "web server";
   thread_reporter thread_reporter_;

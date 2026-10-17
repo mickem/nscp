@@ -173,6 +173,9 @@ struct RawResponse {
   std::string body;
   std::vector<std::string> set_cookies;
   std::vector<std::pair<std::string, std::string>> headers;
+  // Whether the answer lets the client keep the connection (its Connection
+  // header read against its HTTP version).
+  bool keep_alive = false;
   bool received = false;
   bool error = false;
 };
@@ -997,10 +1000,9 @@ TEST(ServerBeastImpl, BodyLimitIsEnforced) {
 
   // 256 bytes < limit -> accepted.
   auto ok = beast_post("127.0.0.1", port, 256);
-  // 4 KiB > limit -> Beast's parser aborts the read; the coroutine
-  // returns before writing anything, so the client either reads nothing
-  // or the connection is closed mid-stream. Both manifest as
-  // `received == false` or a non-2xx status (depending on timing).
+  // 4 KiB > limit -> refused from the headers, with an answer that names the
+  // setting. The connection used to be dropped without one, which left the
+  // client with a reset to explain.
   auto too_big = beast_post("127.0.0.1", port, 4096);
 
   server->stop();
@@ -1008,8 +1010,223 @@ TEST(ServerBeastImpl, BodyLimitIsEnforced) {
   ASSERT_TRUE(ok.received);
   EXPECT_EQ(ok.status, 200);
   EXPECT_NE(ok.body.find("body=256"), std::string::npos);
-  EXPECT_FALSE(too_big.received && too_big.status == 200 && too_big.body.find("body=4096") != std::string::npos)
-      << "oversized body slipped past the body_limit guard (received=" << too_big.received << ", status=" << too_big.status << ", body=" << too_big.body << ")";
+  ASSERT_TRUE(too_big.received) << "the oversized request got no answer";
+  EXPECT_EQ(too_big.status, 413);
+  EXPECT_NE(too_big.body.find("max request size"), std::string::npos) << too_big.body;
+  EXPECT_NE(too_big.body.find("1024"), std::string::npos) << too_big.body;
+  bool logged = false;
+  for (const std::string& line : logger->errors) logged = logged || line.find("Rejected a request from 127.0.0.1") != std::string::npos;
+  EXPECT_TRUE(logged) << "the refusal is logged";
+}
+
+namespace {
+
+// A client that keeps its connection: what a browser, or a monitoring server
+// polling the REST API, does. Each call reads one answer on the same stream;
+// the buffer is shared across calls, as Beast requires when one connection
+// carries several messages.
+struct KeepAliveClient {
+  asio::io_context ioc;
+  beast::tcp_stream stream{ioc};
+  beast::flat_buffer buffer;
+
+  void connect(const int port) {
+    stream.expires_after(std::chrono::seconds(2));
+    stream.connect(tcp::endpoint(asio::ip::make_address("127.0.0.1"), static_cast<unsigned short>(port)));
+  }
+
+  // `version` is 11 or 10; `close` asks for the connection to be closed after
+  // this answer (`Connection: close` on 1.1, the absence of `keep-alive` on
+  // 1.0 - Beast's keep_alive() writes whichever the version needs).
+  RawResponse get(const int port, const std::string& target, const bool close = false, const unsigned version = 11) {
+    RawResponse out;
+    try {
+      http::request<http::string_body> req{http::verb::get, target, version};
+      req.set(http::field::host, "127.0.0.1:" + std::to_string(port));
+      req.keep_alive(!close);
+      stream.expires_after(std::chrono::seconds(2));
+      http::write(stream, req);
+      http::response<http::string_body> res;
+      stream.expires_after(std::chrono::seconds(2));
+      http::read(stream, buffer, res);
+      out.status = static_cast<int>(res.result_int());
+      out.body = res.body();
+      out.keep_alive = res.keep_alive();
+      out.received = true;
+    } catch (const std::exception&) {
+      out.error = true;
+    }
+    return out;
+  }
+
+  // A HEAD request on the kept connection. The parser is told no body follows
+  // (skip), as a real client's is: whatever the server sends after the
+  // header is left in the buffer, where the next answer is read from.
+  RawResponse head(const int port, const std::string& target) {
+    RawResponse out;
+    try {
+      http::request<http::empty_body> req{http::verb::head, target, 11};
+      req.set(http::field::host, "127.0.0.1:" + std::to_string(port));
+      req.keep_alive(true);
+      stream.expires_after(std::chrono::seconds(2));
+      http::write(stream, req);
+      http::response_parser<http::string_body> parser;
+      parser.skip(true);
+      stream.expires_after(std::chrono::seconds(2));
+      http::read(stream, buffer, parser);
+      out.status = static_cast<int>(parser.get().result_int());
+      out.keep_alive = parser.get().keep_alive();
+      for (const auto& f : parser.get()) out.headers.emplace_back(std::string(f.name_string()), std::string(f.value()));
+      out.received = true;
+    } catch (const std::exception&) {
+      out.error = true;
+    }
+    return out;
+  }
+
+  // True once the server has closed its end: a read returns EOF (or a reset)
+  // rather than data or a timeout.
+  bool closed_by_server(const std::chrono::seconds within = std::chrono::seconds(2)) {
+    char scratch[64];
+    boost::system::error_code ec;
+    stream.expires_after(within);
+    stream.read_some(asio::buffer(scratch), ec);
+    return ec && ec != beast::error::timeout;
+  }
+};
+
+}  // namespace
+
+TEST(ServerBeastImpl, KeepAliveServesSeveralRequestsOnOneConnection) {
+  // Every answer used to carry `Connection: close`, so a browser loading the
+  // UI and a monitoring server polling checks paid a TCP (and TLS) handshake
+  // per request.
+  auto* controller = new MatchController();
+  auto* handler = new FixedHandler(200, "alive");
+  controller->registerRoute("GET", "/ping", handler);
+  const ServerFixture fx;
+  const int port = fx.start(choose_port_base() + 70, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  KeepAliveClient client;
+  ASSERT_NO_THROW(client.connect(port));
+  for (int i = 0; i < 3; ++i) {
+    const RawResponse r = client.get(port, "/ping");
+    ASSERT_TRUE(r.received) << "request " << i << " on the kept connection got no answer";
+    EXPECT_EQ(r.status, 200);
+    EXPECT_EQ(r.body, "alive");
+    EXPECT_TRUE(r.keep_alive) << "answer " << i << " told the client to close";
+  }
+  // An unknown route is answered on the same connection too - the 404 is
+  // built on a separate path and must frame itself just as well.
+  const RawResponse missing = client.get(port, "/nowhere");
+  ASSERT_TRUE(missing.received);
+  EXPECT_EQ(missing.status, 404);
+  EXPECT_TRUE(missing.keep_alive);
+
+  // The client is done: it says so, gets its answer, and the server hangs up.
+  const RawResponse last = client.get(port, "/ping", /*close=*/true);
+  ASSERT_TRUE(last.received);
+  EXPECT_EQ(last.status, 200);
+  EXPECT_FALSE(last.keep_alive);
+  EXPECT_TRUE(client.closed_by_server());
+  fx.server->stop();
+}
+
+TEST(ServerBeastImpl, AHeadRequestOnAKeptConnectionLeavesTheNextAnswerReadable) {
+  // No controller tells HEAD from GET, so HEAD /ping is a 404 whose body a
+  // GET would carry. With keep-alive, a body sent after a HEAD's header is
+  // what the client reads as the start of its next answer; only the header
+  // may go out, with the Content-Length the body would have had.
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/ping", new FixedHandler(200, "alive"));
+  const ServerFixture fx;
+  const int port = fx.start(choose_port_base() + 74, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  KeepAliveClient client;
+  ASSERT_NO_THROW(client.connect(port));
+  const RawResponse head = client.head(port, "/ping");
+  ASSERT_TRUE(head.received);
+  EXPECT_EQ(head.status, 404);
+  EXPECT_TRUE(head.keep_alive);
+  const std::string body_length = std::to_string(std::string("Document not found").size());
+  bool content_length = false;
+  for (const auto& h : head.headers) content_length = content_length || (h.first == "Content-Length" && h.second == body_length);
+  EXPECT_TRUE(content_length) << "HEAD carries the Content-Length of the answer it stands for";
+  const RawResponse next = client.get(port, "/ping");
+  ASSERT_TRUE(next.received) << "the answer after a HEAD could not be read: a body followed the HEAD's header";
+  EXPECT_EQ(next.status, 200);
+  EXPECT_EQ(next.body, "alive");
+  fx.server->stop();
+}
+
+TEST(ServerBeastImpl, OversizedRequestsAreLoggedOncePerAddressPerMinute) {
+  // The cap is applied before authentication, so the line it logs is one any
+  // host that can reach the port can trigger; a loop of them is one line.
+  auto* controller = new MatchController();
+  controller->registerRoute("POST", "/", new EchoBodySizeHandler());
+  const ServerFixture fx;
+  fx.server->setBodyLimit(1024);
+  const int port = fx.start(choose_port_base() + 75, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  for (int i = 0; i < 3; ++i) {
+    const RawResponse refused = beast_post("127.0.0.1", port, 4096);
+    ASSERT_TRUE(refused.received) << "request " << i;
+    EXPECT_EQ(refused.status, 413) << "request " << i;
+  }
+  fx.server->stop();
+
+  std::size_t lines = 0;
+  for (const std::string& line : fx.logger->errors) lines += line.find("Rejected a request from 127.0.0.1") != std::string::npos ? 1 : 0;
+  EXPECT_EQ(lines, 1u) << "every refusal was logged";
+}
+
+TEST(ServerBeastImpl, AnHttp10ClientGetsOneAnswerAndTheConnectionClosed) {
+  // HTTP/1.0 is close-by-default; the check_http style of client speaks it.
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/ping", new FixedHandler(200, "alive"));
+  const ServerFixture fx;
+  const int port = fx.start(choose_port_base() + 71, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  KeepAliveClient client;
+  ASSERT_NO_THROW(client.connect(port));
+  const RawResponse r = client.get(port, "/ping", /*close=*/true, /*version=*/10);
+  ASSERT_TRUE(r.received);
+  EXPECT_EQ(r.status, 200);
+  EXPECT_FALSE(r.keep_alive);
+  EXPECT_TRUE(client.closed_by_server());
+  fx.server->stop();
+}
+
+TEST(ServerBeastImpl, StopClosesConnectionsThatAreWaitingForTheClient) {
+  // A kept-alive connection waits up to kClientTimeout for the next request,
+  // and a peer that connects and never speaks waits as long for its first.
+  // stop() must not wait with them: it is what a settings reload and a
+  // service stop call, and both used to be instant.
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/ping", new FixedHandler(200, "alive"));
+  const ServerFixture fx;
+  const int port = fx.start(choose_port_base() + 72, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  KeepAliveClient idle_after_a_request;
+  ASSERT_NO_THROW(idle_after_a_request.connect(port));
+  ASSERT_TRUE(idle_after_a_request.get(port, "/ping").keep_alive);
+  KeepAliveClient never_spoke;
+  ASSERT_NO_THROW(never_spoke.connect(port));
+  // Let the accept loop hand the silent peer to its session before stopping;
+  // otherwise it is the acceptor's close that drops it, which proves less.
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  const auto before = std::chrono::steady_clock::now();
+  fx.server->stop();
+  const auto took = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - before);
+  EXPECT_LT(took.count(), 5000) << "stop() waited for idle connections to time out";
+  EXPECT_TRUE(idle_after_a_request.closed_by_server());
+  EXPECT_TRUE(never_spoke.closed_by_server());
 }
 
 TEST(ServerBeastImpl, SecondStartIsRejected) {
@@ -1225,6 +1442,31 @@ class SlowHandler : public RequestHandlerBase {
   std::chrono::milliseconds delay;
 };
 }  // namespace
+
+TEST(ServerBeastImpl, StopLetsARequestInFlightFinishWithItsConnectionClosed) {
+  // The other half of the stop() contract: a connection that is busy when
+  // stop() lands is not cut off. Its answer goes out, with `Connection: close`
+  // instead of the keep-alive it would otherwise have had.
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/slow", new SlowHandler(std::chrono::milliseconds(700)));
+  const ServerFixture fx;
+  fx.server->setWorkerThreads(2);
+  const int port = fx.start(choose_port_base() + 73, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  KeepAliveClient client;
+  ASSERT_NO_THROW(client.connect(port));
+  RawResponse slow;
+  std::thread slow_client([&] { slow = client.get(port, "/slow"); });
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  fx.server->stop();
+  slow_client.join();
+
+  ASSERT_TRUE(slow.received) << "stop() cut off a request that was being handled";
+  EXPECT_EQ(slow.status, 200);
+  EXPECT_EQ(slow.body, "slow");
+  EXPECT_FALSE(slow.keep_alive);
+}
 
 TEST(ServerBeastImpl, WorkerThreadsKeepOtherRequestsMovingPastASlowHandler) {
   // One handler that blocks (a check, an external script) used to hold up
