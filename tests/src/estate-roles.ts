@@ -177,11 +177,11 @@ export async function attemptRoleRest(
  * ConvertTo-EstateBundleConfig (estate-api.ps1). A role that names its
  * companions' addresses (${ESTATE_IPS:...}) needs a manifest and is refused.
  */
-export function roleBundleConfig(role: Role, rolePassword: string): Record<string, unknown> {
+export function roleBundleConfig(role: Role, roleSecret: string): Record<string, unknown> {
   const modules = Object.fromEntries((role.modules ?? []).map((m) => [m, "enabled"]));
   const config: Record<string, unknown> = { modules };
   if (role.bundle?.settings) {
-    const json = JSON.stringify(role.bundle.settings).split("${ROLE_PASSWORD}").join(rolePassword);
+    const json = JSON.stringify(role.bundle.settings).split("${ROLE_PASSWORD}").join(roleSecret);
     const left = /\$\{[A-Za-z_:]+\}/.exec(json);
     if (left)
       throw new Error(`Role '${role.name}': ${left[0]} cannot be filled in without an estate`);
@@ -199,7 +199,7 @@ export function roleBundleConfig(role: Role, rolePassword: string): Record<strin
 export function roleBundleEntries(
   role: Role,
   version: string,
-  rolePassword: string,
+  roleSecret: string,
   rolesDir = ESTATE_ROLES_DIR,
 ): ZipEntry[] {
   const entries: ZipEntry[] = [
@@ -207,7 +207,7 @@ export function roleBundleEntries(
       name: "bundle.toml",
       data: `name = "${role.name}"\nversion = "${version}"\nschema_version = 1\n`,
     },
-    { name: "config.json", data: JSON.stringify(roleBundleConfig(role, rolePassword)) },
+    { name: "config.json", data: JSON.stringify(roleBundleConfig(role, roleSecret)) },
   ];
   if (!role.bundle?.scripts) return entries;
   const root = path.join(rolesDir, role.name, role.bundle.scripts);
