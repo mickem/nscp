@@ -139,6 +139,23 @@ describe("WEB server connections", () => {
     }
   });
 
+  it("answers HEAD without a body, so the next answer on the connection is readable", async () => {
+    // A client knows a HEAD answer has no body and reads the next status
+    // line right after the header; a server that sends the body anyway
+    // leaves it in the socket as the start of the next answer.
+    const agent = new https.Agent({ keepAlive: true, maxSockets: 1 });
+    try {
+      const head = await send(agent, "HEAD", "/api/v2/info");
+      expect(head.body).toBe("");
+      const next = await send(agent, "GET", "/api/v2/info");
+      expect(next.status).toBe(200);
+      expect(next.reusedSocket).toBe(true);
+      expect(JSON.parse(next.body)).toHaveProperty("name");
+    } finally {
+      agent.destroy();
+    }
+  });
+
   it("leaves the connection open unless the client asks it to close", async () => {
     // Seen from the socket rather than from a header: the mongoose backend
     // closes without saying `Connection: close`, which HTTP allows, so what

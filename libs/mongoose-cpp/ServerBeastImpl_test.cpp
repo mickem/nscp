@@ -1059,6 +1059,31 @@ struct KeepAliveClient {
     return out;
   }
 
+  // A HEAD request on the kept connection. The parser is told no body follows
+  // (skip), as a real client's is: whatever the server sends after the
+  // header is left in the buffer, where the next answer is read from.
+  RawResponse head(const int port, const std::string& target) {
+    RawResponse out;
+    try {
+      http::request<http::empty_body> req{http::verb::head, target, 11};
+      req.set(http::field::host, "127.0.0.1:" + std::to_string(port));
+      req.keep_alive(true);
+      stream.expires_after(std::chrono::seconds(2));
+      http::write(stream, req);
+      http::response_parser<http::string_body> parser;
+      parser.skip(true);
+      stream.expires_after(std::chrono::seconds(2));
+      http::read(stream, buffer, parser);
+      out.status = static_cast<int>(parser.get().result_int());
+      out.keep_alive = parser.get().keep_alive();
+      for (const auto& f : parser.get()) out.headers.emplace_back(std::string(f.name_string()), std::string(f.value()));
+      out.received = true;
+    } catch (const std::exception&) {
+      out.error = true;
+    }
+    return out;
+  }
+
   // True once the server has closed its end: a read returns EOF (or a reset)
   // rather than data or a timeout.
   bool closed_by_server(const std::chrono::seconds within = std::chrono::seconds(2)) {
@@ -1106,6 +1131,55 @@ TEST(ServerBeastImpl, KeepAliveServesSeveralRequestsOnOneConnection) {
   EXPECT_FALSE(last.keep_alive);
   EXPECT_TRUE(client.closed_by_server());
   fx.server->stop();
+}
+
+TEST(ServerBeastImpl, AHeadRequestOnAKeptConnectionLeavesTheNextAnswerReadable) {
+  // No controller tells HEAD from GET, so HEAD /ping is a 404 whose body a
+  // GET would carry. With keep-alive, a body sent after a HEAD's header is
+  // what the client reads as the start of its next answer; only the header
+  // may go out, with the Content-Length the body would have had.
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/ping", new FixedHandler(200, "alive"));
+  const ServerFixture fx;
+  const int port = fx.start(choose_port_base() + 74, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  KeepAliveClient client;
+  ASSERT_NO_THROW(client.connect(port));
+  const RawResponse head = client.head(port, "/ping");
+  ASSERT_TRUE(head.received);
+  EXPECT_EQ(head.status, 404);
+  EXPECT_TRUE(head.keep_alive);
+  bool content_length = false;
+  for (const auto& h : head.headers) content_length = content_length || (h.first == "Content-Length" && h.second == std::to_string(std::string("Document not found").size()));
+  EXPECT_TRUE(content_length) << "HEAD carries the Content-Length of the answer it stands for";
+  const RawResponse next = client.get(port, "/ping");
+  ASSERT_TRUE(next.received) << "the answer after a HEAD could not be read: a body followed the HEAD's header";
+  EXPECT_EQ(next.status, 200);
+  EXPECT_EQ(next.body, "alive");
+  fx.server->stop();
+}
+
+TEST(ServerBeastImpl, OversizedRequestsAreLoggedOncePerAddressPerMinute) {
+  // The cap is applied before authentication, so the line it logs is one any
+  // host that can reach the port can trigger; a loop of them is one line.
+  auto* controller = new MatchController();
+  controller->registerRoute("POST", "/", new EchoBodySizeHandler());
+  const ServerFixture fx;
+  fx.server->setBodyLimit(1024);
+  const int port = fx.start(choose_port_base() + 75, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  for (int i = 0; i < 3; ++i) {
+    const RawResponse refused = beast_post("127.0.0.1", port, 4096);
+    ASSERT_TRUE(refused.received) << "request " << i;
+    EXPECT_EQ(refused.status, 413) << "request " << i;
+  }
+  fx.server->stop();
+
+  std::size_t lines = 0;
+  for (const std::string& line : fx.logger->errors) lines += line.find("Rejected a request from 127.0.0.1") != std::string::npos ? 1 : 0;
+  EXPECT_EQ(lines, 1u) << "every refusal was logged";
 }
 
 TEST(ServerBeastImpl, AnHttp10ClientGetsOneAnswerAndTheConnectionClosed) {

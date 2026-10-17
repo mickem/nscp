@@ -554,11 +554,13 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       // Falls back rather than refusing to start: the default is the safe
       // side of this setting, and a REST API that is down over a typo in a
       // size would cost more than a cap the operator did not get.
-      std::size_t max_request_bytes = 0;
+      std::size_t max_request_bytes = Mongoose::Server::kDefaultBodyLimit;
       std::string size_error;
       if (!net::parse_request_size(max_request_size, max_request_bytes, size_error)) {
+        // The number the servers hold, not the setting's string parsed again:
+        // this path exists because a parse failed.
+        max_request_bytes = Mongoose::Server::kDefaultBodyLimit;
         NSC_LOG_ERROR("Ignoring 'max request size = " + max_request_size + "': " + size_error + "; using the default " + net::kDefaultWebMaxRequestSize + ".");
-        net::parse_request_size(net::kDefaultWebMaxRequestSize, max_request_bytes, size_error);
       }
       server->setBodyLimit(max_request_bytes);
     }

@@ -639,20 +639,6 @@ std::function<void()> make_connection_closer(const std::shared_ptr<ServerBeastIm
   };
 }
 
-// Registers a connection with the server for its lifetime (RAII, so every
-// return path of a session forgets it).
-class connection_registration {
- public:
-  connection_registration(std::function<std::uint64_t()> track, std::function<void(std::uint64_t)> forget) : forget_(std::move(forget)), id_(track()) {}
-  ~connection_registration() { forget_(id_); }
-  connection_registration(const connection_registration&) = delete;
-  connection_registration& operator=(const connection_registration&) = delete;
-
- private:
-  std::function<void(std::uint64_t)> forget_;
-  std::uint64_t id_;
-};
-
 }  // namespace
 
 std::uint64_t ServerBeastImpl::track_connection(std::function<void()> closer) {
@@ -723,7 +709,16 @@ void ServerBeastImpl::serve_connection(const std::shared_ptr<connection_state<St
     const bool keep_alive = req.keep_alive() && !stopping_;
     res.keep_alive(keep_alive);
     beast::get_lowest_layer(stream).expires_after(kClientTimeout);
-    http::async_write(stream, res, yield[ec]);
+    if (req.method() == http::verb::head) {
+      // No controller tells HEAD from GET, so `res` carries the body the
+      // route would send. HEAD promises the header of that answer -
+      // Content-Length included - and no body, and on a kept connection the
+      // body would be read by the client as the start of its next answer.
+      http::response_serializer<http::string_body> serializer(res);
+      http::async_write_header(stream, serializer, yield[ec]);
+    } else {
+      http::async_write(stream, res, yield[ec]);
+    }
     if (ec || !keep_alive) return;
   }
 }
@@ -731,7 +726,8 @@ void ServerBeastImpl::serve_connection(const std::shared_ptr<connection_state<St
 template <class Stream>
 void ServerBeastImpl::reject_oversized(Stream& stream, const http::request_parser<http::string_body>& parser, const std::string& remote_ip, const bool is_ssl,
                                        const asio::yield_context& yield) {
-  logger_->log_error(Helpers::request_too_large_log(remote_ip, body_limit_));
+  std::size_t suppressed = 0;
+  if (oversized_log_.should_log(remote_ip, suppressed)) logger_->log_error(Helpers::request_too_large_log(remote_ip, body_limit_, suppressed));
   // The parser refuses on the Content-Length, before the body, so the header
   // is complete and its version is the one to answer in. A chunked body is
   // refused when it grows past the cap, which leaves the header complete too.
@@ -762,8 +758,12 @@ void ServerBeastImpl::run_tls_session(tcp::socket socket, std::string remote_ip,
   try {
     using tls_stream = asio::ssl::stream<beast::tcp_stream>;
     const auto state = std::make_shared<connection_state<tls_stream>>(beast::tcp_stream(std::move(socket)), *ssl_ctx_);
-    const connection_registration registration([this, state] { return track_connection(make_connection_closer(state)); },
-                                               [this](const std::uint64_t id) { forget_connection(id); });
+    const connection_registration registration(*this, make_connection_closer(state));
+    // Registered after stop() went through the registry: its closer will not
+    // come, and the handshake below would wait kClientTimeout for a peer
+    // stop() is not interested in. The same check serve_connection() makes
+    // before each read, for the same reason.
+    if (stopping_) return;
     boost::system::error_code sec;
     // Waiting on the client, like a read: a peer that connects and never
     // speaks must not hold up stop() either.
@@ -785,8 +785,7 @@ void ServerBeastImpl::run_tls_session(tcp::socket socket, std::string remote_ip,
 void ServerBeastImpl::run_plain_session(tcp::socket socket, std::string remote_ip, const asio::yield_context& yield) {
   try {
     const auto state = std::make_shared<connection_state<beast::tcp_stream>>(std::move(socket));
-    const connection_registration registration([this, state] { return track_connection(make_connection_closer(state)); },
-                                               [this](const std::uint64_t id) { forget_connection(id); });
+    const connection_registration registration(*this, make_connection_closer(state));
 
     serve_connection(state, remote_ip, /*is_ssl=*/false, yield);
 

@@ -25,6 +25,7 @@
 #include <boost/beast/http/parser.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/thread/thread.hpp>
+#include <net/connection_log_throttle.hpp>
 
 #include "Controller.h"
 #include "Server.h"
@@ -137,6 +138,25 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   std::uint64_t track_connection(std::function<void()> closer);
   void forget_connection(std::uint64_t id);
   void close_idle_connections();
+
+  // A connection's registration for its lifetime: tracked on construction,
+  // forgotten on destruction, so every return path of a session forgets it.
+  class connection_registration {
+   public:
+    connection_registration(ServerBeastImpl& server, std::function<void()> closer) : server_(server), id_(server.track_connection(std::move(closer))) {}
+    ~connection_registration() { server_.forget_connection(id_); }
+    connection_registration(const connection_registration&) = delete;
+    connection_registration& operator=(const connection_registration&) = delete;
+
+   private:
+    ServerBeastImpl& server_;
+    std::uint64_t id_;
+  };
+
+  // The body cap is applied before authentication, so any host that can reach
+  // the port can have a line logged per connection; this lets one through per
+  // address per minute, with the count of the rest.
+  net::connection_log_throttle oversized_log_;
 
   // Snapshot controllers_ under the mutex, run the matching one (if any),
   // and translate the result into `res`. Falls back to a plain 404 when

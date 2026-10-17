@@ -417,6 +417,7 @@ void ServerMongooseImpl::hand_back(worker_pool &pool, const job &finished, reply
   pending_reply &pending = pool.replies[finished.connection_id];
   pending.answer = std::move(answer);
   pending.close = finished.close;
+  pending.head = finished.head;
   pool.ready = pool.replies.size();
   // A nudge, not the delivery guarantee: mg_wakeup() reports success even
   // when its datagram is dropped, so the poll loop also sweeps (deliver_ready)
@@ -426,8 +427,48 @@ void ServerMongooseImpl::hand_back(worker_pool &pool, const job &finished, reply
 }
 
 namespace {
-void write_reply(mg_connection *connection, const ServerMongooseImpl::reply &answer, const bool close) {
-  mg_http_reply(connection, answer.code, answer.headers.c_str(), "%s", answer.body.c_str());
+// The reason phrase for the status lines this server writes itself (mongoose
+// keeps its own table private). Any phrase is valid to a client; these are the
+// conventional ones for the codes a controller can return.
+const char *reason_phrase(const int code) {
+  switch (code) {
+    case HTTP_OK:
+      return REASON_OK;
+    case HTTP_BAD_REQUEST:
+      return REASON_BAD_REQUEST;
+    case HTTP_FORBIDDEN:
+      return REASON_FORBIDDEN;
+    case HTTP_NOT_FOUND:
+      return REASON_NOT_FOUND;
+    case HTTP_PAYLOAD_TOO_LARGE:
+      return REASON_PAYLOAD_TOO_LARGE;
+    case HTTP_SERVER_ERROR:
+      return REASON_SERVER_ERROR;
+    case HTTP_SERVICE_UNAVAILABLE:
+      return REASON_SERVICE_UNAVAILABLE;
+    default:
+      return "Status";
+  }
+}
+
+// Write an answer. For a HEAD request only its header goes out: Content-Length
+// still says how long the GET's body would be, which is what HEAD promises,
+// and on a kept-alive connection the body would otherwise be read by the
+// client as the start of its next answer. No controller tells HEAD from GET,
+// so the body is rendered either way and dropped here.
+void write_answer(mg_connection *connection, const int code, const char *headers, const std::string &body, const bool head_only) {
+  if (!head_only) {
+    mg_http_reply(connection, code, headers, "%s", body.c_str());
+    return;
+  }
+  mg_printf(connection, "HTTP/1.1 %d %s\r\n%sContent-Length: %lu\r\n\r\n", code, reason_phrase(code), headers, static_cast<unsigned long>(body.size()));
+  // What mg_http_reply() does once the answer is written: the connection may
+  // take its next request.
+  connection->is_resp = 0;
+}
+
+void write_reply(mg_connection *connection, const ServerMongooseImpl::reply &answer, const bool close, const bool head_only) {
+  write_answer(connection, answer.code, answer.headers.c_str(), answer.body, head_only);
   if (close) {
     connection->is_draining = 1;
   }
@@ -449,7 +490,7 @@ void ServerMongooseImpl::deliver(mg_connection *connection) {
     pool_->replies.erase(it);
     pool_->ready = pool_->replies.size();
   }
-  write_reply(connection, pending.answer, pending.close);
+  write_reply(connection, pending.answer, pending.close, pending.head);
 }
 
 void ServerMongooseImpl::deliver_ready() {
@@ -467,7 +508,7 @@ void ServerMongooseImpl::deliver_ready() {
   for (mg_connection *c = mgr.conns; c != nullptr && !ready.empty(); c = c->next) {
     const auto it = ready.find(c->id);
     if (it != ready.end()) {
-      write_reply(c, it->second.answer, it->second.close);
+      write_reply(c, it->second.answer, it->second.close, it->second.head);
       ready.erase(it);
     }
   }
@@ -490,7 +531,9 @@ void ServerMongooseImpl::reply_stopping(mg_connection *connection) {
 }
 
 void ServerMongooseImpl::reject_oversized(mg_connection *connection) {
-  logger_->log_error(Helpers::request_too_large_log(remote_address(connection), body_limit_));
+  const std::string remote = remote_address(connection);
+  std::size_t suppressed = 0;
+  if (oversized_log_.should_log(remote, suppressed)) logger_->log_error(Helpers::request_too_large_log(remote, body_limit_, suppressed));
   std::ostringstream headers;
   headers << "Content-Type: text/plain\r\nConnection: close\r\n";
   for (const auto &header : Helpers::security_headers(connection->is_tls)) {
@@ -539,8 +582,13 @@ void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *
       // Judged on the declared Content-Length, before the body is buffered:
       // what the answer refuses is never held in memory. A chunked body
       // declares nothing and is bounded by MG_MAX_RECV_SIZE instead.
+      //
+      // Mongoose raises this event again on every read until the body has
+      // arrived (it re-parses the buffer from the start each time), so a
+      // request answered once is left alone afterwards: the marker is what
+      // keeps a slow upload from being answered - and logged - per packet.
       const auto *message = static_cast<struct mg_http_message *>(ev_data);
-      if (message->body.len > impl->body_limit_) {
+      if (connection->data[0] != kBodyRefused && message->body.len > impl->body_limit_) {
         impl->reject_oversized(connection);
         return;
       }
@@ -673,6 +721,9 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
   bool is_ssl = connection->is_tls;
   auto url = std::string(message->uri.buf, message->uri.len);
   auto method = std::string(message->method.buf, message->method.len);
+  // Whether the answer goes out without its body - decided on the method on
+  // the wire, which is what the client's parser goes by, not on an override.
+  const bool head_only = method == "HEAD";
 
   // Match the override header on its full name. The comparison used to be
   // bounded by the *incoming* header's length, so strncmp succeeded for any
@@ -718,6 +769,7 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
         queued.is_ssl = is_ssl;
         const mg_str *connection_header = mg_http_get_header(message, "Connection");
         queued.close = connection_header != nullptr && mg_strcasecmp(*connection_header, mg_str("close")) == 0;
+        queued.head = head_only;
         bool stopping = false;
         {
           // Checked under the pool's lock: stop() empties the queue under it,
@@ -739,7 +791,7 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
       }
       const std::unique_ptr<Response> response(ctrl->handleRequest(request));
       const reply answer = render(*response, is_ssl);
-      mg_http_reply(connection, answer.code, answer.headers.c_str(), "%s", answer.body.c_str());
+      write_answer(connection, answer.code, answer.headers.c_str(), answer.body, head_only);
 
       return;
     }
@@ -752,7 +804,7 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
   for (const auto &header : Helpers::security_headers(is_ssl)) {
     not_found_headers << header.first << ": " << header.second << "\r\n";
   }
-  mg_http_reply(connection, HTTP_NOT_FOUND, not_found_headers.str().c_str(), "Document not found");
+  write_answer(connection, HTTP_NOT_FOUND, not_found_headers.str().c_str(), "Document not found", head_only);
 }
 
 }  // namespace Mongoose

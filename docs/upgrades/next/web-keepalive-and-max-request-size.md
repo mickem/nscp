@@ -1,5 +1,5 @@
 ---
-icon: "🔧"
+icon: "🔧 🔒"
 modules: [WEBServer, NCPAServer]
 action: none
 ---
@@ -21,3 +21,5 @@ result submission that is larger. On the mongoose backend (Windows) a value
 above 3 MiB is honoured up to 3 MiB, the backend's receive buffer, and the
 server says so at startup. The NCPA listener shares the HTTP layer and gains
 the keep-alive and the 3 MiB default with it; it has no setting of its own.
+Both apply before authentication; see the
+[security notice](../security/notices.md#web-server-kept-alive-connections-and-a-configurable-request-body-cap).

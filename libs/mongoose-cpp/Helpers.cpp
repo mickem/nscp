@@ -85,8 +85,10 @@ std::string Helpers::request_too_large_body(const std::size_t limit) {
   return "Request body too large: this server accepts at most " + std::to_string(limit) + " bytes per request (the WEB server setting 'max request size').";
 }
 
-std::string Helpers::request_too_large_log(const std::string &remote, const std::size_t limit) {
-  return "Rejected a request from " + remote + ": its body is larger than the " + std::to_string(limit) + " bytes 'max request size' allows.";
+std::string Helpers::request_too_large_log(const std::string &remote, const std::size_t limit, const std::size_t suppressed) {
+  std::string line = "Rejected a request from " + remote + ": its body is larger than the " + std::to_string(limit) + " bytes 'max request size' allows.";
+  if (suppressed > 0) line += " " + std::to_string(suppressed) + " more from this address since the last report, not logged.";
+  return line;
 }
 
 }  // namespace Mongoose
