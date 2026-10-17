@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <list>
 #include <memory>
 #include <parsers/where/node.hpp>
@@ -75,8 +76,11 @@ struct string_var {
   long long get_##name() const { return (name).get(); }
 #define BOL_GETTER(name) \
   bool get_##name() const { return (name).get(); }
+// Every human-size keyword is a memory counter, so an unread memory group
+// renders "unknown" here exactly as the numeric form does.
 #define HUMAN_SIZE_GETTER(name)                                                                                \
   std::string get_##name##_human(parsers::where::evaluation_context context) const {                           \
+    if (!has_memory) return "unknown";                                                                         \
     return str::format::format_byte_units(static_cast<long long>((name).get()), context->get_number_format()); \
   }
 
@@ -113,6 +117,31 @@ struct process_info {
   BOL_GETTER(has_error);
   BOL_GETTER(unreadable);
   STR_GETTER(error);
+
+  // Which counter groups describe_pid() managed to read. A group left false
+  // makes its keywords render "unknown" and never satisfy a threshold, instead
+  // of reporting a 0 that reads like a measurement. The usual cause is a
+  // process that could only be opened with PROCESS_QUERY_LIMITED_INFORMATION
+  // (protected processes such as csrss.exe or MsMpEng.exe, and other users'
+  // processes when the agent is unprivileged), where Windows may refuse some
+  // of the queries. A real process starts with every group unread
+  // (mark_counters_unread()); the synthetic rows keep the default of true: a
+  // named process that is not running really does use no memory, and the total
+  // row ANDs its members' flags in operator+=.
+  bool has_handles = true;
+  bool has_gui_handles = true;
+  bool has_times = true;
+  bool has_memory = true;
+  void mark_counters_unread() {
+    has_handles = false;
+    has_gui_handles = false;
+    has_times = false;
+    has_memory = false;
+  }
+  // The process could only be opened with PROCESS_QUERY_LIMITED_INFORMATION:
+  // no command line, and any counter group Windows refused reads unknown.
+  bool_var limited;
+  BOL_GETTER(limited);
 
   process_info() = default;
   explicit process_info(const std::string &s) : exe(s) {}
@@ -246,6 +275,9 @@ struct process_info {
     // which trips the default critical filter `state = 'stopped'`.
     if (other.started) started = true;
     if (other.hung.get()) hung = true;
+    if (other.limited.get()) limited = true;
+    // A sum that is missing a member is not a reading either.
+    and_readable(other);
 
     // Handles
     handleCount += other.handleCount.get();
@@ -290,7 +322,15 @@ struct process_info {
     return *this;
   }
 
+  void and_readable(const process_info &other) {
+    has_handles = has_handles && other.has_handles;
+    has_gui_handles = has_gui_handles && other.has_gui_handles;
+    has_times = has_times && other.has_times;
+    has_memory = has_memory && other.has_memory;
+  }
+
   process_info &operator-=(const process_info &other) {
+    and_readable(other);
     // Handles
     handleCount -= other.handleCount.get();
     gdiHandleCount -= other.gdiHandleCount.get();
@@ -351,7 +391,19 @@ struct process_info {
   // fields - when the delta is not meaningful and the caller should drop the
   // process: when a raw counter moved backwards (the PID was recycled to a
   // different process mid-interval) or when no capacity was measured.
+  //
+  // A process whose CPU times could not be read in either snapshot is kept,
+  // with its CPU fields unknown: it is running, only its usage is not known.
   bool make_cpu_delta(const process_info &previous, const unsigned long long sys_kernel, const unsigned long long sys_user) {
+    if (!has_times || !previous.has_times) {
+      // Zeroed like the rejected path below, so nothing that skips the flag
+      // reads cumulative seconds as a percentage.
+      kernel_time = 0;
+      user_time = 0;
+      total_time = 0;
+      has_times = false;
+      return true;
+    }
     const unsigned long long capacity = sys_kernel + sys_user;
     if (capacity == 0 || kernel_time_raw < previous.kernel_time_raw || user_time_raw < previous.user_time_raw) {
       kernel_time = 0;
