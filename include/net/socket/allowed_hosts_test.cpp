@@ -3,7 +3,9 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <net/socket/allowed_hosts.hpp>
 
 using namespace socket_helpers;
@@ -292,4 +294,324 @@ TEST(AllowedHostsRejection, TheSettingsPathSurvivesACopy) {
   assigned = manager;
   EXPECT_EQ(copy.settings_path, "/settings/NSCA/server");
   EXPECT_EQ(assigned.settings_path, "/settings/NSCA/server");
+}
+
+// ---------------------------------------------------------------------------
+// Prefix lengths as an operator writes them in `allowed hosts`. The tests above
+// mostly inject entries directly; these go through set_source() + refresh(),
+// which is where the mask text is parsed.
+// ---------------------------------------------------------------------------
+
+namespace {
+allowed_hosts_manager refreshed(const std::string &source) {
+  allowed_hosts_manager manager;
+  manager.set_source(source);
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_TRUE(errors.empty()) << source << ": " << (errors.empty() ? "" : errors.front());
+  return manager;
+}
+}  // namespace
+
+TEST(AllowedHostsTest, ByteAlignedPrefixFromTheSetting) {
+  auto manager = refreshed("192.168.1.0/24");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("192.168.1.0"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("192.168.1.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.2.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("192.168.0.255"), errors));
+}
+
+TEST(AllowedHostsTest, PrefixShorterThanAByte) {
+  // /23 leaves one bit of the third octet free: 10.0.2.0 - 10.0.3.255.
+  auto manager = refreshed("10.0.2.0/23");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.2.0"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.3.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.1.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.4.0"), errors));
+}
+
+TEST(AllowedHostsTest, PrefixLongerThanAByte) {
+  // /25 splits the last octet: 10.0.0.128 - 10.0.0.255.
+  auto manager = refreshed("10.0.0.128/25");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.128"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.255"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.127"), errors));
+}
+
+TEST(AllowedHostsTest, FullLengthPrefixIsASingleHost) {
+  auto manager = refreshed("10.0.0.1/32,::1/128");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.2"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("::2"), errors));
+}
+
+TEST(AllowedHostsTest, V6PrefixFromTheSetting) {
+  auto manager = refreshed("2001:db8::/32");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8::1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8:ffff:ffff::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("2001:db9::1"), errors));
+}
+
+TEST(AllowedHostsTest, V6PrefixShorterThanAByte) {
+  // /33 leaves the top bit of the third group: 2001:db8:0:: - 2001:db8:7fff::.
+  auto manager = refreshed("2001:db8::/33");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8:7fff::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("2001:db8:8000::1"), errors));
+}
+
+TEST(AllowedHostsTest, AV4MappedRuleMatchesAV4MappedClient) {
+  auto manager = refreshed("::ffff:10.0.0.1");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("::ffff:10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("::ffff:10.0.0.2"), errors));
+}
+
+// ---------------------------------------------------------------------------
+// set_source(): splitting the comma separated list.
+// ---------------------------------------------------------------------------
+
+TEST(AllowedHostsTest, SourceListIgnoresWhitespaceAndEmptyItems) {
+  allowed_hosts_manager manager;
+  manager.set_source(" 10.0.0.1 , , ::1 ,");
+  EXPECT_EQ(manager.sources, (std::list<std::string>{"10.0.0.1", "::1"}));
+
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_TRUE(errors.empty()) << (errors.empty() ? "" : errors.front());
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("::1"), errors));
+}
+
+TEST(AllowedHostsTest, SetSourceReplacesThePreviousList) {
+  allowed_hosts_manager manager;
+  manager.set_source("10.0.0.1");
+  manager.set_source("10.0.0.2");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.2"), errors));
+}
+
+TEST(AllowedHostsTest, RefreshOnAnEmptySourceEmptiesTheEntries) {
+  // A reload that clears the setting must not leave the old entries behind.
+  allowed_hosts_manager manager;
+  manager.set_source("10.0.0.1");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  ASSERT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+
+  manager.set_source("");
+  manager.refresh(errors);
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+}
+
+// ---------------------------------------------------------------------------
+// `cache allowed hosts = false`: is_allowed() re-reads the list itself.
+// ---------------------------------------------------------------------------
+
+TEST(AllowedHostsTest, UncachedManagerRefreshesOnEveryCheck) {
+  allowed_hosts_manager manager;
+  manager.cached = false;
+  manager.set_source("10.0.0.1");
+  std::list<std::string> errors;
+  // No explicit refresh(): is_allowed() does it.
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+
+  manager.set_source("10.0.0.2");
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.2"), errors));
+}
+
+TEST(AllowedHostsTest, CachedManagerKeepsEntriesUntilRefreshed) {
+  allowed_hosts_manager manager;
+  manager.set_source("10.0.0.1");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+
+  manager.set_source("10.0.0.2");
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.2"), errors));
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostics.
+// ---------------------------------------------------------------------------
+
+TEST(AllowedHostsTest, AcceptedConnectionReportsNoError) {
+  auto manager = refreshed("10.0.0.1");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(errors.empty());
+}
+
+TEST(AllowedHostsTest, V4MappedFallbackMatchLeavesNoError) {
+  // The client arrives as ::ffff:192.168.0.1, misses the v6 list and matches
+  // through its v4 form. The v6 miss must not leave a rejection behind.
+  auto manager = refreshed("192.168.0.1");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("::ffff:192.168.0.1"), errors));
+  EXPECT_TRUE(errors.empty()) << errors.front();
+}
+
+TEST(AllowedHostsTest, ToStringListsAddressAndMask) {
+  auto manager = refreshed("10.0.0.0/8,192.168.1.1,::1");
+  EXPECT_EQ(manager.to_string(), "10.0.0.0(255.0.0.0), 192.168.1.1(255.255.255.255), ::1(ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff)");
+}
+
+// ---------------------------------------------------------------------------
+// A malformed prefix length is an error, not a guess. The parser used to take
+// the first run of digits after the `/` and ignore the rest, so `/-1` became
+// `/1` (half the IPv4 space), `/abc24` became `/24`, `/33` was quietly a
+// `/32` and a bare `/` a single host. Each is now reported and the entry is
+// dropped, the same as a malformed `*` range.
+// ---------------------------------------------------------------------------
+
+namespace {
+// Refreshes `source` and expects exactly one error naming it; returns the
+// manager so callers can check the bad entry granted nothing.
+allowed_hosts_manager rejected(const std::string &source) {
+  allowed_hosts_manager manager;
+  manager.set_source(source);
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_EQ(errors.size(), 1u) << source;
+  if (!errors.empty()) {
+    EXPECT_NE(errors.front().find(source), std::string::npos) << errors.front();
+  }
+  return manager;
+}
+}  // namespace
+
+TEST(AllowedHostsTest, ANegativePrefixIsAnError) {
+  auto manager = rejected("10.0.0.1/-1");
+  std::list<std::string> errors;
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("100.1.2.3"), errors));
+}
+
+TEST(AllowedHostsTest, APrefixWithTextIsAnError) {
+  rejected("10.0.0.0/abc24");
+  rejected("10.0.0.0/24abc");
+  rejected("10.0.0.0/2 4");
+  rejected("10.0.0.0/+24");
+}
+
+TEST(AllowedHostsTest, AnEmptyPrefixIsAnError) { rejected("10.0.0.1/"); }
+
+TEST(AllowedHostsTest, ADottedMaskIsAnError) {
+  // Never supported: it used to read as `/255`, i.e. a single host.
+  rejected("10.0.0.0/255.255.255.0");
+}
+
+TEST(AllowedHostsTest, APrefixLongerThanTheAddressIsAnError) {
+  rejected("10.0.0.1/33");
+  rejected("::1/129");
+  // Large enough to overflow if it were accumulated without a bound.
+  rejected("10.0.0.1/99999999999999999999999");
+}
+
+TEST(AllowedHostsTest, TheLongestV4PrefixIsNotAV6Prefix) {
+  // The bound is the family's, not a shared one.
+  refreshed("10.0.0.1/32,::1/128,2001:db8::/64");
+}
+
+TEST(AllowedHostsTest, ALeadingZeroInThePrefixIsAccepted) { refreshed("10.0.0.0/08,10.0.0.1/0032"); }
+
+TEST(AllowedHostsTest, ABadPrefixDoesNotDropTheRestOfTheList) {
+  allowed_hosts_manager manager;
+  manager.set_source("10.0.0.1/-1,10.0.0.2");
+  std::list<std::string> errors;
+  manager.refresh(errors);
+  EXPECT_EQ(errors.size(), 1u);
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.2"), errors));
+}
+
+TEST(AllowedHostsTest, AHostnameWithABadPrefixIsAnError) {
+  // Checked before the name is resolved, so this needs no working DNS.
+  rejected("localhost/abc");
+}
+
+TEST(AllowedHostsTest, APrefixWithoutAnAddressIsAnError) {
+  // It used to be skipped without a word, while a rejected connection points
+  // at the errors logged when the list was read.
+  rejected("/24");
+}
+
+// ---------------------------------------------------------------------------
+// Host names: the prefix length is checked against every resolved address.
+// These resolve `localhost`, so they need it to have an IPv4 address.
+// ---------------------------------------------------------------------------
+
+namespace {
+bool localhost_has_v4() {
+  try {
+    boost::asio::io_context io;
+    tcp::resolver resolver(io);
+    for (const auto &entry : resolver.resolve("localhost", "")) {
+      if (entry.endpoint().address().is_v4()) return true;
+    }
+  } catch (const std::exception &) {
+  }
+  return false;
+}
+}  // namespace
+
+TEST(AllowedHostsTest, AMixedFamilyRecordWhosePrefixDoesNotFitEveryAddressAddsNothing) {
+  // What a name with an A and an AAAA record resolves to. /40 fits the v6
+  // address but not the v4 one: keeping the v6 half would grant a /40.
+  allowed_hosts_manager manager;
+  std::list<std::string> errors;
+  manager.add_record("dualstack/40", std::size_t{40}, {make_address("10.0.0.1"), make_address("2001:db8::1")}, errors);
+  ASSERT_EQ(errors.size(), 1u);
+  EXPECT_NE(errors.front().find("dualstack/40"), std::string::npos) << errors.front();
+  EXPECT_TRUE(manager.entries_v4.empty());
+  EXPECT_TRUE(manager.entries_v6.empty());
+}
+
+TEST(AllowedHostsTest, AMixedFamilyRecordWhosePrefixFitsBothAddsBoth) {
+  allowed_hosts_manager manager;
+  std::list<std::string> errors;
+  manager.add_record("dualstack/24", std::size_t{24}, {make_address("10.0.0.1"), make_address("2001:db8::1")}, errors);
+  EXPECT_TRUE(errors.empty());
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.200"), errors));
+  // As a v6 prefix /24 is 2001:0d00::/24, so 2001:db8:ffff:: is inside it.
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8:ffff::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("2002::1"), errors));
+}
+
+TEST(AllowedHostsTest, AMixedFamilyRecordWithoutAPrefixIsTwoSingleHosts) {
+  allowed_hosts_manager manager;
+  std::list<std::string> errors;
+  manager.add_record("dualstack", boost::none, {make_address("10.0.0.1"), make_address("2001:db8::1")}, errors);
+  EXPECT_TRUE(errors.empty());
+  EXPECT_TRUE(manager.is_allowed(make_address("10.0.0.1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("10.0.0.2"), errors));
+  EXPECT_TRUE(manager.is_allowed(make_address("2001:db8::1"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("2001:db8::2"), errors));
+}
+
+TEST(AllowedHostsTest, AHostNameTakesAPrefixLength) {
+  if (!localhost_has_v4()) GTEST_SKIP() << "localhost does not resolve to an IPv4 address here";
+  auto manager = refreshed("localhost/8");
+  std::list<std::string> errors;
+  EXPECT_TRUE(manager.is_allowed(make_address("127.1.2.3"), errors));
+  EXPECT_FALSE(manager.is_allowed(make_address("128.0.0.1"), errors));
+}
+
+TEST(AllowedHostsTest, AHostNamePrefixTooLongForOneOfItsAddressesDropsTheWholeEntry) {
+  // localhost commonly resolves to ::1 as well as 127.0.0.1. /33 is too long
+  // for the A record; the AAAA record must not be kept on its own, or the
+  // entry would grant a v6 range while the log says it was dropped.
+  if (!localhost_has_v4()) GTEST_SKIP() << "localhost does not resolve to an IPv4 address here";
+  auto manager = rejected("localhost/33");
+  EXPECT_TRUE(manager.entries_v4.empty());
+  EXPECT_TRUE(manager.entries_v6.empty());
 }

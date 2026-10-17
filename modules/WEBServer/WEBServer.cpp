@@ -298,7 +298,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       .add_parent("/settings/default")
       .add_key_to_settings()
       .add_string("allowed hosts", nscapi::settings_helper::string_fun_key([this](auto value) { this->session->set_allowed_hosts(value); }, "127.0.0.1"),
-                  "Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
+                  "Allowed hosts", "A comma separated list of allowed hosts. You can use a /N prefix length (10.0.0.0/24) or * (10.0.0.*) to create ranges.")
       .add_bool(
           "cache allowed hosts", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allowed_hosts_cache(value); }, true),
           "Cache list of allowed hosts",
