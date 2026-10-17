@@ -7,6 +7,8 @@
 #include <nscapi/protobuf/facts.hpp>
 #include <utility>
 
+#include "etag.hpp"
+
 namespace json = boost::json;
 
 facts_controller::facts_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
@@ -73,7 +75,9 @@ std::string render(const std::string &envelope) {
 
 void facts_controller::get_facts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("facts.get", request, response)) return;
-  response.append(render(core->get_facts(request.get("path", ""))));
+  // The document changes once a round at most, and the web UI polls it, so a
+  // client that already holds this exact answer gets a bodyless 304.
+  web_etag::send(request, response, render(core->get_facts(request.get("path", ""))));
 }
 
 void facts_controller::refresh_facts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
