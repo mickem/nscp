@@ -1599,6 +1599,11 @@ set(NSCP_CLIENT_HPP
 
 set(MAIN_NSCP_TARGET "nscp")
 
+# Where the core finds headers generated at configure time (the command ->
+# module map below). Set before the service is added so it can be on its
+# include path; the files themselves are written once the modules are known.
+set(NSCP_GENERATED_INCLUDEDIR "${PROJECT_BINARY_DIR}/generated")
+
 add_subdirectory("service")
 add_subdirectory("scripts")
 add_subdirectory("op5/config")
@@ -1610,6 +1615,41 @@ if(NSCP_BUILD_TESTS)
 endif(NSCP_BUILD_TESTS)
 
 LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
+
+# Which module provides which command, from the module.json of every module
+# this build produces: when a query names a command no loaded module has, the
+# core uses it to say which module to enable. Written at configure time (the
+# set of modules is only known here) and re-run when any of those files change.
+set(_COMMAND_MODULE_MAP_INPUTS
+    "${BUILD_PYTHON_FOLDER}/create_command_module_map.py"
+    "${BUILD_PYTHON_FOLDER}/module_json.py"
+)
+foreach(_MODULE_DIR ${ALL_MODULE_NAMES_DIRS})
+    if(EXISTS "${_MODULE_DIR}/module.json")
+        list(APPEND _COMMAND_MODULE_MAP_INPUTS "${_MODULE_DIR}/module.json")
+    endif()
+endforeach()
+execute_process(
+    COMMAND
+        ${Python3_EXECUTABLE}
+        "${BUILD_PYTHON_FOLDER}/create_command_module_map.py" --target
+        "${NSCP_GENERATED_INCLUDEDIR}/command_module_map.hpp"
+        ${ALL_MODULE_NAMES_DIRS}
+    RESULT_VARIABLE _COMMAND_MODULE_MAP_RESULT
+)
+if(NOT _COMMAND_MODULE_MAP_RESULT EQUAL 0)
+    message(
+        FATAL_ERROR
+        "Failed to generate command_module_map.hpp: ${_COMMAND_MODULE_MAP_RESULT}"
+    )
+endif()
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY
+        CMAKE_CONFIGURE_DEPENDS
+            ${_COMMAND_MODULE_MAP_INPUTS}
+)
 LOAD_SECTIONS(ALL_CLIENT_NAMES "clients/*/module.cmake" "Clients")
 if(WIN32)
     LOAD_SECTIONS(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")
