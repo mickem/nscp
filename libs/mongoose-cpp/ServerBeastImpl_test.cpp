@@ -1150,8 +1150,9 @@ TEST(ServerBeastImpl, AHeadRequestOnAKeptConnectionLeavesTheNextAnswerReadable) 
   ASSERT_TRUE(head.received);
   EXPECT_EQ(head.status, 404);
   EXPECT_TRUE(head.keep_alive);
+  const std::string body_length = std::to_string(std::string("Document not found").size());
   bool content_length = false;
-  for (const auto& h : head.headers) content_length = content_length || (h.first == "Content-Length" && h.second == std::to_string(std::string("Document not found").size()));
+  for (const auto& h : head.headers) content_length = content_length || (h.first == "Content-Length" && h.second == body_length);
   EXPECT_TRUE(content_length) << "HEAD carries the Content-Length of the answer it stands for";
   const RawResponse next = client.get(port, "/ping");
   ASSERT_TRUE(next.received) << "the answer after a HEAD could not be read: a body followed the HEAD's header";

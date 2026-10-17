@@ -916,7 +916,8 @@ namespace {
 // raw bytes that came back. Each write is followed by its pause; the answer is
 // whatever arrived within `read_for` of the last write (or until the server
 // closed the connection).
-std::string raw_exchange(const int port, const std::vector<std::pair<std::string, std::chrono::milliseconds>>& writes, const std::chrono::milliseconds read_for) {
+using timed_writes = std::vector<std::pair<std::string, std::chrono::milliseconds>>;
+std::string raw_exchange(const int port, const timed_writes& writes, const std::chrono::milliseconds read_for) {
   namespace asio = boost::asio;
   asio::io_context ioc;
   asio::ip::tcp::socket socket(ioc);
