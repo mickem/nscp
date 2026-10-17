@@ -98,6 +98,16 @@ WEBServer::~WEBServer() {
   } catch (...) {
     // A destructor must not throw.
   }
+  // The sink lives in nscp_mongoose.dll but the callable in it was built here,
+  // so its vtable is in this DLL. Left installed, it outlives the module: the
+  // static's atexit destructor then calls through a vtable in an unloaded image
+  // and the agent dies on its way out. Every server thread is gone by now
+  // (stop_and_release joined them, or the releaser above did).
+  try {
+    Mongoose::Controller::setErrorSink(nullptr);
+  } catch (...) {
+    // A destructor must not throw.
+  }
 }
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -530,7 +540,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // reading it; reassigning it under them is the reload hazard CLAUDE.md
     // warns about, and Controller.h documents the sink as installed once. The
     // lambda captures nothing and logs through the plugin singleton, so the one
-    // installed first stays correct.
+    // installed first stays correct. The destructor uninstalls it.
     //
     // Not gated on normalStart alone: a module first enabled *during* a reload
     // arrives here with reloadStart, and that agent would then have no sink at
