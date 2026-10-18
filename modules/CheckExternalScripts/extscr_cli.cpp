@@ -199,6 +199,13 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     boost::filesystem::path rel = layout.base.empty() ? boost::filesystem::path(provider_->get_core()->expand_path("${base-path}")) : layout.base;
     boost::system::error_code ec;
     boost::filesystem::recursive_directory_iterator iter(dir, ec), eod;
+    if (ec) {
+      // A scripts folder that is not there, or cannot be read, is not an
+      // empty one: the operator asked what is in it, and the honest answer
+      // is why it cannot be told.
+      nscapi::protobuf::functions::set_response_bad(*response, "Failed to list " + dir.string() + ": " + ec.message());
+      return;
+    }
     for (boost::filesystem::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
       // Relative to the install base when the file is under it, which is the

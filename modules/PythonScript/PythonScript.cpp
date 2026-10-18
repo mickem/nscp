@@ -15,7 +15,7 @@
 #include <nscapi/protobuf/functions_status.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <scripts/script_root.hpp>
+#include <scripts/script_root_setting.hpp>
 
 #include "boost_python_wrapper.hpp"
 #include "extscr_cli.h"
@@ -66,10 +66,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
         ;
     // Shared with the other script modules and read from [/settings/default]
     // when this section does not set it: see include/scripts/script_root.hpp.
-    settings.alias()
-        .add_parent("/settings/default")
-        .add_key_to_settings()
-        .add_string("script root", sh::string_key(&script_root, ""), "Script root", scripts::root::description());
+    scripts::root::register_key(settings, &script_root);
 
     // clang-format off
     settings.alias().add_path_to_settings()

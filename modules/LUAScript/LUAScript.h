@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/scoped_ptr.hpp>
 #include <lua/lua_core.hpp>
 #include <lua/lua_script.hpp>
@@ -20,7 +21,15 @@ class LUAScript : public nscapi::impl::simple_plugin {
   std::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts_;
   std::shared_ptr<lua::lua_runtime> lua_runtime_;
   std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
-  boost::filesystem::path root_;
+  // The scripts folder (`script root`): replaced on every reload too, while a
+  // web worker may be running `lua list` through commandLineExec, so it is
+  // published the same way as the three above.
+  std::shared_ptr<const boost::filesystem::path> root_;
+
+  boost::filesystem::path scripts_folder() const {
+    const std::shared_ptr<const boost::filesystem::path> root = std::atomic_load(&root_);
+    return root ? *root : boost::filesystem::path();
+  }
 
   void start_scripts();
 

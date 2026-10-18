@@ -673,7 +673,9 @@ is **started in the folder above the scripts folder, on every platform**, and a 
 a folder in it (`scripts\check_foo.bat`, `sh scripts/check_foo.sh`) is resolved against that folder.
 Copy the scripts folder anywhere, point `script root` at it, and every spelling keeps working: the
 commands, the shipped wrappings, scripts calling each other, Python and Lua finding their `lib`
-helpers. `ext-scr add --import` records `scripts/<name>` relative to that folder, and the
+helpers. The relative spelling is the folder's *own* name below that parent, which is `scripts` for
+every alias and for a copy of the install's folder; a root called something else is reached as
+`<its name>\check_foo.bat`, and `ext-scr list` prints names in exactly that form. `ext-scr add --import` records `scripts/<name>` relative to that folder, and the
 show/delete sandbox of the `ext-scr`, `py` and `lua` commands and the `/api/v2/scripts` routes is
 the scripts folder itself, as it always was.
 

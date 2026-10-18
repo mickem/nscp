@@ -17,7 +17,9 @@ folder moved elsewhere runs unchanged, scripts that call each other by relative
 path included. A fleet bundle that ships scripts sets `[/settings/default]
 script root = fleet` in its own configuration and needs no host path.
 `CheckExternalScripts` already had the key with this meaning and default; it is
-now shared by every script module and sets where the scripts run as well.
+now shared by every script module and sets where the scripts run as well. The
+one change that reaches hosts which never set the key is the first item below:
+on Linux and macOS the agent now sets an external script's working directory.
 
 - **On Linux and macOS an external script now runs in the folder above the
   scripts folder**, set by the agent. The shipped systemd unit already sets

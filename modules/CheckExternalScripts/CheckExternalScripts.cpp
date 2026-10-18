@@ -18,6 +18,7 @@
 #include <nscapi/protobuf/nagios.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <process/execute_process.hpp>
+#include <scripts/script_root_setting.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
 
@@ -182,13 +183,9 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     // Shared with PythonScript and LUAScript, and read from [/settings/default]
     // when the module's own section does not set it, so one line in a fleet
     // bundle moves every script module to the tree the bundle shipped.
-    settings.alias()
-        .add_parent("/settings/default")
-        .add_key_to_settings()
-        .add_string("script root", sh::string_key(&scriptRoot, ""), "Script root",
-                    scripts::root::description() +
-                        " It is also what ext-scr show/delete are confined to and where ext-scr add --import copies to; ext-scr add --script <path> "
-                        "is not bounded by it (an administrator-only action, equivalent to editing the configuration directly).");
+    scripts::root::register_key(settings, &scriptRoot,
+                                " It is also what ext-scr show/delete are confined to and where ext-scr add --import copies to; ext-scr add --script "
+                                "<path> is not bounded by it (an administrator-only action, equivalent to editing the configuration directly).");
 
     settings.register_all();
     settings.notify();
@@ -283,11 +280,16 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     // directory instead - a command written with an absolute path keeps
     // working, and a relative one could not have resolved anyway.
     root_ = layout.base.string();
-    if (boost::filesystem::is_directory(layout.base)) {
+    boost::system::error_code base_error;
+    if (boost::filesystem::is_directory(layout.base, base_error)) {
       working_directory_ = root_;
     } else {
+      // Not there, or not readable past some component: either way the
+      // message is the point, not an exception that fails the module load.
       working_directory_.clear();
-      NSC_LOG_ERROR_STD("The folder above the scripts folder, " + root_ + ", does not exist: external scripts run in the service's own directory until it does");
+      NSC_LOG_ERROR_STD("The folder above the scripts folder, " + root_ + ", cannot be used as the working directory (" +
+                        (base_error ? base_error.message() : std::string("it does not exist")) +
+                        "): external scripts run in the service's own directory until it can");
     }
 
     nscapi::core_helper core(get_core(), get_id());

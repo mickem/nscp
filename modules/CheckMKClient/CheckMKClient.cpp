@@ -8,7 +8,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
-#include <scripts/script_root.hpp>
+#include <scripts/script_root_setting.hpp>
 
 #include "check_mk_client.hpp"
 
@@ -37,15 +37,8 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     {
       sh::settings_registry root_settings(nscapi::settings_proxy::create(get_id(), get_core()));
       root_settings.set_alias("check_mk", alias, "client");
-      std::string script_root;
-      root_settings.alias()
-          .add_parent("/settings/default")
-          .add_key_to_settings()
-          .add_string("script root", sh::string_key(&script_root, ""), "Script root", scripts::root::description());
-      root_settings.register_all();
-      root_settings.notify();
-      root_ = scripts::root::resolve_or_default(
-                  script_root, [this](const std::string &value) { return get_core()->expand_path(value); },
+      root_ = scripts::root::load(
+                  root_settings, [this](const std::string &value) { return get_core()->expand_path(value); },
                   [](const std::string &why) { NSC_LOG_ERROR_STD(why); })
                   .scripts;
     }
