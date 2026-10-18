@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
@@ -45,5 +46,15 @@ struct NSCP_MONGOOSE_EXPORT Helpers {
   // both write straight to the wire. Three hand-rolled copies is how the
   // policies drifted apart the first time; this is the one list.
   static std::vector<std::pair<std::string, std::string> > security_headers(bool is_tls);
+
+  // What a request whose body is over the server's cap is answered with, and
+  // the line the server logs about it. Shared so both backends say the same
+  // thing: the setting is named in both, since a 413 with no hint sends the
+  // operator reading the client's source for a limit that is actually ours.
+  // `suppressed` is how many refusals from the same address went unlogged
+  // since the last line (the cap is applied before authentication, so the
+  // line goes through a net::connection_log_throttle).
+  static std::string request_too_large_body(std::size_t limit);
+  static std::string request_too_large_log(const std::string &remote, std::size_t limit, std::size_t suppressed);
 };
 }  // namespace Mongoose
