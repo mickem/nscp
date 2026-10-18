@@ -14,7 +14,11 @@ struct script_provider : public script_provider_interface {
  private:
   nscapi::core_wrapper *core_;
   int id_;
-  boost::filesystem::path root_;
+  // The scripts folder. Replaced whole on a reload that moves it (a changed
+  // `script root`) and read without the instances' mutex: an atomic
+  // shared_ptr, as LUAScript publishes its generations, so a lookup racing
+  // the reload sees the old folder or the new one, never a torn path.
+  std::shared_ptr<const boost::filesystem::path> root_;
   boost::shared_mutex mutex_;
 
   typedef std::list<std::shared_ptr<python_script>> instance_list_type;
@@ -29,6 +33,8 @@ struct script_provider : public script_provider_interface {
 
   boost::filesystem::path get_root();
   void set_scripts_folder(const boost::filesystem::path &scripts);
+  // The scripts folder as of this call: ${scripts}, or `<script root>/scripts`.
+  boost::filesystem::path scripts_folder() const;
   boost::optional<boost::filesystem::path> find_file(std::string file);
 
   void add_command(std::string script_alias, std::string script, std::string plugin_alias);

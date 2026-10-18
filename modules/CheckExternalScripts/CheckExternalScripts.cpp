@@ -197,6 +197,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
     const scripts::root::layout layout = scripts::root::resolve_or_default(
         scriptRoot, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); });
+    if (layout.legacy) {
+      NSC_DEBUG_MSG_STD("script root names the scripts folder itself (" + layout.scripts.string() +
+                        "), the key's previous meaning: keeping the built-in layout");
+    }
     if (layout.custom()) {
       NSC_DEBUG_MSG_STD("Script root: " + layout.root.string() + " (scripts in " + layout.scripts.string() + ")");
       // Every script is started in this directory, and a directory that is

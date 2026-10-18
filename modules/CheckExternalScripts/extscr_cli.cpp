@@ -414,13 +414,12 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     // On Windows the launcher starts the child with ${base-path} as its working
     // directory, so a path below it can be written relative and still resolve -
     // and that is the spelling every existing nsclient.ini and the web UI's
-    // script list show. But only a path that really is below it: `script root`
-    // is a settable option (default ${scripts}), and ${scripts} itself moves
-    // with a [paths] override, so the old hard-coded "scripts\\<name>" was a
-    // guess about the default layout. Point `script root` anywhere else and the
-    // copy landed in one folder while the registered command named another,
-    // which the shell resolved to nothing and the check reported as exit 127.
-    // Ask where the file actually is instead of assuming.
+    // script list show. But only a path that really is below it: ${scripts}
+    // moves with a [paths] override, so the old hard-coded "scripts\\<name>"
+    // was a guess about the default layout - the copy landed in one folder
+    // while the registered command named another, which the shell resolved to
+    // nothing and the check reported as exit 127. Ask where the file actually
+    // is instead of assuming.
     //
     // On unix the relative form never resolved at all: the backslash is an
     // ordinary filename character, ${scripts} is not below ${base-path}

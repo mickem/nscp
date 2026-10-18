@@ -87,6 +87,36 @@ TEST(ScriptRoot, ATrailingSeparatorIsDropped) {
   EXPECT_EQ(scripts::root::resolve("/srv/nscp\\", expand).root.generic_string(), "/srv/nscp");
 }
 
+// The old CheckExternalScripts key named the scripts folder itself and
+// defaulted to ${scripts}; the docs told operators to write that line out. A
+// host upgrading with it must keep the layout it had, not get a `scripts`
+// folder appended, a sandbox on a folder that does not exist and, on
+// Windows, a working directory that moved.
+TEST(ScriptRoot, TheOldDefaultWrittenOutIsTheBuiltInLayout) {
+  for (const char *spelling : {"${scripts}", " ${scripts} ", "/opt/nscp/custom-scripts", "/opt/nscp/custom-scripts/", "/opt/nscp/./custom-scripts"}) {
+    const scripts::root::layout l = scripts::root::resolve(spelling, expand);
+    EXPECT_FALSE(l.custom()) << spelling;
+    EXPECT_TRUE(l.legacy) << spelling;
+    EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/custom-scripts") << spelling;
+  }
+  EXPECT_FALSE(scripts::root::resolve("fleet", expand).legacy);
+  EXPECT_FALSE(scripts::root::resolve("", expand).legacy);
+}
+
+// A root directory keeps its separator: stripped, `C:\` becomes the
+// drive-relative `C:` and the scripts folder `C:scripts`.
+TEST(ScriptRoot, ARootDirectoryKeepsItsSeparator) {
+#ifdef WIN32
+  EXPECT_EQ(scripts::root::without_trailing_separator("C:\\").string(), "C:\\");
+  EXPECT_EQ(scripts::root::resolve("C:\\", expand).scripts.string(), "C:\\scripts");
+  EXPECT_EQ(scripts::root::without_trailing_separator("C:\\nscp\\").string(), "C:\\nscp");
+#else
+  EXPECT_EQ(scripts::root::without_trailing_separator("/").string(), "/");
+  EXPECT_EQ(scripts::root::without_trailing_separator("//server/").string(), "//server/");
+  EXPECT_EQ(scripts::root::without_trailing_separator("//server/share/").string(), "//server/share");
+#endif
+}
+
 // An unknown token is the operator's typo, and is reported the way every
 // other path option reports it rather than silently becoming a folder name.
 TEST(ScriptRoot, AnUnknownTokenIsReported) { EXPECT_THROW(scripts::root::resolve("${scripst}/x", expand), std::runtime_error); }

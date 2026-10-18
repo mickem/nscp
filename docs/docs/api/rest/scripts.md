@@ -22,13 +22,15 @@ py  | PythonScripts        | Scripts written in the Python language running insi
 
 ## Security
 
-As a security mechanism only scripts residing in the configured `script root` folder is showed.
-
-To configure the `script root` you can add the following to you configuration.
+As a security mechanism only scripts inside the module's scripts folder are shown, and only
+files there can be added or deleted: `${scripts}` by default (`${scripts}/python` and
+`${scripts}/lua` for those runtimes), or the `scripts` folder below a configured
+[`script root`](../../concepts/settings.md#moving-the-whole-tree-script-root). A fleet host
+that runs the scripts its bundles ship sets, in the bundle:
 
 ```
-[/settings/external scripts]
-script root=${scripts}
+[/settings/default]
+script root = fleet
 ```
 
 ## List Runtimes

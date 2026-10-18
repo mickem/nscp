@@ -35,6 +35,7 @@
 // configured root imposes the `<root>/scripts` shape.
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem/path.hpp>
 #include <stdexcept>
@@ -51,6 +52,10 @@ struct layout {
   // The scripts folder: ${scripts} for the built-in layout, `<root>/scripts`
   // for a configured one. Python and Lua append their own sub-folder to it.
   boost::filesystem::path scripts;
+  // The value named ${scripts} itself - the previous meaning of
+  // CheckExternalScripts' key, and its written-out default - and was read as
+  // the built-in layout for that reason.
+  bool legacy = false;
 
   bool custom() const { return !root.empty(); }
 };
@@ -74,11 +79,30 @@ inline bool is_default(const std::string &value) {
 }
 
 // A path with any trailing separator dropped, so `<root>/scripts` is spelled
-// the same whichever way the operator wrote the root.
+// the same whichever way the operator wrote the root. A root directory keeps
+// its separator: `C:\` stripped to `C:` is the drive-relative "current
+// directory on C", and `//server/` to `//server` no directory at all.
 inline boost::filesystem::path without_trailing_separator(boost::filesystem::path p) {
   std::string s = p.string();
-  while (s.size() > 1 && (s.back() == '/' || s.back() == '\\')) s.pop_back();
+  while (s.size() > 1 && (s.back() == '/' || s.back() == '\\')) {
+    const boost::filesystem::path shorter(s.substr(0, s.size() - 1));
+    if (shorter.has_root_name() && !shorter.has_root_directory()) break;
+    s.pop_back();
+  }
   return boost::filesystem::path(s);
+}
+
+// Whether two spellings name the same folder, as far as can be told without
+// touching the disk: normalised, trailing separator dropped, and compared the
+// way the platform's filesystem compares names.
+inline bool same_folder(const boost::filesystem::path &a, const boost::filesystem::path &b) {
+  const std::string sa = without_trailing_separator(a.lexically_normal()).generic_string();
+  const std::string sb = without_trailing_separator(b.lexically_normal()).generic_string();
+#ifdef WIN32
+  return boost::algorithm::iequals(sa, sb);
+#else
+  return sa == sb;
+#endif
 }
 
 // Resolve the configured `script root`. `expand` turns a string with ${...}
@@ -89,12 +113,20 @@ template <class Expand>
 layout resolve(const std::string &configured, Expand expand) {
   layout result;
   const std::string value = boost::algorithm::trim_copy(configured);
-  if (is_default(value)) {
-    result.scripts = boost::filesystem::path(expand("${scripts}"));
+  result.scripts = boost::filesystem::path(expand("${scripts}"));
+  if (is_default(value)) return result;
+  const boost::filesystem::path root = without_trailing_separator(boost::filesystem::path(expand(alias_target(value))));
+  // CheckExternalScripts' key used to name the scripts folder itself, with
+  // `${scripts}` as its default - and the documentation told operators to
+  // write that line out. A root that is the scripts folder is that
+  // configuration, not a request for `${scripts}/scripts`: it keeps the
+  // built-in layout it always had.
+  if (same_folder(root, result.scripts)) {
+    result.legacy = true;
     return result;
   }
-  result.root = without_trailing_separator(boost::filesystem::path(expand(alias_target(value))));
-  result.scripts = result.root / "scripts";
+  result.root = root;
+  result.scripts = root / "scripts";
   return result;
 }
 

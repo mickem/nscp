@@ -22,10 +22,13 @@ not set it.
   changed.** It used to name the scripts folder itself (default `${scripts}`)
   and only bounded `ext-scr show`, `delete` and `add --import`. It now names
   the folder *above* `scripts/`, bounds the same operations to
-  `<root>/scripts`, and also sets where every external script runs. If you had
-  set it to a folder of your own, move the scripts into a `scripts`
-  sub-folder of it, or point it at the parent. An unset key behaves as
-  before.
+  `<root>/scripts`, and also sets where every external script runs. An unset
+  key, and the old default written out (`script root = ${scripts}`, as the
+  documentation used to suggest, or that folder spelled as a path), keep the
+  built-in layout: a root that *is* the scripts folder is read as the old
+  configuration, not as a request for `${scripts}/scripts`. Only a key
+  pointing at a folder of your own changes meaning: move the scripts into a
+  `scripts` sub-folder of it, or point it at the parent.
 - **On Linux and macOS an external script now runs in the root** when one is
   configured; with none configured it inherits the service's working
   directory as it always has. On Windows the working directory was always the
