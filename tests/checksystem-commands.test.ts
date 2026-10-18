@@ -281,6 +281,26 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(time).toBe(user + kernel);
   });
 
+  it("check_process peak_pagefile is never below pagefile (Windows)", async () => {
+    if (!onWindows) return;
+    // pagefile is the current commit charge and peak_pagefile its high-water
+    // mark; the two used to read each other's counter. The never-true warning
+    // only exists to emit both perf values, forced to bytes so they compare.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      warning: "pagefile < 0 or peak_pagefile < 0",
+      "perf-config": "*(unit:B)",
+    });
+    expect(q.result).toBe(OK);
+    const perf = Object.entries(perfOf(q));
+    const current = perf.find(([label]) => label.endsWith(" pf_use"))?.[1].value;
+    const peak = perf.find(([label]) => label.endsWith(" ppf_use"))?.[1].value;
+    expect(typeof current).toBe("number");
+    expect(typeof peak).toBe("number");
+    expect(current as number).toBeGreaterThan(0);
+    expect(peak as number).toBeGreaterThanOrEqual(current as number);
+  });
+
   it("check_process rss is an alias for working_set", async () => {
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,
