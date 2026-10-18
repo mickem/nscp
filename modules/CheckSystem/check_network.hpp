@@ -193,6 +193,9 @@ class network_data {
   // throws — the LBFO provider is absent on many systems and that is not an error.
   void query_team(netmap_type &if_netmap, netmap_type &ad_netmap, HANDLE abort_event);
   bool fetch_team_ = true;
+  // Win32_PerfRawData_Tcpip_NetworkAdapter only exists on Windows 8 / Server
+  // 2012 and later; cleared the first time the class turns out to be missing.
+  bool fetch_adapter_ = true;
 };
 
 namespace check {
