@@ -276,6 +276,49 @@ for (const c of cases) {
   });
 }
 
+// A root whose folder above is not there at all - `script root = fleet`
+// written into nsclient.ini before the first sync. The launcher cannot start
+// a script in a folder that does not exist, so the module falls back to what
+// it did without the key: no working directory of its own, and the
+// installation directory as the rooting base. A command written with an
+// absolute path therefore still runs; before this fallback every external
+// script failed on Windows, where the launcher runs the child in the rooting
+// base when no working directory is set.
+describe("script root whose folder above does not exist", () => {
+  it("still runs a command written with an absolute path, and says why it is not rooted", async () => {
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-script-root-missing-"));
+    const script = path.join(workDir, onWindows ? "alone.bat" : "alone.sh");
+    fs.writeFileSync(
+      script,
+      onWindows ? "@echo off\r\necho alone ok\r\n" : "#!/bin/sh\necho alone ok\n",
+    );
+    const nscp = new NscpInstance({ workDir });
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/default": { "script root": path.join(workDir, "not-synced-yet", "scripts") },
+      "/settings/external scripts/scripts": { alone: onWindows ? script : `sh ${script}` },
+    });
+    const r = await nscp.run(
+      [
+        "client",
+        "--module",
+        "CheckExternalScripts",
+        "--boot",
+        "--log",
+        "debug",
+        "--query",
+        "alone",
+      ],
+      {
+        allowFailure: true,
+      },
+    );
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+    expect(out).toContain("alone ok");
+    expect(out).toContain("cannot be used as the working directory");
+  });
+});
+
 // The control: a root that holds nothing. Every probe above must fail here,
 // or it was not reading the root at all - the build's own scripts folder has
 // a default_check_mk.lua of its own, which is exactly what this rules out.

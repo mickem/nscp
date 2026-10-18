@@ -28,8 +28,10 @@ on Linux and macOS the agent now sets an external script's working directory.
   entrypoint used to inherit whatever directory it was started in and now
   gets the same one as the service. A script that relied on that inherited
   directory should use an absolute path, or the `scripts/` spelling. If the
-  folder does not exist the script inherits the service's directory as
-  before, and the log says so once.
+  folder does not exist - `script root = fleet` written before the first sync,
+  say - scripts run as they did without the key, in the service's own
+  directory and rooted at the installation directory, and the log says so
+  once.
 - **On Windows nothing moves for the built-in layout**: scripts start in the
   installation directory as they always did, including when a `[paths]`
   override has moved `${scripts}` elsewhere. A configured `script root` starts

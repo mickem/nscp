@@ -279,17 +279,24 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     // missing one is reported once and the script inherits the service's
     // directory instead - a command written with an absolute path keeps
     // working, and a relative one could not have resolved anyway.
-    root_ = layout.base.string();
     boost::system::error_code base_error;
     if (boost::filesystem::is_directory(layout.base, base_error)) {
+      root_ = layout.base.string();
       working_directory_ = root_;
     } else {
       // Not there, or not readable past some component: either way the
       // message is the point, not an exception that fails the module load.
+      // Both go back to what they were before the key existed - the
+      // installation directory as the rooting base, and no working directory
+      // of the agent's choosing. On Windows the launcher runs the child in
+      // the rooting base when no working directory is set, so that base has
+      // to be a folder that exists, or every script fails, absolute commands
+      // included (`script root = fleet` written before the first sync).
+      root_ = get_base_path();
       working_directory_.clear();
-      NSC_LOG_ERROR_STD("The folder above the scripts folder, " + root_ + ", cannot be used as the working directory (" +
+      NSC_LOG_ERROR_STD("The folder above the scripts folder, " + layout.base.string() + ", cannot be used as the working directory (" +
                         (base_error ? base_error.message() : std::string("it does not exist")) +
-                        "): external scripts run in the service's own directory until it can");
+                        "): external scripts run as they did without a script root until it can");
     }
 
     nscapi::core_helper core(get_core(), get_id());

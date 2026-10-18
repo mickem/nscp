@@ -105,18 +105,19 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     // The scripts folder (`script root`, ${scripts} by default). Known only
     // now that the key has been read, which is why the provider is told
     // rather than built with it.
-    root_ = scripts::root::resolve_or_default(
-                script_root, [this](const std::string &value) { return get_core()->expand_path(value); },
-                [](const std::string &why) { NSC_LOG_ERROR_STD(why); })
-                .scripts;
-    NSC_DEBUG_MSG_STD("Python scripts folder: " + (root_ / "python").string());
+    const boost::filesystem::path root =
+        scripts::root::resolve_or_default(
+            script_root, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); })
+            .scripts;
+    std::atomic_store(&root_, std::make_shared<const boost::filesystem::path>(root));
+    NSC_DEBUG_MSG_STD("Python scripts folder: " + (root / "python").string());
 
     // Construct once: a reload would otherwise replace the provider under
     // the query threads that hold it.
     if (!provider_)
-      provider_ = std::make_shared<script_provider>(get_id(), get_core(), root_);
+      provider_ = std::make_shared<script_provider>(get_id(), get_core(), root);
     else
-      provider_->set_scripts_folder(root_);
+      provider_->set_scripts_folder(root);
 
     python_script::init(python_cache, python_lib);
 
@@ -243,7 +244,7 @@ void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Req
     return;
   }
   std::string script_file = ofile.value().string();
-  python_script script(get_id(), root_.string(), "", "", script_file);
+  python_script script(get_id(), scripts_folder().string(), "", "", script_file);
   std::list<std::string> ops(script_options.begin(), script_options.end());
   if (!script.callFunction("__main__", ops)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");
