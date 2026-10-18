@@ -468,7 +468,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // flip the agent to cleartext HTTP with no signal beyond a log line, which
     // also affected operator-chosen non-default ports. We now refuse to start
     // in the clear unless the operator explicitly opts in via `allow insecure`.
-    const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
+    boost::system::error_code probe;  // an untraversable parent reads as missing rather than throwing out of module load
+    const bool cert_missing = !boost::filesystem::is_regular_file(certificate, probe);
     // The trailing "s" only denotes TLS intent; strip it before binding.
     if (boost::ends_with(port, "s")) {
       port = port.substr(0, port.length() - 1);
@@ -1291,13 +1292,16 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       for (const auto &e : messages) {
         result << "Certificate validation: " << e << std::endl;
       }
-      if (!boost::filesystem::is_regular_file(certificate)) {
+      // error_code overloads: a parent this process cannot traverse is a
+      // "does not exist" to report, not a filesystem_error to throw.
+      boost::system::error_code probe;
+      if (!boost::filesystem::is_regular_file(certificate, probe)) {
         result << "WARNING: The certificate " << certificate
                << " does not exist. The WEB server refuses to start without it: place a certificate there, "
                   "point --certificate at the default ${certificate-path}/certificate.pem to have one generated, "
                   "or run `nscp web install --insecure` to accept cleartext HTTP."
                << std::endl;
-      } else if (!key.empty() && cert != key && !boost::filesystem::is_regular_file(certificate_key)) {
+      } else if (!key.empty() && cert != key && !boost::filesystem::is_regular_file(certificate_key, probe)) {
         result << "WARNING: The certificate key " << certificate_key
                << " does not exist. The WEB server will fail to load its certificate until it does (leave --certificate-key "
                   "empty when the key is in the certificate file, as it is for a generated one)."

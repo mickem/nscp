@@ -136,6 +136,7 @@ describe("nscp web install", () => {
 
     expect(out).toContain(`WARNING: Could not create the certificate folder ${security}`);
     expect(out).toContain("No certificate was generated");
+    expect(out).toContain("set the certificate path");
     // The server-side consequence is still spelled out, as for any missing certificate.
     expect(out).toContain("WARNING: The certificate");
     expect(out).toContain("refuses to start without it");
