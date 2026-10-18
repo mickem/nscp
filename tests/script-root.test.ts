@@ -236,6 +236,26 @@ for (const c of cases) {
       // The ini sits above every tree this suite builds.
       const outside = await p.cli("ext-scr", "show", "--script", p.nscp.settingsFile);
       expect(outside).toContain("Not allowed outside");
+
+      // A same-named file the agent's own working directory can reach - the
+      // install's scripts folder, for `script root = fleet` - must not shadow
+      // the root's copy: a name is looked up under the root first, and a hit
+      // outside the sandbox is skipped rather than reported.
+      const decoyDir = path.join(p.workDir, "scripts");
+      if (!samePath(decoyDir, p.scripts)) {
+        fs.mkdirSync(decoyDir, { recursive: true });
+        fs.writeFileSync(path.join(decoyDir, "root_probe.sh"), "echo decoy\n");
+        // The relative name is the folder's own name below its parent.
+        const shown = await p.cli(
+          "ext-scr",
+          "show",
+          "--script",
+          `${path.basename(p.scripts)}/root_probe.sh`,
+        );
+        expect(shown).toContain("ext probe ok");
+        expect(shown).not.toContain("decoy");
+        expect(shown).not.toContain("Not allowed outside");
+      }
     });
 
     it("loads a Lua script from its lua folder, with lib on the require path", async () => {

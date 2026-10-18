@@ -20,8 +20,8 @@ class extscr_cli {
   void delete_script(const PB::Commands::ExecuteRequestMessage_Request &request, PB::Commands::ExecuteResponseMessage_Response *response);
 
  private:
-  bool locate_script(const std::string &script, boost::filesystem::path &found) const;
-  bool validate_sandbox(boost::filesystem::path pscript, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool inside_sandbox(const boost::filesystem::path &pscript) const;
+  bool locate_script(const std::string &script, boost::filesystem::path &found, bool &outside) const;
   // `add --import` copies a file into the script root, where `show` then
   // returns its bytes: without this the sandbox that confines show and delete
   // is a formality, since any file the service can read can be brought inside

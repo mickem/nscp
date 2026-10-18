@@ -28,6 +28,7 @@
 //   a path                 any folder, ${...} tokens expanded
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem/path.hpp>
 #include <stdexcept>
@@ -44,7 +45,12 @@ struct layout {
   // and the base a relative command is rooted at. Empty when the scripts
   // folder has no parent (a bare relative name).
   boost::filesystem::path base;
-  // Whether `script root` was set to anything but the default.
+  // Whether `script root` names a folder other than ${scripts}. The old
+  // default written out (`script root = ${scripts}`, as the documentation
+  // once suggested) is not configured: on Windows the built-in layout keeps
+  // the installation directory as the start directory even under a
+  // `[paths] scripts` override, and that promise has to hold for the value
+  // that every pre-existing nsclient.ini was told to carry.
   bool configured = false;
 };
 
@@ -80,6 +86,19 @@ inline boost::filesystem::path without_trailing_separator(boost::filesystem::pat
   return boost::filesystem::path(s);
 }
 
+// Whether two spellings name the same folder, as far as can be told without
+// touching the disk: normalised, trailing separator dropped, and compared the
+// way the platform's filesystem compares names.
+inline bool same_folder(const boost::filesystem::path &a, const boost::filesystem::path &b) {
+  const std::string sa = without_trailing_separator(a.lexically_normal()).generic_string();
+  const std::string sb = without_trailing_separator(b.lexically_normal()).generic_string();
+#ifdef WIN32
+  return boost::algorithm::iequals(sa, sb);
+#else
+  return sa == sb;
+#endif
+}
+
 // Resolve the configured `script root`. `expand` turns a string with ${...}
 // tokens into a path (the core's expand_path); it is handed the aliases'
 // targets and the value itself, never a bare alias, so an unknown token is
@@ -88,8 +107,12 @@ template <class Expand>
 layout resolve(const std::string &configured, Expand expand) {
   layout result;
   const std::string value = boost::algorithm::trim_copy(configured);
-  result.configured = !is_default(value);
-  result.scripts = without_trailing_separator(boost::filesystem::path(expand(result.configured ? alias_target(value) : std::string("${scripts}"))));
+  const boost::filesystem::path scripts = without_trailing_separator(boost::filesystem::path(expand("${scripts}")));
+  result.scripts = is_default(value) ? scripts : without_trailing_separator(boost::filesystem::path(expand(alias_target(value))));
+  result.configured = !same_folder(result.scripts, scripts);
+  // The default folder however it was spelled: a `./` or a doubled separator
+  // in the written-out value must not leak into the paths the modules use.
+  if (!result.configured) result.scripts = scripts;
   result.base = result.scripts.parent_path();
   return result;
 }

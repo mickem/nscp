@@ -50,13 +50,21 @@ TEST(ScriptRoot, DefaultSpelledOutIsTheBuiltInLayoutToo) {
 }
 
 // The key always named the scripts folder and defaulted to ${scripts}; the
-// docs told operators to write that line out. Written out, it is the same
-// layout as unset - only `configured` tells the two apart.
-TEST(ScriptRoot, TheDefaultWrittenOutNamesTheSameFolders) {
-  const scripts::root::layout l = scripts::root::resolve("${scripts}", expand);
-  EXPECT_TRUE(l.configured);
-  EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/scripts");
-  EXPECT_EQ(l.base.generic_string(), "/opt/nscp");
+// docs told operators to write that line out. Written out - as the token, or
+// as the folder it expands to, however spelled - it is the default, not a
+// configured root: on Windows the built-in layout keeps the installation
+// directory as the start directory under a `[paths] scripts` override, and
+// that must hold for the value every pre-existing nsclient.ini was told to
+// carry.
+TEST(ScriptRoot, TheDefaultWrittenOutIsNotConfigured) {
+  for (const char *spelling : {"${scripts}", " ${scripts} ", "/opt/nscp/scripts", "/opt/nscp/scripts/", "/opt/nscp/./scripts"}) {
+    const scripts::root::layout l = scripts::root::resolve(spelling, expand);
+    EXPECT_FALSE(l.configured) << spelling;
+    EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/scripts") << spelling;
+    EXPECT_EQ(l.base.generic_string(), "/opt/nscp") << spelling;
+  }
+  EXPECT_TRUE(scripts::root::resolve("fleet", expand).configured);
+  EXPECT_TRUE(scripts::root::resolve("/opt/nscp/other", expand).configured);
 }
 
 // `fleet` is the tree the sync stages bundles into: the scripts folder is the

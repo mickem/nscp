@@ -49,48 +49,55 @@ bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_
   return true;
 }
 
-// The file a `--script` name refers to, for show and delete: as written, then
-// under the folder scripts run in (where `scripts\check_foo.bat` resolves),
-// then under ${base-path}, which is what that spelling has always resolved
-// from on Windows.
-bool extscr_cli::locate_script(const std::string &script, boost::filesystem::path &found) const {
+// Whether `pscript` is inside the scripts folder. Symlinks are resolved
+// before the containment check: path_contains_file compares lexically only,
+// so a symlink placed inside the folder but pointing outside it would
+// otherwise pass, letting show/delete read or remove files anywhere the
+// service account can reach. weakly_canonical resolves the real targets (the
+// candidate has already been confirmed to be a regular file by the callers);
+// fall back to the lexical path if resolution fails.
+bool extscr_cli::inside_sandbox(const boost::filesystem::path &pscript) const {
+  const boost::filesystem::path root = provider_->get_root();
+  boost::system::error_code ec;
+  boost::filesystem::path real_root = boost::filesystem::weakly_canonical(root, ec);
+  if (ec) real_root = root;
+  boost::filesystem::path real_script = boost::filesystem::weakly_canonical(pscript, ec);
+  if (ec) real_script = pscript;
+  return file_helpers::checks::path_contains_file(real_root, real_script);
+}
+
+// The file a `--script` name refers to, for show and delete: under the folder
+// scripts run in first (where `scripts\check_foo.bat` resolves, and where a
+// configured root puts the tree), then as written, then under ${base-path},
+// which is what that spelling has always resolved from on Windows. A hit the
+// sandbox refuses is skipped rather than returned: with `script root = fleet`
+// the install's own scripts folder holds a same-named file reachable from the
+// agent's working directory, and stopping there answered "not allowed" for a
+// script that the fleet tree holds. `outside` says whether that was all that
+// was found, so the caller can say why it refused.
+bool extscr_cli::locate_script(const std::string &script, boost::filesystem::path &found, bool &outside) const {
+  outside = false;
   std::list<std::string> spellings = {script};
 #ifdef WIN32
   spellings.push_back(boost::algorithm::replace_all_copy(script, "/", "\\"));
 #endif
   const scripts::root::layout layout = provider_->get_layout();
   for (const std::string &s : spellings) {
-    std::list<boost::filesystem::path> candidates = {boost::filesystem::path(s)};
+    std::list<boost::filesystem::path> candidates;
     if (!layout.base.empty()) candidates.push_back(layout.base / s);
+    candidates.push_back(boost::filesystem::path(s));
     candidates.push_back(provider_->get_core()->expand_path("${base-path}/" + s));
     for (const boost::filesystem::path &c : candidates) {
-      if (boost::filesystem::is_regular_file(c)) {
-        found = c;
-        return true;
+      if (!boost::filesystem::is_regular_file(c)) continue;
+      if (!inside_sandbox(c)) {
+        outside = true;
+        continue;
       }
+      found = c;
+      return true;
     }
   }
   return false;
-}
-
-bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) {
-  boost::filesystem::path path = provider_->get_root();
-  // Resolve symlinks before the containment check. path_contains_file compares
-  // lexically only, so a symlink placed inside the script root but pointing
-  // outside it would otherwise pass, letting show/delete read or remove files
-  // anywhere the service account can reach. weakly_canonical resolves the real
-  // targets (the candidate has already been confirmed to be a regular file by
-  // the callers); fall back to the lexical path if resolution fails.
-  boost::system::error_code ec;
-  boost::filesystem::path real_root = boost::filesystem::weakly_canonical(path, ec);
-  if (ec) real_root = path;
-  boost::filesystem::path real_script = boost::filesystem::weakly_canonical(pscript, ec);
-  if (ec) real_script = pscript;
-  if (!file_helpers::checks::path_contains_file(real_root, real_script)) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + path.string());
-    return false;
-  }
-  return true;
 }
 
 namespace {
@@ -283,11 +290,13 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
     nscapi::protobuf::functions::set_response_good(*response, command_def->command);
   } else {
     boost::filesystem::path pscript;
-    const bool found = locate_script(script, pscript);
+    bool outside = false;
+    const bool found = locate_script(script, pscript, outside);
+    if (!found && outside) {
+      nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + provider_->get_root().string());
+      return;
+    }
     if (found) {
-      if (!validate_sandbox(pscript, response)) {
-        return;
-      }
 
       std::ifstream t(pscript.string().c_str());
       std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
@@ -345,11 +354,13 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
                                                    "Script definition has been removed don't forget to delete any artifact for: " + command_def->command);
   } else {
     boost::filesystem::path pscript;
-    const bool found = locate_script(script, pscript);
+    bool outside = false;
+    const bool found = locate_script(script, pscript, outside);
+    if (!found && outside) {
+      nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + provider_->get_root().string());
+      return;
+    }
     if (found) {
-      if (!validate_sandbox(pscript, response)) {
-        return;
-      }
       boost::filesystem::remove(pscript);
       nscapi::protobuf::functions::set_response_good(*response, "Script file was removed");
     } else {

@@ -280,9 +280,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     // directory instead - a command written with an absolute path keeps
     // working, and a relative one could not have resolved anyway.
     boost::system::error_code base_error;
+    auto site = std::make_shared<launch_site>();
     if (boost::filesystem::is_directory(layout.base, base_error)) {
-      root_ = layout.base.string();
-      working_directory_ = root_;
+      site->root = layout.base.string();
+      site->working_directory = site->root;
     } else {
       // Not there, or not readable past some component: either way the
       // message is the point, not an exception that fails the module load.
@@ -292,12 +293,12 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
       // the rooting base when no working directory is set, so that base has
       // to be a folder that exists, or every script fails, absolute commands
       // included (`script root = fleet` written before the first sync).
-      root_ = get_base_path();
-      working_directory_.clear();
+      site->root = get_base_path();
       NSC_LOG_ERROR_STD("The folder above the scripts folder, " + layout.base.string() + ", cannot be used as the working directory (" +
                         (base_error ? base_error.message() : std::string("it does not exist")) +
                         "): external scripts run as they did without a script root until it can");
     }
+    std::atomic_store(&launch_, std::shared_ptr<const launch_site>(site));
 
     nscapi::core_helper core(get_core(), get_id());
     for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
@@ -575,8 +576,12 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   }
 #endif
 
-  process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork, kill_tree);
-  arg.working_directory = working_directory_;
+  // One load of the pair: a reload replacing it meanwhile leaves this command
+  // with the old folder for both, never one of each.
+  const std::shared_ptr<const launch_site> site = std::atomic_load(&launch_);
+  process::exec_arguments arg(site ? site->root : std::string(get_base_path()), cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork,
+                              kill_tree);
+  if (site) arg.working_directory = site->working_directory;
   if (argv_ok) {
     arg.argv = argv;
   }
