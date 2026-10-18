@@ -12,6 +12,8 @@ cmake_output.txt
 .cmake
 # ctest output from an in-tree run
 /Testing/
+# Test-install ISOs written by tools/make-windows-iso.ps1
+*.iso
 
 # ─── Runtime / data files ─────────────────────────────────────────────────────
 nsclient.log
