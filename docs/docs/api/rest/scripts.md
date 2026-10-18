@@ -22,11 +22,19 @@ py  | PythonScripts        | Scripts written in the Python language running insi
 
 ## Security
 
-As a security mechanism only scripts inside the module's scripts folder are shown, and only
-files there can be added or deleted: `${scripts}` by default (`${scripts}/python` and
-`${scripts}/lua` for those runtimes), or the `scripts` folder below a configured
-[`script root`](../../concepts/settings.md#moving-the-whole-tree-script-root). A fleet host
-that runs the scripts its bundles ship sets, in the bundle:
+These routes cannot reach outside the module's scripts folder: `${scripts}` by default
+(`${scripts}/python` and `${scripts}/lua` for those runtimes), or the `scripts` folder below a
+configured [`script root`](../../concepts/settings.md#moving-the-whole-tree-script-root). A GET
+shows and a DELETE removes only a file inside it, symlinks resolved, and a name with a path
+separator or `..` is refused before the module sees it; a PUT writes the upload there. The
+`nscp ext-scr`, `py` and `lua` commands these routes call are confined the same way for `show`,
+`delete` and `add --import`.
+
+That is a bound on script management, not on configuration. `add --script <path>` from the
+command line registers an existing file anywhere on disk, and an entry under
+`[/settings/external scripts/scripts]`, `[/settings/python/scripts]` or `[/settings/lua/scripts]`,
+in `nsclient.ini` or in a fleet bundle, may name any file: the agent runs what an administrator
+configured. A fleet host that runs the scripts its bundles ship sets, in the bundle:
 
 ```
 [/settings/default]
