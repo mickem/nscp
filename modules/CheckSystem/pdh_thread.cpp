@@ -13,6 +13,7 @@
 #include <threads/guarded_thread.hpp>
 #include <win/com_helpers.hpp>
 #include <win/processes.hpp>
+#include <win/registry.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 #include "check_memory.hpp"
@@ -60,9 +61,6 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   // is the earlier sample, so the delta window is naturally ~1 second. The
   // actual capacity comes from GetSystemTimes bracketing the two reads, which
   // keeps the percentage correct even if the tick cadence drifts.
-  const auto filetime_to_u64 = [](const FILETIME &ft) -> unsigned long long {
-    return (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) + static_cast<unsigned long long>(ft.dwLowDateTime);
-  };
 
   std::map<DWORD, proc_cpu_raw> current;
   try {
@@ -88,8 +86,8 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   unsigned long long sys_kernel = prev_sys_kernel_;
   unsigned long long sys_user = prev_sys_user_;
   if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-    sys_kernel = filetime_to_u64(kernelTime);
-    sys_user = filetime_to_u64(userTime);
+    sys_kernel = win_registry::filetime_to_ull(kernelTime);
+    sys_user = win_registry::filetime_to_ull(userTime);
   }
 
   if (have_prev_proc_cpu_) {
