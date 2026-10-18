@@ -1794,10 +1794,75 @@ TEST_F(WriteCertsFixture, ValidateCertificateReportsAFolderItCannotCreate) {
   const std::string joined = boost::algorithm::join(messages, "\n");
   EXPECT_NE(joined.find("WARNING: Could not create the certificate folder " + blocker + "/security"), std::string::npos) << joined;
   EXPECT_NE(joined.find("No certificate was generated"), std::string::npos) << joined;
-  EXPECT_NE(joined.find("--certificate"), std::string::npos) << joined;
+  EXPECT_NE(joined.find("set the certificate path"), std::string::npos) << joined;
+  // The validator also runs at module load, where there is no command to
+  // re-run and no --certificate flag: the hint must read right there too.
+  EXPECT_EQ(joined.find("--certificate"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("re-run"), std::string::npos) << joined;
   // The folder was never made, so there is nothing to announce or to hand over.
   EXPECT_EQ(joined.find("Creating certificate folder"), std::string::npos) << joined;
   EXPECT_EQ(joined.find("generating a default certificate"), std::string::npos) << joined;
+}
+
+// A level created before a deeper one fails is removed again. Left behind, it
+// would be a root-owned folder a later run finds "not ours" and never hands to
+// the service account. A name longer than the filesystem allows fails the
+// second level for root as well as for anyone else.
+TEST_F(WriteCertsFixture, ValidateCertificateRemovesTheLevelsItMadeWhenADeeperOneFails) {
+  const std::string shallow = path_of("deep");
+  const std::string cert = shallow + "/" + std::string(1000, 'x') + "/certificate.pem";
+  const std::string reference = path_of("state");
+  boost::filesystem::create_directories(reference);
+
+  std::list<std::string> messages;
+  ASSERT_NO_THROW(socket_helpers::validate_certificate(cert, messages, reference));
+
+  EXPECT_FALSE(boost::filesystem::exists(shallow)) << "the level made before the failure must be removed again";
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("WARNING: Could not create the certificate folder"), std::string::npos) << joined;
+  EXPECT_NE(joined.find("No certificate was generated"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("Creating certificate folder"), std::string::npos) << joined;
+}
+
+// The common packaged case: `security/` exists (a root install made it) but
+// the account running the command cannot write to it. The answer is the same
+// guidance as for a folder that could not be created, not a bare "Failed to
+// write". Root passes every mode bit, so the case only reproduces unprivileged.
+TEST_F(WriteCertsFixture, ValidateCertificateReportsAnExistingFolderItCannotWriteTo) {
+  if (::geteuid() == 0) GTEST_SKIP() << "root is not denied by directory permissions";
+  const std::string folder = path_of("security");
+  boost::filesystem::create_directories(folder);
+  ASSERT_EQ(::chmod(folder.c_str(), S_IRUSR | S_IXUSR), 0);
+  const std::string cert = folder + "/certificate.pem";
+
+  std::list<std::string> messages;
+  ASSERT_NO_THROW(socket_helpers::validate_certificate(cert, messages, path_of("state")));
+  ::chmod(folder.c_str(), S_IRWXU);
+
+  EXPECT_FALSE(boost::filesystem::exists(cert));
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("WARNING: Cannot write to the certificate folder " + folder + ": Permission denied"), std::string::npos) << joined;
+  EXPECT_NE(joined.find("No certificate was generated"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("Failed to write"), std::string::npos) << joined;
+}
+
+// A certificate under a folder this process cannot even look into. The
+// throwing is_regular_file() raised here with "boost::filesystem::status:
+// Permission denied", past every message this function produces.
+TEST_F(WriteCertsFixture, ValidateCertificateReportsAParentItCannotLookInto) {
+  if (::geteuid() == 0) GTEST_SKIP() << "root is not denied by directory permissions";
+  const std::string closed = path_of("closed");
+  boost::filesystem::create_directories(closed);
+  ASSERT_EQ(::chmod(closed.c_str(), 0), 0);
+  const std::string cert = closed + "/security/certificate.pem";
+
+  std::list<std::string> messages;
+  ASSERT_NO_THROW(socket_helpers::validate_certificate(cert, messages, path_of("state")));
+  ::chmod(closed.c_str(), S_IRWXU);
+
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_NE(joined.find("WARNING: Could not check the certificate " + cert + ": Permission denied"), std::string::npos) << joined;
+  EXPECT_NE(joined.find("No certificate was generated"), std::string::npos) << joined;
 }
 #endif
 
