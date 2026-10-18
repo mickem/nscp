@@ -23,8 +23,8 @@ py  | PythonScripts        | Scripts written in the Python language running insi
 ## Security
 
 These routes cannot reach outside the module's scripts folder: `${scripts}` by default
-(`${scripts}/python` and `${scripts}/lua` for those runtimes), or the `scripts` folder below a
-configured [`script root`](../../concepts/settings.md#moving-the-whole-tree-script-root). A GET
+(`${scripts}/python` and `${scripts}/lua` for those runtimes), or whatever
+[`script root`](../../concepts/settings.md#moving-the-whole-tree-script-root) names. A GET
 shows and a DELETE removes only a file inside it, symlinks resolved, and a name with a path
 separator or `..` is refused before the module sees it; a PUT writes the upload there. The
 `nscp ext-scr`, `py` and `lua` commands these routes call are confined the same way for `show`,

@@ -15,7 +15,7 @@ namespace {
 // and nothing else - an unknown token is an error there, so it is one here.
 std::string expand(const std::string &value) {
   static const std::map<std::string, std::string> tokens = {
-      {"${scripts}", "/opt/nscp/custom-scripts"},
+      {"${scripts}", "/opt/nscp/scripts"},
       {"${fleet-folder}", "/var/lib/nsclient/fleet"},
       {"${shared-path}", "/usr/lib/nsclient"},
       {"${data-path}", "/var/lib/nsclient"},
@@ -31,84 +31,77 @@ std::string expand(const std::string &value) {
 
 }  // namespace
 
-// The built-in layout keeps ${scripts} as it is, whatever it is called: an
-// override can point it at a folder not named `scripts`, and deriving it from
-// a parent would move it.
+// The built-in layout: the scripts folder is ${scripts}, whatever it is called,
+// and scripts run in the folder above it - the installation directory on a
+// default install.
 TEST(ScriptRoot, EmptyIsTheBuiltInLayout) {
   const scripts::root::layout l = scripts::root::resolve("", expand);
-  EXPECT_FALSE(l.custom());
-  EXPECT_TRUE(l.root.empty());
-  EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/custom-scripts");
+  EXPECT_FALSE(l.configured);
+  EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/scripts");
+  EXPECT_EQ(l.base.generic_string(), "/opt/nscp");
 }
 
 TEST(ScriptRoot, DefaultSpelledOutIsTheBuiltInLayoutToo) {
   for (const char *spelling : {"default", "Default", " DEFAULT ", "   "}) {
     const scripts::root::layout l = scripts::root::resolve(spelling, expand);
-    EXPECT_FALSE(l.custom()) << spelling;
-    EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/custom-scripts") << spelling;
+    EXPECT_FALSE(l.configured) << spelling;
+    EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/scripts") << spelling;
   }
 }
 
-// `fleet` is the tree the sync stages bundles into: the root is the fleet
-// folder itself and the scripts sit in its `scripts` sub-folder, which is where
-// a bundle's `scripts/` entries are written.
-TEST(ScriptRoot, FleetIsTheFleetFolder) {
+// The key always named the scripts folder and defaulted to ${scripts}; the
+// docs told operators to write that line out. Written out, it is the same
+// layout as unset - only `configured` tells the two apart.
+TEST(ScriptRoot, TheDefaultWrittenOutNamesTheSameFolders) {
+  const scripts::root::layout l = scripts::root::resolve("${scripts}", expand);
+  EXPECT_TRUE(l.configured);
+  EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/scripts");
+  EXPECT_EQ(l.base.generic_string(), "/opt/nscp");
+}
+
+// `fleet` is the tree the sync stages bundles into: the scripts folder is the
+// fleet folder's `scripts`, which is where a bundle's `scripts/` entries are
+// written, and scripts run in the fleet folder - so `scripts\a.bat` is the
+// same spelling it has in the installation directory.
+TEST(ScriptRoot, FleetIsTheFleetFoldersScripts) {
   const scripts::root::layout l = scripts::root::resolve("fleet", expand);
-  EXPECT_TRUE(l.custom());
-  EXPECT_EQ(l.root.generic_string(), "/var/lib/nsclient/fleet");
+  EXPECT_TRUE(l.configured);
   EXPECT_EQ(l.scripts.generic_string(), "/var/lib/nsclient/fleet/scripts");
+  EXPECT_EQ(l.base.generic_string(), "/var/lib/nsclient/fleet");
 }
 
 TEST(ScriptRoot, AliasesAreCaseInsensitive) {
-  EXPECT_EQ(scripts::root::resolve("FLEET", expand).root.generic_string(), "/var/lib/nsclient/fleet");
-  EXPECT_EQ(scripts::root::resolve("Shared", expand).root.generic_string(), "/usr/lib/nsclient");
+  EXPECT_EQ(scripts::root::resolve("FLEET", expand).scripts.generic_string(), "/var/lib/nsclient/fleet/scripts");
+  EXPECT_EQ(scripts::root::resolve("Shared", expand).scripts.generic_string(), "/usr/lib/nsclient/scripts");
 }
 
-TEST(ScriptRoot, SharedIsTheSharedPath) {
+TEST(ScriptRoot, SharedIsTheSharedPathsScripts) {
   const scripts::root::layout l = scripts::root::resolve("shared", expand);
-  EXPECT_EQ(l.root.generic_string(), "/usr/lib/nsclient");
   EXPECT_EQ(l.scripts.generic_string(), "/usr/lib/nsclient/scripts");
+  EXPECT_EQ(l.base.generic_string(), "/usr/lib/nsclient");
 }
 
-// Anything else is a folder, tokens expanded, with the install layout below
-// it.
-TEST(ScriptRoot, APathIsExpandedAndGetsTheScriptsFolderBelowIt) {
+// Anything else is the scripts folder itself, tokens expanded; it need not be
+// called `scripts`, and its parent is still where scripts run.
+TEST(ScriptRoot, APathIsTheScriptsFolderAndItsParentTheBase) {
   const scripts::root::layout l = scripts::root::resolve("${data-path}/mine", expand);
-  EXPECT_TRUE(l.custom());
-  EXPECT_EQ(l.root.generic_string(), "/var/lib/nsclient/mine");
-  EXPECT_EQ(l.scripts.generic_string(), "/var/lib/nsclient/mine/scripts");
+  EXPECT_TRUE(l.configured);
+  EXPECT_EQ(l.scripts.generic_string(), "/var/lib/nsclient/mine");
+  EXPECT_EQ(l.base.generic_string(), "/var/lib/nsclient");
 }
 
-// A trailing separator must not produce `<root>//scripts` or a root that
-// compares unequal to the same folder written without it.
+// A trailing separator must not make the folder its own parent.
 TEST(ScriptRoot, ATrailingSeparatorIsDropped) {
-  EXPECT_EQ(scripts::root::resolve("/srv/nscp/", expand).root.generic_string(), "/srv/nscp");
-  EXPECT_EQ(scripts::root::resolve("/srv/nscp/", expand).scripts.generic_string(), "/srv/nscp/scripts");
-  EXPECT_EQ(scripts::root::resolve("/srv/nscp\\", expand).root.generic_string(), "/srv/nscp");
-}
-
-// The old CheckExternalScripts key named the scripts folder itself and
-// defaulted to ${scripts}; the docs told operators to write that line out. A
-// host upgrading with it must keep the layout it had, not get a `scripts`
-// folder appended, a sandbox on a folder that does not exist and, on
-// Windows, a working directory that moved.
-TEST(ScriptRoot, TheOldDefaultWrittenOutIsTheBuiltInLayout) {
-  for (const char *spelling : {"${scripts}", " ${scripts} ", "/opt/nscp/custom-scripts", "/opt/nscp/custom-scripts/", "/opt/nscp/./custom-scripts"}) {
-    const scripts::root::layout l = scripts::root::resolve(spelling, expand);
-    EXPECT_FALSE(l.custom()) << spelling;
-    EXPECT_TRUE(l.legacy) << spelling;
-    EXPECT_EQ(l.scripts.generic_string(), "/opt/nscp/custom-scripts") << spelling;
-  }
-  EXPECT_FALSE(scripts::root::resolve("fleet", expand).legacy);
-  EXPECT_FALSE(scripts::root::resolve("", expand).legacy);
+  EXPECT_EQ(scripts::root::resolve("/srv/nscp/scripts/", expand).scripts.generic_string(), "/srv/nscp/scripts");
+  EXPECT_EQ(scripts::root::resolve("/srv/nscp/scripts/", expand).base.generic_string(), "/srv/nscp");
+  EXPECT_EQ(scripts::root::resolve("/srv/nscp/scripts\\", expand).scripts.generic_string(), "/srv/nscp/scripts");
 }
 
 // A root directory keeps its separator: stripped, `C:\` becomes the
-// drive-relative `C:` and the scripts folder `C:scripts`.
+// drive-relative `C:`.
 TEST(ScriptRoot, ARootDirectoryKeepsItsSeparator) {
 #ifdef WIN32
   EXPECT_EQ(scripts::root::without_trailing_separator("C:\\").string(), "C:\\");
-  EXPECT_EQ(scripts::root::resolve("C:\\", expand).scripts.string(), "C:\\scripts");
   EXPECT_EQ(scripts::root::without_trailing_separator("C:\\nscp\\").string(), "C:\\nscp");
 #else
   EXPECT_EQ(scripts::root::without_trailing_separator("/").string(), "/");
@@ -116,6 +109,10 @@ TEST(ScriptRoot, ARootDirectoryKeepsItsSeparator) {
   EXPECT_EQ(scripts::root::without_trailing_separator("//server/share/").string(), "//server/share");
 #endif
 }
+
+// A scripts folder with no parent has no base; the module falls back to the
+// installation directory rather than an empty working directory.
+TEST(ScriptRoot, ABareNameHasNoBase) { EXPECT_TRUE(scripts::root::resolve("scripts", expand).base.empty()); }
 
 // An unknown token is the operator's typo, and is reported the way every
 // other path option reports it rather than silently becoming a folder name.
@@ -125,7 +122,7 @@ TEST(ScriptRoot, AnUnknownTokenIsReported) { EXPECT_THROW(scripts::root::resolve
 // expansion (and its precedence rules for [paths] overrides) decides where it
 // is; the resolver never hard-codes a location.
 TEST(ScriptRoot, AliasTargetsAreTokens) {
-  EXPECT_EQ(scripts::root::alias_target("fleet"), "${fleet-folder}");
-  EXPECT_EQ(scripts::root::alias_target("shared"), "${shared-path}");
+  EXPECT_EQ(scripts::root::alias_target("fleet"), "${fleet-folder}/scripts");
+  EXPECT_EQ(scripts::root::alias_target("shared"), "${shared-path}/scripts");
   EXPECT_EQ(scripts::root::alias_target("/x"), "/x");
 }

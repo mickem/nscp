@@ -654,29 +654,41 @@ everywhere else.
 
 Every script-carrying module (`CheckExternalScripts`, `PythonScript`, `LUAScript`, `CheckMKClient`,
 `CheckMKServer`) reads a `script root` setting - from its own section, or from `[/settings/default]`
-to move them all at once. It names the folder the scripts tree hangs from, and a configured root
-always has the install layout below it:
+to move them all at once. It names the scripts folder, `${scripts}` by default. Python and Lua
+scripts live in its `python` and `lua` sub-folders, and the folder *above* it is where an external
+script is started:
 
-| Value | Root | Scripts |
+| Value | Scripts folder | External scripts run in |
 |---|---|---|
-| empty, `default` | the built-in layout | `${scripts}`, `${scripts}/python`, `${scripts}/lua` |
-| `fleet` | `${fleet-folder}` | `${fleet-folder}/scripts`, `…/scripts/python`, `…/scripts/lua` |
-| `shared` | `${shared-path}` | `${shared-path}/scripts`, … |
-| a folder (`${...}` tokens expanded) | that folder | `<root>/scripts`, … |
+| empty, `default` | `${scripts}` | the folder above it - the installation directory on Windows |
+| `fleet` | `${fleet-folder}/scripts` | `${fleet-folder}` |
+| `shared` | `${shared-path}/scripts` | `${shared-path}` |
+| a folder (`${...}` tokens expanded) | that folder | the folder above it |
 
-With a root configured, an external script is **started in the root, on every platform**, and a
-relative command with a folder in it (`scripts\check_foo.bat`, `sh scripts/check_foo.sh`) is
-resolved against it rather than the installation directory. That is what keeps a tree relocatable:
-a script that calls a sibling as `scripts\helper.bat` finds it wherever the tree lives, Python and
-Lua find their `lib` helpers beside them, and `ext-scr add --import` records `scripts/<name>`
-relative to the root. The show/delete sandbox of the `ext-scr`, `py` and `lua` commands and the
-`/api/v2/scripts` routes moves with it.
+That last column is the rule the default layout has always followed: `${scripts}` is the
+installation directory's `scripts` folder, and scripts start in the installation directory, which is
+why a command is written `scripts\check_foo.bat` and a batch file calls a sibling as
+`scripts\other.bat`. Making it the rule for *any* root is what lets a tree move. An external script
+is **started in the folder above the scripts folder, on every platform**, and a relative command with
+a folder in it (`scripts\check_foo.bat`, `sh scripts/check_foo.sh`) is resolved against that folder.
+Copy the scripts folder anywhere, point `script root` at it, and every spelling keeps working: the
+commands, the shipped wrappings, scripts calling each other, Python and Lua finding their `lib`
+helpers. `ext-scr add --import` records `scripts/<name>` relative to that folder, and the
+show/delete sandbox of the `ext-scr`, `py` and `lua` commands and the `/api/v2/scripts` routes is
+the scripts folder itself, as it always was.
+
+On Linux and macOS the agent now sets that working directory itself. The shipped systemd unit
+already set `WorkingDirectory` to the folder `${scripts}` lives in, so a service sees no change; an
+agent started by hand or as a container entrypoint stops depending on wherever it happened to be
+started. On Windows the built-in layout keeps the installation directory even when a `[paths]`
+override has moved `${scripts}` elsewhere, since every `scripts\check.bat` entry on such a host was
+written against it; a configured root always takes its own parent.
 
 `fleet` is the case it exists for: the fleet sync stages a bundle's `scripts/` entries under
 `${fleet-folder}/scripts`, so a bundle that ships scripts sets `[/settings/default] script root =
 fleet` in its own configuration and names no host path at all - see
 [Bundles that ship scripts](../setup/fleet.md#bundles-that-ship-scripts). Whoever can write to the
-root can change what the service runs, so treat the folder as you treat `${scripts}`.
+folder can change what the service runs, so treat it as you treat `${scripts}`.
 
 ### Overriding
 

@@ -3,38 +3,38 @@ icon: "🔧 🔒"
 modules: [CheckExternalScripts, PythonScript, LUAScript, CheckMKClient, CheckMKServer]
 action: conditional
 ---
-**`script root`: run scripts from the fleet tree, or any folder laid out like the
-install.** Every script-carrying module (`CheckExternalScripts`, `PythonScript`,
+**`script root`: run scripts from the fleet tree, or any copy of the scripts
+folder.** Every script-carrying module (`CheckExternalScripts`, `PythonScript`,
 `LUAScript`, `CheckMKClient`, `CheckMKServer`) now reads a `script root`
-setting, from its own section or from `[/settings/default]`. The value is
-`fleet` (`${fleet-folder}`, where the fleet sync stages a bundle's `scripts/`
-entries), `shared` (`${shared-path}`), a folder, or empty for the built-in
-layout. A configured root has the install layout below it - `scripts/`,
-`scripts/python`, `scripts/lua` - and an external script is started with the
-root as its working directory, with a relative command such as
-`scripts\check.bat` resolved against it, so scripts that call each other by
-relative path keep working wherever the tree is placed. A fleet bundle that
-ships scripts sets `[/settings/default] script root = fleet` in its own
-configuration and needs no host path. Nothing changes on an install that does
-not set it.
+setting, from its own section or from `[/settings/default]`. It names the
+scripts folder: `${scripts}` by default, `fleet` for `${fleet-folder}/scripts`
+(where the fleet sync stages a bundle's `scripts/` entries), `shared` for
+`${shared-path}/scripts`, or a folder of your own. Python and Lua read its
+`python` and `lua` sub-folders, and an external script is started in the folder
+*above* it with a relative command such as `scripts\check.bat` resolved against
+that folder - the rule the default layout has always followed, so a scripts
+folder moved elsewhere runs unchanged, scripts that call each other by relative
+path included. A fleet bundle that ships scripts sets `[/settings/default]
+script root = fleet` in its own configuration and needs no host path.
+`CheckExternalScripts` already had the key with this meaning and default; it is
+now shared by every script module and sets where the scripts run as well.
 
-- **`CheckExternalScripts` already had a `script root` key, and its meaning
-  changed.** It used to name the scripts folder itself (default `${scripts}`)
-  and only bounded `ext-scr show`, `delete` and `add --import`. It now names
-  the folder *above* `scripts/`, bounds the same operations to
-  `<root>/scripts`, and also sets where every external script runs. An unset
-  key, and the old default written out (`script root = ${scripts}`, as the
-  documentation used to suggest, or that folder spelled as a path), keep the
-  built-in layout: a root that *is* the scripts folder is read as the old
-  configuration, not as a request for `${scripts}/scripts`. Only a key
-  pointing at a folder of your own changes meaning: move the scripts into a
-  `scripts` sub-folder of it, or point it at the parent.
-- **On Linux and macOS an external script now runs in the root** when one is
-  configured; with none configured it inherits the service's working
-  directory as it always has. On Windows the working directory was always the
-  installation directory, and still is for the built-in layout.
-- A script imported with `ext-scr add --import` under a configured root is
-  recorded as `scripts/<name>`, relative to the root, rather than as an
-  absolute path.
-- Whoever can write to the root can change what the service runs; see the
+- **On Linux and macOS an external script now runs in the folder above the
+  scripts folder**, set by the agent. The shipped systemd unit already sets
+  `WorkingDirectory` to that folder (`${shared-path}`), so a service sees no
+  change; an agent started by hand, from an init script or as a container
+  entrypoint used to inherit whatever directory it was started in and now
+  gets the same one as the service. A script that relied on that inherited
+  directory should use an absolute path, or the `scripts/` spelling. If the
+  folder does not exist the script inherits the service's directory as
+  before, and the log says so once.
+- **On Windows nothing moves for the built-in layout**: scripts start in the
+  installation directory as they always did, including when a `[paths]`
+  override has moved `${scripts}` elsewhere. A configured `script root` starts
+  them in the folder above it.
+- A script imported with `ext-scr add --import` is recorded as
+  `scripts/<name>`, relative to the folder it runs in, on every platform; it
+  used to be an absolute path on Linux and macOS.
+- Whoever can write to the scripts folder can change what the service runs;
+  see the
   [security notice](../security/notices.md#script-root-a-service-writable-folder-can-hold-the-scripts-the-service-runs).

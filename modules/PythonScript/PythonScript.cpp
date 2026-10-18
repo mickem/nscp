@@ -105,7 +105,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
     settings.register_all();
     settings.notify();
 
-    // The scripts folder: ${scripts}, or `<script root>/scripts`. Known only
+    // The scripts folder (`script root`, ${scripts} by default). Known only
     // now that the key has been read, which is why the provider is told
     // rather than built with it.
     root_ = scripts::root::resolve_or_default(

@@ -722,8 +722,8 @@ In detail, when the monitoring server asks the agent to run `check_this`, the ag
    or `/alias`), **and**
 2. The command names the script; the agent resolves nothing on the caller's behalf. What *is* confined to a folder
    is script management - `ext-scr show`/`delete`/`add --import` and the `/api/v2/scripts` routes stay inside the
-   scripts folder: `${scripts}`, or the `scripts` folder below a configured
-   [`script root`](../concepts/settings.md#moving-the-whole-tree-script-root) - **and**
+   scripts folder: `${scripts}`, or whatever
+   [`script root`](../concepts/settings.md#moving-the-whole-tree-script-root) names - **and**
 3. If the request includes arguments, `allow arguments = true` is also set (default `false`), **and**
 4. If those arguments contain shell metacharacters, `allow nasty characters = true` is also set (default `false`).
 

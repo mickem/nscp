@@ -25,8 +25,8 @@ folder it executes from.
 
 The show/delete sandbox of `ext-scr`, `nscp py` and `nscp lua`, and of the
 `/api/v2/scripts` routes, moves with the root: those operations are confined
-to `<root>/scripts` as they were to `${scripts}`, with symlinks resolved, so
-a name cannot reach above the tree. `ext-scr add --import` keeps requiring its
+to the configured folder as they were to `${scripts}`, with symlinks
+resolved, so a name cannot reach above the tree. `ext-scr add --import` keeps requiring its
 source to be inside the script folder, `${shared-path}` or the upload staging
 area. A root that cannot be entered fails the check out loud rather than
 running the script from wherever the service happened to be started.

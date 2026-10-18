@@ -187,29 +187,28 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
         .add_key_to_settings()
         .add_string("script root", sh::string_key(&scriptRoot, ""), "Script root",
                     scripts::root::description() +
-                        " The scripts folder below the root is also what ext-scr show/delete are confined to and where ext-scr add --import copies "
-                        "to; ext-scr add --script <path> is not bounded by it (an administrator-only action, equivalent to editing the configuration "
-                        "directly).");
+                        " It is also what ext-scr show/delete are confined to and where ext-scr add --import copies to; ext-scr add --script <path> "
+                        "is not bounded by it (an administrator-only action, equivalent to editing the configuration directly).");
 
     settings.register_all();
     settings.notify();
     settings.clear();
 
-    const scripts::root::layout layout = scripts::root::resolve_or_default(
+    scripts::root::layout layout = scripts::root::resolve_or_default(
         scriptRoot, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); });
-    if (layout.legacy) {
-      NSC_DEBUG_MSG_STD("script root names the scripts folder itself (" + layout.scripts.string() +
-                        "), the key's previous meaning: keeping the built-in layout");
-    }
-    if (layout.custom()) {
-      NSC_DEBUG_MSG_STD("Script root: " + layout.root.string() + " (scripts in " + layout.scripts.string() + ")");
-      // Every script is started in this directory, and a directory that is
-      // not there fails each of them: say so once, here, where the operator
-      // can connect it to the option.
-      if (!boost::filesystem::is_directory(layout.root)) {
-        NSC_LOG_ERROR_STD("The script root " + layout.root.string() + " does not exist: external scripts will fail until it does");
-      }
-    }
+#ifdef WIN32
+    // The built-in layout keeps the installation directory as the launch
+    // directory even when a [paths] override has moved ${scripts} elsewhere:
+    // every `scripts\x.bat` entry on such a host was written against the
+    // installation directory, where the shipped scripts folder still is, and
+    // the launcher always started scripts there. A configured root is a
+    // statement about the whole tree and takes its parent.
+    if (!layout.configured) layout.base = get_base_path();
+#endif
+    // A bare relative name has no folder above it; the installation directory
+    // is the one place that always exists.
+    if (layout.base.empty()) layout.base = get_base_path();
+    NSC_DEBUG_MSG_STD("Scripts in " + layout.scripts.string() + ", run from " + layout.base.string());
     provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), layout, wrappings));
 
     // clang-format off
@@ -274,12 +273,22 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
     aliases_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
-    // Where a relative command is rooted and - with a configured root - where
-    // the script runs. The built-in layout keeps the launcher's historical
-    // behaviour: rooted at the installation directory, started there on
-    // Windows and wherever the service was started on Unix.
-    root_ = layout.custom() ? layout.root.string() : std::string(get_base_path());
-    working_directory_ = layout.custom() ? layout.root.string() : "";
+    // Where a relative command is rooted and where the script runs: the folder
+    // above the scripts folder. On Windows that is what it always was for the
+    // default layout; on Unix the shipped unit set the same directory and a
+    // hand-started agent inherited whatever it had, so setting it here makes
+    // the two agree. A folder that is not there would fail every script out
+    // loud (the launcher refuses a working directory it cannot enter), so a
+    // missing one is reported once and the script inherits the service's
+    // directory instead - a command written with an absolute path keeps
+    // working, and a relative one could not have resolved anyway.
+    root_ = layout.base.string();
+    if (boost::filesystem::is_directory(layout.base)) {
+      working_directory_ = root_;
+    } else {
+      working_directory_.clear();
+      NSC_LOG_ERROR_STD("The folder above the scripts folder, " + root_ + ", does not exist: external scripts run in the service's own directory until it does");
+    }
 
     nscapi::core_helper core(get_core(), get_id());
     for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {

@@ -147,6 +147,20 @@ describeOnUnix("CheckExternalScripts — command timeout enforcement (POSIX laun
     return { out: r.all ?? `${r.stdout}\n${r.stderr}`, code: r.exitCode };
   }
 
+  it("runs the script in the folder above ${scripts}, the directory `scripts/x.sh` is spelled from", async () => {
+    // The default layout: the scripts folder's parent is where a script starts
+    // (the installation directory on Windows, the folder the shipped unit
+    // sets on Linux), and the agent now sets it itself rather than leaving the
+    // child wherever the service happened to be started.
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/external scripts/scripts": { check_where: "/bin/sh -c pwd" },
+    });
+    const { out } = await query("check_where");
+    const scripts = fs.realpathSync(nscp.pathOverrides.scripts);
+    expect(out.trim().split("\n").pop()).toContain(path.dirname(scripts));
+  });
+
   it("kills a script that exceeds the timeout and reports it", async () => {
     await nscp.configure({
       "/modules": { CheckExternalScripts: "enabled" },
@@ -448,6 +462,20 @@ describeOnWindows("CheckExternalScripts — output capture (Windows launcher)", 
 
     expect(out).toContain(`${MARKER}-critical`);
     expect(code).toBe(2); // CRITICAL
+  });
+
+  it("runs the script in the folder above ${scripts}, the directory `scripts/x.sh` is spelled from", async () => {
+    // The default layout: the scripts folder's parent is where a script starts
+    // (the installation directory on Windows, the folder the shipped unit
+    // sets on Linux), and the agent now sets it itself rather than leaving the
+    // child wherever the service happened to be started.
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/external scripts/scripts": { check_where: "/bin/sh -c pwd" },
+    });
+    const { out } = await query("check_where");
+    const scripts = fs.realpathSync(nscp.pathOverrides.scripts);
+    expect(out.trim().split("\n").pop()).toContain(path.dirname(scripts));
   });
 
   it("kills a script that exceeds the timeout and reports it", async () => {

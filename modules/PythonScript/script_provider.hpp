@@ -33,7 +33,7 @@ struct script_provider : public script_provider_interface {
 
   boost::filesystem::path get_root();
   void set_scripts_folder(const boost::filesystem::path &scripts);
-  // The scripts folder as of this call: ${scripts}, or `<script root>/scripts`.
+  // The scripts folder as of this call: `script root`, ${scripts} by default.
   boost::filesystem::path scripts_folder() const;
   boost::optional<boost::filesystem::path> find_file(std::string file);
 
