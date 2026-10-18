@@ -10,7 +10,7 @@ import { onUnix, onWindows } from "./platform";
 type ExecaChildProcess = execa.ExecaChildProcess;
 type ExecaReturnValue = execa.ExecaReturnValue;
 
-function nscpBin(): string {
+export function nscpBin(): string {
   if (!process.env.NSCP_BIN) {
     throw new Error("NSCP_BIN not set; global-setup did not run");
   }
