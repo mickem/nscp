@@ -285,6 +285,12 @@ class factory {
   static void set_impl(std::shared_ptr<impl_interface> impl);
 
   static pdh_instance create(const pdh_object &object);
+  // The sub-counters a $INSTANCE$ object expands to right now, one per
+  // instance. An object that resolved but has no instances at the moment
+  // returns an empty list and sets no_instances; one that cannot be expanded
+  // throws. create() uses it once; a collector that keeps a container running
+  // calls it again to follow instances that come and go.
+  static std::list<pdh_object> expand_instances(const pdh_object &object, bool &no_instances);
   static pdh_instance create(const std::string &counter);
   static pdh_instance create(const std::string &counter, const pdh_object &object);
 };
