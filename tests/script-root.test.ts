@@ -139,13 +139,15 @@ class Probe {
     this.nscp = new NscpInstance({ workDir: this.workDir, pathOverrides: placed.overrides });
   }
 
-  /** Whether the key is set: the Windows built-in layout keeps the install directory as the start directory. */
+  /**
+   * Whether the key names a folder other than ${scripts}, the way the resolver
+   * decides it: unset, `default` and the old default written out as
+   * `${scripts}` are all the built-in layout, where Windows keeps the install
+   * directory as the start directory.
+   */
   get configured(): boolean {
-    return (
-      this.value !== undefined &&
-      this.value.trim() !== "" &&
-      this.value.trim().toLowerCase() !== "default"
-    );
+    const value = (this.value ?? "").trim().toLowerCase();
+    return value !== "" && value !== "default" && value !== "${scripts}";
   }
 
   /** The directory an external script is started in. */
