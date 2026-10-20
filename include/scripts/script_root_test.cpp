@@ -122,6 +122,36 @@ TEST(ScriptRoot, ARootDirectoryKeepsItsSeparator) {
 // installation directory rather than an empty working directory.
 TEST(ScriptRoot, ABareNameHasNoBase) { EXPECT_TRUE(scripts::root::resolve("scripts", expand).base.empty()); }
 
+// A scripts folder that is a root directory has no folder above it either.
+// boost spells the parent of `C:\` as the drive-relative `C:`, which as a
+// working directory or a rooting base would resolve against the per-drive
+// current directory; that must come out as "no base", not as `C:`.
+TEST(ScriptRoot, ARootDirectoryHasNoBase) {
+#ifdef WIN32
+  const scripts::root::layout l = scripts::root::resolve("C:\\", expand);
+  EXPECT_EQ(l.scripts.string(), "C:\\");
+  EXPECT_TRUE(l.base.empty()) << l.base.string();
+  EXPECT_TRUE(scripts::root::parent_folder("C:").empty());
+  EXPECT_EQ(scripts::root::parent_folder("C:\\nscp\\scripts").string(), "C:\\nscp");
+#else
+  const scripts::root::layout l = scripts::root::resolve("/", expand);
+  EXPECT_EQ(l.scripts.string(), "/");
+  EXPECT_TRUE(l.base.empty()) << l.base.string();
+  EXPECT_EQ(scripts::root::parent_folder("/opt/nscp/scripts").string(), "/opt/nscp");
+#endif
+}
+
+// The folder a module publishes to its query threads: empty until set, and
+// then the last value set.
+TEST(ScriptRoot, APublishedFolderIsEmptyUntilSet) {
+  scripts::root::published_folder folder;
+  EXPECT_TRUE(folder.get().empty());
+  folder.set("/opt/nscp/scripts");
+  EXPECT_EQ(folder.get().generic_string(), "/opt/nscp/scripts");
+  folder.set("/var/lib/nsclient/fleet/scripts");
+  EXPECT_EQ(folder.get().generic_string(), "/var/lib/nsclient/fleet/scripts");
+}
+
 // An unknown token is the operator's typo, and is reported the way every
 // other path option reports it rather than silently becoming a folder name.
 TEST(ScriptRoot, AnUnknownTokenIsReported) { EXPECT_THROW(scripts::root::resolve("${scripst}/x", expand), std::runtime_error); }

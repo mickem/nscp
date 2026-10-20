@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <boost/filesystem.hpp>
 #include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
@@ -18,15 +17,6 @@
 
 class PythonScript : public nscapi::impl::simple_plugin {
  private:
-  // The scripts folder (`script root`): rewritten on every reload, and read
-  // by execute_script on query and web threads, so it is published as an
-  // atomic shared_ptr - the old value or the new one, never a torn path.
-  std::shared_ptr<const boost::filesystem::path> root_;
-
-  boost::filesystem::path scripts_folder() const {
-    const std::shared_ptr<const boost::filesystem::path> root = std::atomic_load(&root_);
-    return root ? *root : boost::filesystem::path();
-  }
   std::string alias_;
 
   std::shared_ptr<script_provider_interface> provider_;
