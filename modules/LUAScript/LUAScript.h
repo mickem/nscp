@@ -12,6 +12,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <scripts/script_interface.hpp>
 #include <scripts/script_nscp.hpp>
+#include <scripts/script_root.hpp>
 
 class LUAScript : public nscapi::impl::simple_plugin {
  private:
@@ -24,12 +25,9 @@ class LUAScript : public nscapi::impl::simple_plugin {
   // The scripts folder (`script root`): replaced on every reload too, while a
   // web worker may be running `lua list` through commandLineExec, so it is
   // published the same way as the three above.
-  std::shared_ptr<const boost::filesystem::path> root_;
+  scripts::root::published_folder root_;
 
-  boost::filesystem::path scripts_folder() const {
-    const std::shared_ptr<const boost::filesystem::path> root = std::atomic_load(&root_);
-    return root ? *root : boost::filesystem::path();
-  }
+  boost::filesystem::path scripts_folder() const { return root_.get(); }
 
   void start_scripts();
 

@@ -38,7 +38,9 @@ on Linux and macOS the agent now sets an external script's working directory.
   them in the folder above it.
 - A script imported with `ext-scr add --import` is recorded as
   `scripts/<name>`, relative to the folder it runs in, on every platform; it
-  used to be an absolute path on Linux and macOS.
+  used to be an absolute path on Linux and macOS. While the folder above a
+  configured root is not there yet (the fallback above), the import creates
+  it and records the absolute path, which runs before the root is re-read.
 - Whoever can write to the scripts folder can change what the service runs;
   see the
   [security notice](../security/notices.md#script-root-a-service-writable-folder-can-hold-the-scripts-the-service-runs).

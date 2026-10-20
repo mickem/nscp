@@ -59,7 +59,7 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
         scripts::root::load(
             settings, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); })
             .scripts;
-    std::atomic_store(&root_, std::make_shared<const boost::filesystem::path>(root));
+    root_.set(root);
     NSC_DEBUG_MSG_STD("Lua scripts folder: " + (root / "lua").string());
 
     const auto nscp_runtime = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());

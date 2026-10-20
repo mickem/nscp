@@ -20,7 +20,10 @@ struct script_provider_interface {
   // `delete` and `add --import` are confined to.
   virtual boost::filesystem::path get_root() = 0;
   // The whole layout, for the folder a script runs in - the base an imported
-  // script is recorded relative to.
+  // script is recorded relative to. `base` is never empty: the module settles
+  // it before building the provider (the folder above the scripts folder, or
+  // the installation directory when there is none or it cannot be used), so
+  // it is the folder the launcher roots a relative command at.
   virtual scripts::root::layout get_layout() = 0;
   virtual std::string generate_wrapped_command(std::string command) = 0;
 

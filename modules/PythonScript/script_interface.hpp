@@ -20,6 +20,10 @@ struct script_provider_interface {
   // when a fleet bundle that ships scripts lands): the provider is built once
   // and told, rather than replaced under the query threads that hold it.
   virtual void set_scripts_folder(const boost::filesystem::path &scripts) = 0;
+  // The scripts folder as of this call (`script root`, ${scripts} by
+  // default): the one copy, which the module reads too rather than keeping
+  // its own in step with it.
+  virtual boost::filesystem::path scripts_folder() const = 0;
   virtual boost::optional<boost::filesystem::path> find_file(std::string file) = 0;
 
   virtual void add_command(std::string script_alias, std::string script, std::string plugin_alias) = 0;

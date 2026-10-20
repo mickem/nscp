@@ -202,10 +202,49 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     // statement about the whole tree and takes its parent.
     if (!layout.configured) layout.base = get_base_path();
 #endif
-    // A bare relative name has no folder above it; the installation directory
-    // is the one place that always exists.
+    // Where a relative command is rooted and where the script runs: the folder
+    // above the scripts folder. On Windows that is what it always was for the
+    // default layout; on Unix the shipped unit set the same directory and a
+    // hand-started agent inherited whatever it had, so setting it here makes
+    // the two agree. A folder that is not there would fail every script out
+    // loud (the launcher refuses a working directory it cannot enter), so a
+    // missing one is reported once and the script inherits the service's
+    // directory instead - a command written with an absolute path keeps
+    // working, and a relative one could not have resolved anyway.
+    //
+    // Decided here, before the provider is built from the layout, so that
+    // what `ext-scr add --import` records a script relative to is the folder
+    // the launcher really roots at: with the fallback applied only to the
+    // launcher, an import under `script root = fleet` written before the
+    // first sync created the fleet tree, recorded `scripts/<name>` against
+    // it, and registered a command that could not resolve until the next
+    // reload re-read the root.
+    //
+    // A bare relative name, or a scripts folder at a root directory, has no
+    // folder above it; the installation directory is the one place that
+    // always exists.
     if (layout.base.empty()) layout.base = get_base_path();
-    NSC_DEBUG_MSG_STD("Scripts in " + layout.scripts.string() + ", run from " + layout.base.string());
+    auto site = std::make_shared<launch_site>();
+    boost::system::error_code base_error;
+    if (boost::filesystem::is_directory(layout.base, base_error)) {
+      site->root = layout.base.string();
+      site->working_directory = site->root;
+    } else {
+      // Not there, or not readable past some component: either way the
+      // message is the point, not an exception that fails the module load.
+      // Both go back to what they were before the key existed - the
+      // installation directory as the rooting base, and no working directory
+      // of the agent's choosing. On Windows the launcher runs the child in
+      // the rooting base when no working directory is set, so that base has
+      // to be a folder that exists, or every script fails, absolute commands
+      // included (`script root = fleet` written before the first sync).
+      NSC_LOG_ERROR_STD("The folder above the scripts folder, " + layout.base.string() + ", cannot be used as the working directory (" +
+                        (base_error ? base_error.message() : std::string("it does not exist")) +
+                        "): external scripts run as they did without a script root until it can");
+      layout.base = get_base_path();
+      site->root = layout.base.string();
+    }
+    NSC_DEBUG_MSG_STD("Scripts in " + layout.scripts.string() + ", run from " + site->root);
     provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), layout, wrappings));
 
     // clang-format off
@@ -270,34 +309,8 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
     aliases_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
-    // Where a relative command is rooted and where the script runs: the folder
-    // above the scripts folder. On Windows that is what it always was for the
-    // default layout; on Unix the shipped unit set the same directory and a
-    // hand-started agent inherited whatever it had, so setting it here makes
-    // the two agree. A folder that is not there would fail every script out
-    // loud (the launcher refuses a working directory it cannot enter), so a
-    // missing one is reported once and the script inherits the service's
-    // directory instead - a command written with an absolute path keeps
-    // working, and a relative one could not have resolved anyway.
-    boost::system::error_code base_error;
-    auto site = std::make_shared<launch_site>();
-    if (boost::filesystem::is_directory(layout.base, base_error)) {
-      site->root = layout.base.string();
-      site->working_directory = site->root;
-    } else {
-      // Not there, or not readable past some component: either way the
-      // message is the point, not an exception that fails the module load.
-      // Both go back to what they were before the key existed - the
-      // installation directory as the rooting base, and no working directory
-      // of the agent's choosing. On Windows the launcher runs the child in
-      // the rooting base when no working directory is set, so that base has
-      // to be a folder that exists, or every script fails, absolute commands
-      // included (`script root = fleet` written before the first sync).
-      site->root = get_base_path();
-      NSC_LOG_ERROR_STD("The folder above the scripts folder, " + layout.base.string() + ", cannot be used as the working directory (" +
-                        (base_error ? base_error.message() : std::string("it does not exist")) +
-                        "): external scripts run as they did without a script root until it can");
-    }
+    // Published only now, with the scripts the settings walk registered: a
+    // query racing the reload runs against the old site or the new one.
     std::atomic_store(&launch_, std::shared_ptr<const launch_site>(site));
 
     nscapi::core_helper core(get_core(), get_id());
