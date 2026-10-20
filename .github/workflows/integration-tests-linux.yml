@@ -116,7 +116,8 @@ jobs:
           # than taking the older build that matches the installed runtime. It
           # can only widen what resolves - if no installable candidate exists the
           # install still fails loudly, exactly as it does now.
-          packages="coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng"
+          # boost-json: not pulled in by boost-devel on Rocky 9 (see build-redhat.yml).
+          packages="coreutils bash file findutils git boost-devel boost-json gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng"
           if [ "${{ inputs.dotnet }}" = "true" ]; then
             packages="$packages dotnet-runtime-8.0"
           fi
