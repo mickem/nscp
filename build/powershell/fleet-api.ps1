@@ -126,6 +126,63 @@ function Invoke-FleetApi {
     return $response | ForEach-Object { $_ }
 }
 
+<#
+.SYNOPSIS
+    Upload a bundle zip (POST /api/bundles, multipart): the path for a bundle
+    that carries scripts, which the compose endpoint cannot build.
+.DESCRIPTION
+    Returns the bundle the server stored (id, name, version), as compose
+    does. Goes through HttpClient rather than Invoke-RestMethod: 5.1 has no
+    -Form, and building the multipart body by hand is what the two versions
+    least agree on.
+#>
+function Invoke-FleetBundleUpload {
+    param(
+        [Parameter(Mandatory)][string]$FleetServer,
+        [Parameter(Mandatory)][string]$ApiKey,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Version,
+        [Parameter(Mandatory)][byte[]]$Bundle,
+        [switch]$SkipCertificateCheck,
+        [int]$TimeoutSec = 120
+    )
+    Set-FleetCertificateCheck -Skip ([bool]$SkipCertificateCheck)
+    Add-Type -AssemblyName System.Net.Http
+    $handler = New-Object System.Net.Http.HttpClientHandler
+    if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -ge 6) {
+        $handler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+    }
+    $client = New-Object System.Net.Http.HttpClient($handler)
+    $form = New-Object System.Net.Http.MultipartFormDataContent
+    $uri = "$($FleetServer.TrimEnd('/'))/api/bundles"
+    try {
+        $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSec)
+        $client.DefaultRequestHeaders.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", $ApiKey)
+        $form.Add((New-Object System.Net.Http.StringContent($Name)), "name")
+        $form.Add((New-Object System.Net.Http.StringContent($Version)), "version")
+        $form.Add((New-Object System.Net.Http.StringContent("plain")), "format")
+        $file = New-Object System.Net.Http.ByteArrayContent(, $Bundle)
+        $file.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("application/zip")
+        $form.Add($file, "bundle", "$Name-$Version.zip")
+        $response = $client.PostAsync($uri, $form).GetAwaiter().GetResult()
+        $text = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        if (-not $response.IsSuccessStatusCode) {
+            $status = [int]$response.StatusCode
+            $hint = switch ($status) {
+                401 { " (the API key is unknown, revoked, or its owner was deleted)" }
+                403 { " (the key's owner lacks the right for this call, or the tenant is at a tier limit; the body below says which)" }
+                default { "" }
+            }
+            throw "POST $uri : HTTP $status$hint`n$text"
+        }
+        return $text | ConvertFrom-Json
+    }
+    finally {
+        $form.Dispose()
+        $client.Dispose()
+    }
+}
+
 # Fail fast, before spending ten minutes creating a VM that then cannot enroll.
 # Note this only proves the fleet server answers *this* machine - the VM has to
 # reach the same url from Azure, so a localhost/LAN url will still fail later.

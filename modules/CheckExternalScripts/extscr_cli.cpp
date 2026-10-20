@@ -8,11 +8,13 @@
 #include <config.h>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
 #include <file_helpers.hpp>
 #include <fstream>
+#include <list>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
@@ -47,24 +49,55 @@ bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_
   return true;
 }
 
-bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) {
-  boost::filesystem::path path = provider_->get_root();
-  // Resolve symlinks before the containment check. path_contains_file compares
-  // lexically only, so a symlink placed inside the script root but pointing
-  // outside it would otherwise pass, letting show/delete read or remove files
-  // anywhere the service account can reach. weakly_canonical resolves the real
-  // targets (the candidate has already been confirmed to be a regular file by
-  // the callers); fall back to the lexical path if resolution fails.
+// Whether `pscript` is inside the scripts folder. Symlinks are resolved
+// before the containment check: path_contains_file compares lexically only,
+// so a symlink placed inside the folder but pointing outside it would
+// otherwise pass, letting show/delete read or remove files anywhere the
+// service account can reach. weakly_canonical resolves the real targets (the
+// candidate has already been confirmed to be a regular file by the callers);
+// fall back to the lexical path if resolution fails.
+bool extscr_cli::inside_sandbox(const boost::filesystem::path &pscript) const {
+  const boost::filesystem::path root = provider_->get_root();
   boost::system::error_code ec;
-  boost::filesystem::path real_root = boost::filesystem::weakly_canonical(path, ec);
-  if (ec) real_root = path;
+  boost::filesystem::path real_root = boost::filesystem::weakly_canonical(root, ec);
+  if (ec) real_root = root;
   boost::filesystem::path real_script = boost::filesystem::weakly_canonical(pscript, ec);
   if (ec) real_script = pscript;
-  if (!file_helpers::checks::path_contains_file(real_root, real_script)) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + path.string());
-    return false;
+  return file_helpers::checks::path_contains_file(real_root, real_script);
+}
+
+// The file a `--script` name refers to, for show and delete: under the folder
+// scripts run in first (where `scripts\check_foo.bat` resolves, and where a
+// configured root puts the tree), then as written, then under ${base-path},
+// which is what that spelling has always resolved from on Windows. A hit the
+// sandbox refuses is skipped rather than returned: with `script root = fleet`
+// the install's own scripts folder holds a same-named file reachable from the
+// agent's working directory, and stopping there answered "not allowed" for a
+// script that the fleet tree holds. `outside` says whether that was all that
+// was found, so the caller can say why it refused.
+bool extscr_cli::locate_script(const std::string &script, boost::filesystem::path &found, bool &outside) const {
+  outside = false;
+  std::list<std::string> spellings = {script};
+#ifdef WIN32
+  spellings.push_back(boost::algorithm::replace_all_copy(script, "/", "\\"));
+#endif
+  const scripts::root::layout layout = provider_->get_layout();
+  for (const std::string &s : spellings) {
+    std::list<boost::filesystem::path> candidates;
+    if (!layout.base.empty()) candidates.push_back(layout.base / s);
+    candidates.push_back(boost::filesystem::path(s));
+    candidates.push_back(provider_->get_core()->expand_path("${base-path}/" + s));
+    for (const boost::filesystem::path &c : candidates) {
+      if (!boost::filesystem::is_regular_file(c)) continue;
+      if (!inside_sandbox(c)) {
+        outside = true;
+        continue;
+      }
+      found = c;
+      return true;
+    }
   }
-  return true;
+  return false;
 }
 
 namespace {
@@ -166,9 +199,20 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
       }
     }
   } else {
-    boost::filesystem::path dir = provider_->get_core()->expand_path("${scripts}");
-    boost::filesystem::path rel = provider_->get_core()->expand_path("${base-path}");
-    boost::filesystem::recursive_directory_iterator iter(dir), eod;
+    // The scripts folder in force, spelled relative to the folder scripts run
+    // in: the form that runs as-is when recorded as a command.
+    const scripts::root::layout layout = provider_->get_layout();
+    boost::filesystem::path dir = provider_->get_root();
+    boost::filesystem::path rel = layout.base.empty() ? boost::filesystem::path(provider_->get_core()->expand_path("${base-path}")) : layout.base;
+    boost::system::error_code ec;
+    boost::filesystem::recursive_directory_iterator iter(dir, ec), eod;
+    if (ec) {
+      // A scripts folder that is not there, or cannot be read, is not an
+      // empty one: the operator asked what is in it, and the honest answer
+      // is why it cannot be told.
+      nscapi::protobuf::functions::set_response_bad(*response, "Failed to list " + dir.string() + ": " + ec.message());
+      return;
+    }
     for (boost::filesystem::path const &i : boost::make_iterator_range(iter, eod)) {
       std::string s = i.string();
       // Relative to the install base when the file is under it, which is the
@@ -245,22 +289,14 @@ void extscr_cli::show(const PB::Commands::ExecuteRequestMessage::Request &reques
   if (command_def) {
     nscapi::protobuf::functions::set_response_good(*response, command_def->command);
   } else {
-    boost::filesystem::path pscript = script;
-    bool found = boost::filesystem::is_regular_file(pscript);
-    if (!found) {
-      pscript = provider_->get_core()->expand_path("${base-path}/" + script);
-      found = boost::filesystem::is_regular_file(pscript);
+    boost::filesystem::path pscript;
+    bool outside = false;
+    const bool found = locate_script(script, pscript, outside);
+    if (!found && outside) {
+      nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + provider_->get_root().string());
+      return;
     }
-#ifdef WIN32
-    if (!found) {
-      pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
-      found = boost::filesystem::is_regular_file(pscript);
-    }
-#endif
     if (found) {
-      if (!validate_sandbox(pscript, response)) {
-        return;
-      }
 
       std::ifstream t(pscript.string().c_str());
       std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
@@ -317,22 +353,14 @@ void extscr_cli::delete_script(const PB::Commands::ExecuteRequestMessage::Reques
     nscapi::protobuf::functions::set_response_good(*response,
                                                    "Script definition has been removed don't forget to delete any artifact for: " + command_def->command);
   } else {
-    boost::filesystem::path pscript = script;
-    bool found = boost::filesystem::is_regular_file(pscript);
-    if (!found) {
-      pscript = provider_->get_core()->expand_path("${base-path}/" + script);
-      found = boost::filesystem::is_regular_file(pscript);
+    boost::filesystem::path pscript;
+    bool outside = false;
+    const bool found = locate_script(script, pscript, outside);
+    if (!found && outside) {
+      nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + provider_->get_root().string());
+      return;
     }
-#ifdef WIN32
-    if (!found) {
-      pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
-      found = boost::filesystem::is_regular_file(pscript);
-    }
-#endif
     if (found) {
-      if (!validate_sandbox(pscript, response)) {
-        return;
-      }
       boost::filesystem::remove(pscript);
       nscapi::protobuf::functions::set_response_good(*response, "Script file was removed");
     } else {
@@ -403,24 +431,28 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     // On Windows the launcher starts the child with ${base-path} as its working
     // directory, so a path below it can be written relative and still resolve -
     // and that is the spelling every existing nsclient.ini and the web UI's
-    // script list show. But only a path that really is below it: `script root`
-    // is a settable option (default ${scripts}), and ${scripts} itself moves
-    // with a [paths] override, so the old hard-coded "scripts\\<name>" was a
-    // guess about the default layout. Point `script root` anywhere else and the
-    // copy landed in one folder while the registered command named another,
-    // which the shell resolved to nothing and the check reported as exit 127.
-    // Ask where the file actually is instead of assuming.
+    // script list show. But only a path that really is below it: ${scripts}
+    // moves with a [paths] override, so the old hard-coded "scripts\\<name>"
+    // was a guess about the default layout - the copy landed in one folder
+    // while the registered command named another, which the shell resolved to
+    // nothing and the check reported as exit 127. Ask where the file actually
+    // is instead of assuming.
     //
     // On unix the relative form never resolved at all: the backslash is an
     // ordinary filename character, ${scripts} is not below ${base-path}
     // (/usr/lib/nsclient/scripts versus /usr/sbin), and the unix launcher sets
     // no working directory for the child in the first place.
+    //
+    // Both are now the same rule: the script is started in the folder above
+    // the scripts folder, on every platform, so `scripts/<name>` relative to
+    // that folder resolves wherever the tree is - and that spelling is what
+    // keeps the tree relocatable.
     script = file.string();
-#ifdef WIN32
-    const boost::filesystem::path base(provider_->get_core()->expand_path("${base-path}"));
-    const std::string relative = script_paths::relative_to(base, file);
-    if (!relative.empty()) script = relative;
-#endif
+    const scripts::root::layout layout = provider_->get_layout();
+    if (!layout.base.empty()) {
+      const std::string relative = script_paths::relative_to(layout.base, file);
+      if (!relative.empty()) script = relative;
+    }
     // Quoted when it has to be: the recorded value is a command line, and
     // parse_command tokenises it with boost::escaped_list_separator on spaces
     // (with `"` as the quote character). An unquoted C:\\Program Files\\...\\x.bat
@@ -455,6 +487,13 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
 
   if (!wrapped) {
     bool found = boost::filesystem::is_regular_file(file);
+    const scripts::root::layout layout = provider_->get_layout();
+    if (!found && !layout.base.empty() && !file.is_absolute()) {
+      // `scripts/check.sh` as the script runs it, relative to the folder it
+      // starts in: the spelling that gets recorded - the file is only looked
+      // up here.
+      found = boost::filesystem::is_regular_file(layout.base / file);
+    }
     if (!found) {
       file = file = provider_->get_core()->expand_path("${shared-path}/" + file.string());
       found = boost::filesystem::is_regular_file(file);

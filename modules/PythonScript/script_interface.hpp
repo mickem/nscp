@@ -16,6 +16,10 @@ struct script_provider_interface {
   virtual std::shared_ptr<nscapi::settings_proxy> get_settings_proxy() = 0;
 
   virtual boost::filesystem::path get_root() = 0;
+  // A reload may move the scripts folder (`script root` changed, as it does
+  // when a fleet bundle that ships scripts lands): the provider is built once
+  // and told, rather than replaced under the query threads that hold it.
+  virtual void set_scripts_folder(const boost::filesystem::path &scripts) = 0;
   virtual boost::optional<boost::filesystem::path> find_file(std::string file) = 0;
 
   virtual void add_command(std::string script_alias, std::string script, std::string plugin_alias) = 0;

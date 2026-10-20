@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <atomic>
+#include <memory>
 #include <nscapi/command_alias.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -15,7 +17,17 @@ class CheckExternalScripts : public nscapi::impl::simple_plugin {
   alias::command_handler aliases_;
   unsigned int timeout;
   bool kill_tree;
-  std::string root_;
+  // Where scripts are started from: the base a relative command is rooted at
+  // (the folder above the scripts folder, or ${base-path}) and the directory
+  // the child runs in (the same folder, or empty for the launcher's own
+  // choice - see exec_arguments). Rewritten by every reload while query
+  // threads read it in handle_command, so the pair is published whole, as
+  // one atomically swapped object.
+  struct launch_site {
+    std::string root;
+    std::string working_directory;
+  };
+  std::shared_ptr<const launch_site> launch_;
   bool allowArgs_;
   bool allowNasty_;
 

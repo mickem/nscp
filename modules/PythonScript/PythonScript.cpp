@@ -15,6 +15,7 @@
 #include <nscapi/protobuf/functions_status.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <scripts/script_root_setting.hpp>
 
 #include "boost_python_wrapper.hpp"
 #include "extscr_cli.h"
@@ -51,7 +52,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   try {
     std::string python_cache;
     std::string python_lib;
-    root_ = get_core()->expand_path("${scripts}");
+    std::string script_root;
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
     settings.set_alias(alias, "python");
@@ -63,10 +64,9 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
         .add_string("python lib", sh::string_key(&python_lib, DEFAULT_PYTHON_LIB), "Python lib", "The python DLL to load")
 #endif
         ;
-
-    // Construct once: a reload would otherwise replace the provider under
-    // the query threads that hold it.
-    if (!provider_) provider_ = std::make_shared<script_provider>(get_id(), get_core(), root_);
+    // Shared with the other script modules and read from [/settings/default]
+    // when this section does not set it: see include/scripts/script_root.hpp.
+    scripts::root::register_key(settings, &script_root);
 
     // clang-format off
     settings.alias().add_path_to_settings()
@@ -101,6 +101,23 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
     settings.register_all();
     settings.notify();
+
+    // The scripts folder (`script root`, ${scripts} by default). Known only
+    // now that the key has been read, which is why the provider is told
+    // rather than built with it.
+    const boost::filesystem::path root =
+        scripts::root::resolve_or_default(
+            script_root, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); })
+            .scripts;
+    std::atomic_store(&root_, std::make_shared<const boost::filesystem::path>(root));
+    NSC_DEBUG_MSG_STD("Python scripts folder: " + (root / "python").string());
+
+    // Construct once: a reload would otherwise replace the provider under
+    // the query threads that hold it.
+    if (!provider_)
+      provider_ = std::make_shared<script_provider>(get_id(), get_core(), root);
+    else
+      provider_->set_scripts_folder(root);
 
     python_script::init(python_cache, python_lib);
 
@@ -227,7 +244,7 @@ void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Req
     return;
   }
   std::string script_file = ofile.value().string();
-  python_script script(get_id(), root_.string(), "", "", script_file);
+  python_script script(get_id(), scripts_folder().string(), "", "", script_file);
   std::list<std::string> ops(script_options.begin(), script_options.end());
   if (!script.callFunction("__main__", ops)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");

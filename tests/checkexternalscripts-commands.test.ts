@@ -26,6 +26,7 @@ import {
   OK,
   UNKNOWN,
   WARNING,
+  bundledLuaScript,
   describeOnUnix,
   describeOnWindows,
   executeQuery,
@@ -49,7 +50,9 @@ describe("CheckExternalScripts — ext-scr install argument lockdown (settings p
 
   /** Read a single settings value back from the store. */
   async function getSetting(settingsPath: string, key: string): Promise<string> {
-    const r = await nscp.run(["settings", "--show", "--path", settingsPath, "--key", key], { allowFailure: true });
+    const r = await nscp.run(["settings", "--show", "--path", settingsPath, "--key", key], {
+      allowFailure: true,
+    });
     return (r.all ?? `${r.stdout}\n${r.stderr}`).trim();
   }
 
@@ -67,12 +70,17 @@ describe("CheckExternalScripts — ext-scr install argument lockdown (settings p
     expect(out).toMatch(/Arguments are NOT allowed/i);
 
     expect(await getSetting("/settings/external scripts", "allow arguments")).toMatch(/false/i);
-    expect(await getSetting("/settings/external scripts", "allow nasty characters")).toMatch(/false/i);
+    expect(await getSetting("/settings/external scripts", "allow nasty characters")).toMatch(
+      /false/i,
+    );
   });
 
   it("`ext-scr install --arguments=safe` enables arguments but not nasty characters", async () => {
     await nscp.configure({
-      "/settings/external scripts": { "allow arguments": "false", "allow nasty characters": "false" },
+      "/settings/external scripts": {
+        "allow arguments": "false",
+        "allow nasty characters": "false",
+      },
     });
 
     const r = await nscp.run(["ext-scr", "install", "--arguments=safe"], { allowFailure: true });
@@ -80,7 +88,29 @@ describe("CheckExternalScripts — ext-scr install argument lockdown (settings p
     expect(out).toMatch(/SAFE Arguments are allowed/i);
 
     expect(await getSetting("/settings/external scripts", "allow arguments")).toMatch(/true/i);
-    expect(await getSetting("/settings/external scripts", "allow nasty characters")).toMatch(/false/i);
+    expect(await getSetting("/settings/external scripts", "allow nasty characters")).toMatch(
+      /false/i,
+    );
+  });
+});
+
+describe("CheckExternalScripts — `script root = ${scripts}`, the key's old default written out", () => {
+  // The key used to name the scripts folder itself, defaulting to ${scripts},
+  // and the documentation told operators to write that line. It now names the
+  // folder above `scripts/`; a value that is the scripts folder is read as the
+  // old configuration and keeps the built-in layout, rather than becoming a
+  // root with a `scripts` folder that does not exist below it - which would
+  // put the show/delete sandbox on nothing and fail every show.
+  it("keeps the show sandbox on ${scripts}", async () => {
+    const nscp = new NscpInstance();
+    await nscp.configure({ "/settings/external scripts": { "script root": "${scripts}" } });
+    const r = await nscp.run(["ext-scr", "show", "--script", bundledLuaScript("mock")], {
+      allowFailure: true,
+    });
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+    expect(out).not.toContain("Not allowed outside");
+    expect(out).toContain("Registry");
+    expect(r.exitCode).toBe(0);
   });
 });
 
@@ -94,8 +124,12 @@ describeOnUnix("CheckExternalScripts — command timeout enforcement (POSIX laun
 
   beforeAll(() => {
     scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extscr-"));
-    fs.writeFileSync(path.join(scriptsDir, "sleeper.sh"), "#!/bin/sh\nsleep 30\necho done\n", { mode: 0o755 });
-    fs.writeFileSync(path.join(scriptsDir, "hello.sh"), "#!/bin/sh\necho hello-from-script\n", { mode: 0o755 });
+    fs.writeFileSync(path.join(scriptsDir, "sleeper.sh"), "#!/bin/sh\nsleep 30\necho done\n", {
+      mode: 0o755,
+    });
+    fs.writeFileSync(path.join(scriptsDir, "hello.sh"), "#!/bin/sh\necho hello-from-script\n", {
+      mode: 0o755,
+    });
 
     nscp = new NscpInstance();
   });
@@ -106,15 +140,34 @@ describeOnUnix("CheckExternalScripts — command timeout enforcement (POSIX laun
 
   /** Boot the module and run one script command via the client-query path. */
   async function query(command: string) {
-    const r = await nscp.run(["client", "--module", "CheckExternalScripts", "--boot", "--query", command], { allowFailure: true });
+    const r = await nscp.run(
+      ["client", "--module", "CheckExternalScripts", "--boot", "--query", command],
+      { allowFailure: true },
+    );
     return { out: r.all ?? `${r.stdout}\n${r.stderr}`, code: r.exitCode };
   }
+
+  it("runs the script in the folder above ${scripts}, the directory `scripts/x.sh` is spelled from", async () => {
+    // The default layout: the scripts folder's parent is where a script starts
+    // (the installation directory on Windows, the folder the shipped unit
+    // sets on Linux), and the agent now sets it itself rather than leaving the
+    // child wherever the service happened to be started.
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/external scripts/scripts": { check_where: "/bin/sh -c pwd" },
+    });
+    const { out } = await query("check_where");
+    const scripts = fs.realpathSync(nscp.pathOverrides.scripts);
+    expect(out.trim().split("\n").pop()).toContain(path.dirname(scripts));
+  });
 
   it("kills a script that exceeds the timeout and reports it", async () => {
     await nscp.configure({
       "/modules": { CheckExternalScripts: "enabled" },
       "/settings/external scripts": { timeout: "2" },
-      "/settings/external scripts/scripts": { check_sleeper: `/bin/sh ${path.join(scriptsDir, "sleeper.sh")}` },
+      "/settings/external scripts/scripts": {
+        check_sleeper: `/bin/sh ${path.join(scriptsDir, "sleeper.sh")}`,
+      },
     });
 
     const started = Date.now();
@@ -130,7 +183,9 @@ describeOnUnix("CheckExternalScripts — command timeout enforcement (POSIX laun
     await nscp.configure({
       "/modules": { CheckExternalScripts: "enabled" },
       "/settings/external scripts": { timeout: "10" },
-      "/settings/external scripts/scripts": { check_hello: `/bin/sh ${path.join(scriptsDir, "hello.sh")}` },
+      "/settings/external scripts/scripts": {
+        check_hello: `/bin/sh ${path.join(scriptsDir, "hello.sh")}`,
+      },
     });
 
     const { out } = await query("check_hello");
@@ -195,14 +250,20 @@ describeOnUnix("CheckExternalScripts — shell-fallback metacharacter guard (POS
   });
 
   async function query(arg: string) {
-    const r = await nscp.run(["client", "--module", "CheckExternalScripts", "--boot", "--query", "check_fallback", arg], { allowFailure: true });
+    const r = await nscp.run(
+      ["client", "--module", "CheckExternalScripts", "--boot", "--query", "check_fallback", arg],
+      { allowFailure: true },
+    );
     return r.all ?? `${r.stdout}\n${r.stderr}`;
   }
 
-  it.each(["pct%val", "car^et"])("rejects an argument containing a cmd.exe metacharacter (%s)", async (arg) => {
-    const out = await query(arg);
-    expect(out).toMatch(/illegal characters/i);
-  });
+  it.each(["pct%val", "car^et"])(
+    "rejects an argument containing a cmd.exe metacharacter (%s)",
+    async (arg) => {
+      const out = await query(arg);
+      expect(out).toMatch(/illegal characters/i);
+    },
+  );
 
   it("still runs a clean argument through the shell fallback", async () => {
     const out = await query("plainvalue");
@@ -224,7 +285,11 @@ describeOnUnix("CheckExternalScripts — run-as user settings are refused (POSIX
   beforeAll(() => {
     scriptsDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-extscr-runas-"));
     marker = path.join(scriptsDir, "ran.marker");
-    fs.writeFileSync(path.join(scriptsDir, "hello.sh"), `#!/bin/sh\ntouch "${marker}"\necho hello-from-script\n`, { mode: 0o755 });
+    fs.writeFileSync(
+      path.join(scriptsDir, "hello.sh"),
+      `#!/bin/sh\ntouch "${marker}"\necho hello-from-script\n`,
+      { mode: 0o755 },
+    );
     nscp = new NscpInstance();
   });
 
@@ -233,7 +298,10 @@ describeOnUnix("CheckExternalScripts — run-as user settings are refused (POSIX
   });
 
   async function query(command: string) {
-    const r = await nscp.run(["client", "--module", "CheckExternalScripts", "--boot", "--query", command], { allowFailure: true });
+    const r = await nscp.run(
+      ["client", "--module", "CheckExternalScripts", "--boot", "--query", command],
+      { allowFailure: true },
+    );
     return r.all ?? `${r.stdout}\n${r.stderr}`;
   }
 
@@ -437,7 +505,10 @@ describe("CheckExternalScripts — argument substitution, lockdown and command n
         const [arg, code] = e.split(" ");
         return `IF "%1" == "${arg}" exit /B ${code}`;
       });
-      fs.writeFileSync(script("check_ok"), "@echo OK: Everything is going to be fine\r\n@exit 0\r\n");
+      fs.writeFileSync(
+        script("check_ok"),
+        "@echo OK: Everything is going to be fine\r\n@exit 0\r\n",
+      );
       fs.writeFileSync(
         script("check_test"),
         [
@@ -454,9 +525,13 @@ describe("CheckExternalScripts — argument substitution, lockdown and command n
         ].join("\r\n"),
       );
     } else {
-      fs.writeFileSync(script("check_ok"), "#!/bin/sh\necho OK: Everything is going to be fine\nexit 0\n", {
-        mode: 0o755,
-      });
+      fs.writeFileSync(
+        script("check_ok"),
+        "#!/bin/sh\necho OK: Everything is going to be fine\nexit 0\n",
+        {
+          mode: 0o755,
+        },
+      );
       fs.writeFileSync(
         script("check_test"),
         [
@@ -508,11 +583,24 @@ describe("CheckExternalScripts — argument substitution, lockdown and command n
   }
 
   /** Run one command; the message is stdout with line endings normalised. */
-  async function query(command: string, args: string[] = []): Promise<{ message: string; code: number }> {
+  async function query(
+    command: string,
+    args: string[] = [],
+  ): Promise<{ message: string; code: number }> {
     // `--log critical` keeps the module's own error lines (a refused argument
     // is logged as well as returned) out of the stdout the message is read from.
     const r = await nscp.run(
-      ["client", "--log", "critical", "--module", "CheckExternalScripts", "--boot", "--query", command, ...args],
+      [
+        "client",
+        "--log",
+        "critical",
+        "--module",
+        "CheckExternalScripts",
+        "--boot",
+        "--query",
+        command,
+        ...args,
+      ],
       { allowFailure: true },
     );
     const message = r.stdout.replace(/\r/g, "\n").replace(/\n+/g, "\n").trim();
@@ -523,8 +611,14 @@ describe("CheckExternalScripts — argument substitution, lockdown and command n
     beforeAll(() => configure(false, false));
 
     it("runs a script with no arguments", async () => {
-      expect(await query("tes_script_ok")).toEqual({ message: "OK: Everything is going to be fine", code: OK });
-      expect(await query("tes_script_test")).toEqual({ message: "Test arguments are: (  )", code: OK });
+      expect(await query("tes_script_ok")).toEqual({
+        message: "OK: Everything is going to be fine",
+        code: OK,
+      });
+      expect(await query("tes_script_test")).toEqual({
+        message: "Test arguments are: (  )",
+        code: OK,
+      });
     });
 
     it("passes the arguments fixed in the template", async () => {
@@ -560,24 +654,29 @@ describe("CheckExternalScripts — argument substitution, lockdown and command n
     });
 
     it("keeps an argument with spaces as one argument", async () => {
-      expect(await query("tes_sca", ["OK", "String with space", "A long long option with many spaces"])).toEqual({
+      expect(
+        await query("tes_sca", ["OK", "String with space", "A long long option with many spaces"]),
+      ).toEqual({
         message: `Test arguments are: (OK ${q("String with space")} ${q("A long long option with many spaces")})`,
         code: OK,
       });
     });
 
     it("returns multi-line output whole", async () => {
-      const expected = [`Test arguments are: (LONG ${q("$ARG2$")} ${q("$ARG3$")})`, ...Array(11).fill(DIGITS)];
+      const expected = [
+        `Test arguments are: (LONG ${q("$ARG2$")} ${q("$ARG3$")})`,
+        ...Array(11).fill(DIGITS),
+      ];
       expect(await query("tes_sca", ["LONG"])).toEqual({ message: expected.join("\n"), code: OK });
     });
 
     it("refuses nasty characters", async () => {
       expect(await query("tes_sca", ["OK", "$$$ \\ \\", "$$$ \\ \\"])).toEqual({
-        message: "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!",
+        message:
+          "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!",
         code: UNKNOWN,
       });
     });
-
   });
 
   describe("command names over REST", () => {

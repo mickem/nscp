@@ -3,12 +3,14 @@
 
 #include "script_provider.hpp"
 
+#include <atomic>
 #include <boost/thread.hpp>
 #include <file_helpers.hpp>
 #include <memory>
 #include <str/utils.hpp>
 
-script_provider::script_provider(int id, nscapi::core_wrapper* core, boost::filesystem::path root) : core_(core), id_(id), root_(root) {}
+script_provider::script_provider(int id, nscapi::core_wrapper* core, boost::filesystem::path root)
+    : core_(core), id_(id), root_(std::make_shared<const boost::filesystem::path>(root)) {}
 
 unsigned int script_provider::get_id() { return id_; }
 
@@ -16,24 +18,35 @@ nscapi::core_wrapper* script_provider::get_core() { return core_; }
 
 std::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() { return std::make_shared<nscapi::settings_proxy>(get_id(), get_core()); }
 
-// root_ is already ${scripts}, so this must not prepend "scripts" again.
-// It used to, which made the import destination and the sandbox root
+// root_ is already the scripts folder (${scripts}, or the configured script
+// root's `scripts`), so this must not prepend "scripts" again. It used to,
+// which made the import destination and the sandbox root
 // ${scripts}/scripts/python - a folder find_file never searches and that
 // does not exist on a normal install.
-boost::filesystem::path script_provider::get_root() { return root_ / "python"; }
+boost::filesystem::path script_provider::scripts_folder() const {
+  const std::shared_ptr<const boost::filesystem::path> root = std::atomic_load(&root_);
+  return root ? *root : boost::filesystem::path();
+}
+
+boost::filesystem::path script_provider::get_root() { return scripts_folder() / "python"; }
+
+void script_provider::set_scripts_folder(const boost::filesystem::path &scripts) {
+  std::atomic_store(&root_, std::make_shared<const boost::filesystem::path>(scripts));
+}
 
 boost::optional<boost::filesystem::path> script_provider::find_file(std::string file) {
+  const boost::filesystem::path root = scripts_folder();
   std::list<boost::filesystem::path> checks;
   checks.push_back(file);
   checks.push_back(file + ".py");
-  checks.push_back(root_ / "python" / file);
-  checks.push_back(root_ / "python" / (file + ".py"));
-  checks.push_back(root_ / file);
-  checks.push_back(root_ / (file + ".py"));
+  checks.push_back(root / "python" / file);
+  checks.push_back(root / "python" / (file + ".py"));
+  checks.push_back(root / file);
+  checks.push_back(root / (file + ".py"));
   for (boost::filesystem::path c : checks) {
     if (boost::filesystem::exists(c) && boost::filesystem::is_regular_file(c)) return boost::optional<boost::filesystem::path>(c);
   }
-  get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Script not found: " + file + " looking in " + get_root().string());
+  get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Script not found: " + file + " looking in " + (root / "python").string());
   return boost::optional<boost::filesystem::path>();
 }
 
@@ -51,7 +64,7 @@ void script_provider::add_command(std::string script_alias, std::string script, 
     std::string script_file = ofile.value().string();
     get_core()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Adding script: " + script_alias + " (" + script_file + ")");
 
-    std::shared_ptr<python_script> instance = std::make_shared<python_script>(get_id(), root_.string(), plugin_alias, script_alias, script_file);
+    std::shared_ptr<python_script> instance = std::make_shared<python_script>(get_id(), scripts_folder().string(), plugin_alias, script_alias, script_file);
     {
       boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
       if (!writeLock.owns_lock()) {

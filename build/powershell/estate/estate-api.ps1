@@ -127,13 +127,64 @@ function Read-EstateRole {
                 $each = "$($c.each)"
                 if ($each -notmatch '^[a-z][a-z0-9]*$') { throw "$Path : check '$command' has 'each' = '$each', which is not a role name." }
             }
+            # "message": text the check's message must contain (case does not
+            # matter), for a check whose proof is what it prints rather than a
+            # perfdata key - a script echoing what a file beside it holds.
+            $message = ""
+            if ($c.message) { $message = "$($c.message)" }
             [pscustomobject]@{
                 Command = $command
                 Args    = $checkArgs
                 Expect  = $expect
+                Message = $message
                 Perf    = @($c.perf | Where-Object { $_ } | ForEach-Object { "$_" })
                 Os      = $checkOs
                 Each    = $each
+            }
+        })
+
+    # "rest": requests to the agent's own API, for what a role delivers that
+    # no check reports - the scripts a runtime lists, what one of them holds,
+    # or one added (PUT, with a `body`) and removed again (DELETE). They run
+    # in order. The suite passes each when it answers `status` (200) and its
+    # body contains every `contains` and none of the `excludes`.
+    $rest = @($role.rest | Where-Object { $_ } | ForEach-Object {
+            $r = $_
+            $restPath = "$($r.path)"
+            if ($restPath -notmatch '^/api/[A-Za-z0-9_./?=&%-]+$' -or $restPath -match '\.\.') {
+                throw "$Path : rest path '$restPath' must be an /api/... path on the agent, without '..'."
+            }
+            $method = "GET"
+            if ($r.method) { $method = "$($r.method)" }
+            if (@("GET", "PUT", "DELETE") -cnotcontains $method) {
+                throw "$Path : rest '$restPath' has method '$method' (one of GET, PUT, DELETE)."
+            }
+            $body = $null
+            if ($null -ne $r.body) { $body = "$($r.body)" }
+            if (($method -eq "PUT") -ne ($null -ne $body)) {
+                throw "$Path : rest '$method $restPath' - a PUT needs a 'body', and only a PUT takes one."
+            }
+            $status = 200
+            if ($null -ne $r.status) { $status = [int]$r.status }
+            $contains = @($r.contains | Where-Object { $_ } | ForEach-Object { "$_" })
+            $excludes = @($r.excludes | Where-Object { $_ } | ForEach-Object { "$_" })
+            if ($status -eq 200 -and $contains.Count -eq 0) {
+                throw "$Path : rest '$restPath' needs at least one 'contains' (a 200 alone proves nothing about the content)."
+            }
+            $restOs = @($r.os | Where-Object { $_ } | ForEach-Object { "$_" })
+            foreach ($o in $restOs) {
+                if ($o -ne "linux" -and $os -notcontains $o) {
+                    throw "$Path : rest '$restPath' is limited to os '$o', which is neither 'linux' nor in the role's 'os'."
+                }
+            }
+            [pscustomobject]@{
+                Method   = $method
+                Path     = $restPath
+                Body     = $body
+                Status   = $status
+                Contains = $contains
+                Excludes = $excludes
+                Os       = $restOs
             }
         })
 
@@ -142,6 +193,16 @@ function Read-EstateRole {
     # server reads as "every host" - every machine in the tenant would get it.
     if ($role.bundle -and $tags.Count -eq 0) {
         throw "$Path : a role with a 'bundle' needs a 'tag' (its group selects on it; an empty selector matches every host)."
+    }
+    # A folder under the role whose files become the bundle's `scripts/`
+    # entries, staged by the agent under ${fleet-folder}/scripts. Such a
+    # bundle is uploaded whole rather than composed (New-EstateBundleZip).
+    $bundleScriptsDir = $null
+    if ($role.bundle -and $role.bundle.scripts) {
+        $bundleScriptsDir = Join-Path $dir "$($role.bundle.scripts)"
+        if (-not (Test-Path $bundleScriptsDir -PathType Container)) { throw "$Path : bundle scripts folder '$($role.bundle.scripts)' does not exist." }
+        $bundleScriptsDir = (Resolve-Path $bundleScriptsDir).Path
+        if (@(Get-ChildItem -Path $bundleScriptsDir -File -Recurse).Count -eq 0) { throw "$Path : bundle scripts folder '$($role.bundle.scripts)' is empty." }
     }
 
     $logs = @{}
@@ -193,8 +254,10 @@ function Read-EstateRole {
         InstallTimeoutMinutes = $timeout
         Tags                  = $tags
         Bundle                = $role.bundle
+        BundleScriptsDir      = $bundleScriptsDir
         Checks                = $checks
-        Logs                  = $logs
+        Rest                  = $rest
+        Logs                = $logs
         LocalSettings         = $localSettings
         Companions            = $companions
         # Only provisioned as another role's companion: `all` gives it no
@@ -769,8 +832,8 @@ function ConvertTo-EstateBundleConfig {
     )
     $bundle = $Role.Bundle
     foreach ($p in $bundle.PSObject.Properties) {
-        if (@("settings") -notcontains $p.Name) {
-            throw "Role '$($Role.Name)': unknown bundle key '$($p.Name)' (only 'settings'; modules come from the role's 'modules')."
+        if (@("settings", "scripts") -notcontains $p.Name) {
+            throw "Role '$($Role.Name)': unknown bundle key '$($p.Name)' (only 'settings' and 'scripts'; modules come from the role's 'modules')."
         }
     }
     $modules = [ordered]@{}
@@ -799,6 +862,54 @@ function ConvertTo-EstateBundleConfig {
         $config.settings = $json | ConvertFrom-Json
     }
     return $config
+}
+
+<#
+.SYNOPSIS
+    The zip of a role bundle that ships scripts: bundle.toml, config.json and
+    every file under -ScriptsDir as a `scripts/<relative path>` entry.
+.DESCRIPTION
+    The server's compose endpoint takes a config fragment only, so a bundle
+    with scripts is built here, the way the fleet UI builds one in the
+    browser, and uploaded whole (Invoke-FleetBundleUpload). The agent stages
+    the `scripts/` entries under ${fleet-folder}/scripts, keeping the layout
+    below it; with `script root = fleet` in the bundle's settings the script
+    modules read them from there. Shell scripts are normalised to LF, so a
+    checkout with CRLF line endings does not ship a script `sh` cannot run.
+#>
+function New-EstateBundleZip {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Version,
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][string]$ScriptsDir
+    )
+    Add-Type -AssemblyName System.IO.Compression
+    $root = (Resolve-Path $ScriptsDir).Path
+    $stream = New-Object System.IO.MemoryStream
+    $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create, $true)
+    try {
+        $write = {
+            param([string]$EntryName, [byte[]]$Bytes)
+            $entry = $zip.CreateEntry($EntryName)
+            $s = $entry.Open()
+            try { $s.Write($Bytes, 0, $Bytes.Length) } finally { $s.Dispose() }
+        }
+        # The same manifest the server's compose writes, so the agent reads the
+        # two kinds of bundle alike.
+        & $write "bundle.toml" ([System.Text.Encoding]::UTF8.GetBytes("name = `"$Name`"`nversion = `"$Version`"`nschema_version = 1`n"))
+        & $write "config.json" ([System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject $Config -Depth 16)))
+        foreach ($f in @(Get-ChildItem -Path $root -File -Recurse | Sort-Object FullName)) {
+            $rel = $f.FullName.Substring($root.Length).TrimStart('\', '/').Replace('\', '/')
+            $bytes = [System.IO.File]::ReadAllBytes($f.FullName)
+            if ($f.Extension -eq ".sh") {
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes(([System.Text.Encoding]::UTF8.GetString($bytes)).Replace("`r`n", "`n"))
+            }
+            & $write "scripts/$rel" $bytes
+        }
+    }
+    finally { $zip.Dispose() }
+    return , $stream.ToArray()
 }
 
 # One password per role in a manifest: the role's bundle carries it to every

@@ -5,6 +5,7 @@
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/settings/proxy.hpp>
+#include <scripts/script_root.hpp>
 #include <string>
 
 #include "commands.hpp"
@@ -15,7 +16,12 @@ struct script_provider_interface {
   virtual nscapi::core_wrapper* get_core() = 0;
   virtual std::shared_ptr<nscapi::settings_proxy> get_settings_proxy() = 0;
 
+  // The scripts folder (`script root`, ${scripts} by default): what `show`,
+  // `delete` and `add --import` are confined to.
   virtual boost::filesystem::path get_root() = 0;
+  // The whole layout, for the folder a script runs in - the base an imported
+  // script is recorded relative to.
+  virtual scripts::root::layout get_layout() = 0;
   virtual std::string generate_wrapped_command(std::string command) = 0;
 
   virtual void add_command(std::string alias, std::string script) = 0;

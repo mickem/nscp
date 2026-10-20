@@ -817,6 +817,20 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# The `script root` resolver shared by every script-carrying module
+# (include/scripts/script_root.hpp): header-only, so it is pinned here rather
+# than once per module.
+NSCP_CREATE_TEST(
+    script_root_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/scripts/script_root_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     pid_file_test
     SOURCES

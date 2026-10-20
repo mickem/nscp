@@ -18,6 +18,7 @@
 #include <nscapi/protobuf/nagios.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <process/execute_process.hpp>
+#include <scripts/script_root_setting.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
 
@@ -74,7 +75,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
     aliases_.set_path(settings.alias().get_settings_path("alias"));
     std::string wrappings_path = settings.alias().get_settings_path("wrappings");
-    boost::filesystem::path scriptRoot;
+    std::string scriptRoot;
     std::string scriptDirectory;
     std::map<std::string, std::string> wrappings;
 
@@ -177,17 +178,35 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
                   "Load all scripts in a given directory and use them as commands. SECURITY: every file in this directory becomes a runnable command (with "
                   "%ARGS% appended when arguments are allowed), so write/create access to the directory is equivalent to command execution as the service "
                   "account - restrict it with filesystem ACLs. Prefer listing individual scripts explicitly under the scripts section over pointing this at a "
-                  "shared or writable folder.")
+                  "shared or writable folder.");
 
-        .add_file("script root", sh::path_key(&scriptRoot, "${scripts}"), "Script root folder",
-                  "Root path used to sandbox the ext-scr show/delete operations and the destination of ext-scr add --import: those cannot read, remove, or "
-                  "import a file outside this folder. Note this does NOT bound ext-scr add --script <path>, which can still register an existing file anywhere "
-                  "on disk as a command (an administrator-only action, equivalent to editing the configuration directly).");
+    // Shared with PythonScript and LUAScript, and read from [/settings/default]
+    // when the module's own section does not set it, so one line in a fleet
+    // bundle moves every script module to the tree the bundle shipped.
+    scripts::root::register_key(settings, &scriptRoot,
+                                " It is also what ext-scr show/delete are confined to and where ext-scr add --import copies to; ext-scr add --script "
+                                "<path> is not bounded by it (an administrator-only action, equivalent to editing the configuration directly).");
 
     settings.register_all();
     settings.notify();
     settings.clear();
-    provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), scriptRoot, wrappings));
+
+    scripts::root::layout layout = scripts::root::resolve_or_default(
+        scriptRoot, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); });
+#ifdef WIN32
+    // The built-in layout keeps the installation directory as the launch
+    // directory even when a [paths] override has moved ${scripts} elsewhere:
+    // every `scripts\x.bat` entry on such a host was written against the
+    // installation directory, where the shipped scripts folder still is, and
+    // the launcher always started scripts there. A configured root is a
+    // statement about the whole tree and takes its parent.
+    if (!layout.configured) layout.base = get_base_path();
+#endif
+    // A bare relative name has no folder above it; the installation directory
+    // is the one place that always exists.
+    if (layout.base.empty()) layout.base = get_base_path();
+    NSC_DEBUG_MSG_STD("Scripts in " + layout.scripts.string() + ", run from " + layout.base.string());
+    provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), layout, wrappings));
 
     // clang-format off
     settings.alias().add_path_to_settings()
@@ -251,7 +270,35 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
     aliases_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
     aliases_.add_missing(nscapi::settings_proxy::create(get_id(), get_core()), "default", "");
 
-    root_ = get_base_path();
+    // Where a relative command is rooted and where the script runs: the folder
+    // above the scripts folder. On Windows that is what it always was for the
+    // default layout; on Unix the shipped unit set the same directory and a
+    // hand-started agent inherited whatever it had, so setting it here makes
+    // the two agree. A folder that is not there would fail every script out
+    // loud (the launcher refuses a working directory it cannot enter), so a
+    // missing one is reported once and the script inherits the service's
+    // directory instead - a command written with an absolute path keeps
+    // working, and a relative one could not have resolved anyway.
+    boost::system::error_code base_error;
+    auto site = std::make_shared<launch_site>();
+    if (boost::filesystem::is_directory(layout.base, base_error)) {
+      site->root = layout.base.string();
+      site->working_directory = site->root;
+    } else {
+      // Not there, or not readable past some component: either way the
+      // message is the point, not an exception that fails the module load.
+      // Both go back to what they were before the key existed - the
+      // installation directory as the rooting base, and no working directory
+      // of the agent's choosing. On Windows the launcher runs the child in
+      // the rooting base when no working directory is set, so that base has
+      // to be a folder that exists, or every script fails, absolute commands
+      // included (`script root = fleet` written before the first sync).
+      site->root = get_base_path();
+      NSC_LOG_ERROR_STD("The folder above the scripts folder, " + layout.base.string() + ", cannot be used as the working directory (" +
+                        (base_error ? base_error.message() : std::string("it does not exist")) +
+                        "): external scripts run as they did without a script root until it can");
+    }
+    std::atomic_store(&launch_, std::shared_ptr<const launch_site>(site));
 
     nscapi::core_helper core(get_core(), get_id());
     for (const std::shared_ptr<alias::command_object> &o : aliases_.get_object_list()) {
@@ -529,7 +576,12 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   }
 #endif
 
-  process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork, kill_tree);
+  // One load of the pair: a reload replacing it meanwhile leaves this command
+  // with the old folder for both, never one of each.
+  const std::shared_ptr<const launch_site> site = std::atomic_load(&launch_);
+  process::exec_arguments arg(site ? site->root : std::string(get_base_path()), cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork,
+                              kill_tree);
+  if (site) arg.working_directory = site->working_directory;
   if (argv_ok) {
     arg.argv = argv;
   }

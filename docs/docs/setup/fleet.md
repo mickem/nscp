@@ -324,6 +324,54 @@ sudo nscp settings --path /settings/default --key "allowed hosts" --show
 Never edit `fleet.ini` itself. It is rewritten wholesale on the next sync, which is exactly
 what the banner at the top of it says.
 
+### Bundles that ship scripts
+
+A bundle can carry the scripts its configuration refers to. Every entry under `scripts/` in
+the bundle is staged, with its path, under `${fleet-folder}/scripts` - the tree the sync owns,
+rewritten wholesale on every apply like `fleet.ini`. Lay it out the way the agent's own
+scripts folder is laid out, and point the script modules at it with one setting:
+
+```
+scripts/
+├── python/
+│   ├── check_thing.py
+│   └── lib/helper.py          importable from check_thing.py
+├── lua/
+│   ├── check_other.lua
+│   └── lib/helper.lua         require("helper") from check_other.lua
+├── check_disk.sh
+└── check_disk.bat
+```
+
+```ini
+[/settings/default]
+script root = fleet
+
+[/settings/python/scripts]
+check_thing = check_thing.py
+
+[/settings/lua/scripts]
+check_other = check_other.lua
+
+[/settings/external scripts/scripts]
+check_disk_sh = sh scripts/check_disk.sh
+check_disk_bat = scripts\check_disk.bat
+```
+
+`script root = fleet` makes every script module read `${fleet-folder}/scripts` instead of
+`${scripts}`. An external script is started in the folder above the scripts folder, as it is on
+a plain install, so here that is `${fleet-folder}` - and `scripts\check_disk.bat` is the same
+spelling it has always had in `nsclient.ini`, a script that calls a sibling by relative path
+keeps working, and nothing in the bundle names a host path. The same bundle serves Windows and Linux; ship both forms and register
+each under its own name. On Linux and macOS the sync writes files without an execute bit, so run
+a shell script through its interpreter (`sh scripts/check_disk.sh`) rather than directly.
+
+The modules themselves have to be enabled on the host already: a bundle can enable a module in
+`fleet.ini` but cannot load one into a running agent. A changed script is a changed bundle, so it
+is picked up like any other change - the sync re-stages the tree and reloads the configuration.
+The `script root` setting is described under
+[Settings](../concepts/settings.md#moving-the-whole-tree-script-root).
+
 ### Encrypted bundles
 
 A bundle can hold things the fleet server has no business reading — an API token, a

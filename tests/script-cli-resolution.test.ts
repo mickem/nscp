@@ -171,7 +171,10 @@ describe("script CLI resolution", () => {
         .filter((l) => /\.lua$/.test(l))
         .map((l) => l.split("\\").join("/"));
 
-      console.log(`\n  nscp lua list, run from a neutral directory\n  ${"-".repeat(42)}\n` + entries.map((e) => `  ${e}`).join("\n"));
+      console.log(
+        `\n  nscp lua list, run from a neutral directory\n  ${"-".repeat(42)}\n` +
+          entries.map((e) => `  ${e}`).join("\n"),
+      );
 
       // ${scripts}-relative, not ${base-path}-relative and not absolute. The
       // ${base-path} spelling (`scripts/lua/c.lua`) is the trap the test above
@@ -266,17 +269,16 @@ describe("script CLI resolution", () => {
       }
       table("nscp ext-scr add --script <typed>, run from the install directory", rows, scrub);
 
-      // Absolute: recorded as given, and the command runs from anywhere. This
-      // module resolves nothing at run time, so that is the only spelling that
-      // is independent of how the agent was started.
+      // Absolute: recorded as given, and the command runs from anywhere.
       expect(rows[0].recorded).toBe(path.join(root, "scripts", "b.sh"));
       expect(rows[0].worksElsewhere).toBe(true);
 
-      // Relative: accepted here and recorded verbatim, but the value is a
-      // command line handed to the OS, so it only runs where the working
-      // directory happens to contain `scripts`.
+      // Relative: accepted here and recorded verbatim. The value is a command
+      // line handed to the OS, but the agent starts the script in the folder
+      // above ${scripts} - the folder `scripts/b.sh` is spelled from - so it
+      // runs however the agent itself was started.
       expect(rows[1].recorded).toBe("scripts/b.sh");
-      expect(rows[1].worksElsewhere).toBe(false);
+      expect(rows[1].worksElsewhere).toBe(true);
 
       // A bare name is refused rather than recorded: it would become a PATH
       // lookup at run time, not a file in the script folder.

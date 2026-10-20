@@ -125,8 +125,10 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
       }
     }
   } else {
-    for (const std::string &s :
-         scripts::files::list_files(provider_->get_core()->expand_path("${scripts}/python"), provider_->get_core()->expand_path("${scripts}"), lib)) {
+    // The folder in force - a configured `script root` moves it - spelled
+    // relative to the scripts folder above it, the form `add` takes back.
+    const fs::path root = provider_->get_root();
+    for (const std::string &s : scripts::files::list_files(root, root.parent_path(), lib)) {
       if (json) {
         data.push_back(json::value(s));
       } else {

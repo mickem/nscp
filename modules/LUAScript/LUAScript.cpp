@@ -15,6 +15,7 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <scripts/script_root_setting.hpp>
 
 #include "extscr_cli.h"
 
@@ -48,11 +49,23 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // of being told the command does not exist.
     scripts::script_manager<lua::lua_traits>::registration_list registered;
     if (previous) registered = previous->unload_all();
-    root_ = get_core()->expand_path("${scripts}");
+
+    // `script root` first, on its own: the runtime below is built around the
+    // scripts folder, and the scripts section is read through it, so the
+    // folder has to be known before either (include/scripts/script_root.hpp).
+    sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+    settings.set_alias(alias, "lua");
+    const boost::filesystem::path root =
+        scripts::root::load(
+            settings, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); })
+            .scripts;
+    std::atomic_store(&root_, std::make_shared<const boost::filesystem::path>(root));
+    NSC_DEBUG_MSG_STD("Lua scripts folder: " + (root / "lua").string());
+
     const auto nscp_runtime = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
     // The lua runtime builds package.path for require() from this folder's
     // lua/lib and lua subfolders.
-    const auto lua_runtime = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(root_.string()));
+    const auto lua_runtime = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(root.string()));
     // Published atomically, and read the same way everywhere below: a check
     // thread copying these members while a reload replaces them is a data race
     // on the shared_ptr itself, not merely on what it points at. The reload
@@ -64,9 +77,6 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     std::atomic_store(&lua_runtime_, lua_runtime);
     std::atomic_store(&scripts_,
                       std::make_shared<scripts::script_manager<lua::lua_traits> >(lua_runtime, nscp_runtime, get_id(), utf8::cvt<std::string>(alias)));
-
-    sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
-    settings.set_alias(alias, "lua");
 
     // clang-format off
     settings.alias().add_path_to_settings()
@@ -131,7 +141,7 @@ bool LUAScript::loadScript(std::string alias, std::string file) {
       alias = "";
     }
 
-    boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
+    boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(scripts_folder(), file);
     if (!ofile) {
       NSC_LOG_ERROR("Failed to find script: " + file);
       return false;
@@ -228,14 +238,14 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
       return exec_script_command(request, response, request_message);
     }
 
-    // ${scripts}, not ${base-path}. The two are the same folder apart on
-    // Windows, where ${scripts} is ${exe-path}/scripts - so appending
+    // The scripts folder the module loaded with (${scripts}, or the
+    // configured script root's), not ${base-path}: the two are the same folder
+    // apart on Windows, where ${scripts} is ${exe-path}/scripts - so appending
     // "scripts/lua" to the install base happened to land in the right place
     // there, and nowhere near it on Linux, where ${base-path} is the directory
     // holding the binary (/usr/sbin) while ${scripts} is under the package
-    // directory. Naming the token that already means "the scripts folder"
-    // removes the assumption instead of re-deriving it.
-    auto provider = std::make_shared<script_provider>(get_id(), get_core(), get_core()->expand_path("${scripts}"));
+    // directory.
+    auto provider = std::make_shared<script_provider>(get_id(), get_core(), scripts_folder());
 
     extscr_cli client(provider);
     return client.run(command, request, response);
@@ -298,7 +308,7 @@ void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Reques
     return;
   }
 
-  boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
+  boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(scripts_folder(), file);
   if (!ofile) {
     nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
     return;
