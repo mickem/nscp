@@ -20,8 +20,34 @@
 #include <vector>
 
 using process::build_command_line_w;
+using process::is_batch_target;
 using process::quote_argv_w;
 using process::resolve_application_path;
+
+// Recognising a batch target is what decides whether a caller's argument values
+// are held to the shell rules: CreateProcess cannot execute a .bat or .cmd and
+// re-launches cmd.exe for it, which re-parses the command line. Cross-platform,
+// because the decision is taken in CheckExternalScripts on every platform.
+TEST(IsBatchTarget, RecognisesBatchAndCmdWhateverTheCase) {
+  EXPECT_TRUE(is_batch_target("scripts\\check.bat"));
+  EXPECT_TRUE(is_batch_target("scripts/check.CMD"));
+  EXPECT_TRUE(is_batch_target("C:\\Program Files\\NSClient++\\scripts\\Check.Bat"));
+  EXPECT_TRUE(is_batch_target("\"C:\\path with space\\check.bat\"")) << "an operator-quoted path is still a batch file";
+  EXPECT_TRUE(is_batch_target("\\\\server\\share\\check.bat")) << "UNC paths take the argv path, which is how this was reachable";
+}
+
+TEST(IsBatchTarget, LeavesEverythingElseAlone) {
+  for (const char *program : {"check.exe", "powershell.exe", "/usr/bin/check_disk", "scripts/check.ps1", "scripts/check.vbs", "check.batch", "check.bat.exe",
+                              "", ".bat.ps1"}) {
+    EXPECT_FALSE(is_batch_target(program)) << "program: '" << program << "'";
+  }
+}
+
+TEST(IsBatchTarget, BareExtensionIsStillABatchFile) {
+  // Degenerate, but `.bat` as a whole name is a batch file to CreateProcess.
+  EXPECT_TRUE(is_batch_target(".bat"));
+  EXPECT_TRUE(is_batch_target(".cmd"));
+}
 
 #ifdef _WIN32
 // Round-trip a single argument through quote_argv_w and CommandLineToArgvW.

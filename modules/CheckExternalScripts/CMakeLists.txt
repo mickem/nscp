@@ -35,7 +35,6 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         ${NSCP_INCLUDEDIR}/process/execute_process_w32.cpp
-        ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
     )
 else(WIN32)
     set(EXTRA_LIBS
@@ -47,6 +46,16 @@ else(WIN32)
         ${NSCP_INCLUDEDIR}/process/execute_process_unix.cpp
     )
 endif(WIN32)
+
+# Not under the WIN32 branch: handle_command() asks is_batch_target() whether a
+# command template names a .bat or .cmd on every platform, because the decision
+# (hold caller-supplied arguments to the shell rules) is taken in the module,
+# not in the launcher. The quoting helpers beside it are Windows-only at their
+# call sites but cost nothing to carry.
+set(SRCS
+    ${SRCS}
+    ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
+)
 
 add_library(${TARGET} MODULE ${SRCS})
 NSCP_DEBUG_SYMBOLS(${TARGET})
