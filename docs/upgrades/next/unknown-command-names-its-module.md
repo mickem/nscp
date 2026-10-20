@@ -14,7 +14,5 @@ as its prefix and adds the module and what to do:
 Unknown command(s): check_ping (provided by module CheckNet, which is not loaded: add "CheckNet = enabled" under [/modules] and restart)
 ```
 
-A module that is enabled but failed to load says so instead (`which is enabled
-but failed to load: see the log for why`). Commands registered at runtime by
-scripts or aliases, and commands of modules not built for the platform, get no
-hint. Nothing to do; a script matching on the old text still matches.
+Commands registered at runtime by scripts or aliases, and commands of modules
+not built for the platform, get no hint. Nothing to do; a script matching on the old text still matches.

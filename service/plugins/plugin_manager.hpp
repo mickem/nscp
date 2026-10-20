@@ -24,7 +24,6 @@
 #include "../path_manager.hpp"
 #include "../permissions.hpp"
 #include "../routers.hpp"
-#include "command_hints.hpp"
 #include "master_plugin_list.hpp"
 #include "plugin_cache.hpp"
 
@@ -96,13 +95,6 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // Plugins stop_plugins left loaded because a log line or a metrics or
   // facts round was still inside them; see there.
   static std::list<plugin_type> &abandoned_plugins();
-  // Modules (lower-cased name, no extension) whose last load or start failed,
-  // so an unknown command can say "enabled but failed to load" rather than
-  // just "not loaded". Cleared when the module loads again. Guarded by its
-  // own mutex: queries read it from any thread.
-  boost::mutex load_failures_mutex_;
-  std::set<std::string> load_failures_;
-  void note_load_result(const std::string &module, bool ok);
 
  public:
   plugin_manager(path_instance path_, logging::logger_instance log_instance);
@@ -176,12 +168,6 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   NSCAPI::nagiosReturn emit_event(const std::string &request);
 
   bool is_enabled(const std::string module);
-  // What the plugin manager knows about `module` (a module name such as
-  // "CheckNet"), for the hint on an unknown command.
-  command_hints::module_state get_module_state(const std::string &module);
-  // `prefix` and the unknown `commands`, each with a hint naming the module
-  // that provides it when the build knows one.
-  std::string unknown_commands_message(const std::string &prefix, const std::list<std::string> &commands);
   // Fetch metrics from every fetcher, append `bundle` (the core's own) and hand
   // the result to every submitter. Returns the assembled message so a caller can
   // feed non-plugin consumers from the same snapshot.

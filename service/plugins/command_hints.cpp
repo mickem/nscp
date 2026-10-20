@@ -20,43 +20,20 @@ std::vector<std::string> providers_of(const std::string &command) {
   return ret;
 }
 
-std::string describe(const std::vector<std::string> &providers, const state_lookup &state) {
-  // A loaded provider that does not have the command has nothing to offer:
-  // enabling something else would not help either.
-  std::vector<std::pair<std::string, module_state>> candidates;
-  for (const std::string &module : providers) {
-    const module_state s = state(module);
-    if (s == module_state::loaded) return {};
-    candidates.emplace_back(module, s);
+std::string annotate(const std::string &command, const std::vector<std::string> &providers) {
+  if (providers.empty()) return command;
+  if (providers.size() == 1) {
+    const std::string &module = providers.front();
+    return command + " (provided by module " + module + ", which is not loaded: add \"" + module + " = enabled\" under [/modules] and restart)";
   }
-  if (candidates.empty()) return {};
-  if (candidates.size() > 1) {
-    std::string names;
-    for (const auto &c : candidates) str::format::append_list(names, c.first, " or ");
-    return "provided by modules " + names + ", none of which is loaded: enable one of them under [/modules] and restart";
-  }
-  const std::string &module = candidates.front().first;
-  switch (candidates.front().second) {
-    case module_state::failed_to_load:
-      return "provided by module " + module + ", which is enabled but failed to load: see the log for why";
-    case module_state::enabled_not_loaded:
-      return "provided by module " + module + ", which is enabled but not loaded";
-    case module_state::not_enabled:
-    default:
-      return "provided by module " + module + ", which is not loaded: add \"" + module + " = enabled\" under [/modules] and restart";
-  }
+  std::string names;
+  for (const std::string &module : providers) str::format::append_list(names, module, " or ");
+  return command + " (provided by modules " + names + ", none of which is loaded: enable one of them under [/modules] and restart)";
 }
 
-std::string annotate(const std::string &command, const std::vector<std::string> &providers, const state_lookup &state) {
-  const std::string hint = describe(providers, state);
-  if (hint.empty()) return command;
-  return command + " (" + hint + ")";
-}
-
-std::string unknown_commands_message(const std::string &prefix, const std::list<std::string> &commands, const provider_lookup &providers,
-                                     const state_lookup &state) {
+std::string unknown_commands_message(const std::string &prefix, const std::list<std::string> &commands, const provider_lookup &providers) {
   std::string list;
-  for (const std::string &command : commands) str::format::append_list(list, annotate(command, providers(command), state));
+  for (const std::string &command : commands) str::format::append_list(list, annotate(command, providers(command)));
   return prefix + list;
 }
 
