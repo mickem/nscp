@@ -20,6 +20,7 @@
 #include <str/format.hpp>
 
 #include "../../libs/settings_manager/settings_manager_impl.h"
+#include "command_hints.hpp"
 #include "dll_plugin.h"
 #include "zip_plugin.h"
 
@@ -1137,6 +1138,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
     command_chunk_type command_chunks;
 
     std::string missing_commands;
+    std::list<std::string> missing_list;
 
     // Compute the subject once per request. The header is the same for
     // every payload, so we don't pay re-extraction cost per command.
@@ -1163,6 +1165,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
         command_chunks[id].request.CopyFrom(request_message);
       } else {
         str::format::append_list(missing_commands, command);
+        missing_list.push_back(command);
       }
     } else {
       for (int i = 0; i < request_message.payload_size(); i++) {
@@ -1190,6 +1193,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
           command_chunks[id].request.add_payload()->CopyFrom(*payload);
         } else {
           str::format::append_list(missing_commands, payload->command());
+          missing_list.push_back(payload->command());
         }
       }
     }
@@ -1208,10 +1212,13 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
       //      once as a warning and return; the caller gets an empty
       //      response_message, which is what they implicitly asked for.
       if (!missing_commands.empty()) {
-        LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
+        // Same prefix as ever, so scripts matching on it still work; each
+        // command a built module provides says which one to enable.
+        const std::string message = command_hints::unknown_commands_message("Unknown command(s): ", missing_list);
+        LOG_ERROR_CORE(message + " available commands: " + commands_.to_string());
         PB::Commands::QueryResponseMessage::Response *payload = response_message.add_payload();
         payload->set_command(missing_commands);
-        nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
+        nscapi::protobuf::functions::set_response_bad(*payload, message);
       } else if (response_message.payload_size() == 0) {
         LOG_DEBUG_CORE("Empty query request (no header command and no payloads); returning empty response");
       }
@@ -1353,8 +1360,9 @@ int nsclient::core::plugin_manager::simple_query(std::string module, std::string
 
   commands::plugin_type plugin = commands_.get(command);
   if (!plugin) {
-    LOG_ERROR_CORE("No handler for command: " + command + " available commands: " + commands_.to_string());
-    resp.push_back("No handler for command: " + command);
+    const std::string message = command_hints::unknown_commands_message("No handler for command: ", {command});
+    LOG_ERROR_CORE(message + " available commands: " + commands_.to_string());
+    resp.push_back(message);
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   std::string response;

@@ -1,6 +1,7 @@
 macro(LOAD_SECTIONS _TARGET_LIST _path _title)
     message(STATUS "Adding all: ${_title}")
     set(${_TARGET_LIST})
+    set(${_TARGET_LIST}_DIRS)
     file(GLOB TMP_LIST RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" ${_path})
     foreach(_CURRENT_MODULE ${TMP_LIST})
         get_filename_component(CURRENT_MODULE_PATH ${_CURRENT_MODULE} PATH)
@@ -34,6 +35,13 @@ macro(LOAD_SECTIONS _TARGET_LIST _path _title)
                 set(${_TARGET_LIST}
                     ${${_TARGET_LIST}}
                     ${CURRENT_MODULE_NAME}
+                )
+                # The source folders of what was built, alongside the names:
+                # the command -> module map reads their module.json.
+                list(
+                    APPEND
+                    ${_TARGET_LIST}_DIRS
+                    "${CMAKE_CURRENT_SOURCE_DIR}/${CURRENT_MODULE_PATH}"
                 )
             else(BUILD_MODULE)
                 message(
