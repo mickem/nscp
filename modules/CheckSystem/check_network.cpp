@@ -320,7 +320,16 @@ void network_data::fetch(const threads::stop_signal *stop) {
 
     query_prd(if_netmap, delta, helper::prd_query, false, abort_event);
     // allow_insert=true so the team aggregate (no nif match) surfaces.
-    query_prd(ad_netmap, delta, helper::prd_adapter_query, true, abort_event);
+    if (fetch_adapter_) {
+      try {
+        query_prd(ad_netmap, delta, helper::prd_adapter_query, true, abort_event);
+      } catch (const wmi_impl::wmi_exception &e) {
+        if (e.get_code() != WBEM_E_INVALID_CLASS && e.get_code() != WBEM_E_NOT_FOUND) throw;
+        // Pre-2012 Windows: no NetworkAdapter perf class. Keep reporting the
+        // interface source and stop asking for the adapter one.
+        fetch_adapter_ = false;
+      }
+    }
 
     // Best-effort NIC-team membership annotation (no-op / self-disabling when
     // the LBFO provider is unavailable).
@@ -337,7 +346,7 @@ void network_data::fetch(const threads::stop_signal *stop) {
       tmp.push_back(v.second);
     }
   } catch (const wmi_impl::wmi_exception &e) {
-    if (e.get_code() == WBEM_E_INVALID_QUERY) {
+    if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_INVALID_CLASS) {
       fetch_network_ = false;
       throw nsclient::nsclient_exception("Failed to fetch network metrics, disabling...");
     }
