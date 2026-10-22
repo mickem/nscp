@@ -493,6 +493,14 @@ else(USE_STATIC_RUNTIME)
             THREAD
             CHRONO
         )
+        if(NSCP_WEB_BACKEND STREQUAL "beast")
+            # The Beast web backend runs its sessions as stackful coroutines
+            # (asio::spawn), which link Boost.Coroutine and Boost.Context. A
+            # mongoose build never loads either, so they are shipped only when
+            # they are linked, and named to the MSI below the same way the
+            # OpenSSL DLLs are (installers/installer-NSCP/RUNTIME_DLL.wxs).
+            list(APPEND LIBS COROUTINE CONTEXT)
+        endif()
         foreach(LIB ${LIBS})
             if(Boost_${LIB}_LIBRARY_RELEASE)
                 string(
@@ -526,6 +534,22 @@ else(USE_STATIC_RUNTIME)
                 )
             endif()
         endforeach()
+        if(Boost_COROUTINE_LIBRARY_RELEASE_DLL AND Boost_CONTEXT_LIBRARY_RELEASE_DLL)
+            get_filename_component(
+                NSCP_BOOST_COROUTINE_DLL
+                "${Boost_COROUTINE_LIBRARY_RELEASE_DLL}"
+                NAME
+            )
+            get_filename_component(
+                NSCP_BOOST_CONTEXT_DLL
+                "${Boost_CONTEXT_LIBRARY_RELEASE_DLL}"
+                NAME
+            )
+            message(
+                STATUS
+                "Beast web backend ships ${NSCP_BOOST_COROUTINE_DLL} + ${NSCP_BOOST_CONTEXT_DLL}"
+            )
+        endif()
         # Third-party libraries linked through an import library ship the DLL
         # it stands for. Protobuf names the two alike (libprotobuf.lib ->
         # libprotobuf.dll); OpenSSL puts its version and architecture in the
