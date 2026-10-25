@@ -1807,10 +1807,12 @@ TEST_F(WriteCertsFixture, ValidateCertificateReportsAFolderItCannotCreate) {
 // A level created before a deeper one fails is removed again. Left behind, it
 // would be a root-owned folder a later run finds "not ours" and never hands to
 // the service account. A name longer than the filesystem allows fails the
-// second level for root as well as for anyone else.
+// second level for root as well as for anyone else. It has to exceed NAME_MAX
+// (255) without taking the whole path past PATH_MAX: macOS caps that at 1024,
+// and a longer path fails the first probe instead of the second level.
 TEST_F(WriteCertsFixture, ValidateCertificateRemovesTheLevelsItMadeWhenADeeperOneFails) {
   const std::string shallow = path_of("deep");
-  const std::string cert = shallow + "/" + std::string(1000, 'x') + "/certificate.pem";
+  const std::string cert = shallow + "/" + std::string(300, 'x') + "/certificate.pem";
   const std::string reference = path_of("state");
   boost::filesystem::create_directories(reference);
 
