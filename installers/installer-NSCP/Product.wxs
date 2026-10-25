@@ -516,10 +516,14 @@
       <Custom Action="ScheduleRemoveSecrets" After="BackupConfig">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
       <RemoveExistingProducts After='InstallExecute'></RemoveExistingProducts>
 
-      <Custom Action="DetectTool" After="CostFinalize">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
+      <!-- With a full UI the monitoring-tool and configuration pages run these
+           three - except in fleet mode, which skips those pages (see
+           WixUI_MondoNSCP.wxs), so they run here as on a silent install:
+           ScheduleEnrollFleet needs the CONF_CAN_CHANGE ImportConfig decides. -->
+      <Custom Action="DetectTool" After="CostFinalize">NOT (REMOVE ="ALL") AND (NOT UILevel=5 OR FLEET_SERVER)</Custom>
       <Custom Action="NeedUninstall" After="FindRelatedProducts">1</Custom>
-      <Custom Action="ApplyTool" After="DetectTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
-      <Custom Action="ImportConfig" After="ApplyTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
+      <Custom Action="ApplyTool" After="DetectTool">NOT (REMOVE ="ALL") AND (NOT UILevel=5 OR FLEET_SERVER)</Custom>
+      <Custom Action="ImportConfig" After="ApplyTool">NOT (REMOVE ="ALL") AND (NOT UILevel=5 OR FLEET_SERVER)</Custom>
 
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWERVERSIONDETECTED</Custom>
       <!-- Before ScheduleWriteConfig so the deferred halves run in that order

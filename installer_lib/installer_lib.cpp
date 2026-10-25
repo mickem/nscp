@@ -1013,6 +1013,14 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     data.write_string(h.getMsiPropery(L"TLS_VERIFY_MODE"));
     data.write_string(h.getMsiPropery(L"TLS_CA"));
 
+    // Fleet mode: an install that enrolls with a fleet server gets its whole
+    // configuration from that server, through the fleet include. Anything the
+    // installer wrote locally - the monitoring-tool profile's modules, allowed
+    // hosts, the generated password, the NRPE preset - would sit in
+    // nsclient.ini, and a local key wins over the include, so the host would
+    // silently ignore whatever the server sends for those keys.
+    const bool fleet_mode = !boost::algorithm::trim_copy(h.getMsiPropery(FLEET_SERVER)).empty();
+
     // The NRPE transport-security preset is decided by ExecWriteConfig, not
     // here: only the deferred half has the configuration loaded, and whether a
     // preset would overwrite something the operator configured is a question
@@ -1020,7 +1028,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     // the configuration cannot answer - whether a mode was asked for - and the
     // mode to apply if so. An empty mode means "leave NRPE alone entirely",
     // which is what an install with the NRPE server switched off wants.
-    const std::wstring nrpe_mode = h.getProperyKey(CONF_NRPE) == L"1" ? h.getProperyKey(NRPEMODE) : std::wstring();
+    const std::wstring nrpe_mode = !fleet_mode && h.getProperyKey(CONF_NRPE) == L"1" ? h.getProperyKey(NRPEMODE) : std::wstring();
     const bool nrpe_asked = installer::nrpe::asked_for_mode(utf8::cvt<std::string>(boost::algorithm::trim_copy(h.getProperyValue(NRPEMODE))),
                                                             utf8::cvt<std::string>(h.getProperyDefault(NRPEMODE)),
                                                             utf8::cvt<std::string>(h.getProperyKey(NRPEMODE)));
@@ -1047,6 +1055,30 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     } else {
       h.logMessage(L"Configuration changes allowed (updating boot.ini and nsclient.ini)");
       data.write_int(1);
+    }
+
+    if (fleet_mode) {
+      // ${fleet-folder} rather than the folder it happens to expand to: the
+      // same include `nscp enroll` writes on either platform, and the service
+      // resolves the token (see FLEET_FOLDER_KEY in path_manager). Written
+      // unexpanded so the configuration stays relocatable. The core starts the
+      // sync worker whenever the enrollment manifest ExecEnrollFleet wrote
+      // exists, so there is no module to enable either.
+      h.logMessage(L"Fleet mode (FLEET_SERVER given): writing only the fleet include, no local configuration");
+      for (const std::wstring &prop : {CONF_INCLUDES, L"CONF_SET", ALLOWED_HOSTS, NSCLIENT_PWD, NRPEMODE, CERTIFICATE_KEY, NSCA_SERVER, NSCA_PORT, NSCA_PASSWORD,
+                                       NSCA_ENCRYPTION, NSCA_HOSTNAME, OP5_SERVER, OP5_USER, OP5_PASSWORD, OP5_HOSTGROUPS, OP5_CONTACTGROUP}) {
+        if (!boost::algorithm::trim_copy(h.getMsiPropery(prop)).empty()) {
+          h.logMessage(L"WARNING: ignoring " + prop + L" in fleet mode: configure it on the fleet server instead");
+        }
+      }
+      write_key(h, data, 1, L"/includes", L"fleet", utf8::cvt<std::wstring>(std::string("${" FLEET_FOLDER_KEY "}/fleet.ini")));
+      h.logMessage(L"Scheduling (ExecWriteConfig)");
+      const HRESULT hr = h.do_deferred_action(L"ExecWriteConfig", data, 1000);
+      if (FAILED(hr)) {
+        h.errorMessage(L"failed to schedule config update");
+        return hr;
+      }
+      return ERROR_SUCCESS;
     }
 
     std::wstring confInclude = h.getProperyKey(CONF_INCLUDES);
@@ -1109,18 +1141,6 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
         h.logMessage(L" + : " + lst[i] + L" " + lst[i + 1] + L"=" + lst[i + 2]);
         write_key(h, data, 1, lst[i], lst[i + 1], lst[i + 2]);
       }
-    }
-
-    // Fleet onboarding: the core starts the sync worker whenever the
-    // enrollment manifest ExecEnrollFleet wrote exists (no module to enable),
-    // so all the configuration needs is an include of the fleet-managed file.
-    // Written unexpanded so the configuration stays relocatable, and only when
-    // enrollment was actually requested.
-    // ${fleet-folder} rather than the folder it happens to expand to: the same
-    // include `nscp enroll` writes on either platform, and the service resolves
-    // the token (see FLEET_FOLDER_KEY in path_manager).
-    if (!boost::algorithm::trim_copy(h.getMsiPropery(FLEET_SERVER)).empty()) {
-      write_key(h, data, 1, L"/includes", L"fleet", utf8::cvt<std::wstring>(std::string("${" FLEET_FOLDER_KEY "}/fleet.ini")));
     }
 
     // NSCA submission: NSCA_SERVER is the machine running the nsca daemon this
