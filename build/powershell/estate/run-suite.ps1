@@ -44,6 +44,7 @@ $ErrorActionPreference = "Stop"
 $estateDir = $PSScriptRoot
 $parentDir = Split-Path -Parent $estateDir
 . (Join-Path $parentDir "fleet-api.ps1")
+Import-FleetConfig
 . (Join-Path $estateDir "estate-api.ps1")
 
 $suite = Get-Content -Path $SuiteFile -Raw | ConvertFrom-Json

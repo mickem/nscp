@@ -1,0 +1,5 @@
+{
+  "server": "https://fleet.example.com",
+  "apiKey": "nsk_...",
+  "syncApiKey": ""
+}

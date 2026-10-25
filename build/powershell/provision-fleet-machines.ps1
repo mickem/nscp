@@ -155,6 +155,9 @@ $scriptDir = $PSScriptRoot
 $fleetApi = Join-Path $scriptDir "fleet-api.ps1"
 . $fleetApi
 . (Join-Path $scriptDir "estate/estate-api.ps1")
+Import-FleetConfig
+if (-not $FleetServer) { $FleetServer = $env:NSCLIENT_FLEET_SERVER }
+if (-not $ApiKey) { $ApiKey = $env:NSCLIENT_FLEET_API_KEY }
 
 if (-not $ManifestFile) { $ManifestFile = Join-Path $scriptDir ".fleet-machines.json" }
 # Skipping certificate validation for the API calls made from here has to follow
@@ -622,6 +625,10 @@ function Invoke-FleetProvision {
         # it also has to travel to the VM inside an Azure RunCommand script
         # either way.
         $childArgs = @($M.SetupArgs) + @("-FleetServer", $FleetServer, "-FleetToken", $fleetHost.BootstrapToken)
+        # The Windows setup reads the host back from the server right after the
+        # install, to report what a bare fleet install looks like there (the
+        # API key travels through the environment, see below).
+        if ($M.Family -eq "windows") { $childArgs += @("-FleetHostId", $fleetHost.HostId) }
         & $PsExe -NoProfile -File $M.Script @childArgs 2>&1 | ForEach-Object { Show $_ }
         # The setup scripts say which part failed through their exit code.
         switch ($LASTEXITCODE) {
@@ -653,6 +660,9 @@ $psExe = (Get-Process -Id $PID).Path
 # One variable per role: parallel setups of different roles share this
 # process's environment.
 foreach ($r in $rolePasswords.Keys) { Set-Item -Path "env:$(Get-EstateRolePasswordVariable -Role $r)" -Value $rolePasswords[$r] }
+# The same for the fleet API key, which the Windows setup uses to read its
+# host back after the install.
+if ($ApiKey) { $env:NSCLIENT_FLEET_API_KEY = $ApiKey }
 $results = [System.Collections.Generic.List[object]]::new()
 
 if ($Parallel) {

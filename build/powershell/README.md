@@ -69,6 +69,18 @@ needs a flag when you want to override one:
 | `NSCLIENT_FLEET_API_KEY` | provisioning, teardown, `add-nagios-bundle` (`-ApiKey`) | An `nsk_…` key from *API keys* in the fleet sidebar |
 | `NSCLIENT_FLEET_SYNC_API_KEY` | `setup-nagios-machine` (`-SyncApiKey`) | Optional: a **view_only** key for the Nagios VM's poller, so an admin key never lands on that box |
 
+Or keep them in a file instead of the environment: copy
+`fleet-config.example.json` to `.fleet-config.json` next to it (gitignored)
+and fill it in. Each script loads it on start (`Import-FleetConfig` in
+`fleet-api.ps1`) and fills in whichever of the three variables are not
+already set, so a variable set in the shell still wins over the file, and an
+explicit `-FleetServer`/`-ApiKey` wins over both. `NSCLIENT_FLEET_CONFIG`
+points at a file somewhere else.
+
+```json
+{ "server": "https://fleet.example.com", "apiKey": "nsk_...", "syncApiKey": "" }
+```
+
 ```powershell
 $env:NSCLIENT_FLEET_SERVER  = "https://fleet.example.com"
 $env:NSCLIENT_FLEET_API_KEY = "nsk_..."      # API keys, in the fleet sidebar
@@ -647,7 +659,26 @@ Ubuntu and Rocky, so the old whole-OS matrix is one suite:
 
 # A pinned release
 ./run-estate.ps1 base=3 -Version 0.24.1
+
+# The last build of main, before it is released
+./run-estate.ps1 base=3,scripts -FromMain
+
+# The build of any other run, e.g. a pull request's (the id is in the run's url)
+./run-estate.ps1 base=3 -BuildRunId 40172205677
 ```
+
+`-FromMain` takes the packages of the newest successful *Build main* run (the
+x64 MSI, the Ubuntu 24.04 deb and the Rocky 9 rpm, as far as the suites need
+them). A VM cannot download a workflow artifact, which needs a GitHub token, so
+`estate/publish-build.ps1` downloads them with the `gh` CLI, uploads them to a
+private blob container in the `NSCP-Packages` resource group (created on first
+use) and hands the VMs read-only SAS urls that expire after 12 hours. A run's
+packages are uploaded once, and a second run of the same build reuses them.
+It needs `gh auth login` and the `Az.Storage` module next to `Az.Resources`.
+It prints a warning when main has moved past its newest successful build, so
+you know the commit you are testing. `Remove-AzResourceGroup -Name NSCP-Packages`
+removes the packages again. `./estate/publish-build.ps1` on its own returns
+the urls, for `provision-fleet-machines.ps1 -WindowsPackageUrl ...`.
 
 Every machine gets the role checks and the agent checks of the live suite
 (`check_cpu`, `check_memory`, `check_uptime`, `check_drivesize`, plus the

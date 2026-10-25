@@ -73,6 +73,9 @@ $scriptDir = $PSScriptRoot
 $parentDir = Split-Path -Parent $scriptDir
 
 . (Join-Path $parentDir "fleet-api.ps1")
+Import-FleetConfig
+if (-not $FleetServer) { $FleetServer = $env:NSCLIENT_FLEET_SERVER }
+if (-not $ApiKey) { $ApiKey = $env:NSCLIENT_FLEET_API_KEY }
 
 # --- defaults from .nagios.pwd -----------------------------------------------
 if (-not $PwdFile) { $PwdFile = Join-Path $parentDir ".nagios.pwd" }
