@@ -659,7 +659,26 @@ Ubuntu and Rocky, so the old whole-OS matrix is one suite:
 
 # A pinned release
 ./run-estate.ps1 base=3 -Version 0.24.1
+
+# The last build of main, before it is released
+./run-estate.ps1 base=3,scripts -FromMain
+
+# The build of any other run, e.g. a pull request's (the id is in the run's url)
+./run-estate.ps1 base=3 -BuildRunId 40172205677
 ```
+
+`-FromMain` takes the packages of the newest successful *Build main* run (the
+x64 MSI, the Ubuntu 24.04 deb and the Rocky 9 rpm, as far as the suites need
+them). A VM cannot download a workflow artifact, which needs a GitHub token, so
+`estate/publish-build.ps1` downloads them with the `gh` CLI, uploads them to a
+private blob container in the `NSCP-Packages` resource group (created on first
+use) and hands the VMs read-only SAS urls that expire after 12 hours. A run's
+packages are uploaded once, and a second run of the same build reuses them.
+It needs `gh auth login` and the `Az.Storage` module next to `Az.Resources`.
+It prints a warning when main has moved past its newest successful build, so
+you know the commit you are testing. `Remove-AzResourceGroup -Name NSCP-Packages`
+removes the packages again. `./estate/publish-build.ps1` on its own returns
+the urls, for `provision-fleet-machines.ps1 -WindowsPackageUrl ...`.
 
 Every machine gets the role checks and the agent checks of the live suite
 (`check_cpu`, `check_memory`, `check_uptime`, `check_drivesize`, plus the

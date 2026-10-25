@@ -68,6 +68,15 @@
     Touches neither Azure nor the fleet server.
 .PARAMETER WaitMinutes
     How long a suite waits for its machines to enroll and sync (default 15).
+.PARAMETER FromMain
+    Install the last build of main instead of a release: the packages of the
+    newest successful "Build main" run, downloaded with the gh CLI and hosted
+    behind short-lived SAS urls in the NSCP-Packages resource group
+    (estate/publish-build.ps1). Only the families the suites use are fetched.
+    Cannot be combined with -*PackageUrl.
+.PARAMETER BuildRunId
+    Like -FromMain, but the packages of this GitHub Actions run (a pull
+    request's build, say). The run id is the number in the run's url.
 .PARAMETER CheckNsclient
     Also run every role check through the check_nsclient plugin from this
     machine, the way a Nagios server would (see estate/verify-estate.ps1).
@@ -79,6 +88,8 @@
     ./run-estate.ps1 all -MaxMachines 8              # everything, as the quota allows
 .EXAMPLE
     ./run-estate.ps1 mysql,mssql -Sequential -StopOnFirstFailure
+.EXAMPLE
+    ./run-estate.ps1 base,scripts -FromMain          # the last build of main, not a release
 .EXAMPLE
     ./run-estate.ps1 mssql -KeepVms                  # leave it up, then connect-machine.ps1
 .EXAMPLE
@@ -113,6 +124,8 @@ param(
     [string]$WindowsPackageUrl = "",
     [string]$UbuntuPackageUrl = "",
     [string]$RockyPackageUrl = "",
+    [switch]$FromMain,
+    [string]$BuildRunId = "",
     [string]$Location = "",
     [string[]]$WindowsVersions = @(),
     [switch]$FleetInsecure,
@@ -218,6 +231,23 @@ if (-not $ApiKey) { throw "-ApiKey is required (or set `$env:NSCLIENT_FLEET_API_
 # Children inherit the key through the environment rather than a file or a
 # command line.
 $env:NSCLIENT_FLEET_API_KEY = $ApiKey
+
+# -FromMain / -BuildRunId: host a CI build's packages where the VMs can fetch
+# them (artifacts need a GitHub token) and install those, for the families the
+# suites actually provision.
+if ($FromMain -or $BuildRunId) {
+    if ($WindowsPackageUrl -or $UbuntuPackageUrl -or $RockyPackageUrl) {
+        throw "-FromMain / -BuildRunId picks the packages itself; drop the -*PackageUrl parameters."
+    }
+    $families = @($suites | ForEach-Object { $_.Machines } | ForEach-Object { $_.Os } | Select-Object -Unique)
+    $publishArgs = @{ Families = $families }
+    if ($BuildRunId) { $publishArgs.RunId = $BuildRunId }
+    if ($Location) { $publishArgs.Location = $Location }
+    $build = & (Join-Path $estateDir "publish-build.ps1") @publishArgs
+    $WindowsPackageUrl = $build.WindowsPackageUrl
+    $UbuntuPackageUrl = $build.UbuntuPackageUrl
+    $RockyPackageUrl = $build.RockyPackageUrl
+}
 
 # Resolve "the latest release" once for the whole run: left to each suite it
 # is one unauthenticated GitHub API call per suite (60/hour per address), and a
