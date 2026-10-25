@@ -69,6 +69,18 @@ needs a flag when you want to override one:
 | `NSCLIENT_FLEET_API_KEY` | provisioning, teardown, `add-nagios-bundle` (`-ApiKey`) | An `nsk_…` key from *API keys* in the fleet sidebar |
 | `NSCLIENT_FLEET_SYNC_API_KEY` | `setup-nagios-machine` (`-SyncApiKey`) | Optional: a **view_only** key for the Nagios VM's poller, so an admin key never lands on that box |
 
+Or keep them in a file instead of the environment: copy
+`fleet-config.example.json` to `.fleet-config.json` next to it (gitignored)
+and fill it in. Each script loads it on start (`Import-FleetConfig` in
+`fleet-api.ps1`) and fills in whichever of the three variables are not
+already set, so a variable set in the shell still wins over the file, and an
+explicit `-FleetServer`/`-ApiKey` wins over both. `NSCLIENT_FLEET_CONFIG`
+points at a file somewhere else.
+
+```json
+{ "server": "https://fleet.example.com", "apiKey": "nsk_...", "syncApiKey": "" }
+```
+
 ```powershell
 $env:NSCLIENT_FLEET_SERVER  = "https://fleet.example.com"
 $env:NSCLIENT_FLEET_API_KEY = "nsk_..."      # API keys, in the fleet sidebar

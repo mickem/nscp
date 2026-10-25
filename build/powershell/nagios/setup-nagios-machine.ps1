@@ -83,6 +83,8 @@ $scriptDir = $PSScriptRoot
 $parentDir = Split-Path -Parent $scriptDir
 
 . (Join-Path $parentDir "fleet-api.ps1")
+Import-FleetConfig
+if (-not $FleetServer) { $FleetServer = $env:NSCLIENT_FLEET_SERVER }
 
 # --- parameter validation, before anything costs money -----------------------
 if ($FleetServer) {

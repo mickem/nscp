@@ -20,6 +20,40 @@
     an HTTP error response.
 #>
 
+# Fill the NSCLIENT_FLEET_* variables from a local config file, so the fleet
+# server url and its API keys need not be set in every shell:
+#
+#     build/powershell/.fleet-config.json      (gitignored)
+#     { "server": "https://fleet.example.com", "apiKey": "nsk_...", "syncApiKey": "nsk_..." }
+#
+# Copy fleet-config.example.json to start one; NSCLIENT_FLEET_CONFIG points at
+# a file elsewhere. A variable that is already set wins over the file (and an
+# explicit parameter over both, in the scripts that call this). The values go
+# into the process environment, which is how the runners already hand the key
+# to their child processes - never on a command line.
+function Import-FleetConfig {
+    param([string]$Path = $env:NSCLIENT_FLEET_CONFIG)
+    if (-not $Path) { $Path = Join-Path $PSScriptRoot ".fleet-config.json" }
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    try {
+        $config = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    }
+    catch {
+        throw "Could not read the fleet config '$Path' - it must be JSON shaped like fleet-config.example.json: $($_.Exception.Message)"
+    }
+    $variables = [ordered]@{
+        server     = "NSCLIENT_FLEET_SERVER"
+        apiKey     = "NSCLIENT_FLEET_API_KEY"
+        syncApiKey = "NSCLIENT_FLEET_SYNC_API_KEY"
+    }
+    foreach ($name in $variables.Keys) {
+        $value = "$($config.$name)"
+        if ($value -and -not [Environment]::GetEnvironmentVariable($variables[$name])) {
+            [Environment]::SetEnvironmentVariable($variables[$name], $value)
+        }
+    }
+}
+
 # Ignore an untrusted/self-signed fleet certificate for the rest of this process.
 # PowerShell 7 takes -SkipCertificateCheck per call; 5.1 has no such parameter, so
 # the only lever is the process-wide validation callback. Both are one-way for the

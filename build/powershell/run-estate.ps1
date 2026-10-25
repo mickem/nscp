@@ -127,6 +127,9 @@ $scriptDir = $PSScriptRoot
 $estateDir = Join-Path $scriptDir "estate"
 . (Join-Path $scriptDir "fleet-api.ps1")
 . (Join-Path $estateDir "estate-api.ps1")
+Import-FleetConfig
+if (-not $FleetServer) { $FleetServer = $env:NSCLIENT_FLEET_SERVER }
+if (-not $ApiKey) { $ApiKey = $env:NSCLIENT_FLEET_API_KEY }
 $psExe = (Get-Process -Id $PID).Path
 $Parallel = -not $Sequential
 

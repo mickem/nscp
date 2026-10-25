@@ -37,6 +37,12 @@
 .PARAMETER FleetCaFile
     A local PEM file with the CA that issued the fleet server certificate. It is
     copied to the VM and used to verify the enrollment call.
+.PARAMETER FleetHostId
+    The fleet host this machine enrolls as. With it (and an API key in
+    $env:NSCLIENT_FLEET_API_KEY), the host is read back from the fleet server
+    right after the install - before this script writes any configuration of
+    its own - and its status and local_config_present are reported, so the
+    log shows what a bare fleet install looks like in the fleet UI.
 .PARAMETER VmSize
     Azure VM size. The default is a 1-vCPU size: a subscription's vCPU quota is
     what caps the size of an estate, so halving the vCPUs per machine doubles
@@ -90,6 +96,7 @@ param(
     [switch]$FleetInsecure,
     [switch]$FleetNoVerify,
     [string]$FleetCaFile = "",
+    [string]$FleetHostId = "",
     [string]$VmSize = "Standard_F1as_v7",
     [string]$ImageUrn = "",
     [string]$Modules = "",
@@ -336,6 +343,28 @@ $caPem
     }
     # Emitted into the remote script as extra elements of the argument array.
     $msiFleetArgs = "," + (($fleetProps | ForEach-Object { "'$_'" }) -join ",")
+
+    # The installer verifies the fleet server against an export of the Windows
+    # ROOT store, but a fresh Windows image holds only part of the trusted
+    # roots: the rest are fetched the first time Windows itself builds a chain
+    # that needs one. On a brand-new VM nothing has done that yet, so a server
+    # whose root is not pre-seeded (Let's Encrypt's ISRG chain, for one) fails
+    # enrollment with "certificate verify failed". One Windows HTTPS request to
+    # the server first fetches its root, as opening the url in a browser would
+    # on a real machine. Not fatal: if it fails, the install reports why.
+    if ($FleetServer -match '^https://' -and -not $FleetCaFile -and -not $FleetNoVerify) {
+        $healthUrl = $FleetServer.TrimEnd('/') + '/healthz'
+        $caScript += @"
+
+`$rootsBefore = @(Get-ChildItem Cert:\LocalMachine\Root).Count
+try {
+    `$null = Invoke-WebRequest -Uri '$healthUrl' -UseBasicParsing -TimeoutSec 30
+    Write-Output "FLEET: primed the Windows root store from $healthUrl (roots: `$rootsBefore -> `$(@(Get-ChildItem Cert:\LocalMachine\Root).Count))"
+} catch {
+    Write-Output "FLEET: could not reach $healthUrl to prime the Windows root store: `$(`$_.Exception.Message)"
+}
+"@
+    }
 }
 
 $scriptBlock = @"
@@ -401,6 +430,37 @@ if (Test-Path `$state) {
         exit 3
     }
     Write-Host "✅ Enrolled with the fleet server."
+
+    # What the fleet server sees for a bare fleet install: read before anything
+    # below writes configuration of its own (web install, module activations,
+    # role settings), all of which land in the local nsclient.ini and make the
+    # host report local_config_present = true. The installer itself should
+    # write none in fleet mode, so this is the point where false is expected.
+    # The flag only appears once the service has sent its first state report.
+    if ($FleetHostId -and $env:NSCLIENT_FLEET_API_KEY) {
+        . (Join-Path (Split-Path -Parent $PSScriptRoot) "fleet-api.ps1")
+        Write-Host "● Reading fleet host $FleetHostId after the install (before any local configuration)..."
+        $fleetHostRecord = $null
+        $deadline = (Get-Date).AddMinutes(4)
+        while ((Get-Date) -lt $deadline) {
+            try {
+                $fleetHostRecord = Get-FleetHost -FleetServer $FleetServer -ApiKey $env:NSCLIENT_FLEET_API_KEY -HostId $FleetHostId `
+                    -SkipCertificateCheck:$FleetNoVerify
+                if ($null -ne $fleetHostRecord.last_seen_at -and $null -ne $fleetHostRecord.local_config_present) { break }
+            }
+            catch { Write-Host "   could not read the host yet: $($_.Exception.Message)" }
+            Start-Sleep -Seconds 10
+        }
+        if ($null -eq $fleetHostRecord -or $null -eq $fleetHostRecord.local_config_present) {
+            Write-Warning "FLEET AFTER INSTALL: no state report within 4 minutes (status '$($fleetHostRecord.status)'); local_config_present unknown."
+        }
+        else {
+            Write-Host "FLEET AFTER INSTALL: status=$($fleetHostRecord.status) local_config_present=$($fleetHostRecord.local_config_present) state_hash=$(if ($fleetHostRecord.current_state_hash) { 'set' } else { 'none' })"
+            if ($fleetHostRecord.local_config_present) {
+                Write-Warning "FLEET AFTER INSTALL: the host reports local configuration straight after a fleet install - the installer wrote settings of its own."
+            }
+        }
+    }
 }
 
 Write-Host "● Configuring web server and firewall on VM '$VmName'..."

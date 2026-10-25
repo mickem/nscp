@@ -84,6 +84,9 @@ _build
 *.pwd
 # Local inventory written by build/powershell/provision-fleet-machines.ps1
 .fleet-machines.json
+# Fleet server url and API keys for the build/powershell scripts
+# (copy build/powershell/fleet-config.example.json)
+.fleet-config.json
 # Per-run logs and results written by build/powershell/run-estate.ps1
 .estate-runs/
 
