@@ -52,27 +52,38 @@ Patch dialog sequence:
 
       <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
 
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
+      <!-- Fleet mode (FLEET_SERVER given): the whole configuration comes from
+           the fleet server and the installer writes none of its own, so every
+           configuration page - the monitoring tool, the configuration source,
+           the settings and the invalid-configuration warnings - is skipped.
+           Each route into one of them carries NOT FLEET_SERVER, which leaves
+           the unconditional fall-through (VerifyReadyDlg) as the only one
+           that is true. ApplyTool and ImportConfig, which those pages would
+           have run, run from the execute sequence instead, as on a silent
+           install (see Product.wxs). -->
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg" Order="1">NOT FLEET_SERVER</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg" Order="2">FLEET_SERVER</Publish>
 
       <Publish Dialog="MonitoringToolDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
       <Publish Dialog="MonitoringToolDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg">1</Publish>
 
-      <Publish Dialog="SetupTypeDlg" Control="Back" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
-      <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1"</Publish>
-      <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="ConfigureDlg" Order="2">CONF_CAN_CHANGE = "1"</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="Back" Event="NewDialog" Value="MonitoringToolDlg" Order="1">NOT FLEET_SERVER</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2">FLEET_SERVER</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1" AND NOT FLEET_SERVER</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="ConfigureDlg" Order="2">CONF_CAN_CHANGE = "1" AND NOT FLEET_SERVER</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="VerifyReadyDlg" Order="3">1</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="DoAction" Value="ImportConfig">1</Publish>
 
       <Publish Dialog="SetupTypeDlg" Control="CustomButton" Event="NewDialog" Value="CustomizeDlg">1</Publish>
-      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1"</Publish>
-      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="SelectConfigurationDlg" Order="2">CONF_OLD_FOUND="0"</Publish>
-      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="ConfigureDlg" Order="3">CONF_CAN_CHANGE = "1"</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1" AND NOT FLEET_SERVER</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="SelectConfigurationDlg" Order="2">CONF_OLD_FOUND="0" AND NOT FLEET_SERVER</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="ConfigureDlg" Order="3">CONF_CAN_CHANGE = "1" AND NOT FLEET_SERVER</Publish>
       <Publish Dialog="SetupTypeDlg" Control="CompleteButton" Event="NewDialog" Value="VerifyReadyDlg" Order="4">1</Publish>
 
       <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="1">WixUI_InstallMode = "Change"</Publish>
       <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="SetupTypeDlg" Order="2">WixUI_InstallMode = "InstallCustom"</Publish>
-      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1"</Publish>
-      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="SelectConfigurationDlg" Order="2">CONF_CAN_CHANGE = "1"</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="InvalidConfigDlg1" Order="1">CONF_HAS_ERRORS = "1" AND NOT FLEET_SERVER</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="SelectConfigurationDlg" Order="2">CONF_CAN_CHANGE = "1" AND NOT FLEET_SERVER</Publish>
       <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="3">1</Publish>
 
       <Publish Dialog="InvalidConfigDlg1" Control="Back" Event="NewDialog" Value="CustomizeDlg" Order="1">WixUI_InstallMode = "Change" OR WixUI_InstallMode = "InstallCustom"</Publish>
@@ -109,8 +120,8 @@ Patch dialog sequence:
       <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="SetupTypeDlg" Order="2">WixUI_InstallMode = "InstallTypical" OR WixUI_InstallMode = "InstallComplete"</Publish>
       <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="3">WixUI_InstallMode = "Repair" OR WixUI_InstallMode = "Remove"</Publish>
       <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="4">WixUI_InstallMode = "Update"</Publish>
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ConfigureDlg" Order="5">CONF_CAN_CHANGE = "1"</Publish>
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="InvalidConfigDlg1" Order="6">CONF_HAS_ERRORS = "1"</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ConfigureDlg" Order="5">CONF_CAN_CHANGE = "1" AND NOT FLEET_SERVER</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="InvalidConfigDlg1" Order="6">CONF_HAS_ERRORS = "1" AND NOT FLEET_SERVER</Publish>
 
       <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg">1</Publish>
 
