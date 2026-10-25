@@ -3,14 +3,12 @@
 
 #include "script_provider.hpp"
 
-#include <atomic>
 #include <boost/thread.hpp>
 #include <file_helpers.hpp>
 #include <memory>
 #include <str/utils.hpp>
 
-script_provider::script_provider(int id, nscapi::core_wrapper* core, boost::filesystem::path root)
-    : core_(core), id_(id), root_(std::make_shared<const boost::filesystem::path>(root)) {}
+script_provider::script_provider(int id, nscapi::core_wrapper* core, boost::filesystem::path root) : core_(core), id_(id) { root_.set(root); }
 
 unsigned int script_provider::get_id() { return id_; }
 
@@ -23,16 +21,11 @@ std::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() { 
 // which made the import destination and the sandbox root
 // ${scripts}/scripts/python - a folder find_file never searches and that
 // does not exist on a normal install.
-boost::filesystem::path script_provider::scripts_folder() const {
-  const std::shared_ptr<const boost::filesystem::path> root = std::atomic_load(&root_);
-  return root ? *root : boost::filesystem::path();
-}
+boost::filesystem::path script_provider::scripts_folder() const { return root_.get(); }
 
 boost::filesystem::path script_provider::get_root() { return scripts_folder() / "python"; }
 
-void script_provider::set_scripts_folder(const boost::filesystem::path &scripts) {
-  std::atomic_store(&root_, std::make_shared<const boost::filesystem::path>(scripts));
-}
+void script_provider::set_scripts_folder(const boost::filesystem::path& scripts) { root_.set(scripts); }
 
 boost::optional<boost::filesystem::path> script_provider::find_file(std::string file) {
   const boost::filesystem::path root = scripts_folder();

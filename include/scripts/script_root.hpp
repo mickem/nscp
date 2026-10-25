@@ -27,10 +27,12 @@
 //   `shared`               ${shared-path}/scripts
 //   a path                 any folder, ${...} tokens expanded
 
+#include <atomic>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem/path.hpp>
+#include <memory>
 #include <stdexcept>
 #include <string>
 
@@ -43,7 +45,8 @@ struct layout {
   boost::filesystem::path scripts;
   // The folder above it: the working directory an external script runs in
   // and the base a relative command is rooted at. Empty when the scripts
-  // folder has no parent (a bare relative name).
+  // folder has no parent (a bare relative name, or a root directory such as
+  // `C:\` or `/`).
   boost::filesystem::path base;
   // Whether `script root` names a folder other than ${scripts}. The old
   // default written out (`script root = ${scripts}`, as the documentation
@@ -86,6 +89,20 @@ inline boost::filesystem::path without_trailing_separator(boost::filesystem::pat
   return boost::filesystem::path(s);
 }
 
+// The folder above `scripts`, or an empty path when there is none. A scripts
+// folder at a root directory needs the check: boost spells the parent of
+// `C:\` as `C:`, the drive-relative "current directory on C" that
+// without_trailing_separator() refuses to produce, and that as a working
+// directory or a rooting base would resolve against whatever the per-drive
+// current directory happens to be. A parent that is the folder itself (how a
+// newer boost spells the parent of a root directory) is no parent either.
+inline boost::filesystem::path parent_folder(const boost::filesystem::path &scripts) {
+  const boost::filesystem::path parent = scripts.parent_path();
+  if (parent.has_root_name() && !parent.has_root_directory()) return boost::filesystem::path();
+  if (parent == scripts) return boost::filesystem::path();
+  return parent;
+}
+
 // Whether two spellings name the same folder, as far as can be told without
 // touching the disk: normalised, trailing separator dropped, and compared the
 // way the platform's filesystem compares names.
@@ -113,9 +130,25 @@ layout resolve(const std::string &configured, Expand expand) {
   // The default folder however it was spelled: a `./` or a doubled separator
   // in the written-out value must not leak into the paths the modules use.
   if (!result.configured) result.scripts = scripts;
-  result.base = result.scripts.parent_path();
+  result.base = parent_folder(result.scripts);
   return result;
 }
+
+// A scripts folder published to the threads that read it. Every module
+// rewrites its folder on a reload while query and web threads read it (an
+// `execute_script`, a `lua list`, a lookup racing the reload), so the value
+// is swapped whole through an atomic shared_ptr: a reader sees the old
+// folder or the new one, never a torn path. Empty until the first set().
+class published_folder {
+  std::shared_ptr<const boost::filesystem::path> folder_;
+
+ public:
+  void set(const boost::filesystem::path &folder) { std::atomic_store(&folder_, std::make_shared<const boost::filesystem::path>(folder)); }
+  boost::filesystem::path get() const {
+    const std::shared_ptr<const boost::filesystem::path> folder = std::atomic_load(&folder_);
+    return folder ? *folder : boost::filesystem::path();
+  }
+};
 
 // resolve(), falling back to the built-in layout when the value cannot be
 // expanded (an unknown token, most likely): the module keeps loading with the

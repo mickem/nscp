@@ -95,12 +95,12 @@ describe("CheckExternalScripts — ext-scr install argument lockdown (settings p
 });
 
 describe("CheckExternalScripts — `script root = ${scripts}`, the key's old default written out", () => {
-  // The key used to name the scripts folder itself, defaulting to ${scripts},
-  // and the documentation told operators to write that line. It now names the
-  // folder above `scripts/`; a value that is the scripts folder is read as the
-  // old configuration and keeps the built-in layout, rather than becoming a
-  // root with a `scripts` folder that does not exist below it - which would
-  // put the show/delete sandbox on nothing and fail every show.
+  // The key names the scripts folder, defaulting to ${scripts}, and the
+  // documentation once told operators to write that line out. Written out it
+  // is still the default, not a configured root (include/scripts/script_root.hpp
+  // compares the expanded value against ${scripts}): the sandbox stays on
+  // ${scripts}, and on Windows the built-in layout keeps the installation
+  // directory as the start directory even under a `[paths] scripts` override.
   it("keeps the show sandbox on ${scripts}", async () => {
     const nscp = new NscpInstance();
     await nscp.configure({ "/settings/external scripts": { "script root": "${scripts}" } });

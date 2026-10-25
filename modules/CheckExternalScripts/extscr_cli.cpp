@@ -83,10 +83,8 @@ bool extscr_cli::locate_script(const std::string &script, boost::filesystem::pat
 #endif
   const scripts::root::layout layout = provider_->get_layout();
   for (const std::string &s : spellings) {
-    std::list<boost::filesystem::path> candidates;
-    if (!layout.base.empty()) candidates.push_back(layout.base / s);
-    candidates.push_back(boost::filesystem::path(s));
-    candidates.push_back(provider_->get_core()->expand_path("${base-path}/" + s));
+    const std::list<boost::filesystem::path> candidates = {layout.base / s, boost::filesystem::path(s),
+                                                           boost::filesystem::path(provider_->get_core()->expand_path("${base-path}/" + s))};
     for (const boost::filesystem::path &c : candidates) {
       if (!boost::filesystem::is_regular_file(c)) continue;
       if (!inside_sandbox(c)) {
@@ -203,7 +201,7 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     // in: the form that runs as-is when recorded as a command.
     const scripts::root::layout layout = provider_->get_layout();
     boost::filesystem::path dir = provider_->get_root();
-    boost::filesystem::path rel = layout.base.empty() ? boost::filesystem::path(provider_->get_core()->expand_path("${base-path}")) : layout.base;
+    const boost::filesystem::path rel = layout.base;
     boost::system::error_code ec;
     boost::filesystem::recursive_directory_iterator iter(dir, ec), eod;
     if (ec) {
@@ -447,12 +445,16 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     // the scripts folder, on every platform, so `scripts/<name>` relative to
     // that folder resolves wherever the tree is - and that spelling is what
     // keeps the tree relocatable.
+    //
+    // Relative only when the file really is below the folder scripts start
+    // in; otherwise the absolute path, which runs from anywhere. That is also
+    // what an import gets while the folder above a configured root is not
+    // there yet (the module then roots at the installation directory, and the
+    // layout says so): the copy creates the folder, and the command recorded
+    // against it has to run before the next reload moves the root there.
     script = file.string();
-    const scripts::root::layout layout = provider_->get_layout();
-    if (!layout.base.empty()) {
-      const std::string relative = script_paths::relative_to(layout.base, file);
-      if (!relative.empty()) script = relative;
-    }
+    const std::string relative = script_paths::relative_to(provider_->get_layout().base, file);
+    if (!relative.empty()) script = relative;
     // Quoted when it has to be: the recorded value is a command line, and
     // parse_command tokenises it with boost::escaped_list_separator on spaces
     // (with `"` as the quote character). An unquoted C:\\Program Files\\...\\x.bat
@@ -487,12 +489,11 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
 
   if (!wrapped) {
     bool found = boost::filesystem::is_regular_file(file);
-    const scripts::root::layout layout = provider_->get_layout();
-    if (!found && !layout.base.empty() && !file.is_absolute()) {
+    if (!found && !file.is_absolute()) {
       // `scripts/check.sh` as the script runs it, relative to the folder it
       // starts in: the spelling that gets recorded - the file is only looked
       // up here.
-      found = boost::filesystem::is_regular_file(layout.base / file);
+      found = boost::filesystem::is_regular_file(provider_->get_layout().base / file);
     }
     if (!found) {
       file = file = provider_->get_core()->expand_path("${shared-path}/" + file.string());

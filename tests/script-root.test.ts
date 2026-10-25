@@ -339,6 +339,46 @@ describe("script root whose folder above does not exist", () => {
     expect(out).toContain("alone ok");
     expect(out).toContain("cannot be used as the working directory");
   });
+
+  // `ext-scr add --import` under that same root. The copy creates the scripts
+  // folder, and with it the folder above - but the module rooted at the
+  // installation directory when it loaded, and the command it records has to
+  // run from there: the absolute path, not `scripts/<name>` against a folder
+  // the launcher does not use until the next reload re-reads the root.
+  it("add --import records a command that runs before the root is re-read", async () => {
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-script-root-import-"));
+    const name = onWindows ? "late.bat" : "late.sh";
+    // An import source must be inside the script root or ${shared-path}.
+    const incoming = path.join(workDir, "incoming");
+    fs.mkdirSync(incoming, { recursive: true });
+    const source = path.join(incoming, name);
+    fs.writeFileSync(
+      source,
+      onWindows ? "@echo off\r\necho late ok\r\n" : "#!/bin/sh\necho late ok\n",
+      { mode: 0o755 },
+    );
+    const nscp = new NscpInstance({ workDir, pathOverrides: { "shared-path": workDir } });
+    const scripts = path.join(workDir, "not-synced-yet", "scripts");
+    await nscp.configure({
+      "/modules": { CheckExternalScripts: "enabled" },
+      "/settings/default": { "script root": scripts },
+    });
+    const added = await nscp.run(["ext-scr", "add", "--script", name, "--import", source], {
+      allowFailure: true,
+    });
+    const addedOut = added.all ?? `${added.stdout}\n${added.stderr}`;
+    expect(addedOut).toContain("cannot be used as the working directory");
+    expect(addedOut).toContain(`Added late as ${path.join(scripts, name)}`);
+    expect(addedOut).not.toContain(`as scripts${path.sep}${name}`);
+    expect(fs.existsSync(path.join(scripts, name))).toBe(true);
+
+    const r = await nscp.run(
+      ["client", "--module", "CheckExternalScripts", "--boot", "--query", "late"],
+      { allowFailure: true },
+    );
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+    expect(out).toContain("late ok");
+  });
 });
 
 // The control: a root that holds nothing. Every probe above must fail here,

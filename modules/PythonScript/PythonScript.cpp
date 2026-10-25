@@ -109,7 +109,6 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
         scripts::root::resolve_or_default(
             script_root, [this](const std::string &value) { return get_core()->expand_path(value); }, [](const std::string &why) { NSC_LOG_ERROR_STD(why); })
             .scripts;
-    std::atomic_store(&root_, std::make_shared<const boost::filesystem::path>(root));
     NSC_DEBUG_MSG_STD("Python scripts folder: " + (root / "python").string());
 
     // Construct once: a reload would otherwise replace the provider under
@@ -244,7 +243,7 @@ void PythonScript::execute_script(const PB::Commands::ExecuteRequestMessage::Req
     return;
   }
   std::string script_file = ofile.value().string();
-  python_script script(get_id(), scripts_folder().string(), "", "", script_file);
+  python_script script(get_id(), provider_->scripts_folder().string(), "", "", script_file);
   std::list<std::string> ops(script_options.begin(), script_options.end());
   if (!script.callFunction("__main__", ops)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");
