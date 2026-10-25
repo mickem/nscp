@@ -126,7 +126,15 @@ jobs:
         # than taking the older build that matches the installed runtime. It
         # can only widen what resolves - if no installable candidate exists the
         # install still fails loudly, exactly as it does now.
-        retry dnf install -y --allowerasing --nobest coreutils bash file findutils gawk git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd dotnet-sdk-8.0
+        # boost-json beside boost-devel: on Rocky 9 (Boost 1.75) the boost
+        # metapackage that boost-devel pulls in lists every runtime library
+        # except boost-json, so the container ends up with the CMake config
+        # and the libboost_json.so symlink but without libboost_json.so.1.75.0.
+        # Configure then succeeds and make fails on the first target that links
+        # Boost.JSON ("No rule to make target '/usr/lib64/libboost_json.so.1.75.0'").
+        # Rocky 10 (Boost 1.83) ships it with the metapackage; naming it is a
+        # no-op there.
+        retry dnf install -y --allowerasing --nobest coreutils bash file findutils gawk git boost-devel boost-json gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel mariadb-connector-c-devel pkgconf-pkg-config ccache zstd dotnet-sdk-8.0
     - uses: actions/checkout@v7
 
     - name: Configure ccache
