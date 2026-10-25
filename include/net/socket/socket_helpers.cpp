@@ -300,6 +300,16 @@ const char *const unwritable_folder_hint =
     "No certificate was generated: give the account running this write access to that folder (run the install as root on a "
     "packaged install), or set the certificate path to a file in a folder it can write to.";
 
+// What to do when the certificate could not even be looked at. Write access
+// does not help here: the lookup fails on a folder along the path that this
+// account cannot search, and only search (execute) access on it changes that.
+const char *const untraversable_folder_hint =
+    "No certificate was generated: give the account running this search (execute) access to every folder on that path, or "
+    "set the certificate path to a file in a folder it can reach.";
+
+// strerror() text is native, everything downstream of here is UTF-8.
+std::string errno_text(const int error) { return utf8::utf8_from_native(std::strerror(error)); }
+
 // Whether this process can create a file in `dir`. On POSIX access(2) answers
 // for root too (it reports a read-only filesystem, and root passes the mode
 // bits it would pass); on Windows _access only sees the read-only attribute, so
@@ -311,7 +321,7 @@ bool can_write_to(const boost::filesystem::path &dir, std::string &reason) {
 #else
   const bool ok = ::access(dir.string().c_str(), W_OK) == 0;
 #endif
-  if (!ok) reason = std::strerror(errno);
+  if (!ok) reason = errno_text(errno);
   return ok;
 }
 
@@ -340,7 +350,7 @@ std::string create_certificate_folder(const boost::filesystem::path &dir, std::v
   for (boost::filesystem::path level = dir; !level.empty(); level = level.parent_path()) {
     boost::system::error_code ec;
     if (boost::filesystem::exists(level, ec)) break;
-    if (!is_not_found(ec)) return "Could not check the certificate folder " + level.string() + ": " + ec.message();
+    if (!is_not_found(ec)) return "Could not check the certificate folder " + level.string() + ": " + utf8::utf8_from_native(ec.message());
     missing.push_back(level);
   }
   for (auto level = missing.rbegin(); level != missing.rend(); ++level) {
@@ -352,7 +362,7 @@ std::string create_certificate_folder(const boost::filesystem::path &dir, std::v
         boost::filesystem::remove(*made_before, ignored);
       }
       created.clear();
-      return "Could not create the certificate folder " + level->string() + ": " + ec.message();
+      return "Could not create the certificate folder " + level->string() + ": " + utf8::utf8_from_native(ec.message());
     }
     if (!made) continue;  // appeared meanwhile: not ours
 #ifndef WIN32
@@ -401,12 +411,16 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
     boost::system::error_code probe;
     if (boost::filesystem::is_regular_file(certificate, probe)) return;
     if (!is_not_found(probe)) {
-      list.emplace_back("WARNING: Could not check the certificate " + certificate + ": " + probe.message() + ". " + unwritable_folder_hint);
+      list.emplace_back("WARNING: Could not check the certificate " + certificate + ": " + utf8::utf8_from_native(probe.message()) + ". " +
+                        untraversable_folder_hint);
       return;
     }
   }
   {
-    const auto parent_path = boost::filesystem::path(certificate).parent_path();
+    // A bare file name lives in the working directory: an empty parent is
+    // "." to every check below (access("") fails with ENOENT).
+    boost::filesystem::path parent_path = boost::filesystem::path(certificate).parent_path();
+    if (parent_path.empty()) parent_path = ".";
     std::vector<std::string> created;
     const std::string error = create_certificate_folder(parent_path, created);
     if (!error.empty()) {
@@ -419,12 +433,17 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
     if (!created.empty()) list.emplace_back("Creating certificate folder: " + parent_path.string());
     // The folder that is there already but not ours to write - the normal
     // state after a root install, or the MSI layout - gets the same answer as
-    // one that could not be made, instead of a bare "Failed to write".
-    std::string reason;
-    if (!can_write_to(parent_path, reason)) {
+    // one that could not be made, instead of a bare "Failed to write". Only
+    // where something is about to be generated: an operator-named file that is
+    // simply absent is "not found", and advising write access on a folder
+    // nothing will be written to would be wrong - and repeated, since the NRPE
+    // client validates on every query.
+    const auto writable = [&list, &parent_path]() {
+      std::string reason;
+      if (can_write_to(parent_path, reason)) return true;
       list.emplace_back("WARNING: Cannot write to the certificate folder " + parent_path.string() + ": " + reason + ". " + unwritable_folder_hint);
-      return;
-    }
+      return false;
+    };
     // A folder we created holds nothing shipped, so it goes to the service
     // account with the certificate - which can then also regenerate one there.
     // Strictly after the files are written: a folder handed over first is one
@@ -437,6 +456,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
       for (const std::string &dir : created) hand_over(dir, "certificate folder");
     };
     if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
+      if (!writable()) return;
       list.emplace_back("Certificate not found: " + certificate + " (generating a default certificate)");
       try {
         write_certs(certificate, false);
@@ -446,6 +466,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
         list.emplace_back(std::string("WARNING: ") + e.what() + ". No certificate was generated.");
       }
     } else if (boost::algorithm::ends_with(certificate, "/ca.pem")) {
+      if (!writable()) return;
       list.emplace_back("CA not found: " + certificate + " (generating a default CA)");
       try {
         write_certs(certificate, true);
@@ -667,9 +688,12 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() const {
 #ifdef USE_SSL
   validate_certificate(ssl.certificate, list);
   validate_certificate(ssl.ca_path, list);
-  if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular_file(ssl.certificate_key))
+  // error_code overloads: an untraversable parent must not throw out of
+  // module load, which is where this runs.
+  boost::system::error_code probe;
+  if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular_file(ssl.certificate_key, probe))
     list.push_back("Certificate key not found: " + ssl.certificate_key);
-  if (!ssl.dh_key.empty() && !boost::filesystem::is_regular_file(ssl.dh_key)) list.push_back("DH key not found: " + ssl.dh_key);
+  if (!ssl.dh_key.empty() && !boost::filesystem::is_regular_file(ssl.dh_key, probe)) list.push_back("DH key not found: " + ssl.dh_key);
 #endif
   return list;
 }
@@ -1172,6 +1196,19 @@ std::string drain_bio(BIO *bio, const std::string &what) {
   return result;
 }
 
+// Write `content` into `file` and close it, reporting the reason of the step
+// that failed. errno is taken right after the call that set it: a successful
+// fclose() may leave anything in it, and a buffered write that fails only
+// surfaces at the flush inside fclose().
+void write_and_close(FILE *file, const std::string &content, const std::string &failure) {
+  const std::size_t written = fwrite(content.data(), sizeof(char), content.size(), file);
+  const int write_error = written == content.size() ? 0 : errno;
+  const bool flushed = fclose(file) == 0;
+  const int close_error = flushed ? 0 : errno;
+  if (written != content.size()) throw socket_helpers::socket_exception(failure + ": " + errno_text(write_error));
+  if (!flushed) throw socket_helpers::socket_exception(failure + ": " + errno_text(close_error));
+}
+
 // Write `content` to `path` so that only the account running the agent (and
 // the local administrators) can read it back.
 //
@@ -1200,7 +1237,7 @@ void write_secured(const std::string &path, const std::string &content) {
 #else
   file = fopen(path.c_str(), "wb");
 #endif
-  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write " + path + ": " + std::strerror(errno));
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write " + path + ": " + errno_text(errno));
   fclose(file);
 
   std::list<std::string> errors;
@@ -1213,21 +1250,19 @@ void write_secured(const std::string &path, const std::string &content) {
 #else
   file = fopen(path.c_str(), "wb");
 #endif
-  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write " + path + ": " + std::strerror(errno));
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write " + path + ": " + errno_text(errno));
 #else
   // O_EXCL: the temporary is ours alone, so nothing can pre-create it with a
   // mode or an owner of somebody else's choosing.
   const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
-  if (fd < 0) throw socket_helpers::socket_exception("Failed to write " + path + ": " + std::strerror(errno));
+  if (fd < 0) throw socket_helpers::socket_exception("Failed to write " + path + ": " + errno_text(errno));
   FILE *file = ::fdopen(fd, "wb");
   if (file == nullptr) {
     ::close(fd);
-    throw socket_helpers::socket_exception("Failed to write " + path + ": " + std::strerror(errno));
+    throw socket_helpers::socket_exception("Failed to write " + path + ": " + errno_text(errno));
   }
 #endif
-  const std::size_t written = fwrite(content.data(), sizeof(char), content.size(), file);
-  const bool flushed = fclose(file) == 0;
-  if (written != content.size() || !flushed) throw socket_helpers::socket_exception("Failed to write " + path + ": " + std::strerror(errno));
+  write_and_close(file, content, "Failed to write " + path);
 }
 
 void write_private_file(const std::string &path, const std::string &content) {
@@ -1267,10 +1302,8 @@ void write_public_file(const std::string &path, const std::string &content) {
 #else
   file = fopen(path.c_str(), "wb");
 #endif
-  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write certificate to " + path + ": " + std::strerror(errno));
-  const std::size_t written = fwrite(content.data(), sizeof(char), content.size(), file);
-  fclose(file);
-  if (written != content.size()) throw socket_helpers::socket_exception("Failed to write certificate to " + path + ": " + std::strerror(errno));
+  if (file == nullptr) throw socket_helpers::socket_exception("Failed to write certificate to " + path + ": " + errno_text(errno));
+  write_and_close(file, content, "Failed to write certificate to " + path);
 }
 }  // namespace
 

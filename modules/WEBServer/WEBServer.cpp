@@ -1010,11 +1010,8 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 }
@@ -1090,11 +1087,8 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 }
@@ -1417,17 +1411,8 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const po::error &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
-  } catch (const std::exception &e) {
-    // Anything that is not a parse error (a filesystem_error from the
-    // certificate folder, a settings exception) is a failure of the install,
-    // not of the command line: the option list would only bury the reason.
-    nscapi::protobuf::functions::set_response_bad(*response, "Failed to install the WEB server: " + utf8::utf8_from_native(e.what()));
-    return true;
   } catch (...) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Failed to install the WEB server: unknown exception");
+    nscapi::program_options::report_command_exception(desc, request.command(), *response, "Failed to install the WEB server");
     return true;
   }
 }
@@ -1467,8 +1452,8 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
       nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
       return true;
     }
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 

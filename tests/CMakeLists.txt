@@ -83,6 +83,7 @@ NSCP_CREATE_TEST(
     SOURCES
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main

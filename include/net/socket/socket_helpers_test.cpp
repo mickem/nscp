@@ -1865,8 +1865,45 @@ TEST_F(WriteCertsFixture, ValidateCertificateReportsAParentItCannotLookInto) {
   const std::string joined = boost::algorithm::join(messages, "\n");
   EXPECT_NE(joined.find("WARNING: Could not check the certificate " + cert + ": Permission denied"), std::string::npos) << joined;
   EXPECT_NE(joined.find("No certificate was generated"), std::string::npos) << joined;
+  // Write access on the folder would leave the lookup failing just the same:
+  // what is missing is search (execute) access along the path.
+  EXPECT_NE(joined.find("search (execute) access"), std::string::npos) << joined;
+  EXPECT_EQ(joined.find("write access"), std::string::npos) << joined;
+}
+
+// An operator-named certificate that is absent from a folder this process
+// cannot write is simply "not found": nothing would be generated there, so
+// advice to grant write access would be wrong, and the NRPE client repeats it
+// on every query.
+TEST_F(WriteCertsFixture, ValidateCertificateReportsAMissingOperatorCertificateAsNotFound) {
+  if (::geteuid() == 0) GTEST_SKIP() << "root is not denied by directory permissions";
+  const std::string folder = path_of("security");
+  boost::filesystem::create_directories(folder);
+  ASSERT_EQ(::chmod(folder.c_str(), S_IRUSR | S_IXUSR), 0);
+  const std::string cert = folder + "/server.pem";
+
+  std::list<std::string> messages;
+  ASSERT_NO_THROW(socket_helpers::validate_certificate(cert, messages, path_of("state")));
+  ::chmod(folder.c_str(), S_IRWXU);
+
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_EQ(joined, "Certificate not found: " + cert);
 }
 #endif
+
+// A bare file name has no parent folder: it is looked up in the working
+// directory, and its absence is "not found", not a warning about a folder
+// named "".
+TEST_F(WriteCertsFixture, ValidateCertificateReportsAMissingBareFileNameAsNotFound) {
+  const std::string cert = "nscp-no-such-certificate-" + dir_.filename().string() + ".pem";
+  ASSERT_FALSE(boost::filesystem::exists(cert));
+
+  std::list<std::string> messages;
+  ASSERT_NO_THROW(socket_helpers::validate_certificate(cert, messages, path_of("state")));
+
+  const std::string joined = boost::algorithm::join(messages, "\n");
+  EXPECT_EQ(joined, "Certificate not found: " + cert);
+}
 
 // =============================================================================
 // is_valid_peer_principal
