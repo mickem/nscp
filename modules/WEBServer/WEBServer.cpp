@@ -189,7 +189,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.alias()
       .add_key_to_settings()
       .add_string("port", sh::string_key(&port, "8443"), "Server port", "Port to use for WEB server.")
-      .add_int("threads", sh::int_key(&threads, 10), "Server threads", "The number of threads in the sever response pool.")
+      .add_int("threads", sh::int_key(&threads, 10), "Server threads",
+               "How many requests the WEB server serves at once. A request holds its thread until the check it runs returns, so this is "
+               "how many slow checks can be in flight over REST before the next request waits.")
       .add_string("max request size", sh::string_key(&max_request_size, net::kDefaultWebMaxRequestSize), "MAX REQUEST SIZE",
                   "The largest request body the server accepts, as a byte count with an optional k, m or g unit (`512k`, `3MiB`). A request "
                   "declaring more is answered 413 and logged, and nothing of its body is kept. The default, 3MiB, is what the server has always "
@@ -559,6 +561,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server.reset(Server::make_server(logger));
     // The guard line of a dying server thread reaches the log as written.
     server->setThreadReporting("web server", NSC_THREAD_REPORTER);
+    // Requests run on a pool, so one slow check over REST does not hold up
+    // every other request, the web UI and the metrics endpoint.
+    server->setWorkerThreads(static_cast<std::size_t>(threads < 1 ? 1 : threads));
     net::apply_tls_options(*server, tls_version, allowed_ciphers);
     {
       // Falls back rather than refusing to start: the default is the safe

@@ -23,12 +23,8 @@
  * run of overlapping slow checks; the usual leak canary and clean-log check
  * apply. NSCP_STRESS_SLOW_MS (default 8000) is how long each slow check runs.
  *
- * Over NRPE, whose server runs a worker pool, this is expected to pass. Over
- * REST it cannot today: the web server (mongoose and beast alike) runs every
- * request on its single io thread, so the first slow check holds up every
- * other request and the slow checks never overlap. That case is `it.failing`:
- * it records the limitation, and it starts failing - telling whoever fixed the
- * web server to flip it to `it` - the day REST dispatch moves off the io thread.
+ * Over NRPE, whose server runs a worker pool, this is expected to pass, and
+ * over REST, which runs requests on the WEB server's `threads` pool.
  *
  * Not asserted: a Lua check that spins without calling nscp.sleep or the core
  * holds the one Lua lock and serialises every other Lua check behind it. That
@@ -286,10 +282,7 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
     await soak(nrpeCall, "nrpe");
   });
 
-  // Known limitation, see the header: the web server dispatches every request
-  // on its one io thread, so the slow checks never overlap. Flip to `it` once
-  // REST dispatch moves to a worker pool.
-  it.failing("over REST: every engine answers promptly while every other one is busy", async () => {
+  it("over REST: every engine answers promptly while every other one is busy", async () => {
     await soak(restCall, "rest");
   });
 });
