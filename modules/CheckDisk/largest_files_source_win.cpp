@@ -137,10 +137,12 @@ scan_result walk(const scan_request &request, const std::wstring &root) {
 #ifdef NSCP_LARGEST_FILES_MFT
     // Basic info skips the short name, and the large fetch asks for bigger
     // batches per round trip, which is most of the walk's cost on a share.
-    f.find = FindFirstFileExW((long_path(path) + L"\\*").c_str(), FindExInfoBasic, &f.data, FindExSearchNameMatch, nullptr, FIND_FIRST_EX_LARGE_FETCH);
+    // join() and not a plain "\\*": a drive root keeps its separator, and the
+    // \\?\ namespace does not collapse a doubled one.
+    f.find = FindFirstFileExW(join(long_path(path), L"*").c_str(), FindExInfoBasic, &f.data, FindExSearchNameMatch, nullptr, FIND_FIRST_EX_LARGE_FETCH);
 #else
     // XP rejects both of those (they are Windows 7 additions).
-    f.find = FindFirstFileExW((long_path(path) + L"\\*").c_str(), FindExInfoStandard, &f.data, FindExSearchNameMatch, nullptr, 0);
+    f.find = FindFirstFileExW(join(long_path(path), L"*").c_str(), FindExInfoStandard, &f.data, FindExSearchNameMatch, nullptr, 0);
 #endif
     if (f.find == INVALID_HANDLE_VALUE) {
       if (GetLastError() != ERROR_FILE_NOT_FOUND) result.unreadable++;
@@ -156,7 +158,6 @@ scan_result walk(const scan_request &request, const std::wstring &root) {
   }
   if (request.folders) rollup.enter(to_utf8(root), 0);
 
-  unsigned counter = 0;
   while (!stack.empty()) {
     frame &f = stack.back();
     if (!f.first && !FindNextFileW(f.find, &f.data)) {
@@ -166,7 +167,9 @@ scan_result walk(const scan_request &request, const std::wstring &root) {
       continue;
     }
     f.first = false;
-    if ((++counter & 0x3FF) == 0 && steady::now() >= request.deadline) {
+    // Every entry: the clock is cheap next to the listing, and a slow share
+    // can take a long time over a few entries.
+    if (steady::now() >= request.deadline) {
       result.timed_out = true;
       break;
     }
@@ -467,7 +470,7 @@ class mft_scanner {
       else
         f &= ~f_dos_name;
       parent_[target] = r.parent < total_ ? static_cast<std::uint32_t>(r.parent) : none;
-      if (pattern_.empty() || wildcard_match(pattern_.c_str(), r.name.c_str(), true))
+      if (matches(r.name))
         f |= f_match;
       else
         f &= ~f_match;
@@ -477,11 +480,14 @@ class mft_scanner {
       // the base record.
       if (r.is_directory || r.base_record != 0) names_[target] = r.name;
     }
-    // A hard link is another $FILE_NAME with its own parent. The file is in
-    // the scan if any of its links is, so the other parents are kept too.
+    // A hard link is another $FILE_NAME with its own parent and name. The
+    // file is in the scan if any of its links is, and matches the pattern if
+    // a link in the scan does, so every other link is kept with its verdict.
     for (const ntfs::file_name &n : r.names) {
-      if (n.name_namespace != ntfs::namespace_dos && n.parent < total_ && n.parent != parent_[target])
-        other_parents_.emplace(target, static_cast<std::uint32_t>(n.parent));
+      if (n.name_namespace == ntfs::namespace_dos || n.parent >= total_) continue;
+      const bool match = matches(n.name);
+      if (n.parent == parent_[target] && match == ((f & f_match) != 0)) continue;
+      other_parents_.emplace(target, link{static_cast<std::uint32_t>(n.parent), match});
     }
     if (r.has_data) size_[target] = r.data_size;
   }
@@ -525,15 +531,36 @@ class mft_scanner {
     return true;
   }
 
-  // The parent through which a file is in the scan: its first name's, or
-  // failing that one of its other links'. `none` when it is outside.
-  std::uint32_t parent_in_scan(const std::uint32_t index) {
-    if (depth_of(parent_[index]) >= 0) return parent_[index];
+  bool matches(const std::u16string &name) const { return pattern_.empty() || wildcard_match(pattern_.c_str(), name.c_str(), true); }
+
+  // The parent through which a file is in the scan, preferring a link whose
+  // name matches the pattern: its first name's, or failing that one of its
+  // other links'. `none` when it is outside. `matched` says whether the
+  // chosen link matches.
+  std::uint32_t parent_in_scan(const std::uint32_t index, bool &matched) {
+    std::uint32_t found = none;
+    matched = false;
+    if (depth_of(parent_[index]) >= 0) {
+      found = parent_[index];
+      if (flags_[index] & f_match) {
+        matched = true;
+        return found;
+      }
+    }
     const auto links = other_parents_.equal_range(index);
     for (auto it = links.first; it != links.second; ++it) {
-      if (depth_of(it->second) >= 0) return it->second;
+      if (depth_of(it->second.parent) < 0) continue;
+      if (it->second.match) {
+        matched = true;
+        return it->second.parent;
+      }
+      if (found == none) found = it->second.parent;
     }
-    return none;
+    return found;
+  }
+  std::uint32_t parent_in_scan(const std::uint32_t index) {
+    bool matched = false;
+    return parent_in_scan(index, matched);
   }
 
   // The path of folder `index`, beneath the root.
@@ -557,56 +584,80 @@ class mft_scanner {
     return path;
   }
 
+  // The path of file `index` through its link in folder `parent`. The name
+  // is read back from the record, as only folder names are kept.
+  std::wstring file_path(const std::uint32_t index, const std::uint32_t parent) {
+    std::vector<unsigned char> buffer;
+    ntfs::record r;
+    std::u16string name;
+    if (read_record(index, buffer) && ntfs::parse_record(buffer.data(), buffer.size(), r) && r.has_name) {
+      // The name of the link that is in the scan and matches the pattern.
+      name = r.name;
+      for (const ntfs::file_name &n : r.names) {
+        if (n.parent == parent && n.name_namespace != ntfs::namespace_dos && matches(n.name)) {
+          name = n.name;
+          break;
+        }
+      }
+    } else {
+      auto it = names_.find(index);
+      if (it != names_.end()) name = it->second;
+    }
+    if (name.empty()) {
+      const std::string missing = "#" + std::to_string(index);
+      name.assign(missing.begin(), missing.end());
+    }
+    return join(path_of(parent), std::wstring(name.begin(), name.end()));
+  }
+
+  // Equal sizes at the cut-off are ranked by path, as the walker ranks them,
+  // so both methods pick the same tail. Past this many ties (thousands of
+  // identical files) the rest are left out in record order rather than
+  // reading every one of them back for its name.
+  static const std::size_t tie_limit = 1000;
+
   void rank_files(scan_result &result) {
     prepare_depths();
-    typedef std::pair<std::uint64_t, std::uint32_t> candidate;
-    std::priority_queue<candidate, std::vector<candidate>, std::greater<candidate>> best;
+    // First pass: the statistics, and the size of the top-th largest file.
+    std::priority_queue<std::uint64_t, std::vector<std::uint64_t>, std::greater<std::uint64_t>> sizes;
+    std::uint32_t end = total_;
     for (std::uint32_t i = ntfs::first_user_record; i < total_; i++) {
-      if (expired(i, result)) break;
+      if (expired(i, result)) {
+        end = i;
+        break;
+      }
       const std::uint8_t f = flags_[i];
       if ((f & (f_used | f_dir | f_named)) != (f_used | f_named)) continue;
       if (is_link(f)) {
         if (parent_in_scan(i) != none) result.links_skipped++;
         continue;
       }
-      if (parent_in_scan(i) == none) continue;
+      bool matched = false;
+      if (parent_in_scan(i, matched) == none) continue;
       result.files_seen++;
-      if (!(f & f_match) || size_[i] < request_.min_size || request_.top == 0) continue;
-      if (best.size() < request_.top) {
-        best.emplace(size_[i], i);
-      } else if (size_[i] > best.top().first) {
-        best.pop();
-        best.emplace(size_[i], i);
+      if (!matched || size_[i] < request_.min_size || request_.top == 0) continue;
+      if (sizes.size() < request_.top) {
+        sizes.push(size_[i]);
+      } else if (size_[i] > sizes.top()) {
+        sizes.pop();
+        sizes.push(size_[i]);
       }
     }
     count_folders(result);
+    if (sizes.empty()) return;
 
+    // Second pass: everything at or above that size, named and ranked.
+    const std::uint64_t cut = sizes.size() < request_.top ? request_.min_size : sizes.top();
     top_n ranking(request_.top, request_.min_size);
-    std::vector<unsigned char> buffer;
-    while (!best.empty()) {
-      const candidate c = best.top();
-      best.pop();
-      const std::uint32_t parent = parent_in_scan(c.second);
-      ntfs::record r;
-      std::u16string name;
-      if (read_record(c.second, buffer) && ntfs::parse_record(buffer.data(), buffer.size(), r) && r.has_name) {
-        // The name of the link that is in the scan.
-        name = r.name;
-        for (const ntfs::file_name &n : r.names) {
-          if (n.parent == parent && n.name_namespace != ntfs::namespace_dos) {
-            name = n.name;
-            break;
-          }
-        }
-      } else {
-        auto it = names_.find(c.second);
-        if (it != names_.end()) name = it->second;
-      }
-      if (name.empty()) {
-        const std::string missing = "#" + std::to_string(c.second);
-        name.assign(missing.begin(), missing.end());
-      }
-      ranking.add(entry{to_utf8(join(path_of(parent), std::wstring(name.begin(), name.end()))), c.first, 1});
+    std::size_t ties = 0;
+    for (std::uint32_t i = ntfs::first_user_record; i < end; i++) {
+      const std::uint8_t f = flags_[i];
+      if ((f & (f_used | f_dir | f_named)) != (f_used | f_named) || is_link(f) || size_[i] < cut) continue;
+      bool matched = false;
+      const std::uint32_t parent = parent_in_scan(i, matched);
+      if (parent == none || !matched) continue;
+      if (size_[i] == cut && ++ties > tie_limit) continue;
+      ranking.add(entry{to_utf8(file_path(i, parent)), size_[i], 1});
     }
     result.entries = ranking.take_sorted();
   }
@@ -636,11 +687,12 @@ class mft_scanner {
         continue;
       }
       // A hard-linked file counts once, under the first of its links that is
-      // in the scan: it takes up its space once.
-      const std::uint32_t parent = parent_in_scan(i);
+      // in the scan (and matches the pattern): it takes up its space once.
+      bool matched = false;
+      const std::uint32_t parent = parent_in_scan(i, matched);
       if (parent == none) continue;
       result.files_seen++;
-      if (!(f & f_match)) continue;
+      if (!matched) continue;
       // Every folder on the way up gets the file; the ones deeper than the
       // ranked levels are only passed through.
       std::int32_t depth = depth_[parent];
@@ -675,7 +727,11 @@ class mft_scanner {
   std::vector<std::uint32_t> parent_;
   std::vector<std::uint8_t> flags_;
   std::unordered_map<std::uint32_t, std::u16string> names_;
-  std::unordered_multimap<std::uint32_t, std::uint32_t> other_parents_;
+  struct link {
+    std::uint32_t parent;
+    bool match;
+  };
+  std::unordered_multimap<std::uint32_t, link> other_parents_;
   std::vector<std::int32_t> depth_;
   std::vector<std::uint32_t> chain_;
 };
@@ -709,6 +765,19 @@ scan_result scan(const scan_request &request) {
       return failed;
     }
     NSC_DEBUG_MSG("check_largest_files: not using the MFT for " + request.root + " (" + why + "), walking the tree instead");
+    // The walk gets what is left of the same budget, so `timeout` bounds the
+    // whole check. When the attempt spent it all there is nothing to walk
+    // with; either way the reason goes into the timeout message.
+    if (steady::now() >= request.deadline) {
+      scan_result spent;
+      spent.method = "walk";
+      spent.timed_out = true;
+      spent.fallback_reason = why;
+      return spent;
+    }
+    scan_result walked = walk(request, root);
+    walked.fallback_reason = why;
+    return walked;
   }
 #else
   if (request.method == scan_method::mft) {

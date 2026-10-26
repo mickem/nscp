@@ -76,7 +76,7 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 
   filter_type filter;
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_syntax("${status}: ${list}", "${path} (${size})", "${path}", "%(status): No files found", "%(status): No files found");
+  filter_helper.add_syntax("${status}: ${list}", "${path} (${size})", "${path}", "%(status): No files found", "");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("path", po::value<std::string>(&path), "The folder to scan, for instance C:\\ or /var.")
@@ -92,10 +92,11 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
         "Folder mode: which folders are ranked. 1 ranks the direct children of path, N ranks every folder down to N levels below it and -1 every "
         "folder at any depth. Totals are always recursive.")
     ("timeout", po::value<int>(&timeout)->default_value(30),
-        "Give up scanning after this many seconds and report what was found so far. 0 means no limit.")
+        "Abort the scan after this many seconds and return timeout-state (UNKNOWN by default), with what was found so far in the message. 0 means "
+        "no limit.")
     ("timeout-state", po::value<std::string>(&timeout_state)->default_value("unknown"),
-        "The status to return when the scan timed out and nothing exceeded a threshold in what was scanned: ok, warning, critical or unknown. "
-        "A warning or critical found before the timeout stands.")
+        "The status to return when the scan timed out: ok, warning, critical or unknown. It replaces whatever the partial result would "
+        "have been, since a scan that did not finish cannot say what the largest entries are.")
     ("method", po::value<std::string>(&method)->default_value("auto"),
         "How to scan. auto reads the NTFS Master File Table when it can (Windows, a local NTFS volume and administrator rights) and walks the "
         "folder tree otherwise; mft insists on the Master File Table and fails without it; walk always walks the tree.")
@@ -189,12 +190,23 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   }
   filter_helper.post_process(filter);
 
-  if (result.timed_out && response->lines_size() > 0) {
-    PB::Commands::QueryResponseMessage::Response::Line *line = response->mutable_lines(0);
-    line->set_message(line->message() + " (scan timed out after " + std::to_string(timeout) + "s, the result is partial)");
-    if (response->result() == PB::Common::ResultCode::OK) {
-      response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(timeout_state)));
+  if (result.timed_out) {
+    std::string note = " (scan timed out after " + std::to_string(timeout) + "s";
+    if (!result.fallback_reason.empty()) note += " walking the tree, as the MFT could not be used: " + result.fallback_reason;
+    note += "; the result is partial)";
+    const int state = nscapi::plugin_helper::translateReturn(timeout_state);
+    if (response->lines_size() > 0) {
+      PB::Commands::QueryResponseMessage::Response::Line *line = response->mutable_lines(0);
+      std::string message = line->message();
+      // The status word was rendered from the partial result; the default
+      // syntax leads with it, so it is swapped for the state actually returned.
+      const std::string rendered =
+          nscapi::plugin_helper::translateReturn(nscapi::protobuf::functions::gbp_to_nagios_status(response->result())) + ":";
+      if (message.compare(0, rendered.size(), rendered) == 0)
+        message = nscapi::plugin_helper::translateReturn(state) + ":" + message.substr(rendered.size());
+      line->set_message(message + note);
     }
+    response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(state));
   }
 }
 

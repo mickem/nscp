@@ -65,6 +65,9 @@ struct scan_result {
   unsigned long long links_skipped = 0;
   // Folders that could not be opened.
   unsigned long long unreadable = 0;
+  // Why method=auto walked instead of reading the MFT (Windows), for the
+  // timeout message: the failed attempt has spent part of the time.
+  std::string fallback_reason;
   // Set when the scan could not run at all (missing root, MFT forced but not
   // available, ...). The check reports it as UNKNOWN.
   std::string error;

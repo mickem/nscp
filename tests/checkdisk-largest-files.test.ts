@@ -150,7 +150,7 @@ describeWithModules("CheckDisk")("check_largest_files", () => {
   });
 
   it("nothing above min-size is OK", async () => {
-    const r = await query({ path: tree, "min-size": "1G" });
+    const r = await query({ path: tree, method: "walk", "min-size": "1G" });
     expect(r.code).toBe(OK);
     expect(r.out).toContain("No files found");
   });
@@ -168,9 +168,20 @@ describeWithModules("CheckDisk")("check_largest_files", () => {
   });
 
   it("method=auto answers whichever way it scans", async () => {
-    const r = await query({ path: tree, top: "1", ...ranked });
+    // No time limit: elevated on NTFS, auto reads the whole volume's MFT.
+    const r = await query({ path: tree, top: "1", timeout: "0", ...ranked });
     expect(r.code).toBe(OK);
     expect(r.out).not.toContain("huge.bin");
+  });
+
+  it("walks the filesystem root, and a timeout aborts with UNKNOWN", async () => {
+    const root = onWindows ? "C:\\" : "/";
+    const r = await query({ path: root, method: "walk", top: "1", timeout: "1" });
+    expect(r.out).not.toContain("Unable to read folder");
+    if (r.code !== OK) {
+      expect(r.code).toBe(UNKNOWN);
+      expect(r.out).toContain("scan timed out after 1s");
+    }
   });
 
   it("method=mft reads the Master File Table where it can, and says why where it cannot", async () => {

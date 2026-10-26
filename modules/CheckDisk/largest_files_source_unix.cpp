@@ -66,9 +66,10 @@ scan_result scan(const scan_request &request) {
     return result;
   }
 
-  unsigned counter = 0;
   while (FTSENT *ent = fts_read(fts)) {
-    if ((++counter & 0x3FF) == 0 && std::chrono::steady_clock::now() >= request.deadline) {
+    // Every entry: the clock is cheap next to fts_read, which lists a whole
+    // folder when it enters one.
+    if (std::chrono::steady_clock::now() >= request.deadline) {
       result.timed_out = true;
       break;
     }

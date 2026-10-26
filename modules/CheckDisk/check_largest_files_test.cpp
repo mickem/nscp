@@ -429,7 +429,7 @@ TEST(CheckLargestFilesCommand, ScanErrorIsUnknown) {
   EXPECT_NE(join_lines(response).find("Path not found"), std::string::npos);
 }
 
-TEST(CheckLargestFilesCommand, ATimeoutIsReportedAndDoesNotMaskAProblem) {
+TEST(CheckLargestFilesCommand, ATimeoutAbortsWithTheTimeoutState) {
   fake_scanner fake;
   fake.result.timed_out = true;
   fake.result.entries = {entry{"/data/a", 10, 1}};
@@ -437,12 +437,37 @@ TEST(CheckLargestFilesCommand, ATimeoutIsReportedAndDoesNotMaskAProblem) {
   auto response = run({"path=/data", "timeout=5"}, fake);
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
   EXPECT_NE(join_lines(response).find("timed out after 5s"), std::string::npos) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("UNKNOWN: /data/a"), std::string::npos) << join_lines(response);
+  EXPECT_EQ(join_lines(response).find("OK:"), std::string::npos) << join_lines(response);
 
   response = run({"path=/data", "timeout-state=ok"}, fake);
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK);
 
+  // A partial result cannot say what the largest entries are, so a threshold
+  // it tripped does not decide the state either.
   response = run({"path=/data", "critical=size > 1"}, fake);
-  EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
+
+  // Nothing found before the timeout is still a timeout.
+  fake.result.entries.clear();
+  response = run({"path=/data"}, fake);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(join_lines(response).find("timed out"), std::string::npos) << join_lines(response);
+
+  // Why the MFT was not used goes into the message: the attempt spent part of
+  // the time.
+  fake.result.fallback_reason = "unable to open the volume";
+  response = run({"path=/data"}, fake);
+  EXPECT_NE(join_lines(response).find("as the MFT could not be used: unable to open the volume"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckLargestFilesCommand, ACustomTopSyntaxIsNotReplacedByTheEmptyMessage) {
+  fake_scanner fake;
+  fake.result.entries = {entry{"/data/a", 10, 1}, entry{"/data/b", 5, 1}};
+  const auto response = run({"path=/data", "top-syntax=%(status): %(count) entries"}, fake);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK);
+  EXPECT_NE(join_lines(response).find("OK: 2 entries"), std::string::npos) << join_lines(response);
+  EXPECT_EQ(join_lines(response).find("No files found"), std::string::npos) << join_lines(response);
 }
 
 // ============================================================================
@@ -520,6 +545,23 @@ TEST(CheckLargestFilesScan, MissingRootIsAnError) {
   request.root = (boost::filesystem::temp_directory_path() / "nscp_largest_files_definitely_missing_9f2c").string();
   const scan_result result = largest_files::scan(request);
   EXPECT_NE(result.error.find("Path not found"), std::string::npos) << result.error;
+}
+
+// A drive root keeps its trailing separator, which once doubled up in the
+// search pattern and made every walk of C:\ fail.
+TEST(CheckLargestFilesScan, WalksTheFilesystemRoot) {
+  scan_request request;
+#ifdef WIN32
+  request.root = "C:\\";
+#else
+  request.root = "/";
+#endif
+  request.method = largest_files::scan_method::walk;
+  request.top = 1;
+  request.deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+  const scan_result result = largest_files::scan(request);
+  EXPECT_TRUE(result.error.empty()) << result.error;
+  EXPECT_GT(result.files_seen + result.folders_seen, 0u);
 }
 
 TEST(CheckLargestFilesScan, TheCheckEndToEnd) {

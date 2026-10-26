@@ -14,11 +14,14 @@ everything beneath it.
   `1` ranks the direct children of `path`, `N` ranks every folder down to N
   levels below it, and `-1` ranks every folder at any depth. Totals are always
   recursive, so with `-1` a parent always outranks its own children.
-* `timeout` (default 30 seconds, `0` for no limit) bounds the scan. A scan that
-  runs out of time reports the best of what it saw, appends
-  `(scan timed out after Ns, the result is partial)` to the message, and returns
-  `timeout-state` (default UNKNOWN). A WARNING or CRITICAL found before the
-  timeout still stands, since that file really is that large.
+* `timeout` (default 30 seconds, `0` for no limit) bounds the whole check. A
+  scan that runs out of time is aborted and returns `timeout-state` (default
+  UNKNOWN), whatever the thresholds say about the part it saw: a scan that did
+  not finish cannot say which entries are the largest. The message still lists
+  the best of what it saw, followed by
+  `(scan timed out after Ns; the result is partial)`. When `method=auto` tried
+  the Master File Table first and had to walk instead, the walk only gets what
+  is left of the time, and the message says why the table could not be used.
 
 With no thresholds the check is OK and simply lists what it found. Thresholds
 apply to each ranked entry, so `warning=size > 10G` warns as soon as any of the
@@ -55,7 +58,7 @@ Some things to know about the MFT scan:
   lazily, so a file created or grown in the last few seconds may not show up
   yet.
 * A **hard-linked** file is counted once, under whichever of its links lies
-  inside `path`. A walk counts it once per link. That is why a walk of
+  inside `path` (and matches `pattern`, when one is given). A walk counts it once per link. That is why a walk of
   `C:\Windows` puts `WinSxS` and `System32` well above their real disk usage:
   most of `System32` is hard links into `WinSxS`.
 

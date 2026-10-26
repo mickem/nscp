@@ -7,8 +7,8 @@ action: none
 `CheckDisk` gained a check that returns the `top` largest files beneath `path`,
 largest first. With `type=folders` it ranks folders by their recursive totals
 instead, at the depth `folder-depth` selects. `min-size` and `pattern` narrow
-what is counted. `timeout` (default 30 seconds) bounds the scan and reports a
-partial result rather than hanging the check. On Windows it reads the NTFS
+what is counted. `timeout` (default 30 seconds) aborts a scan that runs longer
+and returns UNKNOWN (or whatever `timeout-state` says). On Windows it reads the NTFS
 Master File Table when it can (a local NTFS volume and administrator rights,
 which the service has), which takes seconds where walking a large volume takes
 minutes. Otherwise, and always on Linux, it walks the tree. Neither method
