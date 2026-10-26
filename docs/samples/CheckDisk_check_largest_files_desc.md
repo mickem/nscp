@@ -40,7 +40,9 @@ a large volume that is the difference between seconds and many minutes. It
 needs a local NTFS volume and administrator rights to open the volume for raw
 reads. The service account has those rights; an interactive `nscp test` that
 is not elevated does not, and `auto` then walks instead. ReFS, FAT and exFAT
-volumes and network shares are always walked.
+volumes and network shares are always walked. The legacy Windows XP build
+leaves the Master File Table reader out: it always walks, and `method=mft`
+returns UNKNOWN there.
 
 Some things to know about the MFT scan:
 

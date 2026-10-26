@@ -21,6 +21,13 @@
 #include "largest_files_scan.hpp"
 #include "ntfs_mft.hpp"
 
+// The legacy (XP) build targets _WIN32_WINNT 0x0501, whose headers lack
+// GetVolumeInformationByHandleW and GetFinalPathNameByHandleW (Vista). That
+// build leaves the MFT reader out and always walks.
+#if _WIN32_WINNT >= 0x0600
+#define NSCP_LARGEST_FILES_MFT 1
+#endif
+
 // The Windows data sources for check_largest_files.
 //
 // The fast one reads the volume's NTFS Master File Table directly: one
@@ -127,9 +134,14 @@ scan_result walk(const scan_request &request, const std::wstring &root) {
     f.path = path;
     f.level = level;
     f.first = true;
+#ifdef NSCP_LARGEST_FILES_MFT
     // Basic info skips the short name, and the large fetch asks for bigger
     // batches per round trip, which is most of the walk's cost on a share.
     f.find = FindFirstFileExW((long_path(path) + L"\\*").c_str(), FindExInfoBasic, &f.data, FindExSearchNameMatch, nullptr, FIND_FIRST_EX_LARGE_FETCH);
+#else
+    // XP rejects both of those (they are Windows 7 additions).
+    f.find = FindFirstFileExW((long_path(path) + L"\\*").c_str(), FindExInfoStandard, &f.data, FindExSearchNameMatch, nullptr, 0);
+#endif
     if (f.find == INVALID_HANDLE_VALUE) {
       if (GetLastError() != ERROR_FILE_NOT_FOUND) result.unreadable++;
       return false;
@@ -188,6 +200,7 @@ scan_result walk(const scan_request &request, const std::wstring &root) {
   return result;
 }
 
+#ifdef NSCP_LARGEST_FILES_MFT
 // --- the MFT reader ---------------------------------------------------------
 
 class mft_scanner {
@@ -666,6 +679,7 @@ class mft_scanner {
   std::vector<std::int32_t> depth_;
   std::vector<std::uint32_t> chain_;
 };
+#endif
 
 }  // namespace
 
@@ -683,6 +697,7 @@ scan_result scan(const scan_request &request) {
     return result;
   }
 
+#ifdef NSCP_LARGEST_FILES_MFT
   if (request.method != scan_method::walk) {
     scan_result result;
     std::string why;
@@ -695,6 +710,13 @@ scan_result scan(const scan_request &request) {
     }
     NSC_DEBUG_MSG("check_largest_files: not using the MFT for " + request.root + " (" + why + "), walking the tree instead");
   }
+#else
+  if (request.method == scan_method::mft) {
+    scan_result failed;
+    failed.error = "Unable to read the MFT for " + request.root + ": this legacy build does not include the MFT reader";
+    return failed;
+  }
+#endif
   return walk(request, root);
 }
 
