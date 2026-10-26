@@ -257,8 +257,8 @@ bool NSCAClient::cli_install(const PB::Commands::ExecuteRequestMessage::Request 
       return install_server(args, response);
     }
     return install_client(args, response);
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 }

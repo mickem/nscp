@@ -337,11 +337,8 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response, "Failed to install the NRPE server");
     return true;
   }
 }
@@ -421,11 +418,8 @@ bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &r
     nscapi::protobuf::functions::set_response_bad(*response, "Certificate generation requires OpenSSL (not compiled in)");
 #endif
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 }

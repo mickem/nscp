@@ -105,6 +105,26 @@ void invalid_syntax(const po::options_description &desc, const std::string &, co
   nscapi::protobuf::functions::set_response_bad(response, help_short(desc, error));
 }
 
+// Report the exception being handled by a command's catch-all. Call it from
+// inside a `catch (...)` block. Only a po::error is the command line's fault and
+// gets the option list; anything else (a filesystem_error from a certificate
+// folder, a socket_exception, a settings error) is the command failing, and an
+// "Invalid command line" followed by every option would bury the reason. An
+// empty `failure` reads as "Failed to run <command>".
+template <class T>
+void report_command_exception(const po::options_description &desc, const std::string &command, T &response, const std::string &failure = "") {
+  const std::string prefix = failure.empty() ? "Failed to run " + command : failure;
+  try {
+    throw;
+  } catch (const po::error &e) {
+    invalid_syntax(desc, command, "Invalid command line: " + utf8::utf8_from_native(e.what()), response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(response, prefix + ": " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    nscapi::protobuf::functions::set_response_bad(response, prefix + ": unknown exception");
+  }
+}
+
 NSCAPI_EXPORT std::string make_csv(const std::string &s);
 NSCAPI_EXPORT std::string help_csv(const po::options_description &desc, const std::string &);
 NSCAPI_EXPORT std::string help_pb(const po::options_description &desc, const field_map &fields);

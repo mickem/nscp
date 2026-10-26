@@ -81,8 +81,8 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     po::parsed_options parsed = cmd.run();
     po::store(parsed, vm);
     po::notify(vm);
-  } catch (const std::exception &e) {
-    return npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    return npo::report_command_exception(desc, request.command(), *response);
   }
 
   if (vm.count("help")) {
@@ -152,8 +152,8 @@ bool parse_script_option(const char *what, const PB::Commands::ExecuteRequestMes
     po::parsed_options parsed = cmd.run();
     po::store(parsed, vm);
     po::notify(vm);
-  } catch (const std::exception &e) {
-    npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    npo::report_command_exception(desc, request.command(), *response);
     return false;
   }
 
@@ -293,8 +293,8 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     po::parsed_options parsed = cmd.run();
     po::store(parsed, vm);
     po::notify(vm);
-  } catch (const std::exception &e) {
-    return npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    return npo::report_command_exception(desc, request.command(), *response);
   }
 
   if (vm.count("help")) {
@@ -404,8 +404,8 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
     po::parsed_options parsed = cmd.run();
     po::store(parsed, vm);
     po::notify(vm);
-  } catch (const std::exception &e) {
-    return npo::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    return npo::report_command_exception(desc, request.command(), *response);
   }
 
   if (vm.count("help")) {

@@ -299,8 +299,8 @@ void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Reques
         (script_options[0] == "execute" || script_options[0] == "exec" || script_options[0] == "lua-script" || script_options[0] == "lua-run"))
       script_options.erase(script_options.begin());
 
-  } catch (const std::exception &e) {
-    return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    return nscapi::program_options::report_command_exception(desc, request.command(), *response);
   }
 
   if (vm.count("help")) {

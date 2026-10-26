@@ -3,6 +3,8 @@
 
 #include <nscapi/nscapi_program_options.hpp>
 
+#include <boost/filesystem.hpp>
+
 #include <gtest/gtest.h>
 
 #include <map>
@@ -423,6 +425,57 @@ TEST(program_options_help_pb, carries_the_filter_keywords_with_their_description
   for (const PB::Registry::FieldDetail &f : details.fields()) seen[f.name()] = f.long_description();
   EXPECT_EQ("Free space", seen["free"]);
   EXPECT_EQ("Convert a byte value", seen["convert_bytes()"]);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// report_command_exception
+//
+// What a command's catch-all says. Only a parse error is the command
+// line's fault; anything else used to come out as "Invalid command line"
+// followed by every option, which buried the actual reason.
+//////////////////////////////////////////////////////////////////////////
+
+template <class E>
+PB::Commands::ExecuteResponseMessage::Response report(const E &error, const std::string &failure = "") {
+  po::options_description desc("Allowed options");
+  desc.add_options()("certificate", po::value<std::string>(), "Where the certificate goes");
+  PB::Commands::ExecuteResponseMessage::Response response;
+  try {
+    throw error;
+  } catch (...) {
+    npo::report_command_exception(desc, "make-cert", response, failure);
+  }
+  return response;
+}
+
+TEST(program_options_report_command_exception, a_parse_error_gets_the_option_list) {
+  const auto response = report(po::unknown_option("--nope"));
+
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, response.result());
+  EXPECT_NE(response.message().find("Invalid command line: "), std::string::npos) << response.message();
+  EXPECT_NE(response.message().find("certificate"), std::string::npos) << response.message();
+}
+
+TEST(program_options_report_command_exception, any_other_failure_is_reported_on_its_own) {
+  const auto denied = boost::system::errc::make_error_code(boost::system::errc::permission_denied);
+  const auto response = report(boost::filesystem::filesystem_error("create_directory", denied));
+
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, response.result());
+  EXPECT_EQ(response.message().rfind("Failed to run make-cert: ", 0), 0u) << response.message();
+  EXPECT_EQ(response.message().find("Invalid command line"), std::string::npos) << response.message();
+  EXPECT_EQ(response.message().find("Where the certificate goes"), std::string::npos) << response.message();
+}
+
+TEST(program_options_report_command_exception, a_named_failure_replaces_the_generic_prefix) {
+  const auto response = report(std::runtime_error("disk full"), "Failed to install the NRPE server");
+
+  EXPECT_EQ("Failed to install the NRPE server: disk full", response.message());
+}
+
+TEST(program_options_report_command_exception, a_non_standard_exception_is_still_reported) {
+  const auto response = report(42);
+
+  EXPECT_EQ("Failed to run make-cert: unknown exception", response.message());
 }
 
 }  // namespace
