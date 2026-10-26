@@ -130,6 +130,7 @@ macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
         DEPENDS
             ${_SOURCE}/module.json
             "${BUILD_PYTHON_FOLDER}/create_plugin_module.py"
+            "${BUILD_PYTHON_FOLDER}/module_json.py"
     )
     set(${_SRCS}
         ${${_SRCS}}
