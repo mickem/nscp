@@ -30,6 +30,7 @@
 #include "check_disk_write.hpp"
 #include "check_drive.hpp"
 #include "check_files.hpp"
+#include "check_largest_files.hpp"
 #include "check_mount.hpp"
 #include "check_shadowcopy.hpp"
 #include "check_share.hpp"
@@ -111,7 +112,7 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.alias().add_key_to_settings()
     .add_string("file access", sh::string_fun_key([this](const auto& value) { file_access_.set_mode(value); }, "any"),
         "FILE ACCESS MODE",
-        "Which paths a caller may ask check_files, check_single_file and check_disk_write to use: any (the default - any path the caller names, which is "
+        "Which paths a caller may ask check_files, check_single_file, check_largest_files and check_disk_write to use: any (the default - any path the caller names, which is "
         "how every earlier release behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the "
         "[/settings/disk/files] section).\n"
         "These checks do not return file contents, but they enumerate whole directory trees (name, size, timestamps) and can report a file's checksum, so "
@@ -496,4 +497,8 @@ void CheckDisk::check_single_file(const PB::Commands::QueryRequestMessage::Reque
 
 void CheckDisk::check_mount(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_mount_command::check(request, response);
+}
+
+void CheckDisk::check_largest_files(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_largest_files_command::check(request, response, file_access_);
 }
