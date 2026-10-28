@@ -316,6 +316,51 @@ static std::string render_description(const client::cli_handler_ptr &handler, co
   return out;
 }
 
+// Every fact-set switch the loaded modules registered: a bool key in a section
+// called `facts`, wherever it lives - the same rule the web UI's Facts page
+// uses, so a module added later needs nothing here. One inventory walk answers
+// both what is registered (type, owner, default) and what is configured.
+static std::vector<client::fact_set_switch> collect_fact_switches(const client::cli_handler_ptr &handler) {
+  std::vector<client::fact_set_switch> sets;
+
+  PB::Settings::SettingsRequestMessage inventory_request;
+  PB::Settings::SettingsRequestMessage::Request *inventory = inventory_request.add_payload();
+  inventory->mutable_inventory()->mutable_node()->set_path("");
+  inventory->mutable_inventory()->set_recursive_fetch(true);
+  inventory->mutable_inventory()->set_fetch_keys(true);
+  // The walk returns the configured value of every key, not only the
+  // switches: keep the secrets masked so they never reach this process.
+  inventory->mutable_inventory()->set_redact_sensitive(true);
+  inventory->set_plugin_id(handler->get_plugin_id());
+  std::string inventory_body;
+  handler->get_core()->settings_query(inventory_request.SerializeAsString(), inventory_body);
+  PB::Settings::SettingsResponseMessage inventory_response;
+  if (!inventory_response.ParseFromString(inventory_body) || inventory_response.payload_size() == 0) return sets;
+
+  const std::string suffix = "/facts";
+  for (const PB::Settings::SettingsResponseMessage::Response::Inventory &entry : inventory_response.payload(0).inventory()) {
+    const std::string &path = entry.node().path();
+    const std::string &key = entry.node().key();
+    // Only the bools are switches: the core's own section also carries
+    // `interval` and `max size`, which are settings about facts.
+    if (key.empty() || entry.info().type() != "bool") continue;
+    if (path.size() < suffix.size() || path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0) continue;
+    // An unset key reads as its default, exactly as the module reads it.
+    const std::string &configured = entry.node().value();
+    const std::string value = boost::algorithm::to_lower_copy(configured.empty() ? entry.info().default_value() : configured);
+    client::fact_set_switch set;
+    set.id = key;
+    set.section = path;
+    set.configured = value == "true" || value == "1";
+    for (const std::string &plugin : entry.info().plugin()) {
+      if (!set.producer.empty()) set.producer += ", ";
+      set.producer += plugin;
+    }
+    sets.push_back(set);
+  }
+  return sets;
+}
+
 namespace client {
 
 const std::vector<command_info> &builtin_commands() {
@@ -334,7 +379,7 @@ const std::vector<command_info> &builtin_commands() {
       {"desc", "<query>", "describe a query and its parameters"},
       {"keywords", "<query>", "list the filter keywords of a query with their descriptions"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
-      {"facts", "[path|refresh]", "show the host inventory (facts), a subtree of it, or collect it now"},
+      {"facts", "[path|refresh|list]", "show the host inventory (facts), a subtree of it, collect it now, or list the fact sets"},
       {"settings", "", "show the configured settings (keys set in the configuration, not every registered default)"},
       {"exec", "<module> [command] [args]", "run a module's command line, as nscp <module> ... does (exec CheckSystem --list --all)"},
       {"load", "<module>", "load a module now"},
@@ -650,7 +695,9 @@ void cli_client::handle_command(const std::string &command) {
     handler->output_message(render_inventory({queries, aliases}));
   } else if (is_verb(command, "facts")) {
     const std::string argument = boost::algorithm::trim_copy(command.substr(5));
-    if (argument == "refresh") {
+    if (argument == "list") {
+      handler->output_message(client::render_fact_sets(collect_fact_switches(handler), handler->get_core()->get_facts()));
+    } else if (argument == "refresh") {
       // A manual round: every producer collects now, which is the point of
       // asking for it, so this is the one facts verb that costs something.
       if (!handler->get_core()->refresh_facts()) {
