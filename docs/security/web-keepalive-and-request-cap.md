@@ -1,6 +1,6 @@
 ---
 title: "WEB server: kept-alive connections and a configurable request body cap"
-fixed_in: next
+fixed_in: 0.26.0
 severity: "Low"
 modules: [WEBServer, NCPAServer]
 action: conditional

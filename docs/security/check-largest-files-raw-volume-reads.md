@@ -1,6 +1,6 @@
 ---
 title: "check_largest_files reads NTFS volume metadata directly"
-fixed_in: next
+fixed_in: 0.26.0
 severity: "Low (informational; a new check, gated like check_files)"
 modules: [CheckDisk]
 action: conditional
