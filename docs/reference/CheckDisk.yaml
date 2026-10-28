@@ -44,10 +44,10 @@ common:
         file access:
           advanced: false
           default_value: any
-          description: 'Which paths a caller may ask check_files, check_single_file and check_disk_write
-            to use: any (the default - any path the caller names, which is how every earlier release behaved),
-            allowed (only paths matching ''allowed files'') or predefined (only names defined in the [/settings/disk/files]
-            section).
+          description: 'Which paths a caller may ask check_files, check_single_file, check_largest_files
+            and check_disk_write to use: any (the default - any path the caller names, which is how every
+            earlier release behaved), allowed (only paths matching ''allowed files'') or predefined (only
+            names defined in the [/settings/disk/files] section).
 
             These checks do not return file contents, but they enumerate whole directory trees (name,
             size, timestamps) and can report a file''s checksum, so on a host where callers may pass arguments
@@ -791,6 +791,178 @@ common:
           check. Intended for directories that are legitimately absent some of the time. Implies empty-state=ok,
           so a scan whose paths are all missing reports OK rather than UNKNOWN (pass empty-state= to choose
           a different one).
+    check_largest_files:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${path} (${size})
+        empty-state: ok
+        empty-syntax: '%(status): No files found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${path}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Number of files counted in a folder's total (1 for a file)
+        name: file_count
+        short_description: ''
+      - generic: false
+        long_description: Name of the file or folder (the last path element)
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Full path of the file or folder
+        name: path
+        short_description: ''
+      - generic: false
+        long_description: Position in the list, 1 being the largest
+        name: rank
+        short_description: ''
+      - generic: false
+        long_description: 'Size in bytes: the file''s size, or a folder''s recursive total'
+        name: size
+        short_description: ''
+      info:
+        description: Find the largest files (or folders) beneath a folder. Reads the NTFS Master File
+          Table on Windows when it can.
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The folder to scan, for instance C:\ or /var.
+        name: path
+        repeatable: false
+        required: false
+        short_description: The folder to scan, for instance C:\ or /var.
+      - content_type: 2
+        default_value: files
+        is_simple: false
+        long_description: 'What to rank: files (the largest files anywhere beneath path) or folders (the
+          folders beneath path with the largest recursive total).'
+        name: type
+        repeatable: false
+        required: false
+        short_description: 'What to rank: files (the largest files anywhere beneath path) or folders (the
+          folders beneath path with the largest recursive total).'
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: How many files (or folders) to return, largest first.
+        name: top
+        repeatable: false
+        required: false
+        short_description: How many files (or folders) to return, largest first.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Ignore anything smaller than this, for instance 100M or 1G (K, M, G and T are
+          powers of 1024). In folder mode it applies to the folder totals.
+        name: min-size
+        repeatable: false
+        required: false
+        short_description: Ignore anything smaller than this, for instance 100M or 1G (K, M, G and T are
+          powers of 1024). In folder mode it applies to the folder totals.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Only count files whose name matches this mask, for instance *.log (* and ? are
+          wildcards; case insensitive on Windows). In folder mode it selects the files that count towards
+          the totals.
+        name: pattern
+        repeatable: false
+        required: false
+        short_description: Only count files whose name matches this mask, for instance *.log (* and ?
+          are wildcards; case insensitive on Windows). In folder mode it selects the files that count
+          towards the totals.
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: 'Folder mode: which folders are ranked. 1 ranks the direct children of path,
+          N ranks every folder down to N levels below it and -1 every folder at any depth. Totals are
+          always recursive.'
+        name: folder-depth
+        repeatable: false
+        required: false
+        short_description: 'Folder mode: which folders are ranked. 1 ranks the direct children of path,
+          N ranks every folder down to N levels below it and -1 every folder at any depth. Totals are
+          always recursive.'
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Abort the scan after this many seconds and return timeout-state (UNKNOWN by
+          default), with what was found so far in the message. 0 means no limit.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Abort the scan after this many seconds and return timeout-state (UNKNOWN by
+          default), with what was found so far in the message. 0 means no limit.
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'The status to return when the scan timed out: ok, warning, critical or unknown.
+          It replaces whatever the partial result would have been, since a scan that did not finish cannot
+          say what the largest entries are.'
+        name: timeout-state
+        repeatable: false
+        required: false
+        short_description: 'The status to return when the scan timed out: ok, warning, critical or unknown.
+          It replaces whatever the partial result would have been, since a scan that did not finish cannot
+          say what the largest entries are.'
+      - content_type: 2
+        default_value: auto
+        is_simple: false
+        long_description: How to scan. auto reads the NTFS Master File Table when it can (Windows, a local
+          NTFS volume and administrator rights) and walks the folder tree otherwise; mft insists on the
+          Master File Table and fails without it; walk always walks the tree.
+        name: method
+        repeatable: false
+        required: false
+        short_description: How to scan. auto reads the NTFS Master File Table when it can (Windows, a
+          local NTFS volume and administrator rights) and walks the folder tree otherwise; mft insists
+          on the Master File Table and fails without it; walk always walks the tree.
+      - content_type: 4
+        default_value: 'true'
+        is_simple: false
+        long_description: Do not descend into other filesystems mounted beneath path (Linux). On Windows
+          a mounted volume is a reparse point and is never entered.
+        name: same-filesystem
+        repeatable: false
+        required: false
+        short_description: Do not descend into other filesystems mounted beneath path (Linux). On Windows
+          a mounted volume is a reparse point and is never entered.
     check_shadowcopy:
       common_fields:
       - count

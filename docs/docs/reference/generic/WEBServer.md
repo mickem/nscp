@@ -41,6 +41,7 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 | [certificate key](#tls-private-key)                                  |                                     | TLS private key                    |
 | [disable admin user](#disable-admin-user)                            | false                               | DISABLE ADMIN USER                 |
 | [legacy query auth user agents](#legacy-query-string-auth-allowlist) | Icinga/check_nscp_api               | LEGACY QUERY-STRING AUTH ALLOWLIST |
+| [max request size](#max-request-size)                                | 3MiB                                | MAX REQUEST SIZE                   |
 | [openmetrics format](#openmetrics-exposition-format)                 | openmetrics                         | OPENMETRICS EXPOSITION FORMAT      |
 | [password](#password)                                                |                                     | Password                           |
 | [persist sessions](#persist-sessions)                                | true                                | PERSIST SESSIONS                   |
@@ -61,6 +62,7 @@ cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 disable admin user=false
 legacy query auth user agents=Icinga/check_nscp_api
+max request size=3MiB
 openmetrics format=openmetrics
 persist sessions=true
 port=8443
@@ -288,6 +290,26 @@ Comma-separated list of User-Agent substrings (case-insensitive) for clients all
 legacy query auth user agents=Icinga/check_nscp_api
 ```
 
+#### MAX REQUEST SIZE <a id="/settings/WEB/server/max request size"></a>
+
+The largest request body the server accepts, as a byte count with an optional k, m or g unit (\`512k\`, \`3MiB\`). A request declaring more is answered 413 and logged, and nothing of its body is kept. The default, 3MiB, is what the server has always buffered on Windows; raise it for a script upload or a bulk result submission that is larger. A value the server cannot read is logged and the default used. On the mongoose web backend (Windows) values above 3MiB are capped at 3MiB by the backend's receive buffer.
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | max request size                              |
+| Default value: | `3MiB`                                        |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# MAX REQUEST SIZE
+max request size=3MiB
+```
+
 #### OPENMETRICS EXPOSITION FORMAT <a id="/settings/WEB/server/openmetrics format"></a>
 
 Which exposition /api/v2/openmetrics serves. \`openmetrics\` (the default) emits a conformant OpenMetrics document: metric names are rewritten to the \`[a-zA-Z_][a-zA-Z0-9_]*\` grammar (\`system.mem.physical.%\` becomes \`system_mem_physical_percent\`), every family carries a \`# TYPE\` line, the body ends with \`# EOF\` and values keep their full precision. \`legacy\` reproduces the previous body byte for byte - \`<name> <value>\` lines with dots, spaces and colons left in the names, and values truncated to six significant digits - for a dashboard or recording rule that has not been migrated yet. The legacy format is deprecated and will be removed in a future release.
@@ -370,7 +392,7 @@ port=8443
 
 #### Server threads <a id="/settings/WEB/server/threads"></a>
 
-The number of threads in the sever response pool.
+How many requests the WEB server serves at once. A request holds its thread until the check it runs returns, so this is how many slow checks can be in flight over REST before the next request waits.
 
 
 | Key            | Description                                   |
@@ -849,6 +871,7 @@ Default values used in other config sections.
 | [encoding](#nrpe-payload-encoding)                  |               | NRPE PAYLOAD ENCODING       |
 | [inbox](#inbox)                                     | inbox         | INBOX                       |
 | [password](#password)                               |               | Password                    |
+| [script root](#script-root)                         |               | Script root                 |
 | [socket queue size](#listen-queue)                  | 0             | LISTEN QUEUE                |
 | [thread pool](#thread-pool)                         | 10            | THREAD POOL                 |
 | [timeout](#timeout)                                 | 30            | TIMEOUT                     |
@@ -987,6 +1010,50 @@ Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) whe
 # Password
 password=
 ```
+
+=== "Windows"
+
+    #### Script root <a id="/settings/default/script root"></a>
+
+    The folder this module's scripts live in: ${scripts} by default (empty, or \`default\`). \`fleet\` is ${fleet-folder}/scripts, where the fleet sync stages a bundle's \`scripts/\` entries - a bundle that ships scripts sets this to \`fleet\` and refers to them as \`scripts\\<name>\`. \`shared\` is ${shared-path}/scripts; any other value is a folder (${...} tokens expanded). Python and Lua scripts live in its \`python\` and \`lua\` sub-folders. An external script is started in the folder *above* it, with a relative command such as \`scripts\\check.bat\` resolved against that folder - the rule the default layout has always followed, so a scripts folder moved elsewhere runs unchanged, scripts that call each other by relative path included. Set it under [/settings/default] to apply to every script module at once. SECURITY: whoever can write to this folder can change what the service runs. It is also what ext-scr show/delete are confined to and where ext-scr add --import copies to; ext-scr add --script <path> is not bounded by it (an administrator-only action, equivalent to editing the configuration directly).
+
+
+    | Key            | Description                             |
+    |----------------|-----------------------------------------|
+    | Path:          | [/settings/default](#/settings/default) |
+    | Key:           | script root                             |
+    | Default value: | _N/A_                                   |
+
+
+    **Sample:**
+
+    ```
+    [/settings/default]
+    # Script root
+    script root=
+    ```
+
+=== "Linux"
+
+    #### Script root <a id="/settings/default/script root"></a>
+
+    The folder this module's scripts live in: ${scripts} by default (empty, or \`default\`). \`fleet\` is ${fleet-folder}/scripts, where the fleet sync stages a bundle's \`scripts/\` entries - a bundle that ships scripts sets this to \`fleet\` and refers to them as \`scripts\\<name>\`. \`shared\` is ${shared-path}/scripts; any other value is a folder (${...} tokens expanded). Python and Lua scripts live in its \`python\` and \`lua\` sub-folders. An external script is started in the folder *above* it, with a relative command such as \`scripts\\check.bat\` resolved against that folder - the rule the default layout has always followed, so a scripts folder moved elsewhere runs unchanged, scripts that call each other by relative path included. Set it under [/settings/default] to apply to every script module at once. SECURITY: whoever can write to this folder can change what the service runs.
+
+
+    | Key            | Description                             |
+    |----------------|-----------------------------------------|
+    | Path:          | [/settings/default](#/settings/default) |
+    | Key:           | script root                             |
+    | Default value: | _N/A_                                   |
+
+
+    **Sample:**
+
+    ```
+    [/settings/default]
+    # Script root
+    script root=
+    ```
 
 #### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 

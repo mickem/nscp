@@ -233,6 +233,23 @@ windows:
             this one.'
           sample: false
           title: Password
+        script root:
+          advanced: false
+          default_value: ''
+          description: 'The folder this module''s scripts live in: ${scripts} by default (empty, or `default`).
+            `fleet` is ${fleet-folder}/scripts, where the fleet sync stages a bundle''s `scripts/` entries
+            - a bundle that ships scripts sets this to `fleet` and refers to them as `scripts\<name>`.
+            `shared` is ${shared-path}/scripts; any other value is a folder (${...} tokens expanded).
+            Python and Lua scripts live in its `python` and `lua` sub-folders. An external script is started
+            in the folder *above* it, with a relative command such as `scripts\check.bat` resolved against
+            that folder - the rule the default layout has always followed, so a scripts folder moved elsewhere
+            runs unchanged, scripts that call each other by relative path included. Set it under [/settings/default]
+            to apply to every script module at once. SECURITY: whoever can write to this folder can change
+            what the service runs. It is also what ext-scr show/delete are confined to and where ext-scr
+            add --import copies to; ext-scr add --script <path> is not bounded by it (an administrator-only
+            action, equivalent to editing the configuration directly).'
+          sample: false
+          title: Script root
         socket queue size:
           advanced: true
           default_value: '0'
