@@ -1,6 +1,6 @@
 ---
 title: "WEB server: no fallback to cleartext HTTP when the certificate does not load"
-fixed_in: next
+fixed_in: 0.26.0
 severity: "Medium (affected setups only)"
 modules: [WEBServer]
 action: conditional

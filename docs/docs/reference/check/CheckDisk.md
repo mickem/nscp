@@ -29,19 +29,20 @@ A quick reference for all available queries (check commands) in the CheckDisk mo
 
 A list of all available queries (check commands)
 
-| Command                                                  | Description                                                                                                                                                       |
-|----------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [check_disk_health](#check_disk_health) *(experimental)* | Combined per-drive health check (free space + I/O metrics).                                                                                                       |
-| [check_disk_io](#check_disk_io) *(experimental)*         | Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).                                                                                   |
-| [check_disk_write](#check_disk_write) *(experimental)*   | Verify that a disk is writable by creating a test file, writing to it, reading it back and deleting it.                                                           |
-| [check_drivesize](#check_drivesize)                      | Check the size (free-space) of a drive or volume.                                                                                                                 |
-| [check_files](#check_files)                              | Check various aspects of a file and/or folder.                                                                                                                    |
-| [check_mount](#check_mount) *(experimental)*             | Check that a filesystem is mounted with the expected fstype and options.                                                                                          |
-| [check_shadowcopy](#check_shadowcopy) *(experimental)*   | Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume. Windows only.                                                      |
-| [check_share](#check_share) *(experimental)*             | Check Windows SMB shares: list them, or verify that specific required shares exist. Windows only.                                                                 |
-| [check_single_file](#check_single_file) *(experimental)* | Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file. |
-| [check_storagepool](#check_storagepool) *(experimental)* | Check Storage Spaces pool health and capacity. Windows only.                                                                                                      |
-| [check_uncpath](#check_uncpath) *(experimental)*         | Check free space on a UNC path (server share), with optional alternate credentials.                                                                               |
+| Command                                                      | Description                                                                                                                                                       |
+|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [check_disk_health](#check_disk_health) *(experimental)*     | Combined per-drive health check (free space + I/O metrics).                                                                                                       |
+| [check_disk_io](#check_disk_io) *(experimental)*             | Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).                                                                                   |
+| [check_disk_write](#check_disk_write) *(experimental)*       | Verify that a disk is writable by creating a test file, writing to it, reading it back and deleting it.                                                           |
+| [check_drivesize](#check_drivesize)                          | Check the size (free-space) of a drive or volume.                                                                                                                 |
+| [check_files](#check_files)                                  | Check various aspects of a file and/or folder.                                                                                                                    |
+| [check_largest_files](#check_largest_files) *(experimental)* | Find the largest files (or folders) beneath a folder. Reads the NTFS Master File Table on Windows when it can.                                                    |
+| [check_mount](#check_mount) *(experimental)*                 | Check that a filesystem is mounted with the expected fstype and options.                                                                                          |
+| [check_shadowcopy](#check_shadowcopy) *(experimental)*       | Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume. Windows only.                                                      |
+| [check_share](#check_share) *(experimental)*                 | Check Windows SMB shares: list them, or verify that specific required shares exist. Windows only.                                                                 |
+| [check_single_file](#check_single_file) *(experimental)*     | Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file. |
+| [check_storagepool](#check_storagepool) *(experimental)*     | Check Storage Spaces pool health and capacity. Windows only.                                                                                                      |
+| [check_uncpath](#check_uncpath) *(experimental)*             | Check free space on a UNC path (server share), with optional alternate credentials.                                                                               |
 
 ### check_disk_health
 
@@ -1414,6 +1415,295 @@ This command also accepts the standard [help options](../common-options.md#stand
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
+### check_largest_files
+
+!!! warning "Experimental"
+
+    This check command is experimental: it works, but its options, filter keywords
+    and output may change in a future release. Please try it and report
+    anything that does not behave the way you expect.
+
+Find the largest files (or folders) beneath a folder. Reads the NTFS Master File Table on Windows when it can.
+
+#### About `check_largest_files`
+
+`check_largest_files` answers "what is eating this disk?". Point it at a folder
+with `path=` and it returns the `top` largest files beneath it, largest first.
+With `type=folders` it ranks folders instead, each by the recursive total of
+everything beneath it.
+
+* `top` (default 10) is how many entries come back.
+* `min-size` (for instance `100M`) leaves out anything smaller. In folder mode
+  it applies to the folder totals.
+* `pattern` (for instance `*.log`) only counts files whose name matches. In
+  folder mode it decides which files count towards the totals.
+* `folder-depth` (folder mode, default 1) decides which folders are ranked:
+  `1` ranks the direct children of `path`, `N` ranks every folder down to N
+  levels below it, and `-1` ranks every folder at any depth. Totals are always
+  recursive, so with `-1` a parent always outranks its own children.
+* `timeout` (default 30 seconds, `0` for no limit) bounds the whole check. A
+  scan that runs out of time is aborted and returns `timeout-state` (default
+  UNKNOWN), whatever the thresholds say about the part it saw: a scan that did
+  not finish cannot say which entries are the largest. The message still lists
+  the best of what it saw, followed by
+  `(scan timed out after Ns; the result is partial)`. When `method=auto` tried
+  the Master File Table first and had to walk instead, the walk only gets what
+  is left of the time, and the message says why the table could not be used.
+
+With no thresholds the check is OK and simply lists what it found. Thresholds
+apply to each ranked entry, so `warning=size > 10G` warns as soon as any of the
+`top` entries is larger than 10 GB. A size threshold also produces perfdata, one
+value per entry and named after its path. Sizes are logical file sizes, as a
+directory listing shows them. Alternate data streams are not counted.
+
+#### How it scans (`method`)
+
+| `method` | What it does |
+|----------|--------------|
+| `auto` (default) | Reads the NTFS Master File Table when it can, and walks the folder tree otherwise. |
+| `mft` | Reads the Master File Table, and fails (UNKNOWN, with the reason) when it cannot. |
+| `walk` | Always walks the folder tree. |
+
+Reading the **Master File Table** (Windows only) means one sequential read of
+every file record on the volume, rather than a directory listing per folder. On
+a large volume that is the difference between seconds and many minutes. It
+needs a local NTFS volume and administrator rights to open the volume for raw
+reads. The service account has those rights; an interactive `nscp test` that
+is not elevated does not, and `auto` then walks instead. ReFS, FAT and exFAT
+volumes and network shares are always walked. The legacy Windows XP build
+leaves the Master File Table reader out: it always walks, and `method=mft`
+returns UNKNOWN there.
+
+Some things to know about the MFT scan:
+
+* It reads the **whole volume's** table, however small the folder you asked
+  about. That takes seconds, and memory while the scan runs: about 20 bytes
+  per file on the volume (about 35 with `type=folders`), so a few hundred MB
+  for a volume of ten million files. For a small folder, `method=walk` is
+  faster.
+* It sees the table **as written to disk**. NTFS writes changes to the table
+  lazily, so a file created or grown in the last few seconds may not show up
+  yet.
+* A **hard-linked** file is counted once, under whichever of its links lies
+  inside `path` (and matches `pattern`, when one is given). A walk counts it once per link. That is why a walk of
+  `C:\Windows` puts `WinSxS` and `System32` well above their real disk usage:
+  most of `System32` is hard links into `WinSxS`.
+
+On **Linux** there is no filesystem-independent equivalent of the Master File
+Table to read, so the check always walks, using `fts(3)`. `method=mft` returns
+UNKNOWN there.
+
+#### Links, junctions and mount points
+
+Neither method follows a link. On Windows every reparse point that stands in
+for another path is skipped: symbolic links, junctions, volume mount points and
+WSL links. Deduplicated and cloud-backed files are reparse points too, but they
+are real files and are counted. On Linux symbolic links are skipped, and so are
+other filesystems mounted beneath `path`, unless you set
+`same-filesystem=false`.
+
+Folders the agent cannot open are skipped, and their contents are left out of
+the totals.
+
+#### Access control
+
+`path` is held against `file access` in `[/settings/disk]`, the same gate as
+`check_files` (see [Restricting what a check may read](../../concepts/check-access.md)).
+Only the root is checked. Since neither scan follows a link, everything reported
+lies beneath a root that passed.
+
+**Jump to section:**
+
+* [Sample Commands](#check_largest_files_samples)
+* [Command-line Arguments](#check_largest_files_options)
+* [Filter keywords](#check_largest_files_filter_keys)
+
+
+<a id="check_largest_files_samples"></a>
+#### Sample Commands
+
+**The five largest files under a folder**
+
+```
+check_largest_files path=C:\Windows top=5
+OK: C:\Windows\Installer\638c1ee.msi (639.852MB), C:\Windows\Installer\5f92.msi (376.047MB), C:\Windows\System32\Microsoft-Edge-WebView\msedge.dll (327.746MB), C:\Windows\WinSxS\amd64_microsoft-edge-webview_31bf3856ad364e35_10.0.26100.9711_none_2e9083253adbaceb\msedge.dll (327.746MB), C:\Windows\WinSxS\amd64_microsoft-edge-webview_31bf3856ad364e35_10.0.26100.9444_none_2eb3af6f3ac0f200\msedge.dll (325.891MB)
+```
+
+**The largest folders directly under a folder**
+
+```
+check_largest_files path=C:\Windows type=folders top=5
+OK: C:\Windows\WinSxS (17.753GB), C:\Windows\System32 (10.008GB), C:\Windows\Installer (5.893GB), C:\Windows\assembly (3.502GB), C:\Windows\SystemApps (1.36GB)
+```
+
+This was a walk, which counts a hard-linked file once per link (see
+*How it scans* above).
+
+**Alert on large log files**
+
+```
+check_largest_files path=C:\Windows top=3 pattern=*.log "warning=size > 10M" "critical=size > 100M"
+CRITICAL: C:\Windows\Logs\CBS\CbsPersist_20261020173512.log (320.883MB), C:\Windows\Logs\CBS\CbsPersist_20261025144928.log (16.392MB), C:\Windows\debug\WIA\wiatrace.bak.log (16MB)|'C:\Windows\Logs\CBS\CbsPersist_20261020173512.log'=320.88317MB;10;100 'C:\Windows\Logs\CBS\CbsPersist_20261025144928.log'=16.39163MB;10;100 'C:\Windows\debug\WIA\wiatrace.bak.log'=16.00015MB;10;100
+```
+
+**Warn when a folder grows (Linux)**
+
+```
+check_largest_files path=/usr type=folders top=3 "warning=size > 1G" "critical=size > 5G"
+WARNING: /usr/lib (1.258GB), /usr/share (403.404MB), /usr/bin (222.715MB)|'/usr/lib'=1.25844GB;1;5 '/usr/share'=0.39394GB;1;5 '/usr/bin'=0.21749GB;1;5
+```
+
+**Rank folders at every depth, with their file counts**
+
+```
+check_largest_files path=C:\Windows\System32 type=folders folder-depth=-1 top=3 "detail-syntax=${path}: ${size} in ${file_count} files"
+OK: C:\Windows\System32\DriverStore: 4.945GB in 10816 files, C:\Windows\System32\DriverStore\FileRepository: 4.942GB in 9856 files, C:\Windows\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_cc526ccc3287f5cd: 2.675GB in 360 files
+```
+
+**A compact, ranked list**
+
+```
+check_largest_files path=C:\Windows top=3 "detail-syntax=${rank}. ${name} ${size}"
+OK: 1. 638c1ee.msi 639.852MB, 2. 5f92.msi 376.047MB, 3. msedge.dll 327.746MB
+```
+
+**Nothing above the minimum size**
+
+```
+check_largest_files path=/var/log top=3 pattern=*.log min-size=1M
+OK: No files found
+```
+
+**Insisting on the Master File Table without the rights to read it**
+
+```
+check_largest_files path=C:\Windows method=mft
+Unable to read the MFT for C:\Windows: unable to open the volume for reading (this needs administrator rights): 5: Access is denied.
+```
+
+
+
+<a id="check_largest_files_options"></a>
+#### Command-line Arguments
+
+<a id="check_largest_files_path"></a>
+<a id="check_largest_files_min-size"></a>
+<a id="check_largest_files_pattern"></a>
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+| Option                                                  | Default Value | Description                                                                                                                                                                                                                                        |
+|---------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| path                                                    |               | The folder to scan, for instance C:\ or /var.                                                                                                                                                                                                      |
+| [type](#check_largest_files_type)                       | files         | What to rank: files (the largest files anywhere beneath path) or folders (the folders beneath path with the largest recursive total).                                                                                                              |
+| [top](#check_largest_files_top)                         | 10            | How many files (or folders) to return, largest first.                                                                                                                                                                                              |
+| min-size                                                |               | Ignore anything smaller than this, for instance 100M or 1G (K, M, G and T are powers of 1024). In folder mode it applies to the folder totals.                                                                                                     |
+| pattern                                                 |               | Only count files whose name matches this mask, for instance *.log (* and ? are wildcards; case insensitive on Windows). In folder mode it selects the files that count towards the totals.                                                         |
+| [folder-depth](#check_largest_files_folder-depth)       | 1             | Folder mode: which folders are ranked. 1 ranks the direct children of path, N ranks every folder down to N levels below it and -1 every folder at any depth. Totals are always recursive.                                                          |
+| [timeout](#check_largest_files_timeout)                 | 30            | Abort the scan after this many seconds and return timeout-state (UNKNOWN by default), with what was found so far in the message. 0 means no limit.                                                                                                 |
+| [timeout-state](#check_largest_files_timeout-state)     | unknown       | The status to return when the scan timed out: ok, warning, critical or unknown. It replaces whatever the partial result would have been, since a scan that did not finish cannot say what the largest entries are.                                 |
+| [method](#check_largest_files_method)                   | auto          | How to scan. auto reads the NTFS Master File Table when it can (Windows, a local NTFS volume and administrator rights) and walks the folder tree otherwise; mft insists on the Master File Table and fails without it; walk always walks the tree. |
+| [same-filesystem](#check_largest_files_same-filesystem) | true          | Do not descend into other filesystems mounted beneath path (Linux). On Windows a mounted volume is a reparse point and is never entered.                                                                                                           |
+
+
+
+<h5 id="check_largest_files_type">type:</h5>
+
+What to rank: files (the largest files anywhere beneath path) or folders (the folders beneath path with the largest recursive total).
+
+*Default Value:* `files`
+
+<h5 id="check_largest_files_top">top:</h5>
+
+How many files (or folders) to return, largest first.
+
+*Default Value:* `10`
+
+<h5 id="check_largest_files_folder-depth">folder-depth:</h5>
+
+Folder mode: which folders are ranked. 1 ranks the direct children of path, N ranks every folder down to N levels below it and -1 every folder at any depth. Totals are always recursive.
+
+*Default Value:* `1`
+
+<h5 id="check_largest_files_timeout">timeout:</h5>
+
+Abort the scan after this many seconds and return timeout-state (UNKNOWN by default), with what was found so far in the message. 0 means no limit.
+
+*Default Value:* `30`
+
+<h5 id="check_largest_files_timeout-state">timeout-state:</h5>
+
+The status to return when the scan timed out: ok, warning, critical or unknown. It replaces whatever the partial result would have been, since a scan that did not finish cannot say what the largest entries are.
+
+*Default Value:* `unknown`
+
+<h5 id="check_largest_files_method">method:</h5>
+
+How to scan. auto reads the NTFS Master File Table when it can (Windows, a local NTFS volume and administrator rights) and walks the folder tree otherwise; mft insists on the Master File Table and fails without it; walk always walks the tree.
+
+*Default Value:* `auto`
+
+<h5 id="check_largest_files_same-filesystem">same-filesystem:</h5>
+
+Do not descend into other filesystems mounted beneath path (Linux). On Windows a mounted volume is a reparse point and is never entered.
+
+*Default Value:* `true`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                              | Default Value             |
+|---------------------------------------------------------------------------------------------------------------------|---------------------------|
+| <a id="check_largest_files_filter"></a>[filter](../common-options.md#filter)                                        |                           |
+| <a id="check_largest_files_warning"></a>[warning](../common-options.md#warning)                                     |                           |
+| <a id="check_largest_files_warn"></a>[warn](../common-options.md#warn)                                              |                           |
+| <a id="check_largest_files_critical"></a>[critical](../common-options.md#critical)                                  |                           |
+| <a id="check_largest_files_crit"></a>[crit](../common-options.md#crit)                                              |                           |
+| <a id="check_largest_files_ok"></a>[ok](../common-options.md#ok)                                                    |                           |
+| <a id="check_largest_files_debug"></a>[debug](../common-options.md#debug)                                           | false                     |
+| <a id="check_largest_files_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                     |
+| <a id="check_largest_files_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                        |
+| <a id="check_largest_files_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                           |
+| <a id="check_largest_files_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                     |
+| <a id="check_largest_files_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                         |
+| <a id="check_largest_files_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}        |
+| <a id="check_largest_files_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                           |
+| <a id="check_largest_files_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No files found |
+| <a id="check_largest_files_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${path} (${size})         |
+| <a id="check_largest_files_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${path}                   |
+| <a id="check_largest_files_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                           |
+| <a id="check_largest_files_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                           |
+| <a id="check_largest_files_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                        |
+| <a id="check_largest_files_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                           |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_largest_files_filter_keys"></a>
+#### Filter keywords
+
+| Option     | Description                                                   |
+|------------|---------------------------------------------------------------|
+| file_count | Number of files counted in a folder's total (1 for a file)    |
+| name       | Name of the file or folder (the last path element)            |
+| path       | Full path of the file or folder                               |
+| rank       | Position in the list, 1 being the largest                     |
+| size       | Size in bytes: the file's size, or a folder's recursive total |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
 ### check_mount
 
 !!! warning "Experimental"
@@ -2452,7 +2742,7 @@ disable=
 
 #### FILE ACCESS MODE <a id="/settings/disk/file access"></a>
 
-Which paths a caller may ask check_files, check_single_file and check_disk_write to use: any (the default - any path the caller names, which is how every earlier release behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the [/settings/disk/files] section).
+Which paths a caller may ask check_files, check_single_file, check_largest_files and check_disk_write to use: any (the default - any path the caller names, which is how every earlier release behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the [/settings/disk/files] section).
 These checks do not return file contents, but they enumerate whole directory trees (name, size, timestamps) and can report a file's checksum, so on a host where callers may pass arguments (NRPE with 'allow arguments', or the REST API) this decides how much of the filesystem a check can describe. See the 'Restricting what a check may read' section of the documentation.
 
 

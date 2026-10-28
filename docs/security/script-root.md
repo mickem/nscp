@@ -1,6 +1,6 @@
 ---
 title: "script root: a service-writable folder can hold the scripts the service runs"
-fixed_in: next
+fixed_in: 0.26.0
 severity: "Low (opt-in; no change to a default install)"
 modules: [CheckExternalScripts, PythonScript, LUAScript, CheckMKClient, CheckMKServer]
 action: conditional
