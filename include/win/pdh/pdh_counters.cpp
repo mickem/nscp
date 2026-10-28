@@ -11,7 +11,7 @@
 #include "pdh_resolver.hpp"
 
 namespace PDH {
-PDHCounter::PDHCounter(const pdh_instance &counter) : hCounter_(nullptr), counter_(counter), data_() {}
+PDHCounter::PDHCounter(const pdh_instance &counter) : hCounter_(nullptr), counter_(counter), data_(), missing_ticks_(0) {}
 PDHCounter::~PDHCounter() {
   try {
     remove();
