@@ -50,10 +50,18 @@ export function expectNoGrowth(
   const rssGrowthPct = ((final.rssBytes - baseline.rssBytes) / baseline.rssBytes) * 100;
   const threadGrowth = final.threads - baseline.threads;
   const report = { baseline, final, rssGrowthPct, threadGrowth };
-  // One object per assertion, so a failure prints the numbers behind it.
-  expect({ ...report, withinTolerance: rssGrowthPct <= tolerancePct }).toMatchObject({
-    withinTolerance: true,
-  });
+  // One object per assertion, so a failure prints the numbers behind it. A
+  // toEqual against a copy with only the verdict flipped, not toMatchObject:
+  // the latter trims the diff down to the expected keys, and a failed run then
+  // says `withinTolerance: false` and nothing else.
+  const rss = {
+    baselineMiB: Math.round(baseline.rssBytes / 2 ** 20),
+    finalMiB: Math.round(final.rssBytes / 2 ** 20),
+    rssGrowthPct: Math.round(rssGrowthPct * 10) / 10,
+    tolerancePct,
+    withinTolerance: rssGrowthPct <= tolerancePct,
+  };
+  expect(rss).toEqual({ ...rss, withinTolerance: true });
   // "Flat" allows a thread or two: a worker that was mid-exit at the baseline
   // sample, or a lazily started helper. A pool that leaks threads shows a count
   // that climbs with the load, not by two.

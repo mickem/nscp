@@ -167,13 +167,22 @@ jobs:
     # fails the run on any sanitizer report the agent prints on shutdown. The
     # RSS tolerance is widened because ASan's quarantine keeps freed memory
     # resident for a while; the thread-count and log invariants are unchanged.
+    #
+    # The quarantine is also capped (quarantine_size_mb, default 256). The leak
+    # canary compares RSS after warm-up with RSS at the end, and the default
+    # quarantine is not full after warm-up in a scenario that churns hard: the
+    # thousand schedules in scheduler-load climbed a straight ~6 MiB/s for the
+    # whole minute (+35-39%, then +50% and a red main), while the same scenario
+    # without sanitizers stays flat at 38 MiB. With 64 MiB it saturates during
+    # warm-up and the canary measures the agent again, not the quarantine
+    # filling; use-after-free detection keeps the most recent 64 MiB of frees.
     - name: Run stress scenarios under sanitizers (60 s each)
       working-directory: tests
       env:
         NSCP_STRESS_DURATION: "60"
         NSCP_STRESS_CONCURRENCY: "16"
         NSCP_STRESS_RSS_TOLERANCE: "50"
-        ASAN_OPTIONS: halt_on_error=1:abort_on_error=1:detect_leaks=1:detect_odr_violation=0:check_initialization_order=1:detect_stack_use_after_return=1:print_stacktrace=1
+        ASAN_OPTIONS: halt_on_error=1:abort_on_error=1:detect_leaks=1:detect_odr_violation=0:check_initialization_order=1:detect_stack_use_after_return=1:print_stacktrace=1:quarantine_size_mb=64
       run: |
         # Build the workspace paths from the shell variable $GITHUB_WORKSPACE,
         # not the template expression ${{ github.workspace }} (as
