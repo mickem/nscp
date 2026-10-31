@@ -59,6 +59,10 @@ function serviceAndTaskFacts(taskAlias: string) {
           throw error;
         });
       if (!response) continue;
+      // A request that reaches the old server while the reload stops it is
+      // answered "503 Server is stopping" (ServerMongooseImpl::stop) - the
+      // same transient as the refused connection above.
+      if (response.status === 503) continue;
       // Saving freshly configured credentials can invalidate a session on
       // reload. This test concerns facts; obtain a new session when needed.
       if (response.status === 403) {
