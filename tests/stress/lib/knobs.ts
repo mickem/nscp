@@ -6,7 +6,16 @@
  *   NSCP_STRESS_CONCURRENCY    parallel workers (open connections), default 32
  *   NSCP_STRESS_RPS            requests per second across all workers, 0 = unbounded
  *   NSCP_STRESS_RSS_TOLERANCE  percent the RSS may grow from after warm-up to
- *                              the end before the leak canary fails, default 20
+ *                              the end before the leak canary fails, default 20;
+ *                              `off` skips the RSS check (see below)
+ *
+ * `off` is for a sanitizer build, where RSS measures the sanitizer rather than
+ * the agent: ASan's fake stacks (detect_stack_use_after_return) and its
+ * quarantine take fresh memory on every call and every free until they fill,
+ * which a one-minute run does not reach. scheduler-load grew +68% that way,
+ * against +4% with both turned off. The sanitizer job leaves leaks to
+ * LeakSanitizer and runs the RSS canary on the release build instead.
+ * The growth is still measured and written to the results file.
  *
  * A soak is the same scenario with a long duration: NSCP_STRESS_DURATION=1800.
  */
@@ -25,7 +34,8 @@ export interface Knobs {
   durationSeconds: number;
   concurrency: number;
   rps: number;
-  rssTolerancePct: number;
+  /** null when NSCP_STRESS_RSS_TOLERANCE=off: the RSS check is skipped. */
+  rssTolerancePct: number | null;
 }
 
 export function readKnobs(): Knobs {
@@ -33,7 +43,10 @@ export function readKnobs(): Knobs {
     durationSeconds: intKnob("NSCP_STRESS_DURATION", 60, 5),
     concurrency: intKnob("NSCP_STRESS_CONCURRENCY", 32, 1),
     rps: intKnob("NSCP_STRESS_RPS", 0),
-    rssTolerancePct: intKnob("NSCP_STRESS_RSS_TOLERANCE", 20),
+    rssTolerancePct:
+      process.env.NSCP_STRESS_RSS_TOLERANCE === "off"
+        ? null
+        : intKnob("NSCP_STRESS_RSS_TOLERANCE", 20),
   };
 }
 

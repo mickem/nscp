@@ -26,7 +26,14 @@ import { writeReport } from "@stress/report";
 import { RestClient } from "@stress/rest-client";
 
 const knobs = readKnobs();
-jest.setTimeout(scenarioTimeoutMs(knobs));
+/**
+ * The pool takes about two minutes of beats to reach its working set: on a
+ * release build RSS climbs ~20 MiB over the first ~115 s and then holds within
+ * a MiB (a 4-minute run, 38 -> 58 MiB, flat from there). A baseline taken
+ * after the default few seconds measures that climb, not a leak.
+ */
+const WARMUP_MS = Math.max(warmupMs(knobs), 120_000);
+jest.setTimeout(scenarioTimeoutMs(knobs) + WARMUP_MS);
 
 /** How many schedules; the legacy test installed 1000 at 5 s. */
 const SCHEDULES = Number(process.env.NSCP_STRESS_SCHEDULES ?? 1000);
@@ -136,8 +143,8 @@ describe("stress: scheduler load into the result cache", () => {
       return n;
     };
 
-    // Warm up: the pool starts, the first beats land. Then baseline.
-    const warmupUntil = performance.now() + warmupMs(knobs);
+    // Warm up: the pool starts and settles into its working set. Then baseline.
+    const warmupUntil = performance.now() + WARMUP_MS;
     while (performance.now() < warmupUntil) {
       await sleep(POLL_MS);
       await drain();
