@@ -230,7 +230,11 @@ jobs:
       # stacks and quarantine (see tests-sanitizers.yml). One matrix entry is
       # enough for a growth check. The harness needs Node 20 (undici); it is
       # set up only after `npm test`, which keeps running on the distro's Node
-      # 18 so the regular suites stay loadable there.
+      # 18 so the regular suites stay loadable there. The node_modules that
+      # `npm install` built above hold native addons (ssh2, cpu-features, via
+      # testcontainers) compiled against that Node 18. With them in place jest
+      # under Node 20 died with SIGSEGV seconds after starting, so they are
+      # rebuilt for Node 20 first, as the sanitizer job installs under it.
       - uses: actions/setup-node@v7
         if: inputs.package-type == 'deb' && inputs.distro == 'ubuntu' && inputs.architecture == 'x64'
         with:
@@ -244,7 +248,10 @@ jobs:
           NSCP_BIN: nscp
           NSCP_STRESS_DURATION: "60"
           NSCP_STRESS_CONCURRENCY: "16"
-        run: npx jest --config jest.stress.config.js --runInBand rest-flood scheduler-load slow-check-isolation mixed-flood
+        run: |
+          echo "node $(node --version) at $(command -v node)"
+          npm rebuild
+          npx jest --config jest.stress.config.js --runInBand rest-flood scheduler-load slow-check-isolation mixed-flood
 
       - name: Upload stress results
         if: always() && inputs.package-type == 'deb' && inputs.distro == 'ubuntu' && inputs.architecture == 'x64'
