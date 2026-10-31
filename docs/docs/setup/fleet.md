@@ -359,10 +359,10 @@ check_disk_bat = scripts\check_disk.bat
 ```
 
 `script root = fleet` makes every script module read `${fleet-folder}/scripts` instead of
-`${scripts}`. An external script is started in the folder above the scripts folder, as it is on
-a plain install, so here that is `${fleet-folder}` - and `scripts\check_disk.bat` is the same
-spelling it has always had in `nsclient.ini`, a script that calls a sibling by relative path
-keeps working, and nothing in the bundle names a host path. The same bundle serves Windows and Linux; ship both forms and register
+`${scripts}`. An external script runs with the parent of the scripts folder as its working
+directory, exactly as on a plain install, so here that is `${fleet-folder}` - and
+`scripts\check_disk.bat` is the same spelling it has always had in `nsclient.ini`, a script that
+calls a sibling by relative path keeps working, and nothing in the bundle names a host path. The same bundle serves Windows and Linux; ship both forms and register
 each under its own name. On Linux and macOS the sync writes files without an execute bit, so run
 a shell script through its interpreter (`sh scripts/check_disk.sh`) rather than directly.
 

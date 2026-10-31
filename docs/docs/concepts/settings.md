@@ -624,7 +624,7 @@ expansion. A `${scripts}/check_foo.sh` entry reaches the shell with the token st
 |---|---|
 | `${scripts}/check_foo.sh` | not expanded; the token is passed through as written |
 | `check_foo.sh` | a name with no directory separator is looked up on `PATH`, not in the current directory |
-| `scripts/check_foo.sh` | Windows: resolved under the installation directory. Unix: relative to the working directory |
+| `scripts/check_foo.sh` | Windows: resolved under the installation directory. Unix: relative to the working directory, the parent of the scripts folder |
 | `/opt/nscp/scripts/check_foo.sh` | used as given |
 
 The conventional `scripts\check_foo.bat` is reliable on Windows: the launcher roots a relative
@@ -640,37 +640,40 @@ and Windows directories, then `PATH` — which is what the shipped wrappings rel
 names a location of its own — `C:\tools\check_foo.exe`, `\\server\share\check_foo.exe`, and the
 drive-relative `C:check.exe` or root-relative `\tools\check.exe` — is used exactly as written.
 
-On Linux the relative form holds only under the shipped systemd unit, which sets `WorkingDirectory`
-to `${shared-path}`, the folder `${scripts}` lives in. The unix launcher sets no working directory
-for the child and does not root the command: both inherit the agent's. Started any other way (by
-hand, from an init script, as a container entrypoint) a relative command is measured against
-whatever that happened to be, so prefer an absolute path there.
+On Linux and macOS the launcher does not root the command, but since 0.26.0 it starts the script
+with the parent of the scripts folder as its working directory, `/usr/share/nsclient` on a default
+install, so `sh scripts/check_foo.sh` resolves the same way as on Windows. The shipped systemd unit
+already set `WorkingDirectory` there; an agent started by hand, from an init script or as a
+container entrypoint used to hand the script whatever directory the agent was launched from. See
+[Moving the whole tree](#moving-the-whole-tree-script-root) for what happens when that parent does
+not exist.
 
-`nscp ext-scr add --import <file>` writes that value for you, and picks the spelling that works on
-the platform it runs on: `scripts\<name>` on Windows, and the destination's absolute path
-everywhere else.
+`nscp ext-scr add --import <file>` writes that value for you, as `scripts/<name>` relative to that
+working directory, on every platform.
 
 ### Moving the whole tree: `script root`
 
 Every script-carrying module (`CheckExternalScripts`, `PythonScript`, `LUAScript`, `CheckMKClient`,
 `CheckMKServer`) reads a `script root` setting - from its own section, or from `[/settings/default]`
 to move them all at once. It names the scripts folder, `${scripts}` by default. Python and Lua
-scripts live in its `python` and `lua` sub-folders, and the folder *above* it is where an external
-script is started:
+scripts live in its `python` and `lua` sub-folders, and an external script runs with the **parent of
+the scripts folder** as its working directory - the folder the scripts folder sits in:
 
-| Value | Scripts folder | External scripts run in |
+| Value | Scripts folder | Working directory (parent of the scripts folder) |
 |---|---|---|
-| empty, `default` | `${scripts}` | the folder above it - the installation directory on Windows |
+| empty, `default` | `${scripts}` | the installation directory on Windows, `${shared-path}` on Linux |
 | `fleet` | `${fleet-folder}/scripts` | `${fleet-folder}` |
 | `shared` | `${shared-path}/scripts` | `${shared-path}` |
-| a folder (`${...}` tokens expanded) | that folder | the folder above it |
+| a folder (`${...}` tokens expanded) | that folder | its parent, so `C:\fleet` for `C:\fleet\scripts` |
 
 That last column is the rule the default layout has always followed: `${scripts}` is the
-installation directory's `scripts` folder, and scripts start in the installation directory, which is
-why a command is written `scripts\check_foo.bat` and a batch file calls a sibling as
-`scripts\other.bat`. Making it the rule for *any* root is what lets a tree move. An external script
-is **started in the folder above the scripts folder, on every platform**, and a relative command with
-a folder in it (`scripts\check_foo.bat`, `sh scripts/check_foo.sh`) is resolved against that folder.
+installation directory's `scripts` folder, and scripts start in the installation directory
+(`C:\Program Files\NSClient++` on Windows, `/usr/share/nsclient` on Linux), which is why a command
+is written `scripts\check_foo.bat` and a batch file calls a sibling as `scripts\other.bat`: the path
+is resolved from that parent, not from inside the scripts folder. Making it the rule for *any* root
+is what lets a tree move. An external script **runs with the parent of the scripts folder as its
+working directory, on every platform**, and a relative command with a folder in it
+(`scripts\check_foo.bat`, `sh scripts/check_foo.sh`) is resolved from there.
 Copy the scripts folder anywhere, point `script root` at it, and every spelling keeps working: the
 commands, the shipped wrappings, scripts calling each other, Python and Lua finding their `lib`
 helpers. The relative spelling is the folder's *own* name below that parent, which is `scripts` for
@@ -680,7 +683,7 @@ show/delete sandbox of the `ext-scr`, `py` and `lua` commands and the `/api/v2/s
 the scripts folder itself, as it always was.
 
 On Linux and macOS the agent now sets that working directory itself. The shipped systemd unit
-already set `WorkingDirectory` to the folder `${scripts}` lives in, so a service sees no change; an
+already set `WorkingDirectory` to that parent (`${shared-path}`), so a service sees no change; an
 agent started by hand or as a container entrypoint stops depending on wherever it happened to be
 started. On Windows the built-in layout keeps the installation directory even when a `[paths]`
 override has moved `${scripts}` elsewhere, since every `scripts\check.bat` entry on such a host was
