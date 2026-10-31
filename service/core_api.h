@@ -37,3 +37,5 @@ NSCAPI::errorReturn NSAPISetLogOption(const char *option);
 NSCAPI::errorReturn NSAPIGetTags(char **response_buffer, unsigned int *response_buffer_len);
 NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
                                     unsigned int *response_buffer_len);
+NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                       unsigned int *response_buffer_len);

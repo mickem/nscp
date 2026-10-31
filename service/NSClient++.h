@@ -7,13 +7,13 @@
 #include <nsclient/logger/logger.hpp>
 #include <service/system_service.hpp>
 
+#include "fact_repository.hpp"
+#include "failed_check_store.hpp"
 #include "nsclient_core_interface.hpp"
 #include "plugins/plugin_cache.hpp"
 #include "plugins/plugin_manager.hpp"
 #include "scheduler_handler.hpp"
 #include "storage_manager.hpp"
-
-#include "fact_repository.hpp"
 #include "tag_repository.hpp"
 
 class NSClientT;
@@ -56,6 +56,10 @@ class NSClientT : public nsclient::core::core_interface {
   // report. Empty until an operator enables a fact set in [/settings/facts].
   // Created in the constructor and never replaced, like tags_.
   nsclient::core::fact_repository_instance facts_;
+  // The failed-check log: the last N non-OK check results, recorded by the
+  // plugin manager on every dispatch and served through NSAPIFailuresQuery.
+  // Created in the constructor and never replaced, like tags_ and facts_.
+  nsclient::core::failed_check_store_instance failures_;
   // Path overrides supplied via --path-override on the command line. Applied to
   // path_ inside load_configuration_1, after init_settings has loaded
   // boot.ini's [paths] section, so CLI wins over boot.ini.
@@ -110,6 +114,7 @@ class NSClientT : public nsclient::core::core_interface {
   nsclient::core::storage_manager_instance get_storage_manager() override { return storage_manager_; }
   nsclient::core::tag_repository_instance get_tag_repository() { return tags_; }
   nsclient::core::fact_repository_instance get_fact_repository() { return facts_; }
+  nsclient::core::failed_check_store_instance get_failed_check_store() { return failures_; }
 
   struct service_controller {
     std::string service;
@@ -142,6 +147,11 @@ class NSClientT : public nsclient::core::core_interface {
   // Register [/settings/facts] and, when a fact set is enabled, schedule the
   // refresh round. Done at boot, before the first round runs.
   void boot_facts();
+  // [/settings/core/failed checks]: register the keys and apply them.
+  void boot_failed_checks();
+  // Re-read [/settings/core/failed checks] and apply it to the store. Called at
+  // boot and on every settings reload.
+  void read_failed_check_settings();
   // Log what `nscp settings --validate` would report: a warning per section or
   // key that is certainly wrong, debug lines for the ones that only nothing
   // loaded happens to use. Runs once every module has registered its settings.

@@ -15,6 +15,7 @@
 #include <win/service_control.hpp>
 #endif
 #include <nscapi/protobuf/facts.hpp>
+#include <nscapi/protobuf/failures.hpp>
 #include <nscapi/protobuf/settings.hpp>
 #include <nsclient/logger/logger.hpp>
 
@@ -339,6 +340,66 @@ NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned i
   return NSCAPI::api_return_codes::hasFailed;
 }
 
+// The failed-check log (service/failed_check_store.hpp): a serialised
+// PB::Failures::FailuresRequestMessage in, a FailuresResponseMessage out.
+//
+//   GET                 the newest entries, all of them
+//   GET since=N limit=M what arrived after index N, at most M
+//   CLEAR               drop every entry, answer with how many
+//
+// An empty request is a plain GET, so a console verb can send nothing at all.
+// Read side only: what is recorded is decided by the core on every dispatch
+// and by [/settings/core/failed checks], never by a caller.
+NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                       unsigned int *response_buffer_len) {
+  try {
+    PB::Failures::FailuresRequestMessage::Request::Command command = PB::Failures::FailuresRequestMessage::Request::GET;
+    unsigned long long since = 0;
+    std::size_t limit = 0;
+    const std::string request = request_buffer == nullptr ? std::string() : std::string(request_buffer, request_buffer_len);
+    if (!request.empty()) {
+      PB::Failures::FailuresRequestMessage message;
+      if (!message.ParseFromString(request)) {
+        LOG_ERROR(mainClient, "Failures query error: the request is not a valid failures request message");
+        return NSCAPI::api_return_codes::hasFailed;
+      }
+      if (message.payload_size() > 0) {
+        command = message.payload(0).command();
+        since = message.payload(0).since();
+        limit = message.payload(0).limit();
+      }
+    }
+
+    const nsclient::core::failed_check_store_instance store = mainClient->get_failed_check_store();
+    PB::Failures::FailuresResponseMessage response_message;
+    PB::Failures::FailuresResponseMessage::Response *payload = response_message.add_payload();
+    payload->mutable_result()->set_code(PB::Common::Result::STATUS_OK);
+    if (command == PB::Failures::FailuresRequestMessage::Request::CLEAR) {
+      payload->set_removed(store->clear());
+    } else {
+      for (const PB::Failures::FailedCheck &entry : store->list(since, limit)) *payload->add_entries() = entry;
+    }
+    const nsclient::core::failed_check_store::options options = store->get_options();
+    payload->set_enabled(options.enabled);
+    payload->set_max_entries(options.max_entries);
+    payload->set_arguments_recorded(options.record_arguments);
+    payload->set_statuses(nsclient::core::failed_check_store::format_statuses(options.statuses));
+    payload->set_last_index(store->last_index());
+    payload->set_dropped(store->dropped());
+
+    const std::string response = response_message.SerializeAsString();
+    *response_buffer_len = static_cast<unsigned int>(response.size());
+    *response_buffer = new char[*response_buffer_len + 10];
+    memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+    return NSCAPI::api_return_codes::isSuccess;
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, "Failures query error: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR(mainClient, "Unknown failures query error");
+  }
+  return NSCAPI::api_return_codes::hasFailed;
+}
+
 nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIGetApplicationName") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationName);
   if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationVersionStr);
@@ -359,6 +420,7 @@ nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPISetTag") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetTag);
   if (strcmp(buffer, "NSAPIGetTags") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetTags);
   if (strcmp(buffer, "NSAPIFactsQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIFactsQuery);
+  if (strcmp(buffer, "NSAPIFailuresQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIFailuresQuery);
   if (strcmp(buffer, "NSAPISetLogOption") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetLogOption);
   mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
   return NULL;

@@ -5,6 +5,7 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/protobuf/facts.hpp>
+#include <nscapi/protobuf/failures.hpp>
 #include <nsclient/nsclient_exception.hpp>
 
 #define CORE_LOG_ERROR(msg)                                 \
@@ -42,6 +43,7 @@ nscapi::core_wrapper::core_wrapper()
       fNSAPISetTag(nullptr),
       fNSAPIGetTags(nullptr),
       fNSAPIFactsQuery(nullptr),
+      fNSAPIFailuresQuery(nullptr),
       fNSAPISetLogOption(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
@@ -318,6 +320,31 @@ bool nscapi::core_wrapper::refresh_facts() const {
   return retC;
 }
 
+std::string nscapi::core_wrapper::get_failures(const unsigned long long since, const unsigned int limit) const {
+  if (!fNSAPIFailuresQuery) return "";
+  const std::string request = nscapi::failures::make_request(PB::Failures::FailuresRequestMessage::Request::GET, since, limit);
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIFailuresQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  std::string response;
+  if (buffer_size > 0 && buffer != nullptr) {
+    response = std::string(buffer, buffer_size);
+  }
+  DestroyBuffer(&buffer);
+  if (!retC) return "";
+  return response;
+}
+
+bool nscapi::core_wrapper::clear_failures() const {
+  if (!fNSAPIFailuresQuery) return false;
+  const std::string request = nscapi::failures::make_request(PB::Failures::FailuresRequestMessage::Request::CLEAR);
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIFailuresQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  DestroyBuffer(&buffer);
+  return retC;
+}
+
 namespace {
 // Skip JSON insignificant whitespace.
 void tags_skip_ws(const std::string &s, std::size_t &i) {
@@ -505,6 +532,7 @@ bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
   fNSAPIGetTags = reinterpret_cast<core_api::lpNSAPIGetTags>(f("NSAPIGetTags"));
   fNSAPISetLogOption = reinterpret_cast<core_api::lpNSAPISetLogOption>(f("NSAPISetLogOption"));
   fNSAPIFactsQuery = reinterpret_cast<core_api::lpNSAPIFactsQuery>(f("NSAPIFactsQuery"));
+  fNSAPIFailuresQuery = reinterpret_cast<core_api::lpNSAPIFailuresQuery>(f("NSAPIFailuresQuery"));
 
   return true;
 }
