@@ -19,6 +19,7 @@ Each topic has its own page:
 * [Facts](facts.md) — the opt-in host inventory the core collects
 * [Metadata](metadata.md) — performance counters, registered channels
 * [Results](results.md) — cached passive check results
+* [Failed checks](failures.md) — the last checks that came back WARNING, CRITICAL or UNKNOWN
 * [Legacy API](legacy.md) — pre-`/api/v2` endpoints kept for backwards compatibility
 
 ## API versions

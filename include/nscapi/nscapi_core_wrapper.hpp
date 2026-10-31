@@ -116,8 +116,9 @@ class NSCAPI_EXPORT core_wrapper {
   // everything); `limit` caps the count (0 for no cap). Bytes rather than a
   // parsed message, for the same reason get_facts() is.
   std::string get_failures(unsigned long long since = 0, unsigned int limit = 0) const;
-  // Drop every entry. False on a core without the API.
-  bool clear_failures() const;
+  // Drop every entry. The same envelope as get_failures(), with `removed`
+  // set and no entries; empty on a core without the API.
+  std::string clear_failures() const;
 
   // Change one logging option at runtime; takes the same strings as the --log
   // switch (a severity, or a driver option such as "no-console"). Returns

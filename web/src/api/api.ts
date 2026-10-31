@@ -361,6 +361,46 @@ export interface EventEntry {
   data: { [key: string]: string };
 }
 
+/**
+ * One entry of the core's failed-check log (/api/v2/failures): a query that
+ * came back WARNING, CRITICAL or UNKNOWN, with the result as the check
+ * produced it. `arguments` is only present when the agent records them
+ * (`record arguments` under [/settings/core/failed checks]).
+ */
+export interface FailedCheck {
+  index: number;
+  timestamp: number;
+  date: string;
+  age: number;
+  /** Who dispatched the query: the module and, when known, the user (`WEBServer:admin`). */
+  subject: string;
+  /** 0 for a check a client asked for; 1+ for one run on behalf of another check. */
+  depth: number;
+  command: string;
+  alias: string;
+  status: 0 | 1 | 2 | 3;
+  result: "OK" | "WARNING" | "CRITICAL" | "UNKNOWN";
+  message: string;
+  lines: QueryExecutionResultLine[];
+  arguments?: string[];
+}
+
+/** The log and how it is configured, so the UI can say "off" or "no arguments". */
+export interface FailedChecks {
+  enabled: boolean;
+  max_entries: number;
+  arguments_recorded: boolean;
+  statuses: string;
+  last_index: number;
+  dropped: number;
+  count: number;
+  entries: FailedCheck[];
+}
+
+export interface FailedChecksArgs {
+  limit?: number;
+}
+
 export interface SettingsDescription {
   default_value: string;
   description: string;
@@ -443,6 +483,7 @@ export const ALL_API_TAGS = [
   "LogStatus",
   "Metrics",
   "Events",
+  "Failures",
 ] as const;
 
 export const nsclientApi = createApi({
@@ -468,6 +509,7 @@ export const nsclientApi = createApi({
     "LogStatus",
     "Metrics",
     "Events",
+    "Failures",
   ],
   endpoints: (builder) => ({
     getEndpoints: builder.query<EndpointList, void>({
@@ -763,6 +805,19 @@ export const nsclientApi = createApi({
       }),
       invalidatesTags: ["Events"],
     }),
+    getFailures: builder.query<FailedChecks, FailedChecksArgs | void>({
+      query: (args) => ({
+        url: args && args.limit ? `/v2/failures?limit=${args.limit}` : "/v2/failures",
+      }),
+      providesTags: ["Failures"],
+    }),
+    clearFailures: builder.mutation<void, void>({
+      query: () => ({
+        url: "/v2/failures",
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Failures"],
+    }),
     getCounterMetadata: builder.query<MetadataOption[], void>({
       query: () => ({
         url: "/v1/metadata/counters",
@@ -834,4 +889,6 @@ export const {
   useGetChannelMetadataQuery,
   useGetEventsQuery,
   useClearEventsMutation,
+  useGetFailuresQuery,
+  useClearFailuresMutation,
 } = nsclientApi;

@@ -252,6 +252,32 @@ class failed_check_store {
   // Whether an argument key names a credential. The same rule the client
   // side uses for its own logging (client::is_sensitive_key): a key that
   // mentions a password or a token, with leading option dashes ignored.
+  // A message is the check's own text and is kept as it was, with one
+  // exception: a `password=...` or `token=...` pair inside it loses its value.
+  // A check that cannot parse its options echoes the offending argument back
+  // ("unrecognised option 'password=hunter2'"), which would put the secret in
+  // the log even with `record arguments` off. The key is the run of
+  // non-blank, non-quote characters before the `=`; the value runs to the
+  // next blank or quote.
+  static std::string redact_message(const std::string &message) {
+    std::string out = message;
+    std::string::size_type pos = 0;
+    while ((pos = out.find('=', pos)) != std::string::npos) {
+      std::string::size_type start = pos;
+      while (start > 0 && !is_boundary(out[start - 1])) --start;
+      std::string::size_type end = pos + 1;
+      while (end < out.size() && !is_boundary(out[end])) ++end;
+      if (end > pos + 1 && is_sensitive_argument(out.substr(start, pos - start))) {
+        out.replace(pos + 1, end - pos - 1, "***");
+        end = pos + 4;
+      }
+      pos = end;
+    }
+    return out;
+  }
+  static bool is_boundary(const char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\'' || c == '"' || c == ',' || c == ';';
+  }
   static bool is_sensitive_argument(const std::string &key) {
     std::string lower = key;
     boost::algorithm::to_lower(lower);
@@ -297,6 +323,7 @@ class failed_check_store {
     }
     for (PB::Commands::QueryResponseMessage::Response::Line &line : *copy->mutable_lines()) {
       if (line.message().size() > max_line_length) line.set_message(clip(line.message(), max_line_length));
+      line.set_message(redact_message(line.message()));
       if (line.perf_size() > static_cast<int>(max_perf_per_line)) {
         line.mutable_perf()->DeleteSubrange(static_cast<int>(max_perf_per_line), line.perf_size() - static_cast<int>(max_perf_per_line));
       }

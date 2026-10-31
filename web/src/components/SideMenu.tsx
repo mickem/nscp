@@ -5,6 +5,7 @@ import AppsIcon from "@mui/icons-material/Apps";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import MessageIcon from "@mui/icons-material/Message";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
@@ -85,6 +86,14 @@ export default function SideMenu() {
               <NotificationsIcon />
             </ListItemIcon>
             <ListItemText primary="Events" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton selected={isActive("/failures")} onClick={() => navigate("/failures")}>
+            <ListItemIcon>
+              <ReportProblemOutlinedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Failed checks" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>

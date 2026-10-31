@@ -48,6 +48,7 @@ set(SRCS
     info_controller.cpp
     tags_controller.cpp
     facts_controller.cpp
+    failures_controller.cpp
     settings_controller.cpp
     login_controller.cpp
     metrics_controller.cpp
@@ -94,6 +95,8 @@ if(WIN32)
         info_controller.hpp
         tags_controller.hpp
         facts_controller.hpp
+        failures_controller.hpp
+        perf_json.hpp
         settings_controller.hpp
         metrics_controller.hpp
         openmetrics_controller.hpp

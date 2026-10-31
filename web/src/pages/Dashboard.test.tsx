@@ -8,6 +8,7 @@ describe("Dashboard page", () => {
     const fetchMock = installFetchMock({
       "/api/v2/metrics": jsonResponse({}),
       "/api/v2/tags": jsonResponse({}),
+      "/api/v2/failures": jsonResponse({ enabled: true, count: 0, entries: [] }),
     });
     renderWithProviders(<Dashboard />);
 

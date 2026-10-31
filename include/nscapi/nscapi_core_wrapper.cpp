@@ -335,14 +335,19 @@ std::string nscapi::core_wrapper::get_failures(const unsigned long long since, c
   return response;
 }
 
-bool nscapi::core_wrapper::clear_failures() const {
-  if (!fNSAPIFailuresQuery) return false;
+std::string nscapi::core_wrapper::clear_failures() const {
+  if (!fNSAPIFailuresQuery) return "";
   const std::string request = nscapi::failures::make_request(PB::Failures::FailuresRequestMessage::Request::CLEAR);
   char *buffer = nullptr;
   unsigned int buffer_size = 0;
   const bool retC = NSCAPI::api_ok(fNSAPIFailuresQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  std::string response;
+  if (buffer_size > 0 && buffer != nullptr) {
+    response = std::string(buffer, buffer_size);
+  }
   DestroyBuffer(&buffer);
-  return retC;
+  if (!retC) return "";
+  return response;
 }
 
 namespace {

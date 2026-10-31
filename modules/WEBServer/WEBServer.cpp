@@ -35,6 +35,7 @@
 #include "error_handler.hpp"
 #include "events_controller.hpp"
 #include "facts_controller.hpp"
+#include "failures_controller.hpp"
 #include "info_controller.hpp"
 #include "legacy_command_controller.hpp"
 #include "legacy_controller.hpp"
@@ -612,6 +613,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server->registerController(new info_controller(2, session, get_core(), get_id()));
     server->registerController(new tags_controller(2, session, get_core(), get_id()));
     server->registerController(new facts_controller(2, session, get_core(), get_id()));
+    server->registerController(new failures_controller(2, session, get_core(), get_id()));
     server->registerController(new settings_controller(2, session, get_core(), get_id()));
     server->registerController(new login_controller(2, session));
     server->registerController(new metrics_controller(2, session, get_core(), get_id()));

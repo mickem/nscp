@@ -12,6 +12,7 @@ import Settings from "./pages/Settings.tsx";
 import Metrics from "./pages/Metrics.tsx";
 import Facts from "./pages/Facts.tsx";
 import Events from "./pages/Events.tsx";
+import FailedChecks from "./pages/FailedChecks.tsx";
 import About from "./pages/About.tsx";
 
 export default function Router() {
@@ -43,6 +44,7 @@ export default function Router() {
           <Route path={"metrics"} element={<Metrics />} />
           <Route path={"facts"} element={<Facts />} />
           <Route path={"events"} element={<Events />} />
+          <Route path={"failures"} element={<FailedChecks />} />
           <Route path={"about"} element={<About />} />
         </Route>
       </Routes>

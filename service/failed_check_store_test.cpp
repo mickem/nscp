@@ -317,3 +317,28 @@ TEST(failed_check_store, negative_depth_and_long_subject_are_normalised) {
   EXPECT_EQ(0, entry.depth());
   EXPECT_EQ(failed_check_store::max_subject_length, entry.subject().size());
 }
+
+// The message is the check's text and stays as it was - except that a
+// password=value or token=value pair inside it loses its value, because a
+// check that rejects its options echoes them back and would otherwise put
+// the secret in the log even with argument recording off.
+TEST(failed_check_store, redacts_secrets_echoed_in_messages) {
+  EXPECT_EQ("Invalid command line: unrecognised option 'password=***'",
+            failed_check_store::redact_message("Invalid command line: unrecognised option 'password=hunter2'"));
+  EXPECT_EQ("user=bob --api-token=*** host=x", failed_check_store::redact_message("user=bob --api-token=s3cr3t host=x"));
+  EXPECT_EQ("Password=***, retry", failed_check_store::redact_message("Password=abc, retry"));
+  // No value, no change; unrelated keys untouched; bare words untouched.
+  EXPECT_EQ("password= token", failed_check_store::redact_message("password= token"));
+  EXPECT_EQ("free=10% used=90%", failed_check_store::redact_message("free=10% used=90%"));
+  EXPECT_EQ("the password is wrong", failed_check_store::redact_message("the password is wrong"));
+
+  failed_check_store store;
+  PB::Commands::QueryResponseMessage::Response response;
+  response.set_command("check_x");
+  response.set_result(PB::Common::ResultCode::UNKNOWN);
+  response.add_lines()->set_message("unrecognised option 'password=hunter2'");
+  ASSERT_TRUE(store.record(response, nullptr, "test", 0, 100));
+  const failed_check_store::entry_list entries = store.list();
+  ASSERT_EQ(1u, entries.size());
+  EXPECT_EQ("unrecognised option 'password=***'", entries[0].response().lines(0).message());
+}
