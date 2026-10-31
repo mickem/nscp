@@ -20,6 +20,7 @@ test("shows all navigation entries in the sidebar", async ({ page }) => {
     "Queries",
     "Metrics",
     "Events",
+    "Failed checks",
     "Logs",
     "About",
   ]) {
@@ -67,6 +68,21 @@ test("navigates to the logs page and renders log entries", async ({ page }) => {
   await expect(page).toHaveURL(/\/logs$/);
   await expect(page.getByText("Service started")).toBeVisible();
   await expect(page.getByText("Sample error entry")).toBeVisible();
+});
+
+test("navigates to the failed-check log and expands an entry", async ({ page }) => {
+  await page.goto("/");
+
+  await nav(page).getByText("Failed checks", { exact: true }).click();
+  await expect(page).toHaveURL(/\/failures$/);
+  await expect(page.getByText("check_drivesize", { exact: true })).toBeVisible();
+  await expect(page.getByText("CRITICAL C: 92% used")).toBeVisible();
+  await expect(page.getByText("Warning", { exact: true })).toBeVisible();
+
+  // The recorded arguments and perf data sit behind the row.
+  await page.getByRole("button", { name: "expand" }).first().click();
+  await expect(page.getByText("drive=C:")).toBeVisible();
+  await expect(page.getByText("C: used %")).toBeVisible();
 });
 
 test("navigates to the about page", async ({ page }) => {

@@ -1112,6 +1112,48 @@ std::string describe_requested_commands(const PB::Commands::QueryRequestMessage 
 }
 }  // namespace
 
+// Record the non-OK payloads of a finished query in the failed-check log.
+// Called on every exit path of execute_query that hands payloads back - the
+// normal one and the ones the core synthesises (unknown, denied, nested too
+// deep) - so the log sees everything the caller sees. The depth is the
+// nesting below this dispatch: the guard has already counted this one.
+// Must never fail the check it is recording: whatever goes wrong here is
+// logged and swallowed.
+void nsclient::core::plugin_manager::record_failures(const PB::Commands::QueryRequestMessage &request, const PB::Commands::QueryResponseMessage &response,
+                                                     const std::string &subject) {
+  if (!failures_ || response.payload_size() == 0) return;
+  try {
+    failures_->record_message(request, response, subject, query_depth > 0 ? static_cast<int>(query_depth) - 1 : 0);
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE("Failed to record a failed check: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to record a failed check");
+  }
+}
+
+// A module whose handleCommand returned failure produced no payload at all,
+// so the caller sees nothing for those commands. Log the chunk's commands as
+// one UNKNOWN entry so the failure is at least visible here.
+void nsclient::core::plugin_manager::record_dispatch_failure(const plugin_type &plugin, const PB::Commands::QueryRequestMessage &request,
+                                                             const std::string &subject) {
+  if (!failures_) return;
+  try {
+    std::string commands;
+    for (const PB::Commands::QueryRequestMessage::Request &payload : request.payload()) str::format::append_list(commands, payload.command());
+    if (commands.empty()) commands = request.header().command();
+    PB::Commands::QueryResponseMessage response;
+    PB::Commands::QueryResponseMessage::Response *payload = response.add_payload();
+    payload->set_command(commands);
+    nscapi::protobuf::functions::set_response_bad(
+        *payload, "Module " + (plugin ? plugin->get_alias_or_name() : std::string("(unknown)")) + " failed to execute the command (no response was returned)");
+    record_failures(request, response, subject);
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE("Failed to record a failed check: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to record a failed check");
+  }
+}
+
 NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::string &request, std::string &response) {
   try {
     PB::Commands::QueryRequestMessage request_message;
@@ -1130,6 +1172,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
       payload->set_command(commands);
       nscapi::protobuf::functions::set_response_bad(
           *payload, "Command nesting too deep (limit " + str::xtos(max_query_depth) + "): a check that runs other checks cannot recurse indefinitely");
+      record_failures(request_message, response_message, plugin_manager::extract_subject_from_header(request_message.header(), &plugin_cache_));
       response = response_message.SerializeAsString();
       return NSCAPI::cmd_return_codes::isSuccess;
     }
@@ -1153,6 +1196,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
         if (!permissions_.is_allowed(subject, object)) {
           if (permissions_.should_log_denials()) LOG_ERROR_CORE_STD("permissions: denied " + subject + " -> " + object);
           emit_denied_payload(&response_message, command, subject);
+          record_failures(request_message, response_message, subject);
           response = response_message.SerializeAsString();
           return NSCAPI::cmd_return_codes::isSuccess;
         }
@@ -1222,6 +1266,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
       } else if (response_message.payload_size() == 0) {
         LOG_DEBUG_CORE("Empty query request (no header command and no payloads); returning empty response");
       }
+      record_failures(request_message, response_message, subject);
       response = response_message.SerializeAsString();
       return NSCAPI::cmd_return_codes::isSuccess;
     }
@@ -1231,6 +1276,10 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
       int ret = v.second.plugin->handleCommand(v.second.request.SerializeAsString(), local_response);
       if (ret != NSCAPI::cmd_return_codes::isSuccess) {
         LOG_ERROR_CORE("Failed to execute command");
+        // The caller gets no payload for this chunk, so nothing below would
+        // record it; a module that cannot even answer is the failure an
+        // operator most wants to see in the log.
+        record_dispatch_failure(v.second.plugin, v.second.request, subject);
       } else {
         PB::Commands::QueryResponseMessage local_response_message;
         local_response_message.ParseFromString(local_response);
@@ -1242,6 +1291,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::st
         }
       }
     }
+    record_failures(request_message, response_message, subject);
     response = response_message.SerializeAsString();
   } catch (const std::exception &e) {
     LOG_ERROR_CORE("Failed to process command: " + utf8::utf8_from_native(e.what()));
@@ -1552,8 +1602,7 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
 }
 
 std::list<nsclient::core::plugin_manager::plugin_type> nsclient::core::plugin_manager::event_subscribers_for(
-    const PB::Commands::EventMessage &message, const std::function<std::list<plugin_type>(const std::string &)> &lookup,
-    std::list<std::string> *unmatched) {
+    const PB::Commands::EventMessage &message, const std::function<std::list<plugin_type>(const std::string &)> &lookup, std::list<std::string> *unmatched) {
   std::list<plugin_type> ret;
   std::set<unsigned int> seen;
   for (const PB::Commands::EventMessage::Request &r : message.payload()) {
