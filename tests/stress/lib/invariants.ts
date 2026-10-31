@@ -36,11 +36,12 @@ export interface GrowthReport {
  * after warm-up, and the thread count flat (a pool that keeps spawning shows up
  * here before it shows up as a crash). Compares the sample `markBaseline()`
  * took with the one `markEnd()` took. The report is returned for the results
- * file.
+ * file. A null `tolerancePct` (NSCP_STRESS_RSS_TOLERANCE=off, a sanitizer
+ * build) skips the RSS check only; the thread count is still asserted.
  */
 export function expectNoGrowth(
   sampler: Pick<Sampler, "samples" | "baselineIndex" | "endIndex">,
-  tolerancePct: number,
+  tolerancePct: number | null,
 ): GrowthReport {
   const { samples, baselineIndex, endIndex } = sampler;
   expect(baselineIndex).toBeGreaterThanOrEqual(0);
@@ -54,14 +55,16 @@ export function expectNoGrowth(
   // toEqual against a copy with only the verdict flipped, not toMatchObject:
   // the latter trims the diff down to the expected keys, and a failed run then
   // says `withinTolerance: false` and nothing else.
-  const rss = {
-    baselineMiB: Math.round(baseline.rssBytes / 2 ** 20),
-    finalMiB: Math.round(final.rssBytes / 2 ** 20),
-    rssGrowthPct: Math.round(rssGrowthPct * 10) / 10,
-    tolerancePct,
-    withinTolerance: rssGrowthPct <= tolerancePct,
-  };
-  expect(rss).toEqual({ ...rss, withinTolerance: true });
+  if (tolerancePct !== null) {
+    const rss = {
+      baselineMiB: Math.round(baseline.rssBytes / 2 ** 20),
+      finalMiB: Math.round(final.rssBytes / 2 ** 20),
+      rssGrowthPct: Math.round(rssGrowthPct * 10) / 10,
+      tolerancePct,
+      withinTolerance: rssGrowthPct <= tolerancePct,
+    };
+    expect(rss).toEqual({ ...rss, withinTolerance: true });
+  }
   // "Flat" allows a thread or two: a worker that was mid-exit at the baseline
   // sample, or a lazily started helper. A pool that leaks threads shows a count
   // that climbs with the load, not by two.

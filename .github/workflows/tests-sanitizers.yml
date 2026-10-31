@@ -164,15 +164,24 @@ jobs:
     # Lua and the calls between them) at once over NRPE - slow checks in every
     # engine with the others probed meanwhile, and a flood with slow checks
     # behind it. This is where leaks and races show up - the harness
-    # fails the run on any sanitizer report the agent prints on shutdown. The
-    # RSS tolerance is widened because ASan's quarantine keeps freed memory
-    # resident for a while; the thread-count and log invariants are unchanged.
+    # fails the run on any sanitizer report the agent prints on shutdown, and
+    # LeakSanitizer reports every allocation still unfreed at exit.
+    #
+    # The RSS canary is off here (NSCP_STRESS_RSS_TOLERANCE=off), not widened.
+    # Under ASan, RSS measures ASan: the fake stacks behind
+    # detect_stack_use_after_return and the quarantine take fresh memory on
+    # every call and every free until they fill, which a 60 s run does not
+    # reach. scheduler-load grew +68% that way, against +4% with both turned
+    # off; no tolerance separates that from a leak.
+    # The canary runs at its default tolerance against the release package
+    # instead (integration-tests-linux.yml). The thread-count and log
+    # invariants are unchanged here.
     - name: Run stress scenarios under sanitizers (60 s each)
       working-directory: tests
       env:
         NSCP_STRESS_DURATION: "60"
         NSCP_STRESS_CONCURRENCY: "16"
-        NSCP_STRESS_RSS_TOLERANCE: "50"
+        NSCP_STRESS_RSS_TOLERANCE: "off"
         ASAN_OPTIONS: halt_on_error=1:abort_on_error=1:detect_leaks=1:detect_odr_violation=0:check_initialization_order=1:detect_stack_use_after_return=1:print_stacktrace=1
       run: |
         # Build the workspace paths from the shell variable $GITHUB_WORKSPACE,
