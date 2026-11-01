@@ -342,3 +342,198 @@ TEST(failed_check_store, redacts_secrets_echoed_in_messages) {
   ASSERT_EQ(1u, entries.size());
   EXPECT_EQ("unrecognised option 'password=***'", entries[0].response().lines(0).message());
 }
+
+// --- Metrics context -------------------------------------------------------
+
+namespace {
+// A snapshot of roughly `padding` bytes on the wire, stored the way the core
+// stores one after a metrics round.
+nsclient::core::metrics_snapshot_ptr make_snapshot(nsclient::core::metrics_snapshot_store &snapshots, const std::size_t padding, const std::int64_t now) {
+  PB::Metrics::MetricsMessage message;
+  PB::Metrics::MetricsBundle *bundle = message.add_payload()->add_bundles();
+  bundle->set_key("system");
+  PB::Metrics::Metric *metric = bundle->add_value();
+  metric->set_key("blob");
+  metric->mutable_string_value()->set_value(std::string(padding, 'x'));
+  return snapshots.store(message, now);
+}
+
+failed_check_store::options capturing(const std::size_t budget = failed_check_store::default_context_budget,
+                                      const std::size_t max_size = failed_check_store::default_max_context_size) {
+  failed_check_store::options o;
+  o.capture_metrics = true;
+  o.context_budget = budget;
+  o.max_context_size = max_size;
+  return o;
+}
+
+PB::Commands::QueryResponseMessage::Response critical(const std::string &command = "check_cpu") {
+  return make_response(command, PB::Common::ResultCode::CRITICAL, "bad");
+}
+}  // namespace
+
+TEST(metrics_snapshot_store, hands_out_increasing_ids_and_keeps_the_latest) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  EXPECT_FALSE(snapshots.latest());
+  const nsclient::core::metrics_snapshot_ptr first = make_snapshot(snapshots, 10, 100);
+  const nsclient::core::metrics_snapshot_ptr second = make_snapshot(snapshots, 10, 110);
+  EXPECT_EQ(1u, first->id);
+  EXPECT_EQ(2u, second->id);
+  EXPECT_EQ(110, second->captured_at);
+  EXPECT_GT(second->wire_size, 10u);
+  EXPECT_EQ(second, snapshots.latest());
+  // A reader that held the first one still has it.
+  EXPECT_EQ("system", first->message.payload(0).bundles(0).key());
+  snapshots.reset();
+  EXPECT_FALSE(snapshots.latest());
+  EXPECT_EQ(3u, make_snapshot(snapshots, 10, 120)->id);
+}
+
+TEST(failed_check_store, capture_is_off_by_default_and_marks_entries_disabled) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  EXPECT_FALSE(store.captures_metrics());
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100, make_snapshot(snapshots, 100, 95)));
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::DISABLED, found.item.context().state());
+  EXPECT_FALSE(found.context);
+  EXPECT_EQ(0u, store.context_bytes_used());
+}
+
+TEST(failed_check_store, capture_without_a_snapshot_yet_is_none) {
+  failed_check_store store;
+  store.configure(capturing());
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100));
+  EXPECT_EQ(PB::Failures::MetricsContext::NONE, store.list()[0].context().state());
+}
+
+TEST(failed_check_store, entries_in_one_interval_share_one_snapshot) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  store.configure(capturing());
+  const nsclient::core::metrics_snapshot_ptr snapshot = make_snapshot(snapshots, 1000, 95);
+  ASSERT_TRUE(store.record(critical("check_cpu"), nullptr, "test", 0, 100, snapshot));
+  ASSERT_TRUE(store.record(critical("check_drive_size"), nullptr, "test", 0, 101, snapshot));
+  // Counted once, however many entries refer to it.
+  EXPECT_EQ(snapshot->wire_size, store.context_bytes_used());
+
+  failed_check_store::entry_with_context first, second;
+  ASSERT_TRUE(store.get(1, first));
+  ASSERT_TRUE(store.get(2, second));
+  EXPECT_EQ(first.context, second.context);
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, first.item.context().state());
+  EXPECT_EQ(snapshot->id, first.item.context().snapshot_id());
+  EXPECT_EQ(95, first.item.context().captured_at());
+  EXPECT_EQ(snapshot->wire_size, first.item.context().size());
+  // The listing carries the reference, never the snapshot itself.
+  EXPECT_FALSE(store.list()[0].context().has_metrics());
+}
+
+TEST(failed_check_store, budget_releases_the_oldest_snapshot_and_keeps_the_entries) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  // Room for two snapshots of ~40k, not three.
+  store.configure(capturing(84 * 1024, 64 * 1024));
+  const nsclient::core::metrics_snapshot_ptr a = make_snapshot(snapshots, 40 * 1024, 90);
+  const nsclient::core::metrics_snapshot_ptr b = make_snapshot(snapshots, 40 * 1024, 100);
+  const nsclient::core::metrics_snapshot_ptr c = make_snapshot(snapshots, 40 * 1024, 110);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 91, a));
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 92, a));
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 101, b));
+  EXPECT_EQ(a->wire_size + b->wire_size, store.context_bytes_used());
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 111, c));
+  EXPECT_EQ(b->wire_size + c->wire_size, store.context_bytes_used());
+
+  EXPECT_EQ(4u, store.size());
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::EVICTED, found.item.context().state());
+  EXPECT_FALSE(found.context);
+  // The reference survives the eviction, so a reader can still say which
+  // snapshot it was.
+  EXPECT_EQ(a->id, found.item.context().snapshot_id());
+  ASSERT_TRUE(store.get(2, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::EVICTED, found.item.context().state());
+  ASSERT_TRUE(store.get(3, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(b, found.context);
+}
+
+TEST(failed_check_store, a_snapshot_over_the_size_cap_is_not_kept) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  store.configure(capturing(failed_check_store::default_context_budget, 1024));
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100, make_snapshot(snapshots, 4096, 95)));
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::TOO_LARGE, found.item.context().state());
+  EXPECT_GT(found.item.context().size(), 4096u);
+  EXPECT_FALSE(found.context);
+  EXPECT_EQ(0u, store.context_bytes_used());
+}
+
+TEST(failed_check_store, the_size_cap_never_exceeds_the_budget) {
+  failed_check_store store;
+  store.configure(capturing(failed_check_store::min_context_budget, failed_check_store::min_context_budget * 4));
+  EXPECT_EQ(failed_check_store::min_context_budget, store.get_options().max_context_size);
+  // And the budget has a floor.
+  store.configure(capturing(1, 1));
+  EXPECT_EQ(failed_check_store::min_context_budget, store.get_options().context_budget);
+}
+
+TEST(failed_check_store, evicting_entries_releases_their_snapshot) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  failed_check_store::options o = capturing();
+  o.max_entries = 2;
+  store.configure(o);
+  const nsclient::core::metrics_snapshot_ptr a = make_snapshot(snapshots, 1000, 90);
+  const nsclient::core::metrics_snapshot_ptr b = make_snapshot(snapshots, 1000, 100);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 91, a));
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 101, b));
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 102, b));
+  // Entry 1 aged out, and with it the only reference to `a`.
+  EXPECT_EQ(b->wire_size, store.context_bytes_used());
+  EXPECT_EQ(2u, store.size());
+}
+
+TEST(failed_check_store, turning_capture_off_releases_what_is_held) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  store.configure(capturing());
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100, make_snapshot(snapshots, 1000, 95)));
+  store.configure(failed_check_store::options());
+  EXPECT_EQ(0u, store.context_bytes_used());
+  EXPECT_EQ(1u, store.size());
+  EXPECT_EQ(PB::Failures::MetricsContext::EVICTED, store.list()[0].context().state());
+}
+
+TEST(failed_check_store, clear_releases_every_snapshot) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  store.configure(capturing());
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100, make_snapshot(snapshots, 1000, 95)));
+  EXPECT_EQ(1u, store.clear());
+  EXPECT_EQ(0u, store.context_bytes_used());
+  failed_check_store::entry_with_context found;
+  EXPECT_FALSE(store.get(1, found));
+}
+
+TEST(failed_check_store, record_message_attaches_the_context_to_every_payload) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  store.configure(capturing());
+  PB::Commands::QueryRequestMessage request;
+  add_request(request, "check_cpu", {});
+  add_request(request, "check_memory", {});
+  PB::Commands::QueryResponseMessage response;
+  *response.add_payload() = critical("check_cpu");
+  *response.add_payload() = critical("check_memory");
+  const nsclient::core::metrics_snapshot_ptr snapshot = make_snapshot(snapshots, 100, 95);
+  EXPECT_EQ(2u, store.record_message(request, response, "test", 0, 100, snapshot));
+  for (const PB::Failures::FailedCheck &entry : store.list()) {
+    EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, entry.context().state());
+    EXPECT_EQ(snapshot->id, entry.context().snapshot_id());
+  }
+}

@@ -256,6 +256,7 @@ NSCP_CREATE_TEST(
         fact_repository.hpp
         failed_check_store_test.cpp
         failed_check_store.hpp
+        metrics_snapshot.hpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
