@@ -12,12 +12,14 @@
 #include <net/http/http_response.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <onboarding/facts_pacer.hpp>
+#include <onboarding/failure_context_pacer.hpp>
 #include <onboarding/onboarding.hpp>
 #include <onboarding/sync.hpp>
 #include <string>
 #include <vector>
 
 #include "fact_repository.hpp"
+#include "failed_check_store.hpp"
 #include "tag_repository.hpp"
 
 struct fleet_config {
@@ -42,6 +44,11 @@ struct fleet_config {
   // `[tls] allow plaintext` boot.ini key that allows a plaintext settings
   // source, which is the same question about the same agent.
   bool allow_plaintext = false;
+  // [/settings/fleet] failure context: report a failed check, with the
+  // metrics snapshot it was recorded with, to a server that asks for it - at
+  // most one report per `failure_context_interval` seconds.
+  bool failure_context = true;
+  unsigned long failure_context_interval = onboarding::failure_context_pacer::default_interval_seconds;
 };
 
 // The post-enrollment fleet sync loop (see the fleet agent integration
@@ -73,7 +80,7 @@ class fleet_sync {
   static manifest_status check_manifest(const std::string &state_file, std::string &detail);
 
   fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
-             nsclient::core::fact_repository_instance facts, reload_function request_reload);
+             nsclient::core::fact_repository_instance facts, nsclient::core::failed_check_store_instance failures, reload_function request_reload);
   ~fleet_sync();
   void stop();
 
@@ -115,9 +122,14 @@ class fleet_sync {
   // Upload the facts document to /agent/v1/facts when the server has said it
   // holds a different one. Cheap when it has not: one hash compare.
   void maybe_upload_facts();
+  // Report the newest failed check, with its metrics snapshot, to
+  // /agent/v1/failure-context when the server takes reports and the interval
+  // since the last one has passed. Cheap otherwise: one index compare.
+  void maybe_report_failure_context();
   // Which fleet call a response answered: they share one rule, which differs
-  // only in what trouble and a Retry-After mean for the facts upload.
-  enum class fleet_call { poll, report, upload };
+  // only in what trouble and a Retry-After mean for the facts upload and the
+  // failure report.
+  enum class fleet_call { poll, report, upload, failure_report };
   void note_server_response(const http::response &response, fleet_call call);
   // The X-Facts-Hash on a response the server meant, for both readers - what
   // it holds after a poll or report, what it kept after an upload. None when
@@ -174,6 +186,19 @@ class fleet_sync {
   std::string last_facts_error_hash_;
   unsigned int last_facts_error_status_ = 0;
   std::chrono::steady_clock::time_point last_facts_error_at_;
+  // The core's failed-check log, which the failure report is drawn from.
+  nsclient::core::failed_check_store_instance failed_checks_;
+  // When to report a failure: one per interval, only to a server that asks.
+  // See onboarding::failure_context_pacer for the rules.
+  onboarding::failure_context_pacer failure_pacer_;
+  // Said once until the condition clears: reports that carry no metrics
+  // because capture is off, a report too large for the server, a server
+  // without the route, a header that cannot be read, and the last failed
+  // report.
+  bool failure_no_metrics_logged_ = false;
+  bool failure_route_missing_logged_ = false;
+  bool bad_failure_header_logged_ = false;
+  unsigned int last_failure_report_error_ = 0;
   reload_function request_reload_;
 
   onboarding::enrolled_identity identity_;

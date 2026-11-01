@@ -807,6 +807,22 @@ void NSClientT::boot_fleet_sync() {
     // this agent may take its configuration over an unauthenticated channel is
     // one question, and the fleet channel is the same channel by another name.
     config.allow_plaintext = settings_manager::get_core()->get_allow_plaintext();
+    settings_manager::get_core()->register_key(
+        0xffff, path, "failure context", "bool", "Report failed checks",
+        "Send the fleet server a failed check from [/settings/core/failed checks], with the metrics snapshot it was recorded with when capture "
+        "metrics is on there, and a summary of the other failures since the last report. Only to a server that asks for it, and at most once "
+        "per `failure context interval`. Read when the service starts.",
+        "true", true, false);
+    config.failure_context = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "failure context", "true"));
+    const std::string failure_interval = reg_key("failure context interval", "Failure report interval",
+                                                 "The least time between two failed-check reports to the fleet server (at least 5s; the server can ask "
+                                                 "for longer). Failures in between are summarised in the next report. Read when the service starts.",
+                                                 "1h");
+    try {
+      config.failure_context_interval = static_cast<unsigned long>(str::format::stox_as_time_sec<long>(failure_interval, "s"));
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid fleet 'failure context interval' value '" + failure_interval + "', falling back to 1h: " + utf8::utf8_from_native(e.what()));
+    }
 
     std::string manifest_detail;
     const fleet_sync::manifest_status manifest = fleet_sync::check_manifest(config.state_file, manifest_detail);
@@ -822,7 +838,8 @@ void NSClientT::boot_fleet_sync() {
                          path_->expand_path("${data-path}") + ") and restart.");
       return;
     }
-    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, facts_, [this] { this->reload("delayed,service"); });
+    const std::shared_ptr<fleet_sync> sync =
+        std::make_shared<fleet_sync>(log_instance_, config, tags_, facts_, failures_, [this] { this->reload("delayed,service"); });
     {
       boost::mutex::scoped_lock lock(fleet_sync_mutex_);
       fleet_sync_ = sync;

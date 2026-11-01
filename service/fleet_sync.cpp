@@ -7,6 +7,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <bytes/unzip.hpp>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <net/http/client.hpp>
@@ -17,6 +18,8 @@
 #include <str/xtos.hpp>
 #include <threads/guarded_thread.hpp>
 #include <utility>
+
+#include "failure_report.hpp"
 
 #ifndef WIN32
 #include <pwd.h>
@@ -67,6 +70,7 @@ const char *state_report_path = "/agent/v1/state-report";
 const char *renew_path = "/agent/v1/renew";
 const char *heartbeat_path = "/agent/v1/heartbeat";
 const char *facts_path = "/agent/v1/facts";
+const char *failure_context_path = "/agent/v1/failure-context";
 // Renew when the client certificate has fewer days than this left.
 const long renew_threshold_days = 14;
 // Longest we will ever sleep between polls, whatever the server asks for
@@ -203,12 +207,14 @@ fleet_sync::manifest_status fleet_sync::check_manifest(const std::string &state_
 }
 
 fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
-                       nsclient::core::fact_repository_instance facts, reload_function request_reload)
+                       nsclient::core::fact_repository_instance facts, nsclient::core::failed_check_store_instance failures, reload_function request_reload)
     : logger_(std::move(logger)),
       config_(std::move(config)),
       tags_(std::move(tags)),
       facts_(std::move(facts)),
+      failed_checks_(std::move(failures)),
       request_reload_(std::move(request_reload)) {
+  failure_pacer_.configure(config_.failure_context_interval);
   thread_ = threads::start_guarded_thread(
       "fleet sync", [this] { this->thread_proc(); },
       [this](const std::string &message) { log_error(message); });
@@ -332,6 +338,12 @@ void fleet_sync::load_applied_state() {
     if (hash != nullptr && hash->is_string()) current_hash_ = json_string(hash->as_string());
     const json::value *content = root.if_contains("content_hash");
     if (content != nullptr && content->is_string()) content_hash_ = json_string(content->as_string());
+    // When the last failure report went, so a restart within the interval
+    // sends nothing (a crash-looping agent must not report once per start).
+    const json::value *failure_sent = root.if_contains("failure_context_sent_at");
+    if (failure_sent != nullptr && failure_sent->is_int64()) {
+      failure_pacer_.restore(failure_sent->as_int64(), static_cast<std::int64_t>(std::time(nullptr)));
+    }
     const json::value *bundles = root.if_contains("bundles");
     if (bundles != nullptr && bundles->is_array()) {
       for (const json::value &entry : bundles->as_array()) {
@@ -377,6 +389,7 @@ void fleet_sync::save_applied_state() const {
   root["version"] = 1;
   root["state_hash"] = current_hash_;
   root["content_hash"] = content_hash_;
+  if (failure_pacer_.last_sent_at() > 0) root["failure_context_sent_at"] = failure_pacer_.last_sent_at();
   json::array bundles;
   for (const onboarding::installed_bundle &bundle : installed_) {
     json::object entry;
@@ -435,24 +448,56 @@ void fleet_sync::note_server_response(const http::response &response, const flee
     // for the upload itself this is the next turn, and only for the statuses
     // that ask for quiet (429, 503): its other failures are the document's
     // own backoff's business.
-    if (call != fleet_call::upload) {
+    // The failure report follows the same rule: no report in a turn whose
+    // poll, report or facts upload was turned away, and none in the next
+    // after a rate-limited report.
+    const bool rate_limited = response.status_code_ == 429 || response.status_code_ == 503;
+    if (call == fleet_call::poll || call == fleet_call::report) {
       facts_pacer_.trouble_this_turn();
-    } else if (response.status_code_ == 429 || response.status_code_ == 503) {
-      facts_pacer_.quiet_next_turn();
+      failure_pacer_.trouble_this_turn();
+    } else if (call == fleet_call::upload) {
+      if (rate_limited) facts_pacer_.quiet_next_turn();
+      failure_pacer_.trouble_this_turn();
+    } else if (rate_limited) {
+      failure_pacer_.quiet_next_turn();
     }
     // A Retry-After is the server naming the wait, and holds every upload
-    // until it has passed - except the poll's own, which the loop sleeps:
-    // a second, unjittered clock over the same wait would only outlast it.
+    // and report until it has passed - except the poll's own, which the loop
+    // sleeps: a second, unjittered clock over the same wait would only
+    // outlast it.
     const boost::optional<unsigned long> retry_after = get_retry_after(response);
-    if (retry_after && call != fleet_call::poll) facts_pacer_.hold(now, clamp_sleep_seconds(retry_after.value()));
+    if (retry_after && call != fleet_call::poll) {
+      facts_pacer_.hold(now, clamp_sleep_seconds(retry_after.value()));
+      failure_pacer_.hold(static_cast<std::int64_t>(std::time(nullptr)), clamp_sleep_seconds(retry_after.value()));
+    }
     // And says nothing about what the server holds, whatever headers the
     // error page happens to carry.
     return;
   }
   // An upload's own answer is read where it is acknowledged, alongside the
-  // document it answers (maybe_upload_facts); here it only needed the
-  // trouble rule above.
-  if (call == fleet_call::upload) return;
+  // document it answers (maybe_upload_facts, maybe_report_failure_context);
+  // here it only needed the trouble rule above.
+  if (call == fleet_call::upload || call == fleet_call::failure_report) return;
+  if (call == fleet_call::poll) {
+    // Whether the server takes failure reports is the poll's to say, as with
+    // facts: a report answer that lacks the header proves nothing.
+    const auto header = response.headers_.find(onboarding::failure_context_header);
+    boost::optional<unsigned long> accepts;
+    if (header != response.headers_.end()) {
+      accepts = onboarding::parse_failure_context_header(header->second);
+      if (!accepts && !bad_failure_header_logged_) {
+        bad_failure_header_logged_ = true;
+        log_info("The fleet server sent an X-Failure-Context header this agent does not understand (" + header->second.substr(0, 80) +
+                 "): expected 'accept' or 'accept; min-interval=<seconds>'. Not reporting failed checks to it.");
+      }
+    }
+    if (accepts) {
+      bad_failure_header_logged_ = false;
+      failure_pacer_.server_accepts(accepts.value());
+    } else {
+      failure_pacer_.server_silent();
+    }
+  }
   const boost::optional<std::string> advertised = read_facts_hash_header(response, call);
   if (!advertised) {
     // An answer the server meant, without a readable header. On a poll -
@@ -627,6 +672,111 @@ void fleet_sync::maybe_upload_facts() {
                     missing_route ? "The fleet server reported a facts mismatch but does not accept facts uploads (" + str::xtos(response.status_code_) +
                                         "); retrying later"
                                   : "Facts upload failed: " + str::xtos(response.status_code_) + " " + response.payload_.substr(0, 512));
+}
+
+void fleet_sync::maybe_report_failure_context() {
+  if (!failed_checks_ || !config_.failure_context) return;
+  const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
+  // Steady state: no failure since the last report, or the interval has not
+  // passed - one compare, nothing listed.
+  if (!failure_pacer_.due(failed_checks_->last_index(), now)) return;
+  const nsclient::core::failed_check_store::entry_list fresh = failed_checks_->list(failure_pacer_.last_index());
+  if (fresh.empty()) {
+    // Cleared, or switched off, since they were recorded: nothing left to
+    // tell, and nothing to look at again.
+    failure_pacer_.dropped(failed_checks_->last_index());
+    return;
+  }
+  const unsigned long long newest = fresh.front().index();
+  nsclient::core::failure_report report = nsclient::core::failure_report::from(*failed_checks_, fresh);
+  // Indices the log handed out since the last report that it no longer
+  // holds: the cap dropped them before they could be reported.
+  const unsigned long long seen = newest - failure_pacer_.last_index();
+  report.evicted = seen > fresh.size() ? seen - fresh.size() : 0;
+  report.since = failure_pacer_.last_sent_at() > 0 ? failure_pacer_.last_sent_at() : fresh.back().timestamp();
+  if (report.failure.context().state() == PB::Failures::MetricsContext::DISABLED) {
+    if (!failure_no_metrics_logged_) {
+      failure_no_metrics_logged_ = true;
+      log_info(
+          "Reporting failed checks to the fleet server without metrics: set capture metrics = true under [/settings/core/failed checks] "
+          "to include what the system looked like when they failed.");
+    }
+  } else {
+    failure_no_metrics_logged_ = false;
+  }
+
+  std::string body;
+  try {
+    body = report.render(now);
+  } catch (const std::exception &e) {
+    failure_pacer_.dropped(newest);
+    log_error("Failed check not reported to the fleet server: " + utf8::utf8_from_native(e.what()));
+    return;
+  }
+
+  http::response response;
+  try {
+    response = do_call("POST", failure_context_path, body);
+  } catch (const std::exception &e) {
+    // The polls get through, so this is the report's own trouble (a proxy
+    // that resets a large POST): paced like a rejection, not retried every
+    // turn, and logged once until a report lands.
+    failure_pacer_.rejected(now);
+    const std::string message = "Failure report to the fleet server failed: " + utf8::utf8_from_native(e.what());
+    if (last_failure_report_error_ != 1) {
+      last_failure_report_error_ = 1;
+      log_error(message);
+    } else {
+      log_debug(message);
+    }
+    return;
+  }
+  note_transport_success();
+
+  if (response.is_2xx()) {
+    failure_pacer_.sent(newest, now);
+    last_failure_report_error_ = 0;
+    failure_route_missing_logged_ = false;
+    log_debug("Reported failed check " + str::xtos(report.failure.index()) + " (" + report.failure.response().command() + ") to the fleet server with " +
+              str::xtos(report.suppressed.size()) + " more summarised (" + str::xtos(body.size()) + " bytes)");
+    try {
+      save_applied_state();
+    } catch (const std::exception &e) {
+      log_error("Could not record the failure report time: " + utf8::utf8_from_native(e.what()));
+    }
+    return;
+  }
+  note_server_response(response, fleet_call::failure_report);
+  if (response.status_code_ == 404 || response.status_code_ == 410) {
+    // It advertised reports and has no route for them (a proxy that does not
+    // forward it, a half-finished rollout): the same as not advertising,
+    // until a poll says it does again.
+    failure_pacer_.server_silent();
+    failure_pacer_.rejected(now);
+    if (!failure_route_missing_logged_) {
+      failure_route_missing_logged_ = true;
+      log_info("The fleet server advertises failure reports but has no " + std::string(failure_context_path) + " route (" + str::xtos(response.status_code_) +
+               "); not reporting failed checks to it until it advertises them again.");
+    }
+    return;
+  }
+  if (response.status_code_ == 413) {
+    // This report is too large and will be every time: give up on these
+    // failures rather than retry them.
+    failure_pacer_.dropped(newest);
+    log_error("The fleet server refused a failure report as too large (" + str::xtos(body.size()) +
+              " bytes). Lower what the snapshot holds (fewer modules publishing metrics) or turn capture metrics off under "
+              "[/settings/core/failed checks].");
+    return;
+  }
+  failure_pacer_.rejected(now);
+  const std::string message = "Failure report to the fleet server failed: " + str::xtos(response.status_code_) + " " + response.payload_.substr(0, 512);
+  if (last_failure_report_error_ != response.status_code_) {
+    last_failure_report_error_ = response.status_code_;
+    log_error(message);
+  } else {
+    log_debug(message);
+  }
 }
 
 void fleet_sync::maybe_renew() {
@@ -991,6 +1141,7 @@ void fleet_sync::run() {
   // turn over: a skip left by the turn that died must not suppress the repair
   // upload below.
   facts_pacer_.start();
+  failure_pacer_.start();
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(config_.state_file);
   if (!loaded) {
     log_error("No fleet enrollment found (" + config_.state_file + "): run `nscp enroll` first; fleet sync disabled");
@@ -1065,6 +1216,7 @@ void fleet_sync::run() {
     // Whatever the last turn carried over applies to this one, and to this
     // one only - even if its poll fails before the upload is considered.
     facts_pacer_.begin_turn();
+    failure_pacer_.begin_turn();
     const poll_sleep sleep = poll_once();
     // When the server is unreachable the poll already logged it; don't pile
     // further failures (and further log entries) on top with a renewal
@@ -1086,6 +1238,9 @@ void fleet_sync::run() {
       // report or renewal that could not reach it, which the transport check
       // above does not cover because it ran before them.
       if (transport_ok_) maybe_upload_facts();
+      // A failed check the server has not heard about, at most one report
+      // per interval, under the same conditions as the facts upload.
+      if (transport_ok_) maybe_report_failure_context();
     }
     // Clamped after the jitter, so no sleep - a day-long Retry-After jittered
     // upwards included - runs past the longest one we allow.
