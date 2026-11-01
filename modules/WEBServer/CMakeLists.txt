@@ -96,7 +96,7 @@ if(WIN32)
         tags_controller.hpp
         facts_controller.hpp
         failures_controller.hpp
-        perf_json.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/perf_json.hpp
         settings_controller.hpp
         metrics_controller.hpp
         openmetrics_controller.hpp

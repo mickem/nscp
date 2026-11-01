@@ -14,11 +14,11 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
+#include <nscapi/protobuf/perf_json.hpp>
 #include <nscapi/protobuf/registry.hpp>
 #include <str/xtos.hpp>
 
 #include "helpers.hpp"
-#include "perf_json.hpp"
 
 namespace json = boost::json;
 
