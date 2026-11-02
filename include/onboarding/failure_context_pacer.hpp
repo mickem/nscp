@@ -59,8 +59,8 @@ boost::optional<unsigned long> parse_failure_context_header(const std::string &v
 //    the next candidate.
 class failure_context_pacer {
  public:
-  static const unsigned long min_interval_seconds = 5;
-  static const unsigned long default_interval_seconds = 3600;
+  static constexpr unsigned long min_interval_seconds = 5;
+  static constexpr unsigned long default_interval_seconds = 3600;
 
   void configure(const unsigned long interval_seconds) { interval_ = (std::max)(interval_seconds, min_interval_seconds); }
 

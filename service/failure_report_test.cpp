@@ -130,7 +130,8 @@ TEST(failure_report, a_snapshot_released_before_it_was_read_reports_as_evicted) 
   ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1000, snapshot(snapshots, 995)));
   failure_report report = failure_report::from(store, store.list());
   report.context.reset();
-  const json::object &context = render(report, 1100).at("context").as_object();
+  const json::object root = render(report, 1100);
+  const json::object &context = root.at("context").as_object();
   EXPECT_EQ("evicted", context.at("state").as_string());
   EXPECT_EQ(nullptr, context.if_contains("metrics"));
 }
