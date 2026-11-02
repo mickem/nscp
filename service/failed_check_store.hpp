@@ -10,11 +10,14 @@
 #include <cstdint>
 #include <ctime>
 #include <deque>
+#include <map>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/failures.hpp>
 #include <string>
 #include <vector>
+
+#include "metrics_snapshot.hpp"
 
 namespace nsclient {
 namespace core {
@@ -39,6 +42,16 @@ namespace core {
 // they are only recorded when the operator asks, and even then anything that
 // looks like one is redacted.
 //
+// Metrics context is opt-in too (`capture metrics`): when on, each entry also
+// refers to the core's latest metrics snapshot at the instant it was recorded
+// (metrics_snapshot.hpp), so "what did the system look like when this
+// failed" can be answered after the fact. A snapshot is shared, not copied:
+// every entry recorded within one metrics interval points at the same one,
+// and the store accounts the *distinct* snapshots it holds against
+// `metrics context budget`, releasing the oldest first. A check that flaps
+// fifty times therefore costs the budget at most, never fifty snapshots, and
+// an entry whose snapshot went keeps its place with the state EVICTED.
+//
 // Thread safety: record/list/clear/configure can be called from any thread.
 // record() is on the hot path of every check, so it does its copying outside
 // the lock and holds it only for the push.
@@ -62,15 +75,32 @@ class failed_check_store {
   static constexpr std::size_t max_arguments = 100;
   static constexpr std::size_t max_argument_length = 1024;
   static constexpr std::size_t max_subject_length = 256;
+  // The metrics context. The budget is for the distinct snapshots held, the
+  // size cap for any one of them (a snapshot over it is not kept at all).
+  // Sizes are the serialised snapshot, which is close to what it costs in
+  // memory and a good deal smaller than its JSON rendering.
+  static constexpr std::size_t default_context_budget = 4 * 1024 * 1024;
+  static constexpr std::size_t default_max_context_size = 1024 * 1024;
+  static constexpr std::size_t min_context_budget = 64 * 1024;
+  static constexpr std::size_t max_context_budget = 256 * 1024 * 1024;
 
   struct options {
     bool enabled = true;
     std::size_t max_entries = default_max_entries;
     bool record_arguments = false;
     unsigned statuses = default_statuses;
+    bool capture_metrics = false;
+    std::size_t context_budget = default_context_budget;
+    std::size_t max_context_size = default_max_context_size;
   };
 
-  failed_check_store() : next_index_(1), dropped_(0) {}
+  // One entry with the snapshot it refers to (null when it has none).
+  struct entry_with_context {
+    entry item;
+    metrics_snapshot_ptr context;
+  };
+
+  failed_check_store() : next_index_(1), dropped_(0), context_bytes_(0) {}
 
   // Apply a configuration. A lowered cap trims the oldest entries now;
   // disabling the store empties it, so nothing recorded while it was on stays
@@ -81,18 +111,43 @@ class failed_check_store {
     if (clamped.max_entries < 1) clamped.max_entries = 1;
     if (clamped.max_entries > max_max_entries) clamped.max_entries = max_max_entries;
     clamped.statuses &= default_statuses;
+    if (clamped.context_budget < min_context_budget) clamped.context_budget = min_context_budget;
+    if (clamped.context_budget > max_context_budget) clamped.context_budget = max_context_budget;
+    // One snapshot must fit the budget, or keeping it would evict itself.
+    if (clamped.max_context_size > clamped.context_budget) clamped.max_context_size = clamped.context_budget;
     boost::unique_lock<boost::mutex> lock(mutex_);
     options_ = clamped;
     if (!options_.enabled) {
       entries_.clear();
+      held_.clear();
+      context_bytes_ = 0;
       return;
     }
     trim_locked();
+    // Turning capture off lets go of what is held now; it does not wait for
+    // the entries to age out.
+    if (!options_.capture_metrics) {
+      while (!held_.empty()) evict_locked(held_.begin()->first);
+    }
+    enforce_budget_locked();
   }
 
   options get_options() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
     return options_;
+  }
+
+  // Whether entries are recorded with a metrics snapshot: the caller need not
+  // look one up otherwise.
+  bool captures_metrics() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    return options_.enabled && options_.capture_metrics;
+  }
+
+  // Bytes of distinct snapshots currently held.
+  std::size_t context_bytes_used() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    return context_bytes_;
   }
 
   // Whether a result with this code is recorded under the current options.
@@ -105,8 +160,10 @@ class failed_check_store {
   // command (null when the caller has none to offer); it is only kept when
   // `record arguments` is on, and redacted then. Returns true when an entry
   // was stored: the store is enabled, and the result is one it records.
+  // `context` is the latest metrics snapshot (null when there is none yet);
+  // it is only kept when `capture metrics` is on.
   bool record(const PB::Commands::QueryResponseMessage::Response &response, const google::protobuf::RepeatedPtrField<std::string> *arguments,
-              const std::string &subject, const int depth, const std::int64_t now) {
+              const std::string &subject, const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr()) {
     options current;
     {
       boost::unique_lock<boost::mutex> lock(mutex_);
@@ -128,8 +185,12 @@ class failed_check_store {
     // would outlive the operator's decision.
     if (!options_.enabled) return false;
     item.set_index(next_index_++);
-    entries_.push_back(item);
+    stored added;
+    added.item = item;
+    attach_locked(added, context);
+    entries_.push_back(added);
     trim_locked();
+    enforce_budget_locked();
     return true;
   }
   bool record(const PB::Commands::QueryResponseMessage::Response &response, const google::protobuf::RepeatedPtrField<std::string> *arguments,
@@ -144,7 +205,7 @@ class failed_check_store {
   // pairing is by command name, each request payload used once. Returns how
   // many entries were stored.
   std::size_t record_message(const PB::Commands::QueryRequestMessage &request, const PB::Commands::QueryResponseMessage &response, const std::string &subject,
-                             const int depth, const std::int64_t now) {
+                             const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr()) {
     std::vector<bool> used(static_cast<std::size_t>(request.payload_size()), false);
     std::size_t stored = 0;
     for (const PB::Commands::QueryResponseMessage::Response &payload : response.payload()) {
@@ -156,7 +217,7 @@ class failed_check_store {
         arguments = &request.payload(i).arguments();
         break;
       }
-      if (record(payload, arguments, subject, depth, now)) ++stored;
+      if (record(payload, arguments, subject, depth, now, context)) ++stored;
     }
     return stored;
   }
@@ -170,12 +231,25 @@ class failed_check_store {
   entry_list list(const unsigned long long since = 0, const std::size_t limit = 0) const {
     boost::unique_lock<boost::mutex> lock(mutex_);
     entry_list out;
-    for (std::deque<entry>::const_reverse_iterator it = entries_.rbegin(); it != entries_.rend(); ++it) {
-      if (it->index() <= since) break;
+    for (std::deque<stored>::const_reverse_iterator it = entries_.rbegin(); it != entries_.rend(); ++it) {
+      if (it->item.index() <= since) break;
       if (limit > 0 && out.size() >= limit) break;
-      out.push_back(*it);
+      out.push_back(it->item);
     }
     return out;
+  }
+
+  // The entry with this index and the snapshot it refers to. False when the
+  // store does not hold it (never recorded, evicted by the cap, cleared).
+  bool get(const unsigned long long index, entry_with_context &out) const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    for (const stored &s : entries_) {
+      if (s.item.index() != index) continue;
+      out.item = s.item;
+      out.context = s.context;
+      return true;
+    }
+    return false;
   }
 
   // Drop everything. Returns how many entries were removed. The index keeps
@@ -184,6 +258,8 @@ class failed_check_store {
     boost::unique_lock<boost::mutex> lock(mutex_);
     const std::size_t removed = entries_.size();
     entries_.clear();
+    held_.clear();
+    context_bytes_ = 0;
     return removed;
   }
 
@@ -355,19 +431,95 @@ class failed_check_store {
     return true;
   }
 
+  struct stored {
+    entry item;
+    metrics_snapshot_ptr context;
+  };
+  // A distinct snapshot the store refers to: its size, and how many entries
+  // refer to it.
+  struct held_snapshot {
+    std::size_t bytes = 0;
+    std::size_t refs = 0;
+  };
+
+  // Decide an incoming entry's context and account for it. Callers must hold
+  // the lock.
+  void attach_locked(stored &target, const metrics_snapshot_ptr &context) {
+    PB::Failures::MetricsContext *state = target.item.mutable_context();
+    if (!options_.capture_metrics) {
+      state->set_state(PB::Failures::MetricsContext::DISABLED);
+      return;
+    }
+    if (!context) {
+      state->set_state(PB::Failures::MetricsContext::NONE);
+      return;
+    }
+    state->set_snapshot_id(context->id);
+    state->set_captured_at(context->captured_at);
+    state->set_size(context->wire_size);
+    if (context->wire_size > options_.max_context_size) {
+      state->set_state(PB::Failures::MetricsContext::TOO_LARGE);
+      return;
+    }
+    state->set_state(PB::Failures::MetricsContext::CAPTURED);
+    target.context = context;
+    held_snapshot &held = held_[context->id];
+    if (held.refs == 0) {
+      held.bytes = context->wire_size;
+      context_bytes_ += held.bytes;
+    }
+    ++held.refs;
+  }
+
+  // An entry is going away: drop its reference. Callers must hold the lock.
+  void release_locked(const stored &gone) {
+    if (!gone.context) return;
+    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(gone.context->id);
+    if (it == held_.end()) return;
+    if (--it->second.refs > 0) return;
+    context_bytes_ -= it->second.bytes;
+    held_.erase(it);
+  }
+
+  // Let go of one snapshot: every entry referring to it keeps its place and
+  // is marked EVICTED. Callers must hold the lock.
+  void evict_locked(const std::uint64_t id) {
+    for (stored &s : entries_) {
+      if (!s.context || s.context->id != id) continue;
+      s.context.reset();
+      s.item.mutable_context()->set_state(PB::Failures::MetricsContext::EVICTED);
+    }
+    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(id);
+    if (it == held_.end()) return;
+    context_bytes_ -= it->second.bytes;
+    held_.erase(it);
+  }
+
+  // Release the oldest snapshots (lowest id) until the held ones fit the
+  // budget. The newest always fits on its own, because max_context_size is
+  // clamped to the budget. Callers must hold the lock.
+  void enforce_budget_locked() {
+    while (context_bytes_ > options_.context_budget && !held_.empty()) evict_locked(held_.begin()->first);
+  }
+
   // Callers must hold the lock.
   void trim_locked() {
     while (entries_.size() > options_.max_entries) {
+      release_locked(entries_.front());
       entries_.pop_front();
       ++dropped_;
     }
   }
 
   mutable boost::mutex mutex_;
-  std::deque<entry> entries_;
+  std::deque<stored> entries_;
+  // The distinct snapshots entries refer to, oldest (lowest id) first.
+  std::map<std::uint64_t, held_snapshot> held_;
   options options_;
   unsigned long long next_index_;
   unsigned long long dropped_;
+  // The sum of held_'s bytes.
+  std::size_t context_bytes_;
 };
 
 typedef std::shared_ptr<failed_check_store> failed_check_store_instance;

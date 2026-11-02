@@ -5,6 +5,7 @@ package PB.Failures;
 option optimize_for = LITE_RUNTIME;
 import "common.proto";
 import "plugin.proto";
+import "metrics.proto";
 
 //
 // Failed checks: the last N non-OK check results the core dispatched.
@@ -15,6 +16,46 @@ import "plugin.proto";
 // Consumers (the REST API, the web UI, `nscp test`, a module) read it through
 // NSAPIFailuresQuery with the request/response pair below.
 //
+
+//
+// What the system looked like when a check failed: the core's latest metrics
+// snapshot at that instant (the one `/api/v2/metrics` was serving), when
+// [/settings/core/failed checks] `capture metrics` is on.
+//
+// Snapshots are shared: every failure recorded within one metrics interval
+// refers to the same one (the same `snapshot_id`), and the store holds at most
+// `metrics context budget` bytes of distinct snapshots, releasing the oldest
+// first. An entry whose snapshot was released keeps its place in the log and
+// says so with EVICTED.
+//
+message MetricsContext {
+	enum State {
+		// No snapshot was available: capture is on but the core had not
+		// collected one yet (the first metrics interval after a start).
+		NONE = 0;
+		// `metrics` (or, in a list, `snapshot_id`) refers to the snapshot.
+		CAPTURED = 1;
+		// The snapshot was released to stay within the budget, or capture was
+		// turned off after the entry was recorded.
+		EVICTED = 2;
+		// The snapshot was larger than `max context size` and was not kept.
+		TOO_LARGE = 3;
+		// `capture metrics` was off when the entry was recorded.
+		DISABLED = 4;
+	};
+	State state = 1;
+	// The snapshot's id: two entries with the same id saw the same snapshot.
+	uint64 snapshot_id = 2;
+	// When the core collected the snapshot, seconds since the unix epoch. At or
+	// before the failure's own timestamp, by at most one metrics interval.
+	int64 captured_at = 3;
+	// The serialised size of the snapshot, which is what the budget counts.
+	uint64 size = 4;
+	// The snapshot itself. Only filled when the request asked for it
+	// (`include_context`): a listing carries the state and the id only, so it
+	// does not grow by a snapshot per entry.
+	PB.Metrics.MetricsMessage metrics = 5;
+}
 
 //
 // One failed check, as the core saw it leave execute_query.
@@ -40,6 +81,8 @@ message FailedCheck {
 	// only when [/settings/core/failed checks] `record arguments` is on, and
 	// cleared otherwise.
 	PB.Commands.QueryResponseMessage.Response response = 5;
+	// The metrics snapshot the failure was recorded with; see MetricsContext.
+	MetricsContext context = 6;
 }
 
 //
@@ -62,6 +105,13 @@ message FailuresRequestMessage {
 		// At most this many entries, the newest ones. 0 is no limit beyond
 		// what the store holds.
 		uint32 limit = 4;
+		// Fill each entry's `context.metrics` with its snapshot. Meant for
+		// one entry (`index`); a listing leaves it off.
+		bool include_context = 5;
+		// Only the entry with this index (0 for no such restriction). The
+		// response then holds that entry or, once the cap has evicted it,
+		// nothing.
+		uint64 index = 6;
 	};
 
 	PB.Common.Header header = 1;
@@ -98,6 +148,15 @@ message FailuresResponseMessage {
 		uint64 dropped = 9;
 		// For CLEAR: how many entries were removed.
 		uint64 removed = 10;
+
+		// Whether failures are recorded with a metrics snapshot, and the
+		// budget for the distinct snapshots held (bytes) and how much of it is
+		// in use.
+		bool capture_metrics = 11;
+		uint64 context_budget = 12;
+		uint64 context_bytes_used = 13;
+		// The largest single snapshot that is kept (bytes).
+		uint64 max_context_size = 14;
 	};
 
 	PB.Common.Header header = 1;

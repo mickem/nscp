@@ -8,6 +8,7 @@ and the WEB server serves it so you can see *what has been failing on this
 host* without going through the monitoring server.
 
 * [List failed checks](#list-failed-checks) — `GET /api/v2/failures`
+* [Metrics at the time of the failure](#metrics-at-the-time-of-the-failure) — `GET /api/v2/failures/{index}/context`
 * [Clear the log](#clear-the-log) — `DELETE /api/v2/failures`
 
 The web UI shows the same log on its **Failed checks** page and, while
@@ -35,6 +36,12 @@ max entries = 50
 record arguments = false
 ; Which results count as failed.
 statuses = warning,critical,unknown
+; Keep the agent's latest metrics snapshot with each failure.
+capture metrics = false
+; The most the snapshots may take, in bytes (65536 - 268435456).
+metrics context budget = 4194304
+; The largest single snapshot kept, in bytes (never more than the budget).
+max context size = 1048576
 ```
 
 `statuses` accepts the words (`warning`, `critical`, `unknown`) and the
@@ -59,6 +66,29 @@ Each entry is also capped (100 lines of 4096 characters, 100 performance
 values per line, 100 arguments of 1024 characters) and the opaque `data` blob
 some modules attach is dropped.
 
+### Metrics context
+
+With `capture metrics = true`, each failure also refers to the agent's latest
+metrics snapshot: everything [`/api/v2/metrics`](metrics.md) was serving when
+the check failed (CPU, memory, disks, network, whatever the loaded modules
+publish). The agent collects one every `metrics interval` under
+`[/settings/core]` (10 seconds by default), so the snapshot is at most that much
+older than the failure.
+
+A snapshot is shared, not copied. Every failure recorded within one interval
+refers to the same one, and `metrics context budget` counts each distinct
+snapshot once. When the budget is used up, the oldest snapshots are released
+first. Their failures stay in the log, marked `evicted`. A snapshot larger than
+`max context size` is not kept at all (`too_large`). On a Windows host running
+CheckSystem, CheckDisk and CheckNet, a snapshot is about 70 KB (some 500
+metrics), so the default budget holds about 50 snapshots and covers a
+default-sized log in full. Turning capture off releases every snapshot held.
+
+The listing only says whether an entry has a snapshot (its `context` field).
+The snapshot itself is served by
+[its own endpoint](#metrics-at-the-time-of-the-failure), so a list of fifty
+failures does not carry fifty snapshots.
+
 ## List failed checks
 
 ```
@@ -80,6 +110,10 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
     "statuses": "warning,critical,unknown",
     "last_index": 12,
     "dropped": 0,
+    "capture_metrics": true,
+    "context_budget": 4194304,
+    "max_context_size": 1048576,
+    "context_bytes_used": 72650,
     "count": 1,
     "entries": [
         {
@@ -108,7 +142,14 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
                         }
                     }
                 }
-            ]
+            ],
+            "context": {
+                "state": "captured",
+                "snapshot_id": 15,
+                "captured_at": 1793426266,
+                "age_at_failure": 5,
+                "size": 72650
+            }
         }
     ]
 }
@@ -122,6 +163,9 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
 | `statuses`           | The statuses recorded, as configured. |
 | `last_index`         | The highest `index` handed out so far; `0` before the first failure. Keeps counting across evictions and clears. |
 | `dropped`            | Entries the cap has evicted since the service started. |
+| `capture_metrics`    | Whether failures are recorded with a metrics snapshot. |
+| `context_budget`, `max_context_size` | The snapshot budget and size cap in bytes, as configured (after clamping). |
+| `context_bytes_used` | Bytes of distinct snapshots held right now. |
 | `count`              | Number of `entries` in this answer (also in the `X-Result-Count` header). |
 
 Each entry:
@@ -137,6 +181,22 @@ Each entry:
 | `message`   | The first output line, for a table that shows one line per row. |
 | `lines`     | Every output line with its `perf` object, in the same shape as [`/api/v2/queries/{name}/commands/execute`](queries.md#command-execute). |
 | `arguments` | The arguments the check was called with, redacted. **Only present when `arguments_recorded` is true**; an entry recorded while it was off has no key, so an empty list means "none were given". |
+| `context`   | The metrics snapshot the entry refers to; see below. |
+
+`context.state` is one of:
+
+| State       | Meaning |
+|-------------|---------|
+| `captured`  | The snapshot is held; fetch it from [`/api/v2/failures/{index}/context`](#metrics-at-the-time-of-the-failure). |
+| `disabled`  | `capture metrics` was off when the entry was recorded. |
+| `evicted`   | The snapshot was released to stay within `metrics context budget`, or capture was turned off since. |
+| `too_large` | The snapshot was larger than `max context size` and was not kept. |
+| `none`      | Capture was on but the agent had not collected a snapshot yet (the first `metrics interval` after a start). |
+
+Except for `disabled` and `none`, `context` also carries `snapshot_id` (two
+entries with the same id saw the same snapshot), `captured_at` (epoch),
+`age_at_failure` (seconds between the snapshot and the failure) and `size`
+(the snapshot's serialised size, which is what the budget counts).
 
 ### Filtering
 
@@ -150,6 +210,52 @@ Each entry:
 ```
 curl -k -s -u admin "https://localhost:8443/api/v2/failures?status=critical&since=12&limit=20"
 ```
+
+## Metrics at the time of the failure
+
+```
+GET /api/v2/failures/{index}/context
+```
+
+Privilege: `failures.list`
+
+The metrics snapshot the entry was recorded with, in the same shape as
+[`/api/v2/metrics?meta=1`](metrics.md): `metrics` is the flat key/value list and
+`metadata` describes each key (type, help, unit, labels). The keys are the
+ones `/api/v2/metrics` uses, so one parser reads both.
+
+```
+$ curl -k -s -u admin "https://localhost:8443/api/v2/failures/12/context" | python -m json.tool
+{
+    "state": "captured",
+    "snapshot_id": 15,
+    "captured_at": 1793426266,
+    "age_at_failure": 5,
+    "size": 72650,
+    "index": 12,
+    "timestamp": 1793426271,
+    "metrics": {
+        "system.cpu.total.idle": 3,
+        "system.mem.physical.used": 15032385536,
+        "workers.jobs": 214
+    },
+    "metadata": {
+        "system.cpu.total.idle": { "type": "gauge", "help": "...", "unit": "percent" },
+        "system.mem.physical.used": { "type": "gauge", "help": "...", "unit": "bytes" },
+        "workers.jobs": { "type": "counter", "help": "..." }
+    }
+}
+```
+
+| Parameter | Description |
+|-----------|-------------|
+| `meta`    | `?meta=0` leaves out `metadata`. |
+
+An entry without a snapshot (`disabled`, `evicted`, `too_large`, `none`)
+answers `200` with its `state` and no `metrics`: the entry exists, there is
+just nothing to show. An index the log no longer holds (never recorded,
+evicted by `max entries`, cleared) is a `404`, and one that is not a positive
+number is a `400`.
 
 ## Clear the log
 
@@ -172,16 +278,23 @@ $ curl -k -s -u admin -X DELETE https://localhost:8443/api/v2/failures
 
 | Privilege         | Grants |
 |-------------------|--------|
-| `failures.list`   | `GET /api/v2/failures` |
+| `failures.list`   | `GET /api/v2/failures`, `GET /api/v2/failures/{index}/context` |
 | `failures.delete` | `DELETE /api/v2/failures` |
 
 The log shows the output of every check the agent ran, for every caller, and
-its arguments when `record arguments` is on. The built-in roles other than
+its arguments when `record arguments` is on, and with `capture metrics` on
+the metrics at the time, which `/api/v2/metrics` only serves to `metrics.list`.
+The built-in roles other than
 `full` do not carry these privileges; give `failures.list` to a role of your
 own for a monitoring console that should see them.
 
 ## Other ways in
 
 Modules read the same log through the `NSAPIFailuresQuery` core API
-(`core_wrapper::get_failures()` / `clear_failures()`), which exchanges the
-`PB.Failures` protobuf messages in `failures.proto`.
+(`core_wrapper::get_failures()` / `get_failure_context()` /
+`clear_failures()`), which exchanges the `PB.Failures` protobuf messages in
+`failures.proto`.
+
+An enrolled agent also [reports failed checks](../../setup/fleet.md#report-failed-checks)
+to a fleet server that asks for them, at most once per
+`[/settings/fleet] failure context interval`.
