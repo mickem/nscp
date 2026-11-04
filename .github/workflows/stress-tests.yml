@@ -1,0 +1,180 @@
+name: Stress tests
+
+# The opt-in stress harness (tests/stress/, `npm run test:stress`): every
+# scenario against a fresh Ubuntu package, on demand and once a week, with the
+# per-scenario results (throughput, latency percentiles, RSS and thread samples)
+# uploaded as an artifact for a baseline to grow from. Never on a pull request:
+# a scenario runs for a minute or more and its findings are pinned in the
+# regular suites once found. The sanitizer workflow runs a subset of the
+# scenarios for a minute each against the ASan/UBSan build; this one runs the
+# release build, longer, and on Windows when asked.
+#
+# "Run workflow" takes the window per scenario, a scenario subset (jest path
+# patterns, space separated, empty for all) and whether to build and run on
+# Windows as well, which costs the Windows build and its integration tests on
+# top. A soak is `duration: 1800` with `scenarios: reload-soak`.
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        type: string
+        description: 'Seconds of load per scenario (NSCP_STRESS_DURATION; reload-soak defaults to 180 when empty)'
+        required: false
+        default: ''
+      scenarios:
+        type: string
+        description: 'Scenarios to run, as jest path patterns separated by spaces (empty = every scenario)'
+        required: false
+        default: ''
+      windows:
+        type: boolean
+        description: 'Also build the Windows x64 package and run the scenarios on windows-latest'
+        required: false
+        default: false
+  schedule:
+    # Weekly, Sunday 03:17 UTC: off the hour, and off the hours the release
+    # and docs workflows use.
+    - cron: '17 3 * * 0'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  get-version:
+    uses: ./.github/workflows/get-version.yml
+
+  build-debian:
+    needs: get-version
+    uses: ./.github/workflows/build-debian.yml
+    with:
+      architecture: x64
+      version: ${{ needs.get-version.outputs.version }}
+      # The Ubuntu x64 package alone; the scenarios are loopback inside one
+      # agent and prove nothing about the other distributions.
+      targets: x64
+
+  stress-linux:
+    needs: [get-version, build-debian]
+    runs-on: ubuntu-latest
+    # Every scenario at the default window is about a quarter of an hour of
+    # load plus the agents' boots; a soak is bounded by the jest config's own
+    # four-hour test timeout.
+    timeout-minutes: 300
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          # Matches the artifact name produced by build-debian.yml for the
+          # ubuntu-24.04 x64 matrix entry.
+          name: NSCP-${{ needs.get-version.outputs.version }}-ubuntu-24.04-x64
+          path: .
+
+      - name: Install nscp .deb + runtime deps
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          # Lua for the LUAScript module the scenarios load; python3-protobuf
+          # for the PythonScript module (mirrors integration-tests-scenarios.yml).
+          sudo apt-get install -y python3-protobuf liblua5.4-0 || \
+            sudo apt-get install -y python3-protobuf liblua5.3-0
+          sudo apt-get install -y \
+            ./NSCP-${{ needs.get-version.outputs.version }}-ubuntu-24.04-amd64.deb
+          nscp --version
+
+      - name: Install integration harness deps
+        working-directory: tests
+        run: npm install --no-audit --no-fund
+
+      - name: Run stress scenarios
+        working-directory: tests
+        env:
+          NSCP_BIN: /usr/bin/nscp
+          NSCP_STRESS_DURATION: ${{ inputs.duration }}
+        # An empty NSCP_STRESS_DURATION is the knob's default (60 s, and 180 s
+        # for reload-soak); an empty pattern list runs every scenario.
+        run: npx jest --config jest.stress.config.js --runInBand ${{ inputs.scenarios }}
+
+      - name: Upload stress results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: stress-results-linux
+          path: tests/stress/results/
+          if-no-files-found: ignore
+
+      - name: Show nscp logs on failure
+        if: failure()
+        run: |
+          shopt -s nullglob
+          for log in /tmp/nscp-it-*/nsclient.log /tmp/nscp-stress-*/nsclient.log; do
+            [ -f "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo "::endgroup::"
+          done
+
+  # Windows on dispatch only: the build is the long part, and
+  # build-windows.yml runs its own integration tests on the package as well.
+  build-windows:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows
+    needs: get-version
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      architecture: x64
+      version: ${{ needs.get-version.outputs.version }}
+
+  stress-windows:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows
+    needs: [get-version, build-windows]
+    runs-on: windows-latest
+    timeout-minutes: 300
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: NSCP-${{ needs.get-version.outputs.version }}-x64
+          path: .
+
+      - name: Unpack the build (Windows)
+        shell: bash
+        run: |
+          mkdir -p tmp/nscp
+          cd tmp/nscp
+          7z x ../../NSCP-${{ needs.get-version.outputs.version }}-x64.zip
+
+      - name: Install integration harness deps
+        working-directory: tests
+        shell: bash
+        run: npm install --no-audit --no-fund
+
+      - name: Run stress scenarios
+        working-directory: tests
+        shell: bash
+        env:
+          NSCP_BIN: ${{ github.workspace }}/tmp/nscp/nscp.exe
+          NSCP_STRESS_DURATION: ${{ inputs.duration }}
+        run: npx jest --config jest.stress.config.js --runInBand ${{ inputs.scenarios }}
+
+      - name: Upload stress results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: stress-results-windows
+          path: tests/stress/results/
+          if-no-files-found: ignore

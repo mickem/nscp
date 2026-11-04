@@ -49,6 +49,7 @@ describeWithModules(
   });
 
   afterAll(async () => {
+    agent?.nrpe.close();
     await agent?.nscp.stop();
   });
 

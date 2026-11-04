@@ -1246,12 +1246,17 @@ An opt-in Jest harness under `tests/stress/` (`*.stress.ts`, its own
 the scheduler-throughput half of `test_python.py`, neither of which ran
 anywhere. Each scenario loads one agent for a configurable window and **passes
 or fails on invariants, not on a throughput bar**: zero failed requests and zero
-lost submissions, `check_ok` answered within 2 s after the load stops, RSS at
-the end within 20 % of RSS after warm-up and a flat thread count (the leak
-canary), and a log with no `terminated by an uncaught exception` and no
-`Failed to` lines. Throughput, latency percentiles and the RSS/thread samples
-are recorded to `tests/stress/results/<scenario>.json` for a baseline to grow
-from.
+lost submissions, `check_ok` answered within 2 s after the load stops, the RSS
+peak over the last 5 s of the load within 20 % of the peak over the first 5 s
+after warm-up and a flat thread count (the leak canary), and a log with no
+`terminated by an uncaught exception` and no `Failed to` lines. Throughput,
+latency percentiles and the RSS/thread samples are recorded to
+`tests/stress/results/<scenario>.json` for a baseline to grow from.
+
+The harness needs Python 3.8+ on the `PATH` besides Node: the NRPE and NSCA
+floods have their connections made by a small standard-library helper
+(`tests/stress/lib/socket_pump.py`), because Node's own loopback `connect()`
+crashes now and then on Windows (libuv #5106; see `tests/README.md`).
 
 ```bash
 cd tests
@@ -1266,11 +1271,17 @@ NSCP_STRESS_DURATION=1800 npm run test:stress                    # a soak
 | `NSCP_STRESS_DURATION`      | `60`    | Seconds of load per scenario                                |
 | `NSCP_STRESS_CONCURRENCY`   | `32`    | Parallel workers, one connection each                       |
 | `NSCP_STRESS_RPS`           | `0`     | Requests per second across all workers; `0` is unbounded    |
-| `NSCP_STRESS_RSS_TOLERANCE` | `20`    | Percent RSS may grow from warm-up to end before failing     |
+| `NSCP_STRESS_RSS_TOLERANCE` | `20`    | Percent the RSS peak may grow from warm-up to end before failing |
 | `NSCP_STRESS_SCHEDULES`     | `1000`  | Schedules the scheduler scenarios install (200 for scheduler-slow-neighbour) |
 | `NSCP_STRESS_SLOW_MS`       | `8000`  | How long each slow check in the engine scenarios runs       |
 | `NSCP_STRESS_NRPE_PORT`     | `15666` | NRPE port of the engine scenarios                           |
 | `NSCP_STRESS_WEB_PORT`      | `8443`  | REST port of the engine scenarios; move it off 8443 where an installed agent holds that |
+| `NSCP_STRESS_NSCA_PORT`     | `15667` | NSCA port of `passive-flood`                                |
+| `NSCP_STRESS_NSCA_CIPHER`   | `aes256`| Cipher `passive-flood` submits with: none, xor, aes128, aes192 or aes256 |
+| `NSCP_STRESS_RELOAD_EVERY`  | `5`     | Seconds between two reload rounds of `reload-soak`          |
+| `NSCP_STRESS_SOCKETS`       | `python`| Who makes the NRPE/NSCA flood connections: the Python socket pump, or `node` (crashes now and then on Windows, libuv #5106) |
+| `NSCP_STRESS_PUMPS`         | `4`     | Socket pump processes the requests are spread over          |
+| `NSCP_STRESS_PYTHON`        | `python`/`python3` | Interpreter for the socket pump (`python` on Windows, `python3` elsewhere) |
 
 Besides the REST flood and the scheduler load, three scenarios drive every
 check engine at once - C++ modules, an external process, Python, Lua, and the
@@ -1282,11 +1293,26 @@ next to slow ones). They pass when no check ever waits for another engine's
 slow one, over REST as well: the web server serves requests on its `threads`
 pool.
 
+Two more drive the wire protocols from TypeScript clients, so a request costs
+the runner no process spawn: `nrpe-flood` (NRPE v2 in the clear and over
+mutual TLS against the server's cert mode, every answer checked against its
+own request's token) and `passive-flood` (NSCA submissions into NSCAServer,
+every one read back from the result cache under its own key with its own
+status and message). `reload-soak` runs the REST flood and a scheduler load
+while CheckHelpers, the Scheduler and LUAScript are reloaded in turn every
+few seconds, each round preceded by a settings write over REST and complete
+only once the reload is seen to apply - the loadModuleEx re-entry rule under
+load. It runs for three minutes by default; `NSCP_STRESS_DURATION=1800` makes
+it a soak.
+
 The scenarios are never part of `npm test` or a pull request build; what they
 found is pinned in the regular `engine-concurrency.test.ts`. The sanitizer job
 (`tests-sanitizers.yml`) runs `rest-flood`, `scheduler-load`,
 `slow-check-isolation` and `mixed-flood` for a minute each against the
-ASan/UBSan build after ctest, which is where leaks and races actually show. See
+ASan/UBSan build after ctest, which is where leaks and races actually show.
+`stress-tests.yml` runs every scenario against a fresh Ubuntu package once a
+week and on demand, with the window, the scenario subset and a Windows run as
+its inputs, and uploads `tests/stress/results/` as an artifact. See
 `tests/README.md` for the scenario list.
 
 ### Live / remote acceptance tests
