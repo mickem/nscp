@@ -130,34 +130,43 @@ std::list<std::string> helpers::build_list(const TCHAR *buffer, const DWORD buff
   return ret;
 }
 
+std::list<pdh_object> factory::expand_instances(const pdh_object &object, bool &no_instances) {
+  std::string path = object.path;
+  str::utils::replace(path, "$INSTANCE$", "*");
+  const std::string alias = object.alias;
+  std::string err;
+  no_instances = false;
+  std::list<pdh_object> sub_counters;
+  for (const std::string &s : Enumerations::expand_wild_card_path(path, err, no_instances)) {
+    const auto pos1 = s.find('(');
+    std::string tag = s;
+    if (pos1 != std::string::npos) {
+      const auto pos2 = s.find(')', pos1);
+      if (pos2 != std::string::npos) tag = s.substr(pos1 + 1, pos2 - pos1 - 1);
+    }
+    pdh_object sub = object;
+    sub.set_instances("");
+    sub.alias = alias + "_" + tag;
+    sub.path = s;
+    sub_counters.push_back(sub);
+  }
+  if (!err.empty()) throw pdh_exception("Failed to expand path: " + err);
+  return sub_counters;
+}
+
 pdh_instance factory::create(const pdh_object &object) {
   if (object.has_instances()) {
-    std::string path = object.path;
-
-    str::utils::replace(path, "$INSTANCE$", "*");
-    const std::string alias = object.alias;
-    std::string err;
     bool no_instances = false;
-    std::list<pdh_object> sub_counters;
-    for (const std::string &s : Enumerations::expand_wild_card_path(path, err, no_instances)) {
-      const auto pos1 = s.find('(');
-      std::string tag = s;
-      if (pos1 != std::string::npos) {
-        const auto pos2 = s.find(')', pos1);
-        if (pos2 != std::string::npos) tag = s.substr(pos1 + 1, pos2 - pos1 - 1);
-      }
-      pdh_object sub = object;
-      sub.set_instances("");
-      sub.alias = alias + "_" + tag;
-      sub.path = s;
-      sub_counters.push_back(sub);
-    }
-    if (!err.empty()) throw pdh_exception("Failed to expand path: " + err);
+    const std::list<pdh_object> sub_counters = expand_instances(object, no_instances);
     // An object with nothing behind the wildcard is reported, not returned as
     // a childless container: a container that publishes nothing would read as
     // success to the collector, which would stop retrying it at boot (#634)
     // and never pick the instances up once they appear.
-    if (no_instances && sub_counters.empty()) throw pdh_no_instance_exception(path + ": the object has no instances at the moment");
+    if (no_instances && sub_counters.empty()) {
+      std::string path = object.path;
+      str::utils::replace(path, "$INSTANCE$", "*");
+      throw pdh_no_instance_exception(path + ": the object has no instances at the moment");
+    }
     return std::make_shared<instance_providers::container>(object, sub_counters);
   }
   if (object.is_rrd()) {

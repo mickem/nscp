@@ -255,6 +255,10 @@ class pdh_thread {
   // Logs each unresolved counter that has not been reported yet. Called after
   // every attempt once the fast retries are spent.
   void report_missing_counters();
+  // Expands the $INSTANCE$ counters again and applies the result under the
+  // write lock: instances that appeared are added, ones that are gone are
+  // dropped along with their metrics. Called from thread_proc only.
+  void refresh_pdh_instances(PDH::PDHQuery &pdh, error_list &errors);
 
   filters::mem::filter_config_handler mem_filters_;
   filters::cpu::filter_config_handler cpu_filters_;

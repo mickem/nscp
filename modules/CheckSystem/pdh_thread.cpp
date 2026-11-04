@@ -183,6 +183,43 @@ void pdh_thread::report_missing_counters() {
   }
 }
 
+void pdh_thread::refresh_pdh_instances(PDH::PDHQuery &pdh, error_list &errors) {
+  // Enumerate before taking the lock: it is a round of PDH calls, and checks
+  // reading the counters wait on the lock meanwhile.
+  std::list<std::string> expand_errors;
+  const PDH::PDHQuery::expansion_list expansions = pdh.expand_instances(expand_errors);
+  for (const std::string &e : expand_errors) {
+    NSC_DEBUG_MSG("Failed to expand instances, keeping the current ones: " + e);
+  }
+  if (expansions.empty()) return;
+
+  boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!writeLock.owns_lock()) {
+    errors.emplace_back("Failed to get mutex for refreshing PDH counter instances");
+    return;
+  }
+  const PDH::PDHQuery::instance_changes changes = pdh.apply_instances(expansions);
+  for (const PDH::PDHQuery::instance_changes::entry &r : changes.removed) {
+    // The same key write_metrics() builds; without this a departed instance
+    // would keep publishing its last value.
+    const std::string key = "pdh." + r.first + "." + r.second;
+    metrics.erase(key);
+    metric_dimensions.erase(key);
+    NSC_DEBUG_MSG("Counter instance is gone, no longer collecting: " + r.second);
+  }
+  for (const PDH::PDHQuery::instance_changes::entry &a : changes.added) {
+    NSC_DEBUG_MSG("New counter instance, now collecting: " + a.second);
+  }
+  for (const PDH::PDHQuery::instance_changes::entry &a : changes.reopened) {
+    NSC_DEBUG_MSG("Counter instance had no data, re-added it: " + a.second);
+  }
+  for (const std::string &e : changes.errors) {
+    // Usually an instance that went away again between the expansion and
+    // now; the next refresh tries again if it is still listed.
+    NSC_DEBUG_MSG("Failed to add counter instance: " + e);
+  }
+}
+
 bool pdh_thread::store_tick(const cpu_reading *cpu_read, const load_fold *fold, const spi_container &handles, PDH::PDHQuery *pdh, const bool with_metrics,
                             error_list &errors) {
   if (cpu_read == nullptr && fold == nullptr && !with_metrics && pdh == nullptr) return true;
@@ -455,6 +492,15 @@ void pdh_thread::thread_proc() {
   spi_container handles;
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
+  // $INSTANCE$ counters are expanded once, when they are added to the query;
+  // instances come and go after that (a PhysicalDisk per signed-in user on an
+  // RDS host with User Profile Disks), so they are expanded again every
+  // minute, or sooner once a counter has gone stale - but not more often than
+  // every ten seconds, as a counter can be stale for reasons a new expansion
+  // does not change.
+  const ULONGLONG instance_refresh_ms = 60000;
+  const ULONGLONG stale_instance_refresh_ms = 10000;
+  ULONGLONG last_instance_refresh = nscpGetTickCount64();
   ULONGLONG last_load_tick = 0;  // tick_start of the previous load fold (0 = none yet)
   // Attempts at the predefined counters: the first on the first tick, then
   // on the retry schedule for as long as any is missing.
@@ -553,6 +599,19 @@ void pdh_thread::thread_proc() {
       // Once the fast attempts are spent, every attempt reports the counters
       // still missing that it has not reported yet.
       if (counter_attempts > pdh_counters::retry_schedule::fast_attempts) report_missing_counters();
+    }
+    if (check_pdh && pdh.has_instance_counters()) {
+      const ULONGLONG since_refresh = tick_start - last_instance_refresh;
+      if (since_refresh >= instance_refresh_ms || (since_refresh >= stale_instance_refresh_ms && pdh.has_stale_counters())) {
+        last_instance_refresh = tick_start;
+        try {
+          refresh_pdh_instances(pdh, errors);
+        } catch (const std::exception &e) {
+          errors.push_back("Failed to refresh PDH counter instances: " + utf8::utf8_from_native(e.what()));
+        } catch (...) {
+          errors.emplace_back("Failed to refresh PDH counter instances");
+        }
+      }
     }
     // network, temperature, cpu_frequency, battery and os_updates are collected
     // on aux_thread_proc() so a slow WMI provider cannot freeze this 1 Hz loop
