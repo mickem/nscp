@@ -72,6 +72,8 @@ param(
 $ErrorActionPreference = "Stop"
 $parentDir = Split-Path -Parent $PSScriptRoot
 . (Join-Path $parentDir "fleet-api.ps1")
+Import-FleetConfig
+if (-not $ApiKey) { $ApiKey = $env:NSCLIENT_FLEET_API_KEY }
 . (Join-Path $PSScriptRoot "estate-api.ps1")
 
 if (-not $ManifestFile) { $ManifestFile = Join-Path $parentDir ".fleet-machines.json" }

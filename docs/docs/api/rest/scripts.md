@@ -22,13 +22,25 @@ py  | PythonScripts        | Scripts written in the Python language running insi
 
 ## Security
 
-As a security mechanism only scripts residing in the configured `script root` folder is showed.
+These routes cannot reach outside the module's scripts folder: `${scripts}` by default
+(`${scripts}/python` and `${scripts}/lua` for those runtimes), or whatever
+[`script root`](../../concepts/settings.md#moving-the-whole-tree-script-root) names. A GET
+shows and a DELETE removes only a file inside it, symlinks resolved; a PUT writes the upload there.
+A name may have folders in it (`python/check.py`, `lua/lib/helper.lua`), but each segment is a plain
+file name: `..`, `.`, an empty segment, a leading separator or a drive letter is refused before the
+module sees it. The
+`nscp ext-scr`, `py` and `lua` commands these routes call are confined the same way for `show`,
+`delete` and `add --import`.
 
-To configure the `script root` you can add the following to you configuration.
+That is a bound on script management, not on configuration. `add --script <path>` from the
+command line registers an existing file anywhere on disk, and an entry under
+`[/settings/external scripts/scripts]`, `[/settings/python/scripts]` or `[/settings/lua/scripts]`,
+in `nsclient.ini` or in a fleet bundle, may name any file: the agent runs what an administrator
+configured. A fleet host that runs the scripts its bundles ship sets, in the bundle:
 
 ```
-[/settings/external scripts]
-script root=${scripts}
+[/settings/default]
+script root = fleet
 ```
 
 ## List Runtimes

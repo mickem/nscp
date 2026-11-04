@@ -15,6 +15,7 @@ set(SRCS
     check_disk_health.cpp
     check_disk_write.cpp
     check_files.cpp
+    check_largest_files.cpp
     check_mount.cpp
     check_single_file.cpp
     check_uncpath.cpp
@@ -23,6 +24,8 @@ set(SRCS
     check_share.cpp
     collector_thread.cpp
     filter.cpp
+    largest_files_scan.cpp
+    ntfs_mft.cpp
     storage_facts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
@@ -37,6 +40,7 @@ if(WIN32)
         check_disk_io_win.cpp
         file_finder_win.cpp
         filter_win.cpp
+        largest_files_source_win.cpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
         # Headers (for IDE project generation).
         "${TARGET}.h"
@@ -45,6 +49,7 @@ if(WIN32)
         check_disk_health.hpp
         check_disk_write.hpp
         check_files.hpp
+        check_largest_files.hpp
         check_mount.hpp
         check_single_file.hpp
         check_uncpath.hpp
@@ -54,6 +59,8 @@ if(WIN32)
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
+        largest_files_scan.hpp
+        ntfs_mft.hpp
         storage_facts.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
@@ -70,6 +77,7 @@ else()
         ${SRCS}
         file_finder_unix.cpp
         filter_unix.cpp
+        largest_files_source_unix.cpp
     )
     # The Linux readers: mounts through mntent(3), block-device statistics from
     # /proc/diskstats. Darwin has neither (getmntinfo(3) and IOKit spell the
@@ -132,6 +140,7 @@ if(WIN32)
             check_drive_test.cpp
             drive_trend_test.cpp
             check_files_test.cpp
+            check_largest_files_test.cpp
             check_single_file_test.cpp
             check_disk_access_test.cpp
             check_uncpath_test.cpp
@@ -148,6 +157,10 @@ if(WIN32)
             check_disk_write.cpp
             check_drive_win.cpp
             check_files.cpp
+            check_largest_files.cpp
+            largest_files_scan.cpp
+            largest_files_source_win.cpp
+            ntfs_mft.cpp
             check_single_file.cpp
             check_uncpath.cpp
             check_storagepool.cpp
@@ -217,6 +230,11 @@ else()
             drive_trend_test.cpp
             check_files.cpp
             check_files_checksum_test.cpp
+            check_largest_files.cpp
+            check_largest_files_test.cpp
+            largest_files_scan.cpp
+            largest_files_source_unix.cpp
+            ntfs_mft.cpp
             check_disk_access_test.cpp
             check_mount.cpp
             check_mount_test.cpp

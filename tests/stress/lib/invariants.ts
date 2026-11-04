@@ -56,10 +56,12 @@ const PEAK_WINDOW = 5;
  * spawning shows up here before it shows up as a crash). The peaks are taken
  * over the samples from `markBaseline()` on and up to `markEnd()`; the thread
  * counts are those two samples'. The report is returned for the results file.
+ * A null `tolerancePct` (NSCP_STRESS_RSS_TOLERANCE=off, a sanitizer build)
+ * skips the RSS check only; the thread count is still asserted.
  */
 export function expectNoGrowth(
   sampler: Pick<Sampler, "samples" | "baselineIndex" | "endIndex">,
-  tolerancePct: number,
+  tolerancePct: number | null,
 ): GrowthReport {
   const { samples, baselineIndex, endIndex } = sampler;
   expect(baselineIndex).toBeGreaterThanOrEqual(0);
@@ -76,11 +78,13 @@ export function expectNoGrowth(
   // One object per assertion, so a failure prints the numbers behind it -
   // which takes toEqual against the same numbers: toMatchObject only diffs the
   // keys it was given, and printed nothing but `withinTolerance: false`.
-  expect({ ...report, tolerancePct, withinTolerance: rssGrowthPct <= tolerancePct }).toEqual({
-    ...report,
-    tolerancePct,
-    withinTolerance: true,
-  });
+  if (tolerancePct !== null) {
+    expect({ ...report, tolerancePct, withinTolerance: rssGrowthPct <= tolerancePct }).toEqual({
+      ...report,
+      tolerancePct,
+      withinTolerance: true,
+    });
+  }
   // "Flat" allows a thread or two: a worker that was mid-exit at the baseline
   // sample, or a lazily started helper. A pool that leaks threads shows a count
   // that climbs with the load, not by two.

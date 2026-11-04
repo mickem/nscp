@@ -46,7 +46,7 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
@@ -61,7 +61,7 @@ NSCP_CREATE_TEST(
     SOURCES
         ElasticClient_test.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${Boost_DATE_TIME_LIBRARY}
     INCLUDES
@@ -82,7 +82,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         ${NSCP_DEF_PLUGIN_CPP}
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${Boost_FILESYSTEM_LIBRARY}

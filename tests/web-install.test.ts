@@ -115,6 +115,35 @@ describe("nscp web install", () => {
     expect(server["certificate"]).toBe("${certificate-path}/certificate.pem");
   });
 
+  it("says plainly when the certificate folder cannot be created", async () => {
+    // Run from an unprivileged shell against a packaged layout, the install
+    // cannot create `${certificate-path}` (under /usr/local/lib/nsclient). That
+    // used to surface as "Invalid command line: boost::filesystem::
+    // create_directory: Permission denied" followed by the whole option list.
+    // A regular file in the way reproduces the failure whoever runs the test.
+    const blocker = path.join(
+      fs.mkdtempSync(path.join(os.tmpdir(), "nscp-web-install-")),
+      "blocker",
+    );
+    fs.writeFileSync(blocker, "not a directory");
+    const security = path.join(blocker, "security");
+    const nscp = new NscpInstance({ pathOverrides: { "certificate-path": security } });
+
+    const r = await nscp.run(["web", "install", "--password", "install-password"], {
+      allowFailure: true,
+    });
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+
+    expect(out).toContain(`WARNING: Could not create the certificate folder ${security}`);
+    expect(out).toContain("No certificate was generated");
+    expect(out).toContain("set the certificate path");
+    // The server-side consequence is still spelled out, as for any missing certificate.
+    expect(out).toContain("WARNING: The certificate");
+    expect(out).toContain("refuses to start without it");
+    expect(out).not.toContain("Invalid command line");
+    expect(out).not.toContain("allowed-hosts=127.0.0.1");
+  });
+
   it("hands a generated certificate and its folder to the service account", async () => {
     // On a packaged Linux host the command runs under sudo while the service
     // runs as `nsclient`, and the generated key is readable by its owner only:

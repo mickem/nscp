@@ -193,7 +193,8 @@ bool NCPAServer::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode mo
     std::list<std::string> errors;
     socket_helpers::validate_certificate(certificate, errors);
     NSC_LOG_ERROR_LISTS(errors);
-    const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
+    boost::system::error_code probe;  // an untraversable parent reads as missing instead of failing the load
+    const bool cert_missing = !boost::filesystem::is_regular_file(certificate, probe);
 
     Mongoose::WebLoggerPtr logger(new net::web_server_logger(log_errors, log_info, log_debug, "NCPA: "));
     server_.reset(Mongoose::Server::make_server(logger));
@@ -363,8 +364,8 @@ bool NCPAServer::cli_token(const PB::Commands::ExecuteRequestMessage::Request &r
       pf::set_response_good(*response, nscapi::program_options::help(desc));
       return true;
     }
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
   if (token.empty()) {

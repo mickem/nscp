@@ -129,7 +129,8 @@ void temperature_data::fetch(const threads::stop_signal *stop) {
         use_fallback_ = true;
       }
     } catch (const wmi_impl::wmi_exception &e) {
-      if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_NOT_FOUND || e.get_code() == WBEM_E_ACCESS_DENIED) {
+      if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_INVALID_CLASS || e.get_code() == WBEM_E_NOT_FOUND ||
+          e.get_code() == WBEM_E_ACCESS_DENIED) {
         // ACPI thermal zone not available — switch to performance counter fallback.
         use_fallback_ = true;
       } else {
@@ -141,7 +142,7 @@ void temperature_data::fetch(const threads::stop_signal *stop) {
     try {
       query_perf(tmp, abort_event);
     } catch (const wmi_impl::wmi_exception &e) {
-      if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_NOT_FOUND) {
+      if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_INVALID_CLASS || e.get_code() == WBEM_E_NOT_FOUND) {
         fetch_temperature_ = false;
         throw nsclient::nsclient_exception("Failed to fetch temperature metrics (neither ACPI nor performance counter source available), disabling...");
       }

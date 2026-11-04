@@ -162,6 +162,10 @@ void publish_facts(const snapshot &snap, const bool want_os, const bool want_har
     // The DNS domain is inventory rather than a group: an operator selects on
     // os_family, but asks *which* domain a given host ended up in.
     os.value("domain", f.domain);
+    // The DNS domain is not the join: a workgroup host can carry a DNS suffix,
+    // and a domain member's suffix need not be its AD domain. `join` says
+    // whether the host is a member of anything, `join_name` of what (#1672).
+    os.value("join", f.join).value("join_name", f.join_name);
     out.gathered(set_os, snap.taken_at);
   }
   if (want_hardware) {

@@ -55,7 +55,7 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
@@ -78,7 +78,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
     LIBRARIES
         GTest::gtest_main
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         nscp_mongoose
         ${EXTRA_LIBS}
     INCLUDES

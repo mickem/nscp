@@ -102,6 +102,56 @@ function json(route: Route, body: JsonBody, headers: Record<string, string> = {}
   });
 }
 
+/** Two failed checks, newest first, as /api/v2/failures serves them. */
+const FAILURES_FIXTURE = {
+  enabled: true,
+  max_entries: 50,
+  arguments_recorded: true,
+  statuses: "warning,critical,unknown",
+  last_index: 2,
+  dropped: 0,
+  count: 2,
+  entries: [
+    {
+      index: 2,
+      timestamp: 1760000060,
+      date: "2025-Oct-09 10:01:00",
+      age: 30,
+      subject: "WEBServer:admin",
+      depth: 0,
+      command: "check_drivesize",
+      alias: "",
+      status: 2,
+      result: "CRITICAL",
+      message: "CRITICAL C: 92% used",
+      lines: [
+        {
+          message: "CRITICAL C: 92% used",
+          perf: { "C: used %": { value: 92, unit: "%", warning: 80, critical: 90, minimum: 0, maximum: 100 } },
+        },
+      ],
+      arguments: ["drive=C:", "warning=used > 80%", "critical=used > 90%"],
+    },
+    {
+      index: 1,
+      timestamp: 1760000000,
+      date: "2025-Oct-09 10:00:00",
+      age: 90,
+      subject: "NRPEServer",
+      depth: 0,
+      command: "check_cpu",
+      alias: "",
+      status: 1,
+      result: "WARNING",
+      message: "WARNING: 5m: 85%",
+      lines: [
+        { message: "WARNING: 5m: 85%", perf: { "total 5m": { value: 85, unit: "%", warning: 80, critical: 90 } } },
+      ],
+      arguments: [],
+    },
+  ],
+};
+
 /**
  * Intercept every /api call the UI makes and answer with deterministic
  * fixtures, so the rendering tests never need a live NSClient++ backend.
@@ -165,6 +215,8 @@ export async function mockApi(page: Page, overrides: Overrides = {}) {
         return json(route, ALIASES_FIXTURE);
       case "/api/v2/events":
         return json(route, []);
+      case "/api/v2/failures":
+        return json(route, FAILURES_FIXTURE);
       default:
         // Fail loudly: an unmocked endpoint means the fixture set is stale.
         return route.fulfill({ status: 404, body: `No e2e mock for ${path}` });

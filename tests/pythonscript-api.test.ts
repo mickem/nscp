@@ -546,7 +546,9 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         // Each failure is logged with its own traceback and no other: the
         // buffer the traceback is read from used to keep every earlier one
         // too, so the log grew with the square of the failures. Read once, so
-        // a failure logged in between cannot skew the two counts.
+        // a failure logged in between cannot skew the two counts. The failure
+        // line is logged before its traceback, in a separate call, so a read
+        // can land between them and see one failure without its traceback yet.
         const log = nscp.capturedStdout().split(/\r?\n/);
         const failures = log.filter((l) =>
           l.includes("Exception in system.cpu:py_rt_raise"),
@@ -554,7 +556,8 @@ describeWithModules("PythonScript")("PythonScript API", () => {
         const tracebacks = log.filter((l) =>
           l.startsWith("RuntimeError: boom from on_event"),
         ).length;
-        expect(tracebacks).toBe(failures);
+        expect(tracebacks).toBeLessThanOrEqual(failures);
+        expect(tracebacks).toBeGreaterThanOrEqual(failures - 1);
         const count = async () =>
           messageOf(await executeQuery(key, "py_seen", { events: "" }))
             .split("\n")

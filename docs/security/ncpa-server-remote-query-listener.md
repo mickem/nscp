@@ -1,6 +1,6 @@
 ---
 title: "NCPA server: a new listener that runs queries for token holders"
-fixed_in: next
+fixed_in: 0.26.0
 severity: "Informational (new, off by default)"
 modules: [NCPAServer]
 action: conditional

@@ -162,6 +162,12 @@ host_facts::facts gather() {
   // GetComputerNameEx only; no resolver, no WMI (see check_hostname.hpp).
   const hostname_check::host_identity identity = hostname_check::gather_identity();
   f.domain = identity.domain;
+  // `unknown` is check_hostname's word for "NetGetJoinInformation failed";
+  // a fact that could not be determined is absent instead.
+  if (identity.join != "unknown") {
+    f.join = identity.join;
+    f.join_name = identity.join_name;
+  }
 
   return f;
 }

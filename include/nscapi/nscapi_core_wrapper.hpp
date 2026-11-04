@@ -33,6 +33,7 @@ class NSCAPI_EXPORT core_wrapper {
   core_api::lpNSAPIGetTags fNSAPIGetTags;
   core_api::lpNSAPISetLogOption fNSAPISetLogOption;
   core_api::lpNSAPIFactsQuery fNSAPIFactsQuery;
+  core_api::lpNSAPIFailuresQuery fNSAPIFailuresQuery;
 
  public:
   core_wrapper();
@@ -103,6 +104,21 @@ class NSCAPI_EXPORT core_wrapper {
   // Run a facts round now (the `manual` reason). False on a core without the
   // API, or when the round could not be run.
   bool refresh_facts() const;
+
+  // The failed-check log: the last N non-OK check results the core
+  // dispatched, whoever asked for them. Read only, and degrading gracefully
+  // (empty string / false) on a core that predates the call.
+  //
+  // The answer is a serialised PB::Failures::FailuresResponseMessage: the
+  // entries newest first (each one the check's response payload, with
+  // structured perf data, plus who asked and when), and how the log is
+  // configured. `since` is the last index the caller has seen (0 for
+  // everything); `limit` caps the count (0 for no cap). Bytes rather than a
+  // parsed message, for the same reason get_facts() is.
+  std::string get_failures(unsigned long long since = 0, unsigned int limit = 0) const;
+  // Drop every entry. The same envelope as get_failures(), with `removed`
+  // set and no entries; empty on a core without the API.
+  std::string clear_failures() const;
 
   // Change one logging option at runtime; takes the same strings as the --log
   // switch (a severity, or a driver option such as "no-console"). Returns

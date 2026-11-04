@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// The `file access` gate on the three disk checks which take a caller-supplied
-// path: check_files, check_single_file and check_disk_write.
+// The `file access` gate on the disk checks which take a caller-supplied path:
+// check_files, check_single_file, check_largest_files and check_disk_write.
 //
 // Unlike check_logfile these never return file contents, but check_files walks
 // whole directory trees and reports every name, size and timestamp, and the
@@ -14,15 +14,16 @@
 // tested here is that each command actually consults it, refuses before doing
 // any work, and reports through the normal UNKNOWN path.
 
-#include <check/path_access_policy.hpp>
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
+#include <check/path_access_policy.hpp>
 #include <fstream>
 #include <string>
 
 #include "check_disk_write.hpp"
 #include "check_files.hpp"
+#include "check_largest_files.hpp"
 #include "check_single_file.hpp"
 #include "test_support.hpp"
 
@@ -238,8 +239,7 @@ TEST_F(DiskAccessTest, CheckSingleFileRefusesASymlinkLeadingOut) {
 // ---------------------------------------------------------------------------
 
 TEST_F(DiskAccessTest, CheckDiskWriteAllowsAPathInsideTheList) {
-  PB::Commands::QueryRequestMessage::Request request =
-      make_request("check_disk_write", {"file=" + (fs::path(allowed_dir_) / "probe.tmp").string(), "size=1k"});
+  PB::Commands::QueryRequestMessage::Request request = make_request("check_disk_write", {"file=" + (fs::path(allowed_dir_) / "probe.tmp").string(), "size=1k"});
   PB::Commands::QueryResponseMessage::Response response;
 
   check_disk_write_command::check(request, &response, restricted("allowed", allowed_dir_));
@@ -288,8 +288,7 @@ TEST_F(DiskAccessTest, AnInvalidModeFailsClosedOnEveryCommand) {
   EXPECT_EQ(files_response.result(), PB::Common::ResultCode::UNKNOWN);
   EXPECT_NE(join_lines(files_response).find("expected any, allowed or predefined"), std::string::npos) << join_lines(files_response);
 
-  PB::Commands::QueryRequestMessage::Request single =
-      make_request("check_single_file", {"file=" + (fs::path(allowed_dir_) / "app.log").string()});
+  PB::Commands::QueryRequestMessage::Request single = make_request("check_single_file", {"file=" + (fs::path(allowed_dir_) / "app.log").string()});
   PB::Commands::QueryResponseMessage::Response single_response;
   check_single_file_command::check(single, &single_response, policy);
   EXPECT_EQ(single_response.result(), PB::Common::ResultCode::UNKNOWN);
@@ -299,6 +298,47 @@ TEST_F(DiskAccessTest, AnInvalidModeFailsClosedOnEveryCommand) {
   PB::Commands::QueryResponseMessage::Response write_response;
   check_disk_write_command::check(write_req, &write_response, policy);
   EXPECT_EQ(write_response.result(), PB::Common::ResultCode::UNKNOWN);
+}
+
+// ---------------------------------------------------------------------------
+// check_largest_files
+// ---------------------------------------------------------------------------
+
+TEST_F(DiskAccessTest, CheckLargestFilesScansAnAllowedRoot) {
+  PB::Commands::QueryRequestMessage::Request request = make_request("check_largest_files", {"path=" + allowed_dir_, "method=walk"});
+  PB::Commands::QueryResponseMessage::Response response;
+
+  check_largest_files_command::check(request, &response, restricted("allowed", allowed_dir_));
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("deep.log"), std::string::npos) << join_lines(response);
+}
+
+TEST_F(DiskAccessTest, CheckLargestFilesRefusesARootOutsideTheList) {
+  for (const std::string &root : {secret_dir_, (fs::path(allowed_dir_) / ".." / "secret").string()}) {
+    PB::Commands::QueryRequestMessage::Request request = make_request("check_largest_files", {"path=" + root, "method=walk"});
+    PB::Commands::QueryResponseMessage::Response response;
+
+    check_largest_files_command::check(request, &response, restricted("allowed", allowed_dir_));
+
+    EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << root;
+    const std::string out = join_lines(response);
+    EXPECT_NE(out.find("Refusing file"), std::string::npos) << out;
+    EXPECT_EQ(out.find("credentials"), std::string::npos) << out;
+  }
+}
+
+TEST_F(DiskAccessTest, CheckLargestFilesPredefinedModeResolvesAName) {
+  check::access::path_policy policy = restricted("predefined", "");
+  policy.add_predefined("logs", allowed_dir_);
+
+  PB::Commands::QueryRequestMessage::Request request = make_request("check_largest_files", {"path=logs", "method=walk", "type=folders"});
+  PB::Commands::QueryResponseMessage::Response response;
+
+  check_largest_files_command::check(request, &response, policy);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("sub"), std::string::npos) << join_lines(response);
 }
 
 }  // namespace

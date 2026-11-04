@@ -14,6 +14,7 @@
 #include <nscp_time.hpp>
 #include <parsers/cron/cron_parser.hpp>
 #include <queue>
+#include <map>
 #include <random>
 #include <string>
 #include <threads/scoped_thread_group.hpp>
@@ -86,6 +87,10 @@ class handler {
   virtual bool handle_schedule(task item) = 0;
   virtual void on_error(const char* file, int line, std::string error) = 0;
   virtual void on_trace(const char* file, int line, std::string error) = 0;
+  // How a task is named when shutdown has to report it as still running. The
+  // tag is all the scheduler knows; an owner whose tags say little (the core
+  // tags every task "internal") names it from its own records instead.
+  virtual std::string describe(const task& item) { return item.tag + "(" + std::to_string(item.id) + ")"; }
 };
 struct schedule_instance {
   boost::posix_time::ptime time;
@@ -196,6 +201,24 @@ class scheduler : public boost::noncopyable {
   schedule_queue_type queue_;
   boost::mutex idle_thread_mutex_;
   boost::condition_variable idle_thread_cond_;
+  // What wakes a worker waiting for its next task to come due, and the
+  // watchdog between rounds, when stop() is called. Those used to sleep and
+  // be woken with interrupt_all(), which also reached a worker in the middle
+  // of a task: every boost join, sleep or wait the task made threw, so a
+  // module reload in flight at shutdown was abandoned half way. stop() now
+  // lets a running task finish and only wakes the waiting ones.
+  boost::mutex stop_mutex_;
+  boost::condition_variable stop_cond_;
+  // The task each worker is running: what stop() names when a worker does not
+  // finish in time. Keyed by thread, as the worker numbers in the log are not
+  // unique (a worker the watchdog adds can reuse one).
+  struct running_task {
+    int worker;
+    task item;
+    boost::posix_time::ptime started;
+  };
+  boost::mutex running_tasks_mutex_;
+  std::map<boost::thread::id, running_task> running_tasks_;
   // Last member on purpose: the workers are joined in ~scoped_thread_group,
   // which must run before the mutexes, queue and condition variable they use.
   scoped_thread_group threads_;
@@ -250,7 +273,14 @@ class scheduler : public boost::noncopyable {
   void clear_tasks();
 
   void start();
-  void stop();
+  // Stop taking tasks, wake the idle workers and wait for the running ones to
+  // finish. Without a timeout it waits for as long as that takes. With one it
+  // gives up on any worker still running a task at the deadline: that worker
+  // is logged with the task it is in, detached and left running, and false is
+  // returned. Only a caller that does not unload the code the task runs in
+  // may pass a timeout - the core's shutdown does, a module unloading itself
+  // must not.
+  bool stop(boost::posix_time::time_duration timeout = boost::posix_time::pos_infin);
   void prepare_shutdown();
   // Whether start() has run and stop() has not: a task added to a scheduler
   // that is not running is queued but never picked up.
@@ -272,6 +302,11 @@ class scheduler : public boost::noncopyable {
  private:
   void watch_dog(int id);
   void thread_proc(int id);
+  // Wait until `until` or until stop() is called, whichever is first. True
+  // when it was stop().
+  bool wait_for_stop(boost::posix_time::ptime until);
+  // Wake every worker and the watchdog. Call after setting stop_requested_.
+  void wake_all();
 
   void reschedule(const task& item, boost::posix_time::ptime now_time);
   void reschedule_at(const std::string& tag, int id, boost::posix_time::ptime new_time, bool suppress_late_warning = false);

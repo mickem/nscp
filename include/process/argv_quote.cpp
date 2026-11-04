@@ -23,6 +23,28 @@ std::string resolve_application_path(const std::string& root_path, const std::st
   return (boost::filesystem::path(root_path) / app).string();
 }
 
+std::string resolve_command_line(const std::string& root_path, const std::string& command) {
+  const std::size_t start = command.find_first_not_of(" \t");
+  if (start == std::string::npos) return command;
+  std::size_t end;
+  std::string token;
+  if (command[start] == '"') {
+    const std::size_t close = command.find('"', start + 1);
+    // An unbalanced quote is the operator's to fix; do not guess at it.
+    if (close == std::string::npos) return command;
+    token = command.substr(start + 1, close - start - 1);
+    end = close + 1;
+  } else {
+    end = command.find_first_of(" \t", start);
+    if (end == std::string::npos) end = command.size();
+    token = command.substr(start, end - start);
+  }
+  const std::string rooted = resolve_application_path(root_path, token);
+  if (rooted == token) return command;
+  const std::string quoted = rooted.find_first_of(" \t") == std::string::npos ? rooted : "\"" + rooted + "\"";
+  return command.substr(0, start) + quoted + command.substr(end);
+}
+
 std::wstring quote_argv_w(const std::wstring& arg) {
   // Determine whether quoting is needed at all. An empty arg must be quoted as
   // "" so it is not lost. Space/tab/newline/quote anywhere force quoting.

@@ -83,6 +83,7 @@ NSCP_CREATE_TEST(
     SOURCES
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
@@ -208,6 +209,7 @@ if(OPENSSL_FOUND)
         SOURCES
             ${NSCP_INCLUDEDIR}/net/net_test.cpp
             ${NSCP_INCLUDEDIR}/net/payload_limits_test.cpp
+            ${NSCP_INCLUDEDIR}/net/web_server_limits_test.cpp
             ${NSCP_INCLUDEDIR}/net/connection_log_throttle_test.cpp
             ${NSCP_INCLUDEDIR}/net/pinger_test.cpp
             ${NSCP_INCLUDEDIR}/net/http/client_test.cpp
@@ -677,7 +679,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_CLIENT_CPP}
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${Boost_THREAD_LIBRARY}
@@ -812,6 +814,20 @@ NSCP_CREATE_TEST(
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+# The `script root` resolver shared by every script-carrying module
+# (include/scripts/script_root.hpp): header-only, so it is pinned here rather
+# than once per module.
+NSCP_CREATE_TEST(
+    script_root_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/scripts/script_root_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )

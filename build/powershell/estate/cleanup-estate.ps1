@@ -79,6 +79,9 @@ if ($ApiKey) { $env:NSCLIENT_FLEET_API_KEY = $ApiKey }
 $estateDir = $PSScriptRoot
 $parentDir = Split-Path -Parent $estateDir
 . (Join-Path $parentDir "fleet-api.ps1")
+Import-FleetConfig
+if (-not $FleetServer) { $FleetServer = $env:NSCLIENT_FLEET_SERVER }
+if (-not $ApiKey) { $ApiKey = $env:NSCLIENT_FLEET_API_KEY }
 . (Join-Path $estateDir "estate-api.ps1")
 $psExe = (Get-Process -Id $PID).Path
 $provision = Join-Path $parentDir "provision-fleet-machines.ps1"

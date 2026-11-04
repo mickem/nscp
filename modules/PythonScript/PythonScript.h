@@ -17,7 +17,6 @@
 
 class PythonScript : public nscapi::impl::simple_plugin {
  private:
-  boost::filesystem::path root_;
   std::string alias_;
 
   std::shared_ptr<script_provider_interface> provider_;

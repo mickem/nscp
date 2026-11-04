@@ -28,9 +28,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/write.hpp>
 #include <boost/thread/thread.hpp>
 #include <cctype>
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -855,4 +859,181 @@ TEST(ServerImpl, AHandlerCanReleaseItsOwnServer) {
   // controllers' destructors run.
   ASSERT_TRUE(state->releaser);
   state->releaser->join();
+}
+
+namespace {
+std::string make_post_request(const std::string& path, int port, std::size_t body_size) {
+  std::ostringstream oss;
+  oss << "POST " << path << " HTTP/1.1\r\n"
+      << "Host: 127.0.0.1:" << port << "\r\n"
+      << "Content-Type: application/octet-stream\r\n"
+      << "Content-Length: " << body_size << "\r\n"
+      << "\r\n"
+      << std::string(body_size, 'x');
+  return oss.str();
+}
+
+class EchoBodySizeHandler : public RequestHandlerBase {
+ public:
+  Response* process(Request& request) override {
+    auto* r = new StreamResponse(200);
+    r->setCode(200, "OK");
+    r->append("body=" + std::to_string(request.getData().size()));
+    return r;
+  }
+};
+}  // namespace
+
+TEST(ServerImpl, BodyLimitIsEnforced) {
+  // The cap used to be mongoose's receive buffer alone, which drops the
+  // connection without a word. The declared Content-Length is now judged
+  // when the headers arrive, and the client told.
+  const int port = choose_port_base() + 43;
+  auto* controller = new MatchController();
+  controller->registerRoute("POST", "/", new EchoBodySizeHandler());
+  const ServerFixture fx;
+  fx.server->setBodyLimit(1024);
+  fx.start(port, controller);
+
+  const RawResponse ok = raw_fetch(bind_url(port), make_post_request("/", port, 256));
+  const RawResponse too_big = raw_fetch(bind_url(port), make_post_request("/", port, 4096));
+  fx.server->stop();
+
+  ASSERT_TRUE(ok.received);
+  EXPECT_EQ(ok.status, 200);
+  EXPECT_EQ(ok.body, "body=256");
+  ASSERT_TRUE(too_big.received) << "the oversized request got no answer";
+  EXPECT_EQ(too_big.status, 413);
+  EXPECT_NE(too_big.body.find("max request size"), std::string::npos) << too_big.body;
+  bool logged = false;
+  for (const std::string& line : fx.logger->errors) logged = logged || line.find("Rejected a request from 127.0.0.1") != std::string::npos;
+  EXPECT_TRUE(logged) << "the refusal is logged";
+}
+
+namespace {
+// A plain TCP client for what the mongoose client above cannot express: a
+// request sent in parts, two requests on one connection, and a look at the
+// raw bytes that came back. Each write is followed by its pause; the answer is
+// whatever arrived within `read_for` of the last write (or until the server
+// closed the connection).
+using timed_writes = std::vector<std::pair<std::string, std::chrono::milliseconds>>;
+std::string raw_exchange(const int port, const timed_writes& writes, const std::chrono::milliseconds read_for) {
+  namespace asio = boost::asio;
+  asio::io_context ioc;
+  asio::ip::tcp::socket socket(ioc);
+  socket.connect(asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), static_cast<unsigned short>(port)));
+  for (const auto& write : writes) {
+    asio::write(socket, asio::buffer(write.first));
+    std::this_thread::sleep_for(write.second);
+  }
+  std::string received;
+  char chunk[4096];
+  asio::steady_timer deadline(ioc);
+  deadline.expires_after(read_for);
+  deadline.async_wait([&](const boost::system::error_code& ec) {
+    if (ec) return;
+    boost::system::error_code ignored;
+    socket.cancel(ignored);
+  });
+  std::function<void()> read_more = [&] {
+    socket.async_read_some(asio::buffer(chunk), [&](const boost::system::error_code& ec, const std::size_t n) {
+      received.append(chunk, n);
+      if (ec) {
+        deadline.cancel();
+        return;
+      }
+      read_more();
+    });
+  };
+  read_more();
+  ioc.run();
+  return received;
+}
+
+std::size_t count_of(const std::string& haystack, const std::string& needle) {
+  std::size_t count = 0;
+  for (std::string::size_type at = haystack.find(needle); at != std::string::npos; at = haystack.find(needle, at + needle.size())) ++count;
+  return count;
+}
+}  // namespace
+
+TEST(ServerImpl, ABodyThatArrivesLateIsRefusedOnce) {
+  // Mongoose raises MG_EV_HTTP_HDRS on every read until the body is complete,
+  // re-parsing the buffer from the start. A slow upload over the cap used to
+  // be answered 413 - and logged - once per packet.
+  const int port = choose_port_base() + 44;
+  auto* controller = new MatchController();
+  controller->registerRoute("POST", "/", new EchoBodySizeHandler());
+  const ServerFixture fx;
+  fx.server->setBodyLimit(1024);
+  fx.start(port, controller);
+
+  const std::string head = "POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/octet-stream\r\nContent-Length: 4096\r\n\r\n";
+  const std::string bytes = raw_exchange(port,
+                                         {{head, std::chrono::milliseconds(300)},
+                                          {std::string(2048, 'x'), std::chrono::milliseconds(300)},
+                                          {std::string(2048, 'x'), std::chrono::milliseconds(0)}},
+                                         std::chrono::milliseconds(1500));
+  fx.server->stop();
+
+  EXPECT_EQ(count_of(bytes, "HTTP/1.1 413"), 1u) << bytes;
+  std::size_t lines = 0;
+  for (const std::string& line : fx.logger->errors) lines += line.find("Rejected a request from 127.0.0.1") != std::string::npos ? 1 : 0;
+  EXPECT_EQ(lines, 1u);
+}
+
+TEST(ServerImpl, OversizedRequestsAreLoggedOncePerAddressPerMinute) {
+  // The cap is applied before authentication, so the line it logs is one any
+  // host that can reach the port can trigger; a loop of them is one line.
+  const int port = choose_port_base() + 45;
+  auto* controller = new MatchController();
+  controller->registerRoute("POST", "/", new EchoBodySizeHandler());
+  const ServerFixture fx;
+  fx.server->setBodyLimit(1024);
+  fx.start(port, controller);
+
+  for (int i = 0; i < 3; ++i) {
+    const RawResponse refused = raw_fetch(bind_url(port), make_post_request("/", port, 4096));
+    ASSERT_TRUE(refused.received) << "request " << i;
+    EXPECT_EQ(refused.status, 413) << "request " << i;
+  }
+  fx.server->stop();
+
+  std::size_t lines = 0;
+  for (const std::string& line : fx.logger->errors) lines += line.find("Rejected a request from 127.0.0.1") != std::string::npos ? 1 : 0;
+  EXPECT_EQ(lines, 1u) << "every refusal was logged";
+}
+
+TEST(ServerImpl, AHeadRequestOnAKeptConnectionLeavesTheNextAnswerReadable) {
+  // No controller tells HEAD from GET, so HEAD /ping is a 404 whose body a
+  // GET would carry; mongoose keeps connections alive, so a body sent after a
+  // HEAD's header is what the client reads as the start of its next answer.
+  // Only the header may go out, with the Content-Length the body would have.
+  const int port = choose_port_base() + 46;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/ping", new FixedHandler(200, "alive"));
+  const ServerFixture fx;
+  fx.start(port, controller);
+
+  const std::string head = "HEAD /ping HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+  const std::string get = "GET /ping HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+  const std::string bytes = raw_exchange(port, {{head, std::chrono::milliseconds(300)}, {get, std::chrono::milliseconds(0)}}, std::chrono::milliseconds(1500));
+  fx.server->stop();
+
+  ASSERT_EQ(count_of(bytes, "HTTP/1.1 "), 2u) << bytes;
+  EXPECT_NE(bytes.find("HTTP/1.1 404"), std::string::npos) << bytes;
+  EXPECT_EQ(count_of(bytes, "Document not found"), 0u) << "the HEAD answer carried its body: " << bytes;
+  EXPECT_NE(bytes.find("Content-Length: 18"), std::string::npos) << "HEAD carries the Content-Length of the answer it stands for: " << bytes;
+  // The second answer starts where the first header ends.
+  const std::string::size_type second = bytes.find("HTTP/1.1 200");
+  ASSERT_NE(second, std::string::npos) << bytes;
+  EXPECT_EQ(bytes.find("\r\n\r\n") + 4, second) << bytes;
+  EXPECT_NE(bytes.find("alive", second), std::string::npos) << bytes;
+}
+
+TEST(ServerImpl, ABodyLimitAboveTheReceiveBufferIsSaidToBeCapped) {
+  const ServerFixture fx;
+  fx.server->setBodyLimit(static_cast<std::size_t>(MG_MAX_RECV_SIZE) + 1);
+  ASSERT_EQ(fx.logger->errors.size(), 1u);
+  EXPECT_NE(fx.logger->errors[0].find("never buffers more than"), std::string::npos) << fx.logger->errors[0];
 }

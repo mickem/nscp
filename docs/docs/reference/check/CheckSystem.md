@@ -4946,8 +4946,18 @@ per instance. `type=` picks the value format (`double`, `long`, `large`, default
 `nocap100` is the one you want for a counter that legitimately exceeds 100%,
 such as multi-core `% Processor Time`.
 
-`reload=true` re-reads the counter list on error, which helps with counters
-registered after boot by a service that starts late. `ignore-errors=true` makes a
+A counter defined in `[/settings/system/windows/counters]` that does not exist
+when NSClient++ starts - typically one a service registers when it starts, later
+than NSClient++ - does not stop the others from being collected. The collector
+keeps retrying it in the background: quickly during the first minute, then once
+a minute. It logs `Failed to add counter <name> (<path>): ...` once the first
+minute is over, and `Counter <name> is now available` once the counter is
+collected. Until then, naming it in `counter=` fails with `Failed to get value`.
+`reload=true` has the collector retry on its next tick instead of at its next
+scheduled attempt; the check does not wait for it, so the counter is there for
+the next check. It changes nothing for a counter given as a path.
+
+`ignore-errors=true` makes a
 missing or invalid counter report `0` instead of failing the check — convenient
 for a configuration shared across differently-provisioned hosts, but be aware
 that it turns "the counter is gone" into a silent zero, which is exactly the
@@ -5065,7 +5075,7 @@ every backslash, as in the examples further up.
 | [expand-index](#check_pdh_expand-index)   | false         | Expand indexes in counter strings                                                                                                                                                                                                                                                           |
 | [resolution](#check_pdh_resolution)       | auto          | How to resolve counter names against the system locale: auto (try the localized name, then the English API, then index expansion - the default), english (force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names) |
 | [instances](#check_pdh_instances)         | false         | Expand wildcards and fetch all instances                                                                                                                                                                                                                                                    |
-| [reload](#check_pdh_reload)               | false         | Reload counters on errors (useful to check counters which are not added at boot)                                                                                                                                                                                                            |
+| [reload](#check_pdh_reload)               | false         | Have the collector retry the predefined counters it could not add yet on its next tick rather than at its next scheduled attempt (it retries them in the background anyway, every minute). The check does not wait for that.                                                                |
 | [averages](#check_pdh_averages)           | false         | Check average values (ie. wait for 1 second to collecting two samples)                                                                                                                                                                                                                      |
 | time                                      |               | Timeframe to use for named rrd counters                                                                                                                                                                                                                                                     |
 | flags                                     |               | Extra flags to configure the counter (nocap100, 1000, noscale)                                                                                                                                                                                                                              |
@@ -5100,7 +5110,7 @@ Expand wildcards and fetch all instances
 
 <h5 id="check_pdh_reload">reload:</h5>
 
-Reload counters on errors (useful to check counters which are not added at boot)
+Have the collector retry the predefined counters it could not add yet on its next tick rather than at its next scheduled attempt (it retries them in the background anyway, every minute). The check does not wait for that.
 
 *Default Value:* `false`
 
@@ -6212,9 +6222,9 @@ bash rss=8.594MB ws=8.594MB, bash rss=9.219MB ws=9.219MB, bash rss=4.688MB ws=4.
     | legacy_state     | Get process status (for legacy use via check_nt only)                                            |
     | new              | Process is new (can inly be used for real-time filters)                                          |
     | page_fault       | Page fault count                                                                                 |
-    | pagefile         | Peak page file use in bytes (g,m,k,b)                                                            |
+    | pagefile         | Page file usage in bytes (g,m,k,b)                                                               |
     | pagefile_pct     | Page file usage as a percentage of the system commit limit                                       |
-    | peak_pagefile    | Page file usage in bytes (g,m,k,b)                                                               |
+    | peak_pagefile    | Peak page file use in bytes (g,m,k,b)                                                            |
     | peak_virtual     | Peak virtual size in bytes (g,m,k,b)                                                             |
     | peak_working_set | Peak working set in bytes (g,m,k,b)                                                              |
     | pid              | Process id                                                                                       |
@@ -8672,6 +8682,7 @@ Default values used in other config sections.
 | [encoding](#nrpe-payload-encoding)                  |               | NRPE PAYLOAD ENCODING       |
 | [inbox](#inbox)                                     | inbox         | INBOX                       |
 | [password](#password)                               |               | Password                    |
+| [script root](#script-root)                         |               | Script root                 |
 | [socket queue size](#listen-queue)                  | 0             | LISTEN QUEUE                |
 | [thread pool](#thread-pool)                         | 10            | THREAD POOL                 |
 | [timeout](#timeout)                                 | 30            | TIMEOUT                     |
@@ -8810,6 +8821,50 @@ Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) whe
 # Password
 password=
 ```
+
+=== "Windows"
+
+    #### Script root <a id="/settings/default/script root"></a>
+
+    The folder this module's scripts live in: ${scripts} by default (empty, or \`default\`). \`fleet\` is ${fleet-folder}/scripts, where the fleet sync stages a bundle's \`scripts/\` entries - a bundle that ships scripts sets this to \`fleet\` and refers to them as \`scripts\\<name>\`. \`shared\` is ${shared-path}/scripts; any other value is a folder (${...} tokens expanded). Python and Lua scripts live in its \`python\` and \`lua\` sub-folders. An external script is started in the folder *above* it, with a relative command such as \`scripts\\check.bat\` resolved against that folder - the rule the default layout has always followed, so a scripts folder moved elsewhere runs unchanged, scripts that call each other by relative path included. Set it under [/settings/default] to apply to every script module at once. SECURITY: whoever can write to this folder can change what the service runs. It is also what ext-scr show/delete are confined to and where ext-scr add --import copies to; ext-scr add --script <path> is not bounded by it (an administrator-only action, equivalent to editing the configuration directly).
+
+
+    | Key            | Description                             |
+    |----------------|-----------------------------------------|
+    | Path:          | [/settings/default](#/settings/default) |
+    | Key:           | script root                             |
+    | Default value: | _N/A_                                   |
+
+
+    **Sample:**
+
+    ```
+    [/settings/default]
+    # Script root
+    script root=
+    ```
+
+=== "Linux"
+
+    #### Script root <a id="/settings/default/script root"></a>
+
+    The folder this module's scripts live in: ${scripts} by default (empty, or \`default\`). \`fleet\` is ${fleet-folder}/scripts, where the fleet sync stages a bundle's \`scripts/\` entries - a bundle that ships scripts sets this to \`fleet\` and refers to them as \`scripts\\<name>\`. \`shared\` is ${shared-path}/scripts; any other value is a folder (${...} tokens expanded). Python and Lua scripts live in its \`python\` and \`lua\` sub-folders. An external script is started in the folder *above* it, with a relative command such as \`scripts\\check.bat\` resolved against that folder - the rule the default layout has always followed, so a scripts folder moved elsewhere runs unchanged, scripts that call each other by relative path included. Set it under [/settings/default] to apply to every script module at once. SECURITY: whoever can write to this folder can change what the service runs.
+
+
+    | Key            | Description                             |
+    |----------------|-----------------------------------------|
+    | Path:          | [/settings/default](#/settings/default) |
+    | Key:           | script root                             |
+    | Default value: | _N/A_                                   |
+
+
+    **Sample:**
+
+    ```
+    [/settings/default]
+    # Script root
+    script root=
+    ```
 
 #### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 

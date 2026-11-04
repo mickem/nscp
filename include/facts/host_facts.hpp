@@ -29,8 +29,8 @@ namespace host_facts {
 //    are flat, always published, and they are what the fleet state report
 //    actually uploads today.
 //  - **Fact sets** (publish_facts) carry the inventory: the same OS fields
-//    plus the host's domain, and a `hardware` set with the vendor, model and
-//    size. These are opt-in per set, because an inventory is data an operator
+//    plus the host's domain and join state, and a `hardware` set with the
+//    vendor, model and size. These are opt-in per set, because an inventory is data an operator
 //    did not necessarily agree to ship, and they travel as a document the
 //    core stores rather than as a flat string a selector matches.
 //
@@ -54,6 +54,8 @@ struct facts {
   std::string manufacturer;    // system vendor, e.g. "Dell Inc."
   std::string model;           // system model, e.g. "PowerEdge R650"
   std::string domain;          // DNS domain the host is in; empty when it is in none
+  std::string join;            // Windows join state: "domain", "workgroup" or "standalone"; empty unknown
+  std::string join_name;       // the AD domain as the join API reports it (usually the DNS name) or the workgroup; empty when none
   long long cpu_cores;         // logical processors; 0 unknown
   long long memory_gb;         // installed physical memory in whole GB; 0 unknown
 

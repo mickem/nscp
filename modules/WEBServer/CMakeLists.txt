@@ -48,6 +48,7 @@ set(SRCS
     info_controller.cpp
     tags_controller.cpp
     facts_controller.cpp
+    failures_controller.cpp
     settings_controller.cpp
     login_controller.cpp
     metrics_controller.cpp
@@ -94,6 +95,8 @@ if(WIN32)
         info_controller.hpp
         tags_controller.hpp
         facts_controller.hpp
+        failures_controller.hpp
+        perf_json.hpp
         settings_controller.hpp
         metrics_controller.hpp
         openmetrics_controller.hpp
@@ -112,7 +115,7 @@ OPENSSL_LINK_FIX(${TARGET})
 target_link_libraries(
     ${TARGET}
     nscp_client
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
@@ -180,7 +183,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest
         GTest::gtest_main
         # openmetrics_renderer.cpp walks PB::Metrics messages, so the test

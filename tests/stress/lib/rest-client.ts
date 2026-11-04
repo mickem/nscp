@@ -4,12 +4,12 @@ import { REST_URL } from "@fixtures/rest-fixture";
 
 /**
  * The HTTP client the load workers share: an undici pool with one connection
- * per worker and a bearer token from one login. The agent's beast backend
- * answers every request with `Connection: close`, so each request is a fresh
- * TLS connection whichever client makes it - the accept loop, the handshake
- * and the session coroutine are part of what a flood exercises - and the pool
- * is here for its bounded concurrency and its low per-request overhead, not
- * for keep-alive.
+ * per worker and a bearer token from one login. The agent keeps a connection
+ * alive between requests (both backends do), so a worker's requests ride one
+ * TLS connection for as long as the agent keeps it - which is what a browser
+ * or a polling monitoring server does to it - and the accept loop and the
+ * handshake are exercised by the workers connecting, and reconnecting
+ * whenever the agent closes a connection on them.
  */
 export class RestClient {
   private readonly pool: Pool;

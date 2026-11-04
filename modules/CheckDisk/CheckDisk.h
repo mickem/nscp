@@ -22,8 +22,8 @@ class CheckDisk : public nscapi::impl::simple_plugin {
   // last check that observed it returns, instead of freeing its mutexes and
   // trend snapshot under a check that is reading them.
   std::shared_ptr<collector_thread> collector_;
-  // Which paths a caller may name in check_files, check_single_file and
-  // check_disk_write. Open by default, so an upgrade changes nothing; see
+  // Which paths a caller may name in check_files, check_single_file,
+  // check_largest_files and check_disk_write. Open by default, so an upgrade changes nothing; see
   // docs/docs/concepts/check-access.md.
   check::access::path_policy file_access_;
   // Whether this module is configured to produce the `storage.volumes` fact
@@ -57,6 +57,7 @@ class CheckDisk : public nscapi::impl::simple_plugin {
   void check_shadowcopy(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_share(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_mount(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_largest_files(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
   // Metrics
   void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);

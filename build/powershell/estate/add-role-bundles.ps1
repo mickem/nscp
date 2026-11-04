@@ -48,6 +48,8 @@ param(
 $ErrorActionPreference = "Stop"
 $parentDir = Split-Path -Parent $PSScriptRoot
 . (Join-Path $parentDir "fleet-api.ps1")
+Import-FleetConfig
+if (-not $ApiKey) { $ApiKey = $env:NSCLIENT_FLEET_API_KEY }
 . (Join-Path $PSScriptRoot "estate-api.ps1")
 
 if (-not $ManifestFile) { $ManifestFile = Join-Path $parentDir ".fleet-machines.json" }
@@ -82,6 +84,9 @@ $plans = foreach ($name in $roleNames) {
         Selector = @{ clauses = $clauses }
         Config   = ConvertTo-EstateBundleConfig -Role $r -RolePassword $password -Machines $machines
         Password = $password
+        # Set when the role ships scripts: the bundle is then built here and
+        # uploaded whole rather than composed on the server.
+        Scripts  = $r.BundleScriptsDir
     }
 }
 $plans = @($plans)
@@ -96,6 +101,12 @@ if ($DryRun) {
         ConvertTo-Json -InputObject $p.Selector -Depth 8 | Write-Host
         Write-Host "Bundle '$($p.Name)' config_json:"
         (ConvertTo-Json -InputObject $p.Config -Depth 16).Replace($p.Password, "<role password>") | Write-Host
+        if ($p.Scripts) {
+            Write-Host "Bundle '$($p.Name)' scripts (uploaded, from $($p.Scripts)):"
+            foreach ($f in @(Get-ChildItem -Path $p.Scripts -File -Recurse | Sort-Object FullName)) {
+                Write-Host "   scripts/$($f.FullName.Substring($p.Scripts.Length).TrimStart('\', '/').Replace('\', '/'))"
+            }
+        }
     }
     return
 }
@@ -133,12 +144,19 @@ foreach ($p in $plans) {
     # assigned, which hosts are running until the new one replaces it.
     Remove-FleetBundleVersions @api -Name $p.Name -Keep $assigned | ForEach-Object { Write-Host "   $_" }
 
-    $bundle = Invoke-FleetApi @api -Path "/api/bundles/compose" -Method Post -Body @{
-        name        = $p.Name
-        version     = $BundleVersion
-        config_json = $p.Config
+    if ($p.Scripts) {
+        $zip = New-EstateBundleZip -Name $p.Name -Version $BundleVersion -Config $p.Config -ScriptsDir $p.Scripts
+        $bundle = Invoke-FleetBundleUpload @api -Name $p.Name -Version $BundleVersion -Bundle $zip
+        Write-Host "Uploaded bundle $($bundle.name) $($bundle.version) (id $($bundle.id)) with the scripts under $($p.Scripts)."
     }
-    Write-Host "Composed bundle $($bundle.name) $($bundle.version) (id $($bundle.id))."
+    else {
+        $bundle = Invoke-FleetApi @api -Path "/api/bundles/compose" -Method Post -Body @{
+            name        = $p.Name
+            version     = $BundleVersion
+            config_json = $p.Config
+        }
+        Write-Host "Composed bundle $($bundle.name) $($bundle.version) (id $($bundle.id))."
+    }
     Invoke-FleetApi @api -Path "/api/groups/$($group.id)/bundles" -Method Post -Body @{ bundle_id = $bundle.id; priority = 100 } | Out-Null
     Write-Host "Assigned $($p.Name) $BundleVersion to group '$($p.Name)'."
 

@@ -13,13 +13,13 @@ struct script_provider final : script_provider_interface {
  private:
   int id_;
   nscapi::core_wrapper* core_;
-  boost::filesystem::path root_;
+  scripts::root::layout layout_;
   std::map<std::string, std::string> wrappings_;
   commands::command_handler commands_;
   boost::shared_mutex mutex_;
 
  public:
-  script_provider(int id, nscapi::core_wrapper* core, const std::string& settings_path, const boost::filesystem::path& root,
+  script_provider(int id, nscapi::core_wrapper* core, const std::string& settings_path, const scripts::root::layout& layout,
                   const std::map<std::string, std::string>& wrappings);
 
   unsigned int get_id() override;
@@ -27,6 +27,7 @@ struct script_provider final : script_provider_interface {
   std::shared_ptr<nscapi::settings_proxy> get_settings_proxy() override;
 
   boost::filesystem::path get_root() override;
+  scripts::root::layout get_layout() override;
   std::string generate_wrapped_command(std::string command) override;
 
   void setup_commands();

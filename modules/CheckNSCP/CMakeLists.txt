@@ -46,7 +46,7 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(
     ${TARGET}
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     nscp_net
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
@@ -61,7 +61,7 @@ NSCP_CREATE_TEST(
         ${CMAKE_SOURCE_DIR}/modules/CheckNSCP/check_nscp_test.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -81,7 +81,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${NSCP_FILTER_LIB}

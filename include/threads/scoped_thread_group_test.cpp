@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <chrono>
 #include <boost/thread.hpp>
 #include <stdexcept>
 #include <string>
@@ -212,4 +213,45 @@ TEST(scoped_thread_group, a_worker_that_exits_normally_is_not_reported) {
   ht.wait_all();
 
   EXPECT_EQ(reports.load(), 0);
+}
+
+// --- wait_all_for ---
+
+TEST(scoped_thread_group, wait_all_for_joins_threads_that_finish_in_time) {
+  scoped_thread_group ht;
+  std::atomic<int> done{0};
+  for (int i = 0; i < 3; ++i) ht.create_thread([&]() { done.fetch_add(1); });
+  EXPECT_EQ(ht.wait_all_for(boost::posix_time::seconds(5)), 0u);
+  EXPECT_EQ(done.load(), 3);
+}
+
+TEST(scoped_thread_group, wait_all_for_gives_up_on_a_hung_thread_which_may_outlive_the_group) {
+  boost::mutex mtx;
+  boost::condition_variable cv;
+  bool release = false;
+  std::atomic<bool> finished{false};
+  {
+    scoped_thread_group ht;
+    ht.create_thread([&]() {});
+    ht.create_thread([&]() {
+      boost::mutex::scoped_lock lock(mtx);
+      while (!release) cv.wait(lock);
+      finished = true;
+    });
+    const auto before = std::chrono::steady_clock::now();
+    EXPECT_EQ(ht.wait_all_for(boost::posix_time::milliseconds(200)), 1u);
+    EXPECT_LT(std::chrono::steady_clock::now() - before, std::chrono::seconds(3));
+    // The destructor must not join the thread it gave up on again.
+  }
+  // The group is gone; the thread it abandoned still finishes against the
+  // state it shares with it rather than the destroyed group.
+  {
+    boost::mutex::scoped_lock lock(mtx);
+    release = true;
+  }
+  cv.notify_all();
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!finished && std::chrono::steady_clock::now() < deadline) boost::this_thread::sleep_for(boost::chrono::milliseconds(10));
+  EXPECT_TRUE(finished.load());
+  boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
 }

@@ -20,6 +20,40 @@
     an HTTP error response.
 #>
 
+# Fill the NSCLIENT_FLEET_* variables from a local config file, so the fleet
+# server url and its API keys need not be set in every shell:
+#
+#     build/powershell/.fleet-config.json      (gitignored)
+#     { "server": "https://fleet.example.com", "apiKey": "nsk_...", "syncApiKey": "nsk_..." }
+#
+# Copy fleet-config.example.json to start one; NSCLIENT_FLEET_CONFIG points at
+# a file elsewhere. A variable that is already set wins over the file (and an
+# explicit parameter over both, in the scripts that call this). The values go
+# into the process environment, which is how the runners already hand the key
+# to their child processes - never on a command line.
+function Import-FleetConfig {
+    param([string]$Path = $env:NSCLIENT_FLEET_CONFIG)
+    if (-not $Path) { $Path = Join-Path $PSScriptRoot ".fleet-config.json" }
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    try {
+        $config = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    }
+    catch {
+        throw "Could not read the fleet config '$Path' - it must be JSON shaped like fleet-config.example.json: $($_.Exception.Message)"
+    }
+    $variables = [ordered]@{
+        server     = "NSCLIENT_FLEET_SERVER"
+        apiKey     = "NSCLIENT_FLEET_API_KEY"
+        syncApiKey = "NSCLIENT_FLEET_SYNC_API_KEY"
+    }
+    foreach ($name in $variables.Keys) {
+        $value = "$($config.$name)"
+        if ($value -and -not [Environment]::GetEnvironmentVariable($variables[$name])) {
+            [Environment]::SetEnvironmentVariable($variables[$name], $value)
+        }
+    }
+}
+
 # Ignore an untrusted/self-signed fleet certificate for the rest of this process.
 # PowerShell 7 takes -SkipCertificateCheck per call; 5.1 has no such parameter, so
 # the only lever is the process-wide validation callback. Both are one-way for the
@@ -124,6 +158,63 @@ function Invoke-FleetApi {
     # that list through as a whole, and `$group.id` is every id at once. Pipe
     # it so the elements come out one by one, as the callers expect.
     return $response | ForEach-Object { $_ }
+}
+
+<#
+.SYNOPSIS
+    Upload a bundle zip (POST /api/bundles, multipart): the path for a bundle
+    that carries scripts, which the compose endpoint cannot build.
+.DESCRIPTION
+    Returns the bundle the server stored (id, name, version), as compose
+    does. Goes through HttpClient rather than Invoke-RestMethod: 5.1 has no
+    -Form, and building the multipart body by hand is what the two versions
+    least agree on.
+#>
+function Invoke-FleetBundleUpload {
+    param(
+        [Parameter(Mandatory)][string]$FleetServer,
+        [Parameter(Mandatory)][string]$ApiKey,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Version,
+        [Parameter(Mandatory)][byte[]]$Bundle,
+        [switch]$SkipCertificateCheck,
+        [int]$TimeoutSec = 120
+    )
+    Set-FleetCertificateCheck -Skip ([bool]$SkipCertificateCheck)
+    Add-Type -AssemblyName System.Net.Http
+    $handler = New-Object System.Net.Http.HttpClientHandler
+    if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -ge 6) {
+        $handler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+    }
+    $client = New-Object System.Net.Http.HttpClient($handler)
+    $form = New-Object System.Net.Http.MultipartFormDataContent
+    $uri = "$($FleetServer.TrimEnd('/'))/api/bundles"
+    try {
+        $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSec)
+        $client.DefaultRequestHeaders.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", $ApiKey)
+        $form.Add((New-Object System.Net.Http.StringContent($Name)), "name")
+        $form.Add((New-Object System.Net.Http.StringContent($Version)), "version")
+        $form.Add((New-Object System.Net.Http.StringContent("plain")), "format")
+        $file = New-Object System.Net.Http.ByteArrayContent(, $Bundle)
+        $file.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("application/zip")
+        $form.Add($file, "bundle", "$Name-$Version.zip")
+        $response = $client.PostAsync($uri, $form).GetAwaiter().GetResult()
+        $text = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        if (-not $response.IsSuccessStatusCode) {
+            $status = [int]$response.StatusCode
+            $hint = switch ($status) {
+                401 { " (the API key is unknown, revoked, or its owner was deleted)" }
+                403 { " (the key's owner lacks the right for this call, or the tenant is at a tier limit; the body below says which)" }
+                default { "" }
+            }
+            throw "POST $uri : HTTP $status$hint`n$text"
+        }
+        return $text | ConvertFrom-Json
+    }
+    finally {
+        $form.Dispose()
+        $client.Dispose()
+    }
 }
 
 # Fail fast, before spending ten minutes creating a VM that then cannot enroll.

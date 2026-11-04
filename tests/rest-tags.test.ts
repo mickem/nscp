@@ -167,9 +167,9 @@ describeWithModules("CheckSystem", "CheckDisk")("REST tags", () => {
       .then((response) => {
         // A tag is uploaded to the fleet server on every state report, where
         // a fact set is only collected once an operator turns it on. The
-        // hardware identity, the size and the domain are inventory and must
-        // not arrive by the other road.
-        for (const fact of ["manufacturer", "model", "domain", "cpu_cores", "memory_gb"]) {
+        // hardware identity, the size, the domain and the join are inventory
+        // and must not arrive by the other road.
+        for (const fact of ["manufacturer", "model", "domain", "join", "join_name", "cpu_cores", "memory_gb"]) {
           expect(response.body[fact]).toBeUndefined();
         }
       });

@@ -139,6 +139,14 @@ typedef NSCAPI::errorReturn (*lpNSAPIGetTags)(char **, unsigned int *);
 // configuration enables stays authoritative.
 typedef NSCAPI::errorReturn (*lpNSAPIFactsQuery)(const char *, const unsigned int, char **, unsigned int *);
 
+// The failed-check log (see service/failed_check_store.hpp): the last N check
+// results that did not come back OK, whatever transport asked for them. One
+// query entry point taking a serialised PB::Failures::FailuresRequestMessage
+// (GET with an optional since/limit window, or CLEAR) and returning a
+// PB::Failures::FailuresResponseMessage (free with NSAPIDestroyBuffer). What is
+// recorded is the core's decision on every dispatch; a caller only reads.
+typedef NSCAPI::errorReturn (*lpNSAPIFailuresQuery)(const char *, const unsigned int, char **, unsigned int *);
+
 // Change one logging option at runtime. Takes the same strings as the --log
 // command line switch: a severity ("debug", "trace", ...) or a log-driver
 // option ("console", "no-console", "oneline", "no-std-err"). A module that

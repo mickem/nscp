@@ -356,10 +356,11 @@ describe("settings attachments and includes", () => {
    *
    * The shapes are modelled with path overrides rather than by running on each
    * OS, because the deciding quantity is that relationship and not the
-   * platform. What differs per platform is only where the child's working
-   * directory comes from: on Windows the launcher passes ${base-path} to
-   * CreateProcess, while the unix launcher sets nothing and the child inherits
-   * the agent's. Linux-only for the /bin/sh runner.
+   * platform. The agent now starts every external script in the folder above
+   * ${scripts} (the `script root` rule), on every platform, so the cwd a shape
+   * names is where the *agent* was launched - which no longer reaches the
+   * child. What still differs is where ${scripts} sits relative to
+   * ${shared-path}. Linux-only for the /bin/sh runner.
    */
   describeOnLinux("a script attachment paired with a relative command", () => {
     interface Shape {
@@ -425,9 +426,10 @@ describe("settings attachments and includes", () => {
       return /OK: attached script ran/.test(r.all ?? "");
     }
 
-    // `scripts/hello.sh` as the target is rooted at ${shared-path}, so it
-    // meets a cwd-relative command only where the cwd IS ${shared-path}.
-    it("with a relative target, works only where the working directory is ${shared-path}", async () => {
+    // `scripts/hello.sh` as the target is rooted at ${shared-path}, while the
+    // command is resolved from the folder above ${scripts}; they meet only
+    // where that folder IS ${shared-path}.
+    it("with a relative target, works only where the folder above ${scripts} is ${shared-path}", async () => {
       const got: Record<string, boolean> = {};
       for (const shape of shapes) got[shape.name] = await attempt(shape, "scripts/hello.sh");
       console.log(
@@ -438,12 +440,13 @@ describe("settings attachments and includes", () => {
       );
 
       expect(got["linux, shipped systemd unit"]).toBe(true);
+      // Where the agent was started no longer matters: the script is started
+      // in the folder above ${scripts} whatever the agent's own cwd was.
+      expect(got["linux, any other launch"]).toBe(true);
       expect(got["windows service, legacy layout"]).toBe(true);
-      // The two that break, for different reasons: nothing sets the child's
-      // cwd on a non-systemd unix launch, and under the modern layout the
-      // attachment goes to %ProgramData%\NSClient++\scripts while the
-      // command looks in <install>\scripts.
-      expect(got["linux, any other launch"]).toBe(false);
+      // The one that breaks: under the modern layout the attachment goes to
+      // %ProgramData%\NSClient++\scripts while the command looks in
+      // <install>\scripts.
       expect(got["windows service, modern layout"]).toBe(false);
     });
 
@@ -461,14 +464,11 @@ describe("settings attachments and includes", () => {
       );
 
       expect(got["linux, shipped systemd unit"]).toBe(true);
+      expect(got["linux, any other launch"]).toBe(true);
       expect(got["windows service, legacy layout"]).toBe(true);
       // The one this spelling fixes: the file now lands beside the executable
       // rather than in the writable state, which is where the command looks.
       expect(got["windows service, modern layout"]).toBe(true);
-      // The one it cannot fix. Nothing sets a working directory for the child
-      // on unix, so a relative command still has no fixed meaning; only an
-      // absolute path in the command covers this.
-      expect(got["linux, any other launch"]).toBe(false);
     });
   });
 

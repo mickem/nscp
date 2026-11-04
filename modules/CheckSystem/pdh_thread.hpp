@@ -15,6 +15,7 @@
 #include <nscapi/settings/proxy.hpp>
 #include <rrd_buffer.hpp>
 #include <sampling_state.hpp>
+#include <set>
 #include <threads/stop_signal.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_query.hpp>
@@ -29,6 +30,7 @@
 #include "check_process_history.hpp"
 #include "check_temperature.hpp"
 #include "filter_config_object.hpp"
+#include "pdh_counter_set.hpp"
 
 struct spi_container {
   long long handles;
@@ -87,7 +89,19 @@ class pdh_thread {
   dimension_hash metric_dimensions;
 
   std::list<PDH::pdh_object> configs_;
-  std::list<PDH::pdh_instance> counters_;
+  // Which of configs_ are not in the collector's query yet. Touched only by
+  // thread_proc.
+  pdh_counters::counter_set counter_set_;
+  // Aliases of the counters reported missing, so each is reported once and
+  // announced when it turns up. Touched only by thread_proc.
+  std::set<std::string> reported_missing_;
+  // Counters added to the query that no tick has sampled yet; store_tick
+  // moves them into lookups_. Guarded by mutex_.
+  std::list<PDH::pdh_instance> unpublished_;
+  bool query_failure_logged_ = false;
+  // Set by check_pdh reload=true: the collector retries the missing counters
+  // on its next tick instead of at the next scheduled attempt.
+  std::atomic<bool> retry_requested_{false};
   rrd_buffer<windows::system_info::cpu_load> cpu;
   // Attempts to read the CPU load for `cpu`. Guarded by its own mutex rather
   // than mutex_, so an attempt is counted even when mutex_ cannot be had;
@@ -146,6 +160,10 @@ class pdh_thread {
   std::map<std::string, double> get_value(std::string counter);
   std::map<std::string, double> get_average(std::string counter, long seconds);
   std::map<std::string, long long> get_int_value(std::string counter);
+  // Asks the collector to retry the predefined counters it has not managed to
+  // add yet on its next tick. Does not wait: a counter that turns up is read
+  // by the checks after that tick.
+  void request_counter_retry() { retry_requested_ = true; }
   std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
   // Whether the sampler has pushed a CPU sample yet, is still waiting for its
   // first tick, or has tried and failed (see sampling_state.hpp); none when
@@ -224,16 +242,19 @@ class pdh_thread {
   // accumulating the load interval rather than dropping it.
   bool store_tick(const cpu_reading *cpu_read, const load_fold *fold, const spi_container &handles, PDH::PDHQuery *pdh, bool with_metrics,
                   error_list &errors);
-  void write_metrics(const spi_container &handles, PDH::PDHQuery *pdh, error_list &errors);
+  // Samples the collector's query; false when that failed. Caller must hold
+  // the unique (write) lock on mutex_.
+  bool gather_counters(PDH::PDHQuery &pdh, error_list &errors);
+  void write_metrics(const spi_container &handles, error_list &errors);
 
-  // Single attempt at resolving counters and opening the PDH query. Rebuilds
-  // counters_ and lookups_ from configs_ each call so that wildcard expansion
-  // re-runs (perflib may have finished registering since the previous attempt).
-  // Returns true on success; false on any per-counter or query-open failure.
-  // log_failures_as_errors selects the log level used for failures (true on
-  // the final attempt so the user sees what went wrong, false during retries
-  // to avoid spamming the log on transient boot races).
-  bool try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors);
+  // Tries the predefined counters not in the collector's query yet, opening
+  // it first when it is not, and takes the first sample of the ones it adds;
+  // the next store_tick publishes them in lookups_. Call it right after a
+  // gather. Caller must hold the unique (write) lock on mutex_.
+  void retry_counters(PDH::PDHQuery &pdh);
+  // Logs each unresolved counter that has not been reported yet. Called after
+  // every attempt once the fast retries are spent.
+  void report_missing_counters();
 
   filters::mem::filter_config_handler mem_filters_;
   filters::cpu::filter_config_handler cpu_filters_;

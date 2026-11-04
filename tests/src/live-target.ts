@@ -140,6 +140,43 @@ export async function liveExecute(
   return res.body as QueryResult;
 }
 
+/** A superagent parser that hands the body back as text, whatever its content type. */
+export const rawText: Parameters<request.Test["parse"]>[0] = (res, done) => {
+  // At parse time the response is still the raw node stream.
+  const stream = res as unknown as NodeJS.ReadableStream;
+  let data = "";
+  stream.setEncoding("utf8");
+  stream.on("data", (chunk: string) => (data += chunk));
+  stream.on("end", () => done(null, data));
+  stream.on("error", (e: Error) => done(e, data));
+};
+
+/**
+ * Send one request to an API path on the target and hand back the status and
+ * the body as text, whatever the status: the caller judges both. A `body` is
+ * sent as text/plain (what PUT /api/v2/scripts/<runtime>/<name> takes).
+ */
+export async function liveRequest(
+  t: LiveTarget,
+  method: "GET" | "PUT" | "DELETE",
+  apiPath: string,
+  body?: string,
+): Promise<{ status: number; text: string }> {
+  const agent = request(t.base);
+  let req =
+    method === "PUT"
+      ? agent.put(apiPath)
+      : method === "DELETE"
+        ? agent.delete(apiPath)
+        : agent.get(apiPath);
+  req = req.set("Authorization", `Bearer ${t.key}`);
+  if (body !== undefined) req = req.set("Content-Type", "text/plain").send(body);
+  // Read the body raw: /api/v2/scripts/<runtime>/<name> answers a script's
+  // text labelled application/json, which superagent's JSON parser rejects.
+  const res = await withTls(req.buffer(true).parse(rawText), t.insecure);
+  return { status: res.status, text: typeof res.body === "string" ? res.body : "" };
+}
+
 /**
  * Re-run a query until `until(result)` holds (collector warm-up on the remote
  * host, history accumulation, …). Returns the last result either way so a

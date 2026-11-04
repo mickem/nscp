@@ -4,11 +4,16 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <boost/asio/executor_work_guard.hpp>
@@ -17,8 +22,10 @@
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/beast/http/message.hpp>
+#include <boost/beast/http/parser.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/thread/thread.hpp>
+#include <net/connection_log_throttle.hpp>
 
 #include "Controller.h"
 #include "Server.h"
@@ -32,7 +39,8 @@
  * state (matches decision 3 in docs/design/beast-web-backend.md).
  *
  * The accept loop and each per-connection handler run as stackful
- * coroutines via `boost::asio::spawn` (decision 1).
+ * coroutines via `boost::asio::spawn` (decision 1). A connection is served
+ * for as long as the client keeps it alive, one request at a time.
  */
 namespace Mongoose {
 
@@ -52,8 +60,25 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   void setThreadReporting(const std::string& thread_name, thread_reporter reporter) override;
   void setTlsOptions(const std::string& tls_version, const std::string& ciphers) override;
 
-  /** Per-connection HTTP body cap. Default 1 MiB. */
-  static constexpr std::size_t kDefaultBodyLimit = 1u * 1024u * 1024u;
+  // How long a connection may sit waiting on its client - for the handshake,
+  // for the next request on a kept-alive connection - and how long one write
+  // may take, before the server gives up on it.
+  static constexpr std::chrono::seconds kClientTimeout{30};
+
+  // One connection's stream and the one bit stop() needs to know about it.
+  // Shared between the session coroutine and the closer stop() posts to the
+  // connection's strand, which is why it is a shared_ptr rather than a stack
+  // local of the coroutine.
+  template <class Stream>
+  struct connection_state {
+    template <class... Args>
+    explicit connection_state(Args&&... args) : stream(std::forward<Args>(args)...) {}
+    Stream stream;
+    // True while the coroutine is suspended waiting on the client. Only
+    // touched on the connection's strand: the session sets it around its
+    // waits and the closer reads it there, so no lock.
+    bool idle = false;
+  };
 
  private:
   // The accept loop, run as a stackful coroutine off `start()`. Accepts
@@ -78,13 +103,60 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   unsigned int accept_loop_restarts_ = 0;
   static constexpr unsigned int kMaxAcceptLoopRestarts = 5;
 
-  // Per-connection session coroutines: each owns its socket (moved in),
-  // reads one request, dispatches it, writes the response and closes.
-  // Exceptions are caught and logged so a single misbehaving client can't
-  // tear down the io_context. Split out of the accept loop so each path is
-  // readable on its own and can be exercised in isolation.
+  // Per-connection session coroutines: each owns its socket (moved in), sets
+  // up the transport (the TLS handshake, or nothing) and hands the stream to
+  // serve_connection(). Exceptions are caught and logged so a single
+  // misbehaving client can't tear down the io_context. Split out of the
+  // accept loop so each path is readable on its own and can be exercised in
+  // isolation.
   void run_tls_session(boost::asio::ip::tcp::socket socket, std::string remote_ip, const boost::asio::yield_context& yield);
   void run_plain_session(boost::asio::ip::tcp::socket socket, std::string remote_ip, const boost::asio::yield_context& yield);
+
+  // Serve requests on one connection, back to back, until the client asks
+  // for the connection to close (HTTP/1.0, or `Connection: close`), goes
+  // away, sits idle for kClientTimeout, sends a body over the cap, or the
+  // server stops. The transport is already set up; the stream is what
+  // async_read / async_write go through.
+  template <class Stream>
+  void serve_connection(const std::shared_ptr<connection_state<Stream>>& state, const std::string& remote_ip, bool is_ssl,
+                        const boost::asio::yield_context& yield);
+
+  // Answer a request whose body is over the cap with a 413 and close. `parser`
+  // holds what was read before the parser refused: the header, which is all
+  // the answer needs.
+  template <class Stream>
+  void reject_oversized(Stream& stream, const boost::beast::http::request_parser<boost::beast::http::string_body>& parser, const std::string& remote_ip,
+                        bool is_ssl, const boost::asio::yield_context& yield);
+
+  // Connections that are up, by id, each with a closer that stop() calls.
+  // A kept-alive connection waits up to kClientTimeout for its next request;
+  // without this, stop() would wait that long too, for every idle browser tab.
+  // The closer posts onto the connection's strand and closes the socket only
+  // if the session is waiting on the client (connection_state::idle): one that
+  // is in a handler or writing an answer finishes that first and finds
+  // stopping_ set when it comes back for the next request.
+  std::uint64_t track_connection(std::function<void()> closer);
+  void forget_connection(std::uint64_t id);
+  void close_idle_connections();
+
+  // A connection's registration for its lifetime: tracked on construction,
+  // forgotten on destruction, so every return path of a session forgets it.
+  class connection_registration {
+   public:
+    connection_registration(ServerBeastImpl& server, std::function<void()> closer) : server_(server), id_(server.track_connection(std::move(closer))) {}
+    ~connection_registration() { server_.forget_connection(id_); }
+    connection_registration(const connection_registration&) = delete;
+    connection_registration& operator=(const connection_registration&) = delete;
+
+   private:
+    ServerBeastImpl& server_;
+    std::uint64_t id_;
+  };
+
+  // The body cap is applied before authentication, so any host that can reach
+  // the port can have a line logged per connection; this lets one through per
+  // address per minute, with the count of the rest.
+  net::connection_log_throttle oversized_log_;
 
   // Snapshot controllers_ under the mutex, run the matching one (if any),
   // and translate the result into `res`. Falls back to a plain 404 when
@@ -107,7 +179,7 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   // impossible on every Linux build.
   std::string tls_version_ = "1.2+";
   std::string ciphers_;
-  std::size_t body_limit_ = kDefaultBodyLimit;
+  std::size_t body_limit_ = Server::kDefaultBodyLimit;
   // Snapshot-on-read protection for `controllers_`. registerController()
   // may be called from any thread; dispatch coroutines copy the vector
   // briefly under the lock and iterate the snapshot lock-free.
@@ -133,6 +205,12 @@ class NSCP_MONGOOSE_EXPORT ServerBeastImpl final : public Server {
   std::string thread_name_ = "web server";
   thread_reporter thread_reporter_;
   std::atomic<bool> stopping_{false};
+  // See track_connection(). Touched from the session coroutines (any io
+  // thread) and from stop() (any thread), hence the lock; never held across a
+  // join or a post that could block.
+  mutable std::mutex connections_mu_;
+  std::map<std::uint64_t, std::function<void()>> connections_;
+  std::uint64_t next_connection_id_ = 0;
 };
 
 }  // namespace Mongoose

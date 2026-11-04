@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package PB.Failures;
+
+option optimize_for = LITE_RUNTIME;
+import "common.proto";
+import "plugin.proto";
+
+//
+// Failed checks: the last N non-OK check results the core dispatched.
+//
+// Every check - whatever transport asked for it - passes through one point in
+// the core on its way back, and that point keeps a bounded, in-memory log of
+// the ones that did not come back OK (see service/failed_check_store.hpp).
+// Consumers (the REST API, the web UI, `nscp test`, a module) read it through
+// NSAPIFailuresQuery with the request/response pair below.
+//
+
+//
+// One failed check, as the core saw it leave execute_query.
+//
+message FailedCheck {
+	// Monotonic and 1-based for the lifetime of the process; a cleared store
+	// does not restart it. A poller asks for `since = <the last index it saw>`
+	// and gets only what it has not seen.
+	uint64 index = 1;
+	// When the check finished, seconds since the unix epoch.
+	int64 timestamp = 2;
+	// Who asked: the caller subject resolved from the request header, in the
+	// `module[:principal]` form the permission layer uses ("NRPEServer",
+	// "WEBServer:admin", "Scheduler"); "*" when the caller is unknown.
+	string subject = 3;
+	// How deeply nested the check was: 0 for one a transport asked for
+	// directly, 1 for one a check_multi or check_and_forward ran on its
+	// behalf, and so on. Both ends of such a pair are recorded.
+	int32 depth = 4;
+	// The payload as it was returned, after the core's caps: the lines are
+	// truncated, the perf list is capped and `data` is cleared. `arguments`
+	// is filled from the request - with credential-looking values redacted -
+	// only when [/settings/core/failed checks] `record arguments` is on, and
+	// cleared otherwise.
+	PB.Commands.QueryResponseMessage.Response response = 5;
+}
+
+//
+// Failures request message.
+// Consumer (REST, the `nscp test` console, a module) -> core.
+//
+message FailuresRequestMessage {
+	message Request {
+		enum Command {
+			GET = 0;
+			// Drop every stored entry, then answer as GET does (with an empty
+			// list and `removed` set).
+			CLEAR = 1;
+		};
+
+		int64 id = 1;
+		Command command = 2;
+		// Only entries whose index is greater than this. 0 is everything.
+		uint64 since = 3;
+		// At most this many entries, the newest ones. 0 is no limit beyond
+		// what the store holds.
+		uint32 limit = 4;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Request payload = 2;
+}
+
+//
+// Failures response message.
+// The entries asked for, newest first, plus what a consumer needs to say how
+// the store is configured and whether it has missed anything.
+//
+message FailuresResponseMessage {
+	message Response {
+		int64 id = 1;
+		PB.Common.Result result = 2;
+
+		// Newest first.
+		repeated FailedCheck entries = 3;
+
+		// The store's configuration, so a UI can say "recording is off" or
+		// "arguments are not recorded" instead of showing an empty column.
+		bool enabled = 4;
+		uint64 max_entries = 5;
+		bool arguments_recorded = 6;
+		// The statuses that are recorded, as configured
+		// ("warning,critical,unknown").
+		string statuses = 7;
+
+		// The highest index handed out so far; 0 before the first failure. A
+		// poller that sees it move past its own `since` plus the entries it got
+		// knows the cap evicted something in between.
+		uint64 last_index = 8;
+		// Entries the cap has evicted since the process started.
+		uint64 dropped = 9;
+		// For CLEAR: how many entries were removed.
+		uint64 removed = 10;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Response payload = 2;
+}

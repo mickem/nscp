@@ -843,7 +843,9 @@ Registry():simple_function('reload_ncpa', reload_ncpa, 'reload the NCPA server')
       // than "not found", the way an unreadable certificate folder does for a
       // service account. The certificate checks ran outside the module's own
       // error handling, so that error escaped loading and the plugin manager
-      // unloaded the module, where no reload could bring it back.
+      // unloaded the module, where no reload could bring it back. The checks
+      // no longer throw at all: the error is reported in words and the
+      // listener refuses to start in the clear, with the module still loaded.
       if (onWindows) return;
       nscp = new NscpInstance();
       const loop = path.join(nscp.workDir, "loop");
@@ -855,10 +857,10 @@ Registry():simple_function('reload_ncpa', reload_ncpa, 'reload the NCPA server')
       });
       await nscp.waitForPortFree(PORT, { timeoutMs: 30_000 });
       nscp.start();
-      await waitForLog(nscp, "NCPA: the listener failed to start (the module stays loaded");
-      expect(nscp.capturedStdout()).toContain(
-        "NCPA: the listener failed to start (the module stays loaded",
-      );
+      await waitForLog(nscp, "NCPA listener has NOT been started");
+      const out = nscp.capturedStdout();
+      expect(out).toContain(`Could not check the certificate ${path.join(loop, "certificate.pem")}`);
+      expect(out).not.toMatch(/refused to load|Failed to load|Unknown exception in: NSLoadModuleEx/);
     });
   });
 

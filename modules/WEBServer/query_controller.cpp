@@ -18,6 +18,7 @@
 #include <str/xtos.hpp>
 
 #include "helpers.hpp"
+#include "perf_json.hpp"
 
 namespace json = boost::json;
 
@@ -360,38 +361,7 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
     for (const PB::Commands::QueryResponseMessage::Response::Line &l : r.lines()) {
       json::object line;
       line["message"] = l.message();
-
-      json::object perf;
-      for (const PB::Common::PerformanceData &p : l.perf()) {
-        json::object pdata;
-
-        if (p.has_float_value()) {
-          const auto &fv = p.float_value();
-          pdata["value"] = fv.value();
-          if (fv.has_minimum()) pdata["minimum"] = fv.minimum().value();
-          if (fv.has_maximum()) pdata["maximum"] = fv.maximum().value();
-          // Threshold fields carry Nagios range syntax when the original
-          // input used it (e.g. "4:5") - prefer that string over the
-          // numeric lower bound so the API faithfully reports what the
-          // upstream plugin emitted (issue #748). JSON consumers see
-          // `number` for plain thresholds and `string` for range syntax;
-          // the api.ts type mirrors that union.
-          if (!fv.warning_range().empty())
-            pdata["warning"] = fv.warning_range();
-          else if (fv.has_warning())
-            pdata["warning"] = fv.warning().value();
-          if (!fv.critical_range().empty())
-            pdata["critical"] = fv.critical_range();
-          else if (fv.has_critical())
-            pdata["critical"] = fv.critical().value();
-          pdata["unit"] = fv.unit();
-        }
-        if (p.has_string_value()) {
-          pdata["value"] = p.string_value().value();
-        }
-        perf[p.alias()] = pdata;
-      }
-      line["perf"] = perf;
+      line["perf"] = perf_json::to_json(l);
       lines.push_back(line);
     }
     node["lines"] = lines;

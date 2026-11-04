@@ -594,6 +594,7 @@ Default values used in other config sections.
 | [encoding](#nrpe-payload-encoding)                  |               | NRPE PAYLOAD ENCODING       |
 | [inbox](#inbox)                                     | inbox         | INBOX                       |
 | [password](#password)                               |               | Password                    |
+| [script root](#script-root)                         |               | Script root                 |
 | [socket queue size](#listen-queue)                  | 0             | LISTEN QUEUE                |
 | [thread pool](#thread-pool)                         | 10            | THREAD POOL                 |
 | [timeout](#timeout)                                 | 30            | TIMEOUT                     |
@@ -732,6 +733,50 @@ Password an inbound caller has to present. Stored hashed (pbkdf2-sha256$...) whe
 # Password
 password=
 ```
+
+=== "Windows"
+
+    #### Script root <a id="/settings/default/script root"></a>
+
+    The folder this module's scripts live in: ${scripts} by default (empty, or \`default\`). \`fleet\` is ${fleet-folder}/scripts, where the fleet sync stages a bundle's \`scripts/\` entries - a bundle that ships scripts sets this to \`fleet\` and refers to them as \`scripts\\<name>\`. \`shared\` is ${shared-path}/scripts; any other value is a folder (${...} tokens expanded). Python and Lua scripts live in its \`python\` and \`lua\` sub-folders. An external script is started in the folder *above* it, with a relative command such as \`scripts\\check.bat\` resolved against that folder - the rule the default layout has always followed, so a scripts folder moved elsewhere runs unchanged, scripts that call each other by relative path included. Set it under [/settings/default] to apply to every script module at once. SECURITY: whoever can write to this folder can change what the service runs. It is also what ext-scr show/delete are confined to and where ext-scr add --import copies to; ext-scr add --script <path> is not bounded by it (an administrator-only action, equivalent to editing the configuration directly).
+
+
+    | Key            | Description                             |
+    |----------------|-----------------------------------------|
+    | Path:          | [/settings/default](#/settings/default) |
+    | Key:           | script root                             |
+    | Default value: | _N/A_                                   |
+
+
+    **Sample:**
+
+    ```
+    [/settings/default]
+    # Script root
+    script root=
+    ```
+
+=== "Linux"
+
+    #### Script root <a id="/settings/default/script root"></a>
+
+    The folder this module's scripts live in: ${scripts} by default (empty, or \`default\`). \`fleet\` is ${fleet-folder}/scripts, where the fleet sync stages a bundle's \`scripts/\` entries - a bundle that ships scripts sets this to \`fleet\` and refers to them as \`scripts\\<name>\`. \`shared\` is ${shared-path}/scripts; any other value is a folder (${...} tokens expanded). Python and Lua scripts live in its \`python\` and \`lua\` sub-folders. An external script is started in the folder *above* it, with a relative command such as \`scripts\\check.bat\` resolved against that folder - the rule the default layout has always followed, so a scripts folder moved elsewhere runs unchanged, scripts that call each other by relative path included. Set it under [/settings/default] to apply to every script module at once. SECURITY: whoever can write to this folder can change what the service runs.
+
+
+    | Key            | Description                             |
+    |----------------|-----------------------------------------|
+    | Path:          | [/settings/default](#/settings/default) |
+    | Key:           | script root                             |
+    | Default value: | _N/A_                                   |
+
+
+    **Sample:**
+
+    ```
+    [/settings/default]
+    # Script root
+    script root=
+    ```
 
 #### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 

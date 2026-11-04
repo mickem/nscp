@@ -7,6 +7,7 @@
         <File Id="BOOST_DT" Name="boost_date_time.dll" DiskId="1" Source="$(var.Source)/boost_date_time.dll" Vital="yes" />
         <File Id="BOOST_C" Name="boost_chrono.dll" DiskId="1" Source="$(var.Source)/boost_chrono.dll" Vital="yes" />
         <File Id="BOOST_FS" Name="boost_filesystem.dll" DiskId="1" Source="$(var.Source)/boost_filesystem.dll" Vital="yes" />
+        <File Id="BOOST_JSON" Name="boost_json.dll" DiskId="1" Source="$(var.Source)/boost_json.dll" Vital="yes" />
 		<File Id="BOOST_PO" Name="boost_program_options.dll" DiskId="1" Source="$(var.Source)/boost_program_options.dll" Vital="yes" />
 		<?if "$(var.HasPython)" = "true"?>
 		<File Id="BOOST_PY" Name="boost_$(var.BoostPythonVersion).dll" DiskId="1" Source="$(var.Source)/boost_$(var.BoostPythonVersion).dll" Vital="yes" />
@@ -30,7 +31,6 @@
         <File Id="NSCP_WF" Name="nscp_where_filter.dll" DiskId="1" Source="$(var.Source)/nscp_where_filter.dll" Vital="yes" />
         <File Id="NSCP_NET" Name="nscp_net.dll" DiskId="1" Source="$(var.Source)/nscp_net.dll" Vital="yes" />
         <File Id="NSCP_CLIENT" Name="nscp_client.dll" DiskId="1" Source="$(var.Source)/nscp_client.dll" Vital="yes" />
-        <File Id="NSCP_JSON" Name="nscp_json.dll" DiskId="1" Source="$(var.Source)/nscp_json.dll" Vital="yes" />
         <RemoveFile Id="RemoveOldWhereFilter" Name="where_filter.dll" On="install" />
       </Component>
       <Component Id="MongooseLibs" Guid="146BDF2F-9895-41CF-9A7D-156F33493FB6">

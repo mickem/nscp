@@ -267,8 +267,10 @@ NSClientT::NSClientT()
       plugins_(new nsclient::core::plugin_manager(path_, log_instance_)),
       storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)),
       tags_(new nsclient::core::tag_repository()),
-      facts_(new nsclient::core::fact_repository()) {
+      facts_(new nsclient::core::fact_repository()),
+      failures_(new nsclient::core::failed_check_store()) {
   plugins_->set_fact_repository(facts_);
+  plugins_->set_failed_check_store(failures_);
   provider_ = new nscp_settings_provider(path_, log_instance_);
   log_instance_->startup();
 }
@@ -538,6 +540,7 @@ bool NSClientT::boot_start_plugins(bool boot) {
     int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));
     scheduler_.set_threads(count);
     boot_facts();
+    boot_failed_checks();
     scheduler_.start();
   }
   try {
@@ -631,6 +634,75 @@ void NSClientT::boot_facts() {
   }
 }
 
+// The failed-check log's section. Every key is re-read on a settings reload
+// (read_failed_check_settings), so an operator can turn argument recording on
+// to debug a failing check and off again without restarting the service.
+void NSClientT::boot_failed_checks() {
+  try {
+    const std::string path = "/settings/core/failed checks";
+    settings_manager::get_core()->register_path(0xffff, path, "Failed-check log",
+                                                "The last few check results that did not come back OK, whatever asked for them (NRPE, REST, the scheduler, "
+                                                "a check that runs other checks), kept in memory and served on /api/v2/failures and the web UI. Every key "
+                                                "here is re-read on a settings reload.",
+                                                true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "enabled", "bool", "Record failed checks",
+                                               "Keep the last `max entries` non-OK check results. Turning it off empties the log.", "true", true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "max entries", "int", "How many to keep",
+                                               "The newest results are kept and the oldest dropped once the log is full. Each entry holds one check's "
+                                               "output and performance data, so a few hundred is cheap; the cap is " +
+                                                   str::xtos(nsclient::core::failed_check_store::max_max_entries) + ".",
+                                               str::xtos(nsclient::core::failed_check_store::default_max_entries), true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "record arguments", "bool", "Record the check's arguments",
+                                               "Store the options each failed check was called with, so the log shows what was asked and not only what "
+                                               "came back. Off by default because an argument can carry a credential (a database password, a token for "
+                                               "a forwarded check): even when on, any argument whose name mentions a password or a token is stored as "
+                                               "`***`, but a secret passed under another name is not.",
+                                               "false", true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "statuses", "string", "Which results count as failed",
+                                               "A comma-separated list of warning, critical and unknown. Drop warning to log only the results that need "
+                                               "someone to act. OK is never recorded.",
+                                               nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses), true,
+                                               false);
+    read_failed_check_settings();
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to configure the failed-check log: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to configure the failed-check log");
+  }
+}
+
+void NSClientT::read_failed_check_settings() {
+  const std::string path = "/settings/core/failed checks";
+  nsclient::core::failed_check_store::options options = failures_->get_options();
+  try {
+    options.enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "enabled", "true"));
+    options.record_arguments = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "record arguments", "false"));
+    const std::string max_entries =
+        settings_manager::get_settings()->get_string(path, "max entries", str::xtos(nsclient::core::failed_check_store::default_max_entries));
+    try {
+      options.max_entries = str::stox<std::size_t>(max_entries);
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid [" + path + "] max entries '" + max_entries + "', keeping " + str::xtos(options.max_entries) + ": " +
+                         utf8::utf8_from_native(e.what()));
+    }
+    const std::string statuses = settings_manager::get_settings()->get_string(
+        path, "statuses", nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses));
+    std::string error;
+    unsigned mask = 0;
+    if (nsclient::core::failed_check_store::parse_statuses(statuses, mask, error)) {
+      options.statuses = mask;
+    } else {
+      LOG_ERROR_CORE_STD("Invalid [" + path + "] statuses '" + statuses + "', keeping '" +
+                         nsclient::core::failed_check_store::format_statuses(options.statuses) + "': " + error);
+    }
+    failures_->configure(options);
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to read the failed-check log settings: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to read the failed-check log settings");
+  }
+}
+
 // [/settings/facts] max size, applied to the repository. Read at boot, on a
 // settings-only reload, and on a full reload before its facts round, so a cap
 // that was raised or lowered applies without a restart.
@@ -646,8 +718,8 @@ void NSClientT::read_facts_max_size() {
     }
     const std::vector<std::string> dropped = facts_->set_max_size(value);
     for (const std::string &fact_set : dropped) {
-      LOG_ERROR_CORE_STD("Dropped the fact set '" + fact_set + "': the facts document no longer fits the lowered [/settings/facts] max size of " +
-                         max_size + " bytes. Disable a set, or raise max size.");
+      LOG_ERROR_CORE_STD("Dropped the fact set '" + fact_set + "': the facts document no longer fits the lowered [/settings/facts] max size of " + max_size +
+                         " bytes. Disable a set, or raise max size.");
     }
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the previous one: " + utf8::utf8_from_native(e.what()));
@@ -853,6 +925,7 @@ void NSClientT::reloadPlugins() {
   // set that is no longer enabled has to leave the document now rather than at
   // the next hourly round.
   process_facts("reload", true);
+  read_failed_check_settings();
 }
 
 bool NSClientT::do_reload(const std::string module) {
@@ -876,6 +949,7 @@ bool NSClientT::do_reload(const std::string module) {
         read_facts_max_size();
         collect_agent_facts();
       }
+      read_failed_check_settings();
       report_settings_problems();
       return true;
     } catch (const std::exception &e) {

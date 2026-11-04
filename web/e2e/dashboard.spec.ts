@@ -49,6 +49,16 @@ test("shows the disk usage bar with formatted sizes", async ({ page }) => {
   await expect(diskCard.getByRole("progressbar")).toBeVisible();
 });
 
+test("shows the latest failed checks", async ({ page }) => {
+  await page.goto("/");
+
+  const card = page.locator(".MuiCard-root", { hasText: "Failed checks" });
+  await expect(card.getByText("check_drivesize", { exact: true })).toBeVisible();
+  await expect(card.getByText("CRITICAL C: 92% used")).toBeVisible();
+  await card.getByRole("link", { name: "Show all" }).click();
+  await expect(page).toHaveURL(/\/failures$/);
+});
+
 test("shows host tags as chips", async ({ page }) => {
   await page.goto("/");
 

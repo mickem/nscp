@@ -909,21 +909,29 @@ verification error that says nothing about the token; see
 [Give the agents something to trust](fleet.md#step-2-give-the-agents-something-to-trust) for how to get the file out of
 the fleet server.
 
-**Enrolling as part of a real install.** The fleet properties combine with the rest of the command line as usual:
+**Enrolling as part of a real install.** The fleet properties combine with the properties that decide *what is
+installed and where* as usual:
 
 ```batch
 msiexec /qn /l*v install.log /i NSCP-<version>-x64.msi ^
   ADDLOCAL=ALL REMOVE=PythonScript ^
   LAYOUT=modern ^
-  ALLOWED_HOSTS=10.0.0.0/8 ^
   FLEET_SERVER=https://fleet.example.internal:8443 ^
   FLEET_TOKEN=<bootstrap-token> ^
   FLEET_CA=C:\ProgramData\fleet-ca.pem ^
   FLEET_HOSTNAME=web01.example.internal
 ```
 
-Keep that local part small: whatever the fleet server sends after the first sync is the configuration you actually
-maintain, and a value set locally here [wins over the fleet-managed one](fleet.md#step-5-send-it-some-configuration).
+**A fleet install writes no local configuration.** With `FLEET_SERVER` given, the only thing the installer adds to
+`nsclient.ini` is the `[/includes] fleet` line: no modules from the monitoring-tool profile, no `allowed hosts`, no
+generated password and no NRPE preset - everything comes from the fleet server. A value set locally would
+[win over the fleet-managed one](fleet.md#step-5-send-it-some-configuration) and make the server's setting look
+ignored. The configuration properties (`ALLOWED_HOSTS`, `NSCLIENT_PWD`, `CONF_SET`, `CONF_INCLUDES`, `NRPEMODE`,
+`CERTIFICATE_KEY`, `NSCA_*`, `OP5_*`) are therefore ignored in fleet mode, with a warning in the install log for each
+one passed; set them on the fleet server instead. An interactive install with `FLEET_SERVER` on the command line skips
+the monitoring-tool and configuration pages altogether and only asks what to install. The certificate files
+from `CERTIFICATE`/`CERTIFICATE_KEY`/`CERTIFICATE_CA` are still installed. Re-enrolling a host that already has a
+configuration leaves that configuration as it is.
 
 **From PowerShell.** PowerShell parses the arguments before `msiexec` sees them, so pass them as an array and wait for
 the exit code rather than assuming it worked:

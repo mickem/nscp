@@ -45,7 +45,9 @@ class NSCP_MONGOOSE_EXPORT Controller {
 
   /**
    * Sink for text that must reach the agent log but never a client. Installed
-   * once by the server; unset it is a no-op.
+   * once by the server; unset it is a no-op. Whoever installs it clears it
+   * (setErrorSink(nullptr)) before its own DLL unloads: the callable's code
+   * lives there, and this static is destroyed only at process exit.
    */
   typedef std::function<void(const std::string&)> error_sink;
   static void setErrorSink(error_sink sink);

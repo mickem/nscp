@@ -404,7 +404,11 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     lpApplicationName = app_name_storage.c_str();
     cmd_line_w = process::build_command_line_w(argv);
   } else {
-    cmd_line_w = utf8::cvt<std::wstring>(args.command);
+    // The same rooting for the single-string form: CreateProcess would look
+    // for a relative `scripts\check_foo.bat` beside nscp.exe and in the
+    // agent's working directory, which is the installation directory's tree
+    // and never a configured `script root`.
+    cmd_line_w = utf8::cvt<std::wstring>(process::resolve_command_line(args.root_path, args.command));
   }
   hlp::tchar_buffer tmpCmd(cmd_line_w);
   tmpCmd[cmd_line_w.length()] = 0;
@@ -436,6 +440,11 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
   // CreateProcessWithLogonW runs through the secondary logon service and
   // takes no inherit list; it duplicates only the std handles into the child.
   const DWORD logon_creation_flags = creation_flags & ~kExtendedStartupInfoPresent;
+  // Where the child runs: the configured `script root` when there is one,
+  // else the root the relative command was resolved against (${base-path}),
+  // which is what every script has always been started in on Windows.
+  const std::wstring working_directory = utf8::cvt<std::wstring>(args.working_directory.empty() ? args.root_path : args.working_directory);
+  const wchar_t *lpCurrentDirectory = working_directory.empty() ? nullptr : working_directory.c_str();
   if (pHandle) {
     impersonator imp(pHandle);
     if (!imp.isActive()) {
@@ -453,7 +462,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       return NSCAPI::query_return_codes::returnUNKNOWN;
     }
     processOK = CreateProcessAsUser(pHandle.get(), lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE,
-                                    creation_flags | CREATE_UNICODE_ENVIRONMENT, environment.get(), utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
+                                    creation_flags | CREATE_UNICODE_ENVIRONMENT, environment.get(), lpCurrentDirectory, &si, &pi);
     if (!processOK) {
       imp.close();
       const DWORD error = GetLastError();
@@ -462,7 +471,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
         logon_si.cb = sizeof(STARTUPINFOW);
         processOK = CreateProcessWithLogonW(utf8::cvt<std::wstring>(args.user).c_str(), utf8::cvt<std::wstring>(args.domain).c_str(),
                                             utf8::cvt<std::wstring>(args.password).c_str(), LOGON_WITH_PROFILE, lpApplicationName, tmpCmd.get(),
-                                            logon_creation_flags, nullptr, utf8::cvt<std::wstring>(args.root_path).c_str(), &logon_si, &pi);
+                                            logon_creation_flags, nullptr, lpCurrentDirectory, &logon_si, &pi);
       } else {
         if (error == ERROR_BAD_EXE_FORMAT) {
           output =
@@ -478,8 +487,8 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       output = "Failed to prepare pipes for " + args.alias + ": " + error::lookup::last_error();
       return NSCAPI::query_return_codes::returnUNKNOWN;
     }
-    processOK = CreateProcess(lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE, creation_flags, nullptr,
-                              utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
+    processOK =
+        CreateProcess(lpApplicationName, tmpCmd.get(), nullptr, nullptr, args.fork ? FALSE : TRUE, creation_flags, nullptr, lpCurrentDirectory, &si, &pi);
   }
   // Captured here: the reset and unlock below may touch the thread's last
   // error, and the failure report at the end reads this local instead.

@@ -50,7 +50,9 @@ nscapi::core_wrapper *test_core() {
 }
 
 std::shared_ptr<script_provider> make_provider(const std::map<std::string, std::string> &wrappings = {}, const int id = 42) {
-  return std::make_shared<script_provider>(id, test_core(), "/settings/external scripts/scripts", boost::filesystem::path("/opt/nscp"), wrappings);
+  scripts::root::layout layout;
+  layout.scripts = boost::filesystem::path("/opt/nscp");
+  return std::make_shared<script_provider>(id, test_core(), "/settings/external scripts/scripts", layout, wrappings);
 }
 
 }  // namespace

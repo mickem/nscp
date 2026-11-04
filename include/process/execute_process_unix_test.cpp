@@ -24,6 +24,7 @@
 
 #include <NSCAPI.h>
 #include <errno.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -107,6 +108,52 @@ TEST(ExecuteProcessUnix, ArgvExecFailureReturns127) {
   const int ret = process::execute_process(args, output);
   EXPECT_EQ(ret, 127);
   EXPECT_EQ(output, "");
+}
+
+namespace {
+// The physical path of `dir`, as `pwd -P` prints it: /tmp is a symlink to
+// /private/tmp on macOS, and the shell reports where it really is.
+std::string physical_path(const char* dir) {
+  char resolved[PATH_MAX];
+  return realpath(dir, resolved) == nullptr ? std::string(dir) : std::string(resolved);
+}
+}  // namespace
+
+// A configured `script root` is where the child runs, so a script that reaches
+// a helper as `scripts/helper.sh` finds it wherever the tree was placed.
+TEST(ExecuteProcessUnix, ArgvRunsInTheWorkingDirectoryWhenOneIsSet) {
+  process::exec_arguments args = make_args("pwd");
+  args.argv = {"/bin/sh", "-c", "pwd -P"};
+  args.working_directory = "/tmp";
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, 0);
+  EXPECT_EQ(output, physical_path("/tmp") + "\n");
+}
+
+// No working directory configured: the child inherits the service's, as it
+// always did on Unix - an existing script that relied on it keeps working.
+TEST(ExecuteProcessUnix, ArgvInheritsTheWorkingDirectoryByDefault) {
+  char here[PATH_MAX];
+  ASSERT_NE(getcwd(here, sizeof(here)), nullptr);
+  process::exec_arguments args = make_args("pwd");
+  args.argv = {"/bin/sh", "-c", "pwd -P"};
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, 0);
+  EXPECT_EQ(output, physical_path(here) + "\n");
+}
+
+// A root that cannot be entered fails the check and says so, rather than
+// running the script from wherever the service happened to be.
+TEST(ExecuteProcessUnix, ArgvRefusesAWorkingDirectoryThatDoesNotExist) {
+  process::exec_arguments args = make_args("pwd");
+  args.argv = {"/bin/sh", "-c", "pwd"};
+  args.working_directory = "/no/such/script/root";
+  std::string output;
+  const int ret = process::execute_process(args, output);
+  EXPECT_EQ(ret, 127);
+  EXPECT_NE(output.find("Failed to enter the script root directory"), std::string::npos) << output;
 }
 
 TEST(ExecuteProcessUnix, ArgvTimeoutKillsChildAndReportsUnknown) {

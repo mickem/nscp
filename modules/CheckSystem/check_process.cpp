@@ -62,8 +62,8 @@ filter_obj_handler::filter_obj_handler() {
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-    ("peak_pagefile", parsers::where::type_size,[](auto obj, auto context) {return obj->get_PageFileUsage(); }, "Page file usage in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ppf_use")
-    ("pagefile", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakPageFileUsage(); }, "Peak page file use in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pf_use")
+    ("peak_pagefile", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakPageFileUsage(); }, "Peak page file use in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ppf_use")
+    ("pagefile", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PageFileUsage(); }, "Page file usage in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pf_use")
     ("pagefile_pct", [](auto obj, auto context) {return obj->get_pagefile_pct(); }, "Page file usage as a percentage of the system commit limit").add_perf("%", "", " pf_pct")
 
     ("creation", parsers::where::type_date, [](auto obj, auto context) {return obj->get_creation_time(); }, "Creation time").add_perf("", "", " creation")
@@ -81,8 +81,8 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_human_string_context("peak_working_set", &filter_obj::get_PeakWorkingSetSize_human, "");
   registry_.add_human_string_context("working_set", &filter_obj::get_WorkingSetSize_human, "");
   registry_.add_human_string_context("rss", &filter_obj::get_WorkingSetSize_human, "");
-  registry_.add_human_string_context("peak_pagefile", &filter_obj::get_PageFileUsage_human, "");
-  registry_.add_human_string_context("pagefile", &filter_obj::get_PeakPageFileUsage_human, "");
+  registry_.add_human_string_context("peak_pagefile", &filter_obj::get_PeakPageFileUsage_human, "");
+  registry_.add_human_string_context("pagefile", &filter_obj::get_PageFileUsage_human, "");
 
   registry_.add_converter(type_custom_state, &parse_state);
 }

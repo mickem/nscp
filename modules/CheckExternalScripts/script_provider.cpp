@@ -6,9 +6,9 @@
 #include <boost/thread.hpp>
 #include <str/utils.hpp>
 
-script_provider::script_provider(const int id, nscapi::core_wrapper* core, const std::string& settings_path, const boost::filesystem::path& root,
+script_provider::script_provider(const int id, nscapi::core_wrapper* core, const std::string& settings_path, const scripts::root::layout& layout,
                                  const std::map<std::string, std::string>& wrappings)
-    : id_(id), core_(core), root_(root), wrappings_(wrappings) {
+    : id_(id), core_(core), layout_(layout), wrappings_(wrappings) {
   commands_.set_path(settings_path);
   setup_commands();
 }
@@ -19,7 +19,9 @@ nscapi::core_wrapper* script_provider::get_core() { return core_; }
 
 std::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() { return std::make_shared<nscapi::settings_proxy>(get_id(), get_core()); }
 
-boost::filesystem::path script_provider::get_root() { return root_; }
+boost::filesystem::path script_provider::get_root() { return layout_.scripts; }
+
+scripts::root::layout script_provider::get_layout() { return layout_; }
 
 std::string script_provider::generate_wrapped_command(const std::string command) {
   const str::utils::token tok = str::utils::getToken(command, ' ');

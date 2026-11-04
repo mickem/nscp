@@ -10,6 +10,7 @@ the first place*:
 | `check_wmi` | `query=` | any WMI class, including the filesystem via `CIM_DataFile` and `Win32_Directory` |
 | `check_pdh` (`check_counter`) | `counter=` | any performance object on the machine |
 | `check_files`, `check_single_file` | `path=`, `file=` | any directory tree the agent can read: every name, size and timestamp, plus a checksum of any file |
+| `check_largest_files` | `path=` | the names and sizes of the largest files and folders in any directory tree; on Windows read from the NTFS Master File Table, past per-folder permissions |
 | `check_disk_write` | `file=` | creates and deletes a test file at any path the agent can write |
 | `check_registry_key`, `check_registry_value` | `key=` | any registry key, and the value data itself, with binary rendered as hex |
 | `check_eventlog` | `file=`, `log=` | any event log channel, and the event text itself |
@@ -40,7 +41,7 @@ Each module has one mode setting and, where it applies, one allow list:
 | `check_logfile` | `[/settings/logfile]` | `file access` | `allowed files` |
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
-| `check_files`, `check_single_file`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
+| `check_files`, `check_single_file`, `check_largest_files`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
 | `check_registry_key`, `check_registry_value` | `[/settings/system/windows]` | `registry access` | `allowed registry keys` |
 | `check_eventlog` | `[/settings/eventlog]` | `log access` | `allowed logs` |
 
@@ -143,7 +144,7 @@ element ending in a space or a period, which Win32 would silently rewrite.
 On Windows, matching ignores case; on Linux it does not, because
 `/var/log/App.log` and `/var/log/app.log` are two different files there.
 
-## check_files, check_single_file and check_disk_write
+## check_files, check_single_file, check_largest_files and check_disk_write
 
 ```ini
 [/settings/disk]
@@ -158,8 +159,8 @@ logs = C:/logs
 spool = D:/data/incoming
 ```
 
-`[/settings/disk]` covers all three at once: `check_files` and
-`check_single_file` read, `check_disk_write` writes. Entry shapes and path
+`[/settings/disk]` covers all four at once: `check_files`,
+`check_single_file` and `check_largest_files` read, `check_disk_write` writes. Entry shapes and path
 resolution are exactly as for `check_logfile` above — a directory covers its
 whole subtree, a wildcard is matched against the resolved path, and anything
 else is a single file.
@@ -191,6 +192,14 @@ symbolic links — directory links and junctions, and file links too — so
 everything it yields is genuinely beneath a root which passed. It also keeps
 the inner loop free of policy work on a check that may visit many thousands of
 files.
+
+`check_largest_files` is gated the same way, on its scan root only, and does
+not follow links either. On Windows it may read the NTFS Master File Table
+straight off the volume rather than asking for folder listings, and that read
+does not consult per-folder permissions: a folder that denies even `SYSTEM` is
+still listed. What it reports is still only names and sizes beneath the root
+that passed. Pass `method=walk` to keep it inside the filesystem's permission
+checks.
 
 `check_disk_write` cannot overwrite anything — the test file is created
 exclusively, capped at 1 MB and deleted afterwards — but where you have narrowed

@@ -5,6 +5,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <breakpad/exception_handler_win32.hpp>
+#include <cstdio>
 #include <exception>
 #include <file_helpers.hpp>
 #include <iostream>
@@ -158,18 +159,33 @@ void ExceptionManager::handle_exception(EXCEPTION_POINTERS *exinfo) {
     // address, which is what every crash file used to say for the module.
     const std::string module_name = fn[0] == 0 ? std::string("<unknown module>") : utf8::cvt<std::string>(std::wstring(fn));
 
-    DWORD code = exinfo->ExceptionRecord->ExceptionCode;
-    std::ofstream oss(crash_file, std::ios::out);
-    oss << "SE " << seDescription(code) << " at address 0x" << std::hex << exinfo->ExceptionRecord->ExceptionAddress << std::dec << " inside " << module_name
-        << " loaded at base address 0x" << std::hex << mi.lpBaseOfDll << "\n";
-
+    // Formatted with snprintf and written through the Win32 API, not an
+    // ofstream: a crash during process exit lands here after the C++ runtime
+    // has torn its locale down, and opening a stream reads the codecvt facet
+    // from it - the handler then faulted itself and left a 0-byte file.
+    const DWORD code = exinfo->ExceptionRecord->ExceptionCode;
+    const ULONG_PTR *info = exinfo->ExceptionRecord->ExceptionInformation;
+    std::string text;
+    char line[1024];
+    std::snprintf(line, sizeof(line), "SE %s at address 0x%p inside %s loaded at base address 0x%p\n", seDescription(code),
+                  exinfo->ExceptionRecord->ExceptionAddress, module_name.c_str(), mi.lpBaseOfDll);
+    text += line;
     if (code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_IN_PAGE_ERROR) {
-      oss << "Invalid operation: " << opDescription(exinfo->ExceptionRecord->ExceptionInformation[0]) << " at address 0x" << std::hex
-          << exinfo->ExceptionRecord->ExceptionInformation[1] << std::dec << "\n";
+      std::snprintf(line, sizeof(line), "Invalid operation: %s at address 0x%llx\n", opDescription(info[0]), static_cast<unsigned long long>(info[1]));
+      text += line;
+    }
+    if (code == EXCEPTION_IN_PAGE_ERROR) {
+      std::snprintf(line, sizeof(line), "Underlying NTSTATUS code that resulted in the exception %llu\n", static_cast<unsigned long long>(info[2]));
+      text += line;
     }
 
-    if (code == EXCEPTION_IN_PAGE_ERROR) {
-      oss << "Underlying NTSTATUS code that resulted in the exception " << exinfo->ExceptionRecord->ExceptionInformation[2] << "\n";
+    const HANDLE file = ::CreateFileW(utf8::cvt<std::wstring>(crash_file).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+      report_error("Failed to create crash file");
+    } else {
+      DWORD written = 0;
+      ::WriteFile(file, text.data(), static_cast<DWORD>(text.size()), &written, nullptr);
+      ::CloseHandle(file);
     }
   }
 

@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <net/socket/socket_helpers.hpp>
+#include <net/web_server_limits.hpp>
 #include <net/web_server_logger.hpp>
 #include <net/web_server_tls.hpp>
 #include <nscapi/nscapi_common_options.hpp>
@@ -34,6 +35,7 @@
 #include "error_handler.hpp"
 #include "events_controller.hpp"
 #include "facts_controller.hpp"
+#include "failures_controller.hpp"
 #include "info_controller.hpp"
 #include "legacy_command_controller.hpp"
 #include "legacy_controller.hpp"
@@ -98,6 +100,16 @@ WEBServer::~WEBServer() {
   } catch (...) {
     // A destructor must not throw.
   }
+  // The sink lives in nscp_mongoose.dll but the callable in it was built here,
+  // so its vtable is in this DLL. Left installed, it outlives the module: the
+  // static's atexit destructor then calls through a vtable in an unloaded image
+  // and the agent dies on its way out. Every server thread is gone by now
+  // (stop_and_release joined them, or the releaser above did).
+  try {
+    Mongoose::Controller::setErrorSink(nullptr);
+  } catch (...) {
+    // A destructor must not throw.
+  }
 }
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -125,6 +137,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::string tls_version;
   std::string allowed_ciphers;
   std::string admin_password;
+  std::string max_request_size;
   int threads;
   bool allow_insecure = false;
   bool log_errors = true;
@@ -177,7 +190,15 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.alias()
       .add_key_to_settings()
       .add_string("port", sh::string_key(&port, "8443"), "Server port", "Port to use for WEB server.")
-      .add_int("threads", sh::int_key(&threads, 10), "Server threads", "The number of threads in the sever response pool.")
+      .add_int("threads", sh::int_key(&threads, 10), "Server threads",
+               "How many requests the WEB server serves at once. A request holds its thread until the check it runs returns, so this is "
+               "how many slow checks can be in flight over REST before the next request waits.")
+      .add_string("max request size", sh::string_key(&max_request_size, net::kDefaultWebMaxRequestSize), "MAX REQUEST SIZE",
+                  "The largest request body the server accepts, as a byte count with an optional k, m or g unit (`512k`, `3MiB`). A request "
+                  "declaring more is answered 413 and logged, and nothing of its body is kept. The default, 3MiB, is what the server has always "
+                  "buffered on Windows; raise it for a script upload or a bulk result submission that is larger. A value the server cannot read "
+                  "is logged and the default used. On the mongoose web backend (Windows) values above 3MiB are capped at 3MiB by the backend's "
+                  "receive buffer.")
       .add_bool(
           "allow anonymous access", nscapi::settings_helper::bool_fun_key([this](auto value) { this->session->set_allow_anonymous(value); }, false),
           "ALLOW ANONYMOUS ACCESS",
@@ -448,7 +469,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // flip the agent to cleartext HTTP with no signal beyond a log line, which
     // also affected operator-chosen non-default ports. We now refuse to start
     // in the clear unless the operator explicitly opts in via `allow insecure`.
-    const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
+    boost::system::error_code probe;  // an untraversable parent reads as missing rather than throwing out of module load
+    const bool cert_missing = !boost::filesystem::is_regular_file(certificate, probe);
     // The trailing "s" only denotes TLS intent; strip it before binding.
     if (boost::ends_with(port, "s")) {
       port = port.substr(0, port.length() - 1);
@@ -530,7 +552,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // reading it; reassigning it under them is the reload hazard CLAUDE.md
     // warns about, and Controller.h documents the sink as installed once. The
     // lambda captures nothing and logs through the plugin singleton, so the one
-    // installed first stays correct.
+    // installed first stays correct. The destructor uninstalls it.
     //
     // Not gated on normalStart alone: a module first enabled *during* a reload
     // arrives here with reloadStart, and that agent would then have no sink at
@@ -541,7 +563,24 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server.reset(Server::make_server(logger));
     // The guard line of a dying server thread reaches the log as written.
     server->setThreadReporting("web server", NSC_THREAD_REPORTER);
+    // Requests run on a pool, so one slow check over REST does not hold up
+    // every other request, the web UI and the metrics endpoint.
+    server->setWorkerThreads(static_cast<std::size_t>(threads < 1 ? 1 : threads));
     net::apply_tls_options(*server, tls_version, allowed_ciphers);
+    {
+      // Falls back rather than refusing to start: the default is the safe
+      // side of this setting, and a REST API that is down over a typo in a
+      // size would cost more than a cap the operator did not get.
+      std::size_t max_request_bytes = Mongoose::Server::kDefaultBodyLimit;
+      std::string size_error;
+      if (!net::parse_request_size(max_request_size, max_request_bytes, size_error)) {
+        // The number the servers hold, not the setting's string parsed again:
+        // this path exists because a parse failed.
+        max_request_bytes = Mongoose::Server::kDefaultBodyLimit;
+        NSC_LOG_ERROR("Ignoring 'max request size = " + max_request_size + "': " + size_error + "; using the default " + net::kDefaultWebMaxRequestSize + ".");
+      }
+      server->setBodyLimit(max_request_bytes);
+    }
     if (cert_missing) {
       NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
     } else {
@@ -574,6 +613,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     server->registerController(new info_controller(2, session, get_core(), get_id()));
     server->registerController(new tags_controller(2, session, get_core(), get_id()));
     server->registerController(new facts_controller(2, session, get_core(), get_id()));
+    server->registerController(new failures_controller(2, session, get_core(), get_id()));
     server->registerController(new settings_controller(2, session, get_core(), get_id()));
     server->registerController(new login_controller(2, session));
     server->registerController(new metrics_controller(2, session, get_core(), get_id()));
@@ -972,11 +1012,8 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 }
@@ -1052,11 +1089,8 @@ bool WEBServer::cli_add_role(const PB::Commands::ExecuteRequestMessage::Request 
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 }
@@ -1254,13 +1288,16 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
       for (const auto &e : messages) {
         result << "Certificate validation: " << e << std::endl;
       }
-      if (!boost::filesystem::is_regular_file(certificate)) {
+      // error_code overloads: a parent this process cannot traverse is a
+      // "does not exist" to report, not a filesystem_error to throw.
+      boost::system::error_code probe;
+      if (!boost::filesystem::is_regular_file(certificate, probe)) {
         result << "WARNING: The certificate " << certificate
                << " does not exist. The WEB server refuses to start without it: place a certificate there, "
                   "point --certificate at the default ${certificate-path}/certificate.pem to have one generated, "
                   "or run `nscp web install --insecure` to accept cleartext HTTP."
                << std::endl;
-      } else if (!key.empty() && cert != key && !boost::filesystem::is_regular_file(certificate_key)) {
+      } else if (!key.empty() && cert != key && !boost::filesystem::is_regular_file(certificate_key, probe)) {
         result << "WARNING: The certificate key " << certificate_key
                << " does not exist. The WEB server will fail to load its certificate until it does (leave --certificate-key "
                   "empty when the key is in the certificate file, as it is for a generated one)."
@@ -1376,11 +1413,8 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response, "Failed to install the WEB server");
     return true;
   }
 }
@@ -1420,8 +1454,8 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
       nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
       return true;
     }
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  } catch (...) {
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 

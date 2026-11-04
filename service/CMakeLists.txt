@@ -4,6 +4,8 @@ set(TARGET nscp)
 
 project(service)
 include_directories(${BOOST_INCLUDE_DIRS})
+# command_module_map.hpp, written by the top-level CMakeLists.txt.
+include_directories(${NSCP_GENERATED_INCLUDEDIR})
 # Include path for the zip backend: vendored miniz on Windows, system libzip
 # elsewhere. The nscp_miniz target propagates the right path either way, but
 # legacy direct includes need this fallback while the source still uses
@@ -20,6 +22,7 @@ set(service_SRCS
     fatal_handler.cpp
     path_manager.cpp
     plugins/plugin_manager.cpp
+    plugins/command_hints.cpp
     plugins/master_plugin_list.cpp
     plugins/dll_plugin.cpp
     plugins/plugin_cache.cpp
@@ -96,6 +99,7 @@ if(WIN32)
         registry_query_handler.hpp
         storage_query_handler.hpp
         plugins/plugin_manager.hpp
+        plugins/command_hints.hpp
         plugins/dll_plugin.h
         plugins/plugin_interface.hpp
         plugins/plugin_list.hpp
@@ -217,7 +221,7 @@ target_link_libraries(
     settings_manager
     expression_parser
     nscp_miniz
-    nscp_json
+    ${Boost_JSON_LIBRARY}
     nscp_net
 )
 
@@ -250,10 +254,12 @@ NSCP_CREATE_TEST(
         tag_repository.hpp
         fact_repository_test.cpp
         fact_repository.hpp
+        failed_check_store_test.cpp
+        failed_check_store.hpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
@@ -336,7 +342,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
@@ -358,6 +364,8 @@ NSCP_CREATE_TEST(
         plugins/plugin_cache_test.cpp
         plugins/plugin_manager.cpp
         plugins/plugin_manager_test.cpp
+        plugins/command_hints.cpp
+        plugins/command_hints_test.cpp
         plugins/plugin_interface_test.cpp
         plugins/dll_plugin.cpp
         plugins/dll_plugin_test.cpp
@@ -371,7 +379,7 @@ NSCP_CREATE_TEST(
         ${service_test_SRCS}
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
-        nscp_json
+        ${Boost_JSON_LIBRARY}
         # gmock_main, not gtest_main: dll_plugin_test.cpp uses EXPECT_THAT with
         # a gmock matcher. See NSCP_GMOCK_MAIN in the top-level CMakeLists.
         ${NSCP_GMOCK_MAIN}

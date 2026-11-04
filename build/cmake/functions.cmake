@@ -1,6 +1,7 @@
 macro(LOAD_SECTIONS _TARGET_LIST _path _title)
     message(STATUS "Adding all: ${_title}")
     set(${_TARGET_LIST})
+    set(${_TARGET_LIST}_DIRS)
     file(GLOB TMP_LIST RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" ${_path})
     foreach(_CURRENT_MODULE ${TMP_LIST})
         get_filename_component(CURRENT_MODULE_PATH ${_CURRENT_MODULE} PATH)
@@ -34,6 +35,13 @@ macro(LOAD_SECTIONS _TARGET_LIST _path _title)
                 set(${_TARGET_LIST}
                     ${${_TARGET_LIST}}
                     ${CURRENT_MODULE_NAME}
+                )
+                # The source folders of what was built, alongside the names:
+                # the command -> module map reads their module.json.
+                list(
+                    APPEND
+                    ${_TARGET_LIST}_DIRS
+                    "${CMAKE_CURRENT_SOURCE_DIR}/${CURRENT_MODULE_PATH}"
                 )
             else(BUILD_MODULE)
                 message(
@@ -122,6 +130,7 @@ macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
         DEPENDS
             ${_SOURCE}/module.json
             "${BUILD_PYTHON_FOLDER}/create_plugin_module.py"
+            "${BUILD_PYTHON_FOLDER}/module_json.py"
     )
     set(${_SRCS}
         ${${_SRCS}}
@@ -402,8 +411,8 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
         # Windows exports nothing from a DLL unless asked, and there is no
         # WINDOWS_EXPORT_ALL_SYMBOLS here on purpose: every library in this tree
         # says what is public through its own macro, from its own dll_defines.hpp
-        # (NSCAPI_EXPORT, NSCP_NET_EXPORT, NSCP_CLIENT_EXPORT, NSCP_WHERE_EXPORT,
-        # NSCAPI_PROTOBUF_EXPORT, and BOOST_JSON_DECL inside nscp_json).
+        # (NSCAPI_EXPORT, NSCP_NET_EXPORT, NSCP_CLIENT_EXPORT, NSCP_WHERE_EXPORT
+        # and NSCAPI_PROTOBUF_EXPORT).
         #
         # Exporting everything instead is not free: an exported symbol is a root
         # the linker may not discard, so /OPT:REF stops pruning anywhere in the

@@ -506,7 +506,7 @@ xcopy boost_%BOOST_VERSION_% boost_%BOOST_VERSION_%_static /E /I
 
 cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%_static
 call bootstrap.bat
-b2.exe --layout=system address-model=32 toolset=msvc-14.1 variant=release link=static runtime-link=static warnings=off define=BOOST_USE_WINAPI_VERSION=0x501 define=BOOST_NO_CXX17_HDR_SHARED_MUTEX -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono
+b2.exe --layout=system address-model=32 toolset=msvc-14.1 variant=release link=static runtime-link=static warnings=off define=BOOST_USE_WINAPI_VERSION=0x501 define=BOOST_NO_CXX17_HDR_SHARED_MUTEX -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono --with-json --with-container
 cd ..
 ```
 
@@ -1290,8 +1290,8 @@ socket server runs a worker pool: `slow-check-isolation` (a slow check in every
 engine at once, every other path probed meanwhile), `mixed-flood` (a flood with
 slow checks running behind it) and `scheduler-slow-neighbour` (quick schedules
 next to slow ones). They pass when no check ever waits for another engine's
-slow one. Over REST it still does: the web server runs every request on one
-thread, which `slow-check-isolation` records as an expected failure.
+slow one, over REST as well: the web server serves requests on its `threads`
+pool.
 
 Two more drive the wire protocols from TypeScript clients, so a request costs
 the runner no process spawn: `nrpe-flood` (NRPE v2 in the clear and over

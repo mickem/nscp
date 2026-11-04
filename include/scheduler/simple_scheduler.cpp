@@ -71,6 +71,28 @@ void scheduler::start() {
   log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.count()));
 }
 
+void scheduler::wake_all() {
+  // Notified under each mutex, so a worker that checked stop_requested_ just
+  // before it was set is already waiting when the notify arrives.
+  {
+    boost::mutex::scoped_lock lock(stop_mutex_);
+    stop_cond_.notify_all();
+  }
+  {
+    boost::unique_lock<boost::mutex> lock(idle_thread_mutex_);
+    idle_thread_cond_.notify_all();
+  }
+}
+
+bool scheduler::wait_for_stop(const boost::posix_time::ptime until) {
+  // `until` is on the scheduler's clock, which follows the configured
+  // timezone; the wait is on the system clock. Only the distance carries over.
+  const boost::posix_time::time_duration left = until - now();
+  boost::mutex::scoped_lock lock(stop_mutex_);
+  if (left.is_negative()) return stop_requested_;
+  return stop_cond_.timed_wait(lock, boost::get_system_time() + left, [this]() { return stop_requested_.load(); });
+}
+
 void scheduler::prepare_shutdown() {
   log_trace(__FILE__, __LINE__, "prepare to shutdown");
   {
@@ -79,28 +101,50 @@ void scheduler::prepare_shutdown() {
     stop_requested_ = true;
     has_watchdog_ = false;
   }
-  threads_.interrupt_all();
+  wake_all();
 }
-void scheduler::stop() {
+bool scheduler::stop(const boost::posix_time::time_duration timeout) {
   log_trace(__FILE__, __LINE__, "stopping all threads");
+  bool clean = true;
   {
-    // Held across the join, not just the flag writes. boost::thread_group
-    // keeps a shared lock for the whole of join_all() while create_thread
-    // wants it exclusively, so a thread spawned during the join blocks in
-    // create_thread and is never joined - and the join waits for it. Holding
-    // pool_mutex_ here means nothing can reach create_thread until the pool is
-    // gone. The watchdog, which is one of the threads being joined, only ever
-    // try_locks this mutex (see scale_up), so it cannot be the thread we are
-    // waiting for.
+    // Held across the join, not just the flag writes. create_thread waits for
+    // a join in flight, so a thread spawned during it would wait for the join
+    // that waits for it. Holding pool_mutex_ here means nothing can reach
+    // create_thread until the pool is gone. The watchdog, which is one of the
+    // threads being joined, only ever try_locks this mutex (see scale_up), so
+    // it cannot be the thread we are waiting for.
     boost::mutex::scoped_lock l(pool_mutex_);
     running_ = false;
     stop_requested_ = true;
     has_watchdog_ = false;
-    threads_.interrupt_all();
-    threads_.wait_all();
+    // No interrupt_all(): a worker in the middle of a task finishes it, and
+    // only the waiting ones are woken.
+    wake_all();
+    if (timeout.is_pos_infinity()) {
+      threads_.wait_all();
+    } else {
+      // Read before the wait gives up on anyone, while every worker still in
+      // this list is one the wait is about to report on.
+      const std::size_t abandoned = threads_.wait_all_for(timeout);
+      if (abandoned > 0) {
+        clean = false;
+        boost::mutex::scoped_lock rl(running_tasks_mutex_);
+        handler *h = handler_.load();
+        for (const std::pair<const boost::thread::id, running_task> &r : running_tasks_) {
+          const std::string what = h ? h->describe(r.second.item) : r.second.item.tag;
+          log_error(__FILE__, __LINE__,
+                    "Scheduler worker " + str::xtos(r.second.worker) + " is still running " + what + " after " + str::xtos(timeout.total_seconds()) +
+                        "s (started " + str::xtos((now() - r.second.started).total_seconds()) + "s ago): shutting down without it");
+        }
+        if (running_tasks_.empty()) {
+          log_error(__FILE__, __LINE__, str::xtos(abandoned) + " scheduler thread(s) did not stop within " + str::xtos(timeout.total_seconds()) + "s: shutting down without them");
+        }
+      }
+    }
   }
   thread_count_ = 0;
   log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.count()));
+  return clean;
 }
 
 int scheduler::add_task(const std::string &tag, const boost::posix_time::time_duration duration, const double jitter_factor, const bool schedule_first_run) {
@@ -199,7 +243,7 @@ void scheduler::watch_dog(const int id) {
         log_error(__FILE__, __LINE__, "Watchdog issue");
       }
 
-      boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(5));
+      if (wait_for_stop(now() + boost::posix_time::seconds(5))) break;
     } catch (const boost::thread_interrupted &) {
       break;
     } catch (const std::exception &e) {
@@ -236,9 +280,11 @@ void scheduler::thread_proc(const int id) {
                     "Ran scheduled item " + instance.value().tag + "(" + str::xtos(instance.value().schedule_id) + ") " + str::xtos(off.total_seconds()) +
                         " seconds to late from thread " + str::xtos(id));
         }
-        const boost::posix_time::time_duration wait = instance.value().time - now();
-        if (wait.total_microseconds() > 0) {
-          boost::this_thread::sleep(wait);
+        if (wait_for_stop(instance.value().time)) {
+          // Not run: put it back for whoever starts the pool next.
+          if (!queue_.push(instance.value())) log_error(__FILE__, __LINE__, "Failed to push item");
+          log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
+          return;
         }
       } catch (const boost::thread_interrupted &) {
         if (!queue_.push(instance.value())) log_error(__FILE__, __LINE__, "Failed to push item");
@@ -262,6 +308,18 @@ void scheduler::thread_proc(const int id) {
       atomic_inc32(&metric_executed);
       op_task_object item = get_task(instance.value().schedule_id);
       if (item) {
+        // Recorded for stop() to name if this task outlasts its timeout.
+        {
+          boost::mutex::scoped_lock rl(running_tasks_mutex_);
+          running_tasks_[boost::this_thread::get_id()] = running_task{id, item.value(), now_time};
+        }
+        struct clear_running {
+          scheduler &s;
+          ~clear_running() {
+            boost::mutex::scoped_lock rl(s.running_tasks_mutex_);
+            s.running_tasks_.erase(boost::this_thread::get_id());
+          }
+        } const running_guard{*this};
         try {
           bool to_reschedule = false;
           // Snapshot once: a second read could observe a different value, and

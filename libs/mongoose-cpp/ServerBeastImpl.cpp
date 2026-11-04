@@ -13,6 +13,7 @@
 #include <boost/asio/detached.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/strand.hpp>
@@ -22,6 +23,8 @@
 #include <boost/thread/thread.hpp>
 #include <boost/version.hpp>
 #include <chrono>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <net/tls_versions.hpp>
 #include <nsclient/nsclient_exception.hpp>
@@ -614,34 +617,166 @@ void ServerBeastImpl::accept_loop(const asio::yield_context& yield) {
   }
 }
 
-void ServerBeastImpl::run_tls_session(tcp::socket socket, std::string remote_ip, const asio::yield_context& yield) {
-  try {
-    asio::ssl::stream<beast::tcp_stream> stream(beast::tcp_stream(std::move(socket)), *ssl_ctx_);
-    boost::system::error_code sec;
-    beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(30));
-    stream.async_handshake(asio::ssl::stream_base::server, yield[sec]);
-    if (sec) return;
+namespace {
 
-    beast::flat_buffer buffer;
-    // Explicit parser so the per-request body cap is visible and tunable
-    // (Beast's default body_limit is 1 MiB; we make it explicit +
-    // configurable via setBodyLimit()).
+// The closer stop() calls for one connection: hop onto the connection's
+// strand - the only place its socket may be touched - and close it if the
+// session is waiting on the client there. `weak` because the session may have
+// ended between stop() taking the closer and the hop landing; then there is
+// nothing to close.
+template <class Stream>
+std::function<void()> make_connection_closer(const std::shared_ptr<ServerBeastImpl::connection_state<Stream>>& state) {
+  std::weak_ptr<ServerBeastImpl::connection_state<Stream>> weak(state);
+  auto executor = beast::get_lowest_layer(state->stream).get_executor();
+  return [weak, executor] {
+    asio::post(executor, [weak] {
+      const auto live = weak.lock();
+      if (!live || !live->idle) return;
+      // tcp_stream::close() cancels the pending read as well; the session
+      // sees operation_aborted and returns.
+      beast::get_lowest_layer(live->stream).close();
+    });
+  };
+}
+
+}  // namespace
+
+std::uint64_t ServerBeastImpl::track_connection(std::function<void()> closer) {
+  const std::lock_guard<std::mutex> lock(connections_mu_);
+  const std::uint64_t id = next_connection_id_++;
+  connections_.emplace(id, std::move(closer));
+  return id;
+}
+
+void ServerBeastImpl::forget_connection(const std::uint64_t id) {
+  const std::lock_guard<std::mutex> lock(connections_mu_);
+  connections_.erase(id);
+}
+
+void ServerBeastImpl::close_idle_connections() {
+  // Copied out so the closers run outside the lock: each is a post(), which
+  // does not block, but a session ending on another thread wants the lock to
+  // forget itself and there is no reason to make it wait.
+  std::vector<std::function<void()>> closers;
+  {
+    const std::lock_guard<std::mutex> lock(connections_mu_);
+    closers.reserve(connections_.size());
+    for (const auto& entry : connections_) closers.push_back(entry.second);
+  }
+  for (const auto& closer : closers) closer();
+}
+
+template <class Stream>
+void ServerBeastImpl::serve_connection(const std::shared_ptr<connection_state<Stream>>& state, const std::string& remote_ip, const bool is_ssl,
+                                       const asio::yield_context& yield) {
+  Stream& stream = state->stream;
+  // One buffer for the whole connection: what the client sent past the end
+  // of one request (the start of the next, pipelined) is already in it, and
+  // a fresh buffer per request would lose those bytes.
+  beast::flat_buffer buffer;
+  boost::system::error_code ec;
+  for (;;) {
+    // stop() may have run while the previous answer was being written; a
+    // connection it found busy then is not closed for it, it is told here.
+    if (stopping_) return;
+    // A parser serves one message, so each request gets its own; the cap is
+    // per request for the same reason.
     http::request_parser<http::string_body> parser;
     parser.body_limit(body_limit_);
-    beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(30));
-    http::async_read(stream, buffer, parser, yield[sec]);
-    if (sec) return;
-    http::request<http::string_body> req = parser.release();
+    state->idle = true;
+    beast::get_lowest_layer(stream).expires_after(kClientTimeout);
+    http::async_read(stream, buffer, parser, yield[ec]);
+    state->idle = false;
+    if (ec == http::error::body_limit) {
+      reject_oversized(stream, parser, remote_ip, is_ssl, yield);
+      return;
+    }
+    // EOF (the client is done with the connection), the idle timeout, or the
+    // close stop() posted: none of them is anything to log.
+    if (ec) return;
+    const http::request<http::string_body> req = parser.release();
 
     http::response<http::string_body> res;
     res.version(req.version());
-    res.keep_alive(false);
-    dispatch(req, res, remote_ip, /*is_ssl=*/true);
+    dispatch(req, res, remote_ip, is_ssl);
+    // Keep the connection for the client's next request when it asked to
+    // (HTTP/1.1 unless it said `Connection: close`; HTTP/1.0 only if it said
+    // `keep-alive`) and the server is not on its way down. Decided after
+    // dispatch(), so a stop() that landed during a slow handler closes this
+    // connection with the answer rather than leaving the client to find out
+    // on its next request. keep_alive() on the response writes the matching
+    // Connection header, so the client knows which it got.
+    const bool keep_alive = req.keep_alive() && !stopping_;
+    res.keep_alive(keep_alive);
+    beast::get_lowest_layer(stream).expires_after(kClientTimeout);
+    if (req.method() == http::verb::head) {
+      // No controller tells HEAD from GET, so `res` carries the body the
+      // route would send. HEAD promises the header of that answer -
+      // Content-Length included - and no body, and on a kept connection the
+      // body would be read by the client as the start of its next answer.
+      http::response_serializer<http::string_body> serializer(res);
+      http::async_write_header(stream, serializer, yield[ec]);
+    } else {
+      http::async_write(stream, res, yield[ec]);
+    }
+    if (ec || !keep_alive) return;
+  }
+}
 
-    beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(30));
-    http::async_write(stream, res, yield[sec]);
-    beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(5));
-    stream.async_shutdown(yield[sec]);  // graceful TLS close (ignore errors)
+template <class Stream>
+void ServerBeastImpl::reject_oversized(Stream& stream, const http::request_parser<http::string_body>& parser, const std::string& remote_ip, const bool is_ssl,
+                                       const asio::yield_context& yield) {
+  std::size_t suppressed = 0;
+  if (oversized_log_.should_log(remote_ip, suppressed)) logger_->log_error(Helpers::request_too_large_log(remote_ip, body_limit_, suppressed));
+  // The parser refuses on the Content-Length, before the body, so the header
+  // is complete and its version is the one to answer in. A chunked body is
+  // refused when it grows past the cap, which leaves the header complete too.
+  http::response<http::string_body> res{http::status::payload_too_large, parser.get().version()};
+  res.set(http::field::content_type, "text/plain");
+  for (const auto& header : Helpers::security_headers(is_ssl)) res.set(header.first, header.second);
+  res.keep_alive(false);
+  res.body() = Helpers::request_too_large_body(body_limit_);
+  res.prepare_payload();
+  boost::system::error_code ec;
+  beast::get_lowest_layer(stream).expires_after(kClientTimeout);
+  http::async_write(stream, res, yield[ec]);
+  if (ec) return;
+  // The body the answer refused is still arriving, and closing a socket that
+  // holds unread bytes makes the kernel send a reset instead of a FIN - which
+  // on the client's side can discard the 413 before it has been read. Stop
+  // sending, then read and drop what the client has in flight for a moment,
+  // long enough for it to see the answer and hang up (that EOF ends the
+  // loop), but not for as long as it cares to keep sending.
+  boost::system::error_code ignored;
+  beast::get_lowest_layer(stream).socket().shutdown(tcp::socket::shutdown_send, ignored);
+  beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(2));
+  char discard[4096];
+  while (!ec) stream.async_read_some(asio::buffer(discard), yield[ec]);
+}
+
+void ServerBeastImpl::run_tls_session(tcp::socket socket, std::string remote_ip, const asio::yield_context& yield) {
+  try {
+    using tls_stream = asio::ssl::stream<beast::tcp_stream>;
+    const auto state = std::make_shared<connection_state<tls_stream>>(beast::tcp_stream(std::move(socket)), *ssl_ctx_);
+    const connection_registration registration(*this, make_connection_closer(state));
+    // Registered after stop() went through the registry: its closer will not
+    // come, and the handshake below would wait kClientTimeout for a peer
+    // stop() is not interested in. The same check serve_connection() makes
+    // before each read, for the same reason.
+    if (stopping_) return;
+    boost::system::error_code sec;
+    // Waiting on the client, like a read: a peer that connects and never
+    // speaks must not hold up stop() either.
+    state->idle = true;
+    beast::get_lowest_layer(state->stream).expires_after(kClientTimeout);
+    state->stream.async_handshake(asio::ssl::stream_base::server, yield[sec]);
+    state->idle = false;
+    if (sec) return;
+
+    serve_connection(state, remote_ip, /*is_ssl=*/true, yield);
+
+    beast::get_lowest_layer(state->stream).expires_after(std::chrono::seconds(5));
+    state->stream.async_shutdown(yield[sec]);  // graceful TLS close (ignore errors)
   } catch (const std::exception& e) {
     logger_->log_error(std::string("TLS session error: ") + e.what());
   }
@@ -649,25 +784,13 @@ void ServerBeastImpl::run_tls_session(tcp::socket socket, std::string remote_ip,
 
 void ServerBeastImpl::run_plain_session(tcp::socket socket, std::string remote_ip, const asio::yield_context& yield) {
   try {
-    beast::tcp_stream stream(std::move(socket));
-    boost::system::error_code sec;
-    beast::flat_buffer buffer;
-    http::request_parser<http::string_body> parser;
-    parser.body_limit(body_limit_);
-    stream.expires_after(std::chrono::seconds(30));
-    http::async_read(stream, buffer, parser, yield[sec]);
-    if (sec) return;
-    http::request<http::string_body> req = parser.release();
+    const auto state = std::make_shared<connection_state<beast::tcp_stream>>(std::move(socket));
+    const connection_registration registration(*this, make_connection_closer(state));
 
-    http::response<http::string_body> res;
-    res.version(req.version());
-    res.keep_alive(false);
-    dispatch(req, res, remote_ip, /*is_ssl=*/false);
+    serve_connection(state, remote_ip, /*is_ssl=*/false, yield);
 
-    stream.expires_after(std::chrono::seconds(30));
-    http::async_write(stream, res, yield[sec]);
     boost::system::error_code shutdown_ec;
-    stream.socket().shutdown(tcp::socket::shutdown_send, shutdown_ec);
+    state->stream.socket().shutdown(tcp::socket::shutdown_send, shutdown_ec);
   } catch (const std::exception& e) {
     logger_->log_error(std::string("Session error: ") + e.what());
   }
@@ -688,9 +811,11 @@ void ServerBeastImpl::stop() {
   //      operation_aborted → the accept coroutine returns.
   //   2. Drop the work guard → the io_context loses its artificial
   //      keep-alive.
-  //   3. Active per-connection coroutines complete on their own (read
-  //      EOF when the client closes, write completion, or the 30s
-  //      expires_after deadline at the worst).
+  //   3. Per-connection coroutines that are waiting on their client - for
+  //      a handshake, or for the next request on a kept-alive connection -
+  //      are closed by close_idle_connections() below. The rest complete on
+  //      their own: write completion, or the kClientTimeout deadline at the
+  //      worst.
   //   4. ioc_.run() exits naturally with no pending operations, so
   //      ~io_context() has nothing left to destroy.
   //
@@ -708,6 +833,10 @@ void ServerBeastImpl::stop() {
       acceptor_->close(ec);
     }
   });
+  // After stopping_ is set: a session that is busy when its closer lands
+  // reads stopping_ when it comes back for the next request, so nothing is
+  // left waiting out its idle timeout either way.
+  close_idle_connections();
   if (work_guard_) work_guard_->reset();
 
   // Stopping the server from the thread that runs it: a request handler took a

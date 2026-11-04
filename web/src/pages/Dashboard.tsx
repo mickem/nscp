@@ -13,6 +13,7 @@ import { setRefreshRate } from "../common/dashboardSlice.ts";
 import DiskIoWidget from "../components/DiskIoWidget.tsx";
 import DiskFreeWidget from "../components/DiskFreeWidget.tsx";
 import TagsWidget from "../components/TagsWidget.tsx";
+import FailedChecksWidget from "../components/FailedChecksWidget.tsx";
 
 const HISTORY_SIZE = 30;
 
@@ -190,6 +191,7 @@ export default function Dashboard() {
           </Grid>
         )}
         <TagsWidget />
+        <FailedChecksWidget />
       </Grid>
     </Box>
   );

@@ -233,8 +233,11 @@ describe("script folder resolution", () => {
   //
   // Its value is a command line handed to the operating system, not a path the
   // agent resolves. So there is no search, no sandbox, and - the part that
-  // catches people out - no ${...} expansion. Pinned here because it is the
-  // opposite of the two modules above and the docs now promise it.
+  // catches people out - no ${...} expansion. What the agent does do is start
+  // the script in the folder above ${scripts} (the `script root`), so the
+  // conventional `scripts/x.sh` spelling resolves however the agent was
+  // started. Pinned here because it is the opposite of the two modules above
+  // and the docs now promise it.
   describeOnLinux("CheckExternalScripts", () => {
     let root: string;
 
@@ -273,12 +276,14 @@ describe("script folder resolution", () => {
       fs.chmodSync(script, 0o755);
     });
 
-    it("runs a relative command against the working directory", async () => {
+    it("runs a relative command against the folder above ${scripts}", async () => {
       expect(await runScript("scripts/b.sh", "rooted")).toMatch(/probe ok/);
     });
 
-    it("cannot find that same command from another working directory", async () => {
-      expect(await runScript("scripts/b.sh", "neutral")).not.toMatch(/probe ok/);
+    it("finds that same command however the agent was started", async () => {
+      // The child is started in the folder above ${scripts}, not wherever the
+      // agent happened to be: the same spelling works from a neutral directory.
+      expect(await runScript("scripts/b.sh", "neutral")).toMatch(/probe ok/);
     });
 
     it("does not expand path tokens", async () => {
@@ -575,35 +580,34 @@ describe("script folder resolution", () => {
       });
       expect(r.scripts).toEqual(["imported.sh"]);
       // This module expands nothing and searches nowhere, so whatever is
-      // recorded has to name the file on its own. The fixture points `script
-      // root` at a temp directory, which is not below ${base-path} on either
-      // platform, so the short historic "scripts\\name" spelling is not
-      // available here - and recording it anyway was the bug: the copy landed
-      // in the temp directory while the command named <install>\scripts\, and
-      // the check exited 127. On unix it was never even a path, the backslash
-      // being an ordinary filename character there.
-      //
-      // Asserted on both platforms as "names the file that was actually
-      // written", which is the property that matters and the one the old
-      // Windows expectation quietly violated.
+      // recorded has to name the file from the directory the script is
+      // started in: the folder above the scripts folder. The fixture moves
+      // ${scripts} to a temp directory. On unix the launcher starts the
+      // script in that directory's parent, so the short `scripts/name`
+      // spelling resolves there and is what gets recorded - as it is on a
+      // plain install. On Windows the built-in layout keeps the installation
+      // directory as the start directory, the temp directory is not below
+      // it, and the recorded value has to be absolute - recording the short
+      // form anyway was the bug: the copy landed in the temp directory while
+      // the command named <install>\scripts\, and the check exited 127.
       const recorded = (r.configured ?? "").replace(/^"|"$/g, "");
-      expect(path.isAbsolute(recorded)).toBe(true);
-      expect(path.resolve(recorded)).toBe(path.resolve(path.join(r.scriptsDir, "imported.sh")));
+      const file = path.join(r.scriptsDir, "imported.sh");
       if (onUnix) {
-        fs.chmodSync(r.configured as string, 0o755);
+        expect(recorded).toBe("scripts/imported.sh");
+        fs.chmodSync(file, 0o755);
         const elsewhere = new NscpInstance({
           workDir: fs.mkdtempSync(path.join(os.tmpdir(), "nscp-import-run-")),
-          settingsFile: path.join(
-            path.dirname(path.dirname(r.configured as string)),
-            "nsclient.ini",
-          ),
-          pathOverrides: { scripts: path.dirname(r.configured as string) },
+          settingsFile: path.join(path.dirname(r.scriptsDir), "nsclient.ini"),
+          pathOverrides: { scripts: r.scriptsDir },
         });
         const run = await elsewhere.run(
           ["client", "--module", "CheckExternalScripts", "--boot", "--query", "imported"],
           { allowFailure: true },
         );
         expect(run.all ?? "").toMatch(/import ok/);
+      } else {
+        expect(path.isAbsolute(recorded)).toBe(true);
+        expect(path.resolve(recorded)).toBe(path.resolve(file));
       }
     });
 

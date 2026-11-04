@@ -295,11 +295,8 @@ bool Op5Client::cli_install(const PB::Commands::ExecuteRequestMessage::Request &
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 }
@@ -363,11 +360,8 @@ bool Op5Client::cli_add(const PB::Commands::ExecuteRequestMessage::Request &requ
     }
     nscapi::protobuf::functions::set_response_good(*response, result.str());
     return true;
-  } catch (const std::exception &e) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
-    return true;
   } catch (...) {
-    nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+    nscapi::program_options::report_command_exception(desc, request.command(), *response);
     return true;
   }
 }
