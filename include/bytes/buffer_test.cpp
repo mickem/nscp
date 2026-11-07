@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 
 #include <bytes/buffer.hpp>
+#include <climits>
+#include <cstdint>
 #include <cstring>
 
 // --- Construction ---
@@ -84,8 +86,9 @@ TEST(buffer, copy_assignment_self_is_a_noop) {
 
 // --- Element access ---
 
-// Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()
-#if !defined(_WIN32) || defined(_WIN64)
+// Disabled on 32-bit targets: with a 32-bit std::size_t, buf[0] is ambiguous
+// between operator[](std::size_t) and the built-in subscript via operator T*()
+#if SIZE_MAX > UINT_MAX
 TEST(buffer, subscript_operator) {
   hlp::buffer<char> buf(4);
   buf[0] = 'A';
@@ -101,8 +104,9 @@ TEST(buffer, subscript_operator) {
 
 // --- Implicit conversion ---
 
-// Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()
-#if !defined(_WIN32) || defined(_WIN64)
+// Disabled on 32-bit targets: with a 32-bit std::size_t, buf[0] is ambiguous
+// between operator[](std::size_t) and the built-in subscript via operator T*()
+#if SIZE_MAX > UINT_MAX
 TEST(buffer, implicit_conversion_to_pointer) {
   hlp::buffer<char> buf(4);
   buf[0] = 'X';
@@ -138,8 +142,9 @@ TEST(buffer, get_with_offset) {
 
 // --- get_t ---
 
-// Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()
-#if !defined(_WIN32) || defined(_WIN64)
+// Disabled on 32-bit targets: with a 32-bit std::size_t, buf[0] is ambiguous
+// between operator[](std::size_t) and the built-in subscript via operator T*()
+#if SIZE_MAX > UINT_MAX
 TEST(buffer, get_t_reinterpret) {
   hlp::buffer<char> buf(8);
   std::memset(buf.get(), 0, 8);
@@ -168,8 +173,9 @@ TEST(buffer, resize_to_smaller) {
 
 // --- Integer type ---
 
-// Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()
-#if !defined(_WIN32) || defined(_WIN64)
+// Disabled on 32-bit targets: with a 32-bit std::size_t, buf[0] is ambiguous
+// between operator[](std::size_t) and the built-in subscript via operator T*()
+#if SIZE_MAX > UINT_MAX
 TEST(buffer, integer_buffer) {
   hlp::buffer<int> buf(3);
   buf[0] = 42;
