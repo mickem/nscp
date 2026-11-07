@@ -409,6 +409,9 @@ TEST_F(CheckDiskModule, FetchFactsNamesEveryVolumeTheWayCheckDrivesizeDoes) {
     EXPECT_FALSE(string_field(record.object_value(), "type").empty()) << id;
     ids.push_back(id);
   }
+  // A container build may see only overlay and pseudo filesystems, which both
+  // skip; check_drivesize then answers with its empty-state message instead.
+  if (ids.empty()) GTEST_SKIP() << "no real filesystem is mounted here";
 
   // The convention "context on failure" will hang on: a record's id is the
   // `drive` keyword check_drivesize reports for the same volume, so a failing
