@@ -79,6 +79,27 @@ function startTcpGreeter(greeting: string, bind = "127.0.0.1"): Promise<Listener
   });
 }
 
+/**
+ * A server that accepts and then says nothing at all - the peer a check must
+ * not wait on forever. Its sockets are destroyed on close, since the check
+ * under test may still be holding one open when it fails.
+ */
+function startSilentServer(): Promise<Listener> {
+  return new Promise((resolve) => {
+    const sockets = new Set<net.Socket>();
+    const srv = net.createServer((sock) => {
+      sock.on("error", () => {});
+      sockets.add(sock);
+      sock.on("close", () => sockets.delete(sock));
+    });
+    const close = () => {
+      for (const sock of sockets) sock.destroy();
+      return closeNetServer(srv)();
+    };
+    srv.listen(0, "127.0.0.1", () => resolve(track({ port: portOf(srv), close })));
+  });
+}
+
 /** A TLS server that greets over the encrypted channel then closes. */
 function startTlsGreeter(greeting: string, cert: CertPair): Promise<Listener> {
   return new Promise((resolve) => {
@@ -2250,6 +2271,33 @@ describe("CheckNet commands", () => {
     });
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toMatch(/reachable/i);
+  });
+
+  it("check_nsclient_web_online gives up on a silent agent after timeout=", async () => {
+    // The agent accepts and never answers: the TLS handshake waits for a
+    // ServerHello that does not come. timeout= used to be ignored and the
+    // HTTP client has no deadline of its own, so this query never returned.
+    const s = await startSilentServer();
+    const started = Date.now();
+    const q = await executeQuery(key, "check_nsclient_web_online", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      password: "irrelevant",
+      verify: "none",
+      timeout: "1000",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/Failed to reach/);
+    expect(Date.now() - started).toBeLessThan(15000);
+  });
+
+  it("check_nsclient_web_online rejects a non-numeric timeout", async () => {
+    const q = await executeQuery(key, "check_nsclient_web_online", {
+      url: "https://127.0.0.1:1",
+      timeout: "soon",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid timeout: soon/);
   });
 
   it("check_nsclient_web_online passes a remote check result through", async () => {

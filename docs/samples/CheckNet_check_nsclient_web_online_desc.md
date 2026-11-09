@@ -25,7 +25,7 @@ Arguments:
 | `user`              | Optional username → switches to HTTP Basic authentication         |
 | `command`           | Remote check to run (omit for a plain reachability probe)         |
 | `argument`          | Argument for the remote check; repeat for multiple                |
-| `timeout`           | Request timeout in milliseconds                                   |
+| `timeout`           | Timeout in milliseconds for the connect (TLS handshake included) and each read and write; default `30000`, applied in whole seconds, rounded up |
 | `tls-version`       | TLS version (default `tlsv1.2+`)                                  |
 | `verify`            | Certificate verify mode (default `peer`)                          |
 | `ca`                | CA bundle to verify the remote certificate (default `${ca-path}`) |
