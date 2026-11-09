@@ -374,6 +374,8 @@ NSCP_CREATE_TEST(
         plugins/zip_plugin_test.cpp
         commands_test.cpp
         commands.hpp
+        registry_query_handler.cpp
+        registry_query_handler_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         path_manager.cpp
         ${service_test_SRCS}
