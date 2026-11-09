@@ -177,7 +177,7 @@ class commands : boost::noncopyable {
     // registered - and resolving - until the agent restarted.
     bool found = false;
     bool removed = false;
-    for (command_list_type *list : {&commands_, &aliases_}) {
+    for (command_list_type* list : {&commands_, &aliases_}) {
       const command_list_type::iterator it = list->find(lc);
       if (it == list->end()) continue;
       found = true;

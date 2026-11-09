@@ -163,8 +163,9 @@ class RegistryQueryTest : public ::testing::Test {
     return run(request);
   }
 
-  PB::Registry::RegistryResponseMessage registration(ItemType type, unsigned int plugin_id, const std::string &name, const std::vector<std::string> &aliases = {},
-                                                     bool unregister = false, bool experimental = false, const std::string &description = "") {
+  PB::Registry::RegistryResponseMessage registration(ItemType type, unsigned int plugin_id, const std::string &name,
+                                                     const std::vector<std::string> &aliases = {}, bool unregister = false, bool experimental = false,
+                                                     const std::string &description = "") {
     PB::Registry::RegistryRequestMessage request;
     auto *reg = request.add_payload()->mutable_registration();
     reg->set_type(type);
@@ -449,13 +450,11 @@ TEST_F(RegistryQueryTest, EnableAndDisableWriteTheModulesSection) {
 }
 
 TEST_F(RegistryQueryTest, LoadingAModuleThatDoesNotExistFails) {
-  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR,
-            status(control(ItemType::MODULE, PB::Registry::Command::LOAD, "NoSuchModuleAnywhere")));
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, status(control(ItemType::MODULE, PB::Registry::Command::LOAD, "NoSuchModuleAnywhere")));
 }
 
 TEST_F(RegistryQueryTest, UnloadingAModuleThatIsNotLoadedFails) {
-  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR,
-            status(control(ItemType::MODULE, PB::Registry::Command::UNLOAD, "NoSuchModuleAnywhere")));
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, status(control(ItemType::MODULE, PB::Registry::Command::UNLOAD, "NoSuchModuleAnywhere")));
 }
 
 TEST_F(RegistryQueryTest, ControlOfANonModuleIsAnError) {
