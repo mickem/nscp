@@ -74,6 +74,9 @@ struct http_check_options {
   std::vector<std::string> headers;
   std::string expected_body;
   std::string user_agent = "NSClient++";
+  // Deadline for each connect/read/write, in the whole seconds the HTTP client
+  // works in. 0 would mean "no deadline", so check_http never passes it.
+  unsigned int timeout_seconds = 30;
   std::string tls_version = "tlsv1.2+";
   std::string verify_mode = "none";
   std::string ca_file;
@@ -113,6 +116,7 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
       http::http_client_options options(u.protocol, opt.tls_version, opt.verify_mode, opt.ca_file);
       if (!opt.sni.empty()) options.sni_ = opt.sni;
       options.address_family_ = opt.address_family;
+      options.timeout_seconds_ = opt.timeout_seconds;
       http::simple_client client(options);
 
       http::request rq(opt.method, host_header_value(u.host), u.path);
@@ -241,7 +245,8 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
     ("path", po::value<std::string>(&path)->default_value("/"), "Path component of the URL.")
     ("protocol", po::value<std::string>(&protocol)->default_value("http"), "Protocol to use: http or https.")
     ("ssl", po::value<bool>(&use_ssl)->implicit_value(true)->default_value(false), "Force https, alias for --protocol https (ssl=true).")
-    ("timeout", po::value<int>(&timeout_ms)->default_value(30000), "Timeout in milliseconds.")
+    ("timeout", po::value<int>(&timeout_ms)->default_value(30000),
+        "Timeout in milliseconds for connecting and for each read and write. Applied in whole seconds, rounded up.")
     ("method", po::value<std::string>(&opt.method)->default_value("GET"), "HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).")
     ("post-data", po::value<std::string>(&opt.post_data), "Request body to send; implies POST unless --method is given.")
     ("content-type", po::value<std::string>(&opt.content_type)->default_value("application/x-www-form-urlencoded"),
@@ -283,6 +288,12 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
     if (pos == std::string::npos || pos == 0) return nscapi::protobuf::functions::set_response_bad(*response, "Invalid --json-path (expected alias:path): " + jp);
     opt.json_paths.emplace_back(jp.substr(0, pos), jp.substr(pos + 1));
   }
+
+  // The option used to be parsed and then dropped, which left every fetch
+  // without a deadline: a server that accepted and never answered held the
+  // check - and the thread running it - indefinitely.
+  if (timeout_ms <= 0) return nscapi::protobuf::functions::set_response_bad(*response, "timeout must be a positive number of milliseconds");
+  opt.timeout_seconds = static_cast<unsigned int>((static_cast<long long>(timeout_ms) + 999) / 1000);
 
   opt.ca_file = ca_file;
   opt.required_sans = cert::parse_required_sans(required_sans_arg);
