@@ -82,7 +82,7 @@ bool CheckHelpers::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     // An alias dropped from the ini is dropped from the core too, or it kept
     // resolving - to a definition that no longer existed - until a restart.
     for (const std::string &name : registered_aliases_) {
-      if (registered.count(name) == 0) core.unregister_command(name);
+      if (registered.count(name) == 0) core.unregister_alias(name);
     }
     registered_aliases_.swap(registered);
     std::atomic_store(&aliases_, std::shared_ptr<const alias::simple_command_map>(aliases));

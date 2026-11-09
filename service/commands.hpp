@@ -13,6 +13,7 @@
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/thread/thread_time.hpp>
 #include <exception>
+#include <initializer_list>
 #include <list>
 #include <map>
 #include <memory>
@@ -162,7 +163,17 @@ class commands : boost::noncopyable {
     descriptions_[lc].experimental = experimental;
     commands_[lc] = plugins_[plugin_id];
   }
-  void unregister_command(unsigned long plugin_id, std::string cmd) {
+  // Withdraw a command. The name may also be an alias: unregister_alias()
+  // came later, and modules - CheckHelpers until it moved over, DotnetPlugins,
+  // anything out of tree or in a script - withdraw an alias through this call.
+  // Looking only in commands_ left every such alias registered, and
+  // resolving, until the agent restarted.
+  void unregister_command(unsigned long plugin_id, std::string cmd) { unregister(plugin_id, std::move(cmd), {&commands_, &aliases_}); }
+  // Withdraw an alias, leaving a command of the same name alone.
+  void unregister_alias(unsigned long plugin_id, std::string cmd) { unregister(plugin_id, std::move(cmd), {&aliases_}); }
+
+ private:
+  void unregister(unsigned long plugin_id, std::string cmd, std::initializer_list<command_list_type*> lists) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!writeLock.owns_lock()) {
       log_error(__FILE__, __LINE__, "Failed to get mutex: ", cmd);
@@ -170,14 +181,9 @@ class commands : boost::noncopyable {
     }
     std::string lc = make_key(cmd);
     if (!have_plugin(plugin_id)) throw command_exception("Failed to find plugin: " + str::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
-    // The name may be a command or an alias: there is no separate "unregister
-    // alias" call, so a module withdrawing an alias (CheckHelpers dropping one
-    // that left the ini, the registry removing a command's aliases with it)
-    // comes through here too. Looking only in commands_ left every alias
-    // registered - and resolving - until the agent restarted.
     bool found = false;
     bool removed = false;
-    for (command_list_type* list : {&commands_, &aliases_}) {
+    for (command_list_type* list : lists) {
       const command_list_type::iterator it = list->find(lc);
       if (it == list->end()) continue;
       found = true;
@@ -200,9 +206,15 @@ class commands : boost::noncopyable {
       log_info(__FILE__, __LINE__, "Command re-registered by another plugin, not unregistering: ", cmd);
       return;
     }
+    // A command and an alias share one description per name, so it goes only
+    // once nothing is registered under the name any more: withdrawing an
+    // alias must not strip the description of a command it shares a name with.
+    if (commands_.count(lc) != 0 || aliases_.count(lc) != 0) return;
     description_list_type::iterator dit = descriptions_.find(lc);
     if (dit != descriptions_.end() && dit->second.plugin_id == plugin_id) descriptions_.erase(dit);
   }
+
+ public:
   void register_alias(unsigned long plugin_id, std::string cmd, std::string desc, bool experimental = false) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
     if (!writeLock.owns_lock()) {

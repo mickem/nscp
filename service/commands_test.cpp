@@ -176,6 +176,41 @@ TEST_F(CommandsTest, UnregisterDropsCommandAndAliasOfTheSameName) {
   EXPECT_TRUE(commands_->list_aliases().empty());
 }
 
+TEST_F(CommandsTest, UnregisterAliasWithdrawsTheAlias) {
+  commands_->register_alias(1, "check_als", "an alias");
+  commands_->unregister_alias(1, "check_als");
+  EXPECT_EQ(commands_->get("check_als"), nullptr);
+  EXPECT_EQ(commands_->describe("check_als").description, "Command not found: check_als");
+  EXPECT_TRUE(commands_->list_aliases().empty());
+}
+
+TEST_F(CommandsTest, UnregisterAliasLeavesACommandOfTheSameName) {
+  // Only the alias goes; the command, and the description the two share,
+  // stay.
+  commands_->register_command(1, "check_both", "a command");
+  commands_->register_alias(1, "check_both", "an alias");
+  commands_->unregister_alias(1, "check_both");
+  EXPECT_EQ(commands_->get("check_both"), plugin_a_);
+  EXPECT_EQ((std::list<std::string>{"check_both"}), commands_->list_commands());
+  EXPECT_TRUE(commands_->list_aliases().empty());
+  EXPECT_EQ(commands_->describe("check_both").plugin_id, 1u);
+}
+
+TEST_F(CommandsTest, UnregisterAliasIgnoresAPlainCommand) {
+  commands_->register_command(1, "check_foo", "foo check");
+  commands_->unregister_alias(1, "check_foo");
+  EXPECT_EQ(commands_->get("check_foo"), plugin_a_);
+  EXPECT_EQ(commands_->describe("check_foo").description, "foo check");
+}
+
+TEST_F(CommandsTest, UnregisterAliasLeavesAliasTakenOverByAnotherPlugin) {
+  commands_->register_alias(1, "check_als", "owned by A");
+  commands_->register_alias(2, "check_als", "owned by B");
+  commands_->unregister_alias(1, "check_als");
+  EXPECT_EQ(commands_->get("check_als"), plugin_b_);
+  EXPECT_EQ(commands_->describe("check_als").description, "owned by B");
+}
+
 TEST_F(CommandsTest, RemovePluginDropsItsCommandsAndAliases) {
   commands_->register_command(1, "check_cmd", "a command");
   commands_->register_alias(1, "check_als", "an alias");

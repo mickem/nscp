@@ -265,6 +265,31 @@ TEST_F(RegistryQueryTest, StandaloneAliasRegistration) {
   EXPECT_EQ("Load average alias", alias->info().description());
 }
 
+TEST_F(RegistryQueryTest, AliasUnregistrationWithdrawsTheAliases) {
+  // A QUERY_ALIAS request with unregister set used to register the aliases
+  // again; it now removes them.
+  registration(ItemType::QUERY_ALIAS, 1, "alias_cpu", {"alias_cpu_ex"});
+  const auto r = registration(ItemType::QUERY_ALIAS, 1, "alias_cpu", {"alias_cpu_ex"}, true);
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_OK, status(r));
+  EXPECT_TRUE(names(inventory(ItemType::QUERY_ALIAS)).empty());
+}
+
+TEST_F(RegistryQueryTest, AliasUnregistrationLeavesACommandOfTheSameName) {
+  registration(ItemType::QUERY, 1, "check_cpu");
+  registration(ItemType::QUERY_ALIAS, 1, "check_cpu");
+  registration(ItemType::QUERY_ALIAS, 1, "check_cpu", {}, true);
+  EXPECT_EQ((std::vector<std::string>{"check_cpu"}), names(inventory(ItemType::QUERY)));
+  EXPECT_TRUE(names(inventory(ItemType::QUERY_ALIAS)).empty());
+}
+
+TEST_F(RegistryQueryTest, CommandUnregistrationStillWithdrawsAnAlias) {
+  // What CheckHelpers did before unregister_alias existed, and what
+  // DotnetPlugins and out-of-tree modules still do.
+  registration(ItemType::QUERY_ALIAS, 1, "alias_cpu");
+  registration(ItemType::QUERY, 1, "alias_cpu", {}, true);
+  EXPECT_TRUE(names(inventory(ItemType::QUERY_ALIAS)).empty());
+}
+
 TEST_F(RegistryQueryTest, QueryByNameReturnsOnlyThatCommand) {
   registration(ItemType::QUERY, 1, "check_cpu");
   registration(ItemType::QUERY, 1, "check_memory");
