@@ -196,9 +196,11 @@ struct request {
       os << e.first << ": " << e.second << crlf;
     }
     os << crlf;
+    // The blank line above ends the head; the body is exactly payload_. Two
+    // more CRLFs used to follow it, so every request put four bytes on the
+    // wire past its Content-Length (or past the head, for one with no body) -
+    // bytes a server reads as the start of a second, malformed request.
     if (!payload_.empty()) os << payload_;
-    os << crlf;
-    os << crlf;
   }
 
   void add_post_payload(const post_map_type &payload_map) {
