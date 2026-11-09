@@ -149,6 +149,33 @@ TEST_F(CommandsTest, UnregisterLeavesCommandTakenOverByAnotherPlugin) {
   EXPECT_EQ(commands_->describe("check_shared").description, "owned by B");
 }
 
+TEST_F(CommandsTest, UnregisterAlias) {
+  // CheckHelpers withdraws an alias that left the ini through the same call
+  // as a command; it has to stop resolving.
+  commands_->register_alias(1, "check_als", "an alias");
+  commands_->unregister_command(1, "check_als");
+  EXPECT_EQ(commands_->get("check_als"), nullptr);
+  EXPECT_EQ(commands_->describe("check_als").description, "Command not found: check_als");
+  EXPECT_TRUE(commands_->list_aliases().empty());
+}
+
+TEST_F(CommandsTest, UnregisterLeavesAliasTakenOverByAnotherPlugin) {
+  commands_->register_alias(1, "check_als", "owned by A");
+  commands_->register_alias(2, "check_als", "owned by B");
+  commands_->unregister_command(1, "check_als");
+  EXPECT_EQ(commands_->get("check_als"), plugin_b_);
+  EXPECT_EQ(commands_->describe("check_als").description, "owned by B");
+}
+
+TEST_F(CommandsTest, UnregisterDropsCommandAndAliasOfTheSameName) {
+  commands_->register_command(1, "check_both", "a command");
+  commands_->register_alias(1, "check_both", "an alias");
+  commands_->unregister_command(1, "check_both");
+  EXPECT_EQ(commands_->get("check_both"), nullptr);
+  EXPECT_TRUE(commands_->list_commands().empty());
+  EXPECT_TRUE(commands_->list_aliases().empty());
+}
+
 TEST_F(CommandsTest, RemovePluginDropsItsCommandsAndAliases) {
   commands_->register_command(1, "check_cmd", "a command");
   commands_->register_alias(1, "check_als", "an alias");

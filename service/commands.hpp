@@ -170,22 +170,36 @@ class commands : boost::noncopyable {
     }
     std::string lc = make_key(cmd);
     if (!have_plugin(plugin_id)) throw command_exception("Failed to find plugin: " + str::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
-    command_list_type::iterator it = commands_.find(lc);
-    if (it == commands_.end()) {
+    // The name may be a command or an alias: there is no separate "unregister
+    // alias" call, so a module withdrawing an alias (CheckHelpers dropping one
+    // that left the ini, the registry removing a command's aliases with it)
+    // comes through here too. Looking only in commands_ left every alias
+    // registered - and resolving - until the agent restarted.
+    bool found = false;
+    bool removed = false;
+    for (command_list_type *list : {&commands_, &aliases_}) {
+      const command_list_type::iterator it = list->find(lc);
+      if (it == list->end()) continue;
+      found = true;
+      // register_command / register_alias let a later plugin take over an
+      // existing name (they only log "Duplicate command"), so by the time the
+      // first owner unregisters, the entry can belong to someone else - leave
+      // it alone.
+      if (it->second->get_id() != plugin_id) continue;
+      list->erase(it);
+      removed = true;
+    }
+    if (!found) {
       // Was falling through to erase(end()), which is undefined. Reachable
       // whenever a plugin unregisters a command it never registered, or
       // unregisters twice (module cleanup plus remove_plugin).
       log_info(__FILE__, __LINE__, "Command not found: ", cmd);
       return;
     }
-    if (it->second->get_id() != plugin_id) {
-      // register_command lets a later plugin take over an existing name (it
-      // only logs "Duplicate command"), so by the time the first owner
-      // unregisters, the entry can belong to someone else - leave it alone.
+    if (!removed) {
       log_info(__FILE__, __LINE__, "Command re-registered by another plugin, not unregistering: ", cmd);
       return;
     }
-    commands_.erase(it);
     description_list_type::iterator dit = descriptions_.find(lc);
     if (dit != descriptions_.end() && dit->second.plugin_id == plugin_id) descriptions_.erase(dit);
   }
