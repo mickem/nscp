@@ -68,6 +68,14 @@ void check_nsclient_web_online(const std::string &default_ca_file, const PB::Com
   // unauthenticated and has to be asked for.
   std::string verify_mode = "peer";
   std::string ca_file = default_ca_file;
+  // Milliseconds allowed for the connect (TLS handshake included) and for each
+  // read and write; the HTTP client works in whole seconds, so it is rounded
+  // up. `timeout` was documented but never parsed, and the client's own
+  // default is no deadline at all, which let a peer that accepted the
+  // connection and never answered hold the check - and the thread running
+  // it - indefinitely.
+  long long timeout_ms = 30000;
+  std::string timeout_arg;
 
   // NSClient++ passes options either as separate `--key value` tokens (the CLI
   // path) or as a single `key=value` token (the REST path). Parse both here,
@@ -110,7 +118,23 @@ void check_nsclient_web_online(const std::string &default_ca_file, const PB::Com
       verify_mode = val;
     else if (key == "ca")
       ca_file = val;
+    else if (key == "timeout" || key == "t")
+      timeout_arg = val;
     // Unknown keys are ignored (forward-compatible).
+  }
+
+  if (!timeout_arg.empty()) {
+    try {
+      std::size_t used = 0;
+      timeout_ms = std::stoll(timeout_arg, &used);
+      if (used != timeout_arg.size()) timeout_ms = 0;
+    } catch (...) {
+      timeout_ms = 0;
+    }
+    // An upper bound too (a day): the client takes an unsigned int of
+    // seconds, and a value past it would wrap into something arbitrary.
+    if (timeout_ms <= 0 || timeout_ms > 86400000)
+      return nscapi::protobuf::functions::set_response_bad(*response, "Invalid timeout: " + timeout_arg + " (expected 1-86400000 milliseconds)");
   }
 
   // Resolve host/port/protocol from --url or --host.
@@ -157,6 +181,7 @@ void check_nsclient_web_online(const std::string &default_ca_file, const PB::Com
   const std::string base = protocol + "://" + host + ":" + std::to_string(port);
   try {
     http::http_client_options options(protocol, tls_version, verify_mode, ca_file);
+    options.timeout_seconds_ = static_cast<unsigned int>((timeout_ms + 999) / 1000);
     http::simple_client client(options);
     http::request rq("GET", host, path);
     rq.add_header("User-Agent", "NSClient++");

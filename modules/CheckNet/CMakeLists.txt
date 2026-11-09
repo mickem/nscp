@@ -140,3 +140,31 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# check_nsclient_web_online driven against a listener on 127.0.0.1. Its own
+# target because it links the HTTP client (nscp_net), which the pure parser
+# tests in check_net_test do not need.
+NSCP_CREATE_TEST(
+    check_nsclient_web_online_test
+    SOURCES
+        check_nsclient_web_online_test.cpp
+        check_nsclient_web_online.cpp
+        check_nsclient_web_online_parse.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        nscp_net
+        ${Boost_JSON_LIBRARY}
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${CHECK_NET_TEST_SSL_LIBRARIES}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
