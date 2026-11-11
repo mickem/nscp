@@ -13,6 +13,7 @@
 #include <boost/filesystem.hpp>
 #include <cctype>
 #include <cstdio>
+#include <fstream>
 #include <functional>
 #include <string>
 #include <thread>
@@ -20,6 +21,7 @@
 #include <vector>
 
 #ifdef USE_SSL
+#include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
@@ -222,9 +224,16 @@ struct test_identity {
   // The certificate as a PEM bundle on disk, for ca=.
   std::string write_pem() const {
     const boost::filesystem::path p = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-check-tcp-%%%%%%%%.pem");
-    FILE *f = std::fopen(p.string().c_str(), "w");
-    PEM_write_X509(f, cert);
-    std::fclose(f);
+    // Through a memory BIO, not PEM_write_X509(FILE*): on Windows OpenSSL
+    // cannot use a FILE* opened by another C runtime without the applink shim,
+    // and aborts the process with "no OPENSSL_Applink" instead.
+    BIO *bio = BIO_new(BIO_s_mem());
+    PEM_write_bio_X509(bio, cert);
+    char *data = nullptr;
+    const long size = BIO_get_mem_data(bio, &data);
+    std::ofstream out(p.string().c_str(), std::ios::binary);
+    out.write(data, size);
+    BIO_free(bio);
     return p.string();
   }
 };

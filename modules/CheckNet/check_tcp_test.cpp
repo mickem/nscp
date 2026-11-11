@@ -138,8 +138,10 @@ TEST(CheckTcpConnect, RefusedConnectionIsCritical) {
 }
 
 TEST(CheckTcpConnect, NoAddressInRequestedFamilyIsResolveFailed) {
-  // An IPv4 literal has no IPv6 address: resolve_failed, without any DNS.
-  const result r = run_tcp({"host=127.0.0.1", "port=80", "address-family=ipv6", kDetail});
+  // An IPv6 literal has no IPv4 address: resolve_failed, without any DNS.
+  // (Not the other way round: macOS answers an IPv6 lookup of 127.0.0.1 with
+  // the v4-mapped ::ffff:127.0.0.1.)
+  const result r = run_tcp({"host=::1", "port=80", "address-family=ipv4", kDetail});
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
   EXPECT_NE(std::string::npos, r.message.find("resolve_failed")) << r.message;
 }

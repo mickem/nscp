@@ -175,8 +175,9 @@ TEST(CheckDnsSystem, ExpectedAddressesMustAllBePresent) {
 }
 
 TEST(CheckDnsSystem, AddressFamilyRestrictsTheAnswer) {
-  // An IPv4 literal has no IPv6 address.
-  const outcome r = run({"host=127.0.0.1", "address-family=ipv6", "detail-syntax=${result}"});
+  // An IPv6 literal has no IPv4 address. (Not the other way round: macOS
+  // answers an IPv6 lookup of 127.0.0.1 with the v4-mapped ::ffff:127.0.0.1.)
+  const outcome r = run({"host=::1", "address-family=ipv4", "detail-syntax=${result}"});
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
   EXPECT_FALSE(contains(r.message, "ok")) << r.message;
 
