@@ -55,6 +55,27 @@ message MetricsContext {
 	// (`include_context`): a listing carries the state and the id only, so it
 	// does not grow by a snapshot per entry.
 	PB.Metrics.MetricsMessage metrics = 5;
+
+	// What `prune metrics` and `prune pattern` took out of the snapshot before
+	// it was kept. Unset when neither was set.
+	message Pruned {
+		// The rules in force, as `prune metrics` spells them (empty when only
+		// `prune pattern` is set).
+		string rules = 1;
+		// Metrics dropped for being 0, an empty string, or part of a duplicate
+		// instance.
+		uint64 zeros = 2;
+		uint64 empty = 3;
+		uint64 duplicates = 4;
+		// Each collapsed instance (key: its flat-key prefix) and the instance
+		// it was identical to (value).
+		repeated PB.Common.KeyValue collapsed = 5;
+		// The `prune pattern` entries in force (lower-cased), and how many
+		// metrics they excluded.
+		repeated string patterns = 6;
+		uint64 excluded = 7;
+	}
+	Pruned pruned = 6;
 }
 
 //

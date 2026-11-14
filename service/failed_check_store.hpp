@@ -92,6 +92,8 @@ class failed_check_store {
     bool capture_metrics = false;
     std::size_t context_budget = default_context_budget;
     std::size_t max_context_size = default_max_context_size;
+    // What to trim from a snapshot before it is kept (metrics_prune.hpp).
+    metrics_prune::rules prune;
   };
 
   // One entry with the snapshot it refers to (null when it has none).
@@ -351,9 +353,7 @@ class failed_check_store {
     }
     return out;
   }
-  static bool is_boundary(const char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\'' || c == '"' || c == ',' || c == ';';
-  }
+  static bool is_boundary(const char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\'' || c == '"' || c == ',' || c == ';'; }
   static bool is_sensitive_argument(const std::string &key) {
     std::string lower = key;
     boost::algorithm::to_lower(lower);
@@ -457,6 +457,20 @@ class failed_check_store {
     state->set_snapshot_id(context->id);
     state->set_captured_at(context->captured_at);
     state->set_size(context->wire_size);
+    if (context->prune_rules.any()) {
+      PB::Failures::MetricsContext::Pruned *pruned = state->mutable_pruned();
+      pruned->set_rules(metrics_prune::format(context->prune_rules));
+      pruned->set_zeros(context->pruned.zeros);
+      pruned->set_empty(context->pruned.empty);
+      pruned->set_duplicates(context->pruned.duplicates);
+      pruned->set_excluded(context->pruned.excluded);
+      for (const std::string &pattern : context->prune_rules.patterns) pruned->add_patterns(pattern);
+      for (const std::pair<std::string, std::string> &c : context->pruned.collapsed) {
+        PB::Common::KeyValue *kv = pruned->add_collapsed();
+        kv->set_key(c.first);
+        kv->set_value(c.second);
+      }
+    }
     if (context->wire_size > options_.max_context_size) {
       state->set_state(PB::Failures::MetricsContext::TOO_LARGE);
       return;

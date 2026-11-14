@@ -9,6 +9,8 @@
 #include <nscapi/protobuf/metrics.hpp>
 #include <utility>
 
+#include "metrics_prune.hpp"
+
 namespace nsclient {
 namespace core {
 
@@ -29,6 +31,9 @@ struct metrics_snapshot {
   PB::Metrics::MetricsMessage message;
   // The serialised size, which is what the failed-check log budgets in.
   std::size_t wire_size = 0;
+  // What `prune metrics` took out before it was stored, and under which rules.
+  metrics_prune::rules prune_rules;
+  metrics_prune::summary pruned;
 };
 typedef std::shared_ptr<const metrics_snapshot> metrics_snapshot_ptr;
 
@@ -44,10 +49,12 @@ class metrics_snapshot_store {
  public:
   metrics_snapshot_store() : next_id_(1) {}
 
-  // Keep `message` as the latest snapshot and return it.
-  metrics_snapshot_ptr store(PB::Metrics::MetricsMessage message, const std::int64_t now) {
+  // Keep `message` as the latest snapshot, pruned by `rules`, and return it.
+  metrics_snapshot_ptr store(PB::Metrics::MetricsMessage message, const std::int64_t now, const metrics_prune::rules &rules = metrics_prune::rules()) {
     std::shared_ptr<metrics_snapshot> snapshot = std::make_shared<metrics_snapshot>();
     snapshot->captured_at = now;
+    snapshot->prune_rules = rules;
+    snapshot->pruned = metrics_prune::apply(message, rules);
     snapshot->wire_size = message.ByteSizeLong();
     snapshot->message = std::move(message);
     boost::unique_lock<boost::mutex> lock(mutex_);

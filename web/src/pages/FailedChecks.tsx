@@ -1,6 +1,7 @@
 import Stack from "@mui/material/Stack";
 import {
   Alert,
+  Box,
   Button,
   Chip,
   Collapse,
@@ -30,6 +31,7 @@ import { QueryResultChip } from "../components/atoms/QueryResultChip.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import {
   FailedCheck,
+  FailedCheckContextPruned,
   FailedCheckContextState,
   QueryExecutionResultLinePerf,
   nsclientApi,
@@ -412,6 +414,7 @@ function ContextTable({ index }: { index: number }) {
   return (
     <Stack spacing={1} sx={{ maxWidth: 900 }}>
       <FilterField value={filter} onChange={setFilter} placeholder="Filter metrics" />
+      {data.pruned && <PrunedNote pruned={data.pruned} />}
       <Table size="small" aria-label="metrics at the time">
         <TableHead>
           <TableRow>
@@ -442,6 +445,31 @@ function ContextTable({ index }: { index: number }) {
         </TableBody>
       </Table>
     </Stack>
+  );
+}
+
+/** What `prune metrics` left out, so a missing disk is explained rather than lost. */
+function PrunedNote({ pruned }: { pruned: FailedCheckContextPruned }) {
+  const parts: string[] = [];
+  if (pruned.zeros > 0) parts.push(`${pruned.zeros} zero`);
+  if (pruned.empty > 0) parts.push(`${pruned.empty} empty`);
+  if (pruned.duplicates > 0) parts.push(`${pruned.duplicates} duplicate`);
+  if (pruned.excluded > 0) parts.push(`${pruned.excluded} excluded`);
+  const collapsed = Object.entries(pruned.collapsed);
+  const how = [pruned.rules, ...(pruned.patterns ?? []).map((p) => `"${p}"`)].filter((x) => x).join(", ");
+  return (
+    <Typography variant="body2" color="text.secondary" component="div">
+      Pruned ({how}): {parts.length > 0 ? `${parts.join(", ")} values left out.` : "nothing to leave out."}
+      {collapsed.length > 0 && (
+        <Box component="ul" sx={{ m: 0, pl: 3 }} aria-label="collapsed instances">
+          {collapsed.map(([dropped, kept]) => (
+            <li key={dropped}>
+              <code>{dropped}</code> is identical to <code>{kept}</code>
+            </li>
+          ))}
+        </Box>
+      )}
+    </Typography>
   );
 }
 

@@ -412,12 +412,26 @@ export interface MetricMetadata {
   labels?: { [key: string]: string };
 }
 
+/** What `prune metrics` and `prune pattern` took out of a snapshot before it was kept. */
+export interface FailedCheckContextPruned {
+  rules: string;
+  zeros: number;
+  empty: number;
+  duplicates: number;
+  /** The `prune pattern` entries (lower-cased) and how many metrics they excluded. */
+  patterns: string[];
+  excluded: number;
+  /** Each collapsed instance prefix and the instance it was identical to. */
+  collapsed: { [key: string]: string };
+}
+
 /** GET /api/v2/failures/<index>/context. `metrics` only when `state` is `captured`. */
 export interface FailedCheckContext extends FailedCheckContextRef {
   index: number;
   timestamp: number;
   metrics?: Metrics;
   metadata?: { [key: string]: MetricMetadata };
+  pruned?: FailedCheckContextPruned;
 }
 
 /** The log and how it is configured, so the UI can say "off" or "no arguments". */

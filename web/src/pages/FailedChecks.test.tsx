@@ -142,6 +142,36 @@ describe("FailedChecks", () => {
     expect(within(table).getByText("system.mem.physical.used")).toBeInTheDocument();
   });
 
+  it("says what pruning left out of the snapshot", async () => {
+    installFetchMock({
+      "/api/v2/failures": envelope(),
+      "/api/v2/failures/2/context": jsonResponse({
+        ...CONTEXT,
+        pruned: {
+          rules: "zeros,duplicates",
+          zeros: 12,
+          empty: 0,
+          duplicates: 11,
+          patterns: ["virtualbox"],
+          excluded: 4,
+          collapsed: { "disk.io.C:": "disk.io._Total" },
+        },
+      }),
+    });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+    expect(
+      await screen.findByText(
+        /Pruned \(zeros,duplicates, "virtualbox"\): 12 zero, 11 duplicate, 4 excluded values left out/,
+      ),
+    ).toBeInTheDocument();
+    const collapsed = screen.getByRole("list", { name: "collapsed instances" });
+    expect(within(collapsed).getByText("disk.io.C:")).toBeInTheDocument();
+    expect(within(collapsed).getByText("disk.io._Total")).toBeInTheDocument();
+  });
+
   it("says why an entry has no metrics instead of fetching them", async () => {
     installFetchMock({ "/api/v2/failures": envelope() });
     renderWithProviders(<FailedChecks />);

@@ -517,6 +517,11 @@ per interval, whatever fails:
 [/settings/core/failed checks]
 ; Keep the metrics snapshot with each failure, so the report can carry it.
 capture metrics = true
+; Optional: leave out zeros, empty strings and duplicate instances (idle disks,
+; unused adapters) to make the report smaller and easier to read.
+prune metrics = zeros, empty, duplicates
+; Optional: leave out every metric whose key contains one of these.
+prune pattern = HarddiskVolume8, Hyper-V Virtual, VirtualBox
 
 [/settings/fleet]
 ; Report failed checks to a server that asks (the default).
@@ -574,7 +579,9 @@ The report:
 `failure` is the entry as [`/api/v2/failures`](../api/rest/failures.md#list-failed-checks)
 renders it, with `arguments` only when the agent records them. `context.metrics` and
 `context.metadata` are only there when `context.state` is `captured`, in the shape
-`/api/v2/metrics?meta=1` serves. Without `capture metrics` the state is `disabled`, and the
+`/api/v2/metrics?meta=1` serves. With [`prune metrics`](../api/rest/failures.md#pruning-the-snapshot)
+on, the snapshot is trimmed before it is kept and `context.pruned` says what was taken out,
+including which instance each collapsed one duplicated. Without `capture metrics` the state is `disabled`, and the
 agent logs once that its reports carry no metrics. `suppressed.evicted` counts the
 failures the log's `max entries` cap dropped before they could be reported. A snapshot is
 around 70 KB of protobuf on a busy Windows host and roughly 120 KB as JSON, so a report is

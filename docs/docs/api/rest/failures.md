@@ -42,6 +42,10 @@ capture metrics = false
 metrics context budget = 4194304
 ; The largest single snapshot kept, in bytes (never more than the budget).
 max context size = 1048576
+; Trim each snapshot before it is kept: zeros, empty, duplicates (none by default).
+prune metrics =
+; Leave out every metric whose key contains one of these (comma-separated).
+prune pattern =
 ```
 
 `statuses` accepts the words (`warning`, `critical`, `unknown`) and the
@@ -83,6 +87,50 @@ first. Their failures stay in the log, marked `evicted`. A snapshot larger than
 CheckSystem, CheckDisk and CheckNet, a snapshot is about 70 KB (some 500
 metrics), so the default budget holds about 50 snapshots and covers a
 default-sized log in full. Turning capture off releases every snapshot held.
+
+#### Pruning the snapshot
+
+Most of a snapshot is usually noise for whoever reads it next to a failure: a
+dozen idle WAN miniports with every rate at 0, adapters with no address, a
+`_Total` disk that is the only disk. `prune metrics` trims the snapshot before it
+is kept, so the log holds less, and so does the fleet report. It is a
+comma-separated list of rules, all off by default:
+
+| Rule         | Drops |
+|--------------|-------|
+| `zeros`      | Every numeric value (gauge, counter) that is exactly `0`. |
+| `empty`      | Every string value that is empty. |
+| `duplicates` | Every instance (a disk, an adapter, a core) whose values are all identical to an earlier instance in the same section. The first is kept. |
+
+```ini
+[/settings/core/failed checks]
+capture metrics = true
+prune metrics = zeros, empty, duplicates
+```
+
+Duplicates are compared on the values as collected, before `zeros` and `empty`
+run, so two instances only collapse when they really were identical. An
+instance is what a module publishes with a label (`disk`, `nic`, `core`, ...);
+a metric without one is never collapsed. What was taken out is returned with
+the snapshot as `pruned`, including which instance each collapsed one is
+identical to, so `disk.io.C:` is not lost when it matches `disk.io._Total`.
+To leave out what you already know is noise on your hosts, list it in
+`prune pattern`. Every metric whose key (as `/api/v2/metrics` shows it)
+contains one of the entries is dropped. The match ignores the case of A-Z, and
+it is on the whole key, so an entry can name an instance, a metric, or a
+whole section:
+
+```ini
+[/settings/core/failed checks]
+prune pattern = HarddiskVolume8, Hyper-V Virtual, VirtualBox, .MACAddress
+```
+
+Patterns are applied before `prune metrics`, so an excluded instance is never
+the one a duplicate is collapsed into.
+
+Only the copy kept with a failure is pruned: [`/api/v2/metrics`](metrics.md)
+and the metrics submitters always see the whole snapshot. A changed rule
+applies from the next snapshot on.
 
 The listing only says whether an entry has a snapshot (its `context` field).
 The snapshot itself is served by
@@ -243,9 +291,27 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures/12/context" | pyth
         "system.cpu.total.idle": { "type": "gauge", "help": "...", "unit": "percent" },
         "system.mem.physical.used": { "type": "gauge", "help": "...", "unit": "bytes" },
         "workers.jobs": { "type": "counter", "help": "..." }
+    },
+    "pruned": {
+        "rules": "zeros,empty,duplicates",
+        "zeros": 212,
+        "empty": 96,
+        "duplicates": 51,
+        "patterns": ["harddiskvolume8", "hyper-v virtual", "virtualbox"],
+        "excluded": 42,
+        "collapsed": {
+            "disk.io.C:": "disk.io._Total",
+            "disk.io.HarddiskVolume1": "disk.io.D:",
+            "system.network.WAN Miniport (IPv6)": "system.network.WAN Miniport (IP)"
+        }
     }
 }
 ```
+
+`pruned` is only there when [`prune metrics` or `prune pattern`](#pruning-the-snapshot)
+is set. Its counts are metrics dropped by each rule, `excluded` the ones
+`patterns` matched, and `collapsed` maps each dropped instance to the instance
+it was identical to.
 
 | Parameter | Description |
 |-----------|-------------|

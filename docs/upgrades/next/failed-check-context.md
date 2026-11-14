@@ -11,7 +11,11 @@ UI's **Failed checks** page shows it as *System at the time* when you open a
 row, and `GET /api/v2/failures/<index>/context` serves it. Failures within one
 interval share a snapshot, and `metrics context budget` (default 4 MiB) bounds
 what is held: the oldest snapshots are released first, and their failures stay
-in the log marked *evicted*. An enrolled agent also reports failed checks to a
+in the log marked *evicted*. `prune metrics = zeros, empty, duplicates`
+trims each snapshot before it is kept (zero values, empty strings, and
+instances identical to another, such as `_Total` and the only disk) and
+lists what it took out, and `prune pattern` leaves out every metric whose
+key contains one of a list of text (`VirtualBox, Hyper-V Virtual`). An enrolled agent also reports failed checks to a
 fleet server that asks for them: at most one report per
 `[/settings/fleet] failure context interval` (default `1h`), carrying the
 newest failure with its snapshot and a count of the others. Capture is off by

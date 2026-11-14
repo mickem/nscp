@@ -683,6 +683,21 @@ void NSClientT::boot_failed_checks() {
                                                "A snapshot larger than this is not kept, and the failure is marked as too large. Never more than the "
                                                "budget.",
                                                str::xtos(nsclient::core::failed_check_store::default_max_context_size), true, false);
+    settings_manager::get_core()->register_key(
+        0xffff, path, "prune metrics", "string", "Trim the metrics kept with a failure",
+        "A comma-separated list of rules applied to a snapshot before it is kept with a failure, and so before it is reported to a fleet "
+        "server: zeros drops every numeric value that is 0, empty every empty string, and duplicates every instance (a disk, an adapter, a "
+        "core) whose values are all identical to an earlier one in the same section - `_Total` and the only disk, a row of idle adapters. "
+        "The first instance is kept and the ones it stands for are listed with the context, so nothing is silently lost. Empty keeps the "
+        "snapshot whole; /api/v2/metrics is never pruned.",
+        "", true, false);
+    settings_manager::get_core()->register_key(
+        0xffff, path, "prune pattern", "string", "Leave out metrics matching",
+        "A comma-separated list of text: every metric whose key (as /api/v2/metrics shows it) contains one of them is left out of the "
+        "snapshot kept with a failure, ignoring the case of A-Z. Use it for the instances that are noise on your hosts, for example "
+        "`HarddiskVolume8,Hyper-V Virtual,VirtualBox`. Applied before `prune metrics`, so an excluded instance is never the one a "
+        "duplicate is collapsed into.",
+        "", true, false);
     read_failed_check_settings();
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Failed to configure the failed-check log: " + utf8::utf8_from_native(e.what()));
@@ -718,6 +733,13 @@ void NSClientT::read_failed_check_settings() {
     options.capture_metrics = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "capture metrics", "false"));
     read_size_setting("metrics context budget", nsclient::core::failed_check_store::default_context_budget, options.context_budget);
     read_size_setting("max context size", nsclient::core::failed_check_store::default_max_context_size, options.max_context_size);
+    const std::string prune = settings_manager::get_settings()->get_string(path, "prune metrics", "");
+    std::string prune_error;
+    if (!nsclient::core::metrics_prune::parse(prune, options.prune, prune_error)) {
+      LOG_ERROR_CORE_STD("Invalid [" + path + "] prune metrics '" + prune + "', keeping '" + nsclient::core::metrics_prune::format(options.prune) +
+                         "': " + prune_error);
+    }
+    options.prune.patterns = nsclient::core::metrics_prune::parse_patterns(settings_manager::get_settings()->get_string(path, "prune pattern", ""));
     const std::string statuses = settings_manager::get_settings()->get_string(
         path, "statuses", nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses));
     std::string error;
@@ -1156,7 +1178,7 @@ void NSClientT::process_metrics() {
   // latest snapshot with each failure when `capture metrics` is on, and
   // otherwise the core holds nothing between rounds.
   if (failures_->captures_metrics()) {
-    snapshots_->store(std::move(snapshot), nsclient::core::failed_check_store::now());
+    snapshots_->store(std::move(snapshot), nsclient::core::failed_check_store::now(), failures_->get_options().prune);
   } else {
     snapshots_->reset();
   }

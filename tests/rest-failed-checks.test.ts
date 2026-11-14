@@ -483,4 +483,66 @@ describe("REST failed-check log", () => {
       expect((await list(key)).context_bytes_used).toEqual(0);
     });
   });
+
+  describe("prune metrics = zeros, empty, duplicates, prune pattern = workers.threads", () => {
+    let nscp: NscpInstance;
+    let key = "";
+
+    beforeAll(async () => {
+      ({ nscp, key } = await startAgent(
+        {
+          "capture metrics": "true",
+          "prune metrics": "zeros, empty, duplicates",
+          "prune pattern": "WORKERS.threads",
+        },
+        { "metrics interval": "1s" },
+      ));
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("keeps no zero or empty value and says what it left out", async () => {
+      const deadline = Date.now() + 30_000;
+      let entry: Json;
+      for (;;) {
+        await clear(key);
+        await run(key, "check_critical", "?message=pruned");
+        entry = ((await list(key)).entries as Json[])[0];
+        if ((entry.context as Json).state === "captured" || Date.now() > deadline) break;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      // The listing never carries the pruning summary, only the reference.
+      expect((entry.context as Json).pruned).toBeUndefined();
+
+      const body = await context(key, entry.index as number);
+      expect(body.state).toEqual("captured");
+      const metrics = body.metrics as Record<string, unknown>;
+      expect(Object.keys(metrics).length).toBeGreaterThan(0);
+      for (const [k, v] of Object.entries(metrics)) {
+        expect([k, v]).not.toEqual([k, 0]);
+        expect([k, v]).not.toEqual([k, ""]);
+      }
+      // Every key left still has its metadata.
+      const metadata = body.metadata as Record<string, Json>;
+      for (const k of Object.keys(metrics)) expect(metadata[k]).toBeDefined();
+
+      const pruned = body.pruned as Json;
+      expect(pruned.rules).toEqual("zeros,empty,duplicates");
+      expect(typeof pruned.zeros).toBe("number");
+      expect(typeof pruned.empty).toBe("number");
+      expect(typeof pruned.duplicates).toBe("number");
+      // The core always publishes workers.threads (and never as 0: a pool runs
+      // the checks), so the pattern is what removed it.
+      expect(pruned.patterns).toEqual(["workers.threads"]);
+      expect(pruned.excluded).toBeGreaterThanOrEqual(1);
+      expect(metrics["workers.threads"]).toBeUndefined();
+      // A collapsed instance is gone from the snapshot; the one it matched is not.
+      for (const [dropped, kept] of Object.entries(pruned.collapsed as Record<string, string>)) {
+        expect(Object.keys(metrics).some((k) => k.startsWith(`${dropped}.`))).toBe(false);
+        expect(dropped).not.toEqual(kept);
+      }
+    });
+  });
 });

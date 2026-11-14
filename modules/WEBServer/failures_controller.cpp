@@ -203,6 +203,8 @@ void failures_controller::get_context(Mongoose::Request &request, boost::smatch 
     metrics_json::build(metrics_list, with_meta ? &metrics_meta : nullptr, entry.context().metrics());
     out["metrics"] = metrics_list;
     if (with_meta) out["metadata"] = metrics_meta;
+    const json::value pruned = failures_json::pruned(entry.context());
+    if (!pruned.is_null()) out["pruned"] = pruned;
   }
   response.append(json::serialize(out));
 }

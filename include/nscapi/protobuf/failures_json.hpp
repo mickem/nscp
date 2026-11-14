@@ -47,6 +47,29 @@ inline boost::json::object context(const PB::Failures::FailedCheck &entry) {
   return node;
 }
 
+// What `prune metrics` and `prune pattern` took out of a snapshot: the rules
+// and patterns, how many metrics each dropped, and every collapsed instance
+// with the one it duplicated.
+// Served with the snapshot itself, never in a listing. Null when nothing was
+// pruned (no rule was on).
+inline boost::json::value pruned(const PB::Failures::MetricsContext &context) {
+  if (!context.has_pruned()) return nullptr;
+  const PB::Failures::MetricsContext::Pruned &p = context.pruned();
+  boost::json::object node;
+  node["rules"] = p.rules();
+  node["zeros"] = static_cast<std::int64_t>(p.zeros());
+  node["empty"] = static_cast<std::int64_t>(p.empty());
+  node["duplicates"] = static_cast<std::int64_t>(p.duplicates());
+  boost::json::array patterns;
+  for (const std::string &pattern : p.patterns()) patterns.push_back(boost::json::value(pattern));
+  node["patterns"] = patterns;
+  node["excluded"] = static_cast<std::int64_t>(p.excluded());
+  boost::json::object collapsed;
+  for (const PB::Common::KeyValue &kv : p.collapsed()) collapsed[kv.key()] = kv.value();
+  node["collapsed"] = collapsed;
+  return node;
+}
+
 // The entry. `arguments` is only emitted when the store records them: an
 // entry recorded while it was off carries none, and a client should be able
 // to tell "none were given" (an empty list) from "not recorded" (no key).

@@ -31,12 +31,14 @@ namespace core {
 //     "sent_at": "<iso>",
 //     "failure": { <the entry as /api/v2/failures renders it>, "date": "<iso>" },
 //     "context": { "state", "snapshot_id", "captured_at": "<iso>", "age_seconds",
-//                  "metrics": {...flat, as /api/v2/metrics...}, "metadata": {...} },
+//                  "metrics": {...flat, as /api/v2/metrics...}, "metadata": {...},
+//                  "pruned": { "rules", "zeros", "empty", "duplicates", "collapsed": {...} } },
 //     "suppressed": { "since": "<iso>", "count", "evicted",
 //                     "by_check": [ {"command", "status", "count", "first", "last"} ] }
 //   }
 //
-// `metrics` and `metadata` are only there when the state is `captured`.
+// `metrics` and `metadata` are only there when the state is `captured`, and
+// `pruned` only when `prune metrics` trimmed the snapshot.
 // `suppressed.count` is the failures listed in `by_check`; `evicted` is the
 // ones the log's cap dropped before they could be reported, which the server
 // otherwise has no way to know about.
@@ -84,6 +86,8 @@ struct failure_report {
       metrics_json::build(metrics_list, &metrics_meta, this->context->message);
       context_node["metrics"] = metrics_list;
       context_node["metadata"] = metrics_meta;
+      const boost::json::value pruned = failures_json::pruned(reference);
+      if (!pruned.is_null()) context_node["pruned"] = pruned;
     }
     root["context"] = context_node;
 
