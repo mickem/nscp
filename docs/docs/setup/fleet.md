@@ -506,12 +506,14 @@ or read [`/api/v2/facts`](../api/rest/facts.md) when the web server is enabled.
 A server that does not support inventory yet ignores the hash and never asks, so the agent
 never sends it the document.
 
-### Report failed checks
+### Send failure context
 
-The agent keeps a log of the [checks that failed](../api/rest/failures.md), and it can tell
-the server about them: which check failed, what it said and, when the agent captures them, the
-metrics at that moment. A report is one failed check, not every one, and it goes at most once
-per interval, whatever fails:
+When checks fail, the agent can send the server *failure context*: one failed check from its
+[log of failed checks](../api/rest/failures.md), what it said and, when the agent captures
+them, the host's metrics at that moment, plus a count of the other failures since the last
+report. It is an example of the host in trouble, not a feed of failures: at most one report
+goes per interval, whatever fails, and alerting on each failed check stays with your
+monitoring system.
 
 ```ini
 [/settings/core/failed checks]
@@ -524,7 +526,7 @@ prune metrics = zeros, empty, duplicates
 prune pattern = HarddiskVolume8, Hyper-V Virtual, VirtualBox
 
 [/settings/fleet]
-; Report failed checks to a server that asks (the default).
+; Send failure context to a server that asks (the default).
 failure context = true
 ; At most one report per interval (at least 5s; the server can ask for longer).
 failure context interval = 1h
@@ -535,8 +537,8 @@ How it works:
 - **Only to a server that asks.** The server opts in with an `X-Failure-Context: accept`
   header on its desired-state answers, optionally `accept; min-interval=3600` to ask for a
   longer interval than the agent's. A server that does not send it never gets a report, and
-  one that stops sending it gets no more. `failure context = false` keeps every report on the
-  host, whatever the server says.
+  one that stops sending it gets no more. `failure context = false` sends nothing, whatever
+  the server says.
 - **One report per interval.** When the interval has passed and something failed since the
   last report, the next poll turn sends `POST /agent/v1/failure-context`. It carries the
   newest failure that still has its metrics snapshot (the freshest picture of the system in
@@ -579,8 +581,8 @@ The report:
 `failure` is the entry as [`/api/v2/failures`](../api/rest/failures.md#list-failed-checks)
 renders it, with `arguments` only when the agent records them. `context.metrics` and
 `context.metadata` are only there when `context.state` is `captured`, in the shape
-`/api/v2/metrics?meta=1` serves. With [`prune metrics`](../api/rest/failures.md#pruning-the-snapshot)
-on, the snapshot is trimmed before it is kept and `context.pruned` says what was taken out,
+`/api/v2/metrics?meta=1` serves. With [`prune metrics` or `prune pattern`](../api/rest/failures.md#pruning-the-snapshot)
+set, the snapshot is trimmed before it is kept and `context.pruned` says what was taken out,
 including which instance each collapsed one duplicated. Without `capture metrics` the state is `disabled`, and the
 agent logs once that its reports carry no metrics. `suppressed.evicted` counts the
 failures the log's `max entries` cap dropped before they could be reported. A snapshot is

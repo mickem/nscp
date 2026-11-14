@@ -361,6 +361,6 @@ Modules read the same log through the `NSAPIFailuresQuery` core API
 `clear_failures()`), which exchanges the `PB.Failures` protobuf messages in
 `failures.proto`.
 
-An enrolled agent also [reports failed checks](../../setup/fleet.md#report-failed-checks)
-to a fleet server that asks for them, at most once per
-`[/settings/fleet] failure context interval`.
+An enrolled agent can also [send failure context](../../setup/fleet.md#send-failure-context)
+to a fleet server that asks for it: one failed check from this log with its
+snapshot, at most once per `[/settings/fleet] failure context interval`.

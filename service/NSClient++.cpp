@@ -830,7 +830,7 @@ void NSClientT::boot_fleet_sync() {
     // one question, and the fleet channel is the same channel by another name.
     config.allow_plaintext = settings_manager::get_core()->get_allow_plaintext();
     settings_manager::get_core()->register_key(
-        0xffff, path, "failure context", "bool", "Report failed checks",
+        0xffff, path, "failure context", "bool", "Send failure context",
         "Send the fleet server a failed check from [/settings/core/failed checks], with the metrics snapshot it was recorded with when capture "
         "metrics is on there, and a summary of the other failures since the last report. Only to a server that asks for it, and at most once "
         "per `failure context interval`. Read when the service starts.",
