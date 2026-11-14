@@ -83,6 +83,15 @@ message FailedCheck {
 	PB.Commands.QueryResponseMessage.Response response = 5;
 	// The metrics snapshot the failure was recorded with; see MetricsContext.
 	MetricsContext context = 6;
+	// Which problem this is: 16 hex digits hashed from the command and the
+	// arguments it was run with, so `check_drivesize drive=C:` and
+	// `drive=D:` are two problems and the same check failing again is the
+	// same one. Unlike `index` it survives a restart, and it is computed
+	// whether or not `record arguments` is on - the arguments themselves stay
+	// on the host. A credential-looking argument's value is left out of the
+	// hash, so the key neither depends on a password nor can be used to
+	// check a guess at one.
+	string key = 7;
 }
 
 //

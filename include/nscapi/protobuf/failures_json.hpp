@@ -54,6 +54,9 @@ inline boost::json::object entry(const PB::Failures::FailedCheck &entry, const b
   const PB::Commands::QueryResponseMessage::Response &r = entry.response();
   boost::json::object node;
   node["index"] = static_cast<std::int64_t>(entry.index());
+  // Which problem this is - the command and what it was pointed at - stable
+  // across restarts, where `index` is not.
+  node["key"] = entry.key();
   node["timestamp"] = entry.timestamp();
   // Who asked: the module that dispatched the query and, when it knows, the
   // principal behind it (`WEBServer:admin`, `NRPEServer`, `Scheduler`).

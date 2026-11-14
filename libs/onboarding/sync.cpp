@@ -435,10 +435,11 @@ std::string onboarding::build_facts_upload(const std::string &facts_hash, const 
 const char *const onboarding::facts_hash_header = "x-facts-hash";
 const char *const onboarding::failure_context_header = "x-failure-context";
 
-boost::optional<unsigned long> onboarding::parse_failure_context_header(const std::string &header_value) {
-  // `accept` or `accept; min-interval=3600`, case-insensitive and with any
-  // blanks around the parts. Anything else is a server that does not take
-  // reports - including a value a newer server might send to mean "not now".
+boost::optional<onboarding::failure_context_offer> onboarding::parse_failure_context_header(const std::string &header_value) {
+  // `accept` or `accept; min-interval=3600; max-bytes=65536`,
+  // case-insensitive and with any blanks around the parts. Anything else is a
+  // server that does not take reports - including a value a newer server
+  // might send to mean "not now".
   const std::string value = detail::to_lower(header_value);
   const auto trim = [](const std::string &s) {
     const std::string::size_type first = s.find_first_not_of(" \t");
@@ -447,18 +448,23 @@ boost::optional<unsigned long> onboarding::parse_failure_context_header(const st
   };
   std::string::size_type semi = value.find(';');
   if (trim(value.substr(0, semi)) != "accept") return boost::none;
-  unsigned long min_interval = 0;
+  failure_context_offer offer;
   while (semi != std::string::npos) {
     const std::string::size_type start = semi + 1;
     semi = value.find(';', start);
     const std::string part = trim(value.substr(start, semi == std::string::npos ? std::string::npos : semi - start));
     const std::string::size_type eq = part.find('=');
-    if (eq == std::string::npos || trim(part.substr(0, eq)) != "min-interval") continue;
+    if (eq == std::string::npos) continue;
+    const std::string name = trim(part.substr(0, eq));
+    if (name != "min-interval" && name != "max-bytes") continue;
     const std::string number = trim(part.substr(eq + 1));
     if (number.empty() || number.size() > 9 || number.find_first_not_of("0123456789") != std::string::npos) continue;
-    min_interval = std::stoul(number);
+    if (name == "min-interval")
+      offer.min_interval = std::stoul(number);
+    else
+      offer.max_bytes = static_cast<std::size_t>(std::stoul(number));
   }
-  return min_interval;
+  return offer;
 }
 const char *const onboarding::empty_facts_hash = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 

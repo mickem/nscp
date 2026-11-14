@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <boost/optional.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -12,13 +13,24 @@ namespace onboarding {
 
 // The header a fleet server sets on its desired-state answers to say it takes
 // failure-context reports, lower-case as the http client stores headers:
-// `X-Failure-Context: accept`, optionally `accept; min-interval=3600`.
+// `X-Failure-Context: accept`, optionally with parameters:
+// `accept; min-interval=3600; max-bytes=65536`.
 extern const char *const failure_context_header;
 
+// What a server that takes reports asks of them.
+struct failure_context_offer {
+  // At most one report per this many seconds (0 for no minimum of its own).
+  unsigned long min_interval = 0;
+  // The largest request body it takes, in bytes (0 when it names none). A
+  // report that would be larger is sent without its metrics snapshot.
+  std::size_t max_bytes = 0;
+};
+
 // What the header says: absent (none) when the server does not take reports,
-// or the minimum interval it asks for (0 for none) when it does. Anything
-// that does not start with `accept` reads as not taking them.
-boost::optional<unsigned long> parse_failure_context_header(const std::string &value);
+// or what it asks for when it does. Anything that does not start with
+// `accept` reads as not taking them; a parameter that is unknown or
+// unreadable is skipped.
+boost::optional<failure_context_offer> parse_failure_context_header(const std::string &value);
 
 // When the fleet sync reports a failed check, with the metrics snapshot it was
 // recorded with, to the fleet server: the whole decision, kept apart from the
@@ -54,9 +66,17 @@ boost::optional<unsigned long> parse_failure_context_header(const std::string &v
 //    passed.
 //  * A report the server rejected, or one that never arrived (the connection
 //    dropped), is retried 1 min later, then 2, doubling up to an hour - never
-//    sooner than the interval would allow anyway. A report it refused as too
-//    large (413) is not retried: that failure is dropped, and the next one is
+//    sooner than the interval would allow anyway.
+//  * A report that would be larger than the server takes goes without its
+//    metrics snapshot, which is nearly all of its size: the failure is what
+//    must not be lost. The limit is the server's `max-bytes` when it names
+//    one; otherwise it is learned from a 413, after which the caller sends
+//    the same report again at once without the snapshot. Only a report that
+//    is refused as too large without one is dropped, and the next failure is
 //    the next candidate.
+//  * A report keeps one id from its first attempt until it lands or is
+//    dropped, so a server that received it and whose answer was lost can
+//    tell the retry from a second occurrence.
 class failure_context_pacer {
  public:
   static constexpr unsigned long min_interval_seconds = 5;
@@ -87,15 +107,38 @@ class failure_context_pacer {
 
   // A poll answer carried the header: the server takes reports, at most one
   // per `min_interval` seconds (0 for no minimum of its own).
-  void server_accepts(const unsigned long min_interval) {
+  void server_accepts(const unsigned long min_interval, const std::size_t max_bytes = 0) {
     accepted_ = true;
     server_min_interval_ = min_interval;
+    server_max_bytes_ = max_bytes;
   }
   // A poll answer without it, or a 404/410 on the report.
   void server_silent() {
     accepted_ = false;
     server_min_interval_ = 0;
+    server_max_bytes_ = 0;
   }
+
+  // Whether a report with a body of `bytes` may carry its snapshot. The
+  // server's own `max-bytes` decides when it names one. Without it, whatever
+  // a 413 has taught: a body as large as the smallest one refused is not
+  // tried again. What was learned lasts until the process restarts - it is
+  // normally a proxy's limit, which no header will announce a change of.
+  bool fits(const std::size_t bytes) const {
+    if (server_max_bytes_ > 0) return bytes <= server_max_bytes_;
+    return refused_bytes_ == 0 || bytes < refused_bytes_;
+  }
+  // A report with a body of `bytes` came back 413.
+  void refused_as_too_large(const std::size_t bytes) {
+    if (bytes > 0 && (refused_bytes_ == 0 || bytes < refused_bytes_)) refused_bytes_ = bytes;
+  }
+  // The limit in force for a report with a snapshot, for the log; 0 for none.
+  std::size_t max_bytes() const { return server_max_bytes_ > 0 ? server_max_bytes_ : (refused_bytes_ > 0 ? refused_bytes_ - 1 : 0); }
+
+  // The id of the report being attempted: empty until the caller names one,
+  // then kept until that report lands or is dropped.
+  const std::string &report_id() const { return report_id_; }
+  void set_report_id(const std::string &id) { report_id_ = id; }
   bool server_accepts_reports() const { return accepted_; }
 
   // The interval in force: the operator's, or the server's minimum if longer.
@@ -117,6 +160,7 @@ class failure_context_pacer {
     last_sent_at_ = now;
     rejections_ = 0;
     retry_at_ = 0;
+    report_id_.clear();
   }
 
   // The report did not land (an error status, a dropped connection): try the
@@ -126,9 +170,13 @@ class failure_context_pacer {
     ++rejections_;
   }
 
-  // The report was too large for the server, and will be every time: the
-  // failures up to `index` are given up on rather than retried.
-  void dropped(const unsigned long long index) { last_index_ = (std::max)(last_index_, index); }
+  // The report was too large for the server even without its snapshot, and
+  // will be every time: the failures up to `index` are given up on rather
+  // than retried.
+  void dropped(const unsigned long long index) {
+    last_index_ = (std::max)(last_index_, index);
+    report_id_.clear();
+  }
 
   // A Retry-After: no report before `seconds` have passed. A shorter hold
   // never cuts a longer one short.
@@ -158,6 +206,9 @@ class failure_context_pacer {
 
   unsigned long interval_ = default_interval_seconds;
   unsigned long server_min_interval_ = 0;
+  std::size_t server_max_bytes_ = 0;
+  std::size_t refused_bytes_ = 0;
+  std::string report_id_;
   bool accepted_ = false;
   unsigned long long last_index_ = 0;
   std::int64_t last_sent_at_ = 0;

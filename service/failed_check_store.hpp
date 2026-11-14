@@ -178,6 +178,9 @@ class failed_check_store {
     PB::Commands::QueryResponseMessage::Response *copy = item.mutable_response();
     copy->CopyFrom(response);
     sanitize(copy, current.record_arguments ? arguments : nullptr);
+    // From the request's arguments, not the recorded ones: the key has to
+    // tell two targets apart when `record arguments` is off as well.
+    item.set_key(problem_key(response.command(), arguments));
 
     boost::unique_lock<boost::mutex> lock(mutex_);
     // Re-checked under the lock: configure() may have switched the store off
@@ -383,6 +386,49 @@ class failed_check_store {
       }
       if (is_sensitive_argument(argument.substr(0, eq))) argument = argument.substr(0, eq + 1) + "***";
     }
+  }
+
+  // The identity of a problem: the command and what it was pointed at, as 16
+  // hex digits. This is what lets a consumer that sees failures one at a time
+  // - the fleet server above all - say "the same check failed again" rather
+  // than "a check with this name failed": the index restarts with the
+  // process, the alias is never set on a response, and the arguments are
+  // normally not recorded.
+  //
+  // FNV-1a (64 bit) over the lower-cased command and then, for each
+  // argument, a NUL and the argument. It is an identity, not a secret: FNV is
+  // in every build (a digest from OpenSSL is not), is the same on every
+  // platform, and 64 bits is far more than one host's checks need. The
+  // arguments are redacted exactly as the log redacts them before they are
+  // hashed, so a credential never enters the key - which also keeps it
+  // stable when a password is rotated - and they are not capped, so two long
+  // argument lists that differ late still differ.
+  //
+  // The key follows the arguments as the transport passed them: the same
+  // check asked for over NRPE and over REST can carry two keys, and so can
+  // the same arguments in another order.
+  static std::string problem_key(const std::string &command, const google::protobuf::RepeatedPtrField<std::string> *arguments) {
+    std::uint64_t hash = 14695981039346656037ull;
+    const auto feed = [&hash](const unsigned char c) {
+      hash ^= c;
+      hash *= 1099511628211ull;
+    };
+    for (const char c : command) feed(static_cast<unsigned char>(std::tolower(static_cast<unsigned char>(c))));
+    if (arguments != nullptr && !arguments->empty()) {
+      google::protobuf::RepeatedPtrField<std::string> redacted(*arguments);
+      redact_arguments(&redacted);
+      for (const std::string &argument : redacted) {
+        feed(0);
+        for (const char c : argument) feed(static_cast<unsigned char>(c));
+      }
+    }
+    static const char digits[] = "0123456789abcdef";
+    std::string out(16, '0');
+    for (int i = 15; i >= 0; --i) {
+      out[static_cast<std::size_t>(i)] = digits[hash & 0xf];
+      hash >>= 4;
+    }
+    return out;
   }
 
   static std::int64_t now() { return static_cast<std::int64_t>(std::time(nullptr)); }

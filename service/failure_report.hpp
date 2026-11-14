@@ -5,9 +5,11 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
+#include <chrono>
 #include <cstdint>
 #include <ctime>
 #include <map>
+#include <random>
 #include <metrics/metrics_json.hpp>
 #include <nscapi/protobuf/failures_json.hpp>
 #include <string>
@@ -28,18 +30,32 @@ namespace core {
 // snapshots.
 //
 //   {
-//     "sent_at": "<iso>",
-//     "failure": { <the entry as /api/v2/failures renders it>, "date": "<iso>" },
-//     "context": { "state", "snapshot_id", "captured_at": "<iso>", "age_seconds",
+//     "version": 1,
+//     "report_id": "<ulid>",
+//     "sent_at": "<iso>", "sent_at_unix": <seconds>,
+//     "failure": { <the entry as /api/v2/failures renders it, `key` included>, "date": "<iso>" },
+//     "context": { "state", "snapshot_id", "captured_at": "<iso>", "captured_at_unix", "age_seconds",
 //                  "metrics": {...flat, as /api/v2/metrics...}, "metadata": {...} },
-//     "suppressed": { "since": "<iso>", "count", "evicted",
-//                     "by_check": [ {"command", "status", "count", "first", "last"} ] }
+//     "suppressed": { "since": "<iso>", "since_unix", "count", "evicted",
+//                     "by_check": [ {"key", "command", "status", "count",
+//                                    "first", "first_unix", "last", "last_unix"} ] }
 //   }
 //
-// `metrics` and `metadata` are only there when the state is `captured`.
+// `metrics` and `metadata` are only there when the state is `captured`. A
+// snapshot that is held but left out because the server cannot take a body
+// that large is reported as `omitted`.
 // `suppressed.count` is the failures listed in `by_check`; `evicted` is the
 // ones the log's cap dropped before they could be reported, which the server
 // otherwise has no way to know about.
+//
+// Every time is there twice: as an ISO string to show, and as unix seconds
+// (`*_unix`, and `failure.timestamp`) to sort and compute on.
+//
+// `report_id` names the report, not the attempt: a report whose answer was
+// lost is sent again under the same id, so a server that did receive it can
+// tell a repeat from a second occurrence. The repeat may have grown - it
+// covers every failure since the last report that was acknowledged - so it
+// replaces the earlier one rather than adding to it.
 struct failure_report {
   // The failure to send, and the snapshot it refers to (null when it has
   // none any more).
@@ -51,6 +67,41 @@ struct failure_report {
   // The start of the window: the previous report, or the oldest failure in it.
   std::int64_t since = 0;
   bool arguments_recorded = false;
+  // Names this report across its retries; see above.
+  std::string report_id;
+  // Cleared to send the report without its snapshot, for a server (or a
+  // proxy in front of it) that cannot take a body that large.
+  bool include_metrics = true;
+
+  // The format of the body. Raised when a field changes meaning or goes
+  // away; a field that is only added does not raise it.
+  static constexpr int wire_version = 1;
+
+  // Whether rendering would put a snapshot in the body.
+  bool carries_metrics() const {
+    return include_metrics && context && failure.context().state() == PB::Failures::MetricsContext::CAPTURED;
+  }
+
+  // A ULID: 48 bits of milliseconds since the epoch and 80 random bits, as
+  // 26 characters of Crockford base32. Sorts by the time it was made.
+  template <class Random>
+  static std::string make_report_id(std::uint64_t milliseconds, Random &random) {
+    static const char alphabet[] = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    std::string out(26, '0');
+    for (int i = 9; i >= 0; --i) {
+      out[static_cast<std::size_t>(i)] = alphabet[milliseconds & 31];
+      milliseconds >>= 5;
+    }
+    std::uniform_int_distribution<int> digit(0, 31);
+    for (std::size_t i = 10; i < 26; ++i) out[i] = alphabet[digit(random)];
+    return out;
+  }
+  static std::string make_report_id() {
+    std::random_device random;
+    const std::uint64_t ms = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    return make_report_id(ms, random);
+  }
 
   static std::string iso_time(const std::int64_t epoch) {
     if (epoch <= 0) return "";
@@ -59,7 +110,10 @@ struct failure_report {
 
   std::string render(const std::int64_t now) const {
     boost::json::object root;
+    root["version"] = wire_version;
+    if (!report_id.empty()) root["report_id"] = report_id;
     root["sent_at"] = iso_time(now);
+    root["sent_at_unix"] = now;
 
     boost::json::object entry = failures_json::entry(failure, arguments_recorded);
     entry["date"] = iso_time(failure.timestamp());
@@ -73,13 +127,17 @@ struct failure_report {
     // (the budget released it in between) is reported as what it now is.
     PB::Failures::MetricsContext::State state = reference.state();
     if (state == PB::Failures::MetricsContext::CAPTURED && !this->context) state = PB::Failures::MetricsContext::EVICTED;
-    context_node["state"] = nscapi::failures::context_state_name(state);
+    // Held, and left out on purpose: not one of the log's own states, which
+    // all say what the host has.
+    const bool omitted = state == PB::Failures::MetricsContext::CAPTURED && !include_metrics;
+    context_node["state"] = omitted ? "omitted" : nscapi::failures::context_state_name(state);
     if (reference.snapshot_id() > 0) {
       context_node["snapshot_id"] = static_cast<std::int64_t>(reference.snapshot_id());
       context_node["captured_at"] = iso_time(reference.captured_at());
+      context_node["captured_at_unix"] = reference.captured_at();
       context_node["age_seconds"] = failure.timestamp() > reference.captured_at() ? failure.timestamp() - reference.captured_at() : 0;
     }
-    if (state == PB::Failures::MetricsContext::CAPTURED) {
+    if (state == PB::Failures::MetricsContext::CAPTURED && !omitted) {
       boost::json::object metrics_list, metrics_meta;
       metrics_json::build(metrics_list, &metrics_meta, this->context->message);
       context_node["metrics"] = metrics_list;
@@ -87,9 +145,13 @@ struct failure_report {
     }
     root["context"] = context_node;
 
-    // Grouped by command and status, in the order each group was first seen
-    // going back from the newest, so the busiest recent problem leads.
+    // Grouped by problem (the entry's key: the command and what it was
+    // pointed at) and status, in the order each group was first seen going
+    // back from the newest, so the busiest recent problem leads. By key and
+    // not by command, so the counts can be attributed: two full drives are
+    // two groups, each with its own count.
     struct group {
+      std::string key;
       std::string command;
       int status = 0;
       std::size_t count = 0;
@@ -99,12 +161,13 @@ struct failure_report {
     std::vector<group> groups;
     std::map<std::pair<std::string, int>, std::size_t> position;
     for (const PB::Failures::FailedCheck &other : suppressed) {
-      const std::pair<std::string, int> key(other.response().command(), failures_json::status_number(other.response().result()));
+      const std::pair<std::string, int> key(other.key(), failures_json::status_number(other.response().result()));
       std::map<std::pair<std::string, int>, std::size_t>::const_iterator it = position.find(key);
       if (it == position.end()) {
         it = position.insert(std::make_pair(key, groups.size())).first;
         group g;
-        g.command = key.first;
+        g.key = key.first;
+        g.command = other.response().command();
         g.status = key.second;
         g.first = other.timestamp();
         g.last = other.timestamp();
@@ -118,15 +181,19 @@ struct failure_report {
     boost::json::array by_check;
     for (const group &g : groups) {
       boost::json::object node;
+      node["key"] = g.key;
       node["command"] = g.command;
       node["status"] = g.status;
       node["count"] = static_cast<std::int64_t>(g.count);
       node["first"] = iso_time(g.first);
+      node["first_unix"] = g.first;
       node["last"] = iso_time(g.last);
+      node["last_unix"] = g.last;
       by_check.push_back(node);
     }
     boost::json::object summary;
     summary["since"] = iso_time(since);
+    summary["since_unix"] = since;
     summary["count"] = static_cast<std::int64_t>(suppressed.size());
     summary["evicted"] = static_cast<std::int64_t>(evicted);
     summary["by_check"] = by_check;

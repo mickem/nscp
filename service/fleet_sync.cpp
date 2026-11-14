@@ -482,18 +482,18 @@ void fleet_sync::note_server_response(const http::response &response, const flee
     // Whether the server takes failure reports is the poll's to say, as with
     // facts: a report answer that lacks the header proves nothing.
     const auto header = response.headers_.find(onboarding::failure_context_header);
-    boost::optional<unsigned long> accepts;
+    boost::optional<onboarding::failure_context_offer> accepts;
     if (header != response.headers_.end()) {
       accepts = onboarding::parse_failure_context_header(header->second);
       if (!accepts && !bad_failure_header_logged_) {
         bad_failure_header_logged_ = true;
         log_info("The fleet server sent an X-Failure-Context header this agent does not understand (" + header->second.substr(0, 80) +
-                 "): expected 'accept' or 'accept; min-interval=<seconds>'. Not reporting failed checks to it.");
+                 "): expected 'accept', optionally followed by '; min-interval=<seconds>' or '; max-bytes=<bytes>'. Not reporting failed checks to it.");
       }
     }
     if (accepts) {
       bad_failure_header_logged_ = false;
-      failure_pacer_.server_accepts(accepts.value());
+      failure_pacer_.server_accepts(accepts.value().min_interval, accepts.value().max_bytes);
     } else {
       failure_pacer_.server_silent();
     }
@@ -705,31 +705,64 @@ void fleet_sync::maybe_report_failure_context() {
     failure_no_metrics_logged_ = false;
   }
 
+  // One id from the first attempt until the report lands or is dropped, so a
+  // server that got a report whose answer was lost can tell the retry from a
+  // second occurrence.
+  if (failure_pacer_.report_id().empty()) failure_pacer_.set_report_id(nsclient::core::failure_report::make_report_id());
+  report.report_id = failure_pacer_.report_id();
+
   std::string body;
-  try {
-    body = report.render(now);
-  } catch (const std::exception &e) {
-    failure_pacer_.dropped(newest);
-    log_error("Failed check not reported to the fleet server: " + utf8::utf8_from_native(e.what()));
-    return;
+  const auto render = [&]() -> bool {
+    try {
+      body = report.render(now);
+      return true;
+    } catch (const std::exception &e) {
+      failure_pacer_.dropped(newest);
+      log_error("Failed check not reported to the fleet server: " + utf8::utf8_from_native(e.what()));
+      return false;
+    }
+  };
+  if (!render()) return;
+  // A body the server is known not to take goes without the snapshot, which
+  // is nearly all of it: the failure itself must not be lost to a size limit.
+  if (report.carries_metrics() && !failure_pacer_.fits(body.size())) {
+    log_debug("Failure report of " + str::xtos(body.size()) + " bytes is over the " + str::xtos(failure_pacer_.max_bytes()) +
+              " the fleet server takes; sending it without the metrics snapshot");
+    report.include_metrics = false;
+    if (!render()) return;
   }
 
   http::response response;
-  try {
-    response = do_call("POST", failure_context_path, body);
-  } catch (const std::exception &e) {
-    // The polls get through, so this is the report's own trouble (a proxy
-    // that resets a large POST): paced like a rejection, not retried every
-    // turn, and logged once until a report lands.
-    failure_pacer_.rejected(now);
-    const std::string message = "Failure report to the fleet server failed: " + utf8::utf8_from_native(e.what());
-    if (last_failure_report_error_ != 1) {
-      last_failure_report_error_ = 1;
-      log_error(message);
-    } else {
-      log_debug(message);
+  for (;;) {
+    try {
+      response = do_call("POST", failure_context_path, body);
+    } catch (const std::exception &e) {
+      // The polls get through, so this is the report's own trouble (a proxy
+      // that resets a large POST): paced like a rejection, not retried every
+      // turn, and logged once until a report lands.
+      failure_pacer_.rejected(now);
+      const std::string message = "Failure report to the fleet server failed: " + utf8::utf8_from_native(e.what());
+      if (last_failure_report_error_ != 1) {
+        last_failure_report_error_ = 1;
+        log_error(message);
+      } else {
+        log_debug(message);
+      }
+      return;
     }
-    return;
+    if (response.status_code_ != 413 || !report.carries_metrics()) break;
+    // Too large with the snapshot in it. Nothing in the protocol lets a 413
+    // say what would fit, so the same report goes again at once without the
+    // snapshot, and later ones of this size do not try with it.
+    failure_pacer_.refused_as_too_large(body.size());
+    if (!failure_too_large_logged_) {
+      failure_too_large_logged_ = true;
+      log_info("The fleet server refused a failure report of " + str::xtos(body.size()) +
+               " bytes as too large (413). Failed checks are reported without their metrics snapshot when the report would be that large; raise the "
+               "request body limit on the server or the proxy in front of it to get the snapshots.");
+    }
+    report.include_metrics = false;
+    if (!render()) return;
   }
   note_transport_success();
 
@@ -738,7 +771,8 @@ void fleet_sync::maybe_report_failure_context() {
     last_failure_report_error_ = 0;
     failure_route_missing_logged_ = false;
     log_debug("Reported failed check " + str::xtos(report.failure.index()) + " (" + report.failure.response().command() + ") to the fleet server with " +
-              str::xtos(report.suppressed.size()) + " more summarised (" + str::xtos(body.size()) + " bytes)");
+              str::xtos(report.suppressed.size()) + " more summarised (" + str::xtos(body.size()) + " bytes" +
+              (report.include_metrics ? "" : ", without the metrics snapshot") + ")");
     try {
       save_applied_state();
     } catch (const std::exception &e) {
@@ -761,12 +795,11 @@ void fleet_sync::maybe_report_failure_context() {
     return;
   }
   if (response.status_code_ == 413) {
-    // This report is too large and will be every time: give up on these
-    // failures rather than retry them.
+    // Too large without a snapshot in it, and it will be every time: give up
+    // on these failures rather than retry them.
     failure_pacer_.dropped(newest);
-    log_error("The fleet server refused a failure report as too large (" + str::xtos(body.size()) +
-              " bytes). Lower what the snapshot holds (fewer modules publishing metrics) or turn capture metrics off under "
-              "[/settings/core/failed checks].");
+    log_error("The fleet server refused a failure report as too large although it carried no metrics snapshot (" + str::xtos(body.size()) +
+              " bytes); these failed checks are not reported. Raise the request body limit on the server or the proxy in front of it.");
     return;
   }
   failure_pacer_.rejected(now);

@@ -197,6 +197,7 @@ class fleet_sync {
   // report.
   bool failure_no_metrics_logged_ = false;
   bool failure_route_missing_logged_ = false;
+  bool failure_too_large_logged_ = false;
   bool bad_failure_header_logged_ = false;
   unsigned int last_failure_report_error_ = 0;
   reload_function request_reload_;
