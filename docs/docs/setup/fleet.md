@@ -506,6 +506,90 @@ or read [`/api/v2/facts`](../api/rest/facts.md) when the web server is enabled.
 A server that does not support inventory yet ignores the hash and never asks, so the agent
 never sends it the document.
 
+### Send failure context
+
+When checks fail, the agent can send the server *failure context*: one failed check from its
+[log of failed checks](../api/rest/failures.md), what it said and, when the agent captures
+them, the host's metrics at that moment, plus a count of the other failures since the last
+report. It is an example of the host in trouble, not a feed of failures: at most one report
+goes per interval, whatever fails, and alerting on each failed check stays with your
+monitoring system.
+
+```ini
+[/settings/core/failed checks]
+; Keep the metrics snapshot with each failure, so the report can carry it.
+capture metrics = true
+; Optional: leave out zeros, empty strings, values that restate others
+; (memory and disk percentages, free next to used) and duplicate instances
+; (idle disks, unused adapters) to make the report smaller and easier to read.
+prune metrics = zeros, empty, duplicates
+; Optional: leave out every metric whose key contains one of these.
+prune pattern = HarddiskVolume8, Hyper-V Virtual, VirtualBox
+
+[/settings/fleet]
+; Send failure context to a server that asks (the default).
+failure context = true
+; At most one report per interval (at least 5s; the server can ask for longer).
+failure context interval = 1h
+```
+
+How it works:
+
+- **Only to a server that asks.** The server opts in with an `X-Failure-Context: accept`
+  header on its desired-state answers, optionally `accept; min-interval=3600` to ask for a
+  longer interval than the agent's. A server that does not send it never gets a report, and
+  one that stops sending it gets no more. `failure context = false` sends nothing, whatever
+  the server says.
+- **One report per interval.** When the interval has passed and something failed since the
+  last report, the next poll turn sends `POST /agent/v1/failure-context`. It carries the
+  newest failure that still has its metrics snapshot (the freshest picture of the system in
+  trouble), or the newest failure when none has one. Every other failure since the last
+  report goes into a `suppressed` summary, grouped by check and status, so a check that flapped
+  thirty times in the hour reaches the server as one report and a count.
+- **Survives a restart.** The time of the last report is kept with the applied fleet state,
+  so an agent that restarts inside the interval sends nothing until it has passed.
+- **Backs off like the facts upload.** No report in a turn whose poll or report was turned
+  away, a `Retry-After` holds every report, a rejected report is retried after 1 minute,
+  doubling to an hour, and a report refused as too large (`413`) is dropped rather than
+  retried.
+
+The report:
+
+```json
+{
+  "sent_at": "2026-10-31T09:12:44Z",
+  "failure": {
+    "index": 42, "timestamp": 1793437964, "date": "2026-10-31T09:12:44Z",
+    "subject": "Scheduler", "depth": 0, "command": "check_cpu", "alias": "cpu",
+    "status": 2, "result": "CRITICAL", "message": "CRITICAL: 5m: 97%",
+    "lines": [{ "message": "CRITICAL: 5m: 97%", "perf": { "total 5m": { "value": 97, "unit": "%" } } }]
+  },
+  "context": {
+    "state": "captured", "snapshot_id": 310, "captured_at": "2026-10-31T09:12:39Z", "age_seconds": 5,
+    "metrics": { "system.cpu.total.idle": 3, "system.mem.physical.used": 15032385536 },
+    "metadata": { "system.cpu.total.idle": { "type": "gauge", "unit": "percent" } }
+  },
+  "suppressed": {
+    "since": "2026-10-31T08:12:40Z", "count": 37, "evicted": 0,
+    "by_check": [
+      { "command": "check_cpu", "status": 2, "count": 30, "first": "2026-10-31T08:13:02Z", "last": "2026-10-31T09:11:40Z" },
+      { "command": "check_drivesize", "status": 1, "count": 7, "first": "2026-10-31T08:40:00Z", "last": "2026-10-31T09:10:00Z" }
+    ]
+  }
+}
+```
+
+`failure` is the entry as [`/api/v2/failures`](../api/rest/failures.md#list-failed-checks)
+renders it, with `arguments` only when the agent records them. `context.metrics` and
+`context.metadata` are only there when `context.state` is `captured`, in the shape
+`/api/v2/metrics?meta=1` serves. With [`prune metrics` or `prune pattern`](../api/rest/failures.md#pruning-the-snapshot)
+set, the snapshot is trimmed before it is kept and `context.pruned` says what was taken out,
+including which instance each collapsed one duplicated. Without `capture metrics` the state is `disabled`, and the
+agent logs once that its reports carry no metrics. `suppressed.evicted` counts the
+failures the log's `max entries` cap dropped before they could be reported. A snapshot is
+around 70 KB of protobuf on a busy Windows host and roughly 120 KB as JSON, so a report is
+well under the size a server should accept for this route.
+
 ## What the fleet server can do to a host
 
 Worth stating plainly, because every control above narrows something *within* this and none

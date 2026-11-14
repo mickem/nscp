@@ -24,6 +24,7 @@ const ENTRIES = [
       },
     ],
     arguments: ["drive=C:", "password=***"],
+    context: { state: "captured", snapshot_id: 7, captured_at: 1760000055, age_at_failure: 5, size: 2048 },
   },
   {
     index: 1,
@@ -39,8 +40,24 @@ const ENTRIES = [
     message: "WARNING: 5m: 85%",
     lines: [{ message: "WARNING: 5m: 85%", perf: {} }],
     arguments: [],
+    context: { state: "evicted", snapshot_id: 6, captured_at: 1759999995, age_at_failure: 5, size: 2048 },
   },
 ];
+
+const CONTEXT = {
+  index: 2,
+  timestamp: 1760000060,
+  state: "captured",
+  snapshot_id: 7,
+  captured_at: 1760000055,
+  age_at_failure: 5,
+  size: 2048,
+  metrics: { "system.cpu.total.idle": 3, "system.mem.physical.used": 15032385536 },
+  metadata: {
+    "system.cpu.total.idle": { type: "gauge", unit: "percent", help: "Idle time" },
+    "system.mem.physical.used": { type: "gauge", unit: "bytes" },
+  },
+};
 
 const envelope = (over: Record<string, unknown> = {}) =>
   jsonResponse({
@@ -50,6 +67,10 @@ const envelope = (over: Record<string, unknown> = {}) =>
     statuses: "warning,critical,unknown",
     last_index: 2,
     dropped: 3,
+    capture_metrics: true,
+    context_budget: 4194304,
+    max_context_size: 1048576,
+    context_bytes_used: 2048,
     count: ENTRIES.length,
     entries: ENTRIES,
     ...over,
@@ -92,6 +113,84 @@ describe("FailedChecks", () => {
     expect(screen.getByText("drive=C:")).toBeInTheDocument();
     // Redacted by the agent; the UI shows what it got.
     expect(screen.getByText("password=***")).toBeInTheDocument();
+  });
+
+  it("shows the metrics the failure was recorded with once the row is opened", async () => {
+    const fetchMock = installFetchMock({
+      "/api/v2/failures": envelope(),
+      "/api/v2/failures/2/context": jsonResponse(CONTEXT),
+    });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    expect(screen.getByText(/metrics captured \(2\.0 KiB of 4\.0 MiB\)/)).toBeInTheDocument();
+    // Nothing is fetched for a row nobody opened.
+    const contextCalls = () =>
+      fetchMock.mock.calls.filter((c) => new URL((c[0] as Request).url).pathname.endsWith("/context"));
+    expect(contextCalls()).toHaveLength(0);
+
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+    const table = await screen.findByRole("table", { name: "metrics at the time" });
+    expect(within(table).getByText("system.cpu.total.idle")).toBeInTheDocument();
+    expect(within(table).getByText("percent")).toBeInTheDocument();
+    expect(within(table).getByText("15032385536")).toBeInTheDocument();
+    expect(screen.getByText(/snapshot #7, 5s before the failure/)).toBeInTheDocument();
+    expect(contextCalls()).toHaveLength(1);
+
+    await userEvent.type(screen.getByPlaceholderText("Filter metrics"), "mem");
+    expect(within(table).queryByText("system.cpu.total.idle")).not.toBeInTheDocument();
+    expect(within(table).getByText("system.mem.physical.used")).toBeInTheDocument();
+  });
+
+  it("says what pruning left out of the snapshot", async () => {
+    installFetchMock({
+      "/api/v2/failures": envelope(),
+      "/api/v2/failures/2/context": jsonResponse({
+        ...CONTEXT,
+        pruned: {
+          rules: "zeros,duplicates",
+          zeros: 12,
+          empty: 0,
+          duplicates: 11,
+          patterns: ["virtualbox"],
+          excluded: 4,
+          collapsed: { "disk.io.C:": "disk.io._Total" },
+        },
+      }),
+    });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+    expect(
+      await screen.findByText(
+        /Pruned \(zeros,duplicates, "virtualbox"\): 12 zero, 11 duplicate, 4 excluded values left out/,
+      ),
+    ).toBeInTheDocument();
+    const collapsed = screen.getByRole("list", { name: "collapsed instances" });
+    expect(within(collapsed).getByText("disk.io.C:")).toBeInTheDocument();
+    expect(within(collapsed).getByText("disk.io._Total")).toBeInTheDocument();
+  });
+
+  it("says why an entry has no metrics instead of fetching them", async () => {
+    installFetchMock({ "/api/v2/failures": envelope() });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_cpu")).toBeInTheDocument());
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[1]);
+    expect(screen.getByText("evicted")).toBeInTheDocument();
+    expect(screen.getByText(/released to stay within the metrics context budget/)).toBeInTheDocument();
+  });
+
+  it("points at the setting when metrics are not captured", async () => {
+    const off = ENTRIES.map((e) => ({ ...e, context: { state: "disabled" } }));
+    installFetchMock({ "/api/v2/failures": envelope({ capture_metrics: false, entries: off }) });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    expect(screen.getByText(/metrics not captured \(capture metrics = false/)).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+    expect(screen.getByText("disabled")).toBeInTheDocument();
   });
 
   it("says when arguments were not recorded rather than showing an empty list", async () => {

@@ -42,6 +42,7 @@ if(WIN32)
         digest.hpp
         ${NSCP_INCLUDEDIR}/onboarding/onboarding.hpp
         ${NSCP_INCLUDEDIR}/onboarding/sync.hpp
+        ${NSCP_INCLUDEDIR}/onboarding/failure_context_pacer.hpp
         ${NSCP_INCLUDEDIR}/onboarding/bundle_crypto.hpp
         ${NSCP_INCLUDEDIR}/net/http/client.hpp
     )
@@ -73,6 +74,7 @@ NSCP_CREATE_TEST(
     SOURCES
         onboarding_test.cpp
         sync_test.cpp
+        failure_context_pacer_test.cpp
     LIBRARIES
         GTest::gtest_main
         onboarding

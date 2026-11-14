@@ -11,14 +11,14 @@
 #include <boost/json.hpp>
 #include <ctime>
 #include <list>
+#include <metrics/metrics_json.hpp>
 #include <nscapi/protobuf/failures.hpp>
+#include <nscapi/protobuf/failures_json.hpp>
 #include <set>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <string>
 #include <utility>
-
-#include "perf_json.hpp"
 
 namespace json = boost::json;
 
@@ -66,57 +66,12 @@ bool parse_unsigned(const std::string &text, unsigned long long &out) {
   return true;
 }
 
-// The Nagios status number, the way the results endpoint reports `status`.
-int status_number(const PB::Common::ResultCode code) {
-  switch (code) {
-    case PB::Common::ResultCode::OK:
-      return 0;
-    case PB::Common::ResultCode::WARNING:
-      return 1;
-    case PB::Common::ResultCode::CRITICAL:
-      return 2;
-    default:
-      return 3;
-  }
-}
-
+// The shared rendering (failures_json.hpp) plus what only REST carries: the
+// local `date` and the `age` at the time of the request.
 json::object to_json(const PB::Failures::FailedCheck &entry, const std::int64_t now, const bool arguments_recorded) {
-  const PB::Commands::QueryResponseMessage::Response &r = entry.response();
-  json::object node;
-  node["index"] = static_cast<std::int64_t>(entry.index());
-  node["timestamp"] = entry.timestamp();
+  json::object node = failures_json::entry(entry, arguments_recorded);
   node["date"] = to_date(entry.timestamp());
   node["age"] = now > entry.timestamp() ? now - entry.timestamp() : 0;
-  // Who asked: the module that dispatched the query and, when it knows, the
-  // principal behind it (`WEBServer:admin`, `NRPEServer`, `Scheduler`).
-  node["subject"] = entry.subject();
-  // 0 for a check a client asked for; 1+ for one a check ran on its behalf
-  // (check_multi, an alias), which is then also listed at depth 0 with the
-  // combined result.
-  node["depth"] = entry.depth();
-  node["command"] = r.command();
-  node["alias"] = r.alias();
-  node["status"] = status_number(r.result());
-  node["result"] = nscapi::failures::status_name(r.result());
-  // The first line's text on its own, so a table does not have to dig into
-  // `lines` for the one thing it shows per row.
-  node["message"] = r.lines_size() > 0 ? r.lines(0).message() : "";
-  json::array lines;
-  for (const PB::Commands::QueryResponseMessage::Response::Line &l : r.lines()) {
-    json::object line;
-    line["message"] = l.message();
-    line["perf"] = perf_json::to_json(l);
-    lines.push_back(line);
-  }
-  node["lines"] = lines;
-  // Only when the operator turned `record arguments` on: an entry recorded
-  // while it was off carries none, and a client should be able to tell "none
-  // were given" (an empty list) from "not recorded" (no key).
-  if (arguments_recorded) {
-    json::array arguments;
-    for (const std::string &a : r.arguments()) arguments.emplace_back(a);
-    node["arguments"] = arguments;
-  }
   return node;
 }
 
@@ -129,6 +84,10 @@ void describe(json::object &out, const PB::Failures::FailuresResponseMessage::Re
   out["statuses"] = payload.statuses();
   out["last_index"] = static_cast<std::int64_t>(payload.last_index());
   out["dropped"] = static_cast<std::int64_t>(payload.dropped());
+  out["capture_metrics"] = payload.capture_metrics();
+  out["context_budget"] = static_cast<std::int64_t>(payload.context_budget());
+  out["max_context_size"] = static_cast<std::int64_t>(payload.max_context_size());
+  out["context_bytes_used"] = static_cast<std::int64_t>(payload.context_bytes_used());
 }
 
 // A core that predates the API answers with nothing; render that as a log
@@ -143,6 +102,7 @@ failures_controller::failures_controller(const int version, std::shared_ptr<sess
     : RegexpController(version == 1 ? "/api/v1/failures" : "/api/v2/failures"), session(std::move(session)), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &failures_controller::list_failures);
   addRoute("DELETE", "/?$", this, &failures_controller::clear_failures);
+  addRoute("GET", "/([0-9]+)/context/?$", this, &failures_controller::get_context);
 }
 
 void failures_controller::list_failures(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -170,7 +130,7 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
         response.setCodeBadRequest("Invalid status filter: " + token);
         return;
       }
-      statuses.insert(status_number(status));
+      statuses.insert(failures_json::status_number(status));
     }
   }
   const std::string command = request.get("command", "");
@@ -190,7 +150,7 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
     const PB::Failures::FailuresResponseMessage::Response &payload = message.payload(0);
     describe(out, payload);
     for (const PB::Failures::FailedCheck &entry : payload.entries()) {
-      if (!statuses.empty() && statuses.find(status_number(entry.response().result())) == statuses.end()) continue;
+      if (!statuses.empty() && statuses.find(failures_json::status_number(entry.response().result())) == statuses.end()) continue;
       if (!command.empty() && !boost::algorithm::iequals(command, entry.response().command()) && !boost::algorithm::iequals(command, entry.response().alias()))
         continue;
       if (limit > 0 && entries.size() >= limit) break;
@@ -203,10 +163,49 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
     out["statuses"] = "";
     out["last_index"] = 0;
     out["dropped"] = 0;
+    out["capture_metrics"] = false;
+    out["context_budget"] = 0;
+    out["max_context_size"] = 0;
+    out["context_bytes_used"] = 0;
   }
   out["count"] = static_cast<std::int64_t>(entries.size());
   out["entries"] = entries;
   response.setHeader("X-Result-Count", str::xtos(entries.size()));
+  response.append(json::serialize(out));
+}
+
+// The metrics snapshot one entry was recorded with, rendered exactly as
+// /api/v2/metrics renders the live one (`metrics` flat, `metadata` keyed the
+// same), so a client reads both with one parser. An entry that has no
+// snapshot - capture was off, it was evicted, it was too large - answers 200
+// with its state and no `metrics`: the entry exists, there is just nothing
+// to show. An entry the log no longer holds is a 404.
+void failures_controller::get_context(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+  if (!session->is_logged_in("failures.list", request, response)) return;
+  unsigned long long index = 0;
+  if (!parse_unsigned(what.str(1), index) || index == 0) {
+    response.setCodeBadRequest("Invalid index: " + what.str(1));
+    return;
+  }
+  const bool with_meta = request.get("meta", "1") != "0";
+
+  PB::Failures::FailuresResponseMessage message;
+  if (!parse_envelope(core->get_failure_context(index), message) || message.payload(0).entries_size() == 0) {
+    response.setCodeNotFound("Failed check not found: " + what.str(1));
+    return;
+  }
+  const PB::Failures::FailedCheck &entry = message.payload(0).entries(0);
+  json::object out = failures_json::context(entry);
+  out["index"] = static_cast<std::int64_t>(entry.index());
+  out["timestamp"] = entry.timestamp();
+  if (entry.context().state() == PB::Failures::MetricsContext::CAPTURED && entry.context().has_metrics()) {
+    json::object metrics_list, metrics_meta;
+    metrics_json::build(metrics_list, with_meta ? &metrics_meta : nullptr, entry.context().metrics());
+    out["metrics"] = metrics_list;
+    if (with_meta) out["metadata"] = metrics_meta;
+    const json::value pruned = failures_json::pruned(entry.context());
+    if (!pruned.is_null()) out["pruned"] = pruned;
+  }
   response.append(json::serialize(out));
 }
 

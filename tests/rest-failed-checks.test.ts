@@ -7,11 +7,14 @@
  *
  *   GET    /api/v2/failures   list, with ?status= ?command= ?since= ?limit=   (failures.list)
  *   DELETE /api/v2/failures   empty the log                                   (failures.delete)
+ *   GET    /api/v2/failures/<index>/context
+ *                             the metrics snapshot it was recorded with      (failures.list)
  *
  * CheckHelpers' check_ok / check_warning / check_critical give deterministic
  * outcomes, so the log's contents are exact. Two agents, because the
  * interesting behaviour is in [/settings/core/failed checks]: arguments are
- * not recorded unless asked for, and the cap evicts the oldest entries.
+ * not recorded unless asked for, the cap evicts the oldest entries, and the
+ * metrics snapshot is only kept when `capture metrics` is on.
  */
 import request from "supertest";
 
@@ -21,9 +24,16 @@ jest.setTimeout(300_000);
 
 type Json = Record<string, unknown>;
 
-/** Baseline config; `log` is merged into /settings/core/failed checks. */
-function config(log: Record<string, string>): Record<string, Record<string, string>> {
+/**
+ * Baseline config; `log` is merged into /settings/core/failed checks and
+ * `core` into /settings/core.
+ */
+function config(
+  log: Record<string, string>,
+  core: Record<string, string> = {},
+): Record<string, Record<string, string>> {
   return {
+    "/settings/core": core,
     "/modules": {
       WEBServer: "enabled",
       CheckHelpers: "enabled",
@@ -67,9 +77,10 @@ async function login(user: string, password: string): Promise<string> {
 /** Start an agent with the given log config and log in as admin. */
 async function startAgent(
   log: Record<string, string>,
+  core: Record<string, string> = {},
 ): Promise<{ nscp: NscpInstance; key: string }> {
   const nscp = new NscpInstance();
-  await nscp.configure(config(log));
+  await nscp.configure(config(log, core));
   await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
   nscp.start();
   await nscp.waitForPort(8443, { timeoutMs: 30_000 });
@@ -92,6 +103,21 @@ async function list(key: string, query = ""): Promise<Json> {
     .set("Authorization", `Bearer ${key}`)
     .trustLocalhost(true)
     .expect(200);
+  return response.body as Json;
+}
+
+/** GET /api/v2/failures/<index>/context with the expected status. */
+async function context(
+  key: string,
+  index: number | string,
+  status = 200,
+  query = "",
+): Promise<Json> {
+  const response = await request(REST_URL)
+    .get(`/api/v2/failures/${index}/context${query}`)
+    .set("Authorization", `Bearer ${key}`)
+    .trustLocalhost(true)
+    .expect(status);
   return response.body as Json;
 }
 
@@ -143,8 +169,34 @@ describe("REST failed-check log", () => {
       expect(body.max_entries).toEqual(50);
       expect(body.arguments_recorded).toBe(false);
       expect(body.statuses).toEqual("warning,critical,unknown");
+      // Metrics context is opt-in.
+      expect(body.capture_metrics).toBe(false);
+      expect(body.context_bytes_used).toEqual(0);
+      expect(body.context_budget as number).toBeGreaterThan(0);
       expect(body.count).toEqual(0);
       expect(body.entries).toEqual([]);
+    });
+
+    it("marks entries as recorded without metrics while capture is off", async () => {
+      await run(key, "check_critical", "?message=no-context");
+      const entry = ((await list(key)).entries as Json[])[0];
+      expect(entry.context).toEqual({ state: "disabled" });
+
+      const body = await context(key, entry.index as number);
+      expect(body.state).toEqual("disabled");
+      expect(body.index).toEqual(entry.index);
+      expect(body.metrics).toBeUndefined();
+    });
+
+    it("answers 404 for an entry it does not hold and 400 for a malformed index", async () => {
+      const body = await list(key);
+      await context(key, (body.last_index as number) + 1000, 404);
+      await context(key, 0, 400);
+      await request(REST_URL)
+        .get("/api/v2/failures/abc/context")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(404);
     });
 
     it("records a failed check with its result and perf data, not an OK one", async () => {
@@ -254,6 +306,9 @@ describe("REST failed-check log", () => {
         .expect(403);
       // Still there.
       expect((await list(key)).count).toEqual(1);
+      // Reading an entry's context is part of reading the log.
+      const index = ((await list(key)).entries as Json[])[0].index as number;
+      await context(reader, index);
     });
 
     it("records failures from any caller, and hides the log from a caller without the grant", async () => {
@@ -268,6 +323,7 @@ describe("REST failed-check log", () => {
       const entries = (await list(key)).entries as Json[];
       expect(entries).toHaveLength(1);
       expect(entries[0].subject).toEqual("WEBServer:runner");
+      await context(runner, entries[0].index as number, 403);
     });
 
     it("empties the log on DELETE and reports how many went", async () => {
@@ -341,6 +397,152 @@ describe("REST failed-check log", () => {
       expect(body.dropped as number).toBeGreaterThanOrEqual(2);
       // The index keeps counting past what was evicted.
       expect(body.last_index as number).toBeGreaterThanOrEqual(5);
+    });
+  });
+
+  describe("capture metrics = true", () => {
+    let nscp: NscpInstance;
+    let key = "";
+
+    /** Wait until the core has collected a snapshot: the first failure after that carries one. */
+    async function captured(message: string): Promise<Json> {
+      const deadline = Date.now() + 30_000;
+      for (;;) {
+        await clear(key);
+        await run(key, "check_critical", `?message=${message}`);
+        const entry = ((await list(key)).entries as Json[])[0];
+        if ((entry.context as Json).state === "captured" || Date.now() > deadline) return entry;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    beforeAll(async () => {
+      // A short metrics interval so the first snapshot lands quickly.
+      ({ nscp, key } = await startAgent(
+        { "capture metrics": "true" },
+        { "metrics interval": "1s" },
+      ));
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("describes the configuration", async () => {
+      const body = await list(key);
+      expect(body.capture_metrics).toBe(true);
+    });
+
+    it("records each failure with the latest metrics snapshot", async () => {
+      const entry = await captured("with-context");
+      const ref = entry.context as Json;
+      expect(ref.state).toEqual("captured");
+      expect(typeof ref.snapshot_id).toBe("number");
+      // The snapshot is from before the failure, by at most a few intervals.
+      expect(ref.captured_at as number).toBeLessThanOrEqual(entry.timestamp as number);
+      expect(ref.age_at_failure as number).toBeLessThanOrEqual(5);
+      // The listing references the snapshot; it does not carry it.
+      expect(ref.metrics).toBeUndefined();
+
+      const body = await context(key, entry.index as number);
+      expect(body.state).toEqual("captured");
+      expect(body.snapshot_id).toEqual(ref.snapshot_id);
+      const metrics = body.metrics as Record<string, unknown>;
+      // The core's own bundle is always there, whatever modules are loaded.
+      const keys = Object.keys(metrics);
+      expect(keys.some((k) => k.startsWith("workers."))).toBe(true);
+      // Keyed exactly as /api/v2/metrics keys them, with the metadata alongside.
+      const metadata = body.metadata as Record<string, Json>;
+      for (const k of keys) expect(metadata[k]).toBeDefined();
+      const bare = await context(key, entry.index as number, 200, "?meta=0");
+      expect(bare.metadata).toBeUndefined();
+      expect(Object.keys(bare.metrics as Json)).toEqual(keys);
+
+      const envelope = await list(key);
+      expect(envelope.context_bytes_used as number).toBeGreaterThan(0);
+    });
+
+    it("shares one snapshot between failures in the same interval", async () => {
+      await captured("first");
+      await run(key, "check_warning", "?message=second");
+      const entries = (await list(key)).entries as Json[];
+      expect(entries).toHaveLength(2);
+      const [second, first] = entries.map((e) => e.context as Json);
+      // Back to back, so almost always the same one; a metrics round landing in
+      // between makes it the next one. Either way the budget counts what is held.
+      expect((second.snapshot_id as number) - (first.snapshot_id as number)).toBeLessThanOrEqual(1);
+      const envelope = await list(key);
+      if (second.snapshot_id === first.snapshot_id) {
+        expect(envelope.context_bytes_used).toEqual(first.size);
+      }
+    });
+
+    it("releases the snapshots when the log is cleared", async () => {
+      await captured("to-clear");
+      await clear(key);
+      expect((await list(key)).context_bytes_used).toEqual(0);
+    });
+  });
+
+  describe("prune metrics = zeros, empty, duplicates, prune pattern = workers.threads", () => {
+    let nscp: NscpInstance;
+    let key = "";
+
+    beforeAll(async () => {
+      ({ nscp, key } = await startAgent(
+        {
+          "capture metrics": "true",
+          "prune metrics": "zeros, empty, duplicates",
+          "prune pattern": "WORKERS.threads",
+        },
+        { "metrics interval": "1s" },
+      ));
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("keeps no zero or empty value and says what it left out", async () => {
+      const deadline = Date.now() + 30_000;
+      let entry: Json;
+      for (;;) {
+        await clear(key);
+        await run(key, "check_critical", "?message=pruned");
+        entry = ((await list(key)).entries as Json[])[0];
+        if ((entry.context as Json).state === "captured" || Date.now() > deadline) break;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      // The listing never carries the pruning summary, only the reference.
+      expect((entry.context as Json).pruned).toBeUndefined();
+
+      const body = await context(key, entry.index as number);
+      expect(body.state).toEqual("captured");
+      const metrics = body.metrics as Record<string, unknown>;
+      expect(Object.keys(metrics).length).toBeGreaterThan(0);
+      for (const [k, v] of Object.entries(metrics)) {
+        expect([k, v]).not.toEqual([k, 0]);
+        expect([k, v]).not.toEqual([k, ""]);
+      }
+      // Every key left still has its metadata.
+      const metadata = body.metadata as Record<string, Json>;
+      for (const k of Object.keys(metrics)) expect(metadata[k]).toBeDefined();
+
+      const pruned = body.pruned as Json;
+      expect(pruned.rules).toEqual("zeros,empty,duplicates");
+      expect(typeof pruned.zeros).toBe("number");
+      expect(typeof pruned.empty).toBe("number");
+      expect(typeof pruned.duplicates).toBe("number");
+      // The core always publishes workers.threads (and never as 0: a pool runs
+      // the checks), so the pattern is what removed it.
+      expect(pruned.patterns).toEqual(["workers.threads"]);
+      expect(pruned.excluded).toBeGreaterThanOrEqual(1);
+      expect(metrics["workers.threads"]).toBeUndefined();
+      // A collapsed instance is gone from the snapshot; the one it matched is not.
+      for (const [dropped, kept] of Object.entries(pruned.collapsed as Record<string, string>)) {
+        expect(Object.keys(metrics).some((k) => k.startsWith(`${dropped}.`))).toBe(false);
+        expect(dropped).not.toEqual(kept);
+      }
     });
   });
 });

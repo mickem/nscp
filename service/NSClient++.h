@@ -9,6 +9,7 @@
 
 #include "fact_repository.hpp"
 #include "failed_check_store.hpp"
+#include "metrics_snapshot.hpp"
 #include "nsclient_core_interface.hpp"
 #include "plugins/plugin_cache.hpp"
 #include "plugins/plugin_manager.hpp"
@@ -60,6 +61,11 @@ class NSClientT : public nsclient::core::core_interface {
   // plugin manager on every dispatch and served through NSAPIFailuresQuery.
   // Created in the constructor and never replaced, like tags_ and facts_.
   nsclient::core::failed_check_store_instance failures_;
+  // The latest metrics snapshot, kept after every metrics round while the
+  // failed-check log captures metrics, so a failure can be recorded with what
+  // the system looked like at the time. Created in the constructor and never
+  // replaced.
+  nsclient::core::metrics_snapshot_store_instance snapshots_;
   // Path overrides supplied via --path-override on the command line. Applied to
   // path_ inside load_configuration_1, after init_settings has loaded
   // boot.ini's [paths] section, so CLI wins over boot.ini.
