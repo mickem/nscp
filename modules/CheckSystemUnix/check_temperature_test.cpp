@@ -104,6 +104,21 @@ TEST_F(CheckTemperatureTest, three_identical_chips_all_kept) {
   EXPECT_DOUBLE_EQ(zones["nvme-2_Composite"], 32.0);
 }
 
+TEST_F(CheckTemperatureTest, readings_at_or_below_absolute_zero_are_skipped) {
+  // A driver with no reading reports THERMAL_TEMP_INVALID (-274000), and some
+  // virtual zones -273000; neither is a sensor at -273 C.
+  write_file(thermal / "thermal_zone0" / "temp", "-273000");
+  write_file(thermal / "thermal_zone0" / "type", "acpitz");
+  write_file(thermal / "thermal_zone1" / "temp", "-274000");
+  write_file(thermal / "thermal_zone1" / "type", "x86_pkg_temp");
+  add_hwmon_sensor("hwmon0", "coretemp", -273000, "Core 0");
+  add_hwmon_sensor("hwmon1", "nvme", -5000, "Composite");
+
+  std::map<std::string, double> zones = as_map(read());
+  ASSERT_EQ(zones.size(), 1u);
+  EXPECT_DOUBLE_EQ(zones["nvme_Composite"], -5.0);
+}
+
 TEST_F(CheckTemperatureTest, duplicate_thermal_zone_types_keep_both_zones) {
   // Two zones of the same type (dual "acpitz" on laptops/ARM SoCs) must not
   // produce two identical names: one row/metric would mask the other.
