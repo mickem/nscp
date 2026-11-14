@@ -114,6 +114,17 @@ NSCP_CREATE_TEST(
         check_http_json_test.cpp
         check_http_json.cpp
         check_webserver_test.cpp
+        check_tcp_test.cpp
+        check_tcp.cpp
+        check_http_test.cpp
+        check_http.cpp
+        check_webserver.cpp
+        check_nsclient_web_online.cpp
+        check_dns_test.cpp
+        check_dns.cpp
+        check_connections_test.cpp
+        check_connections.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
         check_starttls.cpp
         check_net_cert.cpp
         check_webserver_parse.cpp
@@ -126,6 +137,9 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf
+        # check_tcp.cpp: the TLS method/verify parsers and certificate readers.
+        nscp_net
+        ${Boost_CHRONO_LIBRARY}
         ${Boost_JSON_LIBRARY}
         ${NSCP_FILTER_LIB}
         expression_parser
