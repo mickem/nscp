@@ -15,19 +15,6 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}
     )
     NSCP_CREATE_TEST(
-        argv_quote_test
-        SOURCES
-            ${NSCP_INCLUDEDIR}/process/argv_quote_test.cpp
-            ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
-            ${NSCP_INCLUDEDIR}/str/utf8.cpp
-        LIBRARIES
-            GTest::gtest_main
-            ${Boost_FILESYSTEM_LIBRARY}
-            Shell32
-        INCLUDES
-            ${NSCP_INCLUDEDIR}
-    )
-    NSCP_CREATE_TEST(
         wmi_query_test
         SOURCES
             ${NSCP_INCLUDEDIR}/win/wmi/wmi_query_test.cpp
@@ -43,6 +30,24 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}
     )
 endif()
+
+# Cross-platform: the quoting helpers only matter on Windows, but
+# is_batch_target() is consulted by CheckExternalScripts on every platform (a
+# .bat target is what makes an argument reach cmd.exe), and the Windows-only
+# assertions in the file are guarded with #ifdef _WIN32.
+NSCP_CREATE_TEST(
+    argv_quote_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/process/argv_quote_test.cpp
+        ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        $<$<BOOL:${WIN32}>:Shell32>
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
 
 add_definitions(
     ${NSCP_GLOBAL_DEFINES}
