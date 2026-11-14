@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include <boost/asio/error.hpp>
 #include <boost/system/error_code.hpp>
 #include <string>
+#include <vector>
 
 namespace net {
 
@@ -57,13 +59,40 @@ inline const char *address_family_option_help() {
 // Resolve host/service restricted to the requested address family. Templated on
 // the resolver so it serves tcp, udp and icmp alike; `Resolver::protocol_type`
 // supplies the v4()/v6() instances, which keeps this header free of any
-// protocol-specific asio includes.
+// protocol-specific asio includes. With ipv6 pinned, v4-mapped answers are
+// dropped (see below), so every platform resolves an IPv4-only host the same way.
 template <typename Resolver>
 typename Resolver::results_type resolve_for_family(Resolver &resolver, const address_family af, const std::string &host, const std::string &service,
                                                    boost::system::error_code &ec) {
   typedef typename Resolver::protocol_type protocol_type;
   if (af == address_family::ipv4) return resolver.resolve(protocol_type::v4(), host, service, ec);
-  if (af == address_family::ipv6) return resolver.resolve(protocol_type::v6(), host, service, ec);
+  if (af == address_family::ipv6) {
+    typedef typename Resolver::results_type results_type;
+    typedef typename results_type::endpoint_type endpoint_type;
+    results_type results = resolver.resolve(protocol_type::v6(), host, service, ec);
+    if (ec) return results;
+    // Pinning IPv6 has to mean IPv6 on the wire. macOS's getaddrinfo answers an
+    // AF_INET6 query for an IPv4 literal (or an A-only name) with the v4-mapped
+    // ::ffff:a.b.c.d instead of failing as glibc does, and a socket connected to
+    // that talks IPv4 - so a check meant to prove "this answers over IPv6"
+    // would pass over IPv4. Drop those, and report "no such host" if nothing
+    // else is left, which is what the other platforms already say.
+    std::vector<endpoint_type> native;
+    bool dropped = false;
+    for (const auto &entry : results) {
+      const endpoint_type ep = entry.endpoint();
+      if (ep.address().is_v6() && ep.address().to_v6().is_v4_mapped())
+        dropped = true;
+      else
+        native.push_back(ep);
+    }
+    if (!dropped) return results;
+    if (native.empty()) {
+      ec = boost::asio::error::host_not_found;
+      return results_type();
+    }
+    return results_type::create(native.begin(), native.end(), host, service);
+  }
   return resolver.resolve(host, service, ec);
 }
 
