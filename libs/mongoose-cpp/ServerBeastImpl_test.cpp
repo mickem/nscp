@@ -233,6 +233,14 @@ bool wait_listening(int port, std::chrono::milliseconds deadline) {
       asio::io_context ioc;
       tcp::socket sock(ioc);
       sock.connect(tcp::endpoint(asio::ip::make_address("127.0.0.1"), port));
+      // The test ports sit in the Linux ephemeral range, so a connect to a
+      // port nothing listens on can be handed that same port as its source
+      // and connect to itself (TCP simultaneous open). That is not a
+      // listener, and a negative probe retrying for 300 ms hit it on CI.
+      if (sock.local_endpoint() == sock.remote_endpoint()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        continue;
+      }
       return true;
     } catch (const std::exception&) {
       std::this_thread::sleep_for(std::chrono::milliseconds(25));
