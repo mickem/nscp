@@ -35,6 +35,17 @@ on:
           sets it.
         required: false
         default: false
+      web-backend:
+        type: string
+        description: >-
+          The HTTP engine the WEBServer and NCPAServer modules are built on
+          (NSCP_WEB_BACKEND): `mongoose`, the vendored C server Windows ships
+          with, or `beast`, the Boost.Beast implementation every Linux package
+          uses. Only build-windows-beast.yml, run by hand, passes `beast`; it
+          adds Boost.Coroutine and Boost.Context to the Boost build and skips
+          the mongoose download. The shipped default is set here, not there.
+        required: false
+        default: 'mongoose'
     secrets:
       AZURE_TENANT_ID:
         description: 'Azure tenant ID (signing only)'
@@ -123,13 +134,22 @@ jobs:
         #    bundled runtime fall out of the MSI with it.
         #  - protoc is a build tool, so CMake is handed the host-native one the
         #    protobuf action builds alongside the ARM64 libraries.
+        $boost_libraries = "system filesystem thread regex date_time program_options chrono json"
         if ("${{ inputs.architecture }}" -eq "arm64") {
-          echo "boost_libraries=system filesystem thread regex date_time program_options chrono json" >> $env:GITHUB_OUTPUT
           echo "with_python=false" >> $env:GITHUB_OUTPUT
         } else {
-          echo "boost_libraries=system filesystem thread regex date_time program_options python chrono json" >> $env:GITHUB_OUTPUT
+          $boost_libraries += " python"
           echo "with_python=true" >> $env:GITHUB_OUTPUT
         }
+        # The Beast web backend runs its sessions as stackful coroutines
+        # (asio::spawn), which link Boost.Coroutine and Boost.Context. A
+        # mongoose build never loads either, so they are built only when asked
+        # for: the Boost cache key carries the library list, and the default
+        # pipeline keeps the cache it has.
+        if ("${{ inputs.web-backend }}" -eq "beast") {
+          $boost_libraries += " coroutine context"
+        }
+        echo "boost_libraries=$boost_libraries" >> $env:GITHUB_OUTPUT
       shell: pwsh
 
     - id: python
@@ -248,7 +268,11 @@ jobs:
       with:
         version: ${{ ENV.TINY_XML_2_VERSION }}
 
+    # Only the mongoose backend compiles the vendored source; a Beast build
+    # has no use for it and should not clone it, which also keeps that
+    # build's SBOM honest about what it contains.
     - id: mongoose
+      if: inputs.web-backend == 'mongoose'
       uses: ./.github/actions/mongoose
       with:
         version: ${{ ENV.MONGOOSE_VERSION }}
@@ -335,6 +359,10 @@ jobs:
             SET(CRYPTOPP_ROOT "${{ steps.cryptopp.outputs.path_unix }}")
             SET(TINY_XML2_SOURCE_DIR "${{ steps.tinyxml2.outputs.path_unix }}")
             set(GTEST_ROOT "${{ steps.google-test.outputs.path_unix }}")
+            # The mongoose source path is empty on a Beast build (the step is
+            # skipped), and nothing reads it then: the backend decides which
+            # of the two the WEB library is compiled from.
+            set(NSCP_WEB_BACKEND "${{ inputs.web-backend }}")
             set(MONGOOSE_SOURCE_DIR "${{ steps.mongoose.outputs.path_unix }}")
             set(MINIZ_INCLUDE_DIR "${{ steps.miniz.outputs.path_unix }}")
             set(MARIADB_ROOT_DIR "${{ steps.mariadb.outputs.path_unix }}")
@@ -552,7 +580,6 @@ jobs:
           --component "boost=${{ env.BOOST_VERSION }}"
           --component "lua=${{ env.LUA_VERSION }}"
           --component "tinyxml2=${{ env.TINY_XML_2_VERSION }}"
-          --component "mongoose=${{ env.MONGOOSE_VERSION }}"
           --component "miniz=${{ env.MINIZ_VERSION }}"
           --component "googletest=${{ env.GOOGLE_TEST_VERSION }}"
           --component "mariadb=${{ env.MARIADB_CONNECTOR_VERSION }}"
@@ -566,6 +593,10 @@ jobs:
         # ARM64 ships no embedded Python (see the setup step).
         if [ "${{ steps.setup.outputs.with_python }}" = "true" ]; then
           args+=(--python-runtime "${{ steps.python.outputs.python-version }}")
+        fi
+        # A Beast build contains no mongoose at all (the download is skipped).
+        if [ "${{ inputs.web-backend }}" = "mongoose" ]; then
+          args+=(--component "mongoose=${{ env.MONGOOSE_VERSION }}")
         fi
         python build/python/sbom.py "${args[@]}"
 
@@ -604,7 +635,11 @@ jobs:
         echo "| OpenSSL | ${{ env.OPENSSL_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Protobuf | ${{ env.PROTOBUF_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| TinyXml2 | ${{ env.TINY_XML_2_VERSION }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Mongoose | ${{ env.MONGOOSE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ inputs.web-backend }}" = "mongoose" ]; then
+          echo "| Mongoose | ${{ env.MONGOOSE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Web backend | Boost.Beast |" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "| Miniz | ${{ env.MINIZ_VERSION }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Python | ${{ env.PYTHON_VERSION }} |" >> $GITHUB_STEP_SUMMARY
 

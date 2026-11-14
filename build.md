@@ -94,7 +94,7 @@ with `-DNSCP_CMAKE_CONFIG=<file>`).
 | `BUILD_VERSION`             | —                | Version string baked into the binaries and installer (normally derived from git).                                                                                        |
 | `CMAKE_BUILD_TYPE`          | `RelWithDebInfo` | `Release` / `Debug` / `RelWithDebInfo` / `MinSizeRel`.                                                                                                                   |
 | `NSCP_BUILD_TESTS`          | `ON`             | Build the C++ unit tests. `OFF` skips the tests, the `tests/` subdirectory and the bundled googletest download — use it to build the daemon without a test toolchain.    |
-| `NSCP_WEB_BACKEND`          | `mongoose`       | HTTP/REST backend for `WEBServer`: `mongoose` (needs the vendored Mongoose source) or `beast` (header-only, **requires OpenSSL**). The Linux package builds use `beast`. |
+| `NSCP_WEB_BACKEND`          | `mongoose`       | HTTP/REST backend for `WEBServer`: `mongoose` (needs the vendored Mongoose source) or `beast` (header-only, **requires OpenSSL** and, on Windows, a Boost built with `coroutine` and `context`). The Linux package builds use `beast`; Windows ships `mongoose` and can be built on `beast` on demand in CI. |
 | `NSCP_BOOST_PYTHON_VERSION` | —                | Boost.Python component matching your Python, e.g. `python311`, `python312`, `python313`. Only relevant when building `PythonScript`.                                     |
 | `NSCP_SANITIZE`             | `off`            | Comma-separated sanitizer list for gcc/clang on Linux: `address`, `undefined`, `address,undefined`, `thread`. See `tools/sanitizers/run.sh`.                             |
 | `NSCP_COVERAGE`             | `OFF`            | Instrument every target with gcov counters (gcc/clang on Linux) so ctest and the `tests/` suite can be turned into a coverage report. See `tools/coverage/run.sh`.      |
@@ -245,6 +245,15 @@ cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%_static
 call bootstrap.bat vc141
 b2.exe --layout=system address-model=64 toolset=msvc-14.1 variant=release link=static runtime-link=static warnings=off define=BOOST_NO_CXX17_HDR_SHARED_MUTEX -d0 --with-system --with-filesystem
 ```
+
+> To build the web server on the Boost.Beast backend instead of mongoose
+> (`-DNSCP_WEB_BACKEND=beast`, what the Linux packages ship), add
+> `--with-coroutine --with-context` to the first (shared) `b2.exe` line: the
+> Beast sessions are stackful coroutines. CMake then copies
+> `boost_coroutine.dll` and `boost_context.dll` next to the other Boost DLLs
+> and the MSI picks them up; the mongoose download below is not needed. The
+> Windows CI builds the default, mongoose, and runs the Beast variant on
+> demand (*Build Windows Server (Beast backend)* in the Actions tab).
 
 #### Build Proto-buf
 

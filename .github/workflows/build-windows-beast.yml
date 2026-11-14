@@ -1,0 +1,39 @@
+name: Build Windows Server (Beast backend)
+
+# The Windows pipeline - the x64 or x86 build, its unit tests, the MSI and the
+# Windows integration suite - on the Boost.Beast web backend that every Linux
+# package already uses, instead of the mongoose backend Windows ships with.
+# Run by hand from the Actions tab ("Run workflow" -> pick the branch) to see
+# what a switch would do before making it: nothing here is published, and no
+# other workflow calls it. The shipped default stays NSCP_WEB_BACKEND=mongoose
+# in build-windows.yml until it is changed there.
+#
+# See docs/design/beast-web-backend.md (Phase 5).
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        type: choice
+        description: 'Architecture to build'
+        required: true
+        default: 'x64'
+        options:
+          - x64
+          - x86
+
+jobs:
+  get-version:
+    uses: ./.github/workflows/get-version.yml
+  create-test-bundle:
+    uses: ./.github/workflows/create-test-bundle.yml
+  build-server:
+    needs: [get-version, create-test-bundle]
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      architecture: ${{ inputs.architecture }}
+      version: ${{ needs.get-version.outputs.version }}
+      web-backend: beast
