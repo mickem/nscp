@@ -45,6 +45,34 @@ inline std::string make_request(const PB::Failures::FailuresRequestMessage::Requ
   return message.SerializeAsString();
 }
 
+// A GET for one entry, with the metrics snapshot it was recorded with filled
+// in when `include_context` is set.
+inline std::string make_entry_request(const unsigned long long index, const bool include_context) {
+  PB::Failures::FailuresRequestMessage message;
+  PB::Failures::FailuresRequestMessage::Request *payload = message.add_payload();
+  payload->set_command(PB::Failures::FailuresRequestMessage::Request::GET);
+  payload->set_index(index);
+  payload->set_include_context(include_context);
+  return message.SerializeAsString();
+}
+
+// The lower-case word for a context state, the way REST and the fleet report
+// spell it.
+inline const char *context_state_name(const PB::Failures::MetricsContext::State state) {
+  switch (state) {
+    case PB::Failures::MetricsContext::CAPTURED:
+      return "captured";
+    case PB::Failures::MetricsContext::EVICTED:
+      return "evicted";
+    case PB::Failures::MetricsContext::TOO_LARGE:
+      return "too_large";
+    case PB::Failures::MetricsContext::DISABLED:
+      return "disabled";
+    default:
+      return "none";
+  }
+}
+
 // The Nagios status word for a result code, the way every other listing in
 // NSClient++ spells it.
 inline const char *status_name(const PB::Common::ResultCode code) {

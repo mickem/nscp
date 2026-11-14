@@ -383,6 +383,41 @@ export interface FailedCheck {
   message: string;
   lines: QueryExecutionResultLine[];
   arguments?: string[];
+  context: FailedCheckContextRef;
+}
+
+/**
+ * Whether an entry was recorded with a metrics snapshot: `captured` when the
+ * snapshot is still held (fetch it from /failures/<index>/context),
+ * `disabled` when `capture metrics` was off, `evicted` when it was released
+ * to stay within the budget, `too_large` when it was over the size cap and
+ * `none` when the agent had not collected one yet.
+ */
+export type FailedCheckContextState = "captured" | "evicted" | "too_large" | "disabled" | "none";
+
+export interface FailedCheckContextRef {
+  state: FailedCheckContextState;
+  snapshot_id?: number;
+  captured_at?: number;
+  /** Seconds between the snapshot and the failure. */
+  age_at_failure?: number;
+  size?: number;
+}
+
+/** Per-key metadata, as /api/v2/metrics?meta=1 describes it. */
+export interface MetricMetadata {
+  type: string;
+  help?: string;
+  unit?: string;
+  labels?: { [key: string]: string };
+}
+
+/** GET /api/v2/failures/<index>/context. `metrics` only when `state` is `captured`. */
+export interface FailedCheckContext extends FailedCheckContextRef {
+  index: number;
+  timestamp: number;
+  metrics?: Metrics;
+  metadata?: { [key: string]: MetricMetadata };
 }
 
 /** The log and how it is configured, so the UI can say "off" or "no arguments". */
@@ -393,6 +428,10 @@ export interface FailedChecks {
   statuses: string;
   last_index: number;
   dropped: number;
+  capture_metrics: boolean;
+  context_budget: number;
+  max_context_size: number;
+  context_bytes_used: number;
   count: number;
   entries: FailedCheck[];
 }
@@ -811,6 +850,12 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Failures"],
     }),
+    getFailureContext: builder.query<FailedCheckContext, number>({
+      query: (index) => ({
+        url: `/v2/failures/${index}/context`,
+      }),
+      providesTags: ["Failures"],
+    }),
     clearFailures: builder.mutation<void, void>({
       query: () => ({
         url: "/v2/failures",
@@ -890,5 +935,6 @@ export const {
   useGetEventsQuery,
   useClearEventsMutation,
   useGetFailuresQuery,
+  useGetFailureContextQuery,
   useClearFailuresMutation,
 } = nsclientApi;

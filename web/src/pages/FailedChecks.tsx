@@ -30,9 +30,11 @@ import { QueryResultChip } from "../components/atoms/QueryResultChip.tsx";
 import { useAppDispatch } from "../store/store.ts";
 import {
   FailedCheck,
+  FailedCheckContextState,
   QueryExecutionResultLinePerf,
   nsclientApi,
   useClearFailuresMutation,
+  useGetFailureContextQuery,
   useGetFailuresQuery,
 } from "../api/api.ts";
 import FilterField from "../components/atoms/FilterField.tsx";
@@ -180,6 +182,9 @@ export default function FailedChecks() {
           {data.arguments_recorded
             ? " · arguments recorded"
             : " · arguments not recorded (record arguments = false under [/settings/core/failed checks])"}
+          {data.capture_metrics
+            ? ` · metrics captured (${formatBytes(data.context_bytes_used)} of ${formatBytes(data.context_budget)})`
+            : " · metrics not captured (capture metrics = false under [/settings/core/failed checks])"}
         </Typography>
       )}
       <TableContainer sx={{ width: "100%" }}>
@@ -327,12 +332,123 @@ function FailedCheckRow({ entry, isOpen, onToggle, argumentsRecorded }: FailedCh
                   ))
                 )}
               </Stack>
+              <ContextPanel entry={entry} />
             </Stack>
           </Collapse>
         </TableCell>
       </TableRow>
     </>
   );
+}
+
+/** Why an entry has no snapshot to show, keyed by its context state. */
+const CONTEXT_STATE_TEXT: Record<Exclude<FailedCheckContextState, "captured">, string> = {
+  disabled: "not captured (capture metrics = false under [/settings/core/failed checks] when this was recorded)",
+  evicted: "released to stay within the metrics context budget",
+  too_large: "larger than max context size, not kept",
+  none: "no snapshot had been collected yet",
+};
+
+/**
+ * "System at the time": the agent's metrics snapshot the failure was recorded
+ * with, fetched only once the row is opened.
+ */
+function ContextPanel({ entry }: { entry: FailedCheck }) {
+  const state = entry.context?.state ?? "disabled";
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+        <Typography variant="subtitle2">System at the time</Typography>
+        {state === "captured" ? (
+          <Typography variant="body2" color="text.secondary">
+            snapshot #{entry.context.snapshot_id}, {entry.context.age_at_failure ?? 0}s before the failure
+          </Typography>
+        ) : (
+          <Chip size="small" variant="outlined" label={state.replace("_", " ")} title={CONTEXT_STATE_TEXT[state]} />
+        )}
+      </Stack>
+      {state === "captured" ? (
+        <ContextTable index={entry.index} />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Metrics {CONTEXT_STATE_TEXT[state]}.
+        </Typography>
+      )}
+    </Stack>
+  );
+}
+
+function ContextTable({ index }: { index: number }) {
+  const { data, isLoading, isError } = useGetFailureContextQuery(index);
+  const [filter, setFilter] = useState<string>("");
+  const rows = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    return Object.entries(data?.metrics ?? {})
+      .filter(([key]) => !needle || key.toLowerCase().includes(needle))
+      .sort(([a], [b]) => a.localeCompare(b));
+  }, [data, filter]);
+
+  if (isLoading) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Loading…
+      </Typography>
+    );
+  }
+  if (isError || !data) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        The snapshot is no longer available.
+      </Typography>
+    );
+  }
+  if (!data.metrics) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Metrics {data.state === "captured" ? "unavailable" : CONTEXT_STATE_TEXT[data.state]}.
+      </Typography>
+    );
+  }
+  return (
+    <Stack spacing={1} sx={{ maxWidth: 900 }}>
+      <FilterField value={filter} onChange={setFilter} placeholder="Filter metrics" />
+      <Table size="small" aria-label="metrics at the time">
+        <TableHead>
+          <TableRow>
+            <TableCell>Metric</TableCell>
+            <TableCell align="right">Value</TableCell>
+            <TableCell>Unit</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={3}>
+                <Typography variant="body2" color="text.secondary">
+                  No metrics match the filter.
+                </Typography>
+              </TableCell>
+            </TableRow>
+          )}
+          {rows.map(([key, value]) => (
+            <TableRow key={key}>
+              <TableCell sx={{ fontFamily: "monospace" }} title={data.metadata?.[key]?.help}>
+                {key}
+              </TableCell>
+              <TableCell align="right">{String(value)}</TableCell>
+              <TableCell>{data.metadata?.[key]?.unit ?? ""}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Stack>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 /** Perf fields are optional and thresholds may be Nagios range strings. */

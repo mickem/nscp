@@ -22,6 +22,7 @@
 #include "../commands.hpp"
 #include "../fact_repository.hpp"
 #include "../failed_check_store.hpp"
+#include "../metrics_snapshot.hpp"
 #include "../path_manager.hpp"
 #include "../permissions.hpp"
 #include "../routers.hpp"
@@ -77,6 +78,9 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // (see execute_query). Handed over by the core at boot, like facts_; null in
   // the tests and in any path that never boots it, where recording is a no-op.
   failed_check_store_instance failures_;
+  // The core's latest metrics snapshot, which a failure is recorded with when
+  // the log captures metrics. Null in the tests, like failures_.
+  metrics_snapshot_store_instance snapshots_;
   // The last error reported for each fact set, so a producer that cannot
   // collect something logs the reason once rather than every round. Guarded by
   // its own mutex: the facts round runs on the scheduler pool.
@@ -205,6 +209,8 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // The failed-check log execute_query records into.
   void set_failed_check_store(const failed_check_store_instance &failures) { failures_ = failures; }
   failed_check_store_instance get_failed_check_store() const { return failures_; }
+  // Where the latest metrics snapshot is read from when a failure is recorded.
+  void set_metrics_snapshot_store(const metrics_snapshot_store_instance &snapshots) { snapshots_ = snapshots; }
 
   // Apply one producer's response to `facts`: the sets it returned, the ones
   // it explicitly removed and the ones it says it could not collect.

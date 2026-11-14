@@ -346,6 +346,9 @@ NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned i
 //   GET                 the newest entries, all of them
 //   GET since=N limit=M what arrived after index N, at most M
 //   CLEAR               drop every entry, answer with how many
+//   GET index=N include_context
+//                       entry N alone, with the metrics snapshot it was
+//                       recorded with (nothing once the cap evicted it)
 //
 // An empty request is a plain GET, so a console verb can send nothing at all.
 // Read side only: what is recorded is decided by the core on every dispatch
@@ -356,6 +359,8 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
     PB::Failures::FailuresRequestMessage::Request::Command command = PB::Failures::FailuresRequestMessage::Request::GET;
     unsigned long long since = 0;
     std::size_t limit = 0;
+    unsigned long long index = 0;
+    bool include_context = false;
     const std::string request = request_buffer == nullptr ? std::string() : std::string(request_buffer, request_buffer_len);
     if (!request.empty()) {
       PB::Failures::FailuresRequestMessage message;
@@ -367,6 +372,8 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
         command = message.payload(0).command();
         since = message.payload(0).since();
         limit = message.payload(0).limit();
+        index = message.payload(0).index();
+        include_context = message.payload(0).include_context();
       }
     }
 
@@ -376,6 +383,13 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
     payload->mutable_result()->set_code(PB::Common::Result::STATUS_OK);
     if (command == PB::Failures::FailuresRequestMessage::Request::CLEAR) {
       payload->set_removed(store->clear());
+    } else if (index > 0) {
+      nsclient::core::failed_check_store::entry_with_context found;
+      if (store->get(index, found)) {
+        PB::Failures::FailedCheck *entry = payload->add_entries();
+        *entry = found.item;
+        if (include_context && found.context) *entry->mutable_context()->mutable_metrics() = found.context->message;
+      }
     } else {
       for (const PB::Failures::FailedCheck &entry : store->list(since, limit)) *payload->add_entries() = entry;
     }
@@ -386,6 +400,10 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
     payload->set_statuses(nsclient::core::failed_check_store::format_statuses(options.statuses));
     payload->set_last_index(store->last_index());
     payload->set_dropped(store->dropped());
+    payload->set_capture_metrics(options.capture_metrics);
+    payload->set_context_budget(options.context_budget);
+    payload->set_max_context_size(options.max_context_size);
+    payload->set_context_bytes_used(store->context_bytes_used());
 
     const std::string response = response_message.SerializeAsString();
     *response_buffer_len = static_cast<unsigned int>(response.size());
