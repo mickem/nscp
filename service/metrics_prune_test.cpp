@@ -5,10 +5,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <metrics/metrics_json.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <string>
+#include <vector>
 
 #include "failed_check_store.hpp"
 
@@ -28,7 +30,7 @@ void disk(PB::Metrics::MetricsBundle *section, const std::string &name, const do
 
 void nic(PB::Metrics::MetricsBundle *section, const std::string &name, const std::string &mac) {
   const instance_scope n = for_instance(section, name, "nic");
-  n.metric("BytesTotalPersec").gauge(0);
+  n.metric("BytesReceivedPersec").gauge(0);
   n.metric("MACAddress").info(mac);
 }
 
@@ -102,7 +104,7 @@ TEST(MetricsPrune, EmptyDropsEmptyStringsOnly) {
   const json::object out = flat(message);
   EXPECT_FALSE(out.contains("system.network.WAN Miniport (IP).MACAddress"));
   EXPECT_EQ("BC:FC:E7:1C:A0:9C", out.at("system.network.Ethernet.MACAddress").as_string());
-  EXPECT_TRUE(out.contains("system.network.WAN Miniport (IP).BytesTotalPersec"));
+  EXPECT_TRUE(out.contains("system.network.WAN Miniport (IP).BytesReceivedPersec"));
   EXPECT_EQ(2u, s.empty);
 }
 
@@ -116,8 +118,8 @@ TEST(MetricsPrune, DuplicatesKeepsTheFirstInstanceAndNamesTheRest) {
   EXPECT_FALSE(out.contains("system.io.C:.reads_per_sec"));
   EXPECT_TRUE(out.contains("system.io.D:.reads_per_sec"));
   EXPECT_FALSE(out.contains("system.io.HarddiskVolume1.percent_idle_time"));
-  EXPECT_TRUE(out.contains("system.network.WAN Miniport (IP).BytesTotalPersec"));
-  EXPECT_FALSE(out.contains("system.network.WAN Miniport (IPv6).BytesTotalPersec"));
+  EXPECT_TRUE(out.contains("system.network.WAN Miniport (IP).BytesReceivedPersec"));
+  EXPECT_FALSE(out.contains("system.network.WAN Miniport (IPv6).BytesReceivedPersec"));
   // Not instances, so never collapsed.
   EXPECT_TRUE(out.contains("system.errors"));
 
@@ -129,6 +131,61 @@ TEST(MetricsPrune, DuplicatesKeepsTheFirstInstanceAndNamesTheRest) {
   EXPECT_EQ("system.network.WAN Miniport (IPv6)", s.collapsed[2].first);
   EXPECT_EQ("system.network.WAN Miniport (IP)", s.collapsed[2].second);
   EXPECT_EQ(3u + 3u + 2u, s.duplicates);
+}
+
+TEST(MetricsPrune, DuplicatesDropTheMetricsThatRestateUsedAndTotal) {
+  PB::Metrics::MetricsMessage message;
+  PB::Metrics::MetricsMessage::Response *payload = message.add_payload();
+  PB::Metrics::MetricsBundle *system = payload->add_bundles();
+  system->set_key("system");
+  PB::Metrics::MetricsBundle *mem = system->add_children();
+  mem->set_key("mem");
+  metric(mem, "physical.avail").unit("bytes").gauge(15270391808.0);
+  metric(mem, "physical.total").unit("bytes").gauge(33931833344.0);
+  metric(mem, "physical.used").unit("bytes").gauge(18661441536.0);
+  metric(mem, "physical.%").unit("percent").gauge(45);
+  PB::Metrics::MetricsBundle *cpu = system->add_children();
+  cpu->set_key("cpu");
+  const instance_scope core = for_instance(cpu, "core 0", "core", "0");
+  core.metric("idle").unit("percent").gauge(86.2);
+  core.metric("total").unit("percent").gauge(13.8);
+  PB::Metrics::MetricsBundle *diskb = payload->add_bundles();
+  diskb->set_key("disk");
+  PB::Metrics::MetricsBundle *free = diskb->add_children();
+  free->set_key("free");
+  const instance_scope c = for_instance(free, "C:", "drive");
+  c.metric("total").unit("bytes").gauge(1999321972736.0);
+  c.metric("free").unit("bytes").gauge(785965830144.0);
+  c.metric("used").unit("bytes").gauge(1213356142592.0);
+  c.metric("user_free").unit("bytes").gauge(785965830144.0);
+  c.metric("free_pct").gauge(39);
+  c.metric("used_pct").gauge(60);
+
+  metrics_prune::rules r;
+  r.duplicates = true;
+  const metrics_prune::summary s = metrics_prune::apply(message, r);
+  const json::object out = flat(message);
+  std::vector<std::string> keys;
+  for (const auto &kv : out) keys.push_back(std::string(kv.key()));
+  std::sort(keys.begin(), keys.end());
+  const std::vector<std::string> expected = {"disk.free.C:.total", "disk.free.C:.used", "system.cpu.core 0.total", "system.mem.physical.total",
+                                             "system.mem.physical.used"};
+  EXPECT_EQ(expected, keys);
+  EXPECT_EQ(2u + 1u + 4u, s.duplicates);
+  EXPECT_TRUE(s.collapsed.empty());
+}
+
+TEST(MetricsPrune, TheRedundantListIsOnlyAppliedByDuplicates) {
+  PB::Metrics::MetricsMessage message;
+  PB::Metrics::MetricsBundle *mem = message.add_payload()->add_bundles();
+  mem->set_key("system");
+  PB::Metrics::MetricsBundle *child = mem->add_children();
+  child->set_key("mem");
+  metric(child, "physical.avail").unit("bytes").gauge(1);
+  metrics_prune::rules r;
+  r.zeros = r.empty = true;
+  metrics_prune::apply(message, r);
+  EXPECT_TRUE(flat(message).contains("system.mem.physical.avail"));
 }
 
 TEST(MetricsPrune, DuplicatesCompareTheValuesAsCollectedNotAfterTrimming) {
@@ -182,7 +239,7 @@ TEST(MetricsPrune, PatternsExcludeEveryMetricWhoseKeyContainsOne) {
   const json::object out = flat(message);
   EXPECT_FALSE(out.contains("system.io.HarddiskVolume1.reads_per_sec"));
   EXPECT_FALSE(out.contains("system.network.WAN Miniport (IP).MACAddress"));
-  EXPECT_FALSE(out.contains("system.network.WAN Miniport (IPv6).BytesTotalPersec"));
+  EXPECT_FALSE(out.contains("system.network.WAN Miniport (IPv6).BytesReceivedPersec"));
   EXPECT_TRUE(out.contains("system.network.Ethernet.MACAddress"));
   EXPECT_TRUE(out.contains("system.io.D:.reads_per_sec"));
   EXPECT_EQ(3u + 2u + 2u, s.excluded);
@@ -196,7 +253,7 @@ TEST(MetricsPrune, PatternsMatchTheWholeKeyNotOnlyTheInstance) {
   metrics_prune::apply(message, r);
   const json::object out = flat(message);
   EXPECT_FALSE(out.contains("system.network.Ethernet.MACAddress"));
-  EXPECT_TRUE(out.contains("system.network.Ethernet.BytesTotalPersec"));
+  EXPECT_TRUE(out.contains("system.network.Ethernet.BytesReceivedPersec"));
   EXPECT_FALSE(out.contains("system.errors"));
   EXPECT_TRUE(out.contains("system.uptime"));
 }

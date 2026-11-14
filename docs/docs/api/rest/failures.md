@@ -100,7 +100,7 @@ comma-separated list of rules, all off by default:
 |--------------|-------|
 | `zeros`      | Every numeric value (gauge, counter) that is exactly `0`. |
 | `empty`      | Every string value that is empty. |
-| `duplicates` | Every instance (a disk, an adapter, a core) whose values are all identical to an earlier instance in the same section. The first is kept. |
+| `duplicates` | Every metric that only restates others (see the list below), and every instance (a disk, an adapter, a core) whose values are all identical to an earlier instance in the same section. The first instance is kept. |
 
 ```ini
 [/settings/core/failed checks]
@@ -108,7 +108,22 @@ capture metrics = true
 prune metrics = zeros, empty, duplicates
 ```
 
-Duplicates are compared on the values as collected, before `zeros` and `empty`
+Several values the agent publishes say the same thing as others in the same
+instance. `duplicates` keeps the measured ones, such as `used` and `total`,
+and drops these:
+
+| Metric | Why it can go |
+|--------|---------------|
+| `system.mem.*.avail`, `system.mem.*.%` | `total - used`, and the share of `total` |
+| `disk.free.*.free`, `disk.free.*.free_pct`, `disk.free.*.used_pct` | `total - used`, and the two shares of `total` |
+| `disk.free.*.user_free` | the same as `free` unless the volume has a quota |
+| `disk.io.*.percent_idle_time` | what `percent_disk_time` leaves of the interval |
+| `system.cpu.*.idle` | `100 - total` |
+| `system.cpu_frequency.*.frequency_pct` | `current_mhz / max_mhz` |
+| `system.network.*.BytesTotalPersec`, `system.network.*.total` | sent + received |
+| `system.uptime.boot.raw`, `system.uptime.uptime` | the same as `ticks.raw`, the second human-readable |
+
+Instances are compared on the values as collected, before `zeros` and `empty`
 run, so two instances only collapse when they really were identical. An
 instance is what a module publishes with a label (`disk`, `nic`, `core`, ...);
 a metric without one is never collapsed. What was taken out is returned with

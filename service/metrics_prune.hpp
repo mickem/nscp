@@ -28,7 +28,13 @@ namespace core {
 //   empty       a string value that is empty
 //   duplicates  an instance whose every value equals an earlier instance's in
 //               the same section (`_Total` and the one disk it totals, eight
-//               idle adapters); the first is kept and the rest are listed
+//               idle adapters); the first is kept and the rest are listed.
+//               Also every metric on the redundant_metrics() list: values the
+//               agent publishes that only restate others in the same
+//               instance (memory `avail` and `%` next to `used` and `total`,
+//               a disk's `free` and percentages next to its `used` and
+//               `total`). What is kept is the measured values; the rest can
+//               be worked out from them
 //
 // and, from `prune pattern`, a list of text to exclude: any metric whose flat
 // key (`system.network.Hyper-V Virtual Ethernet Adapter.Speed`) contains one
@@ -125,6 +131,37 @@ struct metrics_prune {
     return out;
   }
 
+  // The metrics `duplicates` drops because they restate others the same
+  // instance keeps, as flat-key globs (`*` matches any run of characters).
+  // Kept on purpose: `used` and `total` for memory and disks, the rates a
+  // total is the sum of, and the measured frequency.
+  static const std::vector<std::string> &redundant_metrics() {
+    static const std::vector<std::string> list = {
+        // Memory (Windows and Unix): avail = total - used, % = share of total.
+        "system.mem.*.avail",
+        "system.mem.*.%",
+        // Disk space: free = total - used, and both percentages. user_free
+        // only differs from free under a quota.
+        "disk.free.*.free",
+        "disk.free.*.user_free",
+        "disk.free.*.free_pct",
+        "disk.free.*.used_pct",
+        // Disk I/O: idle is what busy leaves of the interval.
+        "disk.io.*.percent_idle_time",
+        // CPU: idle = 100 - total.
+        "system.cpu.*.idle",
+        // Clock speed: current_mhz / max_mhz.
+        "system.cpu_frequency.*.frequency_pct",
+        // Network: sent + received (Windows and Unix spellings).
+        "system.network.*.BytesTotalPersec",
+        "system.network.*.total",
+        // Uptime: boot.raw is ticks.raw, and uptime is it human-readable.
+        "system.uptime.boot.raw",
+        "system.uptime.uptime",
+    };
+    return list;
+  }
+
   static summary apply(PB::Metrics::MetricsMessage &message, const rules &value) {
     summary result;
     if (!value.any()) return result;
@@ -144,6 +181,25 @@ struct metrics_prune {
       if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
     }
     return text;
+  }
+
+  // `*` matches any run of characters, everything else itself.
+  static bool glob_match(const char *pattern, const char *text) {
+    if (*pattern == '\0') return *text == '\0';
+    if (*pattern == '*') {
+      for (const char *t = text;; ++t) {
+        if (glob_match(pattern + 1, t)) return true;
+        if (*t == '\0') return false;
+      }
+    }
+    return *text != '\0' && *pattern == *text && glob_match(pattern + 1, text + 1);
+  }
+
+  static bool is_redundant(const std::string &flat_key) {
+    for (const std::string &pattern : redundant_metrics()) {
+      if (glob_match(pattern.c_str(), flat_key.c_str())) return true;
+    }
+    return false;
   }
 
   static bool is_excluded(const std::string &flat_key, const rules &value) {
@@ -192,12 +248,18 @@ struct metrics_prune {
       apply_bundle(child, trail + "." + child.key(), value, result);
     }
 
-    // Excluded first, so what is left is all the duplicate check looks at.
-    if (!value.patterns.empty()) {
+    // Excluded and redundant metrics first, so what is left is all the
+    // instance comparison looks at.
+    if (!value.patterns.empty() || value.duplicates) {
       google::protobuf::RepeatedPtrField<PB::Metrics::Metric> remaining;
       for (PB::Metrics::Metric &metric : *bundle.mutable_value()) {
-        if (is_excluded(trail + "." + metric.key(), value)) {
+        const std::string flat_key = trail + "." + metric.key();
+        if (is_excluded(flat_key, value)) {
           ++result.excluded;
+          continue;
+        }
+        if (value.duplicates && is_redundant(flat_key)) {
+          ++result.duplicates;
           continue;
         }
         remaining.Add()->Swap(&metric);

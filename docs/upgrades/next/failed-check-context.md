@@ -12,8 +12,10 @@ row, and `GET /api/v2/failures/<index>/context` serves it. Failures within one
 interval share a snapshot, and `metrics context budget` (default 4 MiB) bounds
 what is held: the oldest snapshots are released first, and their failures stay
 in the log marked *evicted*. `prune metrics = zeros, empty, duplicates`
-trims each snapshot before it is kept (zero values, empty strings, and
-instances identical to another, such as `_Total` and the only disk) and
+trims each snapshot before it is kept (zero values, empty strings, values
+that restate others such as memory `avail` and `%` next to `used` and
+`total`, and instances identical to another, such as `_Total` and the only
+disk) and
 lists what it took out, and `prune pattern` leaves out every metric whose
 key contains one of a list of text (`VirtualBox, Hyper-V Virtual`). An
 enrolled agent also sends *failure context* to a fleet server that asks for

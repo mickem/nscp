@@ -519,8 +519,9 @@ monitoring system.
 [/settings/core/failed checks]
 ; Keep the metrics snapshot with each failure, so the report can carry it.
 capture metrics = true
-; Optional: leave out zeros, empty strings and duplicate instances (idle disks,
-; unused adapters) to make the report smaller and easier to read.
+; Optional: leave out zeros, empty strings, values that restate others
+; (memory and disk percentages, free next to used) and duplicate instances
+; (idle disks, unused adapters) to make the report smaller and easier to read.
 prune metrics = zeros, empty, duplicates
 ; Optional: leave out every metric whose key contains one of these.
 prune pattern = HarddiskVolume8, Hyper-V Virtual, VirtualBox
