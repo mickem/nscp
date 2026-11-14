@@ -30,6 +30,10 @@ scripts::script_information<lua::lua_traits> *lua::lua_traits::get_info(lua::lua
 // the object as its first argument; count through this instead.
 static int method_args(lua::lua_wrapper &instance) { return instance.size() - 1; }
 
+// Reads the script's registry through the shared lua_State, so it must run
+// with the GIL held: resolve the core before a lua_gil::release, never inside
+// one. Called unlocked, another thread's Lua on the same state raced the lookup
+// and the binding failed now and then with "Failed to find info." under load.
 std::shared_ptr<lua::core_provider> get_core(lua::lua_wrapper &instance) {
   const auto info = lua::lua_traits::get_info(instance);
   auto core = info->get_core_provider();
@@ -100,9 +104,10 @@ int lua::core_wrapper::simple_query(lua_State *L) {
     std::string message;
     std::string perf;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->simple_query(command, arguments, message, perf);
+      ret = core->simple_query(command, arguments, message, perf);
     }
     lua_instance.push_code(ret);
     lua_instance.push_string(message);
@@ -130,9 +135,10 @@ int lua::core_wrapper::query_target(lua_State *L) {
     std::string message;
     std::string perf;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->simple_query(target, command, arguments, message, perf);
+      ret = core->simple_query(target, command, arguments, message, perf);
     }
     lua_instance.push_code(ret);
     lua_instance.push_string(message);
@@ -160,9 +166,10 @@ int lua::core_wrapper::query_forward(lua_State *L) {
     std::string message;
     std::string perf;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->query_forward(forward_command, target, command, arguments, message, perf);
+      ret = core->query_forward(forward_command, target, command, arguments, message, perf);
     }
     lua_instance.push_code(ret);
     lua_instance.push_string(message);
@@ -180,9 +187,10 @@ int lua::core_wrapper::query(lua_State *L) {
     std::string data = lua_instance.pop_string();
     std::string response;
     bool ok;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ok = get_core(lua_instance)->query(data, response);
+      ok = core->query(data, response);
     }
     lua_instance.push_boolean(ok);
     lua_instance.push_raw_string(response);
@@ -201,9 +209,10 @@ int lua::core_wrapper::simple_exec(lua_State *L) {
     const std::string target = lua_instance.pop_string();
     std::list<std::string> result;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->exec_simple_command(target, command, arguments, result);
+      ret = core->exec_simple_command(target, command, arguments, result);
     }
     lua_instance.push_code(ret);
     lua_instance.push_array(result);
@@ -229,9 +238,10 @@ int lua::core_wrapper::simple_submit(lua_State *L) {
     const std::string channel = lua_instance.pop_string();
     std::string result;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->submit_simple_message(channel, command, code, message, perf, result);
+      ret = core->submit_simple_message(channel, command, code, message, perf, result);
     }
     lua_instance.push_boolean(ret == NSCAPI::bool_return::istrue);
     lua_instance.push_string(result);
@@ -251,8 +261,9 @@ int lua::core_wrapper::reload(lua_State *L) {
   if (method_args(lua_instance) < 1) return lua_instance.error("Incorrect syntax: reload(module)");
   std::string module = "module";
   const std::string target = lua_instance.pop_string();
+  const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
   lua::lua_gil::release unlocked;
-  get_core(lua_instance)->reload(target);
+  core->reload(target);
   return 0;
 }
 int lua::core_wrapper::log(lua_State *L) {
