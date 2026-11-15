@@ -380,6 +380,30 @@ TEST(http_packet, build_request_output) {
   EXPECT_NE(result.find("body"), std::string::npos);
 }
 
+TEST(http_packet, build_request_sends_nothing_past_the_body) {
+  // Content-Length counts the payload; anything after it is read by the
+  // server as the next request.
+  http::request p("POST", "example.com", "/api");
+  p.add_header("Content-Length", "4");
+  p.set_payload("body");
+  std::ostringstream os;
+  p.build_request(os);
+  const std::string result = os.str();
+  ASSERT_GE(result.size(), 8u);
+  EXPECT_EQ("\r\n\r\nbody", result.substr(result.size() - 8));
+  // ...and the same bytes as the other serializer.
+  const std::vector<char> pkt = p.get_packet();
+  EXPECT_EQ(std::string(pkt.begin(), pkt.end()), result);
+}
+
+TEST(http_packet, build_request_without_body_ends_at_the_blank_line) {
+  const http::request p("GET", "example.com", "/test");
+  std::ostringstream os;
+  p.build_request(os);
+  const std::string result = os.str();
+  EXPECT_EQ(result.find("\r\n\r\n"), result.size() - 4);
+}
+
 TEST(http_response, create_timeout) {
   const http::response p = http::response::create_timeout("timed out");
   EXPECT_EQ(p.status_code_, 99u);

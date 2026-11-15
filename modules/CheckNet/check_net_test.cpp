@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/ip/udp.hpp>
 #include <memory>
 #include <net/address_family.hpp>
 // The full definition, which check_net_cert.hpp deliberately only forward
@@ -583,6 +584,73 @@ TEST(AddressFamily, ToStringRoundTrips) {
     ASSERT_TRUE(net::parse_address_family(net::to_string(af), parsed));
     EXPECT_EQ(af, parsed);
   }
+}
+
+namespace {
+// Stands in for a udp::resolver and answers every query with a fixed list,
+// the way macOS's getaddrinfo answers AF_INET6 for an IPv4 literal: with the
+// v4-mapped address rather than an error.
+struct canned_resolver {
+  typedef boost::asio::ip::udp protocol_type;
+  typedef boost::asio::ip::udp::resolver::results_type results_type;
+  std::vector<std::string> answers;
+  protocol_type asked = protocol_type::v4();
+  bool asked_for_family = false;
+
+  results_type answer(const std::string &host, const std::string &service) const {
+    std::vector<protocol_type::endpoint> eps;
+    for (const auto &a : answers) eps.emplace_back(boost::asio::ip::make_address(a), 53);
+    return results_type::create(eps.begin(), eps.end(), host, service);
+  }
+  results_type resolve(const protocol_type &p, const std::string &host, const std::string &service, boost::system::error_code &ec) {
+    asked = p;
+    asked_for_family = true;
+    ec.clear();
+    return answer(host, service);
+  }
+  results_type resolve(const std::string &host, const std::string &service, boost::system::error_code &ec) {
+    ec.clear();
+    return answer(host, service);
+  }
+};
+
+std::vector<std::string> addresses_of(const canned_resolver::results_type &results) {
+  std::vector<std::string> out;
+  for (const auto &e : results) out.push_back(e.endpoint().address().to_string());
+  return out;
+}
+}  // namespace
+
+TEST(AddressFamily, Ipv6DropsV4MappedAnswersAndFailsWhenNothingElseIsLeft) {
+  canned_resolver r;
+  r.answers = {"::ffff:127.0.0.1"};
+  boost::system::error_code ec;
+  const auto results = net::resolve_for_family(r, net::address_family::ipv6, "127.0.0.1", "53", ec);
+  EXPECT_TRUE(r.asked_for_family);
+  EXPECT_EQ(boost::asio::ip::udp::v6(), r.asked);
+  EXPECT_EQ(boost::asio::error::host_not_found, ec) << ec.message();
+  EXPECT_TRUE(results.empty());
+}
+
+TEST(AddressFamily, Ipv6KeepsNativeAnswersAlongsideDroppedMappedOnes) {
+  canned_resolver r;
+  r.answers = {"::ffff:192.0.2.1", "2001:db8::1", "::1"};
+  boost::system::error_code ec;
+  const auto results = net::resolve_for_family(r, net::address_family::ipv6, "dual.example", "53", ec);
+  EXPECT_FALSE(ec) << ec.message();
+  EXPECT_EQ((std::vector<std::string>{"2001:db8::1", "::1"}), addresses_of(results));
+  EXPECT_EQ("dual.example", results.begin()->host_name());
+  EXPECT_EQ("53", results.begin()->service_name());
+}
+
+TEST(AddressFamily, AnyAndIpv4LeaveTheResolverAnswerAlone) {
+  canned_resolver r;
+  r.answers = {"::ffff:192.0.2.1", "192.0.2.1"};
+  boost::system::error_code ec;
+  EXPECT_EQ(r.answers, addresses_of(net::resolve_for_family(r, net::address_family::any, "h", "53", ec)));
+  EXPECT_FALSE(ec);
+  EXPECT_EQ(r.answers, addresses_of(net::resolve_for_family(r, net::address_family::ipv4, "h", "53", ec)));
+  EXPECT_FALSE(ec);
 }
 
 // ============================================================================

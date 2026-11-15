@@ -54,6 +54,12 @@ ALLOWED = {
     # scoped_thread_group routes every body through threads::run_guarded; the
     # construction it does is the guarded one.
     "include/threads/scoped_thread_group.hpp",
+    # Test-only harness, compiled into check_net_test alone: the scripted
+    # loopback server runs on a plain thread on purpose, so a server that
+    # throws fails the test instead of being logged and carried on. Named
+    # .hpp because two _test.cpp files share it, which hides it from the
+    # TEST_SUFFIX rule.
+    "modules/CheckNet/loopback_test_support.hpp",
 }
 
 # What a thread construction looks like. std::thread is included even though

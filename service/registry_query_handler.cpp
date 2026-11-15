@@ -271,11 +271,18 @@ void registry_query_handler::parse_registration(const PB::Registry::RegistryRequ
         plugins_->get_commands()->register_alias(registration.plugin_id(), alias, description, registration.info().experimental());
     }
   } else if (registration.type() == PB::Registry::ItemType::QUERY_ALIAS) {
-    plugins_->get_commands()->register_alias(registration.plugin_id(), registration.name(), registration.info().description(),
-                                            registration.info().experimental());
-    for (int i = 0; i < registration.alias_size(); i++) {
-      plugins_->get_commands()->register_alias(registration.plugin_id(), registration.alias(i), registration.info().description(),
-                                               registration.info().experimental());
+    // `unregister` used to be ignored here, so a request to withdraw an alias
+    // registered it again instead.
+    if (registration.unregister()) {
+      plugins_->get_commands()->unregister_alias(registration.plugin_id(), registration.name());
+      for (const std::string &alias : registration.alias()) plugins_->get_commands()->unregister_alias(registration.plugin_id(), alias);
+    } else {
+      plugins_->get_commands()->register_alias(registration.plugin_id(), registration.name(), registration.info().description(),
+                                              registration.info().experimental());
+      for (int i = 0; i < registration.alias_size(); i++) {
+        plugins_->get_commands()->register_alias(registration.plugin_id(), registration.alias(i), registration.info().description(),
+                                                 registration.info().experimental());
+      }
     }
   } else if (registration.type() == PB::Registry::ItemType::HANDLER) {
     if (registration.unregister()) {

@@ -41,6 +41,7 @@ class NSCAPI_EXPORT core_helper {
   void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
   void unregister_command(std::string command);
   void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
+  void unregister_alias(std::string alias);
   void register_event(std::string event);
   void register_channel(std::string channel);
   void unregister_channel(std::string channel);
