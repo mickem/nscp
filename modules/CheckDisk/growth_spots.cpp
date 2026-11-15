@@ -10,6 +10,7 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/utf8.hpp>
+#include <str/utils_no_boost.hpp>
 #include <str/xtos.hpp>
 #include <threads/guarded_thread.hpp>
 
@@ -20,14 +21,9 @@ namespace growth_spots {
 namespace {
 std::string comparable(std::string path, const bool ignore_case) {
   while (path.size() > 1 && (path.back() == '/' || path.back() == '\\')) path.pop_back();
-  if (ignore_case) {
-    // ASCII only: enough for drive letters and the system's own folder names,
-    // and it never mangles the UTF-8 of anything else.
-    for (char &c : path) {
-      if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-    }
-  }
-  return path;
+  // ASCII only: enough for drive letters and the system's own folder names,
+  // and it never mangles the UTF-8 of anything else.
+  return ignore_case ? str::utils::ascii_lower(path) : path;
 }
 
 std::string plural(const unsigned long long n, const std::string &one, const std::string &many) { return str::xtos(n) + " " + (n == 1 ? one : many); }

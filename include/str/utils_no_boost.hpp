@@ -26,6 +26,24 @@ inline void replace(std::string& string, const std::string& replace, const std::
 }
 
 //
+// Lower-case, A-Z only
+//
+/**
+ * Lower-case the letters A-Z and leave every other byte as it is.
+ *
+ * For text that is compared rather than shown: option values, host names,
+ * metric keys, paths. A locale-aware lower-casing (std::tolower,
+ * boost::to_lower) gives a different answer on a host with another locale,
+ * and applied byte by byte it can mangle the UTF-8 of anything outside ASCII.
+ */
+inline std::string ascii_lower(std::string text) {
+  for (char& c : text) {
+    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+  }
+  return text;
+}
+
+//
 // Unescape
 //
 /**

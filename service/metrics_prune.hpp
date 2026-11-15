@@ -10,6 +10,7 @@
 #include <map>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <str/utils_no_boost.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -121,7 +122,7 @@ struct metrics_prune {
       std::string token = text.substr(start, end - start);
       boost::algorithm::trim(token);
       start = end + 1;
-      if (!token.empty()) out.push_back(ascii_lower(token));
+      if (!token.empty()) out.push_back(str::utils::ascii_lower(token));
     }
     return out;
   }
@@ -209,15 +210,6 @@ struct metrics_prune {
   }
 
  private:
-  // Only A-Z: a locale-aware lower-casing would differ between hosts, and
-  // the keys are UTF-8 that a byte-wise one would mangle.
-  static std::string ascii_lower(std::string text) {
-    for (char &c : text) {
-      if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-    }
-    return text;
-  }
-
   // `*` matches any run of characters, everything else itself.
   static bool glob_match(const char *pattern, const char *text) {
     if (*pattern == '\0') return *text == '\0';
@@ -239,7 +231,9 @@ struct metrics_prune {
 
   static bool is_excluded(const std::string &flat_key, const rules &value) {
     if (value.patterns.empty()) return false;
-    const std::string key = ascii_lower(flat_key);
+    // Only A-Z: a locale-aware lower-casing would differ between hosts, and
+    // the keys are UTF-8 that a byte-wise one would mangle.
+    const std::string key = str::utils::ascii_lower(flat_key);
     for (const std::string &pattern : value.patterns) {
       if (key.find(pattern) != std::string::npos) return true;
     }

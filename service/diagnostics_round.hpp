@@ -7,6 +7,7 @@
 #include <nscapi/nscapi_diagnostics_helper.hpp>
 #include <nscapi/protobuf/failures.hpp>
 #include <set>
+#include <str/utils_no_boost.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -86,16 +87,9 @@ inline void add_recent_failures(PB::Diagnostics::DiagnosticsMessage &out, const 
 }
 
 namespace detail {
-inline std::string ascii_lower(std::string text) {
-  for (char &c : text) {
-    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-  }
-  return text;
-}
-
 inline bool is_excluded(const std::string &name, const std::vector<std::string> &patterns) {
   if (patterns.empty()) return false;
-  const std::string lower = ascii_lower(name);
+  const std::string lower = str::utils::ascii_lower(name);
   for (const std::string &pattern : patterns) {
     if (!pattern.empty() && lower.find(pattern) != std::string::npos) return true;
   }
