@@ -220,6 +220,11 @@ if ($toCheck.Count -gt 0) {
             NSCP_ESTATE_RESULTS_DIR        = (Resolve-Path $RunFolder).Path
             NSCP_ESTATE_CHECK_WAIT_SECONDS = "$CheckWaitSeconds"
             NSCP_ESTATE_CHECK_NSCLIENT     = $checkNsclientExe
+            # A role's faults ask the fleet server what it made of each one
+            # (tests/src/estate-fleet.ts).
+            NSCLIENT_FLEET_SERVER          = $FleetServer
+            NSCLIENT_FLEET_API_KEY         = $ApiKey
+            NSCP_ESTATE_FLEET_INSECURE     = $(if ($FleetNoVerify) { "1" } else { "" })
         }
         # Piped through ForEach-Object, jest sees no terminal and drops its
         # colours; --colors and FORCE_COLOR (for anything chalk-based in the

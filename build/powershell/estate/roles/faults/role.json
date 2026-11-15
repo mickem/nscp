@@ -1,0 +1,136 @@
+{
+  "name": "faults",
+  "description": "A vendor app (Acme Agent) that hogs the CPU, holds memory, fills the disk and crash-loops a service on demand; each fault must reach the fleet server as failure context and be explained there against the host's metrics snapshot and facts",
+  "os": ["windows", "ubuntu"],
+  "machines": 2,
+  "vcpus": 1,
+  "vmSize": null,
+  "image": null,
+  "modules": ["CheckExternalScripts"],
+  "install": { "windows": "install-windows.ps1", "ubuntu": "install-ubuntu.sh" },
+  "installTimeoutMinutes": 10,
+  "tag": { "role": "faults" },
+  "localSettings": {
+    "/settings/core/failed checks": {
+      "capture metrics": "true",
+      "prune metrics": "zeros, empty, duplicates"
+    },
+    "/settings/fleet": { "failure context interval": "20s" }
+  },
+  "bundle": {
+    "scripts": "scripts",
+    "settings": {
+      "default": { "script root": "fleet" },
+      "system": {
+        "windows": {
+          "facts": {
+            "os": "true",
+            "hardware": "true",
+            "network.interfaces": "true",
+            "software.installed": "true",
+            "services.installed": "true"
+          }
+        },
+        "unix": {
+          "facts": {
+            "os": "true",
+            "hardware": "true",
+            "network.interfaces": "true",
+            "software.installed": "true",
+            "services.installed": "true"
+          }
+        }
+      },
+      "disk": { "facts": { "storage.volumes": "true" } },
+      "external scripts": {
+        "scripts": {
+          "fault_cpu_sh": "sh scripts/fault.sh cpu",
+          "fault_memory_sh": "sh scripts/fault.sh memory",
+          "fault_disk_sh": "sh scripts/fault.sh disk",
+          "fault_service_sh": "sh scripts/fault.sh service",
+          "fault_clear_sh": "sh scripts/fault.sh clear",
+          "fault_cpu_bat": "scripts\\fault.bat cpu",
+          "fault_memory_bat": "scripts\\fault.bat memory",
+          "fault_disk_bat": "scripts\\fault.bat disk",
+          "fault_service_bat": "scripts\\fault.bat service",
+          "fault_clear_bat": "scripts\\fault.bat clear"
+        }
+      }
+    }
+  },
+  "checks": [
+    { "command": "fault_clear_sh", "expect": "OK", "message": "every Acme fault is cleared", "os": ["linux"] },
+    { "command": "fault_clear_bat", "expect": "OK", "message": "every Acme fault is cleared", "os": ["windows"] }
+  ],
+  "rest": [
+    { "path": "/api/v2/facts", "contains": ["acme-agent", "acme-sync"], "os": ["linux"] },
+    { "path": "/api/v2/facts", "contains": ["Acme Agent", "acme-sync"], "os": ["windows"] }
+  ],
+  "faults": [
+    {
+      "name": "cpu hog",
+      "os": ["linux"],
+      "start": "fault_cpu_sh",
+      "clear": "fault_clear_sh",
+      "check": { "command": "check_cpu", "args": { "time": "1m", "warning": "load > 70", "critical": "load > 85" }, "expect": "CRITICAL" },
+      "explain": { "mentions": ["cpu", "processor"], "culprit": ["acme-indexer"] }
+    },
+    {
+      "name": "cpu hog",
+      "os": ["windows"],
+      "start": "fault_cpu_bat",
+      "clear": "fault_clear_bat",
+      "check": { "command": "check_cpu", "args": { "time": "1m", "warning": "load > 70", "critical": "load > 85" }, "expect": "CRITICAL" },
+      "explain": { "mentions": ["cpu", "processor"], "culprit": ["acme-indexer"] }
+    },
+    {
+      "name": "memory hog",
+      "os": ["linux"],
+      "start": "fault_memory_sh",
+      "clear": "fault_clear_sh",
+      "check": { "command": "check_memory", "args": { "type": "cached", "warning": "used > 80%", "critical": "used > 85%" }, "expect": "CRITICAL" },
+      "explain": { "mentions": ["memory", "ram"], "culprit": ["acme-cache"] }
+    },
+    {
+      "name": "memory hog",
+      "os": ["windows"],
+      "start": "fault_memory_bat",
+      "clear": "fault_clear_bat",
+      "check": { "command": "check_memory", "args": { "type": "physical", "warning": "used > 80%", "critical": "used > 85%" }, "expect": "CRITICAL" },
+      "explain": { "mentions": ["memory", "ram"], "culprit": ["acme-indexer"] }
+    },
+    {
+      "name": "disk full",
+      "os": ["linux"],
+      "start": "fault_disk_sh",
+      "clear": "fault_clear_sh",
+      "check": { "command": "check_drivesize", "args": { "drive": "/", "warning": "used > 85%", "critical": "used > 90%" }, "expect": "CRITICAL" },
+      "explain": { "mentions": ["disk", "space", "volume", "filesystem", "drive"], "culprit": ["acme"] }
+    },
+    {
+      "name": "disk full",
+      "os": ["windows"],
+      "start": "fault_disk_bat",
+      "clear": "fault_clear_bat",
+      "check": { "command": "check_drivesize", "args": { "drive": "C:", "warning": "used > 85%", "critical": "used > 90%" }, "expect": "CRITICAL" },
+      "explain": { "mentions": ["disk", "space", "volume", "drive"], "culprit": ["acme"] }
+    },
+    {
+      "name": "crash-looping service",
+      "os": ["linux"],
+      "start": "fault_service_sh",
+      "clear": "fault_clear_sh",
+      "check": { "command": "check_service", "args": { "service": "acme-sync", "critical": "sub_state != 'running'" }, "expect": "CRITICAL" },
+      "explain": { "mentions": ["acme-sync"], "culprit": ["acme agent", "acme-agent", "restart", "crash"] }
+    },
+    {
+      "name": "crash-looping service",
+      "os": ["windows"],
+      "start": "fault_service_bat",
+      "clear": "fault_clear_bat",
+      "check": { "command": "check_service", "args": { "service": "acme-sync", "critical": "state != 'running'" }, "expect": "CRITICAL" },
+      "explain": { "mentions": ["acme-sync"], "culprit": ["acme agent", "acme-agent", "restart", "crash"] }
+    }
+  ],
+  "logs": {}
+}

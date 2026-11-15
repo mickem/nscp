@@ -20,6 +20,9 @@ export interface ManifestEntry {
   Status?: string;
   PwdFile?: string;
   PublicIp?: string;
+  /** The machine's host id on the fleet server it enrolled with. */
+  HostId?: string;
+  FleetServer?: string;
 }
 
 export const POWERSHELL_DIR = path.resolve(__dirname, "..", "..", "build", "powershell");
