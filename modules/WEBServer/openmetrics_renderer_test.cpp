@@ -512,6 +512,11 @@ TEST(OpenmetricsRenderer, ACounterWithAUnitTakesBothSuffixesInOrder) {
 
   EXPECT_TRUE(contains(render(s), "process_cpu_seconds_total 12.5\n"));
   EXPECT_TRUE(contains(render(s), "# UNIT process_cpu_seconds seconds\n"));
+  // The text format's metadata names the sample, `process_cpu_seconds_total`,
+  // which does not end in its unit: no `# UNIT` there, rather than a wrong one.
+  EXPECT_TRUE(contains(render_text(s), "# TYPE process_cpu_seconds_total counter\n"));
+  EXPECT_TRUE(contains(render_text(s), "process_cpu_seconds_total 12.5\n"));
+  EXPECT_FALSE(contains(render_text(s), "# UNIT"));
 }
 
 TEST(OpenmetricsRenderer, AnUntypedValueIsSpelledDifferentlyByTheTwoFormats) {

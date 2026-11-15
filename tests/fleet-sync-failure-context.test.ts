@@ -1,6 +1,7 @@
 /**
  * Failure-context reports: the fleet sync sends the server a failed check,
- * with the metrics snapshot it was recorded with, once per interval.
+ * with the metrics and diagnostics snapshots it was recorded with, once per
+ * interval.
  *
  * The contract (service/fleet_sync.cpp, onboarding::failure_context_pacer):
  *
@@ -11,7 +12,9 @@
  *    snapshot is still held, and every other failure since the previous report
  *    is summarised in `suppressed`;
  *  - the time of the last report is kept in applied-state.json, so a restart
- *    inside the interval sends nothing.
+ *    inside the interval sends nothing;
+ *  - the diagnostics snapshot rides on the same opt-in, as a `diagnostics`
+ *    object beside `context`.
  *
  * Failures are produced by running CheckHelpers' check_critical / check_warning
  * over REST, so their number is exact. The fake server speaks plain http, like
@@ -151,9 +154,10 @@ describe("fleet failure-context reports", () => {
       "/settings/default": { password: "default-password", "allowed hosts": "127.0.0.1,::1" },
       "/settings/WEB/server/roles": { full: "*" },
       "/settings/WEB/server/users/admin": { role: "full", password: "default-password" },
-      // A snapshot every second, kept with each failure.
+      // A snapshot every second, kept with each failure - and the
+      // diagnostics, collected with the metrics round.
       "/settings/core": { "metrics interval": "1s" },
-      "/settings/core/failed checks": { "capture metrics": "true" },
+      "/settings/core/failed checks": { "capture metrics": "true", "capture diagnostics": "true" },
       "/settings/fleet": { "failure context interval": `${INTERVAL_SECONDS}s` },
     });
 
@@ -250,6 +254,8 @@ describe("fleet failure-context reports", () => {
     expect(reports()).toHaveLength(1);
     const first = reports()[0];
     expect(typeof first.body.sent_at).toBe("string");
+    // `record arguments` is left at its default.
+    expect(first.body.arguments_mode).toEqual("safe");
     // The newest failure with a snapshot is the one sent ...
     expect(first.body.failure.command).toEqual("check_warning");
     expect(first.body.failure.message).toEqual("three");
@@ -262,6 +268,20 @@ describe("fleet failure-context reports", () => {
       Object.keys(first.body.context.metrics).some((k: string) => k.startsWith("workers.")),
     ).toBe(true);
     expect(first.body.context.metadata).toBeDefined();
+    // The diagnostics snapshot travels beside it, never inside the entry.
+    expect(first.body.failure.diagnostics).toBeUndefined();
+    expect(first.body.diagnostics.state).toEqual("captured");
+    expect(typeof first.body.diagnostics.captured_at).toBe("string");
+    expect(first.body.diagnostics.age_seconds).toBeLessThanOrEqual(5);
+    const recent = first.body.diagnostics.sections["failures.recent"];
+    expect(recent.source).toEqual("core");
+    expect(recent.columns.map((c: { name: string }) => c.name)).toEqual([
+      "time",
+      "command",
+      "status",
+      "subject",
+      "message",
+    ]);
     // ... and the other two are counted, grouped by check and status.
     expect(first.body.suppressed.count).toBe(2);
     expect(first.body.suppressed.evicted).toBe(0);

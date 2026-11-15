@@ -147,6 +147,13 @@ typedef NSCAPI::errorReturn (*lpNSAPIFactsQuery)(const char *, const unsigned in
 // recorded is the core's decision on every dispatch; a caller only reads.
 typedef NSCAPI::errorReturn (*lpNSAPIFailuresQuery)(const char *, const unsigned int, char **, unsigned int *);
 
+// The latest diagnostics snapshot (see service/diagnostics_snapshot.hpp): the
+// tables the core last collected from the producing modules. Takes a serialised
+// PB::Diagnostics::DiagnosticsRequestMessage (all sections, or one by name) and
+// returns a PB::Diagnostics::DiagnosticsResponseMessage (free with
+// NSAPIDestroyBuffer). Read only, and it never triggers a collection.
+typedef NSCAPI::errorReturn (*lpNSAPIDiagnosticsQuery)(const char *, const unsigned int, char **, unsigned int *);
+
 // Change one logging option at runtime. Takes the same strings as the --log
 // command line switch: a severity ("debug", "trace", ...) or a log-driver
 // option ("console", "no-console", "oneline", "no-std-err"). A module that
@@ -198,6 +205,13 @@ typedef NSCAPI::errorReturn (*lpFetchMetrics)(unsigned int plugin_id, char **ret
 typedef NSCAPI::errorReturn (*lpFetchFacts)(unsigned int plugin_id, const char *request_buffer, const unsigned int request_buffer_len, char **return_buffer,
                                             unsigned int *return_buffer_len);
 typedef NSCAPI::errorReturn (*lpSubmitMetrics)(unsigned int plugin_id, const char *buffer, const unsigned int buffer_len);
+// Diagnostics producer, the same shape as lpFetchMetrics: no request, a
+// serialised PB::Diagnostics::DiagnosticsMessage back. Must be cheap - it hands
+// over what the module already holds - because the core calls it on its
+// maintenance thread every `diagnostics interval`. Optional: a module built
+// before diagnostics existed has no NSFetchDiagnostics export and is simply not
+// asked.
+typedef NSCAPI::errorReturn (*lpFetchDiagnostics)(unsigned int plugin_id, char **return_buffer, unsigned int *return_buffer_len);
 
 typedef NSCAPI::errorReturn (*lpOnEvent)(unsigned int plugin_id, const char *buffer, const unsigned int buffer_len);
 }  // namespace plugin_api

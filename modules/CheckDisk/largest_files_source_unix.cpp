@@ -36,15 +36,18 @@ scan_result scan(const scan_request &request) {
 
   struct stat st;
   if (lstat(request.root.c_str(), &st) != 0) {
+    result.root_missing = true;
     result.error = "Path not found: " + request.root;
     return result;
   }
   // The root is the one link that is followed: the caller named it.
   if (S_ISLNK(st.st_mode) && stat(request.root.c_str(), &st) != 0) {
+    result.root_missing = true;
     result.error = "Path not found: " + request.root;
     return result;
   }
   if (!S_ISDIR(st.st_mode)) {
+    result.root_missing = true;
     result.error = "Not a folder: " + request.root;
     return result;
   }
@@ -69,7 +72,7 @@ scan_result scan(const scan_request &request) {
   while (FTSENT *ent = fts_read(fts)) {
     // Every entry: the clock is cheap next to fts_read, which lists a whole
     // folder when it enters one.
-    if (std::chrono::steady_clock::now() >= request.deadline) {
+    if (std::chrono::steady_clock::now() >= request.deadline || (request.abort != nullptr && request.abort->load())) {
       result.timed_out = true;
       break;
     }
@@ -86,6 +89,7 @@ scan_result scan(const scan_request &request) {
         result.files_seen++;
         if (!request.pattern.empty() && !wildcard_match(request.pattern.c_str(), ent->fts_name, false)) break;
         const unsigned long long size = static_cast<unsigned long long>(ent->fts_statp->st_size);
+        result.bytes_seen += size;
         if (request.folders) {
           rollup.add_file(size);
         } else if (ranking.accepts(size)) {

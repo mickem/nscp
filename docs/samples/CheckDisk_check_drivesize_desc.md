@@ -94,3 +94,41 @@ The collector can be tuned or disabled under `/settings/disk`:
 `trend interval`, `trend retention`, and `trend` in the `disable` list
 (disabling `disk_free` disables trends too, since they ride on the same
 fetch). Without a collector the keywords stay at their no-value forms.
+
+#### A sudden jump (`used_change_1h`, `used_change_24h`)
+
+`full_in` and `rate` describe a trend; a runaway log, a dump or a backup
+written to the wrong volume is a step, and the regression smooths it over.
+`used_change_1h` and `used_change_24h` are the step itself: how many bytes of
+used space the drive gained over the last hour and the last day, negative when
+space was freed. Thresholds take size units:
+
+```
+check_drivesize "warn=used_change_1h > 2G" "crit=used_change_1h > 10G"
+```
+
+Both come from a second, small history the collector keeps per drive, in
+memory only: one sample a minute for the last hour and one an hour for the
+last day, spaced on a monotonic clock. A value is the latest sample's used
+bytes minus those of the newest sample at least the window old — two real
+readings, nothing interpolated — so the hour covers 60 to 70 minutes and the
+day 24 to 26 hours. They describe the drive as of the collector's last sample
+(10 seconds old at the default `collection interval`), not the instant the
+check runs.
+
+**Until a full window of history exists the value is `unknown`.** That is an
+hour (a day) after the agent started, or after the drive appeared or changed
+size. A settings reload keeps the history; a restart starts it over, since
+nothing is persisted. While it is `unknown` the
+keyword fires no threshold in either direction and emits no perfdata, exactly
+like `rate`; `filter=used_change_1h = 'unknown'` selects the drives that have
+no value yet. A gap in the collector's sampling longer than the slack (10
+minutes for the hour, 2 hours for the day) makes the value `unknown` again
+rather than stretch it over a longer period than its name says. Without the
+collector — a one-shot `nscp client` query, or `disable = disk_free` — both
+are always `unknown`.
+
+With `total=true` the total row adds up the changes of the drives that have
+one. The same values are published as the `disk.free.<drive>.used_change_1h`
+and `used_change_24h` metrics, which are absent (rather than 0) for as long as
+the keywords are `unknown`.

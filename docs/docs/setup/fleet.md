@@ -510,7 +510,8 @@ never sends it the document.
 
 When checks fail, the agent can send the server *failure context*: one failed check from its
 [log of failed checks](../api/rest/failures.md), what it said and, when the agent captures
-them, the host's metrics at that moment, plus a count of the other failures since the last
+them, the host's metrics and [diagnostics](../api/rest/diagnostics.md) (the top processes,
+the services in trouble, the last log errors, the failures before it) at that moment, plus a count of the other failures since the last
 report. It is an example of the host in trouble, not a feed of failures: at most one report
 goes per interval, whatever fails, and alerting on each failed check stays with your
 monitoring system.
@@ -525,6 +526,13 @@ capture metrics = true
 prune metrics = zeros, empty, duplicates
 ; Optional: leave out every metric whose key contains one of these.
 prune pattern = HarddiskVolume8, Hyper-V Virtual, VirtualBox
+; Keep the diagnostics tables with each failure too: the last failed checks,
+; and the tables switched on below.
+capture diagnostics = true
+
+; The processes using the most CPU and memory (use system/unix on Linux).
+[/settings/system/windows/diagnostics]
+processes = true
 
 [/settings/fleet]
 ; Send failure context to a server that asks (the default).
@@ -542,8 +550,8 @@ How it works:
   the server says.
 - **One report per interval.** When the interval has passed and something failed since the
   last report, the next poll turn sends `POST /agent/v1/failure-context`. It carries the
-  newest failure that still has its metrics snapshot (the freshest picture of the system in
-  trouble), or the newest failure when none has one. Every other failure since the last
+  newest failure that still has a snapshot, metrics or diagnostics (the freshest picture of
+  the system in trouble), or the newest failure when none has one. Every other failure since the last
   report goes into a `suppressed` summary, grouped by check and status, so a check that flapped
   thirty times in the hour reaches the server as one report and a count.
 - **Survives a restart.** The time of the last report is kept with the applied fleet state,
@@ -558,16 +566,29 @@ The report:
 ```json
 {
   "sent_at": "2026-10-31T09:12:44Z",
+  "arguments_mode": "safe",
   "failure": {
     "index": 42, "timestamp": 1793437964, "date": "2026-10-31T09:12:44Z",
     "subject": "Scheduler", "depth": 0, "command": "check_cpu", "alias": "cpu",
     "status": 2, "result": "CRITICAL", "message": "CRITICAL: 5m: 97%",
-    "lines": [{ "message": "CRITICAL: 5m: 97%", "perf": { "total 5m": { "value": 97, "unit": "%" } } }]
+    "lines": [{ "message": "CRITICAL: 5m: 97%", "perf": { "total 5m": { "value": 97, "unit": "%" } } }],
+    "arguments": ["time=5m", "critical=load > 90"]
   },
   "context": {
     "state": "captured", "snapshot_id": 310, "captured_at": "2026-10-31T09:12:39Z", "age_seconds": 5,
     "metrics": { "system.cpu.total.idle": 3, "system.mem.physical.used": 15032385536 },
     "metadata": { "system.cpu.total.idle": { "type": "gauge", "unit": "percent" } }
+  },
+  "diagnostics": {
+    "state": "captured", "snapshot_id": 310, "captured_at": "2026-10-31T09:12:39Z", "age_seconds": 5,
+    "sections": {
+      "processes.top_cpu": {
+        "source": "CheckSystem", "captured_at": "2026-10-31T09:12:38Z", "truncated": true,
+        "columns": [{ "name": "name", "type": "string" }, { "name": "pid", "type": "int" },
+                    { "name": "cpu", "type": "float", "unit": "percent" }],
+        "rows": [{ "name": "acme-indexer.exe", "pid": 4242, "cpu": 87.5 }]
+      }
+    }
   },
   "suppressed": {
     "since": "2026-10-31T08:12:40Z", "count": 37, "evicted": 0,
@@ -580,13 +601,21 @@ The report:
 ```
 
 `failure` is the entry as [`/api/v2/failures`](../api/rest/failures.md#list-failed-checks)
-renders it, with `arguments` only when the agent records them. `context.metrics` and
+renders it, with `arguments` only when the agent records them; `arguments_mode` is the
+agent's [`record arguments`](../api/rest/failures.md#configuration) (`none`, `safe` or `all`),
+so a server can tell a list cut down to the allow-listed options from a complete one. `context.metrics` and
 `context.metadata` are only there when `context.state` is `captured`, in the shape
 `/api/v2/metrics?meta=1` serves. With [`prune metrics` or `prune pattern`](../api/rest/failures.md#pruning-the-snapshot)
 set, the snapshot is trimmed before it is kept and `context.pruned` says what was taken out,
 including which instance each collapsed one duplicated. Without `capture metrics` the state is `disabled`, and the
 agent logs once that its reports carry no metrics. `suppressed.evicted` counts the
-failures the log's `max entries` cap dropped before they could be reported. A snapshot is
+failures the log's `max entries` cap dropped before they could be reported. `diagnostics`
+is built the same way: the state and, when `captured`, every table of the snapshot the
+failure was recorded with, each in the shape
+[`/api/v2/diagnostics/{section}`](../api/rest/diagnostics.md#read-one-section) serves. It
+rides on the same `X-Failure-Context: accept` opt-in, with no second value: a server that
+does not know diagnostics ignores the key, and without `capture diagnostics` the state is
+`disabled`. A metrics snapshot is
 around 70 KB of protobuf on a busy Windows host and roughly 120 KB as JSON, so a report is
 well under the size a server should accept for this route.
 

@@ -5,6 +5,7 @@
 
 #include <win/sysinfo/sysinfo.h>
 
+#include <ctime>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/filter/realtime_helper.hpp>
@@ -17,6 +18,7 @@
 
 #include "check_memory.hpp"
 #include "check_process.hpp"
+#include "check_service.h"
 #include "disable_list.hpp"
 #include "realtime_data.hpp"
 #include "settings.hpp"
@@ -65,6 +67,9 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   };
 
   std::map<DWORD, proc_cpu_raw> current;
+  // Only filled for the diagnostics tables: the walk already has them.
+  std::map<DWORD, proc_memory> memory;
+  const bool tables = diagnostics_processes;
   try {
     hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION *> buffer = windows::system_info::get_system_process_information();
     const BYTE *end = reinterpret_cast<const BYTE *>(buffer.get()) + buffer.size();
@@ -76,6 +81,19 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
       r.kernel = static_cast<unsigned long long>(b->KernelTime.QuadPart);
       r.user = static_cast<unsigned long long>(b->UserTime.QuadPart);
       current[pid] = r;
+      if (tables && pid != 0) {
+        // PID 0 is the idle process: its "CPU" is the machine's free time.
+        proc_memory &m = memory[pid];
+        // The name points into the same block; one that does not is not read.
+        const BYTE *name = reinterpret_cast<const BYTE *>(b->ImageName.Buffer);
+        if (name != nullptr && b->ImageName.Length > 0 && name >= reinterpret_cast<const BYTE *>(buffer.get()) && name + b->ImageName.Length <= end) {
+          m.name = utf8::cvt<std::string>(std::wstring(b->ImageName.Buffer, b->ImageName.Length / sizeof(WCHAR)));
+        } else {
+          m.name = pid == 4 ? "System" : "";
+        }
+        m.working_set = static_cast<unsigned long long>(b->WorkingSetSize);
+        m.private_bytes = static_cast<unsigned long long>(b->PrivatePageCount);
+      }
       if (b->NextEntryOffset == 0) break;
       b = reinterpret_cast<windows::winapi::SYSTEM_PROCESS_INFORMATION *>(reinterpret_cast<PCHAR>(b) + b->NextEntryOffset);
     }
@@ -111,6 +129,29 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
       d.user_pct = static_cast<long long>(win_list_processes::process_info::to_percent(ud, capacity));
       d.total_pct = static_cast<long long>(win_list_processes::process_info::to_percent(kd + ud, capacity));
       out[static_cast<long long>(cur.first)] = d;
+    }
+    if (tables) {
+      std::vector<process_tables::process_row> rows;
+      rows.reserve(memory.size());
+      for (const auto &m : memory) {
+        process_tables::process_row row;
+        row.name = m.second.name;
+        row.pid = static_cast<long long>(m.first);
+        row.working_set = m.second.working_set;
+        row.private_bytes = m.second.private_bytes;
+        // A process new since the last tick has no CPU share yet.
+        const auto cur = current.find(m.first);
+        const auto prev = prev_proc_cpu_.find(m.first);
+        if (capacity > 0 && cur != current.end() && prev != prev_proc_cpu_.end() && prev->second.creation == cur->second.creation &&
+            cur->second.kernel >= prev->second.kernel && cur->second.user >= prev->second.user) {
+          const unsigned long long used = (cur->second.kernel - prev->second.kernel) + (cur->second.user - prev->second.user);
+          row.cpu = 100.0 * static_cast<double>(used) / static_cast<double>(capacity);
+        }
+        rows.push_back(row);
+      }
+      process_tables::sample ranked = process_tables::rank(rows, static_cast<std::int64_t>(std::time(nullptr)));
+      const boost::lock_guard<boost::mutex> guard(process_tables_mutex_);
+      process_tables_ = std::move(ranked);
     }
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
     if (writeLock.owns_lock()) {
@@ -452,6 +493,35 @@ void pdh_thread::thread_proc() {
       NSC_LOG_MESSAGE("\\System\\Processor Queue Length is unavailable; check_load will report CPU-utilization-based load only");
     }
   }
+  // Page faults per second, for system.pressure. Its own query for the same
+  // reason the queue has one: a counter that cannot be added (a corrupt
+  // perflib) takes nothing else down with it. English resolution, so the
+  // path resolves on a localised Windows. Not sampled when metrics are off,
+  // since nothing else reads it.
+  PDH::PDHQuery pressure_query;
+  PDH::pdh_instance page_faults_counter;
+  bool check_page_faults = false;
+  bool page_faults_error_logged = false;
+  if (!disable_metrics) {
+    try {
+      PDH::pdh_object obj;
+      obj.set_counter("\\Memory\\Page Faults/sec");
+      obj.set_alias("system_pressure_page_faults");
+      obj.set_strategy_static();
+      obj.set_type("double");
+      obj.set_resolution("english");
+      page_faults_counter = PDH::factory::create(obj);
+      pressure_query.addCounter(page_faults_counter);
+      pressure_query.open();
+      // A rate: the first collect is the baseline the first gather divides by.
+      pressure_query.collect();
+      check_page_faults = true;
+    } catch (const std::exception &e) {
+      NSC_LOG_MESSAGE("\\Memory\\Page Faults/sec is unavailable; system.pressure will not carry page faults: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      NSC_LOG_MESSAGE("\\Memory\\Page Faults/sec is unavailable; system.pressure will not carry page faults");
+    }
+  }
   spi_container handles;
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
@@ -489,11 +559,14 @@ void pdh_thread::thread_proc() {
         }
       }
       double queue = 0.0;
+      pressure_sample pressure;
       if (!disable_load) {
         if (check_queue) {
           try {
             load_query.gatherData();
             queue = queue_counter->get_float_value();
+            pressure.has_processor_queue = true;
+            pressure.processor_queue = queue < 0.0 ? 0.0 : queue;
           } catch (const std::exception &e) {
             queue = 0.0;
             if (!queue_error_logged) {
@@ -508,6 +581,28 @@ void pdh_thread::thread_proc() {
             }
           }
         }
+      }
+      if (check_page_faults) {
+        try {
+          pressure_query.gatherData();
+          const double faults = page_faults_counter->get_float_value();
+          pressure.has_page_faults = true;
+          pressure.page_faults_per_sec = faults < 0.0 ? 0.0 : faults;
+        } catch (const std::exception &e) {
+          if (!page_faults_error_logged) {
+            page_faults_error_logged = true;
+            NSC_LOG_ERROR("Failed to read page faults/sec (system.pressure will not carry it): " + utf8::utf8_from_native(e.what()));
+          }
+        } catch (...) {
+          if (!page_faults_error_logged) {
+            page_faults_error_logged = true;
+            NSC_LOG_ERROR("Failed to read page faults/sec (system.pressure will not carry it)");
+          }
+        }
+      }
+      {
+        const boost::lock_guard<boost::mutex> guard(pressure_mutex_);
+        pressure_ = pressure;
       }
       // Decay over the time actually elapsed since the previous fold: the
       // loop targets 1 Hz but runs long whenever a tick overruns. A tick that
@@ -699,9 +794,23 @@ void pdh_thread::aux_thread_proc() {
   // first failure and the recovery rather than an error every interval.
   std::unique_ptr<com_helper::mta_scope> com;
   bool com_failure_logged = false;
+  // services.problems: first refresh at once, then every refresh_seconds (on
+  // the first cycle after it is due).
+  ULONGLONG last_services_refresh = 0;
+  bool services_refreshed = false;
 
   DWORD wait_status;
   do {
+    // Before the WMI fetches below, which can stall on their providers; this
+    // needs no COM, only the service control manager.
+    if (diagnostics_services) {
+      const ULONGLONG now = nscpGetTickCount64();
+      if (!services_refreshed || now - last_services_refresh >= static_cast<ULONGLONG>(service_tables::refresh_seconds) * 1000) {
+        services_refreshed = true;
+        last_services_refresh = now;
+        refresh_service_problems();
+      }
+    }
     if (!com || !com->is_ready()) {
       com = std::make_unique<com_helper::mta_scope>();
       if (com->is_ready()) {
@@ -842,6 +951,32 @@ process_history_check::history_type pdh_thread::get_process_history() { return p
 
 bool pdh_thread::is_disabled(const std::string &token) const { return disable_list::parse(disable_).count(token) > 0; }
 
+process_tables::sample pdh_thread::get_process_tables() {
+  const boost::lock_guard<boost::mutex> guard(process_tables_mutex_);
+  return process_tables_;
+}
+
+void pdh_thread::refresh_service_problems() {
+  service_tables::sample fresh;
+  try {
+    fresh = service_checks::collect_problems();
+  } catch (const nsclient::nsclient_exception &e) {
+    fresh = service_tables::failed_sample(e.reason(), static_cast<std::int64_t>(std::time(nullptr)));
+  } catch (const std::exception &e) {
+    fresh = service_tables::failed_sample(utf8::utf8_from_native(e.what()), static_cast<std::int64_t>(std::time(nullptr)));
+  }
+  // Log a failure once, not every refresh, and its recovery.
+  const boost::lock_guard<boost::mutex> guard(service_problems_mutex_);
+  if (!fresh.error.empty() && fresh.error != service_problems_.error) NSC_LOG_ERROR("Failed to read the services for services.problems: " + fresh.error);
+  if (fresh.error.empty() && !service_problems_.error.empty()) NSC_LOG_MESSAGE("services.problems: reading the services again");
+  service_problems_ = std::move(fresh);
+}
+
+service_tables::sample pdh_thread::get_service_problems() {
+  const boost::lock_guard<boost::mutex> guard(service_problems_mutex_);
+  return service_problems_;
+}
+
 process_checks::cpu_delta_map pdh_thread::get_process_cpu_deltas() {
   boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
   if (!readLock.owns_lock()) {
@@ -942,6 +1077,11 @@ boost::optional<load_check::load_avg_state> pdh_thread::get_load_avg() {
     return boost::none;
   }
   return load_avg_;
+}
+
+pdh_thread::pressure_sample pdh_thread::get_pressure() {
+  const boost::lock_guard<boost::mutex> guard(pressure_mutex_);
+  return pressure_;
 }
 
 pdh_thread::metrics_hash pdh_thread::get_metrics() {

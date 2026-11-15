@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cwctype>
@@ -42,6 +43,10 @@ struct scan_request {
   bool same_filesystem = true;
   scan_method method = scan_method::automatic;
   std::chrono::steady_clock::time_point deadline = (std::chrono::steady_clock::time_point::max)();
+  // Set from another thread to give up as if the deadline had passed (the
+  // growth-spots walker, when the module stops). Honoured by the tree walkers;
+  // null means never.
+  const std::atomic<bool> *abort = nullptr;
 };
 
 struct entry {
@@ -60,6 +65,9 @@ struct scan_result {
   // "mft" or "walk".
   std::string method;
   unsigned long long files_seen = 0;
+  // The total size of the files that matched the pattern (all of them when
+  // there is none): what the scanned tree adds up to, whatever `top` is.
+  unsigned long long bytes_seen = 0;
   unsigned long long folders_seen = 0;
   // Symbolic links, junctions and mount points that were not followed.
   unsigned long long links_skipped = 0;
@@ -71,6 +79,10 @@ struct scan_result {
   // Set when the scan could not run at all (missing root, MFT forced but not
   // available, ...). The check reports it as UNKNOWN.
   std::string error;
+  // Set with `error` when the reason is that the root does not exist or is
+  // not a folder, so a caller can tell "nothing there" from a scan that
+  // failed without reading the wording.
+  bool root_missing = false;
 };
 
 // Run a scan. Implemented once per platform.

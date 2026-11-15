@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
 #include <cstdint>
-#include <ctime>
 #include <map>
 #include <metrics/metrics_json.hpp>
+#include <nscapi/protobuf/diagnostics_json.hpp>
 #include <nscapi/protobuf/failures_json.hpp>
+#include <str/rfc3339.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,16 +29,22 @@ namespace core {
 //
 //   {
 //     "sent_at": "<iso>",
+//     "arguments_mode": "none" | "safe" | "all",
 //     "failure": { <the entry as /api/v2/failures renders it>, "date": "<iso>" },
 //     "context": { "state", "snapshot_id", "captured_at": "<iso>", "age_seconds",
 //                  "metrics": {...flat, as /api/v2/metrics...}, "metadata": {...},
 //                  "pruned": { "rules", "zeros", "empty", "duplicates", "collapsed": {...} } },
+//     "diagnostics": { "state", "snapshot_id", "captured_at": "<iso>", "age_seconds",
+//                      "sections": { "<name>": {...as /api/v2/diagnostics/<name>...} } },
 //     "suppressed": { "since": "<iso>", "count", "evicted",
 //                     "by_check": [ {"command", "status", "count", "first", "last"} ] }
 //   }
 //
 // `metrics` and `metadata` are only there when the state is `captured`, and
-// `pruned` only when `prune metrics` trimmed the snapshot.
+// `pruned` only when `prune metrics` trimmed the snapshot; the same goes for
+// `diagnostics.sections`. Diagnostics ride on the same opt-in as the metrics
+// context (the server's `X-Failure-Context: accept`): a server that predates
+// them ignores the key, and an agent that predates them sends none.
 // `suppressed.count` is the failures listed in `by_check`; `evicted` is the
 // ones the log's cap dropped before they could be reported, which the server
 // otherwise has no way to know about.
@@ -47,26 +53,29 @@ struct failure_report {
   // none any more).
   PB::Failures::FailedCheck failure;
   metrics_snapshot_ptr context;
+  // The diagnostics snapshot it refers to (null when it has none any more).
+  diagnostics_snapshot_ptr diagnostics;
   // The other failures since the last report, newest first.
   failed_check_store::entry_list suppressed;
   unsigned long long evicted = 0;
   // The start of the window: the previous report, or the oldest failure in it.
   std::int64_t since = 0;
   bool arguments_recorded = false;
-
-  static std::string iso_time(const std::int64_t epoch) {
-    if (epoch <= 0) return "";
-    return boost::posix_time::to_iso_extended_string(boost::posix_time::from_time_t(static_cast<std::time_t>(epoch))) + "Z";
-  }
+  // `record arguments` as it is spelled ("none", "safe", "all"), so the
+  // server can tell a list cut down to the allow-list from a complete one.
+  std::string arguments_mode = "none";
 
   std::string render(const std::int64_t now) const {
     boost::json::object root;
-    root["sent_at"] = iso_time(now);
+    root["sent_at"] = str::format_rfc3339(now);
+    root["arguments_mode"] = arguments_mode;
 
     boost::json::object entry = failures_json::entry(failure, arguments_recorded);
-    entry["date"] = iso_time(failure.timestamp());
-    // The context is reported on its own, below, with the snapshot.
+    entry["date"] = str::format_rfc3339(failure.timestamp());
+    // The context and diagnostics are reported on their own, below, with the
+    // snapshots.
     entry.erase("context");
+    entry.erase("diagnostics");
     root["failure"] = entry;
 
     const PB::Failures::MetricsContext &reference = failure.context();
@@ -78,7 +87,7 @@ struct failure_report {
     context_node["state"] = nscapi::failures::context_state_name(state);
     if (reference.snapshot_id() > 0) {
       context_node["snapshot_id"] = static_cast<std::int64_t>(reference.snapshot_id());
-      context_node["captured_at"] = iso_time(reference.captured_at());
+      context_node["captured_at"] = str::format_rfc3339(reference.captured_at());
       context_node["age_seconds"] = failure.timestamp() > reference.captured_at() ? failure.timestamp() - reference.captured_at() : 0;
     }
     if (state == PB::Failures::MetricsContext::CAPTURED) {
@@ -90,6 +99,21 @@ struct failure_report {
       if (!pruned.is_null()) context_node["pruned"] = pruned;
     }
     root["context"] = context_node;
+
+    const PB::Failures::DiagnosticsContext &diagnostics_ref = failure.diagnostics();
+    boost::json::object diagnostics_node;
+    PB::Failures::DiagnosticsContext::State diagnostics_state = diagnostics_ref.state();
+    if (diagnostics_state == PB::Failures::DiagnosticsContext::CAPTURED && !this->diagnostics) diagnostics_state = PB::Failures::DiagnosticsContext::EVICTED;
+    diagnostics_node["state"] = nscapi::failures::context_state_name(diagnostics_state);
+    if (diagnostics_ref.snapshot_id() > 0) {
+      diagnostics_node["snapshot_id"] = static_cast<std::int64_t>(diagnostics_ref.snapshot_id());
+      diagnostics_node["captured_at"] = str::format_rfc3339(diagnostics_ref.captured_at());
+      diagnostics_node["age_seconds"] = failure.timestamp() > diagnostics_ref.captured_at() ? failure.timestamp() - diagnostics_ref.captured_at() : 0;
+    }
+    if (diagnostics_state == PB::Failures::DiagnosticsContext::CAPTURED) {
+      diagnostics_node["sections"] = diagnostics_json::sections(this->diagnostics->message);
+    }
+    root["diagnostics"] = diagnostics_node;
 
     // Grouped by command and status, in the order each group was first seen
     // going back from the newest, so the busiest recent problem leads.
@@ -125,12 +149,12 @@ struct failure_report {
       node["command"] = g.command;
       node["status"] = g.status;
       node["count"] = static_cast<std::int64_t>(g.count);
-      node["first"] = iso_time(g.first);
-      node["last"] = iso_time(g.last);
+      node["first"] = str::format_rfc3339(g.first);
+      node["last"] = str::format_rfc3339(g.last);
       by_check.push_back(node);
     }
     boost::json::object summary;
-    summary["since"] = iso_time(since);
+    summary["since"] = str::format_rfc3339(since);
     summary["count"] = static_cast<std::int64_t>(suppressed.size());
     summary["evicted"] = static_cast<std::int64_t>(evicted);
     summary["by_check"] = by_check;
@@ -139,14 +163,15 @@ struct failure_report {
   }
 
   // Pick what to send from the failures since the last report (`fresh`,
-  // newest first, not empty): the newest one whose snapshot is still held -
-  // the freshest picture of the system in trouble - or, when none has one,
-  // the newest. The rest go into `suppressed`.
+  // newest first, not empty): the newest one with a snapshot still held,
+  // metrics or diagnostics - the freshest picture of the system in trouble -
+  // or, when none has one, the newest. The rest go into `suppressed`.
   static failure_report from(const failed_check_store &store, const failed_check_store::entry_list &fresh) {
     failure_report report;
     std::size_t pick = 0;
     for (std::size_t i = 0; i < fresh.size(); ++i) {
-      if (fresh[i].context().state() == PB::Failures::MetricsContext::CAPTURED) {
+      if (fresh[i].context().state() == PB::Failures::MetricsContext::CAPTURED ||
+          fresh[i].diagnostics().state() == PB::Failures::DiagnosticsContext::CAPTURED) {
         pick = i;
         break;
       }
@@ -155,13 +180,16 @@ struct failure_report {
     if (store.get(fresh[pick].index(), chosen)) {
       report.failure = chosen.item;
       report.context = chosen.context;
+      report.diagnostics = chosen.diagnostics;
     } else {
       report.failure = fresh[pick];
     }
     for (std::size_t i = 0; i < fresh.size(); ++i) {
       if (i != pick) report.suppressed.push_back(fresh[i]);
     }
-    report.arguments_recorded = store.get_options().record_arguments;
+    const failed_check_store::argument_mode mode = store.get_options().record_arguments;
+    report.arguments_recorded = mode != failed_check_store::argument_mode::none;
+    report.arguments_mode = failed_check_store::format_argument_mode(mode);
     return report;
   }
 };

@@ -122,6 +122,84 @@ TEST(CheckServiceStateIsOk, StoppedWithNonZeroExitCodeIsNotOk) {
   EXPECT_FALSE(service_checks::check_svc_filter::check_state_is_ok(SERVICE_STOPPED, SERVICE_BOOT_START, false, false, 1));
 }
 
+// ============================================================================
+// is_problem (the services.problems diagnostics table)
+// ============================================================================
+
+TEST(CheckServiceIsProblem, WhatTheDefaultCriticalFlags) {
+  using service_checks::check_svc_filter::is_problem;
+  // An automatic service that crashed: the acme-sync case.
+  EXPECT_TRUE(is_problem(SERVICE_STOPPED, SERVICE_AUTO_START, false, false, ERROR_PROCESS_ABORTED));
+  EXPECT_TRUE(is_problem(SERVICE_STOPPED, SERVICE_AUTO_START, false, false, ERROR_SERVICE_NEVER_STARTED));
+  EXPECT_TRUE(is_problem(SERVICE_RUNNING, SERVICE_DISABLED, false, false, 0));
+  EXPECT_TRUE(is_problem(SERVICE_PAUSED, SERVICE_AUTO_START, false, false, 0));
+}
+
+TEST(CheckServiceIsProblem, AnyServiceThatStoppedOnAnError) {
+  using service_checks::check_svc_filter::is_problem;
+  EXPECT_TRUE(is_problem(SERVICE_STOPPED, SERVICE_DEMAND_START, false, false, ERROR_PROCESS_ABORTED));
+  EXPECT_TRUE(is_problem(SERVICE_STOPPED, SERVICE_AUTO_START, true, false, 50));
+  EXPECT_TRUE(is_problem(SERVICE_STOPPED, SERVICE_AUTO_START, false, true, ERROR_SERVICE_SPECIFIC_ERROR));
+}
+
+TEST(CheckServiceIsProblem, NotWhatAHealthyMachineLooksLike) {
+  using service_checks::check_svc_filter::is_problem;
+  EXPECT_FALSE(is_problem(SERVICE_RUNNING, SERVICE_AUTO_START, false, false, 0));
+  EXPECT_FALSE(is_problem(SERVICE_START_PENDING, SERVICE_AUTO_START, false, false, 0));
+  // Stopped cleanly, whatever the start type.
+  EXPECT_FALSE(is_problem(SERVICE_STOPPED, SERVICE_AUTO_START, false, false, 0));
+  EXPECT_FALSE(is_problem(SERVICE_STOPPED, SERVICE_DISABLED, false, false, ERROR_SERVICE_NEVER_STARTED));
+  // A demand-start service nobody needed yet, and a delayed one not started yet.
+  EXPECT_FALSE(is_problem(SERVICE_STOPPED, SERVICE_DEMAND_START, false, false, ERROR_SERVICE_NEVER_STARTED));
+  EXPECT_FALSE(is_problem(SERVICE_STOPPED, SERVICE_AUTO_START, true, false, ERROR_SERVICE_NEVER_STARTED));
+  EXPECT_FALSE(is_problem(SERVICE_STOPPED, SERVICE_AUTO_START, false, true, 0));
+}
+
+TEST(CheckServiceIsProblem, UnreadableConfigurationIsJudgedOnStatus) {
+  using service_checks::check_svc_filter::is_problem;
+  const DWORD unknown = win_list_services::start_type_unknown;
+  EXPECT_FALSE(is_problem(SERVICE_STOPPED, unknown, false, false, ERROR_SERVICE_NEVER_STARTED));
+  EXPECT_FALSE(is_problem(SERVICE_STOPPED, unknown, false, false, 0));
+  EXPECT_TRUE(is_problem(SERVICE_STOPPED, unknown, false, false, ERROR_PROCESS_ABORTED));
+}
+
+TEST(CheckServiceIsProblem, BinaryPathLosesItsArguments) {
+  using service_checks::check_svc_filter::binary_of;
+  EXPECT_EQ(binary_of("\"C:\\Program Files\\Acme\\acme-sync.exe\""), "C:\\Program Files\\Acme\\acme-sync.exe");
+  EXPECT_EQ(binary_of("\"C:\\Program Files\\Acme\\acme-sync.exe\" --password=hunter2"), "C:\\Program Files\\Acme\\acme-sync.exe");
+  EXPECT_EQ(binary_of("C:\\Windows\\system32\\svchost.exe -k netsvcs -p"), "C:\\Windows\\system32\\svchost.exe");
+  // The unquoted service path: spaces inside, then arguments.
+  EXPECT_EQ(binary_of("C:\\Program Files\\Vendor App\\agent.EXE /token secret"), "C:\\Program Files\\Vendor App\\agent.EXE");
+  EXPECT_EQ(binary_of("C:\\tools\\a.exe.config.exe"), "C:\\tools\\a.exe.config.exe");
+  EXPECT_EQ(binary_of("\\SystemRoot\\System32\\drivers\\acpi.sys"), "\\SystemRoot\\System32\\drivers\\acpi.sys");
+  EXPECT_EQ(binary_of("system32\\DRIVERS\\foo.sys extra"), "system32\\DRIVERS\\foo.sys");
+  EXPECT_EQ(binary_of(""), "");
+  EXPECT_EQ(binary_of("\"unterminated"), "unterminated");
+}
+
+TEST(CheckServiceIsProblem, ProblemRow) {
+  win_list_services::service_info info("acme-sync", "Acme catalogue sync");
+  info.state = SERVICE_STOPPED;
+  info.exit_code = ERROR_PROCESS_ABORTED;
+  info.binary_path = "\"C:\\Program Files\\Acme\\acme-sync.exe\" --verbose";
+  info.account = "LocalSystem";
+  const service_tables::service_row row = service_checks::check_svc_filter::to_problem_row(info, 0);
+  EXPECT_EQ(row.name, "acme-sync");
+  EXPECT_EQ(row.state, "stopped");
+  EXPECT_TRUE(row.has_exit_code);
+  EXPECT_EQ(row.exit_code, ERROR_PROCESS_ABORTED);
+  EXPECT_EQ(row.binary_path, "C:\\Program Files\\Acme\\acme-sync.exe");
+  EXPECT_EQ(row.account, "LocalSystem");
+  EXPECT_EQ(row.started, 0);
+  EXPECT_FALSE(row.has_restart_count);
+
+  // A service-specific error reports the service's own code.
+  info.exit_code = ERROR_SERVICE_SPECIFIC_ERROR;
+  info.service_exit_code = 42;
+  EXPECT_EQ(service_checks::check_svc_filter::to_problem_row(info, 1700000000).exit_code, 42);
+  EXPECT_EQ(service_checks::check_svc_filter::to_problem_row(info, 1700000000).started, 1700000000);
+}
+
 TEST(CheckServiceStateIsOk, DelayedNotOkForDemandStart) {
   // Delayed flag doesn't help demand-start services (but demand start is always perfect anyway)
   EXPECT_TRUE(service_checks::check_svc_filter::check_state_is_ok(SERVICE_STOPPED, SERVICE_DEMAND_START, true, false, 0));

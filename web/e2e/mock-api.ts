@@ -123,6 +123,7 @@ const FAILURES_FIXTURE = {
   enabled: true,
   max_entries: 50,
   arguments_recorded: true,
+  arguments_mode: "safe",
   statuses: "warning,critical,unknown",
   last_index: 2,
   dropped: 0,
@@ -130,6 +131,8 @@ const FAILURES_FIXTURE = {
   context_budget: 4194304,
   max_context_size: 1048576,
   context_bytes_used: 2048,
+  capture_diagnostics: true,
+  diagnostics_rows: 10,
   count: 2,
   entries: [
     {
@@ -152,6 +155,7 @@ const FAILURES_FIXTURE = {
       ],
       arguments: ["drive=C:", "warning=used > 80%", "critical=used > 90%"],
       context: { state: "captured", snapshot_id: 7, captured_at: 1760000055, age_at_failure: 5, size: 2048 },
+      diagnostics: { state: "captured", snapshot_id: 8, captured_at: 1760000057, age_at_failure: 3, size: 900 },
     },
     {
       index: 1,
@@ -172,6 +176,99 @@ const FAILURES_FIXTURE = {
     },
   ],
 };
+
+const TOP_CPU_SECTION = {
+  source: "CheckSystem",
+  description: "The processes using the most CPU over the last second",
+  captured_at: "2025-10-09T10:00:56Z",
+  truncated: true,
+  columns: [
+    { name: "name", type: "string" },
+    { name: "pid", type: "int" },
+    { name: "cpu", type: "float", unit: "percent", description: "Share of all cores over the last second" },
+    { name: "working_set", type: "int", unit: "bytes", description: "Resident memory" },
+    { name: "private_bytes", type: "int", unit: "bytes", description: "Memory not shared with other processes" },
+  ],
+  rows: [
+    { name: "acme-indexer.exe", pid: 4242, cpu: 87.5, working_set: 412000256, private_bytes: 398458880 },
+    { name: "svchost.exe", pid: 1288, cpu: 2.1, working_set: 85983232, private_bytes: null },
+  ],
+};
+
+const RECENT_FAILURES_SECTION = {
+  source: "core",
+  description: "The last failed checks, newest first",
+  captured_at: "2025-10-09T10:00:57Z",
+  truncated: false,
+  columns: [
+    { name: "time", type: "timestamp" },
+    { name: "command", type: "string" },
+    { name: "status", type: "string" },
+    { name: "subject", type: "string" },
+    { name: "message", type: "string" },
+  ],
+  rows: [
+    {
+      time: "2025-10-09T10:00:00Z",
+      command: "check_cpu",
+      status: "WARNING",
+      subject: "NRPEServer",
+      message: "WARNING: 5m: 85%",
+    },
+  ],
+};
+
+/** The diagnostics entry 2 was recorded with, inside its /context. */
+const FAILURE_DIAGNOSTICS_FIXTURE = {
+  state: "captured",
+  snapshot_id: 8,
+  captured_at: 1760000057,
+  age_at_failure: 3,
+  size: 900,
+  sections: {
+    "processes.top_cpu": TOP_CPU_SECTION,
+    "failures.recent": RECENT_FAILURES_SECTION,
+  },
+};
+
+/** The live snapshot, as /api/v2/diagnostics lists it. */
+const DIAGNOSTICS_FIXTURE = {
+  enabled: true,
+  snapshot_id: 812,
+  captured_at: "2025-10-09T10:00:57Z",
+  max_rows: 10,
+  dropped: 0,
+  excluded: ["eventlog.errors"],
+  count: 2,
+  sections: [
+    { name: "processes.top_cpu", ...TOP_CPU_SECTION, columns: undefined, rows: 2 },
+    { name: "failures.recent", ...RECENT_FAILURES_SECTION, columns: undefined, rows: 1 },
+  ],
+};
+
+const settingsDescription = (path: string, key: string, plugins: string[], value: string) => ({
+  path,
+  key,
+  type: "bool",
+  title: key.toUpperCase(),
+  description: `The ${key} switch.`,
+  value,
+  default_value: "false",
+  icon: "",
+  is_advanced_key: false,
+  is_object: false,
+  is_sample_key: false,
+  is_template_key: false,
+  plugins,
+  sample_usage: "",
+});
+
+/** The diagnostics switches, as /api/v2/settings/descriptions lists them. */
+const SETTINGS_DESCRIPTIONS_FIXTURE = [
+  settingsDescription("/settings/core/failed checks", "capture diagnostics", [], "true"),
+  settingsDescription("/settings/system/windows/diagnostics", "processes", ["CheckSystem"], "true"),
+  settingsDescription("/settings/system/windows/diagnostics", "services", ["CheckSystem"], "false"),
+];
 
 /**
  * Intercept every /api call the UI makes and answer with deterministic
@@ -228,6 +325,8 @@ export async function mockApi(page: Page, overrides: Overrides = {}) {
         });
       case "/api/v2/settings/status":
         return json(route, { context: "ini://", type: "ini", has_changed: false });
+      case "/api/v2/settings/descriptions":
+        return json(route, SETTINGS_DESCRIPTIONS_FIXTURE);
       case "/api/v2/modules":
         return json(route, MODULES_FIXTURE);
       case "/api/v2/queries":
@@ -239,7 +338,13 @@ export async function mockApi(page: Page, overrides: Overrides = {}) {
       case "/api/v2/failures":
         return json(route, FAILURES_FIXTURE);
       case "/api/v2/failures/2/context":
-        return json(route, FAILURE_CONTEXT_FIXTURE);
+        return json(route, { ...FAILURE_CONTEXT_FIXTURE, diagnostics: FAILURE_DIAGNOSTICS_FIXTURE });
+      case "/api/v2/diagnostics":
+        return json(route, DIAGNOSTICS_FIXTURE);
+      case "/api/v2/diagnostics/processes.top_cpu":
+        return json(route, { name: "processes.top_cpu", snapshot_id: 812, ...TOP_CPU_SECTION });
+      case "/api/v2/diagnostics/failures.recent":
+        return json(route, { name: "failures.recent", snapshot_id: 812, ...RECENT_FAILURES_SECTION });
       default:
         // Fail loudly: an unmocked endpoint means the fixture set is stale.
         return route.fulfill({ status: 404, body: `No e2e mock for ${path}` });

@@ -42,20 +42,25 @@ inline trend::slope_result compute(const trend::trend_buffer *buf, const long lo
 // search would hand a tmpfs or overlay mount the trend of its nearest tracked
 // ancestor - reporting, say, the root filesystem's growth rate for /dev/shm.
 // A filesystem the collector does not track simply has no trend.
-inline const trend::trend_buffer *lookup_unix(const trend_map &trends, const std::string &mount) {
-  const trend_map::const_iterator cit = trends.find(mount);
+//
+// The same lookups serve every map the collector keys this way (the trend
+// buffers, the used_change values), hence the templates.
+template <class Map>
+const typename Map::mapped_type *lookup_unix(const Map &trends, const std::string &mount) {
+  const typename Map::const_iterator cit = trends.find(mount);
   return cit == trends.end() ? nullptr : &cit->second;
 }
 
 // Windows lookup: the collector keys by "C:" while the filter rows carry
 // "C:\" (or lowercase user input); compare case-insensitively without any
 // trailing backslash. Un-lettered volumes have no collector row and no trend.
-inline const trend::trend_buffer *lookup_win(const trend_map &trends, const std::string &letter) {
+template <class Map>
+const typename Map::mapped_type *lookup_win(const Map &trends, const std::string &letter) {
   std::string key = letter;
   while (!key.empty() && key.back() == '\\') key.pop_back();
   if (key.empty()) return nullptr;
   std::transform(key.begin(), key.end(), key.begin(), [](const unsigned char c) { return static_cast<char>(std::toupper(c)); });
-  for (const trend_map::value_type &v : trends) {
+  for (const typename Map::value_type &v : trends) {
     std::string k = v.first;
     while (!k.empty() && k.back() == '\\') k.pop_back();
     std::transform(k.begin(), k.end(), k.begin(), [](const unsigned char c) { return static_cast<char>(std::toupper(c)); });

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cctype>
+#include <str/utils_no_boost.hpp>
 #include <string>
 #include <vector>
 
@@ -30,14 +31,6 @@ inline std::string percent_decode(const std::string& s) {
       out += s[i];
     }
   }
-  return out;
-}
-
-/// ASCII lower-case (locale-independent).
-inline std::string ascii_tolower(const std::string& s) {
-  std::string out;
-  out.reserve(s.size());
-  for (char c : s) out += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return out;
 }
 
@@ -124,13 +117,13 @@ inline proxy_config parse_proxy_url(const std::string& url) {
 /// Hostname comparison is ASCII case-insensitive (DNS names are case-insensitive
 /// per RFC 1035 §2.3.3).  CIDR subnet notation is not currently supported.
 inline bool should_bypass(const std::string& target_host, const std::vector<std::string>& no_proxy_list) {
-  const std::string target_lc = detail::ascii_tolower(target_host);
+  const std::string target_lc = str::utils::ascii_lower(target_host);
   for (const auto& pattern : no_proxy_list) {
     if (pattern.empty()) continue;
 
     if (pattern == "*") return true;
 
-    const std::string pattern_lc = detail::ascii_tolower(pattern);
+    const std::string pattern_lc = str::utils::ascii_lower(pattern);
     if (pattern_lc[0] == '.') {
       // suffix match: ".corp" matches "foo.corp" and "corp" itself
       if (target_lc.size() >= pattern_lc.size() && target_lc.compare(target_lc.size() - pattern_lc.size(), pattern_lc.size(), pattern_lc) == 0) return true;

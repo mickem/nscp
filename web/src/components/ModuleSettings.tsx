@@ -7,6 +7,7 @@ import SettingsKeyValueCollection, {
 } from "./SettingsKeyValueCollection.tsx";
 import NrpeServerWizard from "./NrpeServerWizard.tsx";
 import { ReactElement, useMemo } from "react";
+import { isBoolTrue } from "../common/settings.ts";
 
 // Module-specific setup wizards that should render above the regular
 // settings sections. Keyed by the module id we get in props.
@@ -68,11 +69,6 @@ const GATED_COLLECTIONS: CollectionGate[] = [
     gateKey: "enabled",
   },
 ];
-
-function isBoolTrue(value: string | undefined): boolean {
-  const v = (value ?? "").toLowerCase();
-  return v === "true" || v === "1";
-}
 
 export default function ModuleSettings({ settings, moduleId, showAdvanced = false }: Props) {
   const { data: allDescriptions } = useGetSettingsDescriptionsQuery();

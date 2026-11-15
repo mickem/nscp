@@ -328,6 +328,79 @@ TEST(plugin_manager_facts, an_unreadable_response_says_why_and_changes_nothing) 
 }
 
 // ============================================================================
+// apply_diagnostics_response: folding one producer's sections into the round
+// ============================================================================
+
+namespace {
+std::string two_sections() {
+  PB::Diagnostics::DiagnosticsMessage message;
+  message.add_sections()->set_name("processes.top_cpu");
+  message.add_sections()->set_name("processes.top_memory");
+  return message.SerializeAsString();
+}
+}  // namespace
+
+TEST(plugin_manager_diagnostics, stamps_each_section_with_its_producer_and_remembers_the_names) {
+  PB::Diagnostics::DiagnosticsMessage out;
+  std::vector<std::string> names;
+  nsclient::core::plugin_manager::apply_diagnostics_response("CheckSystem", true, two_sections(), "", 100, names, out);
+  ASSERT_EQ(out.sections_size(), 2);
+  EXPECT_EQ(out.sections(0).source(), "CheckSystem");
+  EXPECT_EQ(out.sections(1).name(), "processes.top_memory");
+  EXPECT_EQ(names, (std::vector<std::string>{"processes.top_cpu", "processes.top_memory"}));
+}
+
+TEST(plugin_manager_diagnostics, a_failed_fetch_costs_the_sections_it_returned_last_time) {
+  std::vector<std::string> names;
+  PB::Diagnostics::DiagnosticsMessage first;
+  nsclient::core::plugin_manager::apply_diagnostics_response("CheckSystem", true, two_sections(), "", 100, names, first);
+
+  PB::Diagnostics::DiagnosticsMessage out;
+  nsclient::core::plugin_manager::apply_diagnostics_response("CheckSystem", false, "", "Library is not loaded", 200, names, out);
+  ASSERT_EQ(out.sections_size(), 2);
+  for (const PB::Diagnostics::Section &s : out.sections()) {
+    EXPECT_EQ(s.error(), "Library is not loaded");
+    EXPECT_EQ(s.source(), "CheckSystem");
+    EXPECT_EQ(s.captured_at(), 200);
+    EXPECT_EQ(s.rows_size(), 0);
+  }
+  // A failure does not forget what the module produces.
+  EXPECT_EQ(names.size(), 2u);
+}
+
+TEST(plugin_manager_diagnostics, a_module_reporting_its_own_failure_is_a_failed_fetch) {
+  std::vector<std::string> names = {"processes.top_cpu"};
+  PB::Diagnostics::DiagnosticsMessage reported;
+  reported.set_error("Failed to collect diagnostics: boom");
+  reported.add_sections()->set_name("half.built");
+  PB::Diagnostics::DiagnosticsMessage out;
+  nsclient::core::plugin_manager::apply_diagnostics_response("CheckSystem", true, reported.SerializeAsString(), "", 1, names, out);
+  ASSERT_EQ(out.sections_size(), 1);
+  EXPECT_EQ(out.sections(0).name(), "processes.top_cpu");
+  EXPECT_EQ(out.sections(0).error(), "Failed to collect diagnostics: boom");
+}
+
+TEST(plugin_manager_diagnostics, a_first_failure_is_reported_under_the_module_name) {
+  std::vector<std::string> names;
+  PB::Diagnostics::DiagnosticsMessage out;
+  nsclient::core::plugin_manager::apply_diagnostics_response("CheckSystem", true, std::string("\xff\xff\xff\xff junk", 9), "", 1, names, out);
+  ASSERT_EQ(out.sections_size(), 1);
+  EXPECT_EQ(out.sections(0).name(), "CheckSystem");
+  EXPECT_FALSE(out.sections(0).error().empty());
+  EXPECT_TRUE(names.empty());
+}
+
+TEST(plugin_manager_diagnostics, a_module_that_stops_producing_returns_nothing) {
+  std::vector<std::string> names = {"processes.top_cpu"};
+  PB::Diagnostics::DiagnosticsMessage out;
+  nsclient::core::plugin_manager::apply_diagnostics_response("CheckSystem", true, PB::Diagnostics::DiagnosticsMessage().SerializeAsString(), "", 1, names,
+                                                              out);
+  // The section was switched off: absent, not failed.
+  EXPECT_EQ(out.sections_size(), 0);
+  EXPECT_TRUE(names.empty());
+}
+
+// ============================================================================
 // event_subscribers_for: who an event message is delivered to
 // ============================================================================
 

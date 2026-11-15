@@ -5,9 +5,22 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/optional.hpp>
+#include <cstdint>
+#include <ctime>
 #include <string>
 
 namespace str {
+
+// Render seconds since the unix epoch as an RFC 3339 timestamp in UTC, to the
+// second: "2026-08-12T07:44:00Z". A time that is not set (0 or less) renders
+// as an empty string, so a field without one stays empty rather than reading
+// as 1970.
+inline std::string format_rfc3339(const std::int64_t epoch) {
+  if (epoch <= 0) return "";
+  // from_time_t never carries fractional seconds, so this is always
+  // "YYYY-MM-DDTHH:MM:SS".
+  return boost::posix_time::to_iso_extended_string(boost::posix_time::from_time_t(static_cast<std::time_t>(epoch))) + "Z";
+}
 
 // Parse an RFC 3339 timestamp to UTC: "2026-08-12T07:44:00Z" as the docker
 // daemon and the Kubernetes API server emit it, with or without fractional

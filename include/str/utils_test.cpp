@@ -396,6 +396,17 @@ TEST(str_utils, parse_command_cmd_args_multiple_spaces) {
 }
 
 // ============================================================================
+// Tests for ascii_lower (from utils_no_boost.hpp)
+// ============================================================================
+TEST(str_utils, ascii_lower_lowers_a_to_z) { EXPECT_EQ(str::utils::ascii_lower("C:/Windows/TEMP 42"), "c:/windows/temp 42"); }
+
+TEST(str_utils, ascii_lower_leaves_other_bytes_alone) {
+  // UTF-8 for an upper-case A with a ring: not A-Z, so it stays as it is.
+  EXPECT_EQ(str::utils::ascii_lower("\xC3\x85ke [X]@{Z}"), "\xC3\x85ke [x]@{z}");
+  EXPECT_EQ(str::utils::ascii_lower(""), "");
+}
+
+// ============================================================================
 // Tests for unescape (from utils_no_boost.hpp)
 // ============================================================================
 TEST(str_utils, unescape_newline) { EXPECT_EQ(str::utils::unescape("a\\nb"), "a\nb"); }

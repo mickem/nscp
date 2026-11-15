@@ -22,13 +22,16 @@ Two new ways the failed-check log's contents reach a reader:
   as `/api/v2/failures` renders it, the snapshot when one was captured, and a
   per-check count of the other failures since the last report. This is new
   data leaving the host: check output lines and performance data, who ran the
-  check, the arguments when `record arguments` is on, and the snapshot (less
-  whatever `prune metrics` and `prune pattern` leave out).
+  check, the arguments `record arguments` keeps (by default only the
+  allow-listed options: thresholds, filter, syntax and what was checked), and
+  the snapshot (less whatever `prune metrics` and `prune pattern` leave out).
+  The report says which argument mode the agent runs (`arguments_mode`).
 
 The report travels only to the server the host is enrolled with, over the
 same pinned mTLS channel as the rest of the fleet sync, and only when that
 server asks. A server that does not send the header gets nothing. The
-redactions are the log's: arguments are off by default, and a `password=` or
+redactions are the log's: by default only allow-listed arguments are kept
+(`record arguments = safe`; `none` keeps nothing), and a `password=` or
 `token=` value is replaced by `***` in the arguments and in an echoed message.
 A secret a check prints under another name is reported as the check printed
 it, exactly as it already reaches the monitoring server.

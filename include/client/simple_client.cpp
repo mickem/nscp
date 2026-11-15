@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/function.hpp>
+#include <client/diagnostics_renderer.hpp>
 #include <client/facts_renderer.hpp>
 #include <client/simple_client.hpp>
 #include <nscapi/macros.hpp>
@@ -335,6 +336,7 @@ const std::vector<command_info> &builtin_commands() {
       {"keywords", "<query>", "list the filter keywords of a query with their descriptions"},
       {"metrics", "[prefix]", "show the metrics collected so far"},
       {"facts", "[path|refresh]", "show the host inventory (facts), a subtree of it, or collect it now"},
+      {"diagnostics", "[section]", "list the latest diagnostics tables (what a failed check is recorded with), or show one"},
       {"settings", "", "show the configured settings (keys set in the configuration, not every registered default)"},
       {"exec", "<module> [command] [args]", "run a module's command line, as nscp <module> ... does (exec CheckSystem --list --all)"},
       {"load", "<module>", "load a module now"},
@@ -661,6 +663,10 @@ void cli_client::handle_command(const std::string &command) {
       // Anything else is a dotted path into the document; empty is all of it.
       handler->output_message(client::render_facts(handler->get_core()->get_facts(argument), argument));
     }
+  } else if (is_verb(command, "diagnostics")) {
+    // What the last diagnostics round left; asking never collects.
+    const std::string section = boost::algorithm::trim_copy(command.substr(11));
+    handler->output_message(client::render_diagnostics(handler->get_core()->get_diagnostics(section), section));
   } else if (command.size() >= 7 && command.substr(0, 7) == "metrics") {
     for (const metrics::metrics_store::values_map::value_type &v : metrics_store.get(command.substr(7))) {
       handler->output_message(v.first + "=" + v.second);

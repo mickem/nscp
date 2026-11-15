@@ -30,6 +30,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
+#include "diagnostics_thread.hpp"
 #include "eventlog_record.hpp"
 #include "realtime_thread.hpp"
 
@@ -120,8 +121,36 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
                 "Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.");
   std::string filter_path = settings.alias().get_settings_path("real-time/filters");
 
+  bool diagnostics_errors = false;
+  bool diagnostics_services = false;
+  settings.alias()
+      .add_key_to_settings("diagnostics")
+      .add_bool("errors", sh::bool_key(&diagnostics_errors, false), "EVENT LOG ERRORS",
+                "Produce the eventlog.errors diagnostics table: the last critical and error events written to the Application and System logs, with "
+                "when, which log, the source, the event id, the level and the message - the message is event text, which applications fill with "
+                "whatever they like. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture "
+                "diagnostics is on. Turns on what it needs: a subscription of its own to both logs, separate from the real-time filters (it works "
+                "whether or not those are enabled). Each event is rendered once, as it is written, and the last 50 are kept; at start the table is "
+                "filled from the last ten minutes of the logs.")
+      .add_bool("services", sh::bool_key(&diagnostics_services, false), "SERVICE EVENTS",
+                "Produce the services.events diagnostics table: the service control manager's events for a service that terminated unexpectedly or "
+                "with an error (System log, ids 7031, 7034 and 7024), with when, the service's name, the event id and the message. Kept with a "
+                "failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Turns on a "
+                "subscription of its own to the System log; the last 50 events are kept, and at start the table is filled from the last ten "
+                "minutes. The services that are in trouble right now (services.problems) come from CheckSystem: "
+                "[/settings/system/windows/diagnostics] services.");
+
   settings.register_all();
   settings.notify();
+
+  // A reload replaces the diagnostics thread: stop the running one before
+  // its replacement subscribes, and publish the new one (or none) so a
+  // section switched off is absent from the next round.
+  if (const std::shared_ptr<eventlog_diagnostics> previous = std::atomic_load(&diagnostics_)) previous->stop();
+  std::shared_ptr<eventlog_diagnostics> diagnostics;
+  if (diagnostics_errors || diagnostics_services) diagnostics = std::make_shared<eventlog_diagnostics>(diagnostics_services, diagnostics_errors);
+  std::atomic_store(&diagnostics_, diagnostics);
+  if (diagnostics && mode != NSCAPI::dontStart) diagnostics->start();
 
   if (!log_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(log_access_.get_config_error());
 
@@ -146,12 +175,22 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 }
 bool CheckEventLog::unloadModule() {
   if (thread_ && !thread_->stop()) NSC_LOG_ERROR_STD("Failed to stop collection thread");
+  if (const std::shared_ptr<eventlog_diagnostics> diagnostics = std::atomic_load(&diagnostics_)) {
+    diagnostics->stop();
+    std::atomic_store(&diagnostics_, std::shared_ptr<eventlog_diagnostics>());
+  }
 
   nscapi::core_helper core(get_core(), get_id());
   for (const bookmarks::map_type::value_type &v : bookmarks_.get_copy()) {
     core.put_storage("eventlog.bookmarks", v.first, v.second, false, false);
   }
   return true;
+}
+
+void CheckEventLog::fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response) {
+  // Cheap by contract: the diagnostics thread rendered the events as they
+  // were written; this copies its rings. Nothing while every section is off.
+  if (const std::shared_ptr<eventlog_diagnostics> diagnostics = std::atomic_load(&diagnostics_)) diagnostics->add_sections(response);
 }
 
 typedef hlp::buffer<BYTE, EVENTLOGRECORD *> eventlog_buffer;

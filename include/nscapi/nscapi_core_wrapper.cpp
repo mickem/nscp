@@ -5,6 +5,7 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/protobuf/facts.hpp>
+#include <nscapi/protobuf/diagnostics.hpp>
 #include <nscapi/protobuf/failures.hpp>
 #include <nsclient/nsclient_exception.hpp>
 
@@ -44,6 +45,7 @@ nscapi::core_wrapper::core_wrapper()
       fNSAPIGetTags(nullptr),
       fNSAPIFactsQuery(nullptr),
       fNSAPIFailuresQuery(nullptr),
+      fNSAPIDiagnosticsQuery(nullptr),
       fNSAPISetLogOption(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
@@ -350,6 +352,21 @@ std::string nscapi::core_wrapper::get_failure_context(const unsigned long long i
   return response;
 }
 
+std::string nscapi::core_wrapper::get_diagnostics(const std::string &section) const {
+  if (!fNSAPIDiagnosticsQuery) return "";
+  const std::string request = nscapi::diagnostics::make_request(section);
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIDiagnosticsQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+  std::string response;
+  if (buffer_size > 0 && buffer != nullptr) {
+    response = std::string(buffer, buffer_size);
+  }
+  DestroyBuffer(&buffer);
+  if (!retC) return "";
+  return response;
+}
+
 std::string nscapi::core_wrapper::clear_failures() const {
   if (!fNSAPIFailuresQuery) return "";
   const std::string request = nscapi::failures::make_request(PB::Failures::FailuresRequestMessage::Request::CLEAR);
@@ -553,6 +570,7 @@ bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
   fNSAPISetLogOption = reinterpret_cast<core_api::lpNSAPISetLogOption>(f("NSAPISetLogOption"));
   fNSAPIFactsQuery = reinterpret_cast<core_api::lpNSAPIFactsQuery>(f("NSAPIFactsQuery"));
   fNSAPIFailuresQuery = reinterpret_cast<core_api::lpNSAPIFailuresQuery>(f("NSAPIFailuresQuery"));
+  fNSAPIDiagnosticsQuery = reinterpret_cast<core_api::lpNSAPIDiagnosticsQuery>(f("NSAPIDiagnosticsQuery"));
 
   return true;
 }

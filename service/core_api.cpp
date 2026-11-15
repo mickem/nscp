@@ -15,6 +15,7 @@
 #include <win/service_control.hpp>
 #endif
 #include <nscapi/protobuf/facts.hpp>
+#include <nscapi/protobuf/diagnostics.hpp>
 #include <nscapi/protobuf/failures.hpp>
 #include <nscapi/protobuf/settings.hpp>
 #include <nsclient/logger/logger.hpp>
@@ -347,8 +348,9 @@ NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned i
 //   GET since=N limit=M what arrived after index N, at most M
 //   CLEAR               drop every entry, answer with how many
 //   GET index=N include_context
-//                       entry N alone, with the metrics snapshot it was
-//                       recorded with (nothing once the cap evicted it)
+//                       entry N alone, with the metrics and diagnostics
+//                       snapshots it was recorded with (nothing once the
+//                       cap evicted it)
 //
 // An empty request is a plain GET, so a console verb can send nothing at all.
 // Read side only: what is recorded is decided by the core on every dispatch
@@ -389,6 +391,7 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
         PB::Failures::FailedCheck *entry = payload->add_entries();
         *entry = found.item;
         if (include_context && found.context) *entry->mutable_context()->mutable_metrics() = found.context->message;
+        if (include_context && found.diagnostics) *entry->mutable_diagnostics()->mutable_snapshot() = found.diagnostics->message;
       }
     } else {
       for (const PB::Failures::FailedCheck &entry : store->list(since, limit)) *payload->add_entries() = entry;
@@ -396,7 +399,8 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
     const nsclient::core::failed_check_store::options options = store->get_options();
     payload->set_enabled(options.enabled);
     payload->set_max_entries(options.max_entries);
-    payload->set_arguments_recorded(options.record_arguments);
+    payload->set_arguments_recorded(options.record_arguments != nsclient::core::failed_check_store::argument_mode::none);
+    payload->set_arguments_mode(nsclient::core::failed_check_store::format_argument_mode(options.record_arguments));
     payload->set_statuses(nsclient::core::failed_check_store::format_statuses(options.statuses));
     payload->set_last_index(store->last_index());
     payload->set_dropped(store->dropped());
@@ -404,6 +408,8 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
     payload->set_context_budget(options.context_budget);
     payload->set_max_context_size(options.max_context_size);
     payload->set_context_bytes_used(store->context_bytes_used());
+    payload->set_capture_diagnostics(options.enabled && options.capture_diagnostics);
+    payload->set_diagnostics_rows(static_cast<unsigned int>(options.diagnostics_rows));
 
     const std::string response = response_message.SerializeAsString();
     *response_buffer_len = static_cast<unsigned int>(response.size());
@@ -414,6 +420,62 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
     LOG_ERROR(mainClient, "Failures query error: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
     LOG_ERROR(mainClient, "Unknown failures query error");
+  }
+  return NSCAPI::api_return_codes::hasFailed;
+}
+
+// The latest diagnostics snapshot (service/diagnostics_snapshot.hpp): a
+// serialised PB::Diagnostics::DiagnosticsRequestMessage in (all sections, or
+// one by name), a DiagnosticsResponseMessage out. An empty request asks for
+// everything. Read side only, and never a collection: the answer is whatever
+// the last diagnostics round left, with `enabled` saying whether rounds run
+// at all.
+NSCAPI::errorReturn NSAPIDiagnosticsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
+                                          unsigned int *response_buffer_len) {
+  try {
+    std::string section;
+    const std::string request = request_buffer == nullptr ? std::string() : std::string(request_buffer, request_buffer_len);
+    if (!request.empty()) {
+      PB::Diagnostics::DiagnosticsRequestMessage message;
+      if (!message.ParseFromString(request)) {
+        LOG_ERROR(mainClient, "Diagnostics query error: the request is not a valid diagnostics request message");
+        return NSCAPI::api_return_codes::hasFailed;
+      }
+      if (message.payload_size() > 0) section = message.payload(0).section();
+    }
+
+    const nsclient::core::failed_check_store::options options = mainClient->get_failed_check_store()->get_options();
+    PB::Diagnostics::DiagnosticsResponseMessage response_message;
+    PB::Diagnostics::DiagnosticsResponseMessage::Response *payload = response_message.add_payload();
+    payload->mutable_result()->set_code(PB::Common::Result::STATUS_OK);
+    payload->set_enabled(options.enabled && options.capture_diagnostics);
+    payload->set_max_rows(static_cast<unsigned int>(options.diagnostics_rows));
+    // While capture is off the round lets go of the snapshot, so a disabled
+    // answer never carries a stale one.
+    const nsclient::core::diagnostics_snapshot_ptr snapshot = payload->enabled() ? mainClient->get_diagnostics_store()->latest() : nullptr;
+    if (snapshot) {
+      payload->set_snapshot_id(snapshot->id);
+      payload->set_captured_at(snapshot->captured_at);
+      payload->set_dropped(static_cast<unsigned int>(snapshot->dropped));
+      for (const std::string &name : snapshot->excluded) payload->add_excluded(name);
+      if (section.empty()) {
+        *payload->mutable_snapshot() = snapshot->message;
+      } else {
+        for (const PB::Diagnostics::Section &s : snapshot->message.sections()) {
+          if (s.name() == section) *payload->mutable_snapshot()->add_sections() = s;
+        }
+      }
+    }
+
+    const std::string response = response_message.SerializeAsString();
+    *response_buffer_len = static_cast<unsigned int>(response.size());
+    *response_buffer = new char[*response_buffer_len + 10];
+    memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+    return NSCAPI::api_return_codes::isSuccess;
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, "Diagnostics query error: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR(mainClient, "Unknown diagnostics query error");
   }
   return NSCAPI::api_return_codes::hasFailed;
 }
@@ -439,6 +501,7 @@ nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIGetTags") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetTags);
   if (strcmp(buffer, "NSAPIFactsQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIFactsQuery);
   if (strcmp(buffer, "NSAPIFailuresQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIFailuresQuery);
+  if (strcmp(buffer, "NSAPIDiagnosticsQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIDiagnosticsQuery);
   if (strcmp(buffer, "NSAPISetLogOption") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetLogOption);
   mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
   return NULL;

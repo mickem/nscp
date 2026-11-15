@@ -38,6 +38,7 @@ void scheduler::handle_settings() {
 }
 void scheduler::handle_metrics() { mainClient->process_metrics(); }
 void scheduler::handle_facts() { mainClient->process_facts("scheduled"); }
+void scheduler::handle_diagnostics() { mainClient->process_diagnostics(); }
 
 void scheduler::start() {
   tasks.set_handler(this);
@@ -71,6 +72,8 @@ std::string scheduler::describe(const simple_scheduler::task &item) {
       return "a metrics round";
     case schedule_metadata::FACTS:
       return "a facts round";
+    case schedule_metadata::DIAGNOSTICS:
+      return "a diagnostics round";
     case schedule_metadata::RELOAD:
       return "a reload of " + data.info;
     default:
@@ -111,6 +114,9 @@ bool scheduler::handle_schedule(simple_scheduler::task item) {
     return true;
   } else if (current_metadata.source == schedule_metadata::FACTS) {
     handle_facts();
+    return true;
+  } else if (current_metadata.source == schedule_metadata::DIAGNOSTICS) {
+    handle_diagnostics();
     return true;
   } else if (current_metadata.source == schedule_metadata::RELOAD) {
     handle_reload(current_metadata);

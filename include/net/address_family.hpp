@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/system/error_code.hpp>
+#include <str/utils_no_boost.hpp>
 #include <string>
 
 namespace net {
@@ -18,9 +19,7 @@ enum class address_family { any, ipv4, ipv6 };
 // `out` untouched — for anything unrecognised, so the caller can report the bad
 // value rather than silently falling back to `any`.
 inline bool parse_address_family(const std::string &value, address_family &out) {
-  std::string v;
-  v.reserve(value.size());
-  for (const char c : value) v += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+  const std::string v = str::utils::ascii_lower(value);
 
   if (v.empty() || v == "any" || v == "both" || v == "0" || v == "unspec") {
     out = address_family::any;

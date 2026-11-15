@@ -54,6 +54,10 @@ const check_drive::trend_map &deref_trends(const collector_thread::trend_snapsho
   static const check_drive::trend_map empty;
   return snapshot ? *snapshot : empty;
 }
+const check_drive::change_map &deref_changes(const collector_thread::change_snapshot &snapshot) {
+  static const check_drive::change_map empty;
+  return snapshot ? *snapshot : empty;
+}
 
 // Publish the logical drive list as a host tag (`drives=c:,d:`), consumed by
 // the web UI and by fleet group selectors. Windows-only: on other platforms
@@ -84,8 +88,14 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // replacement atomically and configure it through the local copy: a check
   // running right now holds its own reference to whichever instance it read,
   // so the old one dies when that check returns rather than under it.
-  if (const std::shared_ptr<collector_thread> previous = std::atomic_load(&collector_)) previous->stop();
+  const std::shared_ptr<collector_thread> previous = std::atomic_load(&collector_);
+  if (previous) previous->stop();
   const std::shared_ptr<collector_thread> fresh = std::make_shared<collector_thread>(get_core(), get_id());
+  // The hour and day of used-space history live in memory only: hand them to
+  // the replacement, or every settings reload (a fleet bundle, a change in the
+  // web UI) would make used_change_1h/24h unknown for another hour or day.
+  // The old collector's thread is joined, so its history is safe to copy.
+  if (previous) fresh->seed_used_history(previous->get_used_history());
   std::atomic_store(&collector_, fresh);
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -148,6 +158,26 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
   // clang-format on
 
+  bool diagnostics_growth_spots = false;
+  std::string growth_spots_interval;
+  // clang-format off
+  settings.alias().add_key_to_settings("diagnostics")
+    .add_bool("growth spots", sh::bool_key(&diagnostics_growth_spots, false),
+        "GROWTH SPOTS",
+        "Produce the disk.growth_spots diagnostics table: the size of the places that usually fill a disk - the temp directories (TEMP, the "
+        "Windows Temp directory; TMPDIR, /tmp and /var/tmp), the log directories (the agent's own, the Windows Logs and event log directories; "
+        "/var/log), the page and swap files and, on Windows, the shadow-copy storage in use per volume (which needs an elevated agent). "
+        "Directories are walked by a thread of their own, the first time shortly after this is switched on and then every 'growth spots "
+        "interval' (a settings reload keeps that schedule): one directory at a time with a pause between them, at background I/O priority, for at most 30 seconds per directory "
+        "and 2 minutes per round; a walk that hits a limit reports the size so far and marks the table truncated. Links, junctions and mount "
+        "points are not followed and entries that cannot be read are skipped and counted. Kept with a failed check and served on "
+        "/api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Paths and sizes leave the host with it.")
+    .add_string("growth spots interval", sh::string_key(&growth_spots_interval, "10m"),
+        "GROWTH SPOTS INTERVAL",
+        "How often the growth spots are measured while 'growth spots' is on. Duration, at least 10s, e.g. 10m.")
+    ;
+  // clang-format on
+
   bool facts_volumes = false;
   // clang-format off
   settings.alias().add_key_to_settings("facts")
@@ -206,7 +236,36 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
     publish_drives_tag(get_core());
   }
+
+  // The growth-spots walker, like the collector, is stopped and replaced on
+  // every load; off means no thread at all and no section.
+  const std::shared_ptr<growth_spots::walker> previous_walker = std::atomic_load(&growth_spots_);
+  if (previous_walker) previous_walker->stop();
+  std::shared_ptr<growth_spots::walker> walker;
+  if (diagnostics_growth_spots && mode != NSCAPI::dontStart) {
+    walker = std::make_shared<growth_spots::walker>();
+    walker->agent_log_dir = get_core()->expand_path("${log-path}");
+    try {
+      const long long seconds = str::format::stox_as_time_sec<long long>(growth_spots_interval, "s");
+      if (seconds < 10) throw std::invalid_argument("must be at least 10 seconds");
+      if (seconds > 7 * 24 * 3600) throw std::invalid_argument("must be at most 7 days");
+      walker->interval = std::chrono::seconds(seconds);
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR("Invalid growth spots interval (using the default 10m): " + std::string(e.what()));
+    }
+    if (previous_walker) walker->seed(previous_walker->get());
+    walker->start();
+  }
+  std::atomic_store(&growth_spots_, walker);
   return true;
+}
+
+void CheckDisk::fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response) {
+  // Copies the last round; nothing while the section is off, which is how
+  // the core learns it was switched off.
+  const std::shared_ptr<growth_spots::walker> walker = std::atomic_load(&growth_spots_);
+  if (!walker) return;
+  growth_spots::add_section(response, walker->get());
 }
 
 void CheckDisk::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
@@ -228,6 +287,8 @@ bool CheckDisk::unloadModule() {
   if (collector) {
     collector->stop();
   }
+  const std::shared_ptr<growth_spots::walker> walker = std::atomic_load(&growth_spots_);
+  if (walker) walker->stop();
   return true;
 }
 
@@ -322,8 +383,15 @@ void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("free");
     describe(section, "Space per mounted volume");
+    // Keyed like the disk-free rows themselves, so a direct lookup.
+    const collector_thread::change_snapshot changes = collector->get_used_changes();
     for (const disk_free_check::drives_type::value_type &v : drives) {
-      v.build_metrics(section);
+      const used_history::changes *c = nullptr;
+      if (changes) {
+        const used_history::change_map::const_iterator it = changes->find(v.name);
+        if (it != changes->end()) c = &it->second;
+      }
+      v.build_metrics(section, c);
     }
   }
 }
@@ -395,13 +463,15 @@ void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &reque
   compat::log_args(request);
   const std::shared_ptr<collector_thread> collector = get_collector_ptr();
   const collector_thread::trend_snapshot trends = collector ? collector->get_drive_trends() : collector_thread::trend_snapshot();
-  check_drive::check(request, response, deref_trends(trends));
+  const collector_thread::change_snapshot changes = collector ? collector->get_used_changes() : collector_thread::change_snapshot();
+  check_drive::check(request, response, deref_trends(trends), deref_changes(changes));
 }
 
 void CheckDisk::check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   const std::shared_ptr<collector_thread> collector = get_collector_ptr();
   const collector_thread::trend_snapshot trends = collector ? collector->get_drive_trends() : collector_thread::trend_snapshot();
-  check_drive::check(request, response, deref_trends(trends));
+  const collector_thread::change_snapshot changes = collector ? collector->get_used_changes() : collector_thread::change_snapshot();
+  check_drive::check(request, response, deref_trends(trends), deref_changes(changes));
 }
 
 void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

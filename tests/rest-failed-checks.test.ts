@@ -11,10 +11,11 @@
  *                             the metrics snapshot it was recorded with      (failures.list)
  *
  * CheckHelpers' check_ok / check_warning / check_critical give deterministic
- * outcomes, so the log's contents are exact. Two agents, because the
- * interesting behaviour is in [/settings/core/failed checks]: arguments are
- * not recorded unless asked for, the cap evicts the oldest entries, and the
- * metrics snapshot is only kept when `capture metrics` is on.
+ * outcomes, so the log's contents are exact. Several agents, because the
+ * interesting behaviour is in [/settings/core/failed checks]: only the
+ * allow-listed arguments are recorded unless asked otherwise, the cap evicts
+ * the oldest entries, and the metrics snapshot is only kept when `capture
+ * metrics` is on.
  */
 import request from "supertest";
 
@@ -167,7 +168,9 @@ describe("REST failed-check log", () => {
       const body = await list(key);
       expect(body.enabled).toBe(true);
       expect(body.max_entries).toEqual(50);
-      expect(body.arguments_recorded).toBe(false);
+      // Only the allow-listed arguments, by default.
+      expect(body.arguments_recorded).toBe(true);
+      expect(body.arguments_mode).toEqual("safe");
       expect(body.statuses).toEqual("warning,critical,unknown");
       // Metrics context is opt-in.
       expect(body.capture_metrics).toBe(false);
@@ -223,9 +226,24 @@ describe("REST failed-check log", () => {
       expect(lines).toHaveLength(1);
       expect(lines[0].message).toEqual("boom");
       expect(typeof lines[0].perf).toBe("object");
-      // Arguments are off by default: no key at all, not an empty list, so a
-      // client can tell "none given" from "not recorded".
-      expect(entry.arguments).toBeUndefined();
+      // `message` is not on the allow-list `safe` keeps, so the list is
+      // there but empty.
+      expect(entry.arguments).toEqual([]);
+    });
+
+    it("keeps only the allow-listed arguments", async () => {
+      // check_critical does not take most of these, so the verdict may be
+      // UNKNOWN (unrecognised option); either is recorded, and the arguments
+      // are what this case is about.
+      await run(
+        key,
+        "check_critical",
+        "?message=boom&warning=load%20%3E%2070&time=1m&drive=C%3A&password=hunter2&host=db1&user=bob",
+      );
+      const entries = (await list(key)).entries as Json[];
+      expect(entries).toHaveLength(1);
+      const args = (entries[0].arguments as string[]).slice().sort();
+      expect(args).toEqual(["drive=C:", "time=1m", "warning=load > 70"]);
     });
 
     it("records what the core itself refuses, such as an unknown command", async () => {
@@ -336,6 +354,31 @@ describe("REST failed-check log", () => {
     });
   });
 
+  describe("record arguments = none", () => {
+    let nscp: NscpInstance;
+    let key = "";
+
+    beforeAll(async () => {
+      ({ nscp, key } = await startAgent({ "record arguments": "none" }));
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("records no arguments: no key at all, not an empty list", async () => {
+      await clear(key);
+      const body = await list(key);
+      expect(body.arguments_recorded).toBe(false);
+      expect(body.arguments_mode).toEqual("none");
+      await run(key, "check_critical", "?message=boom&warning=x");
+      const entries = (await list(key)).entries as Json[];
+      expect(entries).toHaveLength(1);
+      // A client can tell "none given" from "not recorded".
+      expect(entries[0].arguments).toBeUndefined();
+    });
+  });
+
   describe("record arguments = true, max entries = 3, statuses = critical,unknown", () => {
     let nscp: NscpInstance;
     let key = "";
@@ -360,6 +403,8 @@ describe("REST failed-check log", () => {
       const body = await list(key);
       expect(body.max_entries).toEqual(3);
       expect(body.arguments_recorded).toBe(true);
+      // The boolean spelling it had before it took a mode.
+      expect(body.arguments_mode).toEqual("all");
       expect(body.statuses).toEqual("critical,unknown");
     });
 

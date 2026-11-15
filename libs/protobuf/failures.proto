@@ -6,6 +6,7 @@ option optimize_for = LITE_RUNTIME;
 import "common.proto";
 import "plugin.proto";
 import "metrics.proto";
+import "diagnostics.proto";
 
 //
 // Failed checks: the last N non-OK check results the core dispatched.
@@ -79,6 +80,38 @@ message MetricsContext {
 }
 
 //
+// The diagnostics snapshot a failure was recorded with: the core's latest
+// diagnostics (small tables - the top processes, the last failed checks) at
+// that instant, when [/settings/core/failed checks] `capture diagnostics` is
+// on. The same states as MetricsContext, and the same sharing: failures in one
+// diagnostics interval refer to one snapshot, and the distinct snapshots of
+// both kinds are held together under `metrics context budget`, the oldest
+// released first.
+//
+message DiagnosticsContext {
+	enum State {
+		// Capture is on but no round had run yet.
+		NONE = 0;
+		CAPTURED = 1;
+		// Released to stay within the budget, or capture was turned off.
+		EVICTED = 2;
+		// Larger than `max context size`.
+		TOO_LARGE = 3;
+		// `capture diagnostics` was off when the entry was recorded.
+		DISABLED = 4;
+	};
+	State state = 1;
+	uint64 snapshot_id = 2;
+	// When the core finished the round, seconds since the unix epoch.
+	int64 captured_at = 3;
+	// The serialised size, which is what the budget counts.
+	uint64 size = 4;
+	// The snapshot itself, only when the request asked for it
+	// (`include_context`).
+	PB.Diagnostics.DiagnosticsMessage snapshot = 5;
+}
+
+//
 // One failed check, as the core saw it leave execute_query.
 //
 message FailedCheck {
@@ -98,12 +131,15 @@ message FailedCheck {
 	int32 depth = 4;
 	// The payload as it was returned, after the core's caps: the lines are
 	// truncated, the perf list is capped and `data` is cleared. `arguments`
-	// is filled from the request - with credential-looking values redacted -
-	// only when [/settings/core/failed checks] `record arguments` is on, and
-	// cleared otherwise.
+	// is filled from the request as [/settings/core/failed checks] `record
+	// arguments` says: nothing under `none`, the allow-listed options under
+	// `safe`, every option - credential-looking values redacted - under
+	// `all`.
 	PB.Commands.QueryResponseMessage.Response response = 5;
 	// The metrics snapshot the failure was recorded with; see MetricsContext.
 	MetricsContext context = 6;
+	// The diagnostics snapshot it was recorded with; see DiagnosticsContext.
+	DiagnosticsContext diagnostics = 7;
 }
 
 //
@@ -126,7 +162,8 @@ message FailuresRequestMessage {
 		// At most this many entries, the newest ones. 0 is no limit beyond
 		// what the store holds.
 		uint32 limit = 4;
-		// Fill each entry's `context.metrics` with its snapshot. Meant for
+		// Fill each entry's `context.metrics` and `diagnostics.snapshot` with
+		// the snapshots it was recorded with. Meant for
 		// one entry (`index`); a listing leaves it off.
 		bool include_context = 5;
 		// Only the entry with this index (0 for no such restriction). The
@@ -178,6 +215,15 @@ message FailuresResponseMessage {
 		uint64 context_bytes_used = 13;
 		// The largest single snapshot that is kept (bytes).
 		uint64 max_context_size = 14;
+		// Which arguments are recorded, as `record arguments` spells it:
+		// "none", "safe" (only allow-listed options) or "all" (every option,
+		// credential-looking values redacted). `arguments_recorded` is true
+		// for the last two.
+		string arguments_mode = 15;
+		// Whether failures are recorded with a diagnostics snapshot (and the
+		// core collects diagnostics at all), and the row cap per section.
+		bool capture_diagnostics = 16;
+		uint32 diagnostics_rows = 17;
 	};
 
 	PB.Common.Header header = 1;

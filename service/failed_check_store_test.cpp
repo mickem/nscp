@@ -39,10 +39,17 @@ std::vector<std::string> arguments_of(const PB::Failures::FailedCheck &entry) {
   return std::vector<std::string>(entry.response().arguments().begin(), entry.response().arguments().end());
 }
 
-failed_check_store::options with_arguments() {
+failed_check_store::options with_arguments(const failed_check_store::argument_mode mode = failed_check_store::argument_mode::all) {
   failed_check_store::options o;
-  o.record_arguments = true;
+  o.record_arguments = mode;
   return o;
+}
+
+std::vector<std::string> safe_filtered(const std::vector<std::string> &in) {
+  google::protobuf::RepeatedPtrField<std::string> arguments;
+  for (const std::string &a : in) arguments.Add()->assign(a);
+  failed_check_store::filter_safe_arguments(&arguments);
+  return std::vector<std::string>(arguments.begin(), arguments.end());
 }
 
 }  // namespace
@@ -200,7 +207,7 @@ TEST(failed_check_store, parse_statuses_rejects_ok_junk_and_empty) {
   EXPECT_FALSE(failed_check_store::parse_statuses(" , ", mask, error));
 }
 
-TEST(failed_check_store, arguments_are_dropped_unless_recording_is_on) {
+TEST(failed_check_store, arguments_are_dropped_when_the_mode_is_none) {
   PB::Commands::QueryRequestMessage request;
   add_request(request, "check_sql", {"query=select 1", "password=hunter2"});
   PB::Commands::QueryResponseMessage response;
@@ -209,6 +216,7 @@ TEST(failed_check_store, arguments_are_dropped_unless_recording_is_on) {
   response.mutable_payload(0)->add_arguments("password=hunter2");
 
   failed_check_store store;
+  store.configure(with_arguments(failed_check_store::argument_mode::none));
   EXPECT_EQ(1u, store.record_message(request, response, "NRPEServer", 0, 1));
   EXPECT_TRUE(arguments_of(store.list()[0]).empty());
 
@@ -218,6 +226,117 @@ TEST(failed_check_store, arguments_are_dropped_unless_recording_is_on) {
   ASSERT_EQ(2u, arguments.size());
   EXPECT_EQ("query=select 1", arguments[0]);
   EXPECT_EQ("password=***", arguments[1]);
+}
+
+TEST(failed_check_store, safe_is_the_default_mode) {
+  EXPECT_EQ(failed_check_store::argument_mode::safe, failed_check_store::options().record_arguments);
+  EXPECT_EQ(failed_check_store::argument_mode::safe, failed_check_store().get_options().record_arguments);
+}
+
+TEST(failed_check_store, safe_keeps_only_allow_listed_rest_pairs) {
+  PB::Commands::QueryRequestMessage request;
+  add_request(request, "check_sql", {"query=select 1", "password=hunter2", "warning=time > 5", "critical=time > 10", "host=db1", "--top-syntax=${list}"});
+  PB::Commands::QueryResponseMessage response;
+  *response.add_payload() = make_response("check_sql", PB::Common::ResultCode::CRITICAL, "slow");
+
+  failed_check_store store;
+  store.configure(with_arguments(failed_check_store::argument_mode::safe));
+  EXPECT_EQ(1u, store.record_message(request, response, "WEBServer:admin", 0, 1));
+  EXPECT_EQ((std::vector<std::string>{"warning=time > 5", "critical=time > 10", "--top-syntax=${list}"}), arguments_of(store.list()[0]));
+}
+
+TEST(failed_check_store, safe_keeps_the_arguments_the_estate_faults_role_uses) {
+  // The checks the `faults` role provokes (build/powershell/estate/roles/faults)
+  // must reach the log with their arguments under the default mode.
+  EXPECT_EQ((std::vector<std::string>{"time=1m", "warning=load > 70", "critical=load > 85"}),
+            safe_filtered({"time=1m", "warning=load > 70", "critical=load > 85"}));
+  EXPECT_EQ((std::vector<std::string>{"type=physical", "warning=used > 80%"}), safe_filtered({"type=physical", "warning=used > 80%"}));
+  EXPECT_EQ((std::vector<std::string>{"drive=C:", "critical=used > 90%"}), safe_filtered({"drive=C:", "critical=used > 90%"}));
+  EXPECT_EQ((std::vector<std::string>{"service=acme-sync", "critical=state != 'running'"}),
+            safe_filtered({"service=acme-sync", "critical=state != 'running'"}));
+}
+
+TEST(failed_check_store, safe_handles_the_cli_shape) {
+  // nscp client -a key=value passes --key then value.
+  EXPECT_EQ((std::vector<std::string>{"--warning", "load > 70", "--drive", "C:"}),
+            safe_filtered({"--warning", "load > 70", "--password", "hunter2", "--drive", "C:", "--host", "db1"}));
+  // A value containing an `=` stays a value.
+  EXPECT_EQ((std::vector<std::string>{"--filter", "name = 'x'", "--critical", "load>=80"}), safe_filtered({"--filter", "name = 'x'", "--critical", "load>=80"}));
+  // The value of a dropped key is dropped whatever it looks like.
+  EXPECT_EQ((std::vector<std::string>{"--time", "1m"}), safe_filtered({"--password", "warning=x", "--time", "1m"}));
+  // Undashed, as --raw-argument passes it.
+  EXPECT_EQ((std::vector<std::string>{"warning", "used > 80%"}), safe_filtered({"password", "hunter2", "warning", "used > 80%"}));
+}
+
+TEST(failed_check_store, safe_flags_do_not_swallow_the_next_argument) {
+  // A flag with no value followed by a dashed option or a REST pair: the
+  // pair is judged on its own key, never kept as the flag's value.
+  EXPECT_EQ((std::vector<std::string>{"--show-all", "--time", "1m"}), safe_filtered({"--show-all", "--time", "1m"}));
+  EXPECT_EQ((std::vector<std::string>{"show-all"}), safe_filtered({"show-all", "password=hunter2"}));
+  EXPECT_EQ((std::vector<std::string>{"show-all"}), safe_filtered({"show-all", "secret=hunter2"}));
+  EXPECT_EQ((std::vector<std::string>{"show-all", "warning=x"}), safe_filtered({"show-all", "warning=x"}));
+}
+
+TEST(failed_check_store, safe_drops_what_names_another_host) {
+  // The keys that are a host, or a path to one.
+  EXPECT_FALSE(failed_check_store::is_safe_argument("computer"));
+  EXPECT_FALSE(failed_check_store::is_safe_argument("--namespace"));
+  EXPECT_EQ((std::vector<std::string>{"warning=x"}), safe_filtered({"computer=db1", "namespace=root\\cimv2", "warning=x"}));
+  EXPECT_EQ(std::vector<std::string>(), safe_filtered({"--computer", "db1"}));
+  // A kept key whose value is a UNC path or a remote counter.
+  EXPECT_EQ((std::vector<std::string>{"file=C:\\temp\\a.log", "counter=\\Processor(_Total)\\% Processor Time"}),
+            safe_filtered({"file=C:\\temp\\a.log", "path=\\\\fs1\\share", "counter=\\Processor(_Total)\\% Processor Time",
+                           "counter=\\\\db1\\Processor(_Total)\\% Processor Time"}));
+  // In the CLI shape the key goes with its value, and what follows is judged on its own.
+  EXPECT_EQ((std::vector<std::string>{"--time", "1m"}), safe_filtered({"--path", "\\\\fs1\\share", "--time", "1m"}));
+}
+
+TEST(failed_check_store, safe_drops_positionals_and_credential_keys) {
+  EXPECT_EQ(std::vector<std::string>(), safe_filtered({"select * from users", "hunter2"}));
+  EXPECT_EQ(std::vector<std::string>(), safe_filtered({"proxy-password=x", "--api-token", "abc", "token=x"}));
+  EXPECT_EQ(std::vector<std::string>(), safe_filtered({"=x", "-", "--"}));
+  EXPECT_TRUE(failed_check_store::is_safe_argument("--WARNING"));
+  EXPECT_TRUE(failed_check_store::is_safe_argument("detail-syntax"));
+  EXPECT_FALSE(failed_check_store::is_safe_argument("host"));
+  EXPECT_FALSE(failed_check_store::is_safe_argument("command"));
+  EXPECT_FALSE(failed_check_store::is_safe_argument(""));
+  for (const std::string &key : failed_check_store::safe_argument_keys()) EXPECT_FALSE(failed_check_store::is_sensitive_argument(key)) << key;
+}
+
+TEST(failed_check_store, safe_applies_before_the_argument_cap) {
+  google::protobuf::RepeatedPtrField<std::string> arguments;
+  for (std::size_t i = 0; i < failed_check_store::max_arguments + 5; ++i) arguments.Add()->assign("noise=" + std::to_string(i));
+  arguments.Add()->assign("warning=load > 70");
+  failed_check_store store;
+  store.configure(with_arguments(failed_check_store::argument_mode::safe));
+  ASSERT_TRUE(store.record(make_response("check_cpu", PB::Common::ResultCode::WARNING, "x"), &arguments, "s", 0, 1));
+  EXPECT_EQ((std::vector<std::string>{"warning=load > 70"}), arguments_of(store.list()[0]));
+}
+
+TEST(failed_check_store, parse_argument_mode_takes_modes_and_the_old_booleans) {
+  failed_check_store::argument_mode mode = failed_check_store::argument_mode::safe;
+  std::string error;
+  ASSERT_TRUE(failed_check_store::parse_argument_mode(" ALL ", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::all, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("safe", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::safe, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("none", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::none, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("true", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::all, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("1", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::all, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("False", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::none, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("0", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::none, mode);
+  mode = failed_check_store::argument_mode::safe;
+  EXPECT_FALSE(failed_check_store::parse_argument_mode("some", mode, error));
+  EXPECT_NE(std::string::npos, error.find("some"));
+  EXPECT_EQ(failed_check_store::argument_mode::safe, mode);
+  EXPECT_EQ("none", failed_check_store::format_argument_mode(failed_check_store::argument_mode::none));
+  EXPECT_EQ("safe", failed_check_store::format_argument_mode(failed_check_store::argument_mode::safe));
+  EXPECT_EQ("all", failed_check_store::format_argument_mode(failed_check_store::argument_mode::all));
 }
 
 TEST(failed_check_store, redaction_covers_dashed_keys_and_the_cli_pair_shape) {
@@ -536,4 +655,205 @@ TEST(failed_check_store, record_message_attaches_the_context_to_every_payload) {
     EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, entry.context().state());
     EXPECT_EQ(snapshot->id, entry.context().snapshot_id());
   }
+}
+
+// --- Diagnostics context ---------------------------------------------------
+
+namespace {
+// A diagnostics snapshot of roughly `padding` bytes on the wire.
+nsclient::core::diagnostics_snapshot_ptr make_diagnostics(nsclient::core::diagnostics_snapshot_store &snapshots, const std::size_t padding,
+                                                          const std::int64_t now) {
+  nsclient::core::diagnostics_snapshot s;
+  s.captured_at = now;
+  PB::Diagnostics::Section *section = s.message.add_sections();
+  section->set_name("processes.top_cpu");
+  section->add_columns()->set_name("name");
+  section->add_rows()->add_cells()->set_s(std::string(padding, 'p'));
+  return snapshots.store(s);
+}
+
+failed_check_store::options capturing_both(const std::size_t budget = failed_check_store::default_context_budget,
+                                           const std::size_t max_size = failed_check_store::default_max_context_size) {
+  failed_check_store::options o = capturing(budget, max_size);
+  o.capture_diagnostics = true;
+  return o;
+}
+}  // namespace
+
+TEST(failed_check_store, diagnostics_capture_is_off_by_default_and_marks_entries_disabled) {
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  EXPECT_FALSE(store.captures_diagnostics());
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100, nullptr, make_diagnostics(diagnostics, 100, 95)));
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::DISABLED, found.item.diagnostics().state());
+  EXPECT_FALSE(found.diagnostics);
+  EXPECT_EQ(0u, store.context_bytes_used());
+}
+
+TEST(failed_check_store, diagnostics_capture_without_a_round_yet_is_none) {
+  failed_check_store store;
+  store.configure(capturing_both());
+  EXPECT_TRUE(store.captures_diagnostics());
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100));
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::NONE, store.list()[0].diagnostics().state());
+}
+
+TEST(failed_check_store, both_snapshots_are_shared_and_counted_once_each) {
+  nsclient::core::metrics_snapshot_store metrics;
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  store.configure(capturing_both());
+  const nsclient::core::metrics_snapshot_ptr m = make_snapshot(metrics, 1000, 95);
+  const nsclient::core::diagnostics_snapshot_ptr d = make_diagnostics(diagnostics, 500, 96);
+  ASSERT_TRUE(store.record(critical("check_cpu"), nullptr, "test", 0, 100, m, d));
+  ASSERT_TRUE(store.record(critical("check_memory"), nullptr, "test", 0, 101, m, d));
+  EXPECT_EQ(m->wire_size + d->wire_size, store.context_bytes_used());
+
+  failed_check_store::entry_with_context first, second;
+  ASSERT_TRUE(store.get(1, first));
+  ASSERT_TRUE(store.get(2, second));
+  EXPECT_EQ(first.diagnostics, second.diagnostics);
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::CAPTURED, first.item.diagnostics().state());
+  EXPECT_EQ(d->id, first.item.diagnostics().snapshot_id());
+  EXPECT_EQ(96, first.item.diagnostics().captured_at());
+  EXPECT_EQ(d->wire_size, first.item.diagnostics().size());
+  // The listing carries the reference, never the tables.
+  EXPECT_FALSE(store.list()[0].diagnostics().has_snapshot());
+}
+
+TEST(failed_check_store, the_budget_releases_the_oldest_snapshot_whichever_kind) {
+  nsclient::core::metrics_snapshot_store metrics;
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  // Room for two snapshots of ~40k, not three.
+  store.configure(capturing_both(84 * 1024, 64 * 1024));
+  // The diagnostics snapshot is held first, so it is the oldest.
+  const nsclient::core::diagnostics_snapshot_ptr d = make_diagnostics(diagnostics, 40 * 1024, 90);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 91, nullptr, d));
+  const nsclient::core::metrics_snapshot_ptr a = make_snapshot(metrics, 40 * 1024, 95);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 96, a));
+  EXPECT_EQ(d->wire_size + a->wire_size, store.context_bytes_used());
+  const nsclient::core::metrics_snapshot_ptr b = make_snapshot(metrics, 40 * 1024, 100);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 101, b));
+  EXPECT_EQ(a->wire_size + b->wire_size, store.context_bytes_used());
+
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::EVICTED, found.item.diagnostics().state());
+  EXPECT_FALSE(found.diagnostics);
+  EXPECT_EQ(d->id, found.item.diagnostics().snapshot_id());
+  ASSERT_TRUE(store.get(2, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+
+  // And the other way round: a metrics snapshot older than a diagnostics one
+  // goes first.
+  const nsclient::core::diagnostics_snapshot_ptr e = make_diagnostics(diagnostics, 40 * 1024, 110);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 111, nullptr, e));
+  EXPECT_EQ(b->wire_size + e->wire_size, store.context_bytes_used());
+  ASSERT_TRUE(store.get(2, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::EVICTED, found.item.context().state());
+}
+
+TEST(failed_check_store, the_budget_spares_the_newest_failures_snapshots_while_older_ones_are_left) {
+  nsclient::core::metrics_snapshot_store metrics;
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  // Room for three snapshots of ~40k, not four.
+  store.configure(capturing_both(124 * 1024, 64 * 1024));
+  const nsclient::core::metrics_snapshot_ptr m1 = make_snapshot(metrics, 40 * 1024, 90);
+  const nsclient::core::diagnostics_snapshot_ptr d1 = make_diagnostics(diagnostics, 40 * 1024, 90);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 91, m1, d1));
+  // The second failure shares the metrics snapshot - the oldest one held -
+  // and brings two new diagnostics snapshots' worth with the third.
+  const nsclient::core::diagnostics_snapshot_ptr d2 = make_diagnostics(diagnostics, 40 * 1024, 95);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 96, m1, d2));
+  const nsclient::core::diagnostics_snapshot_ptr d3 = make_diagnostics(diagnostics, 40 * 1024, 100);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 101, m1, d3));
+
+  // m1 is the oldest held snapshot, but the newest failure refers to it: the
+  // oldest one it does not refer to went instead.
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(3, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(m1, found.context);
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::CAPTURED, found.item.diagnostics().state());
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::EVICTED, found.item.diagnostics().state());
+  EXPECT_EQ(m1->wire_size + d2->wire_size + d3->wire_size, store.context_bytes_used());
+}
+
+TEST(failed_check_store, a_budget_too_small_for_one_pair_keeps_the_newest_failures_metrics) {
+  nsclient::core::metrics_snapshot_store metrics;
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  // Room for one snapshot of ~40k, not for a metrics and a diagnostics one.
+  store.configure(capturing_both(64 * 1024, 64 * 1024));
+  const nsclient::core::metrics_snapshot_ptr m1 = make_snapshot(metrics, 40 * 1024, 90);
+  const nsclient::core::diagnostics_snapshot_ptr d1 = make_diagnostics(diagnostics, 40 * 1024, 90);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 91, m1, d1));
+
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(m1, found.context);
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::EVICTED, found.item.diagnostics().state());
+  EXPECT_FALSE(found.diagnostics);
+  EXPECT_EQ(m1->wire_size, store.context_bytes_used());
+
+  // The next failure's metrics replace the previous one's.
+  const nsclient::core::metrics_snapshot_ptr m2 = make_snapshot(metrics, 40 * 1024, 100);
+  const nsclient::core::diagnostics_snapshot_ptr d2 = make_diagnostics(diagnostics, 40 * 1024, 100);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 101, m2, d2));
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::EVICTED, found.item.context().state());
+  ASSERT_TRUE(store.get(2, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::EVICTED, found.item.diagnostics().state());
+  EXPECT_EQ(m2->wire_size, store.context_bytes_used());
+}
+
+TEST(failed_check_store, a_diagnostics_snapshot_over_the_size_cap_is_not_kept) {
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  store.configure(capturing_both(failed_check_store::default_context_budget, 1024));
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100, nullptr, make_diagnostics(diagnostics, 4096, 95)));
+  const PB::Failures::FailedCheck entry = store.list()[0];
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::TOO_LARGE, entry.diagnostics().state());
+  EXPECT_EQ(0u, store.context_bytes_used());
+}
+
+TEST(failed_check_store, turning_diagnostics_off_releases_only_diagnostics) {
+  nsclient::core::metrics_snapshot_store metrics;
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  store.configure(capturing_both());
+  const nsclient::core::metrics_snapshot_ptr m = make_snapshot(metrics, 1000, 95);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 100, m, make_diagnostics(diagnostics, 1000, 95)));
+  store.configure(capturing());
+  EXPECT_FALSE(store.captures_diagnostics());
+  EXPECT_EQ(m->wire_size, store.context_bytes_used());
+  const PB::Failures::FailedCheck entry = store.list()[0];
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::EVICTED, entry.diagnostics().state());
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, entry.context().state());
+}
+
+TEST(failed_check_store, ageing_out_and_clearing_release_diagnostics_too) {
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  failed_check_store::options o = capturing_both();
+  o.max_entries = 1;
+  store.configure(o);
+  const nsclient::core::diagnostics_snapshot_ptr a = make_diagnostics(diagnostics, 1000, 90);
+  const nsclient::core::diagnostics_snapshot_ptr b = make_diagnostics(diagnostics, 2000, 100);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 91, nullptr, a));
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 101, nullptr, b));
+  EXPECT_EQ(b->wire_size, store.context_bytes_used());
+  store.clear();
+  EXPECT_EQ(0u, store.context_bytes_used());
+  // A snapshot held again after a clear is accounted afresh.
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 102, nullptr, b));
+  EXPECT_EQ(b->wire_size, store.context_bytes_used());
 }

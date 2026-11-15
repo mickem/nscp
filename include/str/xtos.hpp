@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/lexical_cast.hpp>
+#include <limits>
 #include <sstream>
 #include <string>
 
@@ -20,6 +21,25 @@ T stox(const std::string s, T def) {
   } catch (...) {
     return def;
   }
+}
+
+// Parse a non-negative decimal integer made of digits only: no sign, no
+// space, no separators. False - leaving `out` as it was - for an empty
+// string, any other character, or a value that does not fit. Reads the
+// digits itself, so it neither throws nor follows the locale: for text that
+// comes from outside, such as a query parameter or a /proc field.
+inline bool parse_unsigned(const std::string &text, unsigned long long &out) {
+  if (text.empty()) return false;
+  const unsigned long long limit = (std::numeric_limits<unsigned long long>::max)();
+  unsigned long long value = 0;
+  for (const char c : text) {
+    if (c < '0' || c > '9') return false;
+    const unsigned long long digit = static_cast<unsigned long long>(c - '0');
+    if (value > (limit - digit) / 10) return false;
+    value = value * 10 + digit;
+  }
+  out = value;
+  return true;
 }
 
 template <typename T>

@@ -169,7 +169,7 @@ scan_result walk(const scan_request &request, const std::wstring &root) {
     f.first = false;
     // Every entry: the clock is cheap next to the listing, and a slow share
     // can take a long time over a few entries.
-    if (steady::now() >= request.deadline) {
+    if (steady::now() >= request.deadline || (request.abort != nullptr && request.abort->load())) {
       result.timed_out = true;
       break;
     }
@@ -191,6 +191,7 @@ scan_result walk(const scan_request &request, const std::wstring &root) {
     result.files_seen++;
     if (!pattern.empty() && !wildcard_match(pattern.c_str(), d.cFileName, true)) continue;
     const unsigned long long size = (static_cast<unsigned long long>(d.nFileSizeHigh) << 32) | d.nFileSizeLow;
+    result.bytes_seen += size;
     if (request.folders) {
       rollup.add_file(size);
     } else if (ranking.accepts(size)) {
@@ -635,6 +636,7 @@ class mft_scanner {
       bool matched = false;
       if (parent_in_scan(i, matched) == none) continue;
       result.files_seen++;
+      if (matched) result.bytes_seen += size_[i];
       if (!matched || size_[i] < request_.min_size || request_.top == 0) continue;
       if (sizes.size() < request_.top) {
         sizes.push(size_[i]);
@@ -693,6 +695,7 @@ class mft_scanner {
       if (parent == none) continue;
       result.files_seen++;
       if (!matched) continue;
+      result.bytes_seen += size_[i];
       // Every folder on the way up gets the file; the ones deeper than the
       // ranked levels are only passed through.
       std::int32_t depth = depth_[parent];
@@ -744,11 +747,13 @@ scan_result scan(const scan_request &request) {
   const DWORD attributes = GetFileAttributesW(long_path(root).c_str());
   if (attributes == INVALID_FILE_ATTRIBUTES) {
     scan_result result;
+    result.root_missing = true;
     result.error = "Path not found: " + request.root;
     return result;
   }
   if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
     scan_result result;
+    result.root_missing = true;
     result.error = "Not a folder: " + request.root;
     return result;
   }

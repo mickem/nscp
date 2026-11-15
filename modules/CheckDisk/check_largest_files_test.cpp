@@ -498,12 +498,15 @@ TEST(CheckLargestFilesScan, WalkRanksFilesAndFolders) {
   EXPECT_EQ(boost::filesystem::path(result.entries[1].path).filename().string(), "two.log");
   EXPECT_EQ(boost::filesystem::path(result.entries[2].path).filename().string(), "one.log");
   EXPECT_EQ(result.files_seen, 5u);
+  EXPECT_EQ(result.bytes_seen, 13010u);
   EXPECT_EQ(result.method, "walk");
 
   request.pattern = "*.log";
   request.min_size = 100;
   result = largest_files::scan(request);
   EXPECT_EQ(result.entries.size(), 2u);
+  // Every file that matched, whatever min_size and top keep.
+  EXPECT_EQ(result.bytes_seen, 7010u);
 
   request.pattern.clear();
   request.min_size = 0;
@@ -545,6 +548,7 @@ TEST(CheckLargestFilesScan, MissingRootIsAnError) {
   request.root = (boost::filesystem::temp_directory_path() / "nscp_largest_files_definitely_missing_9f2c").string();
   const scan_result result = largest_files::scan(request);
   EXPECT_NE(result.error.find("Path not found"), std::string::npos) << result.error;
+  EXPECT_TRUE(result.root_missing);
 }
 
 // A drive root keeps its trailing separator, which once doubled up in the

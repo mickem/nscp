@@ -10,6 +10,8 @@
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
+#include <diagnostics/process_tables.hpp>
+#include <diagnostics/service_tables.hpp>
 #include <map>
 #include <memory>
 #include <nscapi/settings/proxy.hpp>
@@ -68,6 +70,21 @@ class pdh_thread {
   };
   typedef boost::unordered_map<std::string, dimension> dimension_hash;
 
+  // The latest pressure readings of the 1 Hz collector, published as
+  // system.pressure. Each `has_` is false while its counter is unavailable,
+  // failing, or not sampled yet, so a reader never mistakes a counter that
+  // could not be read for a reading of 0.
+  struct pressure_sample {
+    // \System\Processor Queue Length: threads ready to run and waiting for a
+    // processor, at the last tick. Sampled for check_load, so absent when
+    // `disable = load`.
+    bool has_processor_queue = false;
+    double processor_queue = 0.0;
+    // \Memory\Page Faults/sec: soft and hard faults per second.
+    bool has_page_faults = false;
+    double page_faults_per_sec = 0.0;
+  };
+
  private:
   typedef boost::unordered_map<std::string, PDH::pdh_instance> lookup_type;
   typedef std::list<std::string> error_list;
@@ -111,6 +128,10 @@ class pdh_thread {
   // Unix-style load averages folded from queue length + busy cores each tick
   // (guarded by mutex_; see check_load.hpp).
   load_check::load_avg_state load_avg_;
+  // Guarded by its own mutex: written every tick outside mutex_, and a
+  // metrics walk must not wait on a collector holding mutex_.
+  boost::mutex pressure_mutex_;
+  pressure_sample pressure_;
   lookup_type lookups_;
   network_check::network_data network;
   temperature_check::temperature_data temperature;
@@ -129,6 +150,13 @@ class pdh_thread {
   // sample / sleep / sample. Off by default (one extra system-process-table
   // query per second).
   bool process_cpu_enabled;
+  // [/settings/system/windows/diagnostics] processes: rank the per-process
+  // sample into the top-CPU and top-memory tables every tick. Forces
+  // process_cpu_enabled on (see CheckSystem::loadModuleEx).
+  bool diagnostics_processes = false;
+  // [/settings/system/windows/diagnostics] services: re-read the services in
+  // trouble every service_tables::refresh_seconds on the auxiliary thread.
+  bool diagnostics_services = false;
   int min_threshold_;
   std::string subsystem;
   std::string disable_;
@@ -175,6 +203,7 @@ class pdh_thread {
   // has completed its first tick (or when load sampling is disabled). None
   // when the collector's lock could not be had.
   boost::optional<load_check::load_avg_state> get_load_avg();
+  pressure_sample get_pressure();
 
   network_check::nics_type get_network();
   temperature_check::zones_type get_temperature();
@@ -185,6 +214,12 @@ class pdh_thread {
   // Latest per-PID CPU% snapshot, or an empty map when process_cpu_enabled is
   // off or the collector has not yet completed its first two samples.
   process_checks::cpu_delta_map get_process_cpu_deltas();
+  // The last ranked process sample (captured_at 0 before the first two
+  // samples, or while diagnostics_processes is off).
+  process_tables::sample get_process_tables();
+  // The last services.problems refresh (captured_at 0 before the first one, or
+  // while diagnostics_services is off).
+  service_tables::sample get_service_problems();
   metrics_hash get_metrics();
   // The help and unit of every configured counter, for the metrics walk.
   counter_meta_map get_counter_meta();
@@ -280,6 +315,22 @@ class pdh_thread {
   unsigned long long prev_sys_user_ = 0;
   bool have_prev_proc_cpu_ = false;
   process_checks::cpu_delta_map proc_cpu_deltas_;
+  // Name and memory of each process in the current table walk, for the
+  // diagnostics tables. Touched only by thread_proc.
+  struct proc_memory {
+    std::string name;
+    unsigned long long working_set = 0;
+    unsigned long long private_bytes = 0;
+  };
+  // Guarded by its own mutex: a diagnostics round must not wait on a
+  // collector holding mutex_.
+  boost::mutex process_tables_mutex_;
+  process_tables::sample process_tables_;
+  // services.problems, refreshed by aux_thread_proc and copied by
+  // fetchDiagnostics, under its own mutex for the same reason.
+  boost::mutex service_problems_mutex_;
+  service_tables::sample service_problems_;
+  void refresh_service_problems();
   // Diff the current system-process table against the previous tick and publish
   // a rolling 1 second CPU% per PID into proc_cpu_deltas_.
   void sample_process_cpu(error_list &errors);

@@ -162,6 +162,11 @@ struct filter_obj {
   trend::slope_result trend_;
   bool is_total_;
   drive_trend::total_values trend_total_;
+  // The collector's hour and day change in used space for this drive (unset
+  // without enough history), copied in so the record owns it; the total row
+  // adds them up instead.
+  used_history::changes changes_;
+  used_history::change_total changes_total_;
 
   explicit filter_obj(const drive_container &drive)
       : drive(drive),
@@ -318,6 +323,14 @@ struct filter_obj {
   long long get_trend_samples() const { return is_total_ ? trend_total_.samples : trend_.samples; }
   std::string get_full_in_human(parsers::where::evaluation_context context) { return drive_trend::format_full_in(get_full_in(context)); }
   std::string get_rate_human(parsers::where::evaluation_context context) const { return drive_trend::format_rate(get_rate(), context->get_number_format()); }
+  boost::optional<long long> get_used_change_1h() const { return is_total_ ? changes_total_.change_1h : changes_.change_1h; }
+  boost::optional<long long> get_used_change_24h() const { return is_total_ ? changes_total_.change_24h : changes_.change_24h; }
+  std::string get_used_change_1h_human(parsers::where::evaluation_context context) const {
+    return used_history::format_change(get_used_change_1h(), context->get_number_format());
+  }
+  std::string get_used_change_24h_human(parsers::where::evaluation_context context) const {
+    return used_history::format_change(get_used_change_24h(), context->get_number_format());
+  }
 
   void append(const std::shared_ptr<filter_obj> &other) {
     user_free += other->user_free;
@@ -327,6 +340,7 @@ struct filter_obj {
     inode_free += other->inode_free;
     trend_total_.append(drive_trend::full_in(other->trend_, other->total_free, other->drive_size), drive_trend::rate_per_day(other->trend_),
                         other->trend_.span, other->trend_.samples);
+    changes_total_.append(other->changes_);
   }
   void make_total() {
     has_size = true;
@@ -463,6 +477,24 @@ struct filter_obj_handler : public native_context {
         .add_int_var("trend_samples", [](std::shared_ptr<filter_obj> obj) { return obj->get_trend_samples(); },
                      "Number of samples behind the trend estimate")
         .no_perf();
+    // The hour and day change in used space (fed by the collector's
+    // used-space history): optional, like rate - `unknown` and no perfdata
+    // until a sample a full window old exists, and never in client mode.
+    registry_
+        .add_optional_int_var(
+            "used_change_1h", parsers::where::type_size, [](std::shared_ptr<filter_obj> obj) { return obj->get_used_change_1h(); }, "unknown",
+            "Change in used bytes over the last hour, signed (negative = space was freed), as of the collector's last sample: the latest reading minus "
+            "the newest one at least an hour old (so it covers 60 to 70 minutes). Renders auto-scaled with a sign ('+1.5GB'), or 'unknown' - and no "
+            "threshold fires - until the collector has a sample an hour old (an hour after the agent started, or the drive appeared or changed size); "
+            "always unknown without the collector. Thresholds take size units: used_change_1h > 1G")
+        .add_int_perf("B", "", " used_change_1h");
+    registry_
+        .add_optional_int_var(
+            "used_change_24h", parsers::where::type_size, [](std::shared_ptr<filter_obj> obj) { return obj->get_used_change_24h(); }, "unknown",
+            "Change in used bytes over the last 24 hours, signed (negative = space was freed): the latest reading minus the newest one at least a day "
+            "old (so it covers 24 to 26 hours). 'unknown' - and no threshold fires - until the collector has a sample a day old. Thresholds take size "
+            "units: used_change_24h > 10G")
+        .add_int_perf("B", "", " used_change_24h");
 
     registry_.add_human_string_context("free", &filter_obj::get_total_free_human, "")
         .add_human_string_context("total_free", &filter_obj::get_total_free_human, "")
@@ -479,7 +511,9 @@ struct filter_obj_handler : public native_context {
         .add_human_string_context("total_used_pct", &filter_obj::get_total_used_pct_human, "")
         .add_human_string_context("user_used_pct", &filter_obj::get_user_used_pct_human, "")
         .add_human_string_context("full_in", &filter_obj::get_full_in_human, "")
-        .add_human_string_context("rate", &filter_obj::get_rate_human, "");
+        .add_human_string_context("rate", &filter_obj::get_rate_human, "")
+        .add_human_string_context("used_change_1h", &filter_obj::get_used_change_1h_human, "")
+        .add_human_string_context("used_change_24h", &filter_obj::get_used_change_24h_human, "");
 
     registry_.add_converter(type_custom_total_free, &calculate_total_used)
         .add_converter(type_custom_total_used, &calculate_total_used)
@@ -548,7 +582,7 @@ std::list<drive_container> find_drives(const std::vector<std::string> &drives, s
 }
 
 void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-              const check_drive::trend_map &trends) {
+              const check_drive::trend_map &trends, const check_drive::change_map &changes) {
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
   std::vector<std::string> drives, excludes;
@@ -626,6 +660,7 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
       continue;
     std::shared_ptr<filter_obj> obj(new filter_obj(drive));
     obj->trend_ = drive_trend::compute(drive_trend::lookup_unix(trends, drive.trend_key), now, trend_window);
+    if (const used_history::changes *c = drive_trend::lookup_unix(changes, drive.trend_key)) obj->changes_ = *c;
     filter.match(obj);
     if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
     if (total) {
@@ -671,7 +706,7 @@ void do_fetch_only(PB::Commands::QueryResponseMessage::Response *response) {
 }  // namespace
 
 void check_drive::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                        const trend_map &trends) {
+                        const trend_map &trends, const change_map &changes) {
   for (int i = 0; i < request.arguments_size(); i++) {
     const std::string &a = request.arguments(i);
     if (a == "fetch-only" || a == "--fetch-only") {
@@ -679,7 +714,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
       return;
     }
   }
-  do_check(request, response, trends);
+  do_check(request, response, trends, changes);
 }
 
 // Test seam: classify a filesystem type string into the drive-type keyword.

@@ -13,6 +13,7 @@
   "localSettings": {
     "/settings/core/failed checks": {
       "capture metrics": "true",
+      "capture diagnostics": "true",
       "prune metrics": "zeros, empty, duplicates"
     },
     "/settings/fleet": { "failure context interval": "20s" }
@@ -29,7 +30,8 @@
             "network.interfaces": "true",
             "software.installed": "true",
             "services.installed": "true"
-          }
+          },
+          "diagnostics": { "processes": "true", "services": "true" }
         },
         "unix": {
           "facts": {
@@ -38,10 +40,12 @@
             "network.interfaces": "true",
             "software.installed": "true",
             "services.installed": "true"
-          }
+          },
+          "diagnostics": { "processes": "true", "services": "true", "errors": "true" }
         }
       },
-      "disk": { "facts": { "storage.volumes": "true" } },
+      "eventlog": { "diagnostics": { "services": "true", "errors": "true" } },
+      "disk": { "facts": { "storage.volumes": "true" }, "diagnostics": { "growth spots": "true" } },
       "external scripts": {
         "scripts": {
           "fault_cpu_sh": "sh scripts/fault.sh cpu",

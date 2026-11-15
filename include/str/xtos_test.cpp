@@ -190,3 +190,22 @@ TEST(format, strex_s__xtos_no_sci_float_1) {
   EXPECT_EQ(str::xtos_non_sci(9223372036854775807.98798789879887), "9223372036854775808");
 #endif
 }
+
+TEST(format, parse_unsigned_reads_digits) {
+  unsigned long long value = 7;
+  EXPECT_TRUE(str::parse_unsigned("0", value));
+  EXPECT_EQ(0ull, value);
+  EXPECT_TRUE(str::parse_unsigned("0042", value));
+  EXPECT_EQ(42ull, value);
+  EXPECT_TRUE(str::parse_unsigned("18446744073709551615", value));
+  EXPECT_EQ(18446744073709551615ull, value);
+}
+
+TEST(format, parse_unsigned_rejects_everything_else) {
+  unsigned long long value = 7;
+  for (const char *text : {"", "-1", "+1", " 1", "1 ", "1.5", "1e3", "0x10", "12a", "18446744073709551616", "99999999999999999999999"}) {
+    EXPECT_FALSE(str::parse_unsigned(text, value)) << "'" << text << "'";
+  }
+  // A rejected value leaves the output alone.
+  EXPECT_EQ(7ull, value);
+}

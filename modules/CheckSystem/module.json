@@ -11,6 +11,8 @@
 		"default_alias"	: "system/windows"
 	},
 
+	"diagnostics"	: "produce",
+
 	"commands" : {
 		"check_cpu" : { 
 			"description" : "Check that the load of the CPU(s) are within bounds.",

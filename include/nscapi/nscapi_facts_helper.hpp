@@ -80,7 +80,8 @@ namespace facts {
 // nsclient::core::fact_repository, which enforces them again when it accepts
 // a set - the core cannot trust a module to have used this builder.
 NSCAPI_EXPORT bool is_valid_key(const std::string &key);
-// ISO 8601 UTC ("2026-09-19T14:03:11Z") and a plain date ("2026-09-19").
+// ISO 8601 UTC ("2026-09-19T14:03:11Z", through str::format_rfc3339: empty
+// for a time of 0 or less) and a plain date ("2026-09-19").
 NSCAPI_EXPORT std::string format_time(std::time_t when);
 NSCAPI_EXPORT std::string format_date(std::time_t when);
 // The `facts` member of the envelope core_wrapper::get_facts() returns, for a

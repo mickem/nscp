@@ -25,6 +25,7 @@
 #include "check_process_history.h"
 #include "collector_source.h"
 #include "filter_config_object.hpp"
+#include "process_top.h"
 
 // CPU load entry structure (similar to Windows version)
 struct load_entry {
@@ -177,6 +178,17 @@ class pdh_thread {
   static void record(sampling::tracker &tracker, bool sampled, bool baseline, const std::string &error);
   void log_sampling_error(const std::string &what, const std::string &error, std::string &last_logged);
 
+  // The diagnostics process tables: the previous per-process sample and the
+  // /proc/stat aggregate taken with it (both touched only by thread_proc),
+  // and the last ranked result, under its own mutex so a diagnostics round
+  // never waits on a collector holding mutex_.
+  process_top::table last_process_table_;
+  std::map<std::string, collector_source::cpu_times> last_process_cpu_;
+  std::string last_logged_process_tables_error;
+  mutable boost::mutex process_tables_mutex_;
+  process_tables::sample process_tables_;
+  void sample_process_tables(const std::map<std::string, collector_source::cpu_times> &cpu_now);
+
   // Process history (keyed by lowercase exe name), tracked once per second when
   // process_history_enabled is set. Mirrors the Windows process-history feature.
   std::map<std::string, process_history_check::process_record> proc_history_;
@@ -194,6 +206,10 @@ class pdh_thread {
   // Bound directly from settings ("process history"); gates per-second /proc
   // enumeration for the history feature. Public to mirror the Windows collector.
   bool process_history_enabled;
+  // [/settings/system/unix/diagnostics] processes: sample every process once
+  // a second for the top-CPU and top-memory tables. Nothing is read while it
+  // is off.
+  bool diagnostics_processes = false;
 
  public:
   pdh_thread() : stop_requested_(false), core_(nullptr), plugin_id_(0), process_history_enabled(false) {}
@@ -235,6 +251,10 @@ class pdh_thread {
 
   // Get the accumulated process history (empty unless tracking is enabled)
   process_history_check::history_type get_process_history() const;
+
+  // The last ranked process sample (captured_at 0 before the second sample,
+  // or while the section is off; `error` set when /proc cannot be read).
+  process_tables::sample get_process_tables() const;
 
   // Whether process-history tracking is enabled
   bool has_process_history() const { return process_history_enabled; }

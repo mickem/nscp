@@ -169,6 +169,38 @@ describeWithModules("CheckDisk")("CheckDisk commands", () => {
     expect(messageOf(bad)).toMatch(/Invalid trend-window/i);
   });
 
+  // --- check_drivesize used_change_1h / used_change_24h ------------------------
+
+  it("check_drivesize used_change keywords are unknown until an hour of history exists", async () => {
+    // The collector needs a sample a full hour (a day) old before either has a
+    // value, which an agent started a moment ago does not have: both render
+    // 'unknown', no threshold on them fires in either direction, and they emit
+    // no perfdata. The thresholds arrive as REST k=v tokens with size units.
+    const q = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      "detail-syntax": "1h=%(used_change_1h);24h=%(used_change_24h)",
+      "top-syntax": "${list}",
+      warning: "used_change_1h > 0 or used_change_1h < 0 or used_change_24h > 1M",
+      critical: "used_change_1h > 1G",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/1h=unknown;24h=unknown/);
+    expect(Object.keys(perfOf(q)).some((k) => /used_change/.test(k))).toBe(false);
+
+    // Drives with no history can be selected by the no-value string.
+    const none = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      filter: "used_change_1h = 'unknown'",
+      // A list in the top syntax, or the ok syntax replaces it.
+      "top-syntax": "${count}: ${list}",
+      "detail-syntax": "%(drive)",
+      warning: "used > 100%",
+      critical: "used > 100%",
+    });
+    expect(none.result).toBe(OK);
+    expect(messageOf(none)).toMatch(/^1: /);
+  });
+
   // --- check_disk_io ----------------------------------------------------------
 
   it("check_disk_io reports per-device IO rates after collector warm-up", async () => {

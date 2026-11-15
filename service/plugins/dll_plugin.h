@@ -130,6 +130,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   nscapi::plugin_api::lpRouteMessage fRouteMessage;
   nscapi::plugin_api::lpFetchMetrics fFetchMetrics;
   nscapi::plugin_api::lpFetchFacts fFetchFacts;
+  nscapi::plugin_api::lpFetchDiagnostics fFetchDiagnostics;
   nscapi::plugin_api::lpSubmitMetrics fSubmitMetrics;
   nscapi::plugin_api::lpOnEvent fOnEvent;
 
@@ -164,6 +165,7 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   NSCAPI::nagiosReturn on_event(const std::string &request) override;
   NSCAPI::nagiosReturn fetchMetrics(std::string &request) override;
   NSCAPI::nagiosReturn fetchFacts(const std::string &request, std::string &response) override;
+  NSCAPI::nagiosReturn fetchDiagnostics(std::string &response) override;
   NSCAPI::nagiosReturn submitMetrics(const std::string &request) override;
   void handleMessage(const char *data, unsigned int len) override;
   int commandLineExec(bool targeted, std::string &request, std::string &reply) override;
@@ -179,6 +181,8 @@ class dll_plugin : public boost::noncopyable, public plugin_interface {
   // A module built before facts existed simply has no NSFetchFacts export, so
   // the core never asks it for any.
   bool hasFactsFetcher() override { return fFetchFacts != nullptr; }
+  // Likewise NSFetchDiagnostics: absent from every module built before it.
+  bool hasDiagnosticsFetcher() override { return fFetchDiagnostics != nullptr; }
   bool hasMetricsSubmitter() override { return fSubmitMetrics != nullptr; }
 
   std::string getModule() override {

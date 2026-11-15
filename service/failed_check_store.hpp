@@ -14,9 +14,12 @@
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/failures.hpp>
+#include <settings/settings_interface.hpp>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "diagnostics_snapshot.hpp"
 #include "metrics_snapshot.hpp"
 
 namespace nsclient {
@@ -37,10 +40,13 @@ namespace core {
 // re-parsed later - the same choice the facts and metrics repositories make.
 // The payload is copied and capped on the way in (lines, line length, perf
 // entries, `data` dropped), so one check with an enormous output cannot own
-// the whole budget. Arguments are opt-in: a check's options can carry a
-// credential (`check_sql password=...`, a forwarded `check_nrpe` token), so
-// they are only recorded when the operator asks, and even then anything that
-// looks like one is redacted.
+// the whole budget. A check's options can carry a credential (`check_sql
+// password=...`, a forwarded `check_nrpe` token), so which arguments are kept
+// is the operator's choice (`record arguments`): none, only the ones whose key
+// is on an allow-list of options that describe the check rather than reach
+// something (`safe`, the default: thresholds, filters, syntax, the drive or
+// service checked), or all of them, with anything that looks like a
+// credential redacted.
 //
 // Metrics context is opt-in too (`capture metrics`): when on, each entry also
 // refers to the core's latest metrics snapshot at the instant it was recorded
@@ -51,6 +57,14 @@ namespace core {
 // `metrics context budget`, releasing the oldest first. A check that flaps
 // fifty times therefore costs the budget at most, never fifty snapshots, and
 // an entry whose snapshot went keeps its place with the state EVICTED.
+//
+// Diagnostics context works the same way (`capture diagnostics`): each entry
+// refers to the core's latest diagnostics snapshot (diagnostics_snapshot.hpp)
+// with a state of its own, and the distinct snapshots of both kinds are held
+// together under the one budget - so the oldest snapshot is released first,
+// whichever kind it is, except that the ones the newest entry refers to go
+// last and, of those, the diagnostics before the metrics
+// (enforce_budget_locked).
 //
 // Thread safety: record/list/clear/configure can be called from any thread.
 // record() is on the hot path of every check, so it does its copying outside
@@ -84,22 +98,34 @@ class failed_check_store {
   static constexpr std::size_t min_context_budget = 64 * 1024;
   static constexpr std::size_t max_context_budget = 256 * 1024 * 1024;
 
+  // Which of a failed check's arguments are kept (`record arguments`).
+  //   none  nothing
+  //   safe  only arguments whose key is_safe_argument() accepts
+  //   all   everything, with credential-looking values redacted
+  enum class argument_mode { none, safe, all };
+
   struct options {
     bool enabled = true;
     std::size_t max_entries = default_max_entries;
-    bool record_arguments = false;
+    argument_mode record_arguments = argument_mode::safe;
     unsigned statuses = default_statuses;
     bool capture_metrics = false;
     std::size_t context_budget = default_context_budget;
     std::size_t max_context_size = default_max_context_size;
     // What to trim from a snapshot before it is kept (metrics_prune.hpp).
     metrics_prune::rules prune;
+    // Whether the core collects diagnostics at all and keeps the latest
+    // snapshot with each failure (`capture diagnostics`), and the row cap per
+    // section (`diagnostics rows`, clamped by the round).
+    bool capture_diagnostics = false;
+    std::size_t diagnostics_rows = 10;
   };
 
   // One entry with the snapshot it refers to (null when it has none).
   struct entry_with_context {
     entry item;
     metrics_snapshot_ptr context;
+    diagnostics_snapshot_ptr diagnostics;
   };
 
   failed_check_store() : next_index_(1), dropped_(0), context_bytes_(0) {}
@@ -122,15 +148,15 @@ class failed_check_store {
     if (!options_.enabled) {
       entries_.clear();
       held_.clear();
+      held_index_.clear();
       context_bytes_ = 0;
       return;
     }
     trim_locked();
     // Turning capture off lets go of what is held now; it does not wait for
     // the entries to age out.
-    if (!options_.capture_metrics) {
-      while (!held_.empty()) evict_locked(held_.begin()->first);
-    }
+    if (!options_.capture_metrics) evict_kind_locked(kind_metrics);
+    if (!options_.capture_diagnostics) evict_kind_locked(kind_diagnostics);
     enforce_budget_locked();
   }
 
@@ -146,6 +172,13 @@ class failed_check_store {
     return options_.enabled && options_.capture_metrics;
   }
 
+  // Whether the core collects diagnostics: the round, the live routes and the
+  // attachment to a failure all follow this one switch.
+  bool captures_diagnostics() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    return options_.enabled && options_.capture_diagnostics;
+  }
+
   // Bytes of distinct snapshots currently held.
   std::size_t context_bytes_used() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
@@ -159,13 +192,16 @@ class failed_check_store {
   }
 
   // Record one payload. `arguments` is the request's argument list for this
-  // command (null when the caller has none to offer); it is only kept when
-  // `record arguments` is on, and redacted then. Returns true when an entry
+  // command (null when the caller has none to offer), unredacted; what is kept
+  // of it is decided by `record arguments` (filter_arguments). Returns true
+  // when an entry
   // was stored: the store is enabled, and the result is one it records.
   // `context` is the latest metrics snapshot (null when there is none yet);
-  // it is only kept when `capture metrics` is on.
+  // it is only kept when `capture metrics` is on. `diagnostics` likewise, the
+  // latest diagnostics snapshot, kept when `capture diagnostics` is on.
   bool record(const PB::Commands::QueryResponseMessage::Response &response, const google::protobuf::RepeatedPtrField<std::string> *arguments,
-              const std::string &subject, const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr()) {
+              const std::string &subject, const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr(),
+              const diagnostics_snapshot_ptr &diagnostics = diagnostics_snapshot_ptr()) {
     options current;
     {
       boost::unique_lock<boost::mutex> lock(mutex_);
@@ -179,7 +215,7 @@ class failed_check_store {
     item.set_depth(depth < 0 ? 0 : depth);
     PB::Commands::QueryResponseMessage::Response *copy = item.mutable_response();
     copy->CopyFrom(response);
-    sanitize(copy, current.record_arguments ? arguments : nullptr);
+    sanitize(copy, arguments, current.record_arguments);
 
     boost::unique_lock<boost::mutex> lock(mutex_);
     // Re-checked under the lock: configure() may have switched the store off
@@ -189,7 +225,7 @@ class failed_check_store {
     item.set_index(next_index_++);
     stored added;
     added.item = item;
-    attach_locked(added, context);
+    attach_locked(added, context, diagnostics);
     entries_.push_back(added);
     trim_locked();
     enforce_budget_locked();
@@ -207,7 +243,8 @@ class failed_check_store {
   // pairing is by command name, each request payload used once. Returns how
   // many entries were stored.
   std::size_t record_message(const PB::Commands::QueryRequestMessage &request, const PB::Commands::QueryResponseMessage &response, const std::string &subject,
-                             const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr()) {
+                             const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr(),
+                             const diagnostics_snapshot_ptr &diagnostics = diagnostics_snapshot_ptr()) {
     std::vector<bool> used(static_cast<std::size_t>(request.payload_size()), false);
     std::size_t stored = 0;
     for (const PB::Commands::QueryResponseMessage::Response &payload : response.payload()) {
@@ -219,7 +256,7 @@ class failed_check_store {
         arguments = &request.payload(i).arguments();
         break;
       }
-      if (record(payload, arguments, subject, depth, now, context)) ++stored;
+      if (record(payload, arguments, subject, depth, now, context, diagnostics)) ++stored;
     }
     return stored;
   }
@@ -249,6 +286,7 @@ class failed_check_store {
       if (s.item.index() != index) continue;
       out.item = s.item;
       out.context = s.context;
+      out.diagnostics = s.diagnostics;
       return true;
     }
     return false;
@@ -261,6 +299,7 @@ class failed_check_store {
     const std::size_t removed = entries_.size();
     entries_.clear();
     held_.clear();
+    held_index_.clear();
     context_bytes_ = 0;
     return removed;
   }
@@ -385,12 +424,159 @@ class failed_check_store {
     }
   }
 
+  // Parse `record arguments`: none, safe or all (case-insensitive, surrounding
+  // space ignored). The boolean spellings it had before it took a mode keep
+  // their meaning: what the settings read as true (string_to_bool) is all,
+  // false, 0 and an empty value are none.
+  // Returns false - with `error` saying why - on anything else.
+  static bool parse_argument_mode(const std::string &text, argument_mode &out, std::string &error) {
+    std::string token = text;
+    boost::algorithm::trim(token);
+    boost::algorithm::to_lower(token);
+    if (token == "safe") {
+      out = argument_mode::safe;
+    } else if (token == "all" || settings::settings_interface::string_to_bool(token)) {
+      out = argument_mode::all;
+    } else if (token == "none" || token == "false" || token == "0" || token.empty()) {
+      out = argument_mode::none;
+    } else {
+      error = "'" + token + "' is not an argument mode (expected none, safe or all)";
+      return false;
+    }
+    return true;
+  }
+
+  // The canonical spelling, as parse_argument_mode reads it.
+  static std::string format_argument_mode(const argument_mode mode) {
+    switch (mode) {
+      case argument_mode::none:
+        return "none";
+      case argument_mode::all:
+        return "all";
+      default:
+        return "safe";
+    }
+  }
+
+  // The option names `safe` keeps: the ones that say what a check was asked
+  // to look at and how to judge it, and nothing that reaches anything (a
+  // host, a URL, a command line, a query) or could carry a secret.
+  //
+  // The common filter options come from modern_filter::cli_helper
+  // (include/parsers/filter/cli_helper.hpp) and the help options every
+  // command takes; the rest are the subject keys the built-in checks use for
+  // the thing they check. `computer` and `namespace` are not among them: the
+  // first is a host and the second can be a path to one. A kept key whose
+  // value still names another machine - a UNC path, a remote counter - is
+  // dropped by its value (names_remote_host).
+  static const std::vector<std::string> &safe_argument_keys() {
+    static const std::vector<std::string> keys = {
+        // cli_helper: thresholds, filter and the output syntax.
+        "warning", "warn", "critical", "crit", "ok", "filter", "debug", "show-all", "empty-state", "perf-config", "escape-html", "list-separator",
+        "decimals", "byte-unit", "decimal-separator", "thousands-separator", "warmup-state", "top-syntax", "ok-syntax", "empty-syntax",
+        "detail-syntax", "perf-syntax", "unique-index",
+        // Every command.
+        "help", "help-pb", "show-default", "help-short",
+        // What is checked: the time window, the object, its kind.
+        "time", "type", "drive", "service", "process", "file", "path", "counter", "exclude", "pattern", "max-depth", "log",
+        "scan-range", "truncate-message", "unique", "mode", "total", "magic", "ignore-unreadable", "delta", "instances", "expand-index",
+        "reload", "mounted", "percpu", "name", "volume", "interface", "task", "timezone"};
+    return keys;
+  }
+
+  // Whether `safe` keeps an argument with this key: one on the allow-list,
+  // compared without its leading dashes and ignoring case, that does not also
+  // name a credential.
+  static bool is_safe_argument(const std::string &key) {
+    std::string lower = key;
+    boost::algorithm::to_lower(lower);
+    const std::string::size_type first = lower.find_first_not_of('-');
+    if (first == std::string::npos) return false;
+    lower = lower.substr(first);
+    if (is_sensitive_argument(lower)) return false;
+    for (const std::string &allowed : safe_argument_keys()) {
+      if (lower == allowed) return true;
+    }
+    return false;
+  }
+
+  // Whether a value starts with two backslashes: a UNC path
+  // (`\\server\share`), a remote counter (`\\server\Processor(...)`) or a WMI path
+  // to another machine. It is dropped under `safe` even for a kept key such
+  // as `file`, `path` or `counter`. The local long-path and device prefixes
+  // (`\\?\`, `\\.\`) start the same way and go with it: losing a value is the
+  // safe way to be wrong.
+  static bool names_remote_host(const std::string &value) { return value.size() >= 2 && value[0] == '\\' && value[1] == '\\'; }
+
+  // Keep only the arguments `safe` allows, in place. Both transports are
+  // handled: `key=value` (REST, and the undashed pair of the CLI) is kept when
+  // the key is safe; a bare token is a key whose value is the token after it
+  // (`--key value`, the CLI's shape), and the two are kept or dropped
+  // together - also when the key is safe and the value names another machine
+  // (names_remote_host). A token that starts with a dash is never taken for a value: it
+  // is the next option, which is how a flag without a value (`--show-all`)
+  // does not swallow what follows. Nor is a `key=value` pair (a key without
+  // blanks before the `=`) taken for the value of a kept key: after a REST
+  // flag such as `show-all`, `password=x` is the next argument and is judged
+  // on its own key. The value of a dropped key is always dropped, whatever it
+  // looks like. An argument with no recognisable key - a bare positional
+  // value - is dropped.
+  static void filter_safe_arguments(google::protobuf::RepeatedPtrField<std::string> *arguments) {
+    if (arguments == nullptr) return;
+    google::protobuf::RepeatedPtrField<std::string> kept;
+    enum { no_value, keep_value, drop_value } pending = no_value;
+    for (const std::string &argument : *arguments) {
+      const bool dashed = !argument.empty() && argument[0] == '-';
+      const bool next_argument = dashed || (pending == keep_value && looks_like_pair(argument));
+      if (pending != no_value && !next_argument) {
+        if (pending == keep_value) {
+          // A value that names a host takes its key with it.
+          if (names_remote_host(argument))
+            kept.RemoveLast();
+          else
+            *kept.Add() = argument;
+        }
+        pending = no_value;
+        continue;
+      }
+      pending = no_value;
+      const std::string::size_type eq = argument.find('=');
+      if (eq != std::string::npos) {
+        if (is_safe_argument(argument.substr(0, eq)) && !names_remote_host(argument.substr(eq + 1))) *kept.Add() = argument;
+        continue;
+      }
+      if (is_safe_argument(argument)) {
+        *kept.Add() = argument;
+        pending = keep_value;
+      } else {
+        pending = drop_value;
+      }
+    }
+    arguments->Swap(&kept);
+  }
+
+  // `key=value` with a key made of letters, digits, `-`, `_` and `.`: what an
+  // argument looks like, as opposed to a value that happens to contain an `=`
+  // (`name = 'x'`, `load>=80`). A threshold written `count=0` looks like one
+  // too, and is dropped after a kept `--warning`: losing a value is the safe
+  // way to be wrong.
+  static bool looks_like_pair(const std::string &token) {
+    const std::string::size_type eq = token.find('=');
+    if (eq == std::string::npos || eq == 0) return false;
+    for (std::string::size_type i = 0; i < eq; ++i) {
+      const char c = token[i];
+      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.')) return false;
+    }
+    return true;
+  }
+
   static std::int64_t now() { return static_cast<std::int64_t>(std::time(nullptr)); }
 
  private:
-  // Apply the per-entry caps to a copied payload and attach (or drop) the
-  // arguments. `arguments` is null when they are not to be recorded.
-  static void sanitize(PB::Commands::QueryResponseMessage::Response *copy, const google::protobuf::RepeatedPtrField<std::string> *arguments) {
+  // Apply the per-entry caps to a copied payload and attach what `mode` keeps
+  // of the arguments (null when the caller has none).
+  static void sanitize(PB::Commands::QueryResponseMessage::Response *copy, const google::protobuf::RepeatedPtrField<std::string> *arguments,
+                       const argument_mode mode) {
     // `data` is an opaque blob some modules use for their own protocol; it
     // has no place in a human-facing log and can be arbitrarily large.
     copy->clear_data();
@@ -405,11 +591,17 @@ class failed_check_store {
       }
     }
     copy->clear_arguments();
-    if (arguments == nullptr) return;
-    for (const std::string &argument : *arguments) {
+    if (arguments == nullptr || mode == argument_mode::none) return;
+    // Filtered before the caps, so a run of dropped arguments does not use up
+    // the count the kept ones are allowed.
+    google::protobuf::RepeatedPtrField<std::string> chosen(*arguments);
+    if (mode == argument_mode::safe) filter_safe_arguments(&chosen);
+    for (const std::string &argument : chosen) {
       if (copy->arguments_size() >= static_cast<int>(max_arguments)) break;
       copy->add_arguments(argument.size() > max_argument_length ? clip(argument, max_argument_length) : argument);
     }
+    // A no-op after `safe` (no allowed key names a credential), but cheap, and
+    // it keeps the two modes on one path.
     redact_arguments(copy->mutable_arguments());
   }
 
@@ -434,17 +626,45 @@ class failed_check_store {
   struct stored {
     entry item;
     metrics_snapshot_ptr context;
+    diagnostics_snapshot_ptr diagnostics;
   };
-  // A distinct snapshot the store refers to: its size, and how many entries
-  // refer to it.
+  // The two kinds of snapshot the budget covers. Their ids are counted
+  // separately, so a held snapshot is known by kind and id.
+  enum snapshot_kind { kind_metrics = 0, kind_diagnostics = 1 };
+  typedef std::pair<int, std::uint64_t> snapshot_key;
+  // A distinct snapshot the store refers to: which one, its size, and how
+  // many entries refer to it.
   struct held_snapshot {
+    snapshot_key key;
     std::size_t bytes = 0;
     std::size_t refs = 0;
   };
 
-  // Decide an incoming entry's context and account for it. Callers must hold
-  // the lock.
-  void attach_locked(stored &target, const metrics_snapshot_ptr &context) {
+  // Account for one more reference to a snapshot, holding it the first time.
+  // Callers must hold the lock.
+  void hold_locked(const snapshot_key &key, const std::size_t bytes) {
+    const std::map<snapshot_key, std::uint64_t>::const_iterator found = held_index_.find(key);
+    if (found != held_index_.end()) {
+      ++held_[found->second].refs;
+      return;
+    }
+    const std::uint64_t order = next_hold_++;
+    held_snapshot &held = held_[order];
+    held.key = key;
+    held.bytes = bytes;
+    held.refs = 1;
+    held_index_[key] = order;
+    context_bytes_ += bytes;
+  }
+
+  // Decide an incoming entry's context (metrics and diagnostics) and account
+  // for it. Callers must hold the lock.
+  void attach_locked(stored &target, const metrics_snapshot_ptr &context, const diagnostics_snapshot_ptr &diagnostics) {
+    attach_metrics_locked(target, context);
+    attach_diagnostics_locked(target, diagnostics);
+  }
+
+  void attach_metrics_locked(stored &target, const metrics_snapshot_ptr &context) {
     PB::Failures::MetricsContext *state = target.item.mutable_context();
     if (!options_.capture_metrics) {
       state->set_state(PB::Failures::MetricsContext::DISABLED);
@@ -477,44 +697,106 @@ class failed_check_store {
     }
     state->set_state(PB::Failures::MetricsContext::CAPTURED);
     target.context = context;
-    held_snapshot &held = held_[context->id];
-    if (held.refs == 0) {
-      held.bytes = context->wire_size;
-      context_bytes_ += held.bytes;
-    }
-    ++held.refs;
+    hold_locked(snapshot_key(kind_metrics, context->id), context->wire_size);
   }
 
-  // An entry is going away: drop its reference. Callers must hold the lock.
-  void release_locked(const stored &gone) {
-    if (!gone.context) return;
-    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(gone.context->id);
+  void attach_diagnostics_locked(stored &target, const diagnostics_snapshot_ptr &diagnostics) {
+    PB::Failures::DiagnosticsContext *state = target.item.mutable_diagnostics();
+    if (!options_.capture_diagnostics) {
+      state->set_state(PB::Failures::DiagnosticsContext::DISABLED);
+      return;
+    }
+    if (!diagnostics) {
+      state->set_state(PB::Failures::DiagnosticsContext::NONE);
+      return;
+    }
+    state->set_snapshot_id(diagnostics->id);
+    state->set_captured_at(diagnostics->captured_at);
+    state->set_size(diagnostics->wire_size);
+    if (diagnostics->wire_size > options_.max_context_size) {
+      state->set_state(PB::Failures::DiagnosticsContext::TOO_LARGE);
+      return;
+    }
+    state->set_state(PB::Failures::DiagnosticsContext::CAPTURED);
+    target.diagnostics = diagnostics;
+    hold_locked(snapshot_key(kind_diagnostics, diagnostics->id), diagnostics->wire_size);
+  }
+
+  // Drop one reference to a held snapshot. Callers must hold the lock.
+  void unref_locked(const snapshot_key &key) {
+    const std::map<snapshot_key, std::uint64_t>::iterator found = held_index_.find(key);
+    if (found == held_index_.end()) return;
+    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(found->second);
     if (it == held_.end()) return;
     if (--it->second.refs > 0) return;
     context_bytes_ -= it->second.bytes;
     held_.erase(it);
+    held_index_.erase(found);
   }
 
-  // Let go of one snapshot: every entry referring to it keeps its place and
-  // is marked EVICTED. Callers must hold the lock.
-  void evict_locked(const std::uint64_t id) {
-    for (stored &s : entries_) {
-      if (!s.context || s.context->id != id) continue;
-      s.context.reset();
-      s.item.mutable_context()->set_state(PB::Failures::MetricsContext::EVICTED);
-    }
-    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(id);
+  // An entry is going away: drop its references. Callers must hold the lock.
+  void release_locked(const stored &gone) {
+    if (gone.context) unref_locked(snapshot_key(kind_metrics, gone.context->id));
+    if (gone.diagnostics) unref_locked(snapshot_key(kind_diagnostics, gone.diagnostics->id));
+  }
+
+  // Let go of one held snapshot (by hold order): every entry referring to it
+  // keeps its place and is marked EVICTED. Callers must hold the lock.
+  void evict_locked(const std::uint64_t order) {
+    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(order);
     if (it == held_.end()) return;
+    const snapshot_key key = it->second.key;
+    for (stored &s : entries_) {
+      if (key.first == kind_metrics && s.context && s.context->id == key.second) {
+        s.context.reset();
+        s.item.mutable_context()->set_state(PB::Failures::MetricsContext::EVICTED);
+      } else if (key.first == kind_diagnostics && s.diagnostics && s.diagnostics->id == key.second) {
+        s.diagnostics.reset();
+        s.item.mutable_diagnostics()->set_state(PB::Failures::DiagnosticsContext::EVICTED);
+      }
+    }
     context_bytes_ -= it->second.bytes;
+    held_index_.erase(key);
     held_.erase(it);
   }
 
-  // Release the oldest snapshots (lowest id) until the held ones fit the
-  // budget. The newest always fits on its own, because max_context_size is
-  // clamped to the budget. Callers must hold the lock.
+  // Let go of every held snapshot of one kind. Callers must hold the lock.
+  void evict_kind_locked(const snapshot_kind kind) {
+    std::vector<std::uint64_t> orders;
+    for (const std::pair<const std::uint64_t, held_snapshot> &h : held_) {
+      if (h.second.key.first == kind) orders.push_back(h.first);
+    }
+    for (const std::uint64_t order : orders) evict_locked(order);
+  }
+
+  // Release the oldest held snapshots, of either kind, until the held ones
+  // fit the budget - but never the ones the newest entry refers to while an
+  // older one is left: the failure just recorded is the one a reader is most
+  // likely to open, and by hold order its metrics snapshot is older than its
+  // diagnostics. When the newest entry's pair alone is over the budget, its
+  // diagnostics go and its metrics stay; one snapshot always fits on its own,
+  // because max_context_size is clamped to the budget. Callers must hold the
+  // lock.
   void enforce_budget_locked() {
+    const bool has_newest = !entries_.empty();
+    const snapshot_key newest_metrics = has_newest && entries_.back().context ? snapshot_key(kind_metrics, entries_.back().context->id) : no_snapshot();
+    const snapshot_key newest_diagnostics =
+        has_newest && entries_.back().diagnostics ? snapshot_key(kind_diagnostics, entries_.back().diagnostics->id) : no_snapshot();
+    while (context_bytes_ > options_.context_budget) {
+      std::map<std::uint64_t, held_snapshot>::const_iterator victim = held_.begin();
+      while (victim != held_.end() && (victim->second.key == newest_metrics || victim->second.key == newest_diagnostics)) ++victim;
+      if (victim == held_.end()) break;
+      evict_locked(victim->first);
+    }
+    if (context_bytes_ > options_.context_budget) {
+      const std::map<snapshot_key, std::uint64_t>::const_iterator found = held_index_.find(newest_diagnostics);
+      if (found != held_index_.end()) evict_locked(found->second);
+    }
     while (context_bytes_ > options_.context_budget && !held_.empty()) evict_locked(held_.begin()->first);
   }
+
+  // A key no held snapshot has: ids start at 1.
+  static snapshot_key no_snapshot() { return snapshot_key(-1, 0); }
 
   // Callers must hold the lock.
   void trim_locked() {
@@ -527,8 +809,12 @@ class failed_check_store {
 
   mutable boost::mutex mutex_;
   std::deque<stored> entries_;
-  // The distinct snapshots entries refer to, oldest (lowest id) first.
+  // The distinct snapshots entries refer to, by the order the store first
+  // held them - oldest first, whichever kind - and the same keyed by what
+  // they are.
   std::map<std::uint64_t, held_snapshot> held_;
+  std::map<snapshot_key, std::uint64_t> held_index_;
+  std::uint64_t next_hold_ = 1;
   options options_;
   unsigned long long next_index_;
   unsigned long long dropped_;

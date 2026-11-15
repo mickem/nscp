@@ -3,11 +3,13 @@
 
 #pragma once
 
+#include <atomic>
 #include <map>
 #include <nsclient/logger/logger.hpp>
 #include <service/system_service.hpp>
 
 #include "fact_repository.hpp"
+#include "diagnostics_snapshot.hpp"
 #include "failed_check_store.hpp"
 #include "metrics_snapshot.hpp"
 #include "nsclient_core_interface.hpp"
@@ -66,6 +68,16 @@ class NSClientT : public nsclient::core::core_interface {
   // the system looked like at the time. Created in the constructor and never
   // replaced.
   nsclient::core::metrics_snapshot_store_instance snapshots_;
+  // The latest diagnostics snapshot, assembled by the diagnostics round while
+  // `capture diagnostics` is on and served on /api/v2/diagnostics. Created in
+  // the constructor and never replaced, like snapshots_.
+  nsclient::core::diagnostics_snapshot_store_instance diagnostics_;
+  // True when `diagnostics interval` is empty: the diagnostics round then runs
+  // at the end of every metrics round instead of on a task of its own.
+  bool diagnostics_with_metrics_ = true;
+  // How many tables the last diagnostics round left out for size, so the
+  // warning about it is logged when that changes and not every round.
+  std::atomic<std::size_t> diagnostics_oversized_{0};
   // Path overrides supplied via --path-override on the command line. Applied to
   // path_ inside load_configuration_1, after init_settings has loaded
   // boot.ini's [paths] section, so CLI wins over boot.ini.
@@ -121,6 +133,7 @@ class NSClientT : public nsclient::core::core_interface {
   nsclient::core::tag_repository_instance get_tag_repository() { return tags_; }
   nsclient::core::fact_repository_instance get_fact_repository() { return facts_; }
   nsclient::core::failed_check_store_instance get_failed_check_store() { return failures_; }
+  nsclient::core::diagnostics_snapshot_store_instance get_diagnostics_store() { return diagnostics_; }
 
   struct service_controller {
     std::string service;
@@ -144,6 +157,10 @@ class NSClientT : public nsclient::core::core_interface {
   // `reread_max_size`: apply [/settings/facts] max size inside the round (a
   // reload), so what it drops is published with what the round stores.
   void process_facts(const std::string &reason, bool reread_max_size = false);
+  // Run one diagnostics round: ask every producer for its sections, add the
+  // core's own, cap and keep the result as the latest snapshot. A no-op
+  // (which also forgets the last snapshot) while `capture diagnostics` is off.
+  void process_diagnostics();
 
  private:
   void reloadPlugins();

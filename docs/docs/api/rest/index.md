@@ -20,6 +20,7 @@ Each topic has its own page:
 * [Metadata](metadata.md) — performance counters, registered channels
 * [Results](results.md) — cached passive check results
 * [Failed checks](failures.md) — the last checks that came back WARNING, CRITICAL or UNKNOWN
+* [Diagnostics](diagnostics.md) — small tables of what is going on now (top processes, the last failures), kept with each failed check
 * [Legacy API](legacy.md) — pre-`/api/v2` endpoints kept for backwards compatibility
 
 ## API versions

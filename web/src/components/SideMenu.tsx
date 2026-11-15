@@ -9,6 +9,7 @@ import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined
 import SettingsIcon from "@mui/icons-material/Settings";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
+import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useNavigate, useLocation } from "react-router";
 
@@ -78,6 +79,14 @@ export default function SideMenu() {
               <FactCheckIcon />
             </ListItemIcon>
             <ListItemText primary="Facts" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton selected={isActive("/diagnostics")} onClick={() => navigate("/diagnostics")}>
+            <ListItemIcon>
+              <TableChartOutlinedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Diagnostics" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>

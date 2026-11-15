@@ -12,10 +12,13 @@ failed, as a dashboard widget; `GET /api/v2/failures` serves the same list,
 newest first, with `?status=`, `?command=`, `?since=` and `?limit=` filters,
 and `DELETE` empties it. The log is on by default and lives in memory only.
 Configure it under `[/settings/core/failed checks]`: `enabled`, `max entries`,
-`statuses`, and `record arguments` (off by default: arguments can carry
-secrets; when on, `password`/`token` values are replaced by `***`, as is a
-secret a check echoes back in its message). Nothing to do on a default
-install. **Custom roles:** the endpoint needs the new `failures.list` grant
+`statuses`, and `record arguments`: `none`, `safe` or `all`. The default,
+`safe`, keeps only the options that describe the check - thresholds, filter,
+syntax and what was checked (`time`, `drive`, `service`, ...) - and drops
+everything else, since arguments can carry secrets; `all` keeps every option
+with `password`/`token` values replaced by `***`, and a secret a check echoes
+back in its message is redacted the same way under every mode. Nothing to do
+on a default install. **Custom roles:** the endpoint needs the new `failures.list` grant
 (`failures.delete` to clear); the built-in `full` role has it through `*`, the
 others do not. See the [REST reference](../api/rest/failures.md) and the
 [security notice](../security/notices.md#the-failed-check-log-exposes-recent-check-output-to-failureslist).

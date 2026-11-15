@@ -73,6 +73,22 @@ inline const char *context_state_name(const PB::Failures::MetricsContext::State 
   }
 }
 
+// The same for a diagnostics context, which has the same states.
+inline const char *context_state_name(const PB::Failures::DiagnosticsContext::State state) {
+  switch (state) {
+    case PB::Failures::DiagnosticsContext::CAPTURED:
+      return "captured";
+    case PB::Failures::DiagnosticsContext::EVICTED:
+      return "evicted";
+    case PB::Failures::DiagnosticsContext::TOO_LARGE:
+      return "too_large";
+    case PB::Failures::DiagnosticsContext::DISABLED:
+      return "disabled";
+    default:
+      return "none";
+  }
+}
+
 // The Nagios status word for a result code, the way every other listing in
 // NSClient++ spells it.
 inline const char *status_name(const PB::Common::ResultCode code) {

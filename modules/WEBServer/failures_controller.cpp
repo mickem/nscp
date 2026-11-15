@@ -12,6 +12,7 @@
 #include <ctime>
 #include <list>
 #include <metrics/metrics_json.hpp>
+#include <nscapi/protobuf/diagnostics_json.hpp>
 #include <nscapi/protobuf/failures.hpp>
 #include <nscapi/protobuf/failures_json.hpp>
 #include <set>
@@ -51,21 +52,6 @@ bool parse_status(const std::string &token, PB::Common::ResultCode &status) {
   return true;
 }
 
-// A non-negative integer query parameter; false (and a 400 from the caller)
-// on anything else, so a typo in `since` does not quietly mean "everything".
-bool parse_unsigned(const std::string &text, unsigned long long &out) {
-  if (text.empty()) return false;
-  for (const char c : text) {
-    if (c < '0' || c > '9') return false;
-  }
-  try {
-    out = std::stoull(text);
-  } catch (const std::exception &) {
-    return false;
-  }
-  return true;
-}
-
 // The shared rendering (failures_json.hpp) plus what only REST carries: the
 // local `date` and the `age` at the time of the request.
 json::object to_json(const PB::Failures::FailedCheck &entry, const std::int64_t now, const bool arguments_recorded) {
@@ -81,6 +67,8 @@ void describe(json::object &out, const PB::Failures::FailuresResponseMessage::Re
   out["enabled"] = payload.enabled();
   out["max_entries"] = static_cast<std::int64_t>(payload.max_entries());
   out["arguments_recorded"] = payload.arguments_recorded();
+  // A core older than the field says nothing; it only knew on and off.
+  out["arguments_mode"] = !payload.arguments_mode().empty() ? payload.arguments_mode() : (payload.arguments_recorded() ? "all" : "none");
   out["statuses"] = payload.statuses();
   out["last_index"] = static_cast<std::int64_t>(payload.last_index());
   out["dropped"] = static_cast<std::int64_t>(payload.dropped());
@@ -88,6 +76,8 @@ void describe(json::object &out, const PB::Failures::FailuresResponseMessage::Re
   out["context_budget"] = static_cast<std::int64_t>(payload.context_budget());
   out["max_context_size"] = static_cast<std::int64_t>(payload.max_context_size());
   out["context_bytes_used"] = static_cast<std::int64_t>(payload.context_bytes_used());
+  out["capture_diagnostics"] = payload.capture_diagnostics();
+  out["diagnostics_rows"] = static_cast<std::int64_t>(payload.diagnostics_rows());
 }
 
 // A core that predates the API answers with nothing; render that as a log
@@ -111,12 +101,12 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
   unsigned long long since = 0;
   unsigned long long limit = 0;
   const std::string since_text = request.get("since", "");
-  if (!since_text.empty() && !parse_unsigned(since_text, since)) {
+  if (!since_text.empty() && !str::parse_unsigned(since_text, since)) {
     response.setCodeBadRequest("Invalid since: " + since_text);
     return;
   }
   const std::string limit_text = request.get("limit", "");
-  if (!limit_text.empty() && !parse_unsigned(limit_text, limit)) {
+  if (!limit_text.empty() && !str::parse_unsigned(limit_text, limit)) {
     response.setCodeBadRequest("Invalid limit: " + limit_text);
     return;
   }
@@ -160,6 +150,7 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
     out["enabled"] = false;
     out["max_entries"] = 0;
     out["arguments_recorded"] = false;
+    out["arguments_mode"] = "none";
     out["statuses"] = "";
     out["last_index"] = 0;
     out["dropped"] = 0;
@@ -167,6 +158,8 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
     out["context_budget"] = 0;
     out["max_context_size"] = 0;
     out["context_bytes_used"] = 0;
+    out["capture_diagnostics"] = false;
+    out["diagnostics_rows"] = 0;
   }
   out["count"] = static_cast<std::int64_t>(entries.size());
   out["entries"] = entries;
@@ -176,14 +169,16 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
 
 // The metrics snapshot one entry was recorded with, rendered exactly as
 // /api/v2/metrics renders the live one (`metrics` flat, `metadata` keyed the
-// same), so a client reads both with one parser. An entry that has no
+// same), so a client reads both with one parser, and beside it the
+// diagnostics snapshot, its sections rendered as /api/v2/diagnostics renders
+// one. An entry that has no
 // snapshot - capture was off, it was evicted, it was too large - answers 200
 // with its state and no `metrics`: the entry exists, there is just nothing
 // to show. An entry the log no longer holds is a 404.
 void failures_controller::get_context(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("failures.list", request, response)) return;
   unsigned long long index = 0;
-  if (!parse_unsigned(what.str(1), index) || index == 0) {
+  if (!str::parse_unsigned(what.str(1), index) || index == 0) {
     response.setCodeBadRequest("Invalid index: " + what.str(1));
     return;
   }
@@ -206,6 +201,11 @@ void failures_controller::get_context(Mongoose::Request &request, boost::smatch 
     const json::value pruned = failures_json::pruned(entry.context());
     if (!pruned.is_null()) out["pruned"] = pruned;
   }
+  json::object diagnostics = failures_json::diagnostics(entry);
+  if (entry.diagnostics().state() == PB::Failures::DiagnosticsContext::CAPTURED && entry.diagnostics().has_snapshot()) {
+    diagnostics["sections"] = diagnostics_json::sections(entry.diagnostics().snapshot());
+  }
+  out["diagnostics"] = diagnostics;
   response.append(json::serialize(out));
 }
 

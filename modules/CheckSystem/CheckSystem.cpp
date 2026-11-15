@@ -281,6 +281,24 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "a typical host, and the list is truncated (with an error saying so) past the point where it would not fit the facts document.")
   ;
 
+  settings.alias().add_key_to_settings("diagnostics")
+  .add_bool("processes", sh::bool_key(&fresh->diagnostics_processes, false),
+        "PROCESS TABLES",
+        "Produce the processes.top_cpu and processes.top_memory diagnostics tables: the processes using the most CPU over the last second and "
+        "the ones with the largest working set, with their name, pid, CPU share, working set and private bytes - never their command line. "
+        "Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Turns on "
+        "the collector's per-process CPU sampling ('process cpu'), which it needs: one extra process-table query a second.")
+  .add_bool("services", sh::bool_key(&fresh->diagnostics_services, false),
+        "SERVICES IN TROUBLE",
+        "Produce the services.problems diagnostics table: the services that are not where they should be - what check_service flags by default "
+        "(an automatic service that is not running, unless it is delayed, trigger-started, still starting or stopped cleanly), and any service "
+        "that stopped "
+        "with an error - with their state, exit code, executable (never its arguments), account and when their process started. Read from the "
+        "service control manager every 30 seconds by the collector, opening only the services whose status already looks wrong. Kept with a "
+        "failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. The service events "
+        "(services.events) come from CheckEventLog: [/settings/eventlog/diagnostics] services.")
+  ;
+
   settings.alias().add_key_to_settings()
   .add_string("counter access", sh::string_fun_key([this](const auto& value) { pdh_checker.counter_access_.set_mode(value); }, "any"),
         "COUNTER ACCESS MODE",
@@ -368,6 +386,10 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   if (!pdh_checker.counter_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(pdh_checker.counter_access_.get_config_error());
   if (!registry_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(registry_access_.get_config_error());
+
+  // A section switched on turns on what it needs: the process tables are
+  // read off the per-process CPU sample, so that sampling is on with them.
+  if (fresh->diagnostics_processes) fresh->process_cpu_enabled = true;
 
   fresh->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
   fresh->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -1525,6 +1547,16 @@ void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::fact
   }
 }
 
+void CheckSystem::fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response) {
+  // Cheap by contract: the collector ranked the processes on its own thread;
+  // this copies the last result. Nothing while the section is off, which is
+  // how the core learns it was switched off.
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector) return;
+  if (collector->diagnostics_processes) process_tables::add_sections(response, collector->get_process_tables());
+  if (collector->diagnostics_services) service_tables::add_section(response, collector->get_service_problems());
+}
+
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
   using nscapi::metrics::core_label;
   using nscapi::metrics::describe;
@@ -1606,6 +1638,30 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     }
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
+  }
+
+  try {
+    // How much the system is waiting on something, next to how busy it is:
+    // what tells a slow host from a merely busy one in a failure snapshot.
+    // Each value is left out, not published as 0, while its counter cannot
+    // be read.
+    const pdh_thread::pressure_sample pressure = collector->get_pressure();
+    if (pressure.has_processor_queue || pressure.has_page_faults) {
+      PB::Metrics::MetricsBundle *section = bundle->add_children();
+      section->set_key("pressure");
+      describe(section, "How much the system is waiting: the processor's ready queue and page faults");
+      if (pressure.has_processor_queue) {
+        metric(section, "processor_queue_length")
+            .help("Threads ready to run and waiting for a processor, at the last sample")
+            .gauge(pressure.processor_queue);
+      }
+      // A per-second rate: no unit.
+      if (pressure.has_page_faults) {
+        metric(section, "page_faults_per_sec").help("Page faults per second, soft and hard").gauge(pressure.page_faults_per_sec);
+      }
+    }
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get pressure metrics");
   }
 
   try {

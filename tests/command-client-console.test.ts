@@ -444,6 +444,18 @@ describe("nscp test console", () => {
     expect(out).toMatch(/facts \[path\|refresh\]/);
   });
 
+  // Diagnostics are off unless `capture diagnostics` is on, which this
+  // configuration leaves alone: the verb says so rather than printing nothing.
+  it("says diagnostics are disabled when capture is off", async () => {
+    const out = await runConsole("diagnostics\nexit\n");
+    expect(out).toMatch(/Diagnostics are disabled/);
+  });
+
+  it("offers diagnostics in the built-in help", async () => {
+    const out = await runConsole("help\nexit\n");
+    expect(out).toMatch(/diagnostics \[section\]/);
+  });
+
   it("exits on the exit command instead of running to the timeout", async () => {
     const r = await nscp.run(["test"], { input: "exit\n", timeout: 30_000, allowFailure: true });
     expect(r.timedOut).toBe(false);

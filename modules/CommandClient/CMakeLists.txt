@@ -57,6 +57,9 @@ NSCP_CREATE_TEST(
         # text on screen, so it tests with no core and no terminal either.
         ${NSCP_INCLUDEDIR}/client/facts_renderer.hpp
         ${NSCP_INCLUDEDIR}/client/facts_renderer_test.cpp
+        # So is the diagnostics renderer.
+        ${NSCP_INCLUDEDIR}/client/diagnostics_renderer.hpp
+        ${NSCP_INCLUDEDIR}/client/diagnostics_renderer_test.cpp
     LIBRARIES
         GTest::gtest_main
         nscp_protobuf

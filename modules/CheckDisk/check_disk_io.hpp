@@ -16,6 +16,8 @@
 #include <win/wmi/wmi_query.hpp>
 #endif
 
+#include "used_history.hpp"
+
 namespace disk_io_check {
 
 #ifdef WIN32
@@ -45,6 +47,12 @@ struct disk_io {
   double read_latency;
   double write_latency;
   double total_latency;
+  // Average number of requests outstanding over the collection interval (the
+  // `Avg. Disk Queue Length` counter on Windows, the weighted I/O time on
+  // Linux); 0 on the very first sample. queue_length is the instantaneous
+  // count, which a 1-second sample mostly catches at 0 on a busy-but-coping
+  // disk.
+  double avg_queue_length;
 
   disk_io()
       : read_bytes_per_sec(0),
@@ -57,7 +65,8 @@ struct disk_io {
         split_io_per_sec(0),
         read_latency(0),
         write_latency(0),
-        total_latency(0) {}
+        total_latency(0),
+        avg_queue_length(0) {}
   disk_io(const disk_io &other) = default;
   disk_io &operator=(const disk_io &other) = default;
 
@@ -80,11 +89,20 @@ struct disk_io {
   double get_read_latency() const { return read_latency; }
   double get_write_latency() const { return write_latency; }
   double get_total_latency() const { return total_latency; }
+  double get_avg_queue_length() const { return avg_queue_length; }
 
   std::string show() const { return name; }
 };
 
 typedef std::list<disk_io> disks_type;
+
+// The average number of requests outstanding between two samples, from a
+// counter that accumulates request-time (every outstanding request adds the
+// time it spends queued) and the wall time between the samples, in the same
+// unit: 100 ns ticks for the Windows `Avg. Disk Queue Length` raw counter,
+// milliseconds for the weighted I/O time in /proc/diskstats. 0 when no time
+// passed.
+double average_queue_length(unsigned long long busy_delta, unsigned long long wall_delta);
 
 class disk_io_data {
   boost::shared_mutex mutex_;
@@ -126,6 +144,9 @@ class disk_io_data {
     unsigned long long read_ticks, read_ops;
     unsigned long long write_ticks, write_ops;
     unsigned long long transfer_ticks, transfer_ops;
+    // AvgDiskQueueLength (PERF_COUNTER_100NS_QUEUELEN_TYPE) and the 100 ns
+    // timestamp it is divided by.
+    unsigned long long queue_time, timestamp_100ns;
   };
   std::map<std::string, raw_latency_sample> prev_raw_;
   // Latency degrades independently of the rates: if the raw counter class is
@@ -235,7 +256,9 @@ struct disk_free {
   disk_free(const disk_free &other) = default;
   disk_free &operator=(const disk_free &other) = default;
 
-  void build_metrics(PB::Metrics::MetricsBundle *section) const;
+  // The volume's metrics, plus used_change_1h/used_change_24h from
+  // `changes` for the windows it has a value for (none at all when null).
+  void build_metrics(PB::Metrics::MetricsBundle *section, const used_history::changes *changes = nullptr) const;
 
   std::string get_name() const { return name; }
   std::string get_device() const { return device; }

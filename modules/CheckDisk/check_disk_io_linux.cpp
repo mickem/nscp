@@ -163,7 +163,9 @@ bool disk_io_data::fetch(const threads::stop_signal *) {
     for (int i = 0; i < 11 && (ss >> v[i]); ++i) {
     }
     // v[0]=reads v[2]=sectors_read v[3]=ms_reading v[4]=writes v[6]=sectors_written v[7]=ms_writing v[8]=in_flight v[9]=ms_io
-    const std::vector<unsigned long long> raw = {v[0], v[2], v[4], v[6], v[9], v[3], v[7]};
+    // v[10]=weighted ms_io (each in-flight request adds the time it waits: the
+    // average queue length is its delta over the wall time)
+    const std::vector<unsigned long long> raw = {v[0], v[2], v[4], v[6], v[9], v[3], v[7], v[10]};
     current[name] = raw;
 
     disk_io d;
@@ -171,7 +173,7 @@ bool disk_io_data::fetch(const threads::stop_signal *) {
     d.queue_length = static_cast<long long>(v[8]);
 
     auto it = prev_raw_.find(name);
-    if (dt > 0 && it != prev_raw_.end() && it->second.size() == 7) {
+    if (dt > 0 && it != prev_raw_.end() && it->second.size() == raw.size()) {
       const auto &p = it->second;
       auto delta = [](unsigned long long cur, unsigned long long old) { return cur >= old ? cur - old : 0ull; };
       const unsigned long long d_reads = delta(raw[0], p[0]);
@@ -189,6 +191,7 @@ bool disk_io_data::fetch(const threads::stop_signal *) {
       if (d_reads > 0) d.read_latency = static_cast<double>(d_read_ms) / static_cast<double>(d_reads);
       if (d_writes > 0) d.write_latency = static_cast<double>(d_write_ms) / static_cast<double>(d_writes);
       if (d_reads + d_writes > 0) d.total_latency = static_cast<double>(d_read_ms + d_write_ms) / static_cast<double>(d_reads + d_writes);
+      d.avg_queue_length = average_queue_length(delta(raw[7], p[7]), static_cast<unsigned long long>(dt * 1000.0));
       total_read_ms += d_read_ms;
       total_write_ms += d_write_ms;
       total_reads += d_reads;
@@ -201,6 +204,7 @@ bool disk_io_data::fetch(const threads::stop_signal *) {
     total.reads_per_sec += d.reads_per_sec;
     total.writes_per_sec += d.writes_per_sec;
     total.queue_length += d.queue_length;
+    total.avg_queue_length += d.avg_queue_length;
     if (d.percent_disk_time > total.percent_disk_time) total.percent_disk_time = d.percent_disk_time;
     disks.push_back(d);
   }

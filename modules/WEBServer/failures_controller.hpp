@@ -17,12 +17,13 @@
 //   GET    /api/v2/failures   the last failed checks, newest first   failures.list
 //   DELETE /api/v2/failures   empty the log                          failures.delete
 //   GET    /api/v2/failures/<index>/context
-//                             the metrics snapshot it was recorded with failures.list
+//                             the metrics and diagnostics snapshots it
+//                             was recorded with                       failures.list
 //
 // The log is the core's, not this module's: every transport's queries land in
 // it, so the page shows NRPE and scheduler failures alongside REST ones. The
 // list carries the store's configuration (`enabled`, `arguments_recorded`,
-// ...) so a UI can say "recording is off" rather than render an empty table;
+// `arguments_mode`, ...) so a UI can say "recording is off" rather than render an empty table;
 // a disabled log answers 200 with `enabled:false` and no entries, since the
 // envelope already tells the two apart.
 class failures_controller : public Mongoose::RegexpController {

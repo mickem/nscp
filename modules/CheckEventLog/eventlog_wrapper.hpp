@@ -31,8 +31,16 @@ struct eventlog_wrapper_new : public eventlog_wrapper {
   eventlog::evt_handle hLog;
   eventlog::evt_handle hContext;
   std::string name;
+  // An XPath filter for the subscription (empty: every event in the log).
+  std::string query;
+  // Why notify() failed, for a caller that reports it somewhere other than
+  // the log.
+  std::string last_error;
   bool is_new;
   eventlog_wrapper_new(const std::string &name);
+  // A subscription to `channel` (its real name - no display-name lookup)
+  // limited to the events `query` selects.
+  eventlog_wrapper_new(const std::string &channel, const std::string &query);
   ~eventlog_wrapper_new();
 
   void open();

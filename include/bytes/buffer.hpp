@@ -18,6 +18,25 @@ struct buffer {
     data = new T[size_];
     memcpy(data, other.data, size_ * sizeof(T));
   }
+  // Moving hands the block over rather than copying it. That is not only
+  // cheaper: a buffer some API filled with pointers into itself (the process
+  // table NtQuerySystemInformation writes, whose image names point into the
+  // same block) is only usable at the address it was filled at, and a
+  // function returning one by value used to hand back a copy whose pointers
+  // still aimed at the freed original.
+  buffer(buffer&& other) noexcept : data(other.data), size_(other.size_) {
+    other.data = nullptr;
+    other.size_ = 0;
+  }
+  buffer& operator=(buffer&& other) noexcept {
+    if (this == &other) return *this;
+    delete[] data;
+    data = other.data;
+    size_ = other.size_;
+    other.data = nullptr;
+    other.size_ = 0;
+    return *this;
+  }
   buffer& operator=(const buffer& other) {
     if (this == &other) {
       return *this;

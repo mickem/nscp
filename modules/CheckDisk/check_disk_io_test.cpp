@@ -75,6 +75,34 @@ TEST(DiskIo, DefaultConstruction) {
   EXPECT_EQ(d.read_latency, 0.0);
   EXPECT_EQ(d.write_latency, 0.0);
   EXPECT_EQ(d.total_latency, 0.0);
+  EXPECT_EQ(d.avg_queue_length, 0.0);
+}
+
+TEST(DiskIo, AverageQueueLengthIsQueueTimeOverWallTime) {
+  // 100 ns ticks (Windows): 0.7 requests outstanding on average over 1 s.
+  EXPECT_DOUBLE_EQ(0.7, disk_io_check::average_queue_length(7000000ull, 10000000ull));
+  // Milliseconds (Linux weighted I/O time): 3 requests waiting for 2 s.
+  EXPECT_DOUBLE_EQ(3.0, disk_io_check::average_queue_length(6000ull, 2000ull));
+  EXPECT_DOUBLE_EQ(0.0, disk_io_check::average_queue_length(0ull, 1000ull));
+  // No time passed: nothing to average over.
+  EXPECT_DOUBLE_EQ(0.0, disk_io_check::average_queue_length(500ull, 0ull));
+}
+
+TEST(DiskIo, BuildMetricsPublishesTheAverageQueueLengthUnitless) {
+  disk_io_check::disk_io d;
+  d.name = "C:";
+  d.avg_queue_length = 0.7;
+  PB::Metrics::MetricsBundle bundle;
+  d.build_metrics(&bundle);
+  const PB::Metrics::Metric *avg = nullptr;
+  for (const PB::Metrics::Metric &m : bundle.value()) {
+    if (m.key() == "C:.avg_queue_length") avg = &m;
+  }
+  ASSERT_NE(avg, nullptr);
+  EXPECT_TRUE(avg->has_gauge_value());
+  EXPECT_DOUBLE_EQ(0.7, avg->gauge_value().value());
+  EXPECT_EQ("", avg->unit());
+  EXPECT_FALSE(avg->desc().empty());
 }
 
 TEST(DiskIo, Accessors) {
@@ -192,7 +220,7 @@ TEST(DiskIo, BuildMetrics) {
   PB::Metrics::MetricsBundle section;
   d.build_metrics(&section);
 
-  EXPECT_EQ(section.value_size(), 11);
+  EXPECT_EQ(section.value_size(), 12);
 }
 
 // ============================================================================
@@ -536,6 +564,48 @@ TEST(DiskFree, BuildMetricsDescribesEveryValue) {
   const PB::Metrics::Metric *used_pct = metric_named(bundle, "C:.used_pct");
   ASSERT_NE(used_pct, nullptr);
   EXPECT_EQ(used_pct->unit(), "");
+  // No history handed over: no change values at all, not zeros.
+  EXPECT_EQ(metric_named(bundle, "C:.used_change_1h"), nullptr);
+  EXPECT_EQ(metric_named(bundle, "C:.used_change_24h"), nullptr);
+}
+
+TEST(DiskFree, BuildMetricsPublishesOnlyTheChangesThatExist) {
+  disk_free_check::disk_free d;
+  d.name = "C:";
+  d.total = 4000;
+  d.free = 1000;
+
+  used_history::changes hour_only;
+  hour_only.change_1h = -512;
+  PB::Metrics::MetricsBundle bundle;
+  d.build_metrics(&bundle, &hour_only);
+  ASSERT_EQ(bundle.value_size(), 7);
+  const PB::Metrics::Metric *hour = metric_named(bundle, "C:.used_change_1h");
+  ASSERT_NE(hour, nullptr);
+  // A gauge in bytes: space is freed as well as used.
+  EXPECT_TRUE(hour->has_gauge_value());
+  EXPECT_EQ(hour->gauge_value().value(), -512.0);
+  EXPECT_EQ(hour->unit(), "bytes");
+  EXPECT_FALSE(hour->desc().empty());
+  // The same instance and label as the volume's other metrics.
+  const PB::Metrics::Metric *total = metric_named(bundle, "C:.total");
+  ASSERT_NE(total, nullptr);
+  EXPECT_EQ(hour->alias(), "used_change_1h");
+  ASSERT_EQ(hour->dims_size(), total->dims_size());
+  for (int i = 0; i < hour->dims_size(); ++i) EXPECT_EQ(hour->dims(i).SerializeAsString(), total->dims(i).SerializeAsString());
+  EXPECT_EQ(metric_named(bundle, "C:.used_change_24h"), nullptr);
+
+  used_history::changes both;
+  both.change_1h = 0;
+  both.change_24h = 1 << 20;
+  PB::Metrics::MetricsBundle full;
+  d.build_metrics(&full, &both);
+  ASSERT_EQ(full.value_size(), 8);
+  // Not growing is a value, and it is published.
+  ASSERT_NE(metric_named(full, "C:.used_change_1h"), nullptr);
+  EXPECT_EQ(metric_named(full, "C:.used_change_1h")->gauge_value().value(), 0.0);
+  ASSERT_NE(metric_named(full, "C:.used_change_24h"), nullptr);
+  EXPECT_EQ(metric_named(full, "C:.used_change_24h")->gauge_value().value(), 1048576.0);
 }
 
 TEST(DiskIo, BuildMetricsDescribesEveryValueAndOnlyUnitsTheLatencies) {
@@ -547,7 +617,7 @@ TEST(DiskIo, BuildMetricsDescribesEveryValueAndOnlyUnitsTheLatencies) {
   PB::Metrics::MetricsBundle bundle;
   d.build_metrics(&bundle);
 
-  ASSERT_EQ(bundle.value_size(), 11);
+  ASSERT_EQ(bundle.value_size(), 12);
   for (const PB::Metrics::Metric &m : bundle.value()) {
     EXPECT_FALSE(m.desc().empty()) << "no help text for " << m.key();
   }

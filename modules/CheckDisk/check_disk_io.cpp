@@ -36,6 +36,12 @@ void disk_io::build_metrics(PB::Metrics::MetricsBundle *section) const {
   io.metric("read_latency").help("Average time one read took over the interval").unit("milliseconds").gauge(read_latency);
   io.metric("write_latency").help("Average time one write took over the interval").unit("milliseconds").gauge(write_latency);
   io.metric("total_latency").help("Average time one operation took over the interval").unit("milliseconds").gauge(total_latency);
+  io.metric("avg_queue_length").help("Average number of requests outstanding on the disk over the interval").gauge(avg_queue_length);
+}
+
+double average_queue_length(const unsigned long long busy_delta, const unsigned long long wall_delta) {
+  if (wall_delta == 0) return 0.0;
+  return static_cast<double>(busy_delta) / static_cast<double>(wall_delta);
 }
 
 disks_type disk_io_data::get() {
@@ -118,7 +124,7 @@ void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB
 
 namespace disk_free_check {
 
-void disk_free::build_metrics(PB::Metrics::MetricsBundle *section) const {
+void disk_free::build_metrics(PB::Metrics::MetricsBundle *section, const used_history::changes *changes) const {
   using nscapi::metrics::for_instance;
   using nscapi::metrics::instance_scope;
   const instance_scope vol = for_instance(section, name, "drive");
@@ -128,6 +134,12 @@ void disk_free::build_metrics(PB::Metrics::MetricsBundle *section) const {
   vol.metric("user_free").help("Free space the querying user may actually use, after quotas").unit("bytes").gauge(user_free);
   vol.metric("free_pct").help("Free space as a share of the volume").gauge(get_free_pct());
   vol.metric("used_pct").help("Used space as a share of the volume").gauge(get_used_pct());
+  // Gauges: space is freed as well as used. Absent, not 0, until the
+  // collector has a sample a full window old (see used_history.hpp).
+  if (changes != nullptr && changes->change_1h)
+    vol.metric("used_change_1h").help("Change in used space over the last hour (negative when space was freed)").unit("bytes").gauge(changes->change_1h.value());
+  if (changes != nullptr && changes->change_24h)
+    vol.metric("used_change_24h").help("Change in used space over the last 24 hours (negative when space was freed)").unit("bytes").gauge(changes->change_24h.value());
 }
 
 void disk_free_data::set(const drives_type &drives) {

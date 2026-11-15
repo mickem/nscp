@@ -8,11 +8,14 @@ and the WEB server serves it so you can see *what has been failing on this
 host* without going through the monitoring server.
 
 * [List failed checks](#list-failed-checks) — `GET /api/v2/failures`
-* [Metrics at the time of the failure](#metrics-at-the-time-of-the-failure) — `GET /api/v2/failures/{index}/context`
+* [Metrics and diagnostics at the time of the failure](#metrics-at-the-time-of-the-failure) — `GET /api/v2/failures/{index}/context`
 * [Clear the log](#clear-the-log) — `DELETE /api/v2/failures`
 
 The web UI shows the same log on its **Failed checks** page and, while
-something has failed, as a widget on the dashboard.
+something has failed, as a widget on the dashboard. Opening an entry shows
+what it was recorded with: *System at the time* (the metrics snapshot) and,
+with `capture diagnostics` on, *Diagnostics at the time* - one table per
+[diagnostics](diagnostics.md) section, `failures.recent` first.
 
 **The log is on by default** and lives in memory: it starts empty when the
 service starts and is never written to disk. It also records what the core
@@ -31,20 +34,30 @@ effect on a settings reload; turning the log off empties it.
 enabled = true
 ; How many of the latest failures to keep (1-10000).
 max entries = 50
-; Keep the arguments the check was called with. Off by default: arguments
-; can carry secrets, and the log is readable by anyone with failures.list.
-record arguments = false
+; Which of the arguments the check was called with to keep: none, safe or
+; all. safe keeps only the options that describe the check (thresholds,
+; filter, syntax, what was checked); arguments can carry secrets, and the
+; log is readable by anyone with failures.list.
+record arguments = safe
 ; Which results count as failed.
 statuses = warning,critical,unknown
 ; Keep the agent's latest metrics snapshot with each failure.
 capture metrics = false
-; The most the snapshots may take, in bytes (65536 - 268435456).
+; Collect diagnostics (small tables: top processes, services in trouble,
+; recent log errors, the last failed checks) and keep the latest with each
+; failure.
+capture diagnostics = false
+; The most rows kept per diagnostics table (1-50).
+diagnostics rows = 10
+; The most the snapshots, metrics and diagnostics together, may take, in
+; bytes (65536 - 268435456).
 metrics context budget = 4194304
 ; The largest single snapshot kept, in bytes (never more than the budget).
 max context size = 1048576
 ; Trim each snapshot before it is kept: zeros, empty, duplicates (none by default).
 prune metrics =
-; Leave out every metric whose key contains one of these (comma-separated).
+; Leave out every metric, and every diagnostics table, whose key or name
+; contains one of these (comma-separated).
 prune pattern =
 ```
 
@@ -58,10 +71,20 @@ Each entry is the check's response: its command and alias, status, every
 output line with its performance data, and who asked for it. Two things are
 deliberately **not** stored as they were:
 
-* **Arguments** are left out unless `record arguments` is on. When they are
-  recorded, the value of any argument whose name contains `password` or
-  `token` is replaced by `***`, in both the `password=secret` and the
-  `--password secret` shape.
+* **Arguments** are kept as `record arguments` says:
+
+    | Value | Keeps |
+    |---|---|
+    | `none` (or `false`) | Nothing. |
+    | `safe` (the default) | Only the options whose name is on an allow-list: the common filter options (`warning`, `critical`, `warn`, `crit`, `ok`, `filter`, `top-syntax`, `detail-syntax`, `ok-syntax`, `empty-syntax`, `perf-syntax`, `perf-config`, `empty-state`, `show-all`, ...) and what was checked (`time`, `type`, `drive`, `service`, `process`, `file`, `path`, `counter`, `exclude`, `pattern`, `name`, ...). Nothing that names another machine is kept: `computer` and `namespace` are not on the list, and an allow-listed option whose value starts with `\\` (a UNC path, a remote counter) is dropped with its value. |
+    | `all` (or `true`) | Every option, with the value of any argument whose name contains `password` or `token` replaced by `***`. |
+
+    `safe` drops every option not on the list - a host, a URL, a command
+    line, a query, a user name, anything with a credential in its name - and
+    any bare value with no option name. In the CLI's `--key value` shape the
+    value goes with its key. Under `all`, the redaction covers both the
+    `password=secret` and the `--password secret` shape, but a secret passed
+    under another name is kept as it was.
 * **Secrets echoed in the message** are redacted the same way: a check that
   rejects its options repeats them ("unrecognised option 'password=secret'"),
   and that pair becomes `password=***` whether or not arguments are recorded.
@@ -98,7 +121,7 @@ comma-separated list of rules, all off by default:
 
 | Rule         | Drops |
 |--------------|-------|
-| `zeros`      | Every numeric value (gauge, counter) that is exactly `0`. |
+| `zeros`      | Every numeric value (gauge, counter) that is exactly `0`, except the pressure metrics: everything under `system.pressure` (processor queue length, page faults, Linux pressure stall figures), a disk's `queue_length` and `avg_queue_length` under `disk.io`, the `memory_pages_sec` counter, and a volume's `used_change_1h` and `used_change_24h` under `disk.free`. For those, 0 is the reading that says nothing was waiting, or that the volume is not growing. |
 | `empty`      | Every string value that is empty. |
 | `duplicates` | Every metric that only restates others (see the list below), and every instance (a disk, an adapter, a core) whose values are all identical to an earlier instance in the same section. The first instance is kept. |
 
@@ -147,7 +170,30 @@ Only the copy kept with a failure is pruned: [`/api/v2/metrics`](metrics.md)
 and the metrics submitters always see the whole snapshot. A changed rule
 applies from the next snapshot on.
 
-The listing only says whether an entry has a snapshot (its `context` field).
+### Diagnostics context
+
+With `capture diagnostics = true`, the core also collects
+[diagnostics](diagnostics.md) - small tables of what is going on right now,
+such as the processes using the most CPU and memory and the last failed checks
+- every `diagnostics interval` (by default with each metrics round), and each
+failure refers to the latest diagnostics snapshot the same way it refers to the
+metrics one: shared by every failure in one interval, with the same states.
+Which tables there are is switched on in the module that produces them, see
+[Diagnostics](diagnostics.md#turning-it-on).
+
+`metrics context budget` covers both kinds of snapshot (the key keeps its
+name): each distinct snapshot, metrics or diagnostics, is counted once, and when
+the budget is used up the oldest one held is released first, whichever kind it
+is - except that the snapshots the newest failure refers to are released last,
+and when that pair alone is over the budget its diagnostics go and its metrics
+stay. `max context size` caps one snapshot of either kind; the diagnostics round
+trims the longest tables until a snapshot fits, and leaves whole tables out
+(counted in [`dropped`](diagnostics.md)) when it still does not fit without
+rows. `prune pattern` applies to
+table names too; the `prune metrics` rules do not apply to tables.
+
+The listing only says whether an entry has a snapshot (its `context` and
+`diagnostics` fields).
 The snapshot itself is served by
 [its own endpoint](#metrics-at-the-time-of-the-failure), so a list of fifty
 failures does not carry fifty snapshots.
@@ -169,7 +215,8 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
 {
     "enabled": true,
     "max_entries": 50,
-    "arguments_recorded": false,
+    "arguments_recorded": true,
+    "arguments_mode": "safe",
     "statuses": "warning,critical,unknown",
     "last_index": 12,
     "dropped": 0,
@@ -177,6 +224,8 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
     "context_budget": 4194304,
     "max_context_size": 1048576,
     "context_bytes_used": 72650,
+    "capture_diagnostics": true,
+    "diagnostics_rows": 10,
     "count": 1,
     "entries": [
         {
@@ -206,12 +255,20 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
                     }
                 }
             ],
+            "arguments": ["drive=C:", "warning=used > 80%", "critical=used > 90%"],
             "context": {
                 "state": "captured",
                 "snapshot_id": 15,
                 "captured_at": 1793426266,
                 "age_at_failure": 5,
                 "size": 72650
+            },
+            "diagnostics": {
+                "state": "captured",
+                "snapshot_id": 15,
+                "captured_at": 1793426266,
+                "age_at_failure": 5,
+                "size": 2310
             }
         }
     ]
@@ -222,13 +279,15 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
 |----------------------|-------------|
 | `enabled`            | Whether the log is recording. `false` with an empty `entries` means switched off, not idle. |
 | `max_entries`        | The cap, as configured. |
-| `arguments_recorded` | Whether entries carry `arguments`. |
+| `arguments_recorded` | Whether entries carry `arguments`: true when `arguments_mode` is `safe` or `all`. |
+| `arguments_mode` | `record arguments` as configured: `none`, `safe` (only the allow-listed options are kept) or `all`. |
 | `statuses`           | The statuses recorded, as configured. |
 | `last_index`         | The highest `index` handed out so far; `0` before the first failure. Keeps counting across evictions and clears. |
 | `dropped`            | Entries the cap has evicted since the service started. |
 | `capture_metrics`    | Whether failures are recorded with a metrics snapshot. |
 | `context_budget`, `max_context_size` | The snapshot budget and size cap in bytes, as configured (after clamping). |
-| `context_bytes_used` | Bytes of distinct snapshots held right now. |
+| `context_bytes_used` | Bytes of distinct snapshots, metrics and diagnostics, held right now. |
+| `capture_diagnostics`, `diagnostics_rows` | Whether failures are recorded with a diagnostics snapshot (and diagnostics are collected at all), and the row cap per table. |
 | `count`              | Number of `entries` in this answer (also in the `X-Result-Count` header). |
 
 Each entry:
@@ -243,8 +302,9 @@ Each entry:
 | `status`, `result` | The Nagios number and word. |
 | `message`   | The first output line, for a table that shows one line per row. |
 | `lines`     | Every output line with its `perf` object, in the same shape as [`/api/v2/queries/{name}/commands/execute`](queries.md#command-execute). |
-| `arguments` | The arguments the check was called with, redacted. **Only present when `arguments_recorded` is true**; an entry recorded while it was off has no key, so an empty list means "none were given". |
+| `arguments` | The arguments the check was called with, as `arguments_mode` keeps them: the allow-listed options under `safe`, every one (redacted) under `all`. **Only present when `arguments_recorded` is true**; an empty list means "none were given" (or, under `safe`, none that are kept). |
 | `context`   | The metrics snapshot the entry refers to; see below. |
+| `diagnostics` | The diagnostics snapshot the entry refers to, with the same fields and states as `context` (`disabled` is `capture diagnostics` being off). |
 
 `context.state` is one of:
 
@@ -282,7 +342,8 @@ GET /api/v2/failures/{index}/context
 
 Privilege: `failures.list`
 
-The metrics snapshot the entry was recorded with, in the same shape as
+The metrics and diagnostics snapshots the entry was recorded with. The
+metrics are in the same shape as
 [`/api/v2/metrics?meta=1`](metrics.md): `metrics` is the flat key/value list and
 `metadata` describes each key (type, help, unit, labels). The keys are the
 ones `/api/v2/metrics` uses, so one parser reads both.
@@ -319,9 +380,31 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures/12/context" | pyth
             "disk.io.HarddiskVolume1": "disk.io.D:",
             "system.network.WAN Miniport (IPv6)": "system.network.WAN Miniport (IP)"
         }
+    },
+    "diagnostics": {
+        "state": "captured",
+        "snapshot_id": 15,
+        "captured_at": 1793426266,
+        "age_at_failure": 5,
+        "size": 2310,
+        "sections": {
+            "failures.recent": { "source": "core", "captured_at": "2026-10-31T06:57:46Z", "truncated": false, "columns": [...], "rows": [...] },
+            "processes.top_cpu": {
+                "source": "CheckSystem",
+                "captured_at": "2026-10-31T06:57:45Z",
+                "truncated": true,
+                "columns": [{ "name": "name", "type": "string" }, { "name": "cpu", "type": "float", "unit": "percent" }, "..."],
+                "rows": [{ "name": "acme-indexer.exe", "pid": 4242, "cpu": 87.5, "working_set": 412000256, "private_bytes": 398458880 }]
+            }
+        }
     }
 }
 ```
+
+`diagnostics` is the reference the listing carries plus, when its state is
+`captured`, every table of the snapshot in `sections`, each rendered exactly as
+[`/api/v2/diagnostics/{section}`](diagnostics.md#read-one-section) renders the
+live one.
 
 `pruned` is only there when [`prune metrics` or `prune pattern`](#pruning-the-snapshot)
 is set. Its counts are metrics dropped by each rule, `excluded` the ones
@@ -350,7 +433,7 @@ Empties the log and answers with the same envelope, plus how many entries went:
 
 ```
 $ curl -k -s -u admin -X DELETE https://localhost:8443/api/v2/failures
-{"enabled":true,"max_entries":50,"arguments_recorded":false,"statuses":"warning,critical,unknown","last_index":12,"dropped":0,"removed":12}
+{"enabled":true,"max_entries":50,"arguments_recorded":true,"arguments_mode":"safe","statuses":"warning,critical,unknown","last_index":12,"dropped":0,"removed":12}
 ```
 
 `last_index` is not reset, so a poller's `since` stays valid across a clear.
@@ -363,8 +446,11 @@ $ curl -k -s -u admin -X DELETE https://localhost:8443/api/v2/failures
 | `failures.delete` | `DELETE /api/v2/failures` |
 
 The log shows the output of every check the agent ran, for every caller, and
-its arguments when `record arguments` is on, and with `capture metrics` on
+the arguments `record arguments` keeps (by default the allow-listed ones), and with `capture metrics` on
 the metrics at the time, which `/api/v2/metrics` only serves to `metrics.list`.
+With `capture diagnostics` on it also shows the diagnostics at the time - the
+names of the processes that were running, among others - which the live
+[`/api/v2/diagnostics`](diagnostics.md) only serves to `diagnostics.list`.
 The built-in roles other than
 `full` do not carry these privileges; give `failures.list` to a role of your
 own for a monitoring console that should see them.
@@ -374,8 +460,8 @@ own for a monitoring console that should see them.
 Modules read the same log through the `NSAPIFailuresQuery` core API
 (`core_wrapper::get_failures()` / `get_failure_context()` /
 `clear_failures()`), which exchanges the `PB.Failures` protobuf messages in
-`failures.proto`.
+`failures.proto`. `get_failure_context()` fills in both snapshots.
 
 An enrolled agent can also [send failure context](../../setup/fleet.md#send-failure-context)
 to a fleet server that asks for it: one failed check from this log with its
-snapshot, at most once per `[/settings/fleet] failure context interval`.
+snapshots, at most once per `[/settings/fleet] failure context interval`.

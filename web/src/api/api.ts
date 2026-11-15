@@ -365,7 +365,8 @@ export interface EventEntry {
  * One entry of the core's failed-check log (/api/v2/failures): a query that
  * came back WARNING, CRITICAL or UNKNOWN, with the result as the check
  * produced it. `arguments` is only present when the agent records them
- * (`record arguments` under [/settings/core/failed checks]).
+ * (`record arguments` under [/settings/core/failed checks] is `safe`, the
+ * default, or `all`); under `safe` it holds the allow-listed options only.
  */
 export interface FailedCheck {
   index: number;
@@ -384,6 +385,8 @@ export interface FailedCheck {
   lines: QueryExecutionResultLine[];
   arguments?: string[];
   context: FailedCheckContextRef;
+  /** The diagnostics snapshot it was recorded with. Absent from an agent that predates diagnostics. */
+  diagnostics?: FailedCheckContextRef;
 }
 
 /**
@@ -425,6 +428,89 @@ export interface FailedCheckContextPruned {
   collapsed: { [key: string]: string };
 }
 
+/** One column of a diagnostics section. */
+export interface DiagnosticsColumn {
+  name: string;
+  type: "string" | "int" | "float" | "timestamp" | "bool";
+  unit?: string;
+  description?: string;
+}
+
+/**
+ * One diagnostics section: a small table, its rows objects keyed by column
+ * name. Timestamps (`captured_at`, a `timestamp` cell) are ISO 8601 UTC; a
+ * missing cell is null. `error` is set when the producer could not collect it.
+ */
+export interface DiagnosticsSection {
+  source: string;
+  description?: string;
+  captured_at: string;
+  truncated: boolean;
+  error?: string;
+  columns: DiagnosticsColumn[];
+  rows: { [column: string]: string | number | boolean | null }[];
+}
+
+/** The diagnostics a failure was recorded with; `sections` only when `state` is `captured`. */
+export interface FailedCheckDiagnostics extends FailedCheckContextRef {
+  sections?: { [name: string]: DiagnosticsSection };
+}
+
+/** One section of GET /api/v2/diagnostics: what the table is, without its rows. */
+export interface DiagnosticsSectionSummary {
+  name: string;
+  source: string;
+  description?: string;
+  captured_at: string;
+  truncated: boolean;
+  error?: string;
+  /** The number of rows the section holds. */
+  rows: number;
+}
+
+/**
+ * GET /api/v2/diagnostics: the sections of the latest snapshot. `enabled`
+ * false with no sections means `capture diagnostics` is off, not idle;
+ * `snapshot_id` is 0 before the first round.
+ */
+export interface DiagnosticsList {
+  enabled: boolean;
+  snapshot_id: number;
+  captured_at: string;
+  max_rows: number;
+  /** Sections left out over the per-snapshot cap or as a duplicate name. */
+  dropped: number;
+  /** Sections `prune pattern` left out. */
+  excluded: string[];
+  count: number;
+  sections: DiagnosticsSectionSummary[];
+}
+
+/** GET /api/v2/diagnostics/<section>: one section of the latest snapshot. */
+export interface DiagnosticsSectionResponse extends DiagnosticsSection {
+  name: string;
+  snapshot_id: number;
+}
+
+export interface DiagnosticsSectionArgs {
+  name: string;
+  /**
+   * The snapshot the list named. Not sent: it only keys the cache, so a
+   * section is fetched again when the snapshot moved on and not otherwise.
+   */
+  snapshotId: number;
+}
+
+/**
+ * Passed as an endpoint's `extraOptions` to keep the session on a 403. The
+ * server answers a missing grant with the same 403 as an expired token; for a
+ * grant no built-in role holds, logging the user out is the wrong reading.
+ * An expired token is still caught by the shell's own polling.
+ */
+interface ApiExtraOptions {
+  keepSessionOn403?: boolean;
+}
+
 /** GET /api/v2/failures/<index>/context. `metrics` only when `state` is `captured`. */
 export interface FailedCheckContext extends FailedCheckContextRef {
   index: number;
@@ -432,6 +518,8 @@ export interface FailedCheckContext extends FailedCheckContextRef {
   metrics?: Metrics;
   metadata?: { [key: string]: MetricMetadata };
   pruned?: FailedCheckContextPruned;
+  /** Absent from an agent that predates diagnostics. */
+  diagnostics?: FailedCheckDiagnostics;
 }
 
 /** The log and how it is configured, so the UI can say "off" or "no arguments". */
@@ -439,6 +527,11 @@ export interface FailedChecks {
   enabled: boolean;
   max_entries: number;
   arguments_recorded: boolean;
+  /**
+   * `record arguments`: `none`, `safe` (only allow-listed options are kept)
+   * or `all`. Absent from an agent that predates the setting's modes.
+   */
+  arguments_mode?: "none" | "safe" | "all";
   statuses: string;
   last_index: number;
   dropped: number;
@@ -446,6 +539,9 @@ export interface FailedChecks {
   context_budget: number;
   max_context_size: number;
   context_bytes_used: number;
+  /** Absent from an agent that predates diagnostics. */
+  capture_diagnostics?: boolean;
+  diagnostics_rows?: number;
   count: number;
   entries: FailedCheck[];
 }
@@ -504,7 +600,8 @@ const baseQueryWithAuthFail: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQ
   extraOptions,
 ) => {
   const result = await baseQuery(args, api, extraOptions);
-  if (result.error && result.error.status === 403) {
+  const keepSession = (extraOptions as ApiExtraOptions | undefined)?.keepSessionOn403 === true;
+  if (result.error && result.error.status === 403 && !keepSession) {
     api.dispatch(authSlice.actions.removeToken());
     // Drop every cached response from the previous session so a re-login
     // doesn't show stale data while the new requests are in flight.
@@ -537,6 +634,7 @@ export const ALL_API_TAGS = [
   "Metrics",
   "Events",
   "Failures",
+  "Diagnostics",
 ] as const;
 
 export const nsclientApi = createApi({
@@ -563,6 +661,7 @@ export const nsclientApi = createApi({
     "Metrics",
     "Events",
     "Failures",
+    "Diagnostics",
   ],
   endpoints: (builder) => ({
     getEndpoints: builder.query<EndpointList, void>({
@@ -877,6 +976,20 @@ export const nsclientApi = createApi({
       }),
       invalidatesTags: ["Failures"],
     }),
+    getDiagnostics: builder.query<DiagnosticsList, void>({
+      query: () => ({
+        url: "/v2/diagnostics",
+      }),
+      providesTags: ["Diagnostics"],
+      extraOptions: { keepSessionOn403: true } satisfies ApiExtraOptions,
+    }),
+    getDiagnosticsSection: builder.query<DiagnosticsSectionResponse, DiagnosticsSectionArgs>({
+      query: ({ name }) => ({
+        url: `/v2/diagnostics/${encodeURIComponent(name)}`,
+      }),
+      providesTags: ["Diagnostics"],
+      extraOptions: { keepSessionOn403: true } satisfies ApiExtraOptions,
+    }),
     getCounterMetadata: builder.query<MetadataOption[], void>({
       query: () => ({
         url: "/v1/metadata/counters",
@@ -951,4 +1064,6 @@ export const {
   useGetFailuresQuery,
   useGetFailureContextQuery,
   useClearFailuresMutation,
+  useGetDiagnosticsQuery,
+  useGetDiagnosticsSectionQuery,
 } = nsclientApi;

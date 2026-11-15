@@ -42,6 +42,9 @@ import {
 import FilterField from "../components/atoms/FilterField.tsx";
 import Trail from "../components/atoms/Trail.tsx";
 import { formatAge } from "../common/formatAge.ts";
+import { formatBytes } from "../common/format.ts";
+import DiagnosticsTable from "../components/DiagnosticsTable.tsx";
+import { orderSectionNames } from "../common/diagnostics.ts";
 
 const REFRESH_RATES = [
   { label: "Off", value: 0 },
@@ -181,12 +184,21 @@ export default function FailedChecks() {
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
           Keeping the last {data.max_entries} checks that came back {data.statuses.split(",").join(", ") || "non-OK"}
           {data.dropped > 0 ? ` · ${data.dropped} older ${data.dropped === 1 ? "entry" : "entries"} evicted` : ""}
-          {data.arguments_recorded
-            ? " · arguments recorded"
-            : " · arguments not recorded (record arguments = false under [/settings/core/failed checks])"}
+          {!data.arguments_recorded
+            ? " · arguments not recorded (record arguments = none under [/settings/core/failed checks])"
+            : data.arguments_mode === "safe"
+              ? " · allow-listed arguments recorded (record arguments = safe: thresholds, filter, syntax and what was checked)"
+              : data.arguments_mode === "all"
+                ? " · all arguments recorded (password and token values redacted)"
+                : " · arguments recorded"}
           {data.capture_metrics
             ? ` · metrics captured (${formatBytes(data.context_bytes_used)} of ${formatBytes(data.context_budget)})`
             : " · metrics not captured (capture metrics = false under [/settings/core/failed checks])"}
+          {data.capture_diagnostics === undefined
+            ? ""
+            : data.capture_diagnostics
+              ? ` · diagnostics captured (up to ${data.diagnostics_rows ?? 10} rows per table)`
+              : " · diagnostics not captured (capture diagnostics = false under [/settings/core/failed checks])"}
         </Typography>
       )}
       <TableContainer sx={{ width: "100%" }}>
@@ -335,6 +347,7 @@ function FailedCheckRow({ entry, isOpen, onToggle, argumentsRecorded }: FailedCh
                 )}
               </Stack>
               <ContextPanel entry={entry} />
+              <DiagnosticsPanel entry={entry} />
             </Stack>
           </Collapse>
         </TableCell>
@@ -448,6 +461,91 @@ function ContextTable({ index }: { index: number }) {
   );
 }
 
+/** Why an entry has no diagnostics to show, keyed by its diagnostics state. */
+const DIAGNOSTICS_STATE_TEXT: Record<Exclude<FailedCheckContextState, "captured">, string> = {
+  disabled: "not captured (capture diagnostics = false under [/settings/core/failed checks] when this was recorded)",
+  evicted: "released to stay within the metrics context budget, which diagnostics share",
+  too_large: "larger than max context size, not kept",
+  none: "no diagnostics had been collected yet",
+};
+
+/**
+ * "Diagnostics at the time": the tables (top processes, services in trouble,
+ * the last log errors, ...) the failure was recorded with. They come in the
+ * same context response as the metrics, fetched once the row is opened; an
+ * agent that predates diagnostics sends no `diagnostics` at all, and then
+ * there is nothing to say.
+ */
+function DiagnosticsPanel({ entry }: { entry: FailedCheck }) {
+  if (!entry.diagnostics) return null;
+  const state = entry.diagnostics.state;
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+        <Typography variant="subtitle2">Diagnostics at the time</Typography>
+        {state === "captured" ? (
+          <Typography variant="body2" color="text.secondary">
+            snapshot #{entry.diagnostics.snapshot_id}, {entry.diagnostics.age_at_failure ?? 0}s before the failure
+          </Typography>
+        ) : (
+          <Chip size="small" variant="outlined" label={state.replace("_", " ")} title={DIAGNOSTICS_STATE_TEXT[state]} />
+        )}
+      </Stack>
+      {state === "captured" ? (
+        <DiagnosticsTables index={entry.index} />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Diagnostics {DIAGNOSTICS_STATE_TEXT[state]}.
+        </Typography>
+      )}
+    </Stack>
+  );
+}
+
+function DiagnosticsTables({ index }: { index: number }) {
+  // The same query as the metrics table: one request serves both.
+  const { data, isLoading, isError } = useGetFailureContextQuery(index);
+  if (isLoading) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Loading…
+      </Typography>
+    );
+  }
+  if (isError || !data) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        The snapshot is no longer available.
+      </Typography>
+    );
+  }
+  const diagnostics = data.diagnostics;
+  if (!diagnostics || diagnostics.state !== "captured" || !diagnostics.sections) {
+    const state = diagnostics?.state ?? "evicted";
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Diagnostics {state === "captured" ? "unavailable" : DIAGNOSTICS_STATE_TEXT[state]}.
+      </Typography>
+    );
+  }
+  const sections = diagnostics.sections;
+  const names = orderSectionNames(Object.keys(sections));
+  if (names.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        The snapshot holds no tables.
+      </Typography>
+    );
+  }
+  return (
+    <Stack spacing={2} sx={{ maxWidth: 1200 }}>
+      {names.map((name) => (
+        <DiagnosticsTable key={name} name={name} section={sections[name]} />
+      ))}
+    </Stack>
+  );
+}
+
 /** What `prune metrics` left out, so a missing disk is explained rather than lost. */
 function PrunedNote({ pruned }: { pruned: FailedCheckContextPruned }) {
   const parts: string[] = [];
@@ -471,12 +569,6 @@ function PrunedNote({ pruned }: { pruned: FailedCheckContextPruned }) {
       )}
     </Typography>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 /** Perf fields are optional and thresholds may be Nagios range strings. */
