@@ -3,22 +3,12 @@
 
 #include "process_top.h"
 
-#include <cstdlib>
 #include <sstream>
+#include <str/xtos.hpp>
 
 namespace process_top {
 
 namespace {
-// strtoull, which reads digits whatever the locale says a number looks like.
-bool to_ull(const std::string &text, unsigned long long &out) {
-  if (text.empty()) return false;
-  for (const char c : text) {
-    if (c < '0' || c > '9') return false;
-  }
-  out = std::strtoull(text.c_str(), nullptr, 10);
-  return true;
-}
-
 std::vector<std::string> split(const std::string &text) {
   std::vector<std::string> out;
   std::string token;
@@ -44,7 +34,7 @@ bool parse_stat(const std::string &line, process_times &out) {
   // utime is field 14, stime 15 and starttime 22: tokens 11, 12 and 19.
   if (fields.size() < 20) return false;
   unsigned long long utime = 0, stime = 0, start = 0;
-  if (!to_ull(fields[11], utime) || !to_ull(fields[12], stime) || !to_ull(fields[19], start)) return false;
+  if (!str::parse_unsigned(fields[11], utime) || !str::parse_unsigned(fields[12], stime) || !str::parse_unsigned(fields[19], start)) return false;
   out.name = line.substr(open + 1, close - open - 1);
   out.ticks = utime + stime;
   out.start = start;
@@ -55,7 +45,7 @@ bool parse_statm(const std::string &line, const unsigned long long page_size, pr
   const std::vector<std::string> fields = split(line);
   if (fields.size() < 3) return false;
   unsigned long long size = 0, resident = 0, shared = 0;
-  if (!to_ull(fields[0], size) || !to_ull(fields[1], resident) || !to_ull(fields[2], shared)) return false;
+  if (!str::parse_unsigned(fields[0], size) || !str::parse_unsigned(fields[1], resident) || !str::parse_unsigned(fields[2], shared)) return false;
   out.working_set = resident * page_size;
   out.private_bytes = (resident > shared ? resident - shared : 0) * page_size;
   return true;

@@ -52,21 +52,6 @@ bool parse_status(const std::string &token, PB::Common::ResultCode &status) {
   return true;
 }
 
-// A non-negative integer query parameter; false (and a 400 from the caller)
-// on anything else, so a typo in `since` does not quietly mean "everything".
-bool parse_unsigned(const std::string &text, unsigned long long &out) {
-  if (text.empty()) return false;
-  for (const char c : text) {
-    if (c < '0' || c > '9') return false;
-  }
-  try {
-    out = std::stoull(text);
-  } catch (const std::exception &) {
-    return false;
-  }
-  return true;
-}
-
 // The shared rendering (failures_json.hpp) plus what only REST carries: the
 // local `date` and the `age` at the time of the request.
 json::object to_json(const PB::Failures::FailedCheck &entry, const std::int64_t now, const bool arguments_recorded) {
@@ -116,12 +101,12 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
   unsigned long long since = 0;
   unsigned long long limit = 0;
   const std::string since_text = request.get("since", "");
-  if (!since_text.empty() && !parse_unsigned(since_text, since)) {
+  if (!since_text.empty() && !str::parse_unsigned(since_text, since)) {
     response.setCodeBadRequest("Invalid since: " + since_text);
     return;
   }
   const std::string limit_text = request.get("limit", "");
-  if (!limit_text.empty() && !parse_unsigned(limit_text, limit)) {
+  if (!limit_text.empty() && !str::parse_unsigned(limit_text, limit)) {
     response.setCodeBadRequest("Invalid limit: " + limit_text);
     return;
   }
@@ -193,7 +178,7 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
 void failures_controller::get_context(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("failures.list", request, response)) return;
   unsigned long long index = 0;
-  if (!parse_unsigned(what.str(1), index) || index == 0) {
+  if (!str::parse_unsigned(what.str(1), index) || index == 0) {
     response.setCodeBadRequest("Invalid index: " + what.str(1));
     return;
   }
