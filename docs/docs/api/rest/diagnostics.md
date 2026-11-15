@@ -3,7 +3,8 @@
 Diagnostics are small point-in-time tables of what is going on on the host
 right now: the processes using the most CPU, the ones using the most memory,
 the services that are not running as they should, the last errors written to
-the system logs, the last failed checks. Modules keep them up to date and the core collects
+the system logs, the size of the places that usually fill a disk, the last
+failed checks. Modules keep them up to date and the core collects
 them on an interval, the way it collects metrics. The latest diagnostics
 snapshot is kept with every [failed check](failures.md) and travels with it to
 an enrolled fleet server, so whoever reads a failure sees what was running
@@ -51,6 +52,12 @@ errors = true
 processes = true
 services = true
 errors = true
+
+; Both: the temp and log directories, page and swap files and (Windows)
+; shadow-copy storage, measured every growth spots interval (CheckDisk).
+[/settings/disk/diagnostics]
+growth spots = true
+growth spots interval = 10m
 ```
 
 With `capture diagnostics` on and no table switched on in any module, the
@@ -70,6 +77,7 @@ their own:
 | `services` (CheckSystem) | A refresh every 30 seconds on the collector's auxiliary thread: one walk of the service control manager, opening only the services whose status already looks wrong. |
 | `services`, `errors` (CheckEventLog) | One thread with its own event log subscriptions (System for the service events; Application and System for the errors). They are separate from the [real-time filters](../../reference/windows/CheckEventLog.md), so they work whether or not `real-time` is enabled. |
 | `services`, `errors` (CheckSystemUnix) | One thread that runs `systemctl` every 30 seconds and reads the journal with `journalctl` every 10 seconds, from where the last read stopped. Each run is bounded to 10 seconds. The build does not link libsystemd. |
+| `growth spots` (CheckDisk) | One thread that measures the growth spots 15 seconds after it starts and then every `growth spots interval` (default `10m`, at least `10s`): one directory at a time with a half-second pause between them, at background priority (thread background mode on Windows; the idle I/O class and nice 19 on Linux), at most 30 seconds per directory and 2 minutes of walking per round. |
 
 An event table starts from one backward read of the last ten minutes of its
 logs, so a check that fails soon after the agent started - or after a
@@ -94,6 +102,7 @@ failure would add load at the worst moment.
 | `services.problems` | CheckSystem (Windows), CheckSystemUnix (Linux) | `services` | `name`, `state`, `exit_code`, `binary_path`, `account`, `started` (timestamp), `restart_count` |
 | `services.events` | CheckEventLog (Windows), CheckSystemUnix (Linux) | `services` | `time`, `service`, `id`, `message` |
 | `eventlog.errors` | CheckEventLog (Windows), CheckSystemUnix (Linux) | `errors` | `time`, `log`, `source`, `id`, `level`, `message` |
+| `disk.growth_spots` | CheckDisk | `growth spots` | `path`, `kind`, `size` (bytes), `note` |
 
 * **`failures.recent`** is the last failed checks from the
   [failed-check log](failures.md), newest first: when, which command, its
@@ -144,6 +153,32 @@ failure would add load at the worst moment.
   A message is event text, which applications fill with whatever they like;
   on Windows it is rendered in the host's language, and an event whose
   source has no message for its id shows the event's own strings.
+
+* **`disk.growth_spots`** is the size of the places that usually fill a disk,
+  for whoever reads a failed `check_drivesize` - the
+  `disk.free.<drive>.used_change_1h` and `used_change_24h` metrics say which
+  volume grew, this table where to look. `kind` is one of:
+
+    | `kind` | Windows | Linux |
+    |---|---|---|
+    | `temp` | the agent's `TEMP` and the Windows `Temp` directory | `TMPDIR` (when set), `/tmp`, `/var/tmp` |
+    | `logs` | the agent's log directory (`${log-path}`), the Windows `Logs` directory and the event logs (`System32\winevt\Logs`) | the agent's log directory, `/var/log` |
+    | `page_file` | each page file the memory manager has open | - |
+    | `swap_file` | `swapfile.sys` on the system drive | each swap file in `/proc/swaps` (a swap partition takes no filesystem space) |
+    | `shadow_storage` | the shadow-copy storage in use, one row per volume (`Win32_ShadowStorage`) | - |
+
+    Every path comes from the system (environment, registry, WMI), never a
+    hard-coded drive letter, and a spot that does not exist has no row. A
+    directory's `size` is the total of the files beneath it; links, junctions
+    and mount points are not followed and the walk stays on the directory's
+    filesystem. A directory that hits its time limit reports the size counted
+    so far, says so in `note` and marks the table `truncated`; entries that
+    cannot be read are skipped and counted in `note`, so an unelevated agent
+    still reports what it can see. A row with no `size` says why in `note`:
+    the folder itself could not be read, or - for the shadow storage, which
+    needs an elevated agent - the query failed. `captured_at` is when the last
+    round finished, so this table can be up to an interval older than the
+    rest of the snapshot; a settings reload keeps it until the next round.
 
 On Linux the three service and log tables need systemd: a host without it
 (`/run/systemd/system`) produces none of them, macOS included.
@@ -256,6 +291,35 @@ $ curl -k -s -u admin https://localhost:8443/api/v2/diagnostics/processes.top_cp
     ],
     "name": "processes.top_cpu",
     "snapshot_id": 812
+}
+```
+
+The growth spots of an unelevated agent: the folder and the WMI class it may
+not read say so in `note` rather than going missing.
+
+```
+$ curl -k -s -u admin https://localhost:8443/api/v2/diagnostics/disk.growth_spots | python -m json.tool
+{
+    "source": "CheckDisk",
+    "description": "Size of the places that usually fill a disk: temp and log directories, page and swap files, shadow-copy storage",
+    "captured_at": "2026-11-15T09:33:05Z",
+    "truncated": false,
+    "columns": [
+        { "name": "path", "type": "string" },
+        { "name": "kind", "type": "string", "description": "temp, logs, page_file, swap_file or shadow_storage" },
+        { "name": "size", "type": "int", "unit": "bytes", "description": "The directory tree's files, the file, or the shadow storage in use" },
+        { "name": "note", "type": "string", "description": "What limited the size (a time limit, unreadable entries), or why there is none; empty when complete" }
+    ],
+    "rows": [
+        { "path": "C:\\Windows\\Temp", "kind": "temp", "size": null, "note": "Unable to read folder C:\\Windows\\Temp: 5: Access is denied." },
+        { "path": "C:\\Windows\\Logs", "kind": "logs", "size": 600678673, "note": "1 folder or entry could not be read" },
+        { "path": "C:\\Windows\\system32\\winevt\\Logs", "kind": "logs", "size": 435499008, "note": null },
+        { "path": "C:\\pagefile.sys", "kind": "page_file", "size": 36507222016, "note": null },
+        { "path": "C:\\swapfile.sys", "kind": "swap_file", "size": 16777216, "note": null },
+        { "path": "all volumes", "kind": "shadow_storage", "size": null, "note": "could not be read (needs an elevated agent): ..." }
+    ],
+    "name": "disk.growth_spots",
+    "snapshot_id": 9
 }
 ```
 

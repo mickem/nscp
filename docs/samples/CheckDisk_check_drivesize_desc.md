@@ -118,7 +118,8 @@ check runs.
 
 **Until a full window of history exists the value is `unknown`.** That is an
 hour (a day) after the agent started, or after the drive appeared or changed
-size — nothing is persisted across a restart. While it is `unknown` the
+size. A settings reload keeps the history; a restart starts it over, since
+nothing is persisted. While it is `unknown` the
 keyword fires no threshold in either direction and emits no perfdata, exactly
 like `rate`; `filter=used_change_1h = 'unknown'` selects the drives that have
 no value yet. A gap in the collector's sampling longer than the slack (10

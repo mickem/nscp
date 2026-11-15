@@ -196,6 +196,21 @@ check_drivesize drive=c: "detail-syntax=${drive} ${used}/${size} used, last hour
 OK: c: 1.171TB/1.818TB used, last hour unknown, last day unknown
 ```
 
+An hour after the agent started, the same check on a drive that gained just
+over a gigabyte in that hour (the day is still `unknown`):
+
+```
+check_drivesize drive=c: "detail-syntax=${drive} ${used}/${size} used, last hour ${used_change_1h}, last day ${used_change_24h}" "top-syntax=${status}: ${list}" "warning=used_change_1h > 1G" "critical=used_change_1h > 5G"
+WARNING: c: 1.173TB/1.818TB used, last hour +1.048GB, last day unknown|'c: used_change_1h'=1124917248B;1073741824;5368709120
+```
+
+Perfdata is in bytes, and only for the drives that have a value:
+
+```
+check_drivesize "warn=used_change_1h > 2G" "crit=used_change_1h > 10G"
+OK All 3 drive(s) are ok|'C:\ used_change_1h'=1124917248B;2147483648;10737418240 'D:\ used_change_1h'=0B;2147483648;10737418240
+```
+
 List the drives that have no hour of history yet:
 
 ```

@@ -2,17 +2,18 @@
 title: "Diagnostics tables expose processes, services and log messages over REST and with failure context"
 fixed_in: next
 severity: "Low"
-modules: [core, WEBServer, CheckSystem, CheckSystemUnix, CheckEventLog]
+modules: [core, WEBServer, CheckSystem, CheckSystemUnix, CheckEventLog, CheckDisk]
 action: conditional
 ---
 Diagnostics are a new kind of host data: small tables of what is going on
 right now, collected by the core on an interval and kept with each failed
-check. This release ships six tables - the last failed checks
+check. This release ships seven tables - the last failed checks
 (`failures.recent`), the processes using the most CPU and the most memory
 (`processes.top_cpu`, `processes.top_memory`), the services that are not
 running as they should and the service manager's crash events
 (`services.problems`, `services.events`), and the last errors written to the
-system logs (`eventlog.errors`) - and they reach readers three ways:
+system logs (`eventlog.errors`) and the size of the places that usually fill a
+disk (`disk.growth_spots`) - and they reach readers three ways:
 
 * **Live, over REST.** `GET /api/v2/diagnostics` and
   `GET /api/v2/diagnostics/<section>` serve the latest snapshot under a new
@@ -40,6 +41,11 @@ What leaves the host is new:
   logs (Windows) or every journal entry at priority `err` or worse (Linux).
   Applications fill those messages with whatever they like - file paths, user
   names, host names, sometimes a connection string;
+* **directory paths and sizes**: the temp and log directories, including the
+  agent's own and - through `TEMP`/`TMPDIR` - the account it runs as, the page
+  and swap files, and the shadow-copy storage per volume, with the size of
+  each and a note when a folder could not be read. A directory's total says
+  how much was written there, not what; no file name is reported;
 * the recent failed checks' command, status, caller and first line of output,
   which the failed-check log already holds.
 
@@ -54,7 +60,7 @@ Everything is off by default, twice over: nothing is collected until
 `capture diagnostics = true` under `[/settings/core/failed checks]`, and each
 table only exists once it is switched on in the producing module's own section
 (`[/settings/system/windows/diagnostics]`, `[/settings/system/unix/diagnostics]`,
-`[/settings/eventlog/diagnostics]`).
+`[/settings/eventlog/diagnostics]`, `[/settings/disk/diagnostics]`).
 
 **What to do:** nothing on a default install. Before turning `capture
 diagnostics` on, decide whether the roles holding `failures.list` may see
