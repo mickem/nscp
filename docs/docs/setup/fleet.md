@@ -511,7 +511,7 @@ never sends it the document.
 When checks fail, the agent can send the server *failure context*: one failed check from its
 [log of failed checks](../api/rest/failures.md), what it said and, when the agent captures
 them, the host's metrics and [diagnostics](../api/rest/diagnostics.md) (the top processes,
-the failures before it) at that moment, plus a count of the other failures since the last
+the services in trouble, the last log errors, the failures before it) at that moment, plus a count of the other failures since the last
 report. It is an example of the host in trouble, not a feed of failures: at most one report
 goes per interval, whatever fails, and alerting on each failed check stays with your
 monitoring system.

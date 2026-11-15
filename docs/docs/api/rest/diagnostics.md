@@ -2,7 +2,8 @@
 
 Diagnostics are small point-in-time tables of what is going on on the host
 right now: the processes using the most CPU, the ones using the most memory,
-the last failed checks. Modules keep them up to date and the core collects
+the services that are not running as they should, the last errors written to
+the system logs, the last failed checks. Modules keep them up to date and the core collects
 them on an interval, the way it collects metrics. The latest diagnostics
 snapshot is kept with every [failed check](failures.md) and travels with it to
 an enrolled fleet server, so whoever reads a failure sees what was running
@@ -13,8 +14,8 @@ when it happened. These routes serve the same snapshot live.
 
 Facts say what the host *is*, metrics say *how much*, as numbers over time,
 and diagnostics say *what*: rows and columns that name things - processes,
-failed checks - which a metric key cannot carry without turning every process
-name into a series of its own.
+failed checks, services, log entries - which a metric key cannot carry without
+turning every process name into a series of its own.
 
 ## Turning it on
 
@@ -34,13 +35,22 @@ diagnostics rows = 10
 ; every metrics round, on the same thread.
 diagnostics interval =
 
-; The process tables (Windows).
+; Windows: the process tables and the services in trouble (CheckSystem)...
 [/settings/system/windows/diagnostics]
 processes = true
+services = true
 
-; The process tables (Linux).
+; ...the service crash events and the event log errors (CheckEventLog).
+[/settings/eventlog/diagnostics]
+services = true
+errors = true
+
+; Linux: all of them from CheckSystemUnix - services covers both service
+; tables, errors the journal's errors.
 [/settings/system/unix/diagnostics]
 processes = true
+services = true
+errors = true
 ```
 
 With `capture diagnostics` on and no table switched on in any module, the
@@ -52,7 +62,20 @@ starts. A table switched off is absent from the next snapshot.
 per-process sampling the tables are read off: on Windows the collector's
 `process cpu` sample (one extra process-table query a second), on Linux a
 read of `/proc/<pid>/stat` and `statm` for every process once a second. With
-the table off none of it runs.
+the table off none of it runs. The service and log tables start a reader of
+their own:
+
+| Key | Starts |
+|---|---|
+| `services` (CheckSystem) | A refresh every 30 seconds on the collector's auxiliary thread: one walk of the service control manager, opening only the services whose status already looks wrong. |
+| `services`, `errors` (CheckEventLog) | One thread with its own event log subscriptions (System for the service events; Application and System for the errors). They are separate from the [real-time filters](../../reference/windows/CheckEventLog.md), so they work whether or not `real-time` is enabled. |
+| `services`, `errors` (CheckSystemUnix) | One thread that runs `systemctl` every 30 seconds and reads the journal with `journalctl` every 10 seconds, from where the last read stopped. Each run is bounded to 10 seconds. The build does not link libsystemd. |
+
+An event table starts from one backward read of the last ten minutes of its
+logs, so a check that fails soon after the agent started - or after a
+settings reload, which restarts the readers - still has the events that led
+up to it. After that each event is rendered once, as it is written, and the
+last 50 are kept.
 
 **Nothing is collected because a check failed or a request arrived.** A round
 asks each module for what it already holds - the process table its collector
@@ -68,6 +91,9 @@ failure would add load at the worst moment.
 | `failures.recent` | the core | `capture diagnostics` | `time`, `command`, `status`, `subject`, `message` |
 | `processes.top_cpu` | CheckSystem (Windows), CheckSystemUnix (Linux) | `processes` | `name`, `pid`, `cpu` (percent), `working_set` (bytes), `private_bytes` (bytes) |
 | `processes.top_memory` | CheckSystem (Windows), CheckSystemUnix (Linux) | `processes` | the same, sorted by working set |
+| `services.problems` | CheckSystem (Windows), CheckSystemUnix (Linux) | `services` | `name`, `state`, `exit_code`, `binary_path`, `account`, `started` (timestamp), `restart_count` |
+| `services.events` | CheckEventLog (Windows), CheckSystemUnix (Linux) | `services` | `time`, `service`, `id`, `message` |
+| `eventlog.errors` | CheckEventLog (Windows), CheckSystemUnix (Linux) | `errors` | `time`, `log`, `source`, `id`, `level`, `message` |
 
 * **`failures.recent`** is the last failed checks from the
   [failed-check log](failures.md), newest first: when, which command, its
@@ -82,6 +108,45 @@ failure would add load at the worst moment.
   process on Linux. A process is its name and pid: **never its command line**,
   which carries credentials far more often than check arguments do. On macOS
   the tables report that they are not supported yet.
+* **`services.problems`** lists the services that are not where they should
+  be. Modules are not told which service a failed check was about, so the
+  table is every service in trouble, the ones restarted most often first,
+  then those that exited with an error:
+    * **Windows:** what `check_service` flags by default - an automatic
+      service that is not running, unless it is delayed or trigger-started and
+      stopped cleanly - plus any service that stopped with an error other than
+      "never started". `exit_code` is the Win32 exit code, or the service's own
+      code when it reported one; `restart_count` is always `null`, because the
+      service control manager keeps no such count.
+    * **Linux:** the systemd units that failed, are waiting to be restarted,
+      were restarted automatically (`NRestarts`, which systemd only resets
+      when the unit is started or stopped by hand) or whose last run did not
+      succeed. `state` is `ActiveState (SubState)`, `exit_code` the main
+      process's exit status, `account` the unit's `User`.
+
+    `binary_path` is the executable alone: the image path's or `ExecStart`'s
+    arguments are cut off, because they can carry credentials. `started` is
+    when the service's current process started, `null` when it has none.
+* **`services.events`** holds the service manager's own account of services
+  that crashed: on Windows the System log's Service Control Manager events
+  7031 and 7034 (terminated unexpectedly) and 7024 (terminated with an
+  error), with `service` translated from the display name in the event to the
+  service's name; on Linux the systemd manager's journal messages for a unit
+  whose start job failed, that failed, whose main process exited with an
+  error, or whose restart was scheduled (`id` is `null`: a journal entry has
+  none).
+* **`eventlog.errors`** holds the last errors written to the system logs: on
+  Windows every critical or error event in the Application and System logs;
+  on Linux every journal entry at priority `err` or worse, with `log` the
+  unit that wrote it (or `kernel`), `source` its syslog identifier and
+  `level` one of `emerg`, `alert`, `crit` or `err`. The agent must be able to
+  read the system journal: root, or a member of `adm` or `systemd-journal`.
+  A message is event text, which applications fill with whatever they like;
+  on Windows it is rendered in the host's language, and an event whose
+  source has no message for its id shows the event's own strings.
+
+On Linux the three service and log tables need systemd: a host without it
+(`/run/systemd/system`) produces none of them, macOS included.
 
 ## Caps
 

@@ -40,8 +40,9 @@ record arguments = safe
 statuses = warning,critical,unknown
 ; Keep the agent's latest metrics snapshot with each failure.
 capture metrics = false
-; Collect diagnostics (small tables: top processes, the last failed checks)
-; and keep the latest with each failure.
+; Collect diagnostics (small tables: top processes, services in trouble,
+; recent log errors, the last failed checks) and keep the latest with each
+; failure.
 capture diagnostics = false
 ; The most rows kept per diagnostics table (1-50).
 diagnostics rows = 10
