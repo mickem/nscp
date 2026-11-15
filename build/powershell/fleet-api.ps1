@@ -124,6 +124,9 @@ function Invoke-FleetApi {
         ErrorAction = "Stop"
     }
     if ($ApiKey) { $params.Headers = @{ Authorization = "Bearer $ApiKey" } }
+    # A write without a body (POST /api/hosts) still says it is JSON: the
+    # server refuses one without `Content-Type: application/json` (HTTP 415).
+    if ($null -eq $Body -and $Method -notin @("Get", "Delete", "Head")) { $Body = @{} }
     if ($null -ne $Body) {
         # -Depth: the default (2) silently truncates nested structures like a
         # bundle's config_json; 5.1 also needs the charset spelled out or

@@ -30,6 +30,10 @@ scripts::script_information<lua::lua_traits> *lua::lua_traits::get_info(lua::lua
 // the object as its first argument; count through this instead.
 static int method_args(lua::lua_wrapper &instance) { return instance.size() - 1; }
 
+// Reads the script's registry through the shared lua_State, so it must run
+// with the GIL held: resolve the core before a lua_gil::release, never inside
+// one. Called unlocked, another thread's Lua on the same state raced the lookup
+// and the binding failed now and then with "Failed to find info." under load.
 std::shared_ptr<lua::core_provider> get_core(lua::lua_wrapper &instance) {
   const auto info = lua::lua_traits::get_info(instance);
   auto core = info->get_core_provider();
@@ -37,6 +41,19 @@ std::shared_ptr<lua::core_provider> get_core(lua::lua_wrapper &instance) {
     throw lua::lua_exception("Failed to find core.");
   }
   return core;
+}
+
+// What the exception being handled says, for the error raised back into the
+// script. Call it only from a catch block. Every binding used to report a bare
+// "Unknown exception", which left a failure under load with nothing to go on.
+static std::string current_exception_text() {
+  try {
+    throw;
+  } catch (const std::exception &e) {
+    return e.what();
+  } catch (...) {
+    return "Unknown exception";
+  }
 }
 //////////////////////////////////////////////////////////////////////////
 // Core Wrapper
@@ -65,7 +82,7 @@ int lua::core_wrapper::create_pb_query(lua_State *L) {
     lua_instance.push_raw_string(buffer);
     return 1;
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
 }
 
@@ -87,9 +104,10 @@ int lua::core_wrapper::simple_query(lua_State *L) {
     std::string message;
     std::string perf;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->simple_query(command, arguments, message, perf);
+      ret = core->simple_query(command, arguments, message, perf);
     }
     lua_instance.push_code(ret);
     lua_instance.push_string(message);
@@ -97,7 +115,7 @@ int lua::core_wrapper::simple_query(lua_State *L) {
     // NSC_LOG_ERROR_STD(lua_instance.dump_stack());
     return 3;
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
 }
 int lua::core_wrapper::query_target(lua_State *L) {
@@ -117,16 +135,17 @@ int lua::core_wrapper::query_target(lua_State *L) {
     std::string message;
     std::string perf;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->simple_query(target, command, arguments, message, perf);
+      ret = core->simple_query(target, command, arguments, message, perf);
     }
     lua_instance.push_code(ret);
     lua_instance.push_string(message);
     lua_instance.push_string(perf);
     return 3;
   } catch (...) {
-    return lua_instance.error("Unknown exception in: query_target");
+    return lua_instance.error("query_target: " + current_exception_text());
   }
 }
 int lua::core_wrapper::query_forward(lua_State *L) {
@@ -147,16 +166,17 @@ int lua::core_wrapper::query_forward(lua_State *L) {
     std::string message;
     std::string perf;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->query_forward(forward_command, target, command, arguments, message, perf);
+      ret = core->query_forward(forward_command, target, command, arguments, message, perf);
     }
     lua_instance.push_code(ret);
     lua_instance.push_string(message);
     lua_instance.push_string(perf);
     return 3;
   } catch (...) {
-    return lua_instance.error("Unknown exception in: query_forward");
+    return lua_instance.error("query_forward: " + current_exception_text());
   }
 }
 int lua::core_wrapper::query(lua_State *L) {
@@ -167,15 +187,16 @@ int lua::core_wrapper::query(lua_State *L) {
     std::string data = lua_instance.pop_string();
     std::string response;
     bool ok;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ok = get_core(lua_instance)->query(data, response);
+      ok = core->query(data, response);
     }
     lua_instance.push_boolean(ok);
     lua_instance.push_raw_string(response);
     return 2;
   } catch (...) {
-    return lua_instance.error("Unknown exception in: query");
+    return lua_instance.error("query: " + current_exception_text());
   }
 }
 int lua::core_wrapper::simple_exec(lua_State *L) {
@@ -188,15 +209,16 @@ int lua::core_wrapper::simple_exec(lua_State *L) {
     const std::string target = lua_instance.pop_string();
     std::list<std::string> result;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->exec_simple_command(target, command, arguments, result);
+      ret = core->exec_simple_command(target, command, arguments, result);
     }
     lua_instance.push_code(ret);
     lua_instance.push_array(result);
     return 2;
   } catch (...) {
-    return lua_instance.error("Unknown exception in: simple_exec");
+    return lua_instance.error("simple_exec: " + current_exception_text());
   }
 }
 int lua::core_wrapper::exec(lua_State *L) {
@@ -216,15 +238,16 @@ int lua::core_wrapper::simple_submit(lua_State *L) {
     const std::string channel = lua_instance.pop_string();
     std::string result;
     NSCAPI::nagiosReturn ret;
+    const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
     {
       lua::lua_gil::release unlocked;
-      ret = get_core(lua_instance)->submit_simple_message(channel, command, code, message, perf, result);
+      ret = core->submit_simple_message(channel, command, code, message, perf, result);
     }
     lua_instance.push_boolean(ret == NSCAPI::bool_return::istrue);
     lua_instance.push_string(result);
     return 2;
   } catch (...) {
-    return lua_instance.error("Unknown exception in: simple_submit");
+    return lua_instance.error("simple_submit: " + current_exception_text());
   }
 }
 int lua::core_wrapper::submit(lua_State *L) {
@@ -238,8 +261,9 @@ int lua::core_wrapper::reload(lua_State *L) {
   if (method_args(lua_instance) < 1) return lua_instance.error("Incorrect syntax: reload(module)");
   std::string module = "module";
   const std::string target = lua_instance.pop_string();
+  const std::shared_ptr<lua::core_provider> core = get_core(lua_instance);
   lua::lua_gil::release unlocked;
-  get_core(lua_instance)->reload(target);
+  core->reload(target);
   return 0;
 }
 int lua::core_wrapper::log(lua_State *L) {
@@ -404,7 +428,7 @@ int lua::settings_wrapper::get_section(lua_State *L) {
   try {
     lua_instance.push_array(get_settings(lua_instance)->get_section(v));
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 1;
 }
@@ -418,7 +442,7 @@ int lua::settings_wrapper::get_string(lua_State *L) {
   try {
     lua_instance.push_string(get_settings(lua_instance)->get_string(s, k, v));
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 1;
 }
@@ -432,7 +456,7 @@ int lua::settings_wrapper::set_string(lua_State *L) {
   try {
     get_settings(lua_instance)->set_string(s, k, v);
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 0;
 }
@@ -446,7 +470,7 @@ int lua::settings_wrapper::get_bool(lua_State *L) {
   try {
     lua_instance.push_boolean(get_settings(lua_instance)->get_bool(s, k, v));
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 1;
 }
@@ -460,7 +484,7 @@ int lua::settings_wrapper::set_bool(lua_State *L) {
   try {
     get_settings(lua_instance)->set_bool(s, k, v);
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 0;
 }
@@ -474,7 +498,7 @@ int lua::settings_wrapper::get_int(lua_State *L) {
   try {
     lua_instance.push_int(get_settings(lua_instance)->get_int(s, k, v));
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 1;
 }
@@ -488,7 +512,7 @@ int lua::settings_wrapper::set_int(lua_State *L) {
   try {
     get_settings(lua_instance)->set_int(s, k, v);
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 0;
 }
@@ -498,7 +522,7 @@ int lua::settings_wrapper::save(lua_State *L) {
   try {
     get_settings(lua_instance)->save();
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 0;
 }
@@ -512,7 +536,7 @@ int lua::settings_wrapper::register_path(lua_State *L) {
   try {
     get_settings(lua_instance)->register_path(path, title, description, false);
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 0;
 }
@@ -531,7 +555,7 @@ int lua::settings_wrapper::register_key(lua_State *L) {
   try {
     get_settings(lua_instance)->register_key(path, key, type, title, description, defaultValue);
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 0;
 }
@@ -586,7 +610,7 @@ static int lua_get_setting(lua_State *L) {
   try {
     lua_instance.push_string(get_settings(lua_instance)->get_string(s, k, v));
   } catch (...) {
-    return lua_instance.error("Unknown exception");
+    return lua_instance.error(current_exception_text());
   }
   return 1;
 }

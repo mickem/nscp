@@ -415,6 +415,7 @@ estate/roles/mysql/
 | `bundle` | `{ "settings": { ... } }`: the nested object path is the INI section path in `fleet.ini` (`settings.mysql` → `[/settings/mysql]`); `${ROLE_PASSWORD}` is substituted, `${ESTATE_IPS:<role>}` becomes the public IPs of that role's machines in the suite (comma-separated: an allow-list for a server only the hub may reach), and any other `${...}` is refused. The role's `modules` are enabled in the same bundle. `"scripts": "<folder>"` names a folder under the role whose files ship as the bundle's `scripts/` entries, laid out as the agent's own scripts folder is (`python/`, `lua/`, and the external scripts at the top); the agent stages them under `${fleet-folder}/scripts`, and the bundle's settings then point the script modules at them with `[/settings/default] script root = fleet`. Such a bundle is built by the runner and uploaded whole (`POST /api/bundles`) instead of composed on the server. |
 | `checks` | What the gate runs over REST. `args` are passed as `key=value` (an array repeats the key); `expect` is a Nagios state, or `any` for any state but UNKNOWN; every name in `perf` must occur in some perfdata key (case-insensitive, so `used %` matches `C:\ used %`); `message` is text the check's message must contain (case-insensitive), for a check whose proof is what it prints rather than a perfdata key; `os` limits a check to some families (`linux` means Ubuntu and Rocky); `each: "<role>"` runs it once per machine of that companion role, with `${target.ip}`, `${target.name}` and `${target.password}` (its web password) filled in. |
 | `rest` | Requests to the agent's own API, run in order, for what a role delivers that no check reports. Each has a `path` (`/api/...`), a `method` (`GET` by default, `PUT` with a text `body`, or `DELETE`), an optional `status` (default 200), `contains` (text the body must hold; required with a 200), `excludes`, and `os` as on a check. Matching ignores case and reads a backslash as `/`, so one entry covers a Windows and a Linux listing. A GET is retried like a check; a PUT or DELETE only on a dropped connection or a lost session, never after it was answered. Recorded in `checks.json` as `<method> <path>`. |
+| `faults` | Misbehaviour to inflict and have the fleet server explain, run one at a time after the checks. Each has a `name`, `start` and `clear` (commands on the agent, usually scripts the bundle ships), a `check` (`command`, `args`, `expect`, default `CRITICAL`) that must fail while the fault is on and return OK after it is cleared, and `explain` with `mentions` (the explanation must name one) and `culprit` (recorded only); `os` as on a check. Needs the fleet server and an API key (see `faults` below). |
 | `localSettings` | `{ "<settings path>": { "<key>": "<value>" } }`, written into the host's own `nsclient.ini` with `nscp settings --set` right after the modules are activated. Use it only for a key the installer itself writes: a local key beats the same key from a bundle (`fleet.ini` is an include, and local settings win). |
 | `companions`, `companionOnly` | `{ "<role>": <count> }`: machines of other roles a suite of this one provisions alongside it (a hub's targets). `companionOnly: true` keeps a role out of `all`; it only comes with the role that needs it. |
 | `logs` | Per OS, extra files the log collection picks up (saved as `role-<file>`). |
@@ -455,6 +456,7 @@ bundles with its last machine.
 | `mssql` | Marketplace SQL Server 2022 Developer on Windows Server 2022 | All 13 CheckMSSQL commands, OK with perfdata, through a `[/settings/mssql]` bundle |
 | `hub` | Ubuntu with CheckNet, NRPEClient and NSCPClient, plus two `target` machines (Windows and Ubuntu) | `check_nrpe`, `check_remote_nscp` and `check_nsclient_web_online` from the hub to each target |
 | `scripts` | Windows, Ubuntu and Rocky with CheckExternalScripts, LUAScript and PythonScript | A bundle that ships a script of each kind plus the file each one depends on (a Python and a Lua helper in `lib`, a second shell/batch script called by relative path), run from the fleet tree through `[/settings/default] script root = fleet`; each check's message proves the dependency was reached |
+| `faults` | Windows and Ubuntu with a stand-in vendor app, *Acme Agent*, that misbehaves on demand | Four faults - a CPU hog, a memory hog, a full disk and a crash-looping service - each fail their check, reach the fleet server as failure context with a metrics snapshot, and are explained by `POST /api/explain` from that report, the snapshot and the host's facts |
 
 Notes on `mssql`:
 
@@ -503,6 +505,60 @@ Notes on `scripts`:
   functions `tests/live/estate.test.ts` uses. A change that breaks the role's
   descriptor fails there first; an estate run is left to prove the real fleet
   server, the packages and the operating systems.
+
+Notes on `faults`:
+
+- It tests the fleet server as much as the agent: what an operator gets back
+  when they paste an alert into a host's **Context** tab. It needs a fleet
+  server with failure context and explanations, and an agent build that sends
+  failure context (`-FromMain` or `-BuildRunId` until a release has it). On
+  the tenant, explanations must be switched on with a provider and a key
+  (*Settings* in the fleet console, or `PUT /api/settings/explain`), and its
+  `min_interval_secs` must stay at or below half of
+  `NSCP_ESTATE_FAULT_WAIT_SECONDS` (150 s by default). A run costs one model
+  call per fault per machine, so eight calls in all. When the tenant is not
+  ready, every fault fails and says why before anything is switched on.
+- The install fragment puts in a fake vendor app, *Acme Agent*. On Ubuntu it
+  is a real `.deb` (`acme-agent`). On Windows it is two programs compiled
+  from C# with `Add-Type` plus an *Uninstall* registry entry. Either way it
+  shows up in `software.installed`, and its `acme-sync` service in
+  `services.installed`. The bundle turns those fact sets on, together with
+  `os`, `hardware`, `network.interfaces` and `storage.volumes`. The CPU and
+  memory hogs run under Acme's own process names (`acme-indexer`,
+  `acme-cache`), so a model reading the snapshot's process list can name
+  the culprit.
+- The bundle ships `fault.sh` / `fault.bat` (with `fault.ps1`), registered as
+  `fault_<cpu|memory|disk|service|clear>_<sh|bat>`. jest runs them through
+  the agent itself, so a fault is switched on without RunCommand or SSH. A
+  started fault is detached from the agent: in its own session on Linux,
+  created through WMI on Windows. Each one also ends by itself after an hour.
+  The Linux agent runs them as `nsclient`, so `/var/lib/acme` is
+  world-writable, and `acme-sync` crash-loops on a trigger file and heals
+  itself once the file is removed. No step needs root.
+- `localSettings` sets `capture metrics = true` and `prune metrics = zeros,
+  empty, duplicates` under `[/settings/core/failed checks]`, and
+  `failure context interval = 20s` under `[/settings/fleet]`. The interval is
+  read only at start, which is why it is a local key and not part of the
+  bundle.
+- No scheduler runs on the machine, so the only failed checks are the ones
+  jest runs. The faults run one at a time:
+  1. `clear` switches off anything a previous run left on.
+  2. The fault is switched on.
+  3. Its check runs every 10 s until it fails, and keeps running until the
+     fleet server holds a report of it in that state with
+     `context_state = captured`.
+  4. `POST /api/explain` is called with the alert a monitoring system would
+     have raised.
+  5. The fault is cleared, and its check must come back OK before the next
+     fault starts. That way each explanation's snapshot shows only its own
+     fault.
+- An explanation passes when it rests on the right evidence and names what
+  the fault is about. The right evidence is the check's own report, a
+  snapshot and the agent's facts. "What the fault is about" is a `mentions`
+  word: `cpu`, `memory`, `disk`, `acme-sync`. Whether it also names the
+  culprit (`culprit`) is recorded, not required. The point is to see what
+  comes back: jest prints every explanation, and the gate keeps them in
+  `<machine>/explanations.json` next to `checks.json`.
 
 Notes on `hub`:
 

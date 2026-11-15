@@ -1123,7 +1123,10 @@ void nsclient::core::plugin_manager::record_failures(const PB::Commands::QueryRe
                                                      const std::string &subject) {
   if (!failures_ || response.payload_size() == 0) return;
   try {
-    failures_->record_message(request, response, subject, query_depth > 0 ? static_cast<int>(query_depth) - 1 : 0);
+    // The snapshot is only looked up when it will be kept: a store that does
+    // not capture marks the entry DISABLED either way.
+    const metrics_snapshot_ptr context = snapshots_ && failures_->captures_metrics() ? snapshots_->latest() : metrics_snapshot_ptr();
+    failures_->record_message(request, response, subject, query_depth > 0 ? static_cast<int>(query_depth) - 1 : 0, failed_check_store::now(), context);
   } catch (const std::exception &e) {
     LOG_ERROR_CORE("Failed to record a failed check: " + utf8::utf8_from_native(e.what()));
   } catch (...) {

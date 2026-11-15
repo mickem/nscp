@@ -268,9 +268,11 @@ NSClientT::NSClientT()
       storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)),
       tags_(new nsclient::core::tag_repository()),
       facts_(new nsclient::core::fact_repository()),
-      failures_(new nsclient::core::failed_check_store()) {
+      failures_(new nsclient::core::failed_check_store()),
+      snapshots_(new nsclient::core::metrics_snapshot_store()) {
   plugins_->set_fact_repository(facts_);
   plugins_->set_failed_check_store(failures_);
+  plugins_->set_metrics_snapshot_store(snapshots_);
   provider_ = new nscp_settings_provider(path_, log_instance_);
   log_instance_->startup();
 }
@@ -663,6 +665,40 @@ void NSClientT::boot_failed_checks() {
                                                "someone to act. OK is never recorded.",
                                                nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses), true,
                                                false);
+    settings_manager::get_core()->register_key(
+        0xffff, path, "capture metrics", "bool", "Record the system's metrics with each failure",
+        "Keep the agent's latest metrics snapshot (what /api/v2/metrics serves: CPU, memory, disks, network, whatever the loaded modules publish) "
+        "with every failed check, so the log shows what the system looked like when it failed. The snapshot is at most one `metrics interval` "
+        "older than the failure, and failures within the same interval share one. Off by default: a snapshot can hold host details (names, "
+        "versions, addresses) that the check output alone does not, and it is reported to an enrolled fleet server along with the failure.",
+        "false", true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "metrics context budget", "int", "Memory for metrics snapshots (bytes)",
+                                               "The most the log spends on snapshots, counting each distinct snapshot once however many failures refer "
+                                               "to it. Once it is used up the oldest snapshots are released and their failures stay in the log, "
+                                               "marked as evicted. Clamped to " +
+                                                   str::xtos(nsclient::core::failed_check_store::min_context_budget) + "-" +
+                                                   str::xtos(nsclient::core::failed_check_store::max_context_budget) + ".",
+                                               str::xtos(nsclient::core::failed_check_store::default_context_budget), true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "max context size", "int", "Largest snapshot kept (bytes)",
+                                               "A snapshot larger than this is not kept, and the failure is marked as too large. Never more than the "
+                                               "budget.",
+                                               str::xtos(nsclient::core::failed_check_store::default_max_context_size), true, false);
+    settings_manager::get_core()->register_key(
+        0xffff, path, "prune metrics", "string", "Trim the metrics kept with a failure",
+        "A comma-separated list of rules applied to a snapshot before it is kept with a failure, and so before it is reported to a fleet "
+        "server: zeros drops every numeric value that is 0, empty every empty string, and duplicates every metric that only restates others "
+        "(memory avail and %, a disk's free and percentages, CPU idle - used and total are kept) and every instance (a disk, an adapter, a "
+        "core) whose values are all identical to an earlier one in the same section - `_Total` and the only disk, a row of idle adapters. "
+        "The first instance is kept and the ones it stands for are listed with the context, so nothing is silently lost. Empty keeps the "
+        "snapshot whole; /api/v2/metrics is never pruned.",
+        "", true, false);
+    settings_manager::get_core()->register_key(
+        0xffff, path, "prune pattern", "string", "Leave out metrics matching",
+        "A comma-separated list of text: every metric whose key (as /api/v2/metrics shows it) contains one of them is left out of the "
+        "snapshot kept with a failure, ignoring the case of A-Z. Use it for the instances that are noise on your hosts, for example "
+        "`HarddiskVolume8,Hyper-V Virtual,VirtualBox`. Applied before `prune metrics`, so an excluded instance is never the one a "
+        "duplicate is collapsed into.",
+        "", true, false);
     read_failed_check_settings();
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Failed to configure the failed-check log: " + utf8::utf8_from_native(e.what()));
@@ -673,6 +709,16 @@ void NSClientT::boot_failed_checks() {
 
 void NSClientT::read_failed_check_settings() {
   const std::string path = "/settings/core/failed checks";
+  // A byte count. A value that does not parse keeps `value` as it was (the
+  // previous setting, or the default) and says so.
+  const auto read_size_setting = [this, &path](const std::string &key, const std::size_t fallback, std::size_t &value) {
+    const std::string text = settings_manager::get_settings()->get_string(path, key, str::xtos(fallback));
+    try {
+      value = str::stox<std::size_t>(text);
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid [" + path + "] " + key + " '" + text + "', keeping " + str::xtos(value) + ": " + utf8::utf8_from_native(e.what()));
+    }
+  };
   nsclient::core::failed_check_store::options options = failures_->get_options();
   try {
     options.enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "enabled", "true"));
@@ -685,6 +731,16 @@ void NSClientT::read_failed_check_settings() {
       LOG_ERROR_CORE_STD("Invalid [" + path + "] max entries '" + max_entries + "', keeping " + str::xtos(options.max_entries) + ": " +
                          utf8::utf8_from_native(e.what()));
     }
+    options.capture_metrics = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "capture metrics", "false"));
+    read_size_setting("metrics context budget", nsclient::core::failed_check_store::default_context_budget, options.context_budget);
+    read_size_setting("max context size", nsclient::core::failed_check_store::default_max_context_size, options.max_context_size);
+    const std::string prune = settings_manager::get_settings()->get_string(path, "prune metrics", "");
+    std::string prune_error;
+    if (!nsclient::core::metrics_prune::parse(prune, options.prune, prune_error)) {
+      LOG_ERROR_CORE_STD("Invalid [" + path + "] prune metrics '" + prune + "', keeping '" + nsclient::core::metrics_prune::format(options.prune) +
+                         "': " + prune_error);
+    }
+    options.prune.patterns = nsclient::core::metrics_prune::parse_patterns(settings_manager::get_settings()->get_string(path, "prune pattern", ""));
     const std::string statuses = settings_manager::get_settings()->get_string(
         path, "statuses", nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses));
     std::string error;
@@ -774,6 +830,22 @@ void NSClientT::boot_fleet_sync() {
     // this agent may take its configuration over an unauthenticated channel is
     // one question, and the fleet channel is the same channel by another name.
     config.allow_plaintext = settings_manager::get_core()->get_allow_plaintext();
+    settings_manager::get_core()->register_key(
+        0xffff, path, "failure context", "bool", "Send failure context",
+        "Send the fleet server a failed check from [/settings/core/failed checks], with the metrics snapshot it was recorded with when capture "
+        "metrics is on there, and a summary of the other failures since the last report. Only to a server that asks for it, and at most once "
+        "per `failure context interval`. Read when the service starts.",
+        "true", true, false);
+    config.failure_context = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "failure context", "true"));
+    const std::string failure_interval = reg_key("failure context interval", "Failure report interval",
+                                                 "The least time between two failed-check reports to the fleet server (at least 5s; the server can ask "
+                                                 "for longer). Failures in between are summarised in the next report. Read when the service starts.",
+                                                 "1h");
+    try {
+      config.failure_context_interval = static_cast<unsigned long>(str::format::stox_as_time_sec<long>(failure_interval, "s"));
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Invalid fleet 'failure context interval' value '" + failure_interval + "', falling back to 1h: " + utf8::utf8_from_native(e.what()));
+    }
 
     std::string manifest_detail;
     const fleet_sync::manifest_status manifest = fleet_sync::check_manifest(config.state_file, manifest_detail);
@@ -789,7 +861,8 @@ void NSClientT::boot_fleet_sync() {
                          path_->expand_path("${data-path}") + ") and restart.");
       return;
     }
-    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, facts_, [this] { this->reload("delayed,service"); });
+    const std::shared_ptr<fleet_sync> sync =
+        std::make_shared<fleet_sync>(log_instance_, config, tags_, facts_, failures_, [this] { this->reload("delayed,service"); });
     {
       boost::mutex::scoped_lock lock(fleet_sync_mutex_);
       fleet_sync_ = sync;
@@ -1100,7 +1173,17 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   }
   return bundle;
 }
-void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
+void NSClientT::process_metrics() {
+  PB::Metrics::MetricsMessage snapshot = plugins_->process_metrics(ownMetricsFetcher());
+  // Kept only while something wants it: the failed-check log records the
+  // latest snapshot with each failure when `capture metrics` is on, and
+  // otherwise the core holds nothing between rounds.
+  if (failures_->captures_metrics()) {
+    snapshots_->store(std::move(snapshot), nsclient::core::failed_check_store::now(), failures_->get_options().prune);
+  } else {
+    snapshots_->reset();
+  }
+}
 void NSClientT::process_facts(const std::string &reason, const bool reread_max_size) {
   // One round, published whole: the fleet sync, polling on its own thread,
   // hashes and uploads the document as the last round left it until this one

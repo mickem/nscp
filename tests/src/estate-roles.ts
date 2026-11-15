@@ -52,6 +52,36 @@ export interface RoleRest {
   os?: string[];
 }
 
+/**
+ * Something the role's machine is made to do wrong, and what the fleet server
+ * must make of it: the `start` command switches the fault on, `check` must
+ * then fail with `expect`, that failure must reach the fleet server as
+ * failure context with its metrics snapshot, and `POST /api/explain` must
+ * explain it. `clear` switches it off again, after which `check` must come
+ * back OK. Run by live/estate.test.ts, in order, one at a time.
+ */
+export interface RoleFault {
+  name: string;
+  os?: string[];
+  /** A command on the agent (an external script the bundle ships) that switches the fault on. */
+  start: string;
+  /** The command that switches every fault off again. */
+  clear: string;
+  check: { command: string; args?: Record<string, string | string[]>; expect?: string };
+  explain?: {
+    /**
+     * The explanation must name at least one of these (case-insensitively,
+     * in its summary, evidence or causes): it is about the right thing.
+     */
+    mentions?: string[];
+    /**
+     * Recorded, not required: whether the explanation also names one of
+     * these - the culprit, which only the snapshot or the facts can give away.
+     */
+    culprit?: string[];
+  };
+}
+
 export interface Role {
   name: string;
   os: string[];
@@ -61,6 +91,7 @@ export interface Role {
   bundle?: { settings?: Record<string, unknown>; scripts?: string };
   checks?: RoleCheck[];
   rest?: RoleRest[];
+  faults?: RoleFault[];
 }
 
 export function readRole(name: string, rolesDir = ESTATE_ROLES_DIR): Role {

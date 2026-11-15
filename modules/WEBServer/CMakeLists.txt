@@ -96,7 +96,7 @@ if(WIN32)
         tags_controller.hpp
         facts_controller.hpp
         failures_controller.hpp
-        perf_json.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/perf_json.hpp
         settings_controller.hpp
         metrics_controller.hpp
         openmetrics_controller.hpp
@@ -154,6 +154,8 @@ NSCP_CREATE_TEST(
         openmetrics_renderer_test.cpp
         # The renderer's output read back through the scraper's parser.
         openmetrics_roundtrip_test.cpp
+        # The flat JSON renderer shared with the core (failed-check context).
+        ${NSCP_INCLUDEDIR}/metrics/metrics_json_test.cpp
         ${NSCP_INCLUDEDIR}/metrics/openmetrics_parser.cpp
         event_store.cpp
         event_store_test.cpp
