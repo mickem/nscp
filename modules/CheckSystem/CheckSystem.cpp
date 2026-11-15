@@ -288,6 +288,14 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "the ones with the largest working set, with their name, pid, CPU share, working set and private bytes - never their command line. "
         "Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Turns on "
         "the collector's per-process CPU sampling ('process cpu'), which it needs: one extra process-table query a second.")
+  .add_bool("services", sh::bool_key(&fresh->diagnostics_services, false),
+        "SERVICES IN TROUBLE",
+        "Produce the services.problems diagnostics table: the services that are not where they should be - what check_service flags by default "
+        "(an automatic service that is not running, unless it is delayed or trigger-started and stopped cleanly), and any service that stopped "
+        "with an error - with their state, exit code, executable (never its arguments), account and when their process started. Read from the "
+        "service control manager every 30 seconds by the collector, opening only the services whose status already looks wrong. Kept with a "
+        "failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. The service events "
+        "(services.events) come from CheckEventLog: [/settings/eventlog/diagnostics] services.")
   ;
 
   settings.alias().add_key_to_settings()
@@ -1543,8 +1551,9 @@ void CheckSystem::fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response
   // this copies the last result. Nothing while the section is off, which is
   // how the core learns it was switched off.
   const std::shared_ptr<pdh_thread> collector = get_collector();
-  if (!collector || !collector->diagnostics_processes) return;
-  process_tables::add_sections(response, collector->get_process_tables());
+  if (!collector) return;
+  if (collector->diagnostics_processes) process_tables::add_sections(response, collector->get_process_tables());
+  if (collector->diagnostics_services) service_tables::add_section(response, collector->get_service_problems());
 }
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {

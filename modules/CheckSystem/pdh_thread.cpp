@@ -18,6 +18,7 @@
 
 #include "check_memory.hpp"
 #include "check_process.hpp"
+#include "check_service.h"
 #include "disable_list.hpp"
 #include "realtime_data.hpp"
 #include "settings.hpp"
@@ -793,9 +794,23 @@ void pdh_thread::aux_thread_proc() {
   // first failure and the recovery rather than an error every interval.
   std::unique_ptr<com_helper::mta_scope> com;
   bool com_failure_logged = false;
+  // services.problems: first refresh at once, then every refresh_seconds (on
+  // the first cycle after it is due).
+  ULONGLONG last_services_refresh = 0;
+  bool services_refreshed = false;
 
   DWORD wait_status;
   do {
+    // Before the WMI fetches below, which can stall on their providers; this
+    // needs no COM, only the service control manager.
+    if (diagnostics_services) {
+      const ULONGLONG now = nscpGetTickCount64();
+      if (!services_refreshed || now - last_services_refresh >= static_cast<ULONGLONG>(service_tables::refresh_seconds) * 1000) {
+        services_refreshed = true;
+        last_services_refresh = now;
+        refresh_service_problems();
+      }
+    }
     if (!com || !com->is_ready()) {
       com = std::make_unique<com_helper::mta_scope>();
       if (com->is_ready()) {
@@ -939,6 +954,27 @@ bool pdh_thread::is_disabled(const std::string &token) const { return disable_li
 process_tables::sample pdh_thread::get_process_tables() {
   const boost::lock_guard<boost::mutex> guard(process_tables_mutex_);
   return process_tables_;
+}
+
+void pdh_thread::refresh_service_problems() {
+  service_tables::sample fresh;
+  try {
+    fresh = service_checks::collect_problems();
+  } catch (const nsclient::nsclient_exception &e) {
+    fresh = service_tables::failed_sample(e.reason(), static_cast<std::int64_t>(std::time(nullptr)));
+  } catch (const std::exception &e) {
+    fresh = service_tables::failed_sample(utf8::utf8_from_native(e.what()), static_cast<std::int64_t>(std::time(nullptr)));
+  }
+  // Log a failure once, not every refresh, and its recovery.
+  const boost::lock_guard<boost::mutex> guard(service_problems_mutex_);
+  if (!fresh.error.empty() && fresh.error != service_problems_.error) NSC_LOG_ERROR("Failed to read the services for services.problems: " + fresh.error);
+  if (fresh.error.empty() && !service_problems_.error.empty()) NSC_LOG_MESSAGE("services.problems: reading the services again");
+  service_problems_ = std::move(fresh);
+}
+
+service_tables::sample pdh_thread::get_service_problems() {
+  const boost::lock_guard<boost::mutex> guard(service_problems_mutex_);
+  return service_problems_;
 }
 
 process_checks::cpu_delta_map pdh_thread::get_process_cpu_deltas() {

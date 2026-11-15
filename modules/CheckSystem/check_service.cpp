@@ -4,6 +4,10 @@
 #include "check_service.h"
 
 #include <algorithm>
+#include <cctype>
+#include <ctime>
+#include <str/format.hpp>
+#include <vector>
 
 #include "nscapi/protobuf/functions_query.hpp"
 #include "nsclient/nsclient_exception.hpp"
@@ -37,6 +41,42 @@ bool check_state_is_ok(const DWORD state, const DWORD start_type, const bool del
     if (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START) return true;
   }
   return check_state_is_perfect(state, start_type, trigger);
+}
+
+bool is_problem(const DWORD state, const DWORD start_type, const bool delayed, const bool trigger, const DWORD exit_code) {
+  const bool stopped_on_error = state == SERVICE_STOPPED && exit_code != NO_ERROR && exit_code != ERROR_SERVICE_NEVER_STARTED;
+  // A service whose configuration could not be read is judged on its status
+  // alone: without a start type there is nothing to say it should run.
+  if (start_type == win_list_services::start_type_unknown) return stopped_on_error;
+  // What check_service's default (`not state_is_ok()`) would flag...
+  if (!check_state_is_ok(state, start_type, delayed, trigger, exit_code)) return true;
+  // ...plus any service that stopped on an error: the default lets a delayed
+  // or trigger-start service, and every demand-start one, stop however it
+  // likes. "Never started" is how every demand-start service that was not
+  // needed yet reads, so it is not an error.
+  return stopped_on_error;
+}
+
+std::string binary_of(const std::string &image_path) {
+  std::string path = image_path;
+  const std::size_t first = path.find_first_not_of(" \t");
+  if (first == std::string::npos) return "";
+  path = path.substr(first);
+  if (path[0] == '"') {
+    const std::size_t close = path.find('"', 1);
+    return close == std::string::npos ? path.substr(1) : path.substr(1, close - 1);
+  }
+  // Unquoted: the executable ends at the first ".exe" that a space or the end
+  // follows - an unquoted path may itself hold spaces (C:\Program Files\...).
+  std::string lower = path;
+  std::transform(lower.begin(), lower.end(), lower.begin(), [](const char c) { return static_cast<char>(::tolower(static_cast<unsigned char>(c))); });
+  for (std::size_t at = lower.find(".exe"); at != std::string::npos; at = lower.find(".exe", at + 1)) {
+    const std::size_t end = at + 4;
+    if (end == lower.size() || lower[end] == ' ' || lower[end] == '\t') return path.substr(0, end);
+  }
+  // A driver (\SystemRoot\System32\drivers\x.sys) or something else: up to
+  // the first space.
+  return path.substr(0, path.find_first_of(" \t"));
 }
 
 // The value both state functions return when there is no service to look at.
@@ -252,4 +292,57 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
     add_count("pending_services", n_pending);
     add_count("service_count", n_total);
   }
+}
+
+namespace {
+// When a process started, seconds since the epoch; 0 when it cannot be opened
+// (a protected process, or one that exited since the walk).
+std::int64_t process_started(const DWORD pid) {
+  if (pid == 0) return 0;
+  const HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+  if (process == nullptr) return 0;
+  FILETIME created{}, exited{}, kernel{}, user{};
+  const BOOL ok = GetProcessTimes(process, &created, &exited, &kernel, &user);
+  CloseHandle(process);
+  if (!ok) return 0;
+  const unsigned long long ft = (static_cast<unsigned long long>(created.dwHighDateTime) << 32) | created.dwLowDateTime;
+  if (ft <= str::format::SECS_BETWEEN_EPOCHS * str::format::SECS_TO_100NS) return 0;
+  return static_cast<std::int64_t>(str::format::filetime_to_time(ft));
+}
+}  // namespace
+
+service_tables::service_row service_checks::check_svc_filter::to_problem_row(const win_list_services::service_info &info, const std::int64_t started) {
+  service_tables::service_row row;
+  row.name = info.name;
+  row.state = info.get_state_s();
+  // A service that reported an error of its own says so with
+  // ERROR_SERVICE_SPECIFIC_ERROR; its own code is the informative one.
+  row.has_exit_code = true;
+  row.exit_code =
+      info.exit_code == ERROR_SERVICE_SPECIFIC_ERROR ? static_cast<std::int64_t>(info.service_exit_code) : static_cast<std::int64_t>(info.exit_code);
+  row.binary_path = binary_of(info.binary_path);
+  row.account = info.account;
+  row.started = started;
+  // The service control manager keeps no restart count.
+  row.has_restart_count = false;
+  return row;
+}
+
+service_tables::sample service_checks::collect_problems() {
+  // Cheap first pass on the status alone: a running service, and one that
+  // stopped cleanly, is not a problem whatever its start type, so only the
+  // rest are opened for their configuration. (A disabled service that is
+  // still running is the one case is_problem() flags that this lets through:
+  // it would cost opening every running service every refresh.)
+  const auto suspect = [](const SERVICE_STATUS_PROCESS &s) {
+    if (s.dwCurrentState == SERVICE_RUNNING) return false;
+    if (s.dwCurrentState == SERVICE_STOPPED && s.dwWin32ExitCode == NO_ERROR) return false;
+    return true;
+  };
+  std::vector<service_tables::service_row> rows;
+  for (const win_list_services::service_info &info : win_list_services::enum_services_where(SERVICE_WIN32, suspect)) {
+    if (!check_svc_filter::is_problem(info.state, info.start_type, info.delayed, info.triggers > 0, info.exit_code)) continue;
+    rows.push_back(check_svc_filter::to_problem_row(info, process_started(info.pid)));
+  }
+  return service_tables::make_sample(rows, static_cast<std::int64_t>(std::time(nullptr)));
 }

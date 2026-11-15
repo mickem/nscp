@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <functional>
 #include <list>
 #include <str/xtos.hpp>
 #include <string>
@@ -40,7 +41,9 @@ struct service_info {
         delayed(other.delayed),
         triggers(other.triggers),
         exit_code(other.exit_code),
+        service_exit_code(other.service_exit_code),
         binary_path(other.binary_path),
+        account(other.account),
         classification_(other.classification_) {}
 
   DWORD pid;
@@ -51,8 +54,14 @@ struct service_info {
   bool delayed;
   DWORD triggers;
   DWORD exit_code;
+  // The service's own exit code, meaningful when exit_code is
+  // ERROR_SERVICE_SPECIFIC_ERROR.
+  DWORD service_exit_code = 0;
 
   std::string binary_path;
+  // The account the service runs as (lpServiceStartName): LocalSystem,
+  // NT AUTHORITY\LocalService, .\user, ...
+  std::string account;
   std::string classification_;
 
   std::string show() const {
@@ -84,4 +93,17 @@ DWORD parse_service_state(const std::string &str = "all");
 std::list<service_info> enum_services(const std::string &computer, DWORD dwServiceType, DWORD dwServiceState, const std::vector<std::string> &excludes,
                                       bool strict_config = false);
 service_info get_service_info(const std::string &computer, const std::string &service);
+
+// The start type enum_services_where reports for a service whose
+// configuration it could not read (0 is SERVICE_BOOT_START).
+static constexpr DWORD start_type_unknown = 0xFFFFFFFF;
+
+// The local services of `dwServiceType` that `want` picks from their status
+// alone, with their configuration (start type, binary path, account, delayed
+// start, triggers) read for those only - so a caller that wants a handful of
+// services does not open every one. Unlike enum_services, a service that
+// cannot be opened or queried does not end the walk: it is returned with
+// what its status said and start_type_unknown. For a collector that must not lose
+// its whole table to one locked-down service.
+std::list<service_info> enum_services_where(DWORD dwServiceType, const std::function<bool(const SERVICE_STATUS_PROCESS &)> &want);
 }  // namespace win_list_services

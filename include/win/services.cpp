@@ -400,6 +400,7 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
           info.state = data[i].ServiceStatusProcess.dwCurrentState;
           info.type = data[i].ServiceStatusProcess.dwServiceType;
           info.exit_code = data[i].ServiceStatusProcess.dwWin32ExitCode;
+          info.service_exit_code = data[i].ServiceStatusProcess.dwServiceSpecificExitCode;
 
           service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
           if (!hService) throw nsclient::nsclient_exception("Failed to open service: " + info.name);
@@ -408,6 +409,7 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
             hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> qscData = queryServiceConfig(hService, info.name);
             info.start_type = qscData.get()->dwStartType;
             info.binary_path = from_wide(qscData.get()->lpBinaryPathName);
+            info.account = from_wide(qscData.get()->lpServiceStartName);
             info.error_control = qscData.get()->dwErrorControl;
           } catch (std::exception &e) {
             if (strict_config) throw;
@@ -467,13 +469,67 @@ service_info get_service_info(const std::string &computer, const std::string &se
   info.state = ssp.get()->dwCurrentState;
   info.type = ssp.get()->dwServiceType;
   info.exit_code = ssp.get()->dwWin32ExitCode;
+  info.service_exit_code = ssp.get()->dwServiceSpecificExitCode;
   info.start_type = data2->dwStartType;
   info.binary_path = from_wide(data2->lpBinaryPathName);
+  info.account = from_wide(data2->lpServiceStartName);
   info.error_control = data2->dwErrorControl;
 
   fetch_delayed(hService, info);
   fetch_triggers(hService, info);
   return info;
+}
+
+std::list<service_info> enum_services_where(const DWORD dwServiceType, const std::function<bool(const SERVICE_STATUS_PROCESS &)> &want) {
+  std::list<service_info> ret;
+  const service_handle sc = OpenSCManager(nullptr, nullptr, SC_MANAGER_ENUMERATE_SERVICE);
+  if (!sc) throw nsclient::nsclient_exception("Failed to open service manager: " + error::lookup::last_error());
+
+  detail::enumerate_paged_services(
+      [&](LPBYTE buf, DWORD buf_size, DWORD &handle) -> detail::enum_page_status {
+        DWORD bytes_needed = 0;
+        DWORD count = 0;
+        const BOOL b = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, SERVICE_STATE_ALL, buf, buf_size, &bytes_needed, &count,
+                                                             &handle, nullptr);
+        detail::enum_page_status r;
+        r.success = b != FALSE;
+        r.last_error = r.success ? 0 : GetLastError();
+        r.bytes_needed = bytes_needed;
+        r.count = count;
+        return r;
+      },
+      [&](const BYTE *page, DWORD count) {
+        const auto *data = reinterpret_cast<const ENUM_SERVICE_STATUS_PROCESS *>(page);
+        for (DWORD i = 0; i < count; ++i) {
+          const SERVICE_STATUS_PROCESS &status = data[i].ServiceStatusProcess;
+          if (!want(status)) continue;
+          service_info info(from_wide(data[i].lpServiceName), from_wide(data[i].lpDisplayName));
+          info.pid = status.dwProcessId;
+          info.state = status.dwCurrentState;
+          info.type = status.dwServiceType;
+          info.exit_code = status.dwWin32ExitCode;
+          info.service_exit_code = status.dwServiceSpecificExitCode;
+          // A service whose security descriptor does not let this account
+          // read its configuration keeps what its status said.
+          info.start_type = start_type_unknown;
+          const service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
+          if (hService) {
+            try {
+              const hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> qscData = queryServiceConfig(hService, info.name);
+              info.start_type = qscData.get()->dwStartType;
+              info.binary_path = from_wide(qscData.get()->lpBinaryPathName);
+              info.account = from_wide(qscData.get()->lpServiceStartName);
+              info.error_control = qscData.get()->dwErrorControl;
+              fetch_delayed(hService, info);
+              fetch_triggers(hService, info);
+            } catch (const std::exception &) {
+              info.start_type = start_type_unknown;
+            }
+          }
+          ret.push_back(info);
+        }
+      });
+  return ret;
 }
 
 long long service_info::parse_start_type(const std::string &s) {

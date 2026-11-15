@@ -11,6 +11,7 @@
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
 #include <diagnostics/process_tables.hpp>
+#include <diagnostics/service_tables.hpp>
 #include <map>
 #include <memory>
 #include <nscapi/settings/proxy.hpp>
@@ -153,6 +154,9 @@ class pdh_thread {
   // sample into the top-CPU and top-memory tables every tick. Forces
   // process_cpu_enabled on (see CheckSystem::loadModuleEx).
   bool diagnostics_processes = false;
+  // [/settings/system/windows/diagnostics] services: re-read the services in
+  // trouble every service_tables::refresh_seconds on the auxiliary thread.
+  bool diagnostics_services = false;
   int min_threshold_;
   std::string subsystem;
   std::string disable_;
@@ -213,6 +217,9 @@ class pdh_thread {
   // The last ranked process sample (captured_at 0 before the first two
   // samples, or while diagnostics_processes is off).
   process_tables::sample get_process_tables();
+  // The last services.problems refresh (captured_at 0 before the first one, or
+  // while diagnostics_services is off).
+  service_tables::sample get_service_problems();
   metrics_hash get_metrics();
   // The help and unit of every configured counter, for the metrics walk.
   counter_meta_map get_counter_meta();
@@ -319,6 +326,11 @@ class pdh_thread {
   // collector holding mutex_.
   boost::mutex process_tables_mutex_;
   process_tables::sample process_tables_;
+  // services.problems, refreshed by aux_thread_proc and copied by
+  // fetchDiagnostics, under its own mutex for the same reason.
+  boost::mutex service_problems_mutex_;
+  service_tables::sample service_problems_;
+  void refresh_service_problems();
   // Diff the current system-process table against the previous tick and publish
   // a rolling 1 second CPU% per PID into proc_cpu_deltas_.
   void sample_process_cpu(error_list &errors);

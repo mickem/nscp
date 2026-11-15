@@ -121,6 +121,22 @@ async function section(key: string, name: string, rows = 1): Promise<Json> {
   });
 }
 
+/** `captured_at` is an ISO timestamp from the last few minutes, not the future. */
+function expectRecent(capturedAt: unknown): void {
+  expect(capturedAt as string).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+  const at = Date.parse(capturedAt as string);
+  expect(at).toBeGreaterThan(Date.now() - 10 * 60_000);
+  expect(at).toBeLessThan(Date.now() + 60_000);
+}
+
+function expectColumns(body: Json, expected: [string, string][]): void {
+  const columns = (body.columns as Json[]).map((c) => [c.name, c.type]);
+  expect(columns).toEqual(expected);
+  for (const row of body.rows as Json[]) {
+    expect(Object.keys(row).sort()).toEqual(expected.map(([name]) => name).sort());
+  }
+}
+
 function expectProcessTable(body: Json, sortedBy: "cpu" | "working_set"): void {
   expect(typeof body.source).toBe("string");
   expect(body.error).toBeUndefined();
@@ -195,7 +211,7 @@ describe("REST diagnostics", () => {
     });
   });
 
-  describe("capture diagnostics on, processes on", () => {
+  describe("capture diagnostics on, every table on", () => {
     let nscp: NscpInstance;
     let key = "";
 
@@ -205,7 +221,7 @@ describe("REST diagnostics", () => {
         : "/settings/system/unix/diagnostics";
       ({ nscp, key } = await startAgent(
         { "capture diagnostics": "true", "diagnostics rows": "5" },
-        { [diagnosticsPath]: { processes: "true" } },
+        { [diagnosticsPath]: { processes: "true", services: "true" } },
       ));
     });
 
@@ -260,6 +276,34 @@ describe("REST diagnostics", () => {
     it("publishes the top processes by CPU and by memory", async () => {
       expectProcessTable(await section(key, "processes.top_cpu"), "cpu");
       expectProcessTable(await section(key, "processes.top_memory"), "working_set");
+    });
+
+    it("publishes the services in trouble (services.problems)", async () => {
+      // A healthy machine has none: the table exists, with its columns, and
+      // says when it was read. Rows are only checked for their shape.
+      if (!onWindows) return;
+      const body = await section(key, "services.problems", 0);
+      expect(body.error).toBeUndefined();
+      expectRecent(body.captured_at);
+      expectColumns(body, [
+        ["name", "string"],
+        ["state", "string"],
+        ["exit_code", "int"],
+        ["binary_path", "string"],
+        ["account", "string"],
+        ["started", "timestamp"],
+        ["restart_count", "int"],
+      ]);
+      for (const row of body.rows as Json[]) {
+        expect(typeof row.name).toBe("string");
+        expect(typeof row.state).toBe("string");
+        // Never a command line: an executable has no arguments after it.
+        if (onWindows) {
+          expect(row.binary_path as string).not.toMatch(/\.exe\s/i);
+          // The service control manager keeps no restart count.
+          expect(row.restart_count).toBeNull();
+        }
+      }
     });
 
     it("records a failure with the snapshot, readable with failures.list", async () => {

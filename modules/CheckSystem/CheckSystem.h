@@ -115,7 +115,8 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 
   // Diagnostics ([/settings/system/windows/diagnostics]): copies the
-  // collector's last ranked process sample, never walks the table itself.
+  // collector's last ranked process sample and its last services.problems
+  // refresh, never walks the process table or the services itself.
   void fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response);
 
   // Legacy checks
