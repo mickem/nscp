@@ -12,18 +12,37 @@
  * request arrived: both read what the last round left. The core always adds
  * `failures.recent`; the process tables come from CheckSystem (Windows) and
  * CheckSystemUnix once [/settings/system/<os>/diagnostics] processes is on.
+ * The services and event tables: services.problems from the same modules
+ * (`services`), services.events and eventlog.errors from CheckEventLog
+ * ([/settings/eventlog/diagnostics] services, errors) on Windows and from
+ * CheckSystemUnix's journal reader (`services`, `errors`) on Linux - which
+ * produces none of the three on a host without systemd.
  * Rounds run with the 1s metrics round here, so every wait below polls with a
  * deadline rather than sleeping a fixed time.
  */
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import request from "supertest";
 
-import { NscpInstance, REST_URL, eventIdAllocator, resolveEventLogSource, writeEventLogEntry } from "@fixtures/index";
+import {
+  NscpInstance,
+  REST_URL,
+  eventIdAllocator,
+  resolveEventLogSource,
+  writeEventLogEntry,
+} from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
 type Json = Record<string, unknown>;
 
 const onWindows = process.platform === "win32";
+/**
+ * Whether this host has the services and event tables: Windows always, Linux
+ * when it runs systemd. A host without systemd produces none of them.
+ */
+const hasSystemTables =
+  onWindows || (process.platform === "linux" && fs.existsSync("/run/systemd/system"));
 
 function config(
   failed: Record<string, string>,
@@ -121,6 +140,12 @@ async function section(key: string, name: string, rows = 1): Promise<Json> {
     const body = response.body as Json;
     return (body.rows as Json[]).length >= rows ? body : undefined;
   });
+}
+
+/** A section the snapshots do not hold, once a round has run. */
+async function absent(key: string, name: string): Promise<void> {
+  await section(key, "failures.recent", 0);
+  await get(key, `/api/v2/diagnostics/${name}`, 404);
 }
 
 /** `captured_at` is an ISO timestamp from the last few minutes, not the future. */
@@ -224,8 +249,16 @@ describe("REST diagnostics", () => {
       ({ nscp, key } = await startAgent(
         { "capture diagnostics": "true", "diagnostics rows": "5" },
         {
-          [diagnosticsPath]: { processes: "true", services: "true" },
-          ...(onWindows ? { "/settings/eventlog/diagnostics": { services: "true", errors: "true" } } : {}),
+          // Linux: CheckSystemUnix produces all three services and event
+          // tables; on Windows the events are CheckEventLog's.
+          [diagnosticsPath]: {
+            processes: "true",
+            services: "true",
+            ...(onWindows ? {} : { errors: "true" }),
+          },
+          ...(onWindows
+            ? { "/settings/eventlog/diagnostics": { services: "true", errors: "true" } }
+            : {}),
         },
       ));
     });
@@ -284,9 +317,13 @@ describe("REST diagnostics", () => {
     });
 
     it("publishes the services in trouble (services.problems)", async () => {
+      // A host without systemd produces no table at all.
+      if (!hasSystemTables) {
+        await absent(key, "services.problems");
+        return;
+      }
       // A healthy machine has none: the table exists, with its columns, and
       // says when it was read. Rows are only checked for their shape.
-      if (!onWindows) return;
       const body = await section(key, "services.problems", 0);
       expect(body.error).toBeUndefined();
       expectRecent(body.captured_at);
@@ -307,13 +344,19 @@ describe("REST diagnostics", () => {
           expect(row.binary_path as string).not.toMatch(/\.exe\s/i);
           // The service control manager keeps no restart count.
           expect(row.restart_count).toBeNull();
+        } else {
+          expect(row.binary_path as string).not.toMatch(/\s/);
+          expect(row.name as string).not.toMatch(/\.service$/);
         }
       }
     });
 
     it("publishes the service crash events (services.events)", async () => {
+      if (!hasSystemTables) {
+        await absent(key, "services.events");
+        return;
+      }
       // A healthy machine may have none in the last ten minutes.
-      if (!onWindows) return;
       const body = await section(key, "services.events", 0);
       expect(body.error).toBeUndefined();
       expectRecent(body.captured_at);
@@ -324,13 +367,18 @@ describe("REST diagnostics", () => {
         ["message", "string"],
       ]);
       for (const row of body.rows as Json[]) {
-        expect([7031, 7034, 7024]).toContain(row.id);
+        if (onWindows) expect([7031, 7034, 7024]).toContain(row.id);
+        // A journal entry has no event id.
+        else expect(row.id).toBeNull();
         expect(typeof row.service).toBe("string");
       }
     });
 
     it("publishes the last errors written to the logs (eventlog.errors)", async () => {
-      if (!onWindows) return;
+      if (!hasSystemTables) {
+        await absent(key, "eventlog.errors");
+        return;
+      }
       const body = await section(key, "eventlog.errors", 0);
       expect(body.error).toBeUndefined();
       expectRecent(body.captured_at);
@@ -343,20 +391,61 @@ describe("REST diagnostics", () => {
         ["message", "string"],
       ]);
 
-      // Write an error of our own and watch it arrive. The source has no
-      // message for our id, so the message is the event's own string; the
-      // level and log are the agent's words, not the host's language.
-      const source = resolveEventLogSource();
-      const id = eventIdAllocator(20000).base;
-      const marker = `nscp-diagnostics-${id}`;
-      expect(writeEventLogEntry(source, id, "Error", marker)).toBe(true);
+      // Write an error of our own and watch it arrive.
+      if (onWindows) {
+        // The source has no message for our id, so the message is the
+        // event's own string; the level and log are the agent's words, not
+        // the host's language.
+        const source = resolveEventLogSource();
+        const id = eventIdAllocator(20000).base;
+        const marker = `nscp-diagnostics-${id}`;
+        expect(writeEventLogEntry(source, id, "Error", marker)).toBe(true);
+        const row = await until("the injected error in eventlog.errors", async () => {
+          const s = await section(key, "eventlog.errors", 0);
+          return (s.rows as Json[]).find((r) => r.id === id && r.source === source);
+        });
+        expect(row.log).toEqual("Application");
+        expect(row.level).toEqual("error");
+        expect(row.message as string).toContain(marker);
+        expectRecent(row.time);
+        return;
+      }
+      // Linux: the agent runs as this user, so it sees the entry only where
+      // this user can read the system journal (root, adm, systemd-journal).
+      const marker = `nscp-diagnostics-${process.pid}-${Date.now()}`;
+      execFileSync("logger", ["-p", "user.err", "-t", "nscp-diagnostics", marker]);
+      const visible = await until(
+        "the injected entry in the journal",
+        async () => {
+          const out = execFileSync(
+            "journalctl",
+            [
+              "--quiet",
+              "--no-pager",
+              "--output=cat",
+              "--since=-5min",
+              "SYSLOG_IDENTIFIER=nscp-diagnostics",
+            ],
+            {
+              encoding: "utf8",
+            },
+          );
+          if (out.includes(marker)) return true;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          return undefined;
+        },
+        10_000,
+      ).catch(() => false);
+      if (!visible) return;
       const row = await until("the injected error in eventlog.errors", async () => {
         const s = await section(key, "eventlog.errors", 0);
-        return (s.rows as Json[]).find((r) => r.id === id && r.source === source);
+        return (s.rows as Json[]).find(
+          (r) => typeof r.message === "string" && (r.message as string).includes(marker),
+        );
       });
-      expect(row.log).toEqual("Application");
-      expect(row.level).toEqual("error");
-      expect(row.message as string).toContain(marker);
+      expect(row.source).toEqual("nscp-diagnostics");
+      expect(row.level).toEqual("err");
+      expect(row.id).toBeNull();
       expectRecent(row.time);
     });
 

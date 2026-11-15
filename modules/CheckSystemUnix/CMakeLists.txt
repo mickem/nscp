@@ -39,6 +39,8 @@ set(SRCS
     check_process_history.cpp
     pressure.cpp
     process_top.cpp
+    diagnostics_systemd.cpp
+    diagnostics_thread.cpp
     system_facts.cpp
     software_facts_unix.cpp
     ${NSCP_INCLUDEDIR}/facts/service_facts.cpp
@@ -67,6 +69,7 @@ if(APPLE)
         interfaces_darwin.cpp
         pressure_source_darwin.cpp
         process_top_source_darwin.cpp
+        diagnostics_source_darwin.cpp
     )
     set(PLATFORM_TEST_SRCS
         darwin_sources_test.cpp
@@ -90,6 +93,7 @@ else()
         network_facts_linux.cpp
         pressure_source_linux.cpp
         process_top_source_linux.cpp
+        diagnostics_source_linux.cpp
     )
     set(PLATFORM_TEST_SRCS service_facts_linux_test.cpp systemd_units_linux_test.cpp)
     set(PLATFORM_LIBS)
@@ -146,6 +150,7 @@ target_link_libraries(
     ${Boost_REGEX_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_JSON_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${NSCP_FILTER_LIB}
     expression_parser
@@ -203,6 +208,8 @@ NSCP_CREATE_TEST(
         pressure_test.cpp
         process_top.cpp
         process_top_test.cpp
+        diagnostics_systemd.cpp
+        diagnostics_systemd_test.cpp
         realtime_thread.cpp
         realtime_thread_test.cpp
         realtime_data.cpp
@@ -230,6 +237,7 @@ NSCP_CREATE_TEST(
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_REGEX_LIBRARY}
+        ${Boost_JSON_LIBRARY}
         ${PLATFORM_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}

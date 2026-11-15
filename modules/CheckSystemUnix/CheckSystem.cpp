@@ -62,6 +62,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   bool facts_network_interfaces = false;
   bool facts_software_installed = false;
   bool facts_services_installed = false;
+  bool diagnostics_services = false;
+  bool diagnostics_errors = false;
 
   // Start the CPU collector thread. On a reload the previous collector is
   // still running; stop it before it is replaced. Publish the replacement
@@ -114,6 +116,22 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "command line. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is "
         "on. Turns on the sampling it needs: the collector reads /proc/<pid>/stat and statm of every process once a second while this is on, "
         "and nothing while it is off. Linux only; on macOS the tables report that they are not supported.")
+    .add_bool("services", sh::bool_key(&diagnostics_services, false),
+        "SERVICES IN TROUBLE",
+        "Produce the services.problems and services.events diagnostics tables. services.problems lists the systemd services that failed, are "
+        "waiting to be restarted, were restarted automatically (NRestarts) or whose last run did not succeed, with their state, exit status, "
+        "executable (ExecStart's path, never its arguments), user, start time and restart count; it is re-read every 30 seconds with two bounded "
+        "systemctl calls. services.events holds the service manager's journal messages for a unit that failed, exited or is being restarted, "
+        "with when, the service, and the message. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] "
+        "capture diagnostics is on. Run on a thread of its own, the journal read every 10 seconds from where the last read stopped; at start the "
+        "events are filled from the last ten minutes. Needs systemd: a host without it produces neither table.")
+    .add_bool("errors", sh::bool_key(&diagnostics_errors, false),
+        "JOURNAL ERRORS",
+        "Produce the eventlog.errors diagnostics table: the last journal entries at priority err or worse, with when, the unit that wrote them "
+        "(or kernel), the syslog identifier, the level and the message - which programs fill with whatever they like. Kept with a failed check "
+        "and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Read with journalctl every 10 seconds "
+        "on a thread of its own, the last 50 kept; at start it is filled from the last ten minutes. The agent must be able to read the system "
+        "journal (root, or the adm or systemd-journal group). Needs systemd: a host without it produces no table.")
     ;
 
   settings.alias().add_key_to_settings("facts")
@@ -176,6 +194,15 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     fresh->start();
   }
 
+  // The systemd diagnostics run on a thread of their own; a reload stops the
+  // running one before its replacement (or none) is published, so a section
+  // switched off is absent from the next round.
+  if (const std::shared_ptr<systemd_diagnostics::collector> previous = std::atomic_load(&diagnostics_)) previous->stop();
+  std::shared_ptr<systemd_diagnostics::collector> diagnostics;
+  if (diagnostics_services || diagnostics_errors) diagnostics = std::make_shared<systemd_diagnostics::collector>(diagnostics_services, diagnostics_errors);
+  std::atomic_store(&diagnostics_, diagnostics);
+  if (diagnostics && mode != NSCAPI::dontStart) diagnostics->start();
+
   // Which fact sets fetchFacts builds is configuration, so it is re-read on
   // every load, a reload included - turning a set off has to take effect
   // without a restart, and the core drops a set a producer stops returning.
@@ -224,6 +251,10 @@ bool CheckSystem::unloadModule() {
   if (collector) {
     collector->stop();
     std::atomic_store(&collector_, std::shared_ptr<pdh_thread>());
+  }
+  if (const std::shared_ptr<systemd_diagnostics::collector> diagnostics = std::atomic_load(&diagnostics_)) {
+    diagnostics->stop();
+    std::atomic_store(&diagnostics_, std::shared_ptr<systemd_diagnostics::collector>());
   }
   return true;
 }
@@ -351,8 +382,9 @@ void CheckSystem::fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response
   // this copies the last result. Nothing while the section is off, which is
   // how the core learns it was switched off.
   const std::shared_ptr<pdh_thread> collector = get_collector();
-  if (!collector || !collector->diagnostics_processes) return;
-  process_tables::add_sections(response, collector->get_process_tables());
+  if (collector && collector->diagnostics_processes) process_tables::add_sections(response, collector->get_process_tables());
+  // The services and journal tables: what the diagnostics thread last read.
+  if (const std::shared_ptr<systemd_diagnostics::collector> diagnostics = std::atomic_load(&diagnostics_)) diagnostics->add_sections(response);
 }
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {

@@ -11,6 +11,7 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 
+#include "diagnostics_thread.hpp"
 #include "filter_config_object.hpp"
 #include "realtime_thread.hpp"
 
@@ -22,6 +23,10 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   // last check that observed it returns, instead of freeing its buffers under
   // a check that is reading them.
   std::shared_ptr<pdh_thread> collector_;
+  // The services and journal diagnostics ([/settings/system/unix/diagnostics]
+  // services, errors); null while both are off. Published and read
+  // atomically, like the collector.
+  std::shared_ptr<systemd_diagnostics::collector> diagnostics_;
 
   // Configured timezone for `check_uptime`, cached in loadModuleEx (issue #365).
   // See `include/nscp_time.hpp` for the supported value syntax.
@@ -54,7 +59,8 @@ class CheckSystem : public nscapi::impl::simple_plugin {
   // Host facts
   void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
   // Diagnostics ([/settings/system/unix/diagnostics]): copies the collector's
-  // last ranked process sample, never walks /proc itself.
+  // last ranked process sample and what the diagnostics thread last read
+  // from systemctl and the journal; never walks /proc or runs a tool itself.
   void fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response);
 
   void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
