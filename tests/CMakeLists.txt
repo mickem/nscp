@@ -61,6 +61,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/failures_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy.cpp

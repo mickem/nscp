@@ -214,6 +214,7 @@ NSCP_CREATE_TEST(
         realtime_thread_test.cpp
         realtime_data.cpp
         filter_config_object.cpp
+        filter_config_object_test.cpp
         check_cpu.cpp
         check_memory.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp

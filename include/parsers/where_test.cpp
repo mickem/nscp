@@ -577,6 +577,64 @@ TEST(WhereParser, ModerateNestingWithinLimitParses) {
   EXPECT_TRUE(p.parse(make_factory(), expr));
 }
 
+// Only `str` as a whole word opens the literal form. A function whose name
+// merely ends in `str` is structure like any other call, so its parentheses
+// count toward the cap - otherwise `substr(((((...` would slip a deep nest
+// past the check.
+TEST(WhereParser, IdentifierEndingInStrIsNotTheStrLiteral) {
+  for (const char *name : {"substr", "x_str", "my2str"}) {
+    const std::string expr = std::string(name) + std::string(100, '(') + "1" + std::string(100, ')');
+    parser p;
+    EXPECT_FALSE(p.parse(make_factory(), expr)) << name;
+    EXPECT_NE(p.rest.find("depth"), std::string::npos) << name;
+  }
+}
+
+// `str(` after a non-identifier character (a space, an operator) is still the
+// literal, so its contents do not count.
+TEST(WhereParser, StrLiteralAfterAnOperatorDoesNotCountAsDepth) {
+  for (const char *prefix : {"1 = ", "1=", "("}) {
+    const std::string expr = std::string(prefix) + "str(" + std::string(100, '(') + ")";
+    parser p;
+    p.parse(make_factory(), expr);
+    EXPECT_EQ(p.rest.find("depth"), std::string::npos) << prefix;
+  }
+}
+
+// The exact boundaries: 64 levels and 1024 characters are allowed, one more
+// of either is not.
+TEST(WhereParser, LimitsAreInclusive) {
+  {
+    parser p;
+    EXPECT_TRUE(p.parse(make_factory(), std::string(64, '(') + "1=1" + std::string(64, ')')));
+  }
+  {
+    parser p;
+    EXPECT_FALSE(p.parse(make_factory(), std::string(65, '(') + "1=1" + std::string(65, ')')));
+    EXPECT_NE(p.rest.find("depth"), std::string::npos);
+  }
+  // Unbalanced `)` never drives the depth negative and hides a later nest.
+  {
+    parser p;
+    EXPECT_FALSE(p.parse(make_factory(), std::string(100, ')') + std::string(65, '(') + "1"));
+    EXPECT_NE(p.rest.find("depth"), std::string::npos);
+  }
+  std::string expr = "1";
+  while (expr.size() < 1023) expr += " ";
+  expr += "1";
+  ASSERT_EQ(expr.size(), 1024u);
+  {
+    parser p;
+    p.parse(make_factory(), expr);
+    EXPECT_EQ(p.rest.find("length"), std::string::npos);
+  }
+  {
+    parser p;
+    EXPECT_FALSE(p.parse(make_factory(), expr + " "));
+    EXPECT_NE(p.rest.find("length"), std::string::npos);
+  }
+}
+
 TEST(ParseExpression, ReturnsNullOnDeeplyNestedExpression) {
   const int levels = 500;
   const std::string expr = std::string(levels, '(') + "1=1" + std::string(levels, ')');
