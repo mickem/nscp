@@ -181,8 +181,7 @@ class table_builder {
     if (!description.empty()) c->set_description(description);
     return *this;
   }
-  table_builder &&column(const std::string &name, const column_type type = type_string, const std::string &unit = "",
-                         const std::string &description = "") && {
+  table_builder &&column(const std::string &name, const column_type type = type_string, const std::string &unit = "", const std::string &description = "") && {
     return std::move(column(name, type, unit, description));
   }
 

@@ -44,5 +44,6 @@ void api_controller::get_eps(Mongoose::Request &request, boost::smatch &what, Mo
   root["facts_url"] = host + "/api/v2/facts";
   root["results_url"] = host + "/api/v2/results";
   root["failures_url"] = host + "/api/v2/failures";
+  root["diagnostics_url"] = host + "/api/v2/diagnostics";
   response.append(json::serialize(root));
 }

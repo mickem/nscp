@@ -39,6 +39,7 @@ TEST(diagnostics_round, recent_failures_lists_the_log_newest_first_with_the_firs
   ASSERT_EQ(m.sections_size(), 1);
   const PB::Diagnostics::Section &s = m.sections(0);
   EXPECT_EQ(s.name(), "failures.recent");
+  EXPECT_EQ(s.source(), "core");
   EXPECT_EQ(s.captured_at(), 300);
   ASSERT_EQ(s.columns_size(), 5);
   EXPECT_EQ(s.columns(0).type(), PB::Diagnostics::Column::TIMESTAMP);

@@ -17,7 +17,8 @@
 //   GET    /api/v2/failures   the last failed checks, newest first   failures.list
 //   DELETE /api/v2/failures   empty the log                          failures.delete
 //   GET    /api/v2/failures/<index>/context
-//                             the metrics snapshot it was recorded with failures.list
+//                             the metrics and diagnostics snapshots it
+//                             was recorded with                       failures.list
 //
 // The log is the core's, not this module's: every transport's queries land in
 // it, so the page shows NRPE and scheduler failures alongside REST ones. The

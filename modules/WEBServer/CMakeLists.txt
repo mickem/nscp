@@ -49,6 +49,7 @@ set(SRCS
     tags_controller.cpp
     facts_controller.cpp
     failures_controller.cpp
+    diagnostics_controller.cpp
     settings_controller.cpp
     login_controller.cpp
     metrics_controller.cpp
@@ -96,6 +97,7 @@ if(WIN32)
         tags_controller.hpp
         facts_controller.hpp
         failures_controller.hpp
+        diagnostics_controller.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/perf_json.hpp
         settings_controller.hpp
         metrics_controller.hpp

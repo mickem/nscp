@@ -61,25 +61,28 @@ inline std::size_t clamp_rows(const std::size_t rows) {
 inline void add_recent_failures(PB::Diagnostics::DiagnosticsMessage &out, const failed_check_store::entry_list &entries, const std::size_t max_rows,
                                 const std::int64_t now) {
   using nscapi::diagnostics::type_timestamp;
-  auto t = nscapi::diagnostics::table(&out, recent_failures_section).describe("The last failed checks, newest first").captured_at(now);
-  t.column("time", type_timestamp, "", "When the check finished")
-      .column("command")
-      .column("status")
-      .column("subject", nscapi::diagnostics::type_string, "", "Who asked for the check")
-      .column("message", nscapi::diagnostics::type_string, "", "The first line of the check's output");
-  std::size_t added = 0;
-  for (const PB::Failures::FailedCheck &entry : entries) {
-    if (added >= max_rows) {
-      t.truncated();
-      break;
+  {
+    auto t = nscapi::diagnostics::table(&out, recent_failures_section).describe("The last failed checks, newest first").captured_at(now);
+    t.column("time", type_timestamp, "", "When the check finished")
+        .column("command")
+        .column("status")
+        .column("subject", nscapi::diagnostics::type_string, "", "Who asked for the check")
+        .column("message", nscapi::diagnostics::type_string, "", "The first line of the check's output");
+    std::size_t added = 0;
+    for (const PB::Failures::FailedCheck &entry : entries) {
+      if (added >= max_rows) {
+        t.truncated();
+        break;
+      }
+      const PB::Commands::QueryResponseMessage::Response &r = entry.response();
+      std::string message = r.lines_size() > 0 ? r.lines(0).message() : std::string();
+      const std::string::size_type eol = message.find_first_of("\r\n");
+      if (eol != std::string::npos) message = message.substr(0, eol);
+      t.row().add_time(entry.timestamp()).add(r.command()).add(nscapi::failures::status_name(r.result())).add(entry.subject()).add(message);
+      ++added;
     }
-    const PB::Commands::QueryResponseMessage::Response &r = entry.response();
-    std::string message = r.lines_size() > 0 ? r.lines(0).message() : std::string();
-    const std::string::size_type eol = message.find_first_of("\r\n");
-    if (eol != std::string::npos) message = message.substr(0, eol);
-    t.row().add_time(entry.timestamp()).add(r.command()).add(nscapi::failures::status_name(r.result())).add(entry.subject()).add(message);
-    ++added;
   }
+  out.mutable_sections(out.sections_size() - 1)->set_source("core");
 }
 
 namespace detail {

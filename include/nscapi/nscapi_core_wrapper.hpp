@@ -34,6 +34,7 @@ class NSCAPI_EXPORT core_wrapper {
   core_api::lpNSAPISetLogOption fNSAPISetLogOption;
   core_api::lpNSAPIFactsQuery fNSAPIFactsQuery;
   core_api::lpNSAPIFailuresQuery fNSAPIFailuresQuery;
+  core_api::lpNSAPIDiagnosticsQuery fNSAPIDiagnosticsQuery;
 
  public:
   core_wrapper();
@@ -123,6 +124,13 @@ class NSCAPI_EXPORT core_wrapper {
   // Drop every entry. The same envelope as get_failures(), with `removed`
   // set and no entries; empty on a core without the API.
   std::string clear_failures() const;
+
+  // The latest diagnostics snapshot: the tables the core collected from the
+  // producing modules on its last diagnostics round. A serialised
+  // PB::Diagnostics::DiagnosticsResponseMessage, with every section or only
+  // the one named `section`, plus whether diagnostics are collected at all.
+  // Never triggers a collection. Empty on a core without the call.
+  std::string get_diagnostics(const std::string &section = "") const;
 
   // Change one logging option at runtime; takes the same strings as the --log
   // switch (a severity, or a driver option such as "no-console"). Returns

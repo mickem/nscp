@@ -385,6 +385,8 @@ export interface FailedCheck {
   lines: QueryExecutionResultLine[];
   arguments?: string[];
   context: FailedCheckContextRef;
+  /** The diagnostics snapshot it was recorded with. Absent from an agent that predates diagnostics. */
+  diagnostics?: FailedCheckContextRef;
 }
 
 /**
@@ -426,6 +428,34 @@ export interface FailedCheckContextPruned {
   collapsed: { [key: string]: string };
 }
 
+/** One column of a diagnostics section. */
+export interface DiagnosticsColumn {
+  name: string;
+  type: "string" | "int" | "float" | "timestamp" | "bool";
+  unit?: string;
+  description?: string;
+}
+
+/**
+ * One diagnostics section: a small table, its rows objects keyed by column
+ * name. Timestamps (`captured_at`, a `timestamp` cell) are ISO 8601 UTC; a
+ * missing cell is null. `error` is set when the producer could not collect it.
+ */
+export interface DiagnosticsSection {
+  source: string;
+  description?: string;
+  captured_at: string;
+  truncated: boolean;
+  error?: string;
+  columns: DiagnosticsColumn[];
+  rows: { [column: string]: string | number | boolean | null }[];
+}
+
+/** The diagnostics a failure was recorded with; `sections` only when `state` is `captured`. */
+export interface FailedCheckDiagnostics extends FailedCheckContextRef {
+  sections?: { [name: string]: DiagnosticsSection };
+}
+
 /** GET /api/v2/failures/<index>/context. `metrics` only when `state` is `captured`. */
 export interface FailedCheckContext extends FailedCheckContextRef {
   index: number;
@@ -433,6 +463,8 @@ export interface FailedCheckContext extends FailedCheckContextRef {
   metrics?: Metrics;
   metadata?: { [key: string]: MetricMetadata };
   pruned?: FailedCheckContextPruned;
+  /** Absent from an agent that predates diagnostics. */
+  diagnostics?: FailedCheckDiagnostics;
 }
 
 /** The log and how it is configured, so the UI can say "off" or "no arguments". */
@@ -452,6 +484,9 @@ export interface FailedChecks {
   context_budget: number;
   max_context_size: number;
   context_bytes_used: number;
+  /** Absent from an agent that predates diagnostics. */
+  capture_diagnostics?: boolean;
+  diagnostics_rows?: number;
   count: number;
   entries: FailedCheck[];
 }

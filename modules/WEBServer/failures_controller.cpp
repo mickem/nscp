@@ -12,6 +12,7 @@
 #include <ctime>
 #include <list>
 #include <metrics/metrics_json.hpp>
+#include <nscapi/protobuf/diagnostics_json.hpp>
 #include <nscapi/protobuf/failures.hpp>
 #include <nscapi/protobuf/failures_json.hpp>
 #include <set>
@@ -90,6 +91,8 @@ void describe(json::object &out, const PB::Failures::FailuresResponseMessage::Re
   out["context_budget"] = static_cast<std::int64_t>(payload.context_budget());
   out["max_context_size"] = static_cast<std::int64_t>(payload.max_context_size());
   out["context_bytes_used"] = static_cast<std::int64_t>(payload.context_bytes_used());
+  out["capture_diagnostics"] = payload.capture_diagnostics();
+  out["diagnostics_rows"] = static_cast<std::int64_t>(payload.diagnostics_rows());
 }
 
 // A core that predates the API answers with nothing; render that as a log
@@ -170,6 +173,8 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
     out["context_budget"] = 0;
     out["max_context_size"] = 0;
     out["context_bytes_used"] = 0;
+    out["capture_diagnostics"] = false;
+    out["diagnostics_rows"] = 0;
   }
   out["count"] = static_cast<std::int64_t>(entries.size());
   out["entries"] = entries;
@@ -179,7 +184,9 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
 
 // The metrics snapshot one entry was recorded with, rendered exactly as
 // /api/v2/metrics renders the live one (`metrics` flat, `metadata` keyed the
-// same), so a client reads both with one parser. An entry that has no
+// same), so a client reads both with one parser, and beside it the
+// diagnostics snapshot, its sections rendered as /api/v2/diagnostics renders
+// one. An entry that has no
 // snapshot - capture was off, it was evicted, it was too large - answers 200
 // with its state and no `metrics`: the entry exists, there is just nothing
 // to show. An entry the log no longer holds is a 404.
@@ -209,6 +216,11 @@ void failures_controller::get_context(Mongoose::Request &request, boost::smatch 
     const json::value pruned = failures_json::pruned(entry.context());
     if (!pruned.is_null()) out["pruned"] = pruned;
   }
+  json::object diagnostics = failures_json::diagnostics(entry);
+  if (entry.diagnostics().state() == PB::Failures::DiagnosticsContext::CAPTURED && entry.diagnostics().has_snapshot()) {
+    diagnostics["sections"] = diagnostics_json::sections(entry.diagnostics().snapshot());
+  }
+  out["diagnostics"] = diagnostics;
   response.append(json::serialize(out));
 }
 
