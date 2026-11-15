@@ -277,6 +277,20 @@ TEST(failed_check_store, safe_flags_do_not_swallow_the_next_argument) {
   EXPECT_EQ((std::vector<std::string>{"show-all", "warning=x"}), safe_filtered({"show-all", "warning=x"}));
 }
 
+TEST(failed_check_store, safe_drops_what_names_another_host) {
+  // The keys that are a host, or a path to one.
+  EXPECT_FALSE(failed_check_store::is_safe_argument("computer"));
+  EXPECT_FALSE(failed_check_store::is_safe_argument("--namespace"));
+  EXPECT_EQ((std::vector<std::string>{"warning=x"}), safe_filtered({"computer=db1", "namespace=root\\cimv2", "warning=x"}));
+  EXPECT_EQ(std::vector<std::string>(), safe_filtered({"--computer", "db1"}));
+  // A kept key whose value is a UNC path or a remote counter.
+  EXPECT_EQ((std::vector<std::string>{"file=C:\\temp\\a.log", "counter=\\Processor(_Total)\\% Processor Time"}),
+            safe_filtered({"file=C:\\temp\\a.log", "path=\\\\fs1\\share", "counter=\\Processor(_Total)\\% Processor Time",
+                           "counter=\\\\db1\\Processor(_Total)\\% Processor Time"}));
+  // In the CLI shape the key goes with its value, and what follows is judged on its own.
+  EXPECT_EQ((std::vector<std::string>{"--time", "1m"}), safe_filtered({"--path", "\\\\fs1\\share", "--time", "1m"}));
+}
+
 TEST(failed_check_store, safe_drops_positionals_and_credential_keys) {
   EXPECT_EQ(std::vector<std::string>(), safe_filtered({"select * from users", "hunter2"}));
   EXPECT_EQ(std::vector<std::string>(), safe_filtered({"proxy-password=x", "--api-token", "abc", "token=x"}));

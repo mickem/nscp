@@ -463,7 +463,10 @@ class failed_check_store {
   // The common filter options come from modern_filter::cli_helper
   // (include/parsers/filter/cli_helper.hpp) and the help options every
   // command takes; the rest are the subject keys the built-in checks use for
-  // the thing they check.
+  // the thing they check. `computer` and `namespace` are not among them: the
+  // first is a host and the second can be a path to one. A kept key whose
+  // value still names another machine - a UNC path, a remote counter - is
+  // dropped by its value (names_remote_host).
   static const std::vector<std::string> &safe_argument_keys() {
     static const std::vector<std::string> keys = {
         // cli_helper: thresholds, filter and the output syntax.
@@ -473,9 +476,9 @@ class failed_check_store {
         // Every command.
         "help", "help-pb", "show-default", "help-short",
         // What is checked: the time window, the object, its kind.
-        "time", "type", "drive", "service", "process", "file", "path", "counter", "exclude", "computer", "pattern", "max-depth", "log",
+        "time", "type", "drive", "service", "process", "file", "path", "counter", "exclude", "pattern", "max-depth", "log",
         "scan-range", "truncate-message", "unique", "mode", "total", "magic", "ignore-unreadable", "delta", "instances", "expand-index",
-        "reload", "mounted", "percpu", "name", "volume", "interface", "task", "namespace", "timezone"};
+        "reload", "mounted", "percpu", "name", "volume", "interface", "task", "timezone"};
     return keys;
   }
 
@@ -495,11 +498,20 @@ class failed_check_store {
     return false;
   }
 
+  // Whether a value starts with two backslashes: a UNC path
+  // (`\\server\share`), a remote counter (`\\server\Processor(...)`) or a WMI path
+  // to another machine. It is dropped under `safe` even for a kept key such
+  // as `file`, `path` or `counter`. The local long-path and device prefixes
+  // (`\\?\`, `\\.\`) start the same way and go with it: losing a value is the
+  // safe way to be wrong.
+  static bool names_remote_host(const std::string &value) { return value.size() >= 2 && value[0] == '\\' && value[1] == '\\'; }
+
   // Keep only the arguments `safe` allows, in place. Both transports are
   // handled: `key=value` (REST, and the undashed pair of the CLI) is kept when
   // the key is safe; a bare token is a key whose value is the token after it
   // (`--key value`, the CLI's shape), and the two are kept or dropped
-  // together. A token that starts with a dash is never taken for a value: it
+  // together - also when the key is safe and the value names another machine
+  // (names_remote_host). A token that starts with a dash is never taken for a value: it
   // is the next option, which is how a flag without a value (`--show-all`)
   // does not swallow what follows. Nor is a `key=value` pair (a key without
   // blanks before the `=`) taken for the value of a kept key: after a REST
@@ -515,14 +527,20 @@ class failed_check_store {
       const bool dashed = !argument.empty() && argument[0] == '-';
       const bool next_argument = dashed || (pending == keep_value && looks_like_pair(argument));
       if (pending != no_value && !next_argument) {
-        if (pending == keep_value) *kept.Add() = argument;
+        if (pending == keep_value) {
+          // A value that names a host takes its key with it.
+          if (names_remote_host(argument))
+            kept.RemoveLast();
+          else
+            *kept.Add() = argument;
+        }
         pending = no_value;
         continue;
       }
       pending = no_value;
       const std::string::size_type eq = argument.find('=');
       if (eq != std::string::npos) {
-        if (is_safe_argument(argument.substr(0, eq))) *kept.Add() = argument;
+        if (is_safe_argument(argument.substr(0, eq)) && !names_remote_host(argument.substr(eq + 1))) *kept.Add() = argument;
         continue;
       }
       if (is_safe_argument(argument)) {

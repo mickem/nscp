@@ -76,7 +76,7 @@ deliberately **not** stored as they were:
     | Value | Keeps |
     |---|---|
     | `none` (or `false`) | Nothing. |
-    | `safe` (the default) | Only the options whose name is on an allow-list: the common filter options (`warning`, `critical`, `warn`, `crit`, `ok`, `filter`, `top-syntax`, `detail-syntax`, `ok-syntax`, `empty-syntax`, `perf-syntax`, `perf-config`, `empty-state`, `show-all`, ...) and what was checked (`time`, `type`, `drive`, `service`, `process`, `file`, `path`, `counter`, `exclude`, `computer`, `pattern`, `name`, ...). |
+    | `safe` (the default) | Only the options whose name is on an allow-list: the common filter options (`warning`, `critical`, `warn`, `crit`, `ok`, `filter`, `top-syntax`, `detail-syntax`, `ok-syntax`, `empty-syntax`, `perf-syntax`, `perf-config`, `empty-state`, `show-all`, ...) and what was checked (`time`, `type`, `drive`, `service`, `process`, `file`, `path`, `counter`, `exclude`, `pattern`, `name`, ...). Nothing that names another machine is kept: `computer` and `namespace` are not on the list, and an allow-listed option whose value starts with `\\` (a UNC path, a remote counter) is dropped with its value. |
     | `all` (or `true`) | Every option, with the value of any argument whose name contains `password` or `token` replaced by `***`. |
 
     `safe` drops every option not on the list - a host, a URL, a command

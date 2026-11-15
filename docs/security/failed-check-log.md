@@ -30,7 +30,8 @@ Two safeguards limit what a secret can leak through it:
   syntax options and the subject checked (`time`, `type`, `drive`,
   `service`, `process`, `file`, `path`, `counter`, ...) - so a host, a URL, a
   command line, a query, a user name or a password is dropped whatever it is
-  called. Under `all` every argument is kept and the value of any argument
+  called. That includes `computer`, and an allow-listed option whose value
+  starts with `\\`: a UNC path or a remote counter names a host too. Under `all` every argument is kept and the value of any argument
   whose name contains `password` or `token` is replaced by `***` - the same
   rule the client-side command logging applies.
 * **A secret echoed in the message** - a check that rejects its options
