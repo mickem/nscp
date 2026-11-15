@@ -41,7 +41,8 @@ object, a fleet failure-context report carries one beside `context`, `nscp
 test` gains a `diagnostics [section]` command, and `GET /api/v2/diagnostics`
 serves the latest snapshot live. In the web UI, an opened entry on the
 **Failed checks** page shows *Diagnostics at the time* under the metrics, one
-table per section, and a new **Diagnostics** page shows the live tables.
+table per section, and a new **Diagnostics** page shows the live tables and
+the switches that turn capture and each table on.
 Nothing changes until you turn capture on.
 **Custom roles:** the live routes need the new `diagnostics.list` grant, which
 no built-in role holds other than `full`. See the

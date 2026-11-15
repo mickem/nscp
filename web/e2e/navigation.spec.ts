@@ -104,6 +104,10 @@ test("navigates to the live diagnostics", async ({ page }) => {
   await expect(cpu.getByText("392.9 MiB")).toBeVisible();
   // prune pattern left one out, and the page says so.
   await expect(page.getByText("eventlog.errors")).toBeVisible();
+  // The switches that turn the tables on, by the module that owns each.
+  await expect(page.getByLabel("Core: capture diagnostics")).toBeChecked();
+  await expect(page.getByLabel("CheckSystem: processes")).toBeChecked();
+  await expect(page.getByLabel("CheckSystem: services")).not.toBeChecked();
 });
 
 test("navigates to the about page", async ({ page }) => {

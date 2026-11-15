@@ -17,12 +17,14 @@ import {
   nsclientApi,
   useGetDiagnosticsQuery,
   useGetDiagnosticsSectionQuery,
+  useGetSettingsDescriptionsQuery,
 } from "../api/api.ts";
 import { Toolbar } from "../components/atoms/Toolbar.tsx";
 import { Spacing } from "../components/atoms/Spacing.tsx";
 import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import Trail from "../components/atoms/Trail.tsx";
 import DiagnosticsTable from "../components/DiagnosticsTable.tsx";
+import DiagnosticsSettingsWidget from "../components/DiagnosticsSettingsWidget.tsx";
 import { formatTimestamp, orderSectionNames } from "../common/diagnostics.ts";
 import { useAppDispatch } from "../store/store.ts";
 
@@ -35,7 +37,10 @@ const REFRESH_RATES = [
   { label: "1 minute", value: 60000 },
 ];
 
-/** How to turn diagnostics on, for the page to show when they are off. */
+/**
+ * How to turn diagnostics on by hand, for the page to show when they are off
+ * and the switches (DiagnosticsSettingsWidget) cannot be offered.
+ */
 const ENABLE_SAMPLE = `[/settings/core/failed checks]
 capture diagnostics = true
 
@@ -80,6 +85,11 @@ export default function Diagnostics() {
   const { data, error } = useGetDiagnosticsQuery(undefined, {
     pollingInterval: refreshRate || undefined,
   });
+
+  // The same request the switches make (one fetch, shared): whether it
+  // answered decides if "off" points at the switches or at the configuration.
+  const { data: descriptions } = useGetSettingsDescriptionsQuery();
+  const hasSwitches = descriptions !== undefined;
 
   const onRefresh = () => {
     dispatch(nsclientApi.util.invalidateTags(["Diagnostics"]));
@@ -143,10 +153,17 @@ export default function Diagnostics() {
           <code>[/settings/core/failed checks]</code> to collect them with every metrics round (or every{" "}
           <code>diagnostics interval</code> under <code>[/settings/core]</code>), keep them with each failed check and
           show them here. That alone gives the last failed checks; each other table is switched on under the{" "}
-          <code>diagnostics</code> section of the module that produces it:
-          <Box component="pre" sx={{ mt: 1, mb: 0, fontSize: "0.8rem", overflowX: "auto" }}>
-            {ENABLE_SAMPLE}
-          </Box>
+          <code>diagnostics</code> section of the module that produces it
+          {hasSwitches ? (
+            " - all of them with the switches below."
+          ) : (
+            <>
+              :
+              <Box component="pre" sx={{ mt: 1, mb: 0, fontSize: "0.8rem", overflowX: "auto" }}>
+                {ENABLE_SAMPLE}
+              </Box>
+            </>
+          )}
         </Alert>
       )}
 
@@ -177,6 +194,15 @@ export default function Diagnostics() {
             </div>
           )}
         </Alert>
+      )}
+
+      {/* The switches, above the tables they produce: with capture off this
+          is the only thing on the page worth doing. Not under a 403 - a role
+          that may not read the tables is not offered more of them. */}
+      {status !== 403 && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <DiagnosticsSettingsWidget />
+        </Box>
       )}
 
       {data?.enabled && (

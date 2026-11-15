@@ -133,6 +133,47 @@ describe("Diagnostics", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
+  it("offers the switches instead of the configuration sample when the settings can be read", async () => {
+    installFetchMock({
+      ...routes({ ...SUMMARY, enabled: false, snapshot_id: 0, count: 0, sections: [] }),
+      "/api/v2/settings/descriptions": jsonResponse([
+        {
+          path: "/settings/core/failed checks",
+          key: "capture diagnostics",
+          type: "bool",
+          title: "Collect diagnostics and record them with each failure",
+          description: "Collect diagnostics.",
+          value: "",
+          default_value: "false",
+          icon: "",
+          is_advanced_key: true,
+          is_object: false,
+          is_sample_key: false,
+          is_template_key: false,
+          plugins: [],
+          sample_usage: "",
+        },
+      ]),
+    });
+    renderWithProviders(<Diagnostics />, { preloadedState: authenticatedState });
+
+    expect(await screen.findByLabelText("Core: capture diagnostics")).not.toBeChecked();
+    expect(screen.getByText(/Diagnostics are switched off/)).toBeInTheDocument();
+    expect(screen.getByText(/with the switches below/)).toBeInTheDocument();
+    expect(screen.queryByText(/\[\/settings\/system\/windows\/diagnostics\]/)).not.toBeInTheDocument();
+  });
+
+  it("does not offer the switches to a role that may not read diagnostics", async () => {
+    installFetchMock({
+      "/api/v2/diagnostics": new Response("403 You're not allowed", { status: 403 }),
+      "/api/v2/settings/descriptions": jsonResponse([]),
+    });
+    renderWithProviders(<Diagnostics />, { preloadedState: authenticatedState });
+
+    expect(await screen.findByText(/needs the/)).toBeInTheDocument();
+    expect(screen.queryByText("Diagnostics tables")).not.toBeInTheDocument();
+  });
+
   it("says when no round has run yet", async () => {
     installFetchMock(routes({ ...SUMMARY, snapshot_id: 0, count: 0, sections: [] }));
     renderWithProviders(<Diagnostics />, { preloadedState: authenticatedState });

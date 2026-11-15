@@ -357,7 +357,11 @@ mind once `capture diagnostics` is on.
 * The web UI's **Diagnostics** page shows every table of the latest snapshot,
   `failures.recent` first, with the refresh selector the Metrics page has. It
   reads these routes, so it needs `diagnostics.list`: a role without it is
-  told so on the page. With capture off the page says how to turn it on. The
+  told so on the page. Above the tables, a *Diagnostics tables* card holds the
+  switches: `capture diagnostics` and every table a loaded module can
+  produce, each written to the settings of the module that owns it (so it
+  needs the settings grants, and a change takes effect when the configuration
+  is saved and reloaded). With capture off the page says how to turn it on. The
   **Failed checks** page shows the tables a failure was recorded with under
   `failures.list`.
 * The `nscp test` prompt has `diagnostics` to list the tables and

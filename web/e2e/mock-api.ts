@@ -246,6 +246,30 @@ const DIAGNOSTICS_FIXTURE = {
   ],
 };
 
+const settingsDescription = (path: string, key: string, plugins: string[], value: string) => ({
+  path,
+  key,
+  type: "bool",
+  title: key.toUpperCase(),
+  description: `The ${key} switch.`,
+  value,
+  default_value: "false",
+  icon: "",
+  is_advanced_key: false,
+  is_object: false,
+  is_sample_key: false,
+  is_template_key: false,
+  plugins,
+  sample_usage: "",
+});
+
+/** The diagnostics switches, as /api/v2/settings/descriptions lists them. */
+const SETTINGS_DESCRIPTIONS_FIXTURE = [
+  settingsDescription("/settings/core/failed checks", "capture diagnostics", [], "true"),
+  settingsDescription("/settings/system/windows/diagnostics", "processes", ["CheckSystem"], "true"),
+  settingsDescription("/settings/system/windows/diagnostics", "services", ["CheckSystem"], "false"),
+];
+
 /**
  * Intercept every /api call the UI makes and answer with deterministic
  * fixtures, so the rendering tests never need a live NSClient++ backend.
@@ -301,6 +325,8 @@ export async function mockApi(page: Page, overrides: Overrides = {}) {
         });
       case "/api/v2/settings/status":
         return json(route, { context: "ini://", type: "ini", has_changed: false });
+      case "/api/v2/settings/descriptions":
+        return json(route, SETTINGS_DESCRIPTIONS_FIXTURE);
       case "/api/v2/modules":
         return json(route, MODULES_FIXTURE);
       case "/api/v2/queries":
