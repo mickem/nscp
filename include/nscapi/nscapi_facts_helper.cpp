@@ -3,6 +3,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <nscapi/nscapi_facts_helper.hpp>
+#include <str/rfc3339.hpp>
 
 namespace nscapi {
 namespace facts {
@@ -17,12 +18,9 @@ bool is_valid_key(const std::string &key) {
   return true;
 }
 
-std::string format_time(const std::time_t when) {
-  const boost::posix_time::ptime moment = boost::posix_time::from_time_t(when);
-  // to_iso_extended_string renders fractional seconds when the ptime has any;
-  // from_time_t never does, so this is always "YYYY-MM-DDTHH:MM:SS".
-  return boost::posix_time::to_iso_extended_string(moment) + "Z";
-}
+// Empty for a time that is not set (0 or less); every caller here checks
+// `when > 0` first.
+std::string format_time(const std::time_t when) { return str::format_rfc3339(when); }
 
 std::string format_date(const std::time_t when) {
   const boost::gregorian::date day = boost::posix_time::from_time_t(when).date();

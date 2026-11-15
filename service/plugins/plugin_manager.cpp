@@ -19,6 +19,7 @@
 #include <nscp/name_safety.hpp>
 #include <settings/settings_core.hpp>
 #include <str/format.hpp>
+#include <str/rfc3339.hpp>
 
 #include "../../libs/settings_manager/settings_manager_impl.h"
 #include "command_hints.hpp"
@@ -1779,7 +1780,7 @@ PB::Diagnostics::DiagnosticsMessage nsclient::core::plugin_manager::collect_diag
 }
 
 namespace {
-std::string utc_now() { return boost::posix_time::to_iso_extended_string(boost::posix_time::second_clock::universal_time()) + "Z"; }
+std::string utc_now() { return str::format_rfc3339(std::time(nullptr)); }
 }  // namespace
 
 void nsclient::core::plugin_manager::log_fact_problem_once(const std::string &key, const std::string &message, std::set<std::string> &failing) {
