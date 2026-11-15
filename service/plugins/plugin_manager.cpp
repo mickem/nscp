@@ -477,6 +477,13 @@ std::vector<nsclient::core::plugin_manager::walk_closing> nsclient::core::plugin
   const std::vector<bool> drained = simple_plugins_list::drain_each(closings, std::chrono::seconds(10));
   std::vector<walk_closing> walks;
   for (std::size_t i = 0; i < closings.size(); ++i) walks.push_back(walk_closing{closings[i], drained[i]});
+  {
+    // The section names it produced last go with it: they are only there to
+    // report a failed fetch against, and a module loaded later under the same
+    // id must not inherit them.
+    boost::unique_lock<boost::mutex> lock(diagnostics_names_mutex_);
+    diagnostics_names_.erase(static_cast<unsigned int>(plugin_id));
+  }
   return walks;
 }
 
@@ -644,6 +651,10 @@ void nsclient::core::plugin_manager::stop_plugins() {
   for (simple_plugins_list *list : {&metrics_fetchers_, &metrics_submitters_, &facts_fetchers_, &diagnostics_fetchers_}) {
     const std::vector<plugin_type> stuck = list->remove_all();
     still_walked.insert(still_walked.end(), stuck.begin(), stuck.end());
+  }
+  {
+    boost::unique_lock<boost::mutex> lock(diagnostics_names_mutex_);
+    diagnostics_names_.clear();
   }
   commands_.remove_all();
   channels_.remove_all();
