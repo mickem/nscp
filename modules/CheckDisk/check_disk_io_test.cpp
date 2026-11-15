@@ -559,11 +559,14 @@ TEST(DiskFree, BuildMetricsDescribesEveryValue) {
   EXPECT_EQ(total->unit(), "bytes");
   EXPECT_TRUE(total->has_gauge_value());
   EXPECT_EQ(total->gauge_value().value(), 4000000000000.0);
-  // A share is not measured in anything the spec names, and the key already
-  // says `_pct`, so it carries help and no unit.
-  const PB::Metrics::Metric *used_pct = metric_named(bundle, "C:.used_pct");
-  ASSERT_NE(used_pct, nullptr);
-  EXPECT_EQ(used_pct->unit(), "");
+  // A share says it is a percentage, which is what puts a % behind it in the
+  // web UI. The key already says `_pct`, and the OpenMetrics renderer leaves
+  // such a name alone, so the unit does not move the family it shipped under.
+  for (const char *key : {"C:.used_pct", "C:.free_pct"}) {
+    const PB::Metrics::Metric *share = metric_named(bundle, key);
+    ASSERT_NE(share, nullptr) << key;
+    EXPECT_EQ(share->unit(), "percent") << key;
+  }
   // No history handed over: no change values at all, not zeros.
   EXPECT_EQ(metric_named(bundle, "C:.used_change_1h"), nullptr);
   EXPECT_EQ(metric_named(bundle, "C:.used_change_24h"), nullptr);

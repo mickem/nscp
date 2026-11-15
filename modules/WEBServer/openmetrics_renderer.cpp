@@ -187,6 +187,9 @@ std::string with_unit(const std::string &name, const std::string &unit) {
   return name + suffix;
 }
 
+// A percentage whose name spells the unit the short way: `free_pct`.
+bool says_percent_already(const std::string &name, const std::string &unit) { return unit == "percent" && ends_with(name, "_pct"); }
+
 // The sample of a counter is `<family>_total` and of an info family
 // `<family>_info`, so a family whose own name already ends that way would have
 // the suffix twice - `requests_total` declared as a counter giving a
@@ -421,8 +424,15 @@ void collect(const PB::Metrics::MetricsBundle &bundle, const std::string &trail,
     // what collapses a run spanning a separator (`disk.io.` + `C:` would leave
     // `disk_io__C_` if each part were cleaned on its own). The type's own
     // suffix comes off afterwards so the sample can put it back exactly once.
-    const std::string name = without_type_suffix(with_unit(sanitize_name(trail + "_" + leaf), unit), type);
-    const size_t at = out.open(name, type, help, unit, suffixes_of(type));
+    const std::string base = sanitize_name(trail + "_" + leaf);
+    // `disk_free_free_pct` shipped under that name before it declared a unit,
+    // and `_pct` already says what `_percent` would. Such a family keeps its
+    // name and goes without the `# UNIT` line - the spec only allows one on a
+    // name that ends in the unit - so the declared unit reaches the readers
+    // of the metadata (the web UI) and renames nothing for a scraper.
+    const std::string family_unit = says_percent_already(base, unit) ? "" : unit;
+    const std::string name = without_type_suffix(with_unit(base, family_unit), type);
+    const size_t at = out.open(name, type, help, family_unit, suffixes_of(type));
     if (at == family_set::none) {
       report(problems, trail, metric.key(), name, "another metric already claimed that name");
       continue;
