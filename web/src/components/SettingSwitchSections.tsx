@@ -1,6 +1,7 @@
 import { Divider, List, ListItem, ListItemText, ListSubheader, Stack, Switch, Tooltip, Typography } from "@mui/material";
 import { useState } from "react";
 import { SettingsDescription, useUpdateSettingsMutation } from "../api/api.ts";
+import { isBoolTrue } from "../common/settings.ts";
 
 /**
  * Boolean settings shown as switches, grouped by the settings section they
@@ -49,8 +50,7 @@ export function groupSwitchSections(
 
 export function isOn(entry: SettingsDescription): boolean {
   // An unset key reads as its default, exactly as the agent reads it.
-  const value = (entry.value || entry.default_value || "").toLowerCase();
-  return value === "true" || value === "1";
+  return isBoolTrue(entry.value || entry.default_value);
 }
 
 interface SettingSwitchSectionsProps {
