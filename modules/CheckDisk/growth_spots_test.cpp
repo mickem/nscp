@@ -12,6 +12,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "test_support.hpp"
@@ -359,7 +360,7 @@ TEST(GrowthSpotsWalker, ARoundInProgressIsAbortedByStop) {
   w.start();
   // Whatever it is walking right now (the system's temp and log folders), a
   // stop must not wait for the walk to finish.
-  boost::this_thread::sleep_for(boost::chrono::milliseconds(200));
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
   const walk_clock::time_point before = walk_clock::now();
   w.stop();
   EXPECT_LT(walk_clock::now() - before, std::chrono::seconds(5));
