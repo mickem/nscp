@@ -344,6 +344,22 @@ TEST(GrowthSpotsDiscover, FindsTheTempAndLogDirectoriesFromTheSystem) {
   EXPECT_TRUE(agent_logs);
 }
 
+TEST(GrowthSpotsWalker, TheFirstWaitFollowsTheSeededRound) {
+  using std::chrono::seconds;
+  // Nothing to go on: the short delay after start.
+  EXPECT_EQ(seconds(15), growth_spots::first_wait(seconds(15), seconds(600), 0, 10000));
+  // A reload 100 seconds after the last round waits out the rest of it.
+  EXPECT_EQ(seconds(500), growth_spots::first_wait(seconds(15), seconds(600), 9900, 10000));
+  // A round that is due, or overdue, still gets the short delay.
+  EXPECT_EQ(seconds(15), growth_spots::first_wait(seconds(15), seconds(600), 9410, 10000));
+  EXPECT_EQ(seconds(15), growth_spots::first_wait(seconds(15), seconds(600), 5000, 10000));
+  // A shorter interval applies to the seeded round too.
+  EXPECT_EQ(seconds(15), growth_spots::first_wait(seconds(15), seconds(60), 9900, 10000));
+  // A seed from the future (the clock was set back) is taken as fresh, not
+  // waited on for longer than one interval.
+  EXPECT_EQ(seconds(600), growth_spots::first_wait(seconds(15), seconds(600), 20000, 10000));
+}
+
 TEST(GrowthSpotsWalker, StopsPromptlyAndHasNothingBeforeTheFirstRound) {
   growth_spots::walker w;
   w.first_delay = std::chrono::seconds(3600);

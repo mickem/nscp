@@ -238,9 +238,17 @@ dir_size walk_directory(const std::string &path, const walk_clock::time_point de
   return out;
 }
 
+std::chrono::seconds first_wait(const std::chrono::seconds first_delay, const std::chrono::seconds interval, const std::int64_t seeded_at,
+                                const std::int64_t now) {
+  if (seeded_at <= 0) return first_delay;
+  const std::int64_t age = now > seeded_at ? now - seeded_at : 0;
+  const std::chrono::seconds left = interval - std::chrono::seconds(age);
+  return left > first_delay ? left : first_delay;
+}
+
 void walker::thread_proc() {
   lower_priority();
-  if (!wait(first_delay)) return;
+  if (!wait(first_wait(first_delay, interval, get().captured_at, static_cast<std::int64_t>(std::time(nullptr))))) return;
   for (;;) {
     sample fresh;
     try {

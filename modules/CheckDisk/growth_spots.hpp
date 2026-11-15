@@ -177,8 +177,16 @@ bool paths_ignore_case();
 
 // --- the thread ---------------------------------------------------------------
 
+// How long a walker waits before its first round. `first_delay` when it has
+// no earlier round to go on (`seeded_at` 0); with one - a settings reload
+// replaced the walker and seeded the new one - the rest of the interval that
+// round started, so a reload does not walk the disk again, but never less
+// than `first_delay`. A seed from the future (the clock was set back) counts
+// as taken now.
+std::chrono::seconds first_wait(std::chrono::seconds first_delay, std::chrono::seconds interval, std::int64_t seeded_at, std::int64_t now);
+
 // Measures the spots on its own guarded thread: the first round
-// `first_delay` after start(), then every `interval`. Configure before
+// first_wait() after start(), then every `interval`. Configure before
 // start(); stop() (and the destructor) abort a walk in progress and join.
 class walker {
  public:
@@ -197,7 +205,8 @@ class walker {
   // The last round (captured_at 0 before the first one has finished).
   sample get() const;
   // Start from an earlier walker's last round (a settings reload replaces the
-  // walker), so the section does not vanish until the next round.
+  // walker), so the section does not vanish until the next round and that
+  // round keeps the earlier walker's schedule.
   void seed(const sample &s);
 
  private:

@@ -168,7 +168,7 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "Windows Temp directory; TMPDIR, /tmp and /var/tmp), the log directories (the agent's own, the Windows Logs and event log directories; "
         "/var/log), the page and swap files and, on Windows, the shadow-copy storage in use per volume (which needs an elevated agent). "
         "Directories are walked by a thread of their own, the first time shortly after this is switched on and then every 'growth spots "
-        "interval': one directory at a time with a pause between them, at background I/O priority, for at most 30 seconds per directory "
+        "interval' (a settings reload keeps that schedule): one directory at a time with a pause between them, at background I/O priority, for at most 30 seconds per directory "
         "and 2 minutes per round; a walk that hits a limit reports the size so far and marks the table truncated. Links, junctions and mount "
         "points are not followed and entries that cannot be read are skipped and counted. Kept with a failed check and served on "
         "/api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Paths and sizes leave the host with it.")
