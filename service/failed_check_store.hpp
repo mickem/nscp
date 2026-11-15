@@ -14,6 +14,7 @@
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/failures.hpp>
+#include <settings/settings_interface.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -423,7 +424,8 @@ class failed_check_store {
 
   // Parse `record arguments`: none, safe or all (case-insensitive, surrounding
   // space ignored). The boolean spellings it had before it took a mode keep
-  // their meaning: true and 1 are all, false, 0 and an empty value are none.
+  // their meaning: what the settings read as true (string_to_bool) is all,
+  // false, 0 and an empty value are none.
   // Returns false - with `error` saying why - on anything else.
   static bool parse_argument_mode(const std::string &text, argument_mode &out, std::string &error) {
     std::string token = text;
@@ -431,7 +433,7 @@ class failed_check_store {
     boost::algorithm::to_lower(token);
     if (token == "safe") {
       out = argument_mode::safe;
-    } else if (token == "all" || token == "true" || token == "1") {
+    } else if (token == "all" || settings::settings_interface::string_to_bool(token)) {
       out = argument_mode::all;
     } else if (token == "none" || token == "false" || token == "0" || token.empty()) {
       out = argument_mode::none;
