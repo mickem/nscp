@@ -191,12 +191,14 @@ describeWithModules("CheckDisk")("CheckDisk commands", () => {
     const none = await executeQuery(key, "check_drivesize", {
       drive: ROOT_DRIVE,
       filter: "used_change_1h = 'unknown'",
-      "top-syntax": "${count}",
+      // A list in the top syntax, or the ok syntax replaces it.
+      "top-syntax": "${count}: ${list}",
+      "detail-syntax": "%(drive)",
       warning: "used > 100%",
       critical: "used > 100%",
     });
     expect(none.result).toBe(OK);
-    expect(messageOf(none)).toMatch(/^1/);
+    expect(messageOf(none)).toMatch(/^1: /);
   });
 
   // --- check_disk_io ----------------------------------------------------------
