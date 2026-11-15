@@ -68,6 +68,21 @@ class pdh_thread {
   };
   typedef boost::unordered_map<std::string, dimension> dimension_hash;
 
+  // The latest pressure readings of the 1 Hz collector, published as
+  // system.pressure. Each `has_` is false while its counter is unavailable,
+  // failing, or not sampled yet, so a reader never mistakes a counter that
+  // could not be read for a reading of 0.
+  struct pressure_sample {
+    // \System\Processor Queue Length: threads ready to run and waiting for a
+    // processor, at the last tick. Sampled for check_load, so absent when
+    // `disable = load`.
+    bool has_processor_queue = false;
+    double processor_queue = 0.0;
+    // \Memory\Page Faults/sec: soft and hard faults per second.
+    bool has_page_faults = false;
+    double page_faults_per_sec = 0.0;
+  };
+
  private:
   typedef boost::unordered_map<std::string, PDH::pdh_instance> lookup_type;
   typedef std::list<std::string> error_list;
@@ -111,6 +126,10 @@ class pdh_thread {
   // Unix-style load averages folded from queue length + busy cores each tick
   // (guarded by mutex_; see check_load.hpp).
   load_check::load_avg_state load_avg_;
+  // Guarded by its own mutex: written every tick outside mutex_, and a
+  // metrics walk must not wait on a collector holding mutex_.
+  boost::mutex pressure_mutex_;
+  pressure_sample pressure_;
   lookup_type lookups_;
   network_check::network_data network;
   temperature_check::temperature_data temperature;
@@ -175,6 +194,7 @@ class pdh_thread {
   // has completed its first tick (or when load sampling is disabled). None
   // when the collector's lock could not be had.
   boost::optional<load_check::load_avg_state> get_load_avg();
+  pressure_sample get_pressure();
 
   network_check::nics_type get_network();
   temperature_check::zones_type get_temperature();

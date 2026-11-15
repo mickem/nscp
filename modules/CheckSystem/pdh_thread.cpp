@@ -452,6 +452,35 @@ void pdh_thread::thread_proc() {
       NSC_LOG_MESSAGE("\\System\\Processor Queue Length is unavailable; check_load will report CPU-utilization-based load only");
     }
   }
+  // Page faults per second, for system.pressure. Its own query for the same
+  // reason the queue has one: a counter that cannot be added (a corrupt
+  // perflib) takes nothing else down with it. English resolution, so the
+  // path resolves on a localised Windows. Not sampled when metrics are off,
+  // since nothing else reads it.
+  PDH::PDHQuery pressure_query;
+  PDH::pdh_instance page_faults_counter;
+  bool check_page_faults = false;
+  bool page_faults_error_logged = false;
+  if (!disable_metrics) {
+    try {
+      PDH::pdh_object obj;
+      obj.set_counter("\\Memory\\Page Faults/sec");
+      obj.set_alias("system_pressure_page_faults");
+      obj.set_strategy_static();
+      obj.set_type("double");
+      obj.set_resolution("english");
+      page_faults_counter = PDH::factory::create(obj);
+      pressure_query.addCounter(page_faults_counter);
+      pressure_query.open();
+      // A rate: the first collect is the baseline the first gather divides by.
+      pressure_query.collect();
+      check_page_faults = true;
+    } catch (const std::exception &e) {
+      NSC_LOG_MESSAGE("\\Memory\\Page Faults/sec is unavailable; system.pressure will not carry page faults: " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      NSC_LOG_MESSAGE("\\Memory\\Page Faults/sec is unavailable; system.pressure will not carry page faults");
+    }
+  }
   spi_container handles;
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
@@ -489,11 +518,14 @@ void pdh_thread::thread_proc() {
         }
       }
       double queue = 0.0;
+      pressure_sample pressure;
       if (!disable_load) {
         if (check_queue) {
           try {
             load_query.gatherData();
             queue = queue_counter->get_float_value();
+            pressure.has_processor_queue = true;
+            pressure.processor_queue = queue < 0.0 ? 0.0 : queue;
           } catch (const std::exception &e) {
             queue = 0.0;
             if (!queue_error_logged) {
@@ -508,6 +540,28 @@ void pdh_thread::thread_proc() {
             }
           }
         }
+      }
+      if (check_page_faults) {
+        try {
+          pressure_query.gatherData();
+          const double faults = page_faults_counter->get_float_value();
+          pressure.has_page_faults = true;
+          pressure.page_faults_per_sec = faults < 0.0 ? 0.0 : faults;
+        } catch (const std::exception &e) {
+          if (!page_faults_error_logged) {
+            page_faults_error_logged = true;
+            NSC_LOG_ERROR("Failed to read page faults/sec (system.pressure will not carry it): " + utf8::utf8_from_native(e.what()));
+          }
+        } catch (...) {
+          if (!page_faults_error_logged) {
+            page_faults_error_logged = true;
+            NSC_LOG_ERROR("Failed to read page faults/sec (system.pressure will not carry it)");
+          }
+        }
+      }
+      {
+        const boost::lock_guard<boost::mutex> guard(pressure_mutex_);
+        pressure_ = pressure;
       }
       // Decay over the time actually elapsed since the previous fold: the
       // loop targets 1 Hz but runs long whenever a tick overruns. A tick that
@@ -942,6 +996,11 @@ boost::optional<load_check::load_avg_state> pdh_thread::get_load_avg() {
     return boost::none;
   }
   return load_avg_;
+}
+
+pdh_thread::pressure_sample pdh_thread::get_pressure() {
+  const boost::lock_guard<boost::mutex> guard(pressure_mutex_);
+  return pressure_;
 }
 
 pdh_thread::metrics_hash pdh_thread::get_metrics() {

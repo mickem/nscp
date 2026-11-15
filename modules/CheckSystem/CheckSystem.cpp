@@ -1609,6 +1609,30 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   }
 
   try {
+    // How much the system is waiting on something, next to how busy it is:
+    // what tells a slow host from a merely busy one in a failure snapshot.
+    // Each value is left out, not published as 0, while its counter cannot
+    // be read.
+    const pdh_thread::pressure_sample pressure = collector->get_pressure();
+    if (pressure.has_processor_queue || pressure.has_page_faults) {
+      PB::Metrics::MetricsBundle *section = bundle->add_children();
+      section->set_key("pressure");
+      describe(section, "How much the system is waiting: the processor's ready queue and page faults");
+      if (pressure.has_processor_queue) {
+        metric(section, "processor_queue_length")
+            .help("Threads ready to run and waiting for a processor, at the last sample")
+            .gauge(pressure.processor_queue);
+      }
+      // A per-second rate: no unit.
+      if (pressure.has_page_faults) {
+        metric(section, "page_faults_per_sec").help("Page faults per second, soft and hard").gauge(pressure.page_faults_per_sec);
+      }
+    }
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get pressure metrics");
+  }
+
+  try {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("uptime");
     describe(section, "How long the machine has been up");

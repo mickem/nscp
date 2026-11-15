@@ -24,9 +24,12 @@ std::string helper::perf_query =
 // reads/writes/transfers plus the cumulative operation counts (the _Base
 // counters). Average latency is delta(ticks) / frequency / delta(ops) between
 // two samples; the formatted class cannot be used as it rounds to whole seconds.
+// The same goes for the average queue length (PERF_COUNTER_100NS_QUEUELEN_TYPE,
+// a 64-bit sum of queue length times 100 ns): delta(AvgDiskQueueLength) /
+// delta(Timestamp_Sys100NS), where the formatted class truncates 0.7 to 0.
 std::string helper::raw_latency_query =
     "select Name, AvgDiskSecPerRead, AvgDiskSecPerRead_Base, AvgDiskSecPerWrite, AvgDiskSecPerWrite_Base,"
-    " AvgDiskSecPerTransfer, AvgDiskSecPerTransfer_Base, Frequency_PerfTime"
+    " AvgDiskSecPerTransfer, AvgDiskSecPerTransfer_Base, Frequency_PerfTime, AvgDiskQueueLength, Timestamp_Sys100NS"
     " from Win32_PerfRawData_PerfDisk_LogicalDisk";
 std::string helper::perf_namespace = "root\\CIMV2";
 
@@ -68,8 +71,8 @@ disks_type disk_io_data::query_perf(HANDLE abort_event) {
   return disks;
 }
 
-// Latency from the raw counters: average time per I/O since the previous
-// sample. The first sample only seeds prev_raw_, leaving latencies at 0.
+// Latency and average queue length from the raw counters, since the previous
+// sample. The first sample only seeds prev_raw_, leaving both at 0.
 void disk_io_data::apply_latency(disks_type &disks, HANDLE abort_event) {
   std::map<std::string, disk_io *> by_name;
   for (disk_io &d : disks) by_name[d.name] = &d;
@@ -87,6 +90,8 @@ void disk_io_data::apply_latency(disks_type &disks, HANDLE abort_event) {
     s.write_ops = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerWrite_Base"));
     s.transfer_ticks = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerTransfer"));
     s.transfer_ops = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerTransfer_Base"));
+    s.queue_time = static_cast<unsigned long long>(r.get_int("AvgDiskQueueLength"));
+    s.timestamp_100ns = static_cast<unsigned long long>(r.get_int("Timestamp_Sys100NS"));
     const auto frequency = static_cast<unsigned long long>(r.get_int("Frequency_PerfTime"));
     current[name] = s;
 
@@ -97,6 +102,11 @@ void disk_io_data::apply_latency(disks_type &disks, HANDLE abort_event) {
     dit->second->read_latency = avg_latency_ms(s.read_ticks, p.read_ticks, s.read_ops, p.read_ops, frequency);
     dit->second->write_latency = avg_latency_ms(s.write_ticks, p.write_ticks, s.write_ops, p.write_ops, frequency);
     dit->second->total_latency = avg_latency_ms(s.transfer_ticks, p.transfer_ticks, s.transfer_ops, p.transfer_ops, frequency);
+    // 64-bit counters: one that went backwards (a volume re-mounted under the
+    // same name) is no time rather than a near-2^64 jump.
+    if (s.queue_time >= p.queue_time && s.timestamp_100ns > p.timestamp_100ns) {
+      dit->second->avg_queue_length = average_queue_length(s.queue_time - p.queue_time, s.timestamp_100ns - p.timestamp_100ns);
+    }
   }
   prev_raw_.swap(current);
 }

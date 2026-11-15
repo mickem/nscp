@@ -316,6 +316,31 @@ describeWithModules("CheckSystem")("metrics and real-time checks", () => {
       true,
     );
     expect(keys.some((k) => k.startsWith("disk.free.") && k.endsWith(".free_pct"))).toBe(true);
+    // The pressure figures, next to the instantaneous queue_length: the
+    // average over the interval, which a 1-second sample cannot catch at 0.
+    expect(keys.some((k) => k.startsWith("disk.io.") && k.endsWith(".avg_queue_length"))).toBe(
+      true,
+    );
+  });
+
+  it("publishes the pressure metrics on Windows", async () => {
+    if (!onWindows) return;
+    const wanted = [
+      "system.pressure.processor_queue_length",
+      "system.pressure.page_faults_per_sec",
+    ];
+    const described = await poll(
+      () => getJson<DescribedMetrics>(key, "/api/v2/metrics?meta=1"),
+      (d) => wanted.every((k) => k in d.metrics),
+    );
+    for (const k of wanted) {
+      expect(typeof described.metrics[k]).toBe("number");
+      expect(described.metrics[k] as number).toBeGreaterThanOrEqual(0);
+      expect(described.metadata[k].type).toEqual("gauge");
+      expect(described.metadata[k].help).toBeTruthy();
+      // A queue length is a count and page faults a per-second rate: no unit.
+      expect(described.metadata[k].unit).toBeUndefined();
+    }
   });
 
   it("publishes collector-backed network metrics after warm-up", async () => {
