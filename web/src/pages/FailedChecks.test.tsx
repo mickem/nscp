@@ -59,6 +59,46 @@ const CONTEXT = {
   },
 };
 
+const DIAGNOSTICS_REF = { state: "captured", snapshot_id: 8, captured_at: 1760000057, age_at_failure: 3, size: 900 };
+
+const DIAGNOSTICS_CONTEXT = {
+  ...DIAGNOSTICS_REF,
+  // Deliberately not in reading order: the page sorts them.
+  sections: {
+    "services.problems": {
+      source: "CheckSystem",
+      captured_at: "2025-10-09T10:00:50Z",
+      truncated: false,
+      error: "Access is denied.",
+      columns: [{ name: "name", type: "string" }],
+      rows: [],
+    },
+    "processes.top_cpu": {
+      source: "CheckSystem",
+      description: "The processes using the most CPU over the last second",
+      captured_at: "2025-10-09T10:00:56Z",
+      truncated: true,
+      columns: [
+        { name: "name", type: "string" },
+        { name: "pid", type: "int" },
+        { name: "cpu", type: "float", unit: "percent" },
+        { name: "working_set", type: "int", unit: "bytes" },
+      ],
+      rows: [{ name: "acme-indexer.exe", pid: 4242, cpu: 87.5, working_set: 412000256 }],
+    },
+    "failures.recent": {
+      source: "core",
+      captured_at: "2025-10-09T10:00:57Z",
+      truncated: false,
+      columns: [
+        { name: "time", type: "timestamp" },
+        { name: "command", type: "string" },
+      ],
+      rows: [{ time: "2025-10-09T10:00:00Z", command: "check_cpu" }],
+    },
+  },
+};
+
 const envelope = (over: Record<string, unknown> = {}) =>
   jsonResponse({
     enabled: true,
@@ -191,6 +231,94 @@ describe("FailedChecks", () => {
     expect(screen.getByText(/metrics not captured \(capture metrics = false/)).toBeInTheDocument();
     await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
     expect(screen.getByText("disabled")).toBeInTheDocument();
+  });
+
+  it("shows the diagnostics the failure was recorded with, failures.recent first", async () => {
+    const withDiagnostics = ENTRIES.map((e) => ({ ...e, diagnostics: DIAGNOSTICS_REF }));
+    const fetchMock = installFetchMock({
+      "/api/v2/failures": envelope({ capture_diagnostics: true, diagnostics_rows: 10, entries: withDiagnostics }),
+      "/api/v2/failures/2/context": jsonResponse({ ...CONTEXT, diagnostics: DIAGNOSTICS_CONTEXT }),
+    });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    expect(screen.getByText(/diagnostics captured \(up to 10 rows per table\)/)).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+
+    expect(await screen.findByText("Diagnostics at the time")).toBeInTheDocument();
+    expect(screen.getByText(/snapshot #8, 3s before the failure/)).toBeInTheDocument();
+    const headings = (await screen.findAllByRole("heading", { level: 3 })).map((h) => h.textContent);
+    expect(headings).toEqual(["failures.recent", "processes.top_cpu", "services.problems"]);
+    const cpu = screen.getByRole("table", { name: "processes.top_cpu rows" });
+    expect(within(cpu).getByText("acme-indexer.exe")).toBeInTheDocument();
+    expect(within(cpu).getByText("87.5 %")).toBeInTheDocument();
+    expect(within(cpu).getByText("392.9 MiB")).toBeInTheDocument();
+    expect(screen.getByText("showing the first 1")).toBeInTheDocument();
+    expect(screen.getByText("Could not be collected: Access is denied.")).toBeInTheDocument();
+    // The metrics view is still there, and both came from one request.
+    expect(screen.getByRole("table", { name: "metrics at the time" })).toBeInTheDocument();
+    const contextCalls = fetchMock.mock.calls.filter((c) =>
+      new URL((c[0] as Request).url).pathname.endsWith("/context"),
+    );
+    expect(contextCalls).toHaveLength(1);
+  });
+
+  it("fetches the diagnostics even when the metrics were not captured", async () => {
+    const entries = [{ ...ENTRIES[0], context: { state: "disabled" }, diagnostics: DIAGNOSTICS_REF }];
+    installFetchMock({
+      "/api/v2/failures": envelope({ capture_metrics: false, capture_diagnostics: true, entries }),
+      "/api/v2/failures/2/context": jsonResponse({ ...CONTEXT, metrics: undefined, diagnostics: DIAGNOSTICS_CONTEXT }),
+    });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+    expect(await screen.findByRole("table", { name: "processes.top_cpu rows" })).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "metrics at the time" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["evicted", /Diagnostics released to stay within the metrics context budget/],
+    ["too_large", /Diagnostics larger than max context size/],
+    ["none", /Diagnostics no diagnostics had been collected yet/],
+  ])("says why an entry has no diagnostics (%s) instead of fetching them", async (state, text) => {
+    const entries = [{ ...ENTRIES[1], diagnostics: { state } }];
+    const fetchMock = installFetchMock({ "/api/v2/failures": envelope({ capture_diagnostics: true, entries }) });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_cpu")).toBeInTheDocument());
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+    expect(screen.getByText(text)).toBeInTheDocument();
+    // The chip beside the heading (the metrics context of this entry may carry the same one).
+    expect(screen.getAllByText(state.replace("_", " ")).length).toBeGreaterThan(0);
+    expect(fetchMock.mock.calls.some((c) => new URL((c[0] as Request).url).pathname.endsWith("/context"))).toBe(false);
+  });
+
+  it("points at the setting when diagnostics are not captured", async () => {
+    const entries = ENTRIES.map((e) => ({ ...e, context: { state: "disabled" }, diagnostics: { state: "disabled" } }));
+    installFetchMock({
+      "/api/v2/failures": envelope({ capture_metrics: false, capture_diagnostics: false, entries }),
+    });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    expect(screen.getByText(/diagnostics not captured \(capture diagnostics = false/)).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+    expect(screen.getByText(/Diagnostics not captured \(capture diagnostics = false/)).toBeInTheDocument();
+  });
+
+  it("shows no diagnostics section for an agent that predates them", async () => {
+    installFetchMock({
+      "/api/v2/failures": envelope(),
+      "/api/v2/failures/2/context": jsonResponse(CONTEXT),
+    });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    expect(screen.queryByText(/diagnostics/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
+    await screen.findByRole("table", { name: "metrics at the time" });
+    expect(screen.queryByText("Diagnostics at the time")).not.toBeInTheDocument();
   });
 
   it("says when only the allow-listed arguments are recorded", async () => {
