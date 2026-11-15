@@ -11,14 +11,17 @@
  * diagnostics` is on, and nothing is collected because a check failed or a
  * request arrived: both read what the last round left. The core always adds
  * `failures.recent`; the process tables come from CheckSystem (Windows) and
- * CheckSystemUnix once [/settings/system/<os>/diagnostics] processes is on.
+ * CheckSystemUnix once [/settings/system/<os>/diagnostics] processes is on -
+ * on macOS, which has no reader for them yet, as two sections that carry an
+ * error and no rows.
  * The services and event tables: services.problems from the same modules
  * (`services`), services.events and eventlog.errors from CheckEventLog
  * ([/settings/eventlog/diagnostics] services, errors) on Windows and from
  * CheckSystemUnix's journal reader (`services`, `errors`) on Linux - which
  * produces none of the three on a host without systemd. disk.growth_spots
  * comes from CheckDisk ([/settings/disk/diagnostics] growth spots), whose
- * first walk starts 15 seconds after the module loads.
+ * first walk starts 15 seconds after the module loads; the module is not
+ * built on macOS, so there is no such section there.
  * Rounds run with the 1s metrics round here, so every wait below polls with a
  * deadline rather than sleeping a fixed time.
  */
@@ -30,6 +33,7 @@ import {
   NscpInstance,
   REST_URL,
   eventIdAllocator,
+  onDarwin,
   resolveEventLogSource,
   writeEventLogEntry,
 } from "@fixtures/index";
@@ -56,8 +60,8 @@ function config(
       WEBServer: "enabled",
       CheckHelpers: "enabled",
       CheckSystem: "enabled",
-      // disk.growth_spots.
-      CheckDisk: "enabled",
+      // disk.growth_spots. Not built on macOS.
+      ...(onDarwin ? {} : { CheckDisk: "enabled" }),
       // The event tables on Windows; the journal ones are CheckSystemUnix's.
       ...(onWindows ? { CheckEventLog: "enabled" } : {}),
     },
@@ -195,6 +199,15 @@ function expectProcessTable(body: Json, sortedBy: "cpu" | "working_set"): void {
   expect(values).toEqual([...values].sort((a, b) => b - a));
 }
 
+/**
+ * A process table on macOS: reported, so a reader can tell "not produced
+ * here" from "switched off", but with the reason and no rows.
+ */
+function expectUnsupportedProcessTable(body: Json): void {
+  expect(body.error as string).toMatch(/not supported on macOS/);
+  expect(body.rows).toEqual([]);
+}
+
 describe("REST diagnostics", () => {
   describe("capture diagnostics off (the default)", () => {
     let nscp: NscpInstance;
@@ -317,6 +330,11 @@ describe("REST diagnostics", () => {
     });
 
     it("publishes the top processes by CPU and by memory", async () => {
+      if (onDarwin) {
+        expectUnsupportedProcessTable(await section(key, "processes.top_cpu", 0));
+        expectUnsupportedProcessTable(await section(key, "processes.top_memory", 0));
+        return;
+      }
       expectProcessTable(await section(key, "processes.top_cpu"), "cpu");
       expectProcessTable(await section(key, "processes.top_memory"), "working_set");
     });
@@ -455,6 +473,11 @@ describe("REST diagnostics", () => {
     });
 
     it("publishes the size of the usual growth spots (disk.growth_spots)", async () => {
+      // CheckDisk is not built on macOS: no walker, no table.
+      if (onDarwin) {
+        await absent(key, "disk.growth_spots");
+        return;
+      }
       // The first walk starts 15 seconds after the module loads and may take
       // up to its two-minute round limit on a busy host.
       const body = await until(
@@ -499,7 +522,7 @@ describe("REST diagnostics", () => {
 
     it("records a failure with the snapshot, readable with failures.list", async () => {
       // Wait for a round that has the process tables, then fail a check.
-      await section(key, "processes.top_memory");
+      await section(key, "processes.top_memory", onDarwin ? 0 : 1);
       await run(key, "check_critical", "?message=with-diagnostics");
       const log = await get(key, "/api/v2/failures");
       expect(log.capture_diagnostics).toBe(true);
@@ -519,7 +542,8 @@ describe("REST diagnostics", () => {
       expect(Object.keys(sections)).toEqual(
         expect.arrayContaining(["failures.recent", "processes.top_cpu", "processes.top_memory"]),
       );
-      expectProcessTable(sections["processes.top_memory"], "working_set");
+      if (onDarwin) expectUnsupportedProcessTable(sections["processes.top_memory"]);
+      else expectProcessTable(sections["processes.top_memory"], "working_set");
     });
   });
 });
