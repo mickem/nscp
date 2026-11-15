@@ -32,9 +32,13 @@ struct diagnostics_snapshot {
   std::size_t wire_size = 0;
   // Section names `prune pattern` left out.
   std::vector<std::string> excluded;
-  // Sections dropped because the snapshot was full or held one of the same
-  // name.
+  // Sections dropped because the snapshot was full, held one of the same
+  // name, or did not fit `max context size`.
   std::size_t dropped = 0;
+  // How many of those were dropped for size: tables that were left out
+  // whole because the snapshot was over `max context size` with no rows left
+  // to give up.
+  std::size_t oversized = 0;
   // The row cap that was applied.
   std::size_t max_rows = 0;
 };

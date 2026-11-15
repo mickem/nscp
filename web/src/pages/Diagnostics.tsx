@@ -189,7 +189,7 @@ export default function Diagnostics() {
           )}
           {data.dropped > 0 && (
             <div>
-              {data.dropped} {data.dropped === 1 ? "table was" : "tables were"} dropped: over the 16-table cap, or a
+              {data.dropped} {data.dropped === 1 ? "table was" : "tables were"} dropped: over the 16-table cap or <code>max context size</code>, or a
               second table of the same name.
             </div>
           )}

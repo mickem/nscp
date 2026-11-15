@@ -255,7 +255,7 @@ $ curl -k -s -u admin https://localhost:8443/api/v2/diagnostics | python -m json
 | `snapshot_id` | Increasing for the life of the process; `0` before the first round. |
 | `captured_at` | When the core finished the round. Each section has its own `captured_at`, which can be older: a table refreshed on a slow cadence is handed over as it was last refreshed. |
 | `max_rows` | `diagnostics rows`, as applied. |
-| `dropped` | Tables left out because the snapshot already held 16, or one of the same name. |
+| `dropped` | Tables left out because the snapshot already held 16, or one of the same name, or because it did not fit `max context size` even with every row given up (the agent then also logs a warning). |
 | `excluded` | Tables `prune pattern` left out. |
 | `sections` | Each table's `name`, `source` (the module that produced it, or `core`), `description`, `captured_at`, `truncated`, `rows` (the row count) and, when it could not be collected, `error`. |
 

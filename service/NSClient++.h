@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <map>
 #include <nsclient/logger/logger.hpp>
 #include <service/system_service.hpp>
@@ -74,6 +75,9 @@ class NSClientT : public nsclient::core::core_interface {
   // True when `diagnostics interval` is empty: the diagnostics round then runs
   // at the end of every metrics round instead of on a task of its own.
   bool diagnostics_with_metrics_ = true;
+  // How many tables the last diagnostics round left out for size, so the
+  // warning about it is logged when that changes and not every round.
+  std::atomic<std::size_t> diagnostics_oversized_{0};
   // Path overrides supplied via --path-override on the command line. Applied to
   // path_ inside load_configuration_1, after init_settings has loaded
   // boot.ini's [paths] section, so CLI wins over boot.ini.

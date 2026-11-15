@@ -159,6 +159,35 @@ TEST(diagnostics_round, trims_the_longest_section_until_the_snapshot_fits) {
   EXPECT_EQ(s.message.sections(0).rows_size(), 2);
 }
 
+TEST(diagnostics_round, gives_up_whole_sections_when_the_snapshot_cannot_fit_without_rows) {
+  PB::Diagnostics::DiagnosticsMessage m;
+  add_section(m, "failures.recent", 2, "x");
+  add_section(m, "second", 2, "x");
+  add_section(m, "third", 2, "x");
+  for (PB::Diagnostics::Section &s : *m.mutable_sections()) s.set_description(std::string(200, 'd'));
+  dround::caps limits;
+  // Room for one section's name, columns and description, not for two.
+  limits.max_size = 400;
+  const diagnostics_snapshot s = dround::assemble(m, limits, 1);
+  EXPECT_LE(s.message.ByteSizeLong(), 400u);
+  ASSERT_EQ(s.message.sections_size(), 1);
+  // The first section - the core's own - is the last to go.
+  EXPECT_EQ(s.message.sections(0).name(), "failures.recent");
+  EXPECT_EQ(s.message.sections(0).rows_size(), 0);
+  EXPECT_EQ(s.oversized, 2u);
+  EXPECT_EQ(s.dropped, 2u);
+
+  // A cap nothing fits leaves an empty snapshot rather than an oversized one.
+  limits.max_size = 10;
+  const diagnostics_snapshot none = dround::assemble(m, limits, 1);
+  EXPECT_EQ(none.message.sections_size(), 0);
+  EXPECT_EQ(none.oversized, 3u);
+
+  // A snapshot that fits by giving up rows loses no section.
+  limits.max_size = 100000;
+  EXPECT_EQ(dround::assemble(m, limits, 1).oversized, 0u);
+}
+
 TEST(diagnostics_round, clamps_the_row_setting) {
   EXPECT_EQ(dround::clamp_rows(0), 1u);
   EXPECT_EQ(dround::clamp_rows(7), 7u);

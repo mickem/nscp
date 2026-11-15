@@ -157,8 +157,10 @@ inline bool fit(PB::Diagnostics::DiagnosticsMessage &message, const std::size_t 
 // Turn what was collected (the core's section first, then each producer's, in
 // load order) into a snapshot: sections matching `prune pattern` left out, a
 // name seen twice kept once, at most `max_sections` of them, each held to the
-// row and cell caps and redacted, and the whole trimmed to `max_size`. The id
-// and wire size are the store's to fill in.
+// row and cell caps and redacted, and the whole trimmed to `max_size`: rows
+// first, then - when a snapshot without rows is still too large - whole
+// sections, counted in `oversized`. The id and wire size are the store's to
+// fill in.
 inline diagnostics_snapshot assemble(PB::Diagnostics::DiagnosticsMessage collected, const caps &limits, const std::int64_t now) {
   diagnostics_snapshot out;
   out.captured_at = now;
@@ -176,7 +178,17 @@ inline diagnostics_snapshot assemble(PB::Diagnostics::DiagnosticsMessage collect
     detail::cap_section(section, limits);
     out.message.add_sections()->Swap(&section);
   }
-  detail::fit(out.message, limits.max_size);
+  if (!detail::fit(out.message, limits.max_size)) {
+    // No rows left and the columns and descriptions alone are over the cap:
+    // give up whole tables from the end (the core's own comes first, so it
+    // goes last) rather than hand over a snapshot every failure would then
+    // record as too large.
+    while (out.message.sections_size() > 0 && out.message.ByteSizeLong() > limits.max_size) {
+      out.message.mutable_sections()->RemoveLast();
+      ++out.dropped;
+      ++out.oversized;
+    }
+  }
   return out;
 }
 

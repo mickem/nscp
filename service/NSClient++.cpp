@@ -1256,7 +1256,13 @@ void NSClientT::process_diagnostics() {
     nsclient::core::diagnostics_round::add_recent_failures(collected, failures_->list(0, limits.max_rows + 1), limits.max_rows, now);
     PB::Diagnostics::DiagnosticsMessage produced = plugins_->collect_diagnostics();
     for (PB::Diagnostics::Section &section : *produced.mutable_sections()) collected.add_sections()->Swap(&section);
-    diagnostics_->store(nsclient::core::diagnostics_round::assemble(std::move(collected), limits, now));
+    const nsclient::core::diagnostics_snapshot snapshot = nsclient::core::diagnostics_round::assemble(std::move(collected), limits, now);
+    if (diagnostics_oversized_.exchange(snapshot.oversized) != snapshot.oversized && snapshot.oversized > 0) {
+      LOG_WARN_CORE_STD("Diagnostics: " + str::xtos(snapshot.oversized) +
+                        " table(s) left out of the snapshot, which does not fit [/settings/core/failed checks] max context size (" +
+                        str::xtos(limits.max_size) + " bytes) even without rows");
+    }
+    diagnostics_->store(snapshot);
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Failed to collect diagnostics: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
