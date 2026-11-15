@@ -138,9 +138,11 @@ void pdh_thread::thread_proc() {
     // sampling::tracker::baseline() for how that is reported).
     boost::optional<cpu_load> load;
     bool cpu_baseline = false;
+    std::map<std::string, collector_source::cpu_times> cpu_now;
     const std::string cpu_error = read_source([&]() {
       auto current_times = collector_source::read_cpu_times();
       if (current_times.empty()) throw std::runtime_error("no CPU times could be read");
+      cpu_now = current_times;
       if (last_cpu_times_.empty()) {
         cpu_baseline = true;
       } else {
@@ -181,6 +183,10 @@ void pdh_thread::thread_proc() {
     const bool track_history = process_history_enabled;
     std::string history_error;
     if (track_history) history_error = read_source([&]() { running_exes = collector_source::read_running_exes(); });
+
+    // The diagnostics process tables, only while the section is on: one more
+    // walk of /proc a second.
+    if (diagnostics_processes) sample_process_tables(cpu_now);
 
     // Every read above catches for itself, so only the store can throw here.
     // Counting the attempt keeps a collector that can never store from
@@ -233,6 +239,45 @@ void pdh_thread::thread_proc() {
       NSC_LOG_ERROR("Failed to evaluate real-time filters: " + std::string(e.what()));
     }
   }
+}
+
+// Rank every process by its CPU share since the previous sample and by its
+// working set. The share is against the /proc/stat aggregate taken in the
+// same tick, so a stretched tick does not inflate it. Catches for itself: a
+// failure is reported on the sections, and logged once.
+void pdh_thread::sample_process_tables(const std::map<std::string, collector_source::cpu_times> &cpu_now) {
+  static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+  const long long now_ts = (boost::posix_time::second_clock::universal_time() - epoch).total_seconds();
+  const std::string error = read_source([&]() {
+    process_top::table current = process_top::read_processes();
+    collector_source::cpu_times total;
+    if (!last_process_table_.empty() && !cpu_now.empty() && collector_source::aggregate_delta(last_process_cpu_, cpu_now, total)) {
+      process_tables::sample ranked = process_tables::rank(process_top::rows(last_process_table_, current, total.total()), now_ts);
+      const boost::lock_guard<boost::mutex> guard(process_tables_mutex_);
+      process_tables_ = std::move(ranked);
+    }
+    // Only a pair taken in the same tick is diffed next time.
+    if (!cpu_now.empty()) {
+      last_process_table_ = std::move(current);
+      last_process_cpu_ = cpu_now;
+    }
+  });
+  if (!error.empty()) {
+    process_tables::sample failed;
+    failed.captured_at = now_ts;
+    failed.error = error;
+    const boost::lock_guard<boost::mutex> guard(process_tables_mutex_);
+    process_tables_ = failed;
+  }
+  try {
+    log_sampling_error("process tables", error, last_logged_process_tables_error);
+  } catch (...) {
+  }
+}
+
+process_tables::sample pdh_thread::get_process_tables() const {
+  const boost::lock_guard<boost::mutex> guard(process_tables_mutex_);
+  return process_tables_;
 }
 
 bool pdh_thread::has_cpu_data() const {

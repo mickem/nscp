@@ -11,6 +11,8 @@
 		"default_alias"	: "system/unix"
 	},
 
+	"diagnostics"	: "produce",
+
 	"commands" : {
 		"check_cpu" 		: "Check that the load of the CPU(s) are within bounds.",
 		"check_load"		: "Check the system load average (1/5/15 minutes).",

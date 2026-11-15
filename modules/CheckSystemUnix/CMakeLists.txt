@@ -38,6 +38,7 @@ set(SRCS
     check_network.cpp
     check_process_history.cpp
     pressure.cpp
+    process_top.cpp
     system_facts.cpp
     software_facts_unix.cpp
     ${NSCP_INCLUDEDIR}/facts/service_facts.cpp
@@ -65,6 +66,7 @@ if(APPLE)
         mach_stats_darwin.cpp
         interfaces_darwin.cpp
         pressure_source_darwin.cpp
+        process_top_source_darwin.cpp
     )
     set(PLATFORM_TEST_SRCS
         darwin_sources_test.cpp
@@ -87,6 +89,7 @@ else()
         hardware_source_linux.cpp
         network_facts_linux.cpp
         pressure_source_linux.cpp
+        process_top_source_linux.cpp
     )
     set(PLATFORM_TEST_SRCS service_facts_linux_test.cpp systemd_units_linux_test.cpp)
     set(PLATFORM_LIBS)
@@ -125,6 +128,7 @@ if(WIN32)
         check_network.h
         check_process_history.h
         pressure.h
+        process_top.h
         collector_source.h
         system_facts.h
         ${NSCP_INCLUDEDIR}/facts/host_facts.hpp
@@ -197,6 +201,8 @@ NSCP_CREATE_TEST(
         collector_calc_test.cpp
         pressure.cpp
         pressure_test.cpp
+        process_top.cpp
+        process_top_test.cpp
         realtime_thread.cpp
         realtime_thread_test.cpp
         realtime_data.cpp

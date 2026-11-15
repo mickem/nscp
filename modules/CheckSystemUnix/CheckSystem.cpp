@@ -106,6 +106,16 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // clang-format on
 
   // clang-format off
+  settings.alias().add_key_to_settings("diagnostics")
+    .add_bool("processes", sh::bool_key(&fresh->diagnostics_processes, false),
+        "PROCESS TABLES",
+        "Produce the processes.top_cpu and processes.top_memory diagnostics tables: the processes using the most CPU over the last second and "
+        "the ones with the largest resident memory, with their name, pid, CPU share, working set and private (unshared) memory - never their "
+        "command line. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is "
+        "on. Turns on the sampling it needs: the collector reads /proc/<pid>/stat and statm of every process once a second while this is on, "
+        "and nothing while it is off. Linux only; on macOS the tables report that they are not supported.")
+    ;
+
   settings.alias().add_key_to_settings("facts")
     .add_bool("os", sh::bool_key(&facts_os, false),
         "OS FACTS",
@@ -334,6 +344,15 @@ void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::fact
       response.error(software_facts::set_software, std::string("Failed to enumerate installed software: ") + e.what());
     }
   }
+}
+
+void CheckSystem::fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response) {
+  // Cheap by contract: the collector ranked the processes on its own thread;
+  // this copies the last result. Nothing while the section is off, which is
+  // how the core learns it was switched off.
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector || !collector->diagnostics_processes) return;
+  process_tables::add_sections(response, collector->get_process_tables());
 }
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {

@@ -49,6 +49,9 @@ struct sample {
   std::int64_t captured_at = 0;
   // How many processes the sample saw: a table shorter than this is a top list.
   std::size_t total = 0;
+  // Why the platform could not be sampled; both sections are then reported
+  // with it, and no rows.
+  std::string error;
   std::vector<process_row> top_cpu;
   std::vector<process_row> top_memory;
 };
@@ -100,10 +103,19 @@ inline void add_table(PB::Diagnostics::DiagnosticsMessage *out, const char *name
   // There were more processes than the table holds: it is a top list.
   if (total > rows.size()) t.truncated();
 }
+
+inline void add_failed_table(PB::Diagnostics::DiagnosticsMessage *out, const char *name, const std::string &error, const std::int64_t captured_at) {
+  nscapi::diagnostics::table(out, name).captured_at(captured_at).error(error).column("name");
+}
 }  // namespace detail
 
 // Both sections from the last ranked sample; nothing before the first one.
 inline void add_sections(PB::Diagnostics::DiagnosticsMessage *out, const sample &s) {
+  if (!s.error.empty()) {
+    detail::add_failed_table(out, section_top_cpu, s.error, s.captured_at);
+    detail::add_failed_table(out, section_top_memory, s.error, s.captured_at);
+    return;
+  }
   if (s.captured_at == 0) return;
   detail::add_table(out, section_top_cpu, "The processes using the most CPU over the last second", s.top_cpu, s.captured_at, s.total);
   detail::add_table(out, section_top_memory, "The processes with the largest working set", s.top_memory, s.captured_at, s.total);

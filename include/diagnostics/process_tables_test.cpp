@@ -69,6 +69,18 @@ TEST(process_tables, builds_both_sections_with_typed_columns) {
   EXPECT_EQ(message.sections(1).name(), "processes.top_memory");
 }
 
+TEST(process_tables, reports_both_sections_failed_when_the_platform_cannot_be_read) {
+  process_tables::sample s;
+  s.captured_at = 5;
+  s.error = "not supported";
+  PB::Diagnostics::DiagnosticsMessage message;
+  process_tables::add_sections(&message, s);
+  ASSERT_EQ(message.sections_size(), 2);
+  EXPECT_EQ(message.sections(0).error(), "not supported");
+  EXPECT_EQ(message.sections(1).error(), "not supported");
+  EXPECT_EQ(message.sections(0).rows_size(), 0);
+}
+
 TEST(process_tables, adds_nothing_before_the_first_sample) {
   PB::Diagnostics::DiagnosticsMessage message;
   process_tables::add_sections(&message, process_tables::sample());

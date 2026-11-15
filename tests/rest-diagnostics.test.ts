@@ -258,15 +258,13 @@ describe("REST diagnostics", () => {
     });
 
     it("publishes the top processes by CPU and by memory", async () => {
-      // CheckSystemUnix produces them from the next change on.
-      if (!onWindows) return;
       expectProcessTable(await section(key, "processes.top_cpu"), "cpu");
       expectProcessTable(await section(key, "processes.top_memory"), "working_set");
     });
 
     it("records a failure with the snapshot, readable with failures.list", async () => {
       // Wait for a round that has the process tables, then fail a check.
-      await section(key, onWindows ? "processes.top_memory" : "failures.recent", onWindows ? 1 : 0);
+      await section(key, "processes.top_memory");
       await run(key, "check_critical", "?message=with-diagnostics");
       const log = await get(key, "/api/v2/failures");
       expect(log.capture_diagnostics).toBe(true);
@@ -283,13 +281,10 @@ describe("REST diagnostics", () => {
       expect(diagnostics.state).toEqual("captured");
       expect(diagnostics.snapshot_id).toEqual(ref.snapshot_id);
       const sections = diagnostics.sections as Record<string, Json>;
-      expect(Object.keys(sections)).toContain("failures.recent");
-      if (onWindows) {
-        expect(Object.keys(sections)).toEqual(
-          expect.arrayContaining(["processes.top_cpu", "processes.top_memory"]),
-        );
-        expectProcessTable(sections["processes.top_memory"], "working_set");
-      }
+      expect(Object.keys(sections)).toEqual(
+        expect.arrayContaining(["failures.recent", "processes.top_cpu", "processes.top_memory"]),
+      );
+      expectProcessTable(sections["processes.top_memory"], "working_set");
     });
   });
 });
