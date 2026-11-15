@@ -1,6 +1,6 @@
 ---
 icon: "📊"
-modules: [CheckSystem, CheckDisk]
+modules: [CheckSystem, CheckSystemUnix, CheckDisk]
 action: none
 ---
 **New: pressure metrics - how much the system is waiting, not only how busy it is.**

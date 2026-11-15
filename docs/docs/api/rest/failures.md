@@ -184,8 +184,12 @@ Which tables there are is switched on in the module that produces them, see
 `metrics context budget` covers both kinds of snapshot (the key keeps its
 name): each distinct snapshot, metrics or diagnostics, is counted once, and when
 the budget is used up the oldest one held is released first, whichever kind it
-is. `max context size` caps one snapshot of either kind; the diagnostics round
-trims the longest tables until a snapshot fits. `prune pattern` applies to
+is - except that the snapshots the newest failure refers to are released last,
+and when that pair alone is over the budget its diagnostics go and its metrics
+stay. `max context size` caps one snapshot of either kind; the diagnostics round
+trims the longest tables until a snapshot fits, and leaves whole tables out
+(counted in [`dropped`](diagnostics.md)) when it still does not fit without
+rows. `prune pattern` applies to
 table names too; the `prune metrics` rules do not apply to tables.
 
 The listing only says whether an entry has a snapshot (its `context` and

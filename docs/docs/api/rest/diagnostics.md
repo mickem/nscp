@@ -122,9 +122,10 @@ failure would add load at the worst moment.
   table is every service in trouble, the ones restarted most often first,
   then those that exited with an error:
     * **Windows:** what `check_service` flags by default - an automatic
-      service that is not running, unless it is delayed or trigger-started and
-      stopped cleanly - plus any service that stopped with an error other than
-      "never started". `exit_code` is the Win32 exit code, or the service's own
+      service that is not running, unless it is delayed, trigger-started,
+      still starting or stopped cleanly (exit code 0) - plus any service that
+      stopped with an error other than "never started". An automatic service
+      that was stopped by hand and exited with 0 is therefore not listed. `exit_code` is the Win32 exit code, or the service's own
       code when it reported one; `restart_count` is always `null`, because the
       service control manager keeps no such count.
     * **Linux:** the systemd units that failed, are waiting to be restarted,
@@ -147,7 +148,8 @@ failure would add load at the worst moment.
 * **`eventlog.errors`** holds the last errors written to the system logs: on
   Windows every critical or error event in the Application and System logs;
   on Linux every journal entry at priority `err` or worse, with `log` the
-  unit that wrote it (or `kernel`), `source` its syslog identifier and
+  unit that wrote it (`kernel` for a kernel message, `journal` for an entry
+  that belongs to no unit), `source` its syslog identifier and
   `level` one of `emerg`, `alert`, `crit` or `err`. The agent must be able to
   read the system journal: root, or a member of `adm` or `systemd-journal`.
   A message is event text, which applications fill with whatever they like;

@@ -62,7 +62,9 @@ namespace core {
 // refers to the core's latest diagnostics snapshot (diagnostics_snapshot.hpp)
 // with a state of its own, and the distinct snapshots of both kinds are held
 // together under the one budget - so the oldest snapshot is released first,
-// whichever kind it is.
+// whichever kind it is, except that the ones the newest entry refers to go
+// last and, of those, the diagnostics before the metrics
+// (enforce_budget_locked).
 //
 // Thread safety: record/list/clear/configure can be called from any thread.
 // record() is on the hot path of every check, so it does its copying outside
