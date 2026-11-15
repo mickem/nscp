@@ -129,6 +129,11 @@ class collector_thread {
   // Null before the first disk-free fetch (and with disk_free disabled); a
   // volume without enough history has a key with unset values.
   change_snapshot get_used_changes();
+  // Carry the used-space history over a settings reload, which replaces the
+  // collector: copy it out of the stopped one and into the fresh one before
+  // it starts. Only valid while the collector's thread is not running.
+  used_history::tracker get_used_history() const { return used_history_; }
+  void seed_used_history(const used_history::tracker &history);
 
   bool start();
   bool stop();

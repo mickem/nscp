@@ -38,6 +38,13 @@ collector_thread::change_snapshot collector_thread::get_used_changes() {
   return changes_;
 }
 
+void collector_thread::seed_used_history(const used_history::tracker &history) {
+  used_history_ = history;
+  const change_snapshot seeded = std::make_shared<const used_history::change_map>(used_history_.get());
+  const boost::lock_guard<boost::mutex> lock(changes_mutex_);
+  changes_ = seeded;
+}
+
 void collector_thread::update_used_history() {
   // Spaced on the monotonic clock: the wall clock steps (NTP, a VM's time
   // sync), and the windows are about elapsed time, not dates.

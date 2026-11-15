@@ -128,3 +128,23 @@ TEST(CollectorFailureTracker, DefaultConstructedNeverGivesUp) {
   EXPECT_FALSE(t.failed());
   EXPECT_FALSE(t.given_up());
 }
+
+// A settings reload replaces the collector; the used-space history (memory
+// only) goes over to the new one, so used_change_1h/24h survive the reload.
+TEST(CollectorThread, UsedHistoryIsHandedToTheReplacement) {
+  collector_thread before(nullptr, 0);
+  EXPECT_FALSE(before.get_used_changes());
+  used_history::tracker history;
+  for (long long t = 0; t <= 3600; t += 10) history.update(1000 + t, {used_history::reading{"C:", 500 + t, 100000}});
+  ASSERT_TRUE(history.get().at("C:").change_1h);
+
+  before.seed_used_history(history);
+  collector_thread after(nullptr, 0);
+  after.seed_used_history(before.get_used_history());
+  const collector_thread::change_snapshot changes = after.get_used_changes();
+  ASSERT_TRUE(changes);
+  ASSERT_EQ(changes->count("C:"), 1u);
+  ASSERT_TRUE(changes->at("C:").change_1h);
+  EXPECT_EQ(changes->at("C:").change_1h.value(), 3600);
+  EXPECT_FALSE(changes->at("C:").change_24h);
+}

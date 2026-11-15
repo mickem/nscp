@@ -88,8 +88,14 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // replacement atomically and configure it through the local copy: a check
   // running right now holds its own reference to whichever instance it read,
   // so the old one dies when that check returns rather than under it.
-  if (const std::shared_ptr<collector_thread> previous = std::atomic_load(&collector_)) previous->stop();
+  const std::shared_ptr<collector_thread> previous = std::atomic_load(&collector_);
+  if (previous) previous->stop();
   const std::shared_ptr<collector_thread> fresh = std::make_shared<collector_thread>(get_core(), get_id());
+  // The hour and day of used-space history live in memory only: hand them to
+  // the replacement, or every settings reload (a fleet bundle, a change in the
+  // web UI) would make used_change_1h/24h unknown for another hour or day.
+  // The old collector's thread is joined, so its history is safe to copy.
+  if (previous) fresh->seed_used_history(previous->get_used_history());
   std::atomic_store(&collector_, fresh);
 
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
