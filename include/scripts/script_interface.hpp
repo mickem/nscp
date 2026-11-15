@@ -80,6 +80,9 @@ struct settings_provider {
   virtual std::list<std::string> get_section(std::string section) = 0;
   virtual std::string get_string(std::string path, std::string key, std::string value) = 0;
   virtual void set_string(std::string path, std::string key, std::string value) = 0;
+  // Deletes the key, so a read falls back to its default. set_string with an
+  // empty value stores the empty string.
+  virtual void remove_key(std::string path, std::string key) = 0;
   virtual bool get_bool(std::string path, std::string key, bool value) = 0;
   virtual void set_bool(std::string path, std::string key, bool value) = 0;
   virtual int get_int(std::string path, std::string key, int value) = 0;

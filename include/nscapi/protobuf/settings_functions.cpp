@@ -129,6 +129,8 @@ void settings_query::set(const std::string &path, const std::string &key, const 
   r->mutable_update()->mutable_node()->set_path(path);
   r->mutable_update()->mutable_node()->set_key(key);
   r->mutable_update()->mutable_node()->set_value(value);
+  // `set` means set: an empty value clears the key. erase() removes it.
+  r->mutable_update()->set_store_empty(true);
 }
 
 void settings_query::erase(const std::string &path, const std::string &key) const {

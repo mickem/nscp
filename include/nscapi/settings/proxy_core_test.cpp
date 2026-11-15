@@ -70,9 +70,9 @@ TEST_F(SettingsProxy, SettersSendTheValueAsAString) {
 }
 
 // Removal is an update without a value (and, for a whole path, without a
-// key); the core's settings_query_handler reads it that way. The flip side:
-// set_string(path, key, "") is the same request, so it removes the key
-// rather than storing an empty value.
+// key); the core's settings_query_handler reads it that way. A set always
+// carries store_empty, so set_string(path, key, "") clears the key instead
+// of being mistaken for a removal.
 TEST_F(SettingsProxy, RemoveIsAnUpdateWithoutAValue) {
   proxy_->remove_key(path, "gone");
   proxy_->remove_path(path + "/sub");
@@ -81,10 +81,20 @@ TEST_F(SettingsProxy, RemoveIsAnUpdateWithoutAValue) {
   ASSERT_EQ(u.size(), 3u);
   EXPECT_EQ(u[0].key, "gone");
   EXPECT_EQ(u[0].default_value, "");
+  EXPECT_FALSE(u[0].store_empty);
   EXPECT_EQ(u[1].path, path + "/sub");
   EXPECT_EQ(u[1].key, "");
+  EXPECT_FALSE(u[1].store_empty);
   EXPECT_EQ(u[2].key, "emptied");
   EXPECT_EQ(u[2].default_value, "");
+  EXPECT_TRUE(u[2].store_empty);
+}
+
+TEST_F(SettingsProxy, EverySetterMarksTheUpdateAsASet) {
+  proxy_->set_string(path, "s", "x");
+  proxy_->set_int(path, "i", 0);
+  proxy_->set_bool(path, "b", false);
+  for (const auto &u : core().updated_settings()) EXPECT_TRUE(u.store_empty) << u.key;
 }
 
 // The core answers with full section paths; the proxy hands back the part

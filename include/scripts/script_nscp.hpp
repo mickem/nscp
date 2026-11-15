@@ -27,6 +27,7 @@ struct settings_provider_impl : public settings_provider {
   virtual std::list<std::string> get_section(std::string section);
   virtual std::string get_string(std::string path, std::string key, std::string value);
   virtual void set_string(std::string path, std::string key, std::string value);
+  virtual void remove_key(std::string path, std::string key);
   virtual bool get_bool(std::string path, std::string key, bool value);
   virtual void set_bool(std::string path, std::string key, bool value);
   virtual int get_int(std::string path, std::string key, int value);

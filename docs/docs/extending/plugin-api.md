@@ -558,9 +558,10 @@ optional | string | default_value |
 
 `Plugin.SettingsRequestMessage.Request.Update` 
 
-Modifier | Type | Key  | Description
--------- | ---- | ---- | -----------
-optional | Node | node |            
+Modifier | Type | Key         | Description
+-------- | ---- | ----------- | -----------
+optional | Node | node        | An empty `value` removes the key (an empty `key` too: the path).
+optional | bool | store_empty | Store an empty `value` instead of removing the key.
 
 <a name=".Plugin.SettingsRequestMessage.Request.Inventory"/>
 #### Inventory

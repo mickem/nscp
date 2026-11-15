@@ -138,6 +138,7 @@ void nscapi::settings_proxy::set_string(std::string path, std::string key, std::
   auto *payload = request.add_payload();
   payload->set_plugin_id(plugin_id_);
   auto *item = payload->mutable_update();
+  item->set_store_empty(true);
   item->mutable_node()->set_key(key);
   item->mutable_node()->set_path(path);
   item->mutable_node()->set_value(value);
@@ -172,6 +173,7 @@ void nscapi::settings_proxy::set_int(std::string path, std::string key, const in
   auto *payload = request.add_payload();
   payload->set_plugin_id(plugin_id_);
   auto *item = payload->mutable_update();
+  item->set_store_empty(true);
   item->mutable_node()->set_key(key);
   item->mutable_node()->set_path(path);
   item->mutable_node()->set_value(settings::settings_value::from_int(value));
@@ -206,6 +208,7 @@ void nscapi::settings_proxy::set_bool(std::string path, std::string key, const b
   auto *payload = request.add_payload();
   payload->set_plugin_id(plugin_id_);
   auto *item = payload->mutable_update();
+  item->set_store_empty(true);
   item->mutable_node()->set_key(key);
   item->mutable_node()->set_path(path);
   item->mutable_node()->set_value(settings::settings_value::from_bool(value));

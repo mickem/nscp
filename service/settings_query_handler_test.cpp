@@ -208,6 +208,51 @@ TEST_F(SettingsQueryTest, a_key_update_with_no_value_removes_the_key) {
   EXPECT_EQ(run(read).payload(0).query().node().value(), "");
 }
 
+// The same request with store_empty set clears the key instead: it stays,
+// with an empty value, rather than falling back to the default.
+TEST_F(SettingsQueryTest, an_empty_value_with_store_empty_is_stored) {
+  set_value("/section", "key", "value");
+
+  PB::Settings::SettingsRequestMessage request;
+  PB::Settings::SettingsRequestMessage::Request::Update *update = new_request(request)->mutable_update();
+  update->mutable_node()->set_path("/section");
+  update->mutable_node()->set_key("key");
+  update->set_store_empty(true);
+  run(request);
+
+  PB::Settings::SettingsRequestMessage read;
+  PB::Settings::SettingsRequestMessage::Request::Query *q = new_request(read)->mutable_query();
+  q->mutable_node()->set_path("/section");
+  q->mutable_node()->set_key("key");
+  q->set_default_value("fallback");
+  EXPECT_EQ(run(read).payload(0).query().node().value(), "");
+
+  PB::Settings::SettingsRequestMessage keys;
+  PB::Settings::SettingsRequestMessage::Request::Query *k = new_request(keys)->mutable_query();
+  k->mutable_node()->set_path("/section");
+  k->set_include_keys(true);
+  EXPECT_EQ(run(keys).payload(0).query().nodes_size(), 1);
+}
+
+// Without store_empty the removal still falls back to the default - what
+// REST DELETE and every older sender rely on.
+TEST_F(SettingsQueryTest, an_empty_value_without_store_empty_falls_back_to_the_default) {
+  set_value("/section", "key", "value");
+
+  PB::Settings::SettingsRequestMessage request;
+  PB::Settings::Node *node = new_request(request)->mutable_update()->mutable_node();
+  node->set_path("/section");
+  node->set_key("key");
+  run(request);
+
+  PB::Settings::SettingsRequestMessage read;
+  PB::Settings::SettingsRequestMessage::Request::Query *q = new_request(read)->mutable_query();
+  q->mutable_node()->set_path("/section");
+  q->mutable_node()->set_key("key");
+  q->set_default_value("fallback");
+  EXPECT_EQ(run(read).payload(0).query().node().value(), "fallback");
+}
+
 TEST_F(SettingsQueryTest, an_update_with_neither_key_nor_value_removes_the_path) {
   set_value("/section", "key", "value");
 

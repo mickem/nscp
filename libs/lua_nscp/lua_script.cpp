@@ -460,6 +460,19 @@ int lua::settings_wrapper::set_string(lua_State *L) {
   }
   return 0;
 }
+int lua::settings_wrapper::remove_key(lua_State *L) {
+  lua_wrapper lua_instance(L);
+  lua_instance.get_user_object_instance<SettingsData>();
+  if (method_args(lua_instance) < 2) return lua_instance.error("Invalid syntax: remove_key(section, key)");
+  std::string k = lua_instance.pop_string();
+  std::string s = lua_instance.pop_string();
+  try {
+    get_settings(lua_instance)->remove_key(s, k);
+  } catch (...) {
+    return lua_instance.error(current_exception_text());
+  }
+  return 0;
+}
 int lua::settings_wrapper::get_bool(lua_State *L) {
   lua_wrapper lua_instance(L);
   lua_instance.get_user_object_instance<SettingsData>();
@@ -563,6 +576,7 @@ int lua::settings_wrapper::register_key(lua_State *L) {
 const luaL_Reg settings_functions[] = {{"get_section", &lua::settings_wrapper::get_section},
                                        {"get_string", &lua::settings_wrapper::get_string},
                                        {"set_string", &lua::settings_wrapper::set_string},
+                                       {"remove_key", &lua::settings_wrapper::remove_key},
                                        {"get_bool", &lua::settings_wrapper::get_bool},
                                        {"set_bool", &lua::settings_wrapper::set_bool},
                                        {"get_int", &lua::settings_wrapper::get_int},

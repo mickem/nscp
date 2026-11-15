@@ -66,6 +66,9 @@ struct registered_key {
   bool advanced = false;
   bool sample = false;
   bool sensitive = false;
+  // For an update: whether an empty value is to be stored rather than read
+  // as a removal (PB::Settings Update.store_empty).
+  bool store_empty = false;
 };
 
 class stub_core {
@@ -304,6 +307,7 @@ class stub_core {
         update.path = in.update().node().path();
         update.key = in.update().node().key();
         update.default_value = in.update().node().value();
+        update.store_empty = in.update().store_empty();
         self.updated_settings_.push_back(update);
       }
       // Control (save/load) and everything else: an OK result is all the
