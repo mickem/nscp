@@ -23,5 +23,6 @@
 		"checkDriveSize"	: "Legacy version of check_drivesize"
 	},
 	"metrics" : "produce",
+	"diagnostics" : "produce",
 	"facts" : true
 }

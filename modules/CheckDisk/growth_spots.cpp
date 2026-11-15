@@ -31,6 +31,12 @@ std::string comparable(std::string path, const bool ignore_case) {
 }
 
 std::string plural(const unsigned long long n, const std::string &one, const std::string &many) { return str::xtos(n) + " " + (n == 1 ? one : many); }
+
+// System messages end in a line break (FormatMessage, strerror on some libcs).
+std::string trimmed(std::string text) {
+  while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ' || text.back() == '\t')) text.pop_back();
+  return text;
+}
 }  // namespace
 
 std::vector<spot> dedupe(const std::vector<spot> &spots, const bool ignore_case) {
@@ -69,7 +75,7 @@ sample measure(const std::vector<spot> &spots, const limits &lim, const hooks &h
     if (s.type == spot::measured) {
       r.has_size = s.has_size;
       r.size = s.size;
-      r.note = s.note;
+      r.note = trimmed(s.note);
       out.rows.push_back(r);
       continue;
     }
@@ -81,7 +87,7 @@ sample measure(const std::vector<spot> &spots, const limits &lim, const hooks &h
         r.has_size = true;
         r.size = static_cast<long long>((std::min)(size, static_cast<unsigned long long>(INT64_MAX)));
       } else {
-        r.note = error;
+        r.note = trimmed(error);
       }
       out.rows.push_back(r);
       continue;
@@ -102,7 +108,7 @@ sample measure(const std::vector<spot> &spots, const limits &lim, const hooks &h
     spent += h.now() - started;
     if (d.missing) continue;
     if (!d.error.empty() && d.files == 0 && d.bytes == 0) {
-      r.note = d.error;
+      r.note = trimmed(d.error);
       out.rows.push_back(r);
       continue;
     }

@@ -16,7 +16,9 @@
  * (`services`), services.events and eventlog.errors from CheckEventLog
  * ([/settings/eventlog/diagnostics] services, errors) on Windows and from
  * CheckSystemUnix's journal reader (`services`, `errors`) on Linux - which
- * produces none of the three on a host without systemd.
+ * produces none of the three on a host without systemd. disk.growth_spots
+ * comes from CheckDisk ([/settings/disk/diagnostics] growth spots), whose
+ * first walk starts 15 seconds after the module loads.
  * Rounds run with the 1s metrics round here, so every wait below polls with a
  * deadline rather than sleeping a fixed time.
  */
@@ -54,6 +56,8 @@ function config(
       WEBServer: "enabled",
       CheckHelpers: "enabled",
       CheckSystem: "enabled",
+      // disk.growth_spots.
+      CheckDisk: "enabled",
       // The event tables on Windows; the journal ones are CheckSystemUnix's.
       ...(onWindows ? { CheckEventLog: "enabled" } : {}),
     },
@@ -259,6 +263,7 @@ describe("REST diagnostics", () => {
           ...(onWindows
             ? { "/settings/eventlog/diagnostics": { services: "true", errors: "true" } }
             : {}),
+          "/settings/disk/diagnostics": { "growth spots": "true" },
         },
       ));
     });
@@ -447,6 +452,49 @@ describe("REST diagnostics", () => {
       expect(row.level).toEqual("err");
       expect(row.id).toBeNull();
       expectRecent(row.time);
+    });
+
+    it("publishes the size of the usual growth spots (disk.growth_spots)", async () => {
+      // The first walk starts 15 seconds after the module loads and may take
+      // up to its two-minute round limit on a busy host.
+      const body = await until(
+        "the first growth-spots walk",
+        async () => {
+          const response = await request(REST_URL)
+            .get("/api/v2/diagnostics/disk.growth_spots")
+            .set("Authorization", `Bearer ${key}`)
+            .trustLocalhost(true);
+          return response.status === 200 ? (response.body as Json) : undefined;
+        },
+        240_000,
+      );
+      expect(body.source).toEqual("CheckDisk");
+      expect(body.error).toBeUndefined();
+      expectRecent(body.captured_at);
+      const columns = (body.columns as Json[]).map((c) => [c.name, c.type, c.unit ?? ""]);
+      expect(columns).toEqual([
+        ["path", "string", ""],
+        ["kind", "string", ""],
+        ["size", "int", "bytes"],
+        ["note", "string", ""],
+      ]);
+      const rows = body.rows as Json[];
+      // The row cap of the agent under test.
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.length).toBeLessThanOrEqual(5);
+      for (const row of rows) {
+        expect(Object.keys(row).sort()).toEqual(["kind", "note", "path", "size"]);
+        expect(["temp", "logs", "page_file", "swap_file", "shadow_storage"]).toContain(row.kind);
+        expect(typeof row.path).toBe("string");
+        expect((row.path as string).length).toBeGreaterThan(0);
+        // A size, or a note saying why there is none.
+        if (row.size === null) expect(typeof row.note).toBe("string");
+        else expect(row.size as number).toBeGreaterThanOrEqual(0);
+      }
+      // The temp directories come first, and every host has one (/tmp, the
+      // agent's TEMP).
+      expect(rows[0].kind).toEqual("temp");
+      if (!onWindows) expect(rows.map((r) => r.path)).toContain("/tmp");
     });
 
     it("records a failure with the snapshot, readable with failures.list", async () => {

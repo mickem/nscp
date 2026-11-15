@@ -74,7 +74,7 @@ struct fake {
     };
     h.file_size = [this](const std::string &path, unsigned long long &size, std::string &error) {
       if (path == "denied") {
-        error = "could not be read: access denied";
+        error = "could not be read: access denied.\r\n";
         return true;
       }
       const std::map<std::string, unsigned long long>::const_iterator it = bytes.find(path);
@@ -175,6 +175,8 @@ TEST(GrowthSpots, AFileThatCannotBeReadSaysSo) {
   ASSERT_EQ(s.rows.size(), 1u);
   EXPECT_FALSE(s.rows[0].has_size);
   EXPECT_NE(s.rows[0].note.find("access denied"), std::string::npos);
+  // The line break a system message ends in is not part of the note.
+  EXPECT_EQ(s.rows[0].note, "could not be read: access denied.");
 }
 
 TEST(GrowthSpots, DedupeIgnoresTrailingSeparatorsAndCaseWhereThePlatformDoes) {

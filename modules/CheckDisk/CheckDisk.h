@@ -9,9 +9,11 @@
 #include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/diagnostics.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 
 #include "collector_thread.hpp"
+#include "growth_spots.hpp"
 
 class CheckDisk : public nscapi::impl::simple_plugin {
   bool show_errors_;
@@ -30,6 +32,10 @@ class CheckDisk : public nscapi::impl::simple_plugin {
   // set ([/settings/disk/facts]). Read by fetchFacts on the core's scheduler
   // while a reload may be writing it.
   std::atomic<bool> facts_volumes_{false};
+  // The disk.growth_spots walker ([/settings/disk/diagnostics] growth spots),
+  // null while the section is off. Replaced on a reload like the collector,
+  // and published the same way: fetchDiagnostics runs on the core's thread.
+  std::shared_ptr<growth_spots::walker> growth_spots_;
 
  public:
   CheckDisk();
@@ -64,6 +70,9 @@ class CheckDisk : public nscapi::impl::simple_plugin {
 
   // Host facts
   void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
+
+  // Diagnostics: copies the growth-spots walker's last round, never walks.
+  void fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response);
 
   // Legacy checks
   void checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

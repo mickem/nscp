@@ -152,6 +152,26 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ;
   // clang-format on
 
+  bool diagnostics_growth_spots = false;
+  std::string growth_spots_interval;
+  // clang-format off
+  settings.alias().add_key_to_settings("diagnostics")
+    .add_bool("growth spots", sh::bool_key(&diagnostics_growth_spots, false),
+        "GROWTH SPOTS",
+        "Produce the disk.growth_spots diagnostics table: the size of the places that usually fill a disk - the temp directories (TEMP, the "
+        "Windows Temp directory; TMPDIR, /tmp and /var/tmp), the log directories (the agent's own, the Windows Logs and event log directories; "
+        "/var/log), the page and swap files and, on Windows, the shadow-copy storage in use per volume (which needs an elevated agent). "
+        "Directories are walked by a thread of their own, the first time shortly after this is switched on and then every 'growth spots "
+        "interval': one directory at a time with a pause between them, at background I/O priority, for at most 30 seconds per directory "
+        "and 2 minutes per round; a walk that hits a limit reports the size so far and marks the table truncated. Links, junctions and mount "
+        "points are not followed and entries that cannot be read are skipped and counted. Kept with a failed check and served on "
+        "/api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Paths and sizes leave the host with it.")
+    .add_string("growth spots interval", sh::string_key(&growth_spots_interval, "10m"),
+        "GROWTH SPOTS INTERVAL",
+        "How often the growth spots are measured while 'growth spots' is on. Duration, at least 10s, e.g. 10m.")
+    ;
+  // clang-format on
+
   bool facts_volumes = false;
   // clang-format off
   settings.alias().add_key_to_settings("facts")
@@ -210,7 +230,36 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
     publish_drives_tag(get_core());
   }
+
+  // The growth-spots walker, like the collector, is stopped and replaced on
+  // every load; off means no thread at all and no section.
+  const std::shared_ptr<growth_spots::walker> previous_walker = std::atomic_load(&growth_spots_);
+  if (previous_walker) previous_walker->stop();
+  std::shared_ptr<growth_spots::walker> walker;
+  if (diagnostics_growth_spots && mode != NSCAPI::dontStart) {
+    walker = std::make_shared<growth_spots::walker>();
+    walker->agent_log_dir = get_core()->expand_path("${log-path}");
+    try {
+      const long long seconds = str::format::stox_as_time_sec<long long>(growth_spots_interval, "s");
+      if (seconds < 10) throw std::invalid_argument("must be at least 10 seconds");
+      if (seconds > 7 * 24 * 3600) throw std::invalid_argument("must be at most 7 days");
+      walker->interval = std::chrono::seconds(seconds);
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR("Invalid growth spots interval (using the default 10m): " + std::string(e.what()));
+    }
+    if (previous_walker) walker->seed(previous_walker->get());
+    walker->start();
+  }
+  std::atomic_store(&growth_spots_, walker);
   return true;
+}
+
+void CheckDisk::fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response) {
+  // Copies the last round; nothing while the section is off, which is how
+  // the core learns it was switched off.
+  const std::shared_ptr<growth_spots::walker> walker = std::atomic_load(&growth_spots_);
+  if (!walker) return;
+  growth_spots::add_section(response, walker->get());
 }
 
 void CheckDisk::fetchFacts(const nscapi::facts::request &, nscapi::facts::response &response) {
@@ -232,6 +281,8 @@ bool CheckDisk::unloadModule() {
   if (collector) {
     collector->stop();
   }
+  const std::shared_ptr<growth_spots::walker> walker = std::atomic_load(&growth_spots_);
+  if (walker) walker->stop();
   return true;
 }
 
