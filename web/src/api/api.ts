@@ -456,6 +456,61 @@ export interface FailedCheckDiagnostics extends FailedCheckContextRef {
   sections?: { [name: string]: DiagnosticsSection };
 }
 
+/** One section of GET /api/v2/diagnostics: what the table is, without its rows. */
+export interface DiagnosticsSectionSummary {
+  name: string;
+  source: string;
+  description?: string;
+  captured_at: string;
+  truncated: boolean;
+  error?: string;
+  /** The number of rows the section holds. */
+  rows: number;
+}
+
+/**
+ * GET /api/v2/diagnostics: the sections of the latest snapshot. `enabled`
+ * false with no sections means `capture diagnostics` is off, not idle;
+ * `snapshot_id` is 0 before the first round.
+ */
+export interface DiagnosticsList {
+  enabled: boolean;
+  snapshot_id: number;
+  captured_at: string;
+  max_rows: number;
+  /** Sections left out over the per-snapshot cap or as a duplicate name. */
+  dropped: number;
+  /** Sections `prune pattern` left out. */
+  excluded: string[];
+  count: number;
+  sections: DiagnosticsSectionSummary[];
+}
+
+/** GET /api/v2/diagnostics/<section>: one section of the latest snapshot. */
+export interface DiagnosticsSectionResponse extends DiagnosticsSection {
+  name: string;
+  snapshot_id: number;
+}
+
+export interface DiagnosticsSectionArgs {
+  name: string;
+  /**
+   * The snapshot the list named. Not sent: it only keys the cache, so a
+   * section is fetched again when the snapshot moved on and not otherwise.
+   */
+  snapshotId: number;
+}
+
+/**
+ * Passed as an endpoint's `extraOptions` to keep the session on a 403. The
+ * server answers a missing grant with the same 403 as an expired token; for a
+ * grant no built-in role holds, logging the user out is the wrong reading.
+ * An expired token is still caught by the shell's own polling.
+ */
+interface ApiExtraOptions {
+  keepSessionOn403?: boolean;
+}
+
 /** GET /api/v2/failures/<index>/context. `metrics` only when `state` is `captured`. */
 export interface FailedCheckContext extends FailedCheckContextRef {
   index: number;
@@ -545,7 +600,8 @@ const baseQueryWithAuthFail: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQ
   extraOptions,
 ) => {
   const result = await baseQuery(args, api, extraOptions);
-  if (result.error && result.error.status === 403) {
+  const keepSession = (extraOptions as ApiExtraOptions | undefined)?.keepSessionOn403 === true;
+  if (result.error && result.error.status === 403 && !keepSession) {
     api.dispatch(authSlice.actions.removeToken());
     // Drop every cached response from the previous session so a re-login
     // doesn't show stale data while the new requests are in flight.
@@ -578,6 +634,7 @@ export const ALL_API_TAGS = [
   "Metrics",
   "Events",
   "Failures",
+  "Diagnostics",
 ] as const;
 
 export const nsclientApi = createApi({
@@ -604,6 +661,7 @@ export const nsclientApi = createApi({
     "Metrics",
     "Events",
     "Failures",
+    "Diagnostics",
   ],
   endpoints: (builder) => ({
     getEndpoints: builder.query<EndpointList, void>({
@@ -918,6 +976,20 @@ export const nsclientApi = createApi({
       }),
       invalidatesTags: ["Failures"],
     }),
+    getDiagnostics: builder.query<DiagnosticsList, void>({
+      query: () => ({
+        url: "/v2/diagnostics",
+      }),
+      providesTags: ["Diagnostics"],
+      extraOptions: { keepSessionOn403: true } satisfies ApiExtraOptions,
+    }),
+    getDiagnosticsSection: builder.query<DiagnosticsSectionResponse, DiagnosticsSectionArgs>({
+      query: ({ name }) => ({
+        url: `/v2/diagnostics/${encodeURIComponent(name)}`,
+      }),
+      providesTags: ["Diagnostics"],
+      extraOptions: { keepSessionOn403: true } satisfies ApiExtraOptions,
+    }),
     getCounterMetadata: builder.query<MetadataOption[], void>({
       query: () => ({
         url: "/v1/metadata/counters",
@@ -992,4 +1064,6 @@ export const {
   useGetFailuresQuery,
   useGetFailureContextQuery,
   useClearFailuresMutation,
+  useGetDiagnosticsQuery,
+  useGetDiagnosticsSectionQuery,
 } = nsclientApi;

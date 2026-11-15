@@ -87,9 +87,11 @@ interface DiagnosticsTableProps {
   section: DiagnosticsSection;
   /** "Now", in epoch milliseconds, for the relative age; injectable for tests. */
   now?: number;
+  /** The rows are still on their way: say so instead of "no rows". */
+  loading?: boolean;
 }
 
-export default function DiagnosticsTable({ name, section, now }: DiagnosticsTableProps) {
+export default function DiagnosticsTable({ name, section, now, loading = false }: DiagnosticsTableProps) {
   const clock = useNow();
   const captured = new Date(section.captured_at);
   const hasTime = !isNaN(captured.getTime());
@@ -132,7 +134,7 @@ export default function DiagnosticsTable({ name, section, now }: DiagnosticsTabl
         </Alert>
       ) : rows.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No rows: nothing to report when this was captured.
+          {loading ? "Loading…" : "No rows: nothing to report when this was captured."}
         </Typography>
       ) : (
         <TableContainer sx={{ maxWidth: "100%", overflowX: "auto" }}>

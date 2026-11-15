@@ -19,6 +19,8 @@ test("shows all navigation entries in the sidebar", async ({ page }) => {
     "Settings",
     "Queries",
     "Metrics",
+    "Facts",
+    "Diagnostics",
     "Events",
     "Failed checks",
     "Logs",
@@ -83,6 +85,25 @@ test("navigates to the failed-check log and expands an entry", async ({ page }) 
   await page.getByRole("button", { name: "expand" }).first().click();
   await expect(page.getByText("drive=C:")).toBeVisible();
   await expect(page.getByText("C: used %")).toBeVisible();
+  // ...and the diagnostics it was recorded with, failures.recent first.
+  await expect(page.getByText("Diagnostics at the time")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3 })).toHaveText(["failures.recent", "processes.top_cpu"]);
+  await expect(page.getByText("acme-indexer.exe")).toBeVisible();
+});
+
+test("navigates to the live diagnostics", async ({ page }) => {
+  await page.goto("/");
+
+  await nav(page).getByText("Diagnostics", { exact: true }).click();
+  await expect(page).toHaveURL(/\/diagnostics$/);
+  await expect(page.getByText("snapshot #812")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3 })).toHaveText(["failures.recent", "processes.top_cpu"]);
+  const cpu = page.getByRole("table", { name: "processes.top_cpu rows" });
+  await expect(cpu.getByText("acme-indexer.exe")).toBeVisible();
+  await expect(cpu.getByText("87.5 %")).toBeVisible();
+  await expect(cpu.getByText("392.9 MiB")).toBeVisible();
+  // prune pattern left one out, and the page says so.
+  await expect(page.getByText("eventlog.errors")).toBeVisible();
 });
 
 test("navigates to the about page", async ({ page }) => {
