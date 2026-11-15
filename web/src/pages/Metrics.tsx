@@ -21,9 +21,10 @@ import { Toolbar } from "../components/atoms/Toolbar.tsx";
 import { Spacing } from "../components/atoms/Spacing.tsx";
 import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
-import { parseMetrics } from "../metric_parser.ts";
+import { Metric, parseMetrics } from "../metric_parser.ts";
+import { formatMetricValue } from "../common/format.ts";
 import FilterField from "../components/atoms/FilterField.tsx";
 
 const REFRESH_RATES = [
@@ -44,6 +45,40 @@ const ALL = "\u0000all";
 // How that nameless module is spelled on screen.
 const UNNAMED = "(unnamed)";
 const moduleLabel = (module: string) => module || UNNAMED;
+
+interface MetricGroup {
+  id: string;
+  /** Module, type and instance: what every metric in the group is measured on. */
+  path: string[];
+  unnamed: boolean;
+  metrics: Metric[];
+  /** Labels every metric in the group carries with the same value. */
+  labels: [string, string][];
+}
+
+type Metadata = { [key: string]: { labels?: { [key: string]: string } } } | undefined;
+
+/** Consecutive metrics of one module, type and instance, so those are said once and not per row. */
+function groupMetrics(metrics: Metric[], metadata: Metadata): MetricGroup[] {
+  const groups = new Map<string, MetricGroup>();
+  for (const m of metrics) {
+    const id = [m.module, m.type ?? "", m.instance ?? ""].join("\u0000");
+    let group = groups.get(id);
+    if (!group) {
+      const path = [moduleLabel(m.module), m.type, m.instance].filter((p): p is string => !!p);
+      group = { id, path, unnamed: !m.module, metrics: [], labels: [] };
+      groups.set(id, group);
+    }
+    group.metrics.push(m);
+  }
+  const sorted = [...groups.values()].sort((a, b) => a.id.localeCompare(b.id));
+  for (const group of sorted) {
+    group.metrics.sort((a, b) => a.metric.localeCompare(b.metric));
+    const first = Object.entries(metadata?.[group.metrics[0].key]?.labels ?? {});
+    group.labels = first.filter(([k, v]) => group.metrics.every((m) => metadata?.[m.key]?.labels?.[k] === v));
+  }
+  return sorted;
+}
 
 export default function Metrics() {
   const dispatch = useAppDispatch();
@@ -103,9 +138,7 @@ export default function Metrics() {
       if (!map[m.module]) map[m.module] = new Set();
       map[m.module].add(m.type);
     }
-    return Object.fromEntries(
-      Object.entries(map).map(([k, v]) => [k, [...v].sort((a, b) => a.localeCompare(b))]),
-    );
+    return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, [...v].sort((a, b) => a.localeCompare(b))]));
   }, [result.metrics]);
 
   const moduleTypes = selectedModule !== null ? (typesByModule[selectedModule] ?? []) : [];
@@ -138,10 +171,7 @@ export default function Metrics() {
     dispatch(nsclientApi.util.invalidateTags(["Metrics"]));
   };
 
-  const sortedMetrics = useMemo(
-    () => [...filteredMetrics].sort((a, b) => a.key.localeCompare(b.key)),
-    [filteredMetrics],
-  );
+  const groups = useMemo(() => groupMetrics(filteredMetrics, metadata), [filteredMetrics, metadata]);
 
   return (
     <Stack direction="column">
@@ -212,59 +242,71 @@ export default function Metrics() {
         </Toolbar>
       )}
       <TableContainer sx={{ width: "100%" }}>
-        <Table>
+        <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Module</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Instance</TableCell>
               <TableCell>Metric</TableCell>
+              <TableCell>Description</TableCell>
               <TableCell align="right">Value</TableCell>
-              <TableCell>Unit</TableCell>
               <TableCell>Kind</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedMetrics.map((m) => {
-              const changed = recentlyChanged.has(m.key);
-              const meta = metadata?.[m.key];
-              const labels = Object.entries(meta?.labels ?? {});
-              return (
-                <TableRow
-                  hover
-                  key={m.key}
-                  sx={{
-                    "&:last-child td, &:last-child th": { border: 0 },
-                    backgroundColor: changed ? "rgba(67,160,71,0.22)" : undefined,
-                    transition: "background-color 1.5s ease-out",
-                  }}
-                >
-                  <TableCell sx={m.module ? undefined : { fontStyle: "italic", color: "text.secondary" }}>
-                    {moduleLabel(m.module)}
-                  </TableCell>
-                  <TableCell>{m.type}</TableCell>
-                  <TableCell>{m.instance}</TableCell>
-                  <TableCell title={m.key}>
-                    {m.metric}
-                    {meta?.help && (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                        {meta.help}
+            {groups.map((group) => (
+              <Fragment key={group.id}>
+                <TableRow data-group={group.path.join(".")} sx={{ backgroundColor: "action.hover" }}>
+                  <TableCell colSpan={4} sx={{ py: 0.75 }}>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                      <Typography
+                        variant="subtitle2"
+                        component="span"
+                        sx={group.unnamed ? { fontStyle: "italic", color: "text.secondary" } : undefined}
+                      >
+                        {group.path.join(" › ")}
                       </Typography>
-                    )}
-                    {labels.length > 0 && (
-                      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", mt: 0.5 }}>
-                        {labels.map(([k, v]) => (
-                          <Chip key={k} size="small" variant="outlined" label={`${k}=${v}`} />
-                        ))}
-                      </Stack>
-                    )}
+                      {group.labels.map(([k, v]) => (
+                        <Chip key={k} size="small" variant="outlined" label={`${k}=${v}`} />
+                      ))}
+                    </Stack>
                   </TableCell>
-                  <TableCell align="right">{m.value}</TableCell>
-                  <TableCell>{meta?.unit ?? ""}</TableCell>
-                  <TableCell>{meta?.type ?? ""}</TableCell>
                 </TableRow>
-              );
-            })}
+                {group.metrics.map((m) => {
+                  const changed = recentlyChanged.has(m.key);
+                  const meta = metadata?.[m.key];
+                  const common = new Set(group.labels.map(([k]) => k));
+                  const labels = Object.entries(meta?.labels ?? {}).filter(([k]) => !common.has(k));
+                  const shown = formatMetricValue(m.value, meta?.unit);
+                  const raw = `${m.value}${meta?.unit ? ` ${meta.unit}` : ""}`;
+                  return (
+                    <TableRow
+                      hover
+                      key={m.key}
+                      data-metric={m.key}
+                      sx={{
+                        backgroundColor: changed ? "rgba(67,160,71,0.22)" : undefined,
+                        transition: "background-color 1.5s ease-out",
+                      }}
+                    >
+                      <TableCell title={m.key} sx={{ pl: 4, whiteSpace: "nowrap" }}>
+                        {m.metric}
+                        {labels.map(([k, v]) => (
+                          <Chip key={k} size="small" variant="outlined" label={`${k}=${v}`} sx={{ ml: 1 }} />
+                        ))}
+                      </TableCell>
+                      <TableCell sx={{ color: "text.secondary", width: "100%" }}>{meta?.help ?? ""}</TableCell>
+                      <TableCell
+                        align="right"
+                        title={shown === raw ? undefined : raw}
+                        sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {shown}
+                      </TableCell>
+                      <TableCell sx={{ color: "text.secondary" }}>{meta?.type ?? ""}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </Fragment>
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
