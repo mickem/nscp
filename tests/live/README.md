@@ -107,7 +107,17 @@ tested, and nothing up fails the run instead of passing an empty one.
 | `NSCP_ESTATE_MACHINES` | Only these machines, comma-separated. |
 | `NSCP_ESTATE_CHECK_WAIT_SECONDS` | How long one check is retried before it fails (default 60). |
 | `NSCP_ESTATE_CHECK_NSCLIENT` | Also run every role check through this `check_nsclient` plugin binary, logged in to one profile per machine (the gate's `-CheckNsclient`). |
-| `NSCP_ESTATE_RESULTS_DIR` | Write `<dir>/<machine>/checks.json` with every check's verdict and raw REST result (the gate sets this). |
+| `NSCP_ESTATE_RESULTS_DIR` | Write `<dir>/<machine>/checks.json` with every check's verdict and raw REST result (the gate sets this), and for a role with faults `<dir>/<machine>/explanations.json` with what the fleet server made of each one. |
+| `NSCP_ESTATE_FAULT_WAIT_SECONDS` | How long a role's fault may take to fail its check, to reach the fleet server, and to clear again, each (default 300). |
+| `NSCLIENT_FLEET_SERVER`, `NSCLIENT_FLEET_API_KEY` | The fleet server a role's faults are explained by, and a key for it. The server defaults to the machine's manifest entry; both fall back to `build/powershell/.fleet-config.json`. `NSCP_ESTATE_FLEET_INSECURE=1` skips verifying its certificate. |
+
+A role can declare `faults` (the `faults` role does): each one is switched on
+through a command on the agent, must fail its check, must reach the fleet
+server as failure context with a metrics snapshot, and must be explained by
+the server's `POST /api/explain`. It is then switched off, and the check must
+recover. Every explanation is printed; see the
+[build/powershell README](../../build/powershell/README.md#shipped-roles) for
+what the role sets up.
 
 ## Local debugging without a VM
 

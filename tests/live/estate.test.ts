@@ -26,7 +26,22 @@
  *   NSCP_ESTATE_RESULTS_DIR
  *                          write <dir>/<machine>/checks.json: per check the
  *                          verdict, the reason and the raw REST result of
- *                          the last attempt.
+ *                          the last attempt; and, for a role with faults,
+ *                          <dir>/<machine>/explanations.json: what the fleet
+ *                          server made of each one.
+ *   NSCP_ESTATE_FAULT_WAIT_SECONDS
+ *                          how long a fault may take to fail its check, to
+ *                          reach the fleet server, and to clear again, each
+ *                          (default 300).
+ *
+ * A role's "faults" (see RoleFault in src/estate-roles.ts) also need the
+ * fleet server the machines enrolled with, and an API key for it: see
+ * src/estate-fleet.ts. Each is switched on, its check must fail, the failure
+ * must reach the fleet server with a metrics snapshot, and the server must
+ * explain it with POST /api/explain, from that report, the snapshot and the
+ * agent's facts. The explanation is printed and kept in explanations.json:
+ * judging whether it is any good is left to whoever reads it, past naming
+ * what the fault is about.
  *
  * Each machine's address and web password come from the .vm.<name>.pwd file
  * the manifest points at, so the suite runs from the machine that provisioned
@@ -54,7 +69,20 @@ import {
   restLabel,
   readRole,
   type RoleCheck,
+  type RoleFault,
 } from "@fixtures/estate-roles";
+import {
+  explain,
+  explainReadiness,
+  fleetApi,
+  hostContexts,
+  judgeExplanation,
+  latestReport,
+  named,
+  type ExplainResult,
+  type FleetApi,
+  type FleetContext,
+} from "@fixtures/estate-fleet";
 
 /** A role check made concrete for one machine: an "each" check is one of these per target. */
 interface RunCheck {
@@ -108,9 +136,73 @@ const waitSeconds = Number(process.env.NSCP_ESTATE_CHECK_WAIT_SECONDS);
 const waitMs = (Number.isFinite(waitSeconds) && waitSeconds >= 0 ? waitSeconds : 60) * 1000;
 const resultsDir = process.env.NSCP_ESTATE_RESULTS_DIR;
 const checkNsclientExe = process.env.NSCP_ESTATE_CHECK_NSCLIENT || undefined;
+const faultWaitSeconds = Number(process.env.NSCP_ESTATE_FAULT_WAIT_SECONDS);
+const faultWaitMs =
+  (Number.isFinite(faultWaitSeconds) && faultWaitSeconds > 0 ? faultWaitSeconds : 300) * 1000;
+// Three waits (fail, report, recover), the explanation and the requests between.
+const faultTimeoutMs = 3 * faultWaitMs + 5 * 60_000;
 
 // A check may retry for the whole wait, plus the request that ends it.
 jest.setTimeout(waitMs + 90_000);
+
+/** What the fleet server made of one fault, for explanations.json. */
+interface FaultRecord {
+  fault: string;
+  command: string;
+  args: Record<string, string | string[]>;
+  passed: boolean;
+  reason: string | null;
+  /** The check's output while the fault was on. */
+  failure: string;
+  /** The error handed to POST /api/explain. */
+  error: string;
+  report: FleetContext | null;
+  /** Which of the role's `culprit` words the explanation names. */
+  culprit: string[];
+  result: ExplainResult | null;
+}
+
+/**
+ * The fleet server's explain settings, checked once per server for the whole
+ * run: every machine of an estate shares it, and a tenant that cannot explain
+ * fails every fault for the same reason.
+ */
+const readiness = new Map<string, Promise<string | undefined>>();
+function fleetReady(api: FleetApi, faults: number): Promise<string | undefined> {
+  let ready = readiness.get(api.base);
+  if (!ready) {
+    // The agent's own interval is 20s; the tenant may only lengthen it.
+    ready = explainReadiness(api, faults, Math.floor(faultWaitMs / 1000 / 2)).then(
+      (r) => r.problem,
+      (e) => `could not read the explain settings of ${api.base}: ${firstLine(e)}`,
+    );
+    readiness.set(api.base, ready);
+  }
+  return ready;
+}
+
+function printExplanation(machine: string, rec: FaultRecord): void {
+  const r = rec.result;
+  const lines = [`[faults] ${machine} - ${rec.fault}: ${rec.passed ? "passed" : rec.reason}`];
+  lines.push(`  check:   ${rec.failure}`);
+  if (r) {
+    const e = r.explanation;
+    lines.push(
+      `  model:   ${r.provider}/${r.model} (${r.input_tokens} in, ${r.output_tokens} out)`,
+    );
+    lines.push(
+      `  based on: check ${r.check ? `${r.check.command} ${r.check.status_word}` : "none"}, snapshot ${
+        r.snapshot ? `${r.snapshot.metrics_count} metrics` : "none"
+      }, facts ${(r.facts_sources ?? []).join(", ") || "none"}`,
+    );
+    lines.push(`  confidence: ${e.confidence}; culprit named: ${rec.culprit.join(", ") || "no"}`);
+    lines.push(`  summary: ${e.summary}`);
+    for (const c of e.likely_causes) lines.push(`  cause:   ${c}`);
+    for (const c of e.suggested_checks) lines.push(`  check:   ${c}`);
+  }
+  // eslint-disable-next-line no-console
+  console.log(lines.join("\n"));
+}
 
 function machines(): Machine[] {
   const all = manifests.flatMap((file) => {
@@ -241,14 +333,19 @@ describeEstate("estate role checks", () => {
     );
     const rests = (readRole(role, rolesDir).rest ?? []).filter((r) => applies(r, family));
     const agentChecks = smokeCasesFor(family === "windows" ? "windows" : "linux");
+    const faults: RoleFault[] = (readRole(role, rolesDir).faults ?? []).filter((f) =>
+      applies(f, family),
+    );
     const nsclientChecks = checkNsclientExe ? checks : [];
-    const total = checks.length + rests.length + agentChecks.length + nsclientChecks.length;
+    const total =
+      checks.length + rests.length + agentChecks.length + faults.length + nsclientChecks.length;
 
     describe(`${m.Name} (${role}, ${family})`, () => {
       const { url, password } = credentials(m);
       let target: LiveTarget | undefined;
       let loginError: string | undefined;
       const records: CheckRecord[] = [];
+      const explained: FaultRecord[] = [];
 
       async function login(): Promise<LiveTarget> {
         if (!url || !password) throw new Error(`no web address or password in ${m.PwdFile}`);
@@ -265,6 +362,14 @@ describeEstate("estate role checks", () => {
 
       afterAll(() => {
         if (!resultsDir) return;
+        if (explained.length > 0) {
+          const dir = path.join(resultsDir, m.Name);
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(
+            path.join(dir, "explanations.json"),
+            JSON.stringify({ machine: m.Name, role, family, faults: explained }, null, 2),
+          );
+        }
         const failed = records.filter((r) => !r.passed);
         const missing = total - records.length;
         let detail: string | null = null;
@@ -401,6 +506,180 @@ describeEstate("estate role checks", () => {
           });
           expect(why).toBeUndefined();
         });
+      }
+
+      /** Run a command on the agent, logging in again once if the session was lost. */
+      async function run(
+        command: string,
+        args: Record<string, string | string[]> = {},
+      ): Promise<QueryResult> {
+        try {
+          if (!target) target = await login();
+          return await liveExecute(target, command, args);
+        } catch (e) {
+          if (!/\bgot 40[13]\b/.test(firstLine(e))) throw e;
+          target = await login();
+          return liveExecute(target, command, args);
+        }
+      }
+
+      /**
+       * Run the fault's check every 10 s, for up to the fault wait, until
+       * `done` accepts a result. Returns the last result, whatever it was.
+       */
+      async function checkUntil(
+        f: RoleFault,
+        done: (q: QueryResult) => Promise<boolean>,
+      ): Promise<{ q: QueryResult | null; reached: boolean; why?: string }> {
+        const deadline = Date.now() + faultWaitMs;
+        let q: QueryResult | null = null;
+        let why: string | undefined;
+        for (;;) {
+          try {
+            q = await run(f.check.command, f.check.args ?? {});
+            why = undefined;
+            if (await done(q)) return { q, reached: true };
+          } catch (e) {
+            why = `request failed: ${firstLine(e)}`;
+          }
+          if (Date.now() >= deadline) return { q, reached: false, why };
+          await new Promise((r) => setTimeout(r, 10_000));
+        }
+      }
+
+      // The role's faults, one at a time: each is switched on, must fail its
+      // check, reach the fleet server as failure context and be explained
+      // there, and is switched off again before the next starts, so the
+      // snapshot each explanation is built on shows only its own fault.
+      for (const f of faults) {
+        it(
+          `fault: ${f.name}`,
+          async () => {
+            const expectState = f.check.expect ?? "CRITICAL";
+            const rec: FaultRecord = {
+              fault: f.name,
+              command: f.check.command,
+              args: f.check.args ?? {},
+              passed: false,
+              reason: null,
+              failure: "",
+              error: "",
+              report: null,
+              culprit: [],
+              result: null,
+            };
+            let why: string | undefined;
+            let q: QueryResult | null = null;
+            try {
+              if (loginError) throw new Error(loginError);
+              if (!m.HostId) throw new Error(`the manifest has no fleet HostId for ${m.Name}`);
+              const api = fleetApi(m.FleetServer);
+              const problem = await fleetReady(api, faults.length);
+              if (problem) throw new Error(problem);
+
+              // A fault a previous run left on would fail the check before
+              // this one is even started.
+              await run(f.clear);
+              const before = latestReport(await hostContexts(api, m.HostId), f.check.command);
+
+              const started = await run(f.start);
+              if (ESTATE_STATES[started.result] !== "OK")
+                throw new Error(
+                  `${f.start} returned ${ESTATE_STATES[started.result]}: ${messageOf(started)}`,
+                );
+
+              // 1. The check fails, and keeps being run - the way a
+              // monitoring system polls it - until the fleet server holds a
+              // report of it in that state that is newer than any from
+              // before: a report sent while the check was on its way up
+              // (WARNING) is replaced by a later one.
+              let report: FleetContext | undefined;
+              let failing = false;
+              const reached = await checkUntil(f, async (res) => {
+                if (ESTATE_STATES[res.result] !== expectState) return false;
+                if (!failing) {
+                  failing = true;
+                  rec.failure = messageOf(res);
+                }
+                const latest = latestReport(await hostContexts(api, m.HostId!), f.check.command);
+                if (
+                  latest &&
+                  latest.status_word === expectState &&
+                  (!before || latest.reported_at > before.reported_at)
+                )
+                  report = latest;
+                return !!report;
+              });
+              q = reached.q;
+              if (!failing)
+                throw new Error(
+                  `${f.check.command} never returned ${expectState} with the fault on` +
+                    (reached.why
+                      ? ` (${reached.why})`
+                      : q
+                        ? `; last: ${ESTATE_STATES[q.result]}: ${messageOf(q)}`
+                        : ""),
+                );
+              if (!report)
+                throw new Error(
+                  `no ${expectState} report of ${f.check.command} reached the fleet server within ${faultWaitMs / 1000}s ` +
+                    `(is failure context on, and capture metrics set?)`,
+                );
+              rec.report = report;
+              if (report.context_state !== "captured")
+                throw new Error(
+                  `the report reached the fleet server without its metrics snapshot (context_state ${report.context_state})`,
+                );
+
+              // 2. The fleet server explains it, the way a person pasting
+              // the alert into the host's Context tab would ask.
+              rec.error = `PROBLEM: ${m.Name}/${f.check.command} is ${expectState}: ${rec.failure}`;
+              const result = await explain(api, m.HostId, rec.error, f.check.command);
+              rec.result = result;
+              rec.culprit = named(result.explanation, f.explain?.culprit);
+              why = judgeExplanation(f, result);
+            } catch (e) {
+              why = firstLine(e);
+            } finally {
+              // 3. Switched off again, and the check has to recover, or the
+              // next fault's snapshot would show this one too.
+              if (!loginError) {
+                try {
+                  await run(f.clear);
+                  const back = await checkUntil(
+                    f,
+                    async (res) => ESTATE_STATES[res.result] === "OK",
+                  );
+                  if (!back.reached && !why)
+                    why = `${f.check.command} did not come back OK after ${f.clear}: ${
+                      back.q ? `${ESTATE_STATES[back.q.result]}: ${messageOf(back.q)}` : back.why
+                    }`;
+                } catch (e) {
+                  if (!why) why = `${f.clear} failed: ${firstLine(e)}`;
+                }
+              }
+            }
+            rec.passed = !why;
+            rec.reason = why ?? null;
+            explained.push(rec);
+            printExplanation(m.Name, rec);
+            records.push({
+              check: `fault: ${f.name}`,
+              command: f.check.command,
+              args: f.check.args ?? {},
+              expect: `${expectState}, reported and explained`,
+              perf: [],
+              passed: !why,
+              state: q ? (ESTATE_STATES[q.result] ?? null) : null,
+              reason: why ?? null,
+              message: rec.result?.explanation?.summary ?? rec.failure,
+              perfKeys: q ? Object.keys(perfOf(q)) : [],
+              response: q,
+            });
+            expect(why).toBeUndefined();
+          },
+          faultTimeoutMs,
+        );
       }
 
       // The same role checks through the check_nsclient plugin, the way a
