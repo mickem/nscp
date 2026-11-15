@@ -172,6 +172,19 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# The return-code, report-mode and log-level helpers every plugin links
+# (include/nscapi/nscapi_helper.cpp).
+NSCP_CREATE_TEST(
+    nscapi_helper_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     settings_filter_test
     SOURCES
