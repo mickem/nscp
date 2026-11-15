@@ -29,13 +29,20 @@ std::string time_clause(const std::int64_t seed_seconds) {
   return " and TimeCreated[timediff(@SystemTime) <= " + std::to_string(seed_seconds * 1000) + "]";
 }
 
+struct event_closer {
+  static void close(HANDLE handle) { CloseHandle(handle); }
+};
+
 // One subscription: a log, the events it selects, and the ring they go to.
+// It owns the event the subscription signals and the subscription itself, so
+// both are released however the thread leaves. `signal` is declared before
+// `log` so that the subscription goes first and never signals a closed event.
 struct feed {
   std::string channel;
   std::string query;
   bool service = false;
+  hlp::handle<HANDLE, event_closer> signal;
   std::unique_ptr<eventlog_wrapper_new> log;
-  HANDLE signal = NULL;
 };
 
 struct scm_closer {
@@ -47,11 +54,11 @@ struct scm_closer {
 class renderer {
  public:
   renderer() {
-    system_context_ = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
+    system_context_ = eventlog::EvtCreateRenderContext(0, nullptr, eventlog::api::EvtRenderContextSystem);
     LPCWSTR paths[] = {L"Event/EventData/Data[@Name='param1']"};
     param1_context_ = eventlog::EvtCreateRenderContext(1, paths, eventlog::api::EvtRenderContextValues);
-    user_context_ = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextUser);
-    scm_ = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
+    user_context_ = eventlog::EvtCreateRenderContext(0, nullptr, eventlog::api::EvtRenderContextUser);
+    scm_ = OpenSCManager(nullptr, nullptr, SC_MANAGER_CONNECT);
   }
 
   const eventlog::evt_handle &system_context() const { return system_context_; }
@@ -78,7 +85,7 @@ class renderer {
     if (it == publishers_.end()) {
       // A provider without metadata (an uninstalled application) stays null
       // rather than being looked up again for every event.
-      it = publishers_.emplace(provider, eventlog::evt_handle(eventlog::EvtOpenPublisherMetadata(NULL, utf8::cvt<std::wstring>(provider).c_str(), NULL, 0, 0)))
+      it = publishers_.emplace(provider, eventlog::evt_handle(eventlog::EvtOpenPublisherMetadata(nullptr, utf8::cvt<std::wstring>(provider).c_str(), nullptr, 0, 0)))
                .first;
     }
     std::string text;
@@ -156,7 +163,7 @@ class renderer {
 // `limit` of them: the seed of a ring.
 std::vector<event_ptr> query_backwards(const std::string &channel, const std::string &query, const eventlog::evt_handle &context, const std::size_t limit) {
   std::vector<event_ptr> found;
-  const eventlog::evt_handle results(eventlog::EvtQuery(NULL, utf8::cvt<std::wstring>(channel).c_str(), utf8::cvt<std::wstring>(query).c_str(),
+  const eventlog::evt_handle results(eventlog::EvtQuery(nullptr, utf8::cvt<std::wstring>(channel).c_str(), utf8::cvt<std::wstring>(query).c_str(),
                                                         eventlog::api::EvtQueryChannelPath | eventlog::api::EvtQueryReverseDirection));
   if (!results) throw nsclient::nsclient_exception("Failed to query " + channel + ": " + error::lookup::last_error());
   const auto now = static_cast<unsigned long long>(std::time(nullptr));
@@ -248,21 +255,21 @@ void eventlog_diagnostics::thread_proc() {
   handles.push_back(stop_signal_.native_handle());
   for (feed &f : feeds) {
     try {
-      f.log.reset(new eventlog_wrapper_new(f.channel, f.query));
-      if (!f.log->notify(f.signal) || f.signal == NULL) {
+      f.log = std::make_unique<eventlog_wrapper_new>(f.channel, f.query);
+      if (!f.log->notify(*f.signal.ref()) || !f.signal) {
         const std::string error = f.log->last_error.empty() ? "Failed to subscribe to " + f.channel : f.log->last_error;
-        if (f.signal != NULL) CloseHandle(f.signal);
-        f.signal = NULL;
         f.log.reset();
+        f.signal.close();
         set_error(f.service, error);
         continue;
       }
     } catch (const nsclient::nsclient_exception &e) {
       f.log.reset();
+      f.signal.close();
       set_error(f.service, e.reason());
       continue;
     }
-    handles.push_back(f.signal);
+    handles.push_back(f.signal.get());
     active.push_back(&f);
   }
 
@@ -329,9 +336,5 @@ void eventlog_diagnostics::thread_proc() {
     if (services_) set_error(true, error);
     if (errors_) set_error(false, error);
     break;
-  }
-
-  for (feed &f : feeds) {
-    if (f.log && f.signal != NULL) f.log->un_notify(f.signal);
   }
 }

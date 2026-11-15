@@ -66,7 +66,7 @@ bool eventlog_wrapper_new::notify(HANDLE &handle) {
   }
 
   const std::wstring wquery = utf8::cvt<std::wstring>(query);
-  hLog = eventlog::EvtSubscribe(NULL, handle, utf8::cvt<std::wstring>(name).c_str(), query.empty() ? NULL : wquery.c_str(), NULL, NULL, NULL,
+  hLog = eventlog::EvtSubscribe(nullptr, handle, utf8::cvt<std::wstring>(name).c_str(), query.empty() ? nullptr : wquery.c_str(), nullptr, nullptr, nullptr,
                                 eventlog::api::EvtSubscribeToFutureEvents);
   if (!hLog) {
     last_error = "Failed to subscribe to " + name + ": " + error::lookup::last_error();
