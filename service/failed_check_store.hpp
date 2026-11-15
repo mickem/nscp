@@ -750,11 +750,33 @@ class failed_check_store {
   }
 
   // Release the oldest held snapshots, of either kind, until the held ones
-  // fit the budget. The newest always fits on its own, because
-  // max_context_size is clamped to the budget. Callers must hold the lock.
+  // fit the budget - but never the ones the newest entry refers to while an
+  // older one is left: the failure just recorded is the one a reader is most
+  // likely to open, and by hold order its metrics snapshot is older than its
+  // diagnostics. When the newest entry's pair alone is over the budget, its
+  // diagnostics go and its metrics stay; one snapshot always fits on its own,
+  // because max_context_size is clamped to the budget. Callers must hold the
+  // lock.
   void enforce_budget_locked() {
+    const bool has_newest = !entries_.empty();
+    const snapshot_key newest_metrics = has_newest && entries_.back().context ? snapshot_key(kind_metrics, entries_.back().context->id) : no_snapshot();
+    const snapshot_key newest_diagnostics =
+        has_newest && entries_.back().diagnostics ? snapshot_key(kind_diagnostics, entries_.back().diagnostics->id) : no_snapshot();
+    while (context_bytes_ > options_.context_budget) {
+      std::map<std::uint64_t, held_snapshot>::const_iterator victim = held_.begin();
+      while (victim != held_.end() && (victim->second.key == newest_metrics || victim->second.key == newest_diagnostics)) ++victim;
+      if (victim == held_.end()) break;
+      evict_locked(victim->first);
+    }
+    if (context_bytes_ > options_.context_budget) {
+      const std::map<snapshot_key, std::uint64_t>::const_iterator found = held_index_.find(newest_diagnostics);
+      if (found != held_index_.end()) evict_locked(found->second);
+    }
     while (context_bytes_ > options_.context_budget && !held_.empty()) evict_locked(held_.begin()->first);
   }
+
+  // A key no held snapshot has: ids start at 1.
+  static snapshot_key no_snapshot() { return snapshot_key(-1, 0); }
 
   // Callers must hold the lock.
   void trim_locked() {

@@ -742,6 +742,65 @@ TEST(failed_check_store, the_budget_releases_the_oldest_snapshot_whichever_kind)
   EXPECT_EQ(PB::Failures::MetricsContext::EVICTED, found.item.context().state());
 }
 
+TEST(failed_check_store, the_budget_spares_the_newest_failures_snapshots_while_older_ones_are_left) {
+  nsclient::core::metrics_snapshot_store metrics;
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  // Room for three snapshots of ~40k, not four.
+  store.configure(capturing_both(124 * 1024, 64 * 1024));
+  const nsclient::core::metrics_snapshot_ptr m1 = make_snapshot(metrics, 40 * 1024, 90);
+  const nsclient::core::diagnostics_snapshot_ptr d1 = make_diagnostics(diagnostics, 40 * 1024, 90);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 91, m1, d1));
+  // The second failure shares the metrics snapshot - the oldest one held -
+  // and brings two new diagnostics snapshots' worth with the third.
+  const nsclient::core::diagnostics_snapshot_ptr d2 = make_diagnostics(diagnostics, 40 * 1024, 95);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 96, m1, d2));
+  const nsclient::core::diagnostics_snapshot_ptr d3 = make_diagnostics(diagnostics, 40 * 1024, 100);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 101, m1, d3));
+
+  // m1 is the oldest held snapshot, but the newest failure refers to it: the
+  // oldest one it does not refer to went instead.
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(3, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(m1, found.context);
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::CAPTURED, found.item.diagnostics().state());
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::EVICTED, found.item.diagnostics().state());
+  EXPECT_EQ(m1->wire_size + d2->wire_size + d3->wire_size, store.context_bytes_used());
+}
+
+TEST(failed_check_store, a_budget_too_small_for_one_pair_keeps_the_newest_failures_metrics) {
+  nsclient::core::metrics_snapshot_store metrics;
+  nsclient::core::diagnostics_snapshot_store diagnostics;
+  failed_check_store store;
+  // Room for one snapshot of ~40k, not for a metrics and a diagnostics one.
+  store.configure(capturing_both(64 * 1024, 64 * 1024));
+  const nsclient::core::metrics_snapshot_ptr m1 = make_snapshot(metrics, 40 * 1024, 90);
+  const nsclient::core::diagnostics_snapshot_ptr d1 = make_diagnostics(diagnostics, 40 * 1024, 90);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 91, m1, d1));
+
+  failed_check_store::entry_with_context found;
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(m1, found.context);
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::EVICTED, found.item.diagnostics().state());
+  EXPECT_FALSE(found.diagnostics);
+  EXPECT_EQ(m1->wire_size, store.context_bytes_used());
+
+  // The next failure's metrics replace the previous one's.
+  const nsclient::core::metrics_snapshot_ptr m2 = make_snapshot(metrics, 40 * 1024, 100);
+  const nsclient::core::diagnostics_snapshot_ptr d2 = make_diagnostics(diagnostics, 40 * 1024, 100);
+  ASSERT_TRUE(store.record(critical(), nullptr, "test", 0, 101, m2, d2));
+  ASSERT_TRUE(store.get(1, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::EVICTED, found.item.context().state());
+  ASSERT_TRUE(store.get(2, found));
+  EXPECT_EQ(PB::Failures::MetricsContext::CAPTURED, found.item.context().state());
+  EXPECT_EQ(PB::Failures::DiagnosticsContext::EVICTED, found.item.diagnostics().state());
+  EXPECT_EQ(m2->wire_size, store.context_bytes_used());
+}
+
 TEST(failed_check_store, a_diagnostics_snapshot_over_the_size_cap_is_not_kept) {
   nsclient::core::diagnostics_snapshot_store diagnostics;
   failed_check_store store;
