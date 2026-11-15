@@ -11,7 +11,7 @@ struct schedule_metadata {
   // published yet: add_task() registers the task with the scheduler before it
   // can fill in the metadata, so the worker can briefly see the id first. It
   // must be the default, or that window dispatches on an uninitialised value.
-  enum task_source { UNKNOWN, MODULE, SETTINGS, METRICS, RELOAD, FACTS };
+  enum task_source { UNKNOWN, MODULE, SETTINGS, METRICS, RELOAD, FACTS, DIAGNOSTICS };
   int plugin_id = 0;
   task_source source = UNKNOWN;
   std::string info;
@@ -31,6 +31,7 @@ struct scheduler : public simple_scheduler::handler {
   void handle_settings();
   void handle_metrics();
   void handle_facts();
+  void handle_diagnostics();
 
   const simple_scheduler::scheduler& get_scheduler() { return tasks; }
 

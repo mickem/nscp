@@ -15,6 +15,7 @@
 #include "agent_facts.hpp"
 #include "cli_parser.hpp"
 #include "core_api.h"
+#include "diagnostics_round.hpp"
 #include "fatal_handler.hpp"
 #include "logger/nsclient_logger.hpp"
 #ifdef HAVE_ONBOARDING
@@ -269,7 +270,8 @@ NSClientT::NSClientT()
       tags_(new nsclient::core::tag_repository()),
       facts_(new nsclient::core::fact_repository()),
       failures_(new nsclient::core::failed_check_store()),
-      snapshots_(new nsclient::core::metrics_snapshot_store()) {
+      snapshots_(new nsclient::core::metrics_snapshot_store()),
+      diagnostics_(new nsclient::core::diagnostics_snapshot_store()) {
   plugins_->set_fact_repository(facts_);
   plugins_->set_failed_check_store(failures_);
   plugins_->set_metrics_snapshot_store(snapshots_);
@@ -537,6 +539,22 @@ bool NSClientT::boot_start_plugins(bool boot) {
       LOG_ERROR_CORE_STD("Invalid 'metrics interval' value '" + smi + "', falling back to '10s': " + utf8::utf8_from_native(e.what()));
       scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, "10s");
     }
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "diagnostics interval", "Diagnostics interval",
+                                               "How often to collect diagnostics (the tables kept with a failed check and served on "
+                                               "/api/v2/diagnostics) from the modules that produce them. Empty, the default, collects them at the "
+                                               "end of every metrics round, on the same thread. Only used while [/settings/core/failed checks] "
+                                               "capture diagnostics is on. Read when the service starts.",
+                                               "", true, false);
+    const std::string di = settings_manager::get_settings()->get_string("/settings/core", "diagnostics interval", "");
+    diagnostics_with_metrics_ = di.empty();
+    if (!diagnostics_with_metrics_) {
+      try {
+        scheduler_.add_task(task_scheduler::schedule_metadata::DIAGNOSTICS, di);
+      } catch (const std::exception &e) {
+        LOG_ERROR_CORE_STD("Invalid 'diagnostics interval' value '" + di + "', collecting with the metrics round instead: " + utf8::utf8_from_native(e.what()));
+        diagnostics_with_metrics_ = true;
+      }
+    }
     settings_manager::get_core()->register_key(0xffff, "/settings/core", "int", "settings maintenance threads", "Maintenance thread count",
                                                "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
     int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));
@@ -703,6 +721,21 @@ void NSClientT::boot_failed_checks() {
         "`HarddiskVolume8,Hyper-V Virtual,VirtualBox`. Applied before `prune metrics`, so an excluded instance is never the one a "
         "duplicate is collapsed into.",
         "", true, false);
+    settings_manager::get_core()->register_key(
+        0xffff, path, "capture diagnostics", "bool", "Collect diagnostics and record them with each failure",
+        "Collect diagnostics - small tables of what is going on right now, such as the processes using the most CPU and memory and the "
+        "last failed checks - every `diagnostics interval` (by default with the metrics round), keep the latest with every failed check, "
+        "and serve it on /api/v2/diagnostics. Which tables a module produces is switched on in that module's own diagnostics section "
+        "(for example [/settings/system/windows/diagnostics] processes); with none on, a failure carries only the last failed checks. "
+        "Off by default: the tables hold process names and other host details, and they are reported to an enrolled fleet server along with "
+        "the failure. Snapshots share `metrics context budget` and `max context size` with the metrics snapshots, and `prune pattern` "
+        "leaves out a table whose name matches.",
+        "false", true, false);
+    settings_manager::get_core()->register_key(0xffff, path, "diagnostics rows", "int", "Rows per diagnostics table",
+                                               "The most rows kept per table (the top processes, the last failed checks). A table cut by it is "
+                                               "marked as truncated. 1-" +
+                                                   str::xtos(nscapi::diagnostics::max_rows) + ".",
+                                               str::xtos(nsclient::core::diagnostics_round::default_max_rows), true, false);
     read_failed_check_settings();
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Failed to configure the failed-check log: " + utf8::utf8_from_native(e.what()));
@@ -751,6 +784,10 @@ void NSClientT::read_failed_check_settings() {
                          "': " + prune_error);
     }
     options.prune.patterns = nsclient::core::metrics_prune::parse_patterns(settings_manager::get_settings()->get_string(path, "prune pattern", ""));
+    options.capture_diagnostics =
+        settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "capture diagnostics", "false"));
+    read_size_setting("diagnostics rows", nsclient::core::diagnostics_round::default_max_rows, options.diagnostics_rows);
+    options.diagnostics_rows = nsclient::core::diagnostics_round::clamp_rows(options.diagnostics_rows);
     const std::string statuses = settings_manager::get_settings()->get_string(
         path, "statuses", nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses));
     std::string error;
@@ -1192,6 +1229,37 @@ void NSClientT::process_metrics() {
     snapshots_->store(std::move(snapshot), nsclient::core::failed_check_store::now(), failures_->get_options().prune);
   } else {
     snapshots_->reset();
+  }
+  if (diagnostics_with_metrics_) process_diagnostics();
+}
+
+// The diagnostics round. Runs on the maintenance thread, with the metrics
+// round unless `diagnostics interval` gives it a task of its own, and only
+// while `capture diagnostics` is on. Never because a check failed or a reader
+// asked: a failure attaches what the last round left.
+void NSClientT::process_diagnostics() {
+  try {
+    if (!failures_->captures_diagnostics()) {
+      diagnostics_->reset();
+      return;
+    }
+    const nsclient::core::failed_check_store::options options = failures_->get_options();
+    nsclient::core::diagnostics_round::caps limits;
+    limits.max_rows = nsclient::core::diagnostics_round::clamp_rows(options.diagnostics_rows);
+    limits.max_size = options.max_context_size;
+    limits.prune_patterns = options.prune.patterns;
+    const std::int64_t now = nsclient::core::failed_check_store::now();
+
+    // The core's own section leads, so the section cap never cuts it.
+    PB::Diagnostics::DiagnosticsMessage collected;
+    nsclient::core::diagnostics_round::add_recent_failures(collected, failures_->list(0, limits.max_rows + 1), limits.max_rows, now);
+    PB::Diagnostics::DiagnosticsMessage produced = plugins_->collect_diagnostics();
+    for (PB::Diagnostics::Section &section : *produced.mutable_sections()) collected.add_sections()->Swap(&section);
+    diagnostics_->store(nsclient::core::diagnostics_round::assemble(std::move(collected), limits, now));
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to collect diagnostics: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to collect diagnostics");
   }
 }
 void NSClientT::process_facts(const std::string &reason, const bool reread_max_size) {

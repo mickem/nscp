@@ -103,6 +103,11 @@ class failed_check_store {
     std::size_t max_context_size = default_max_context_size;
     // What to trim from a snapshot before it is kept (metrics_prune.hpp).
     metrics_prune::rules prune;
+    // Whether the core collects diagnostics at all and keeps the latest
+    // snapshot with each failure (`capture diagnostics`), and the row cap per
+    // section (`diagnostics rows`, clamped by the round).
+    bool capture_diagnostics = false;
+    std::size_t diagnostics_rows = 10;
   };
 
   // One entry with the snapshot it refers to (null when it has none).
@@ -153,6 +158,13 @@ class failed_check_store {
   bool captures_metrics() const {
     boost::unique_lock<boost::mutex> lock(mutex_);
     return options_.enabled && options_.capture_metrics;
+  }
+
+  // Whether the core collects diagnostics: the round, the live routes and the
+  // attachment to a failure all follow this one switch.
+  bool captures_diagnostics() const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    return options_.enabled && options_.capture_diagnostics;
   }
 
   // Bytes of distinct snapshots currently held.

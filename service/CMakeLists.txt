@@ -257,6 +257,9 @@ NSCP_CREATE_TEST(
         failed_check_store_test.cpp
         failed_check_store.hpp
         metrics_snapshot.hpp
+        diagnostics_snapshot.hpp
+        diagnostics_round.hpp
+        diagnostics_round_test.cpp
         failure_report_test.cpp
         failure_report.hpp
         metrics_prune_test.cpp
