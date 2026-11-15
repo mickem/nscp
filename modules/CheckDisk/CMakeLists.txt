@@ -24,6 +24,7 @@ set(SRCS
     check_share.cpp
     collector_thread.cpp
     filter.cpp
+    growth_spots.cpp
     largest_files_scan.cpp
     ntfs_mft.cpp
     storage_facts.cpp
@@ -40,6 +41,7 @@ if(WIN32)
         check_disk_io_win.cpp
         file_finder_win.cpp
         filter_win.cpp
+        growth_spots_win.cpp
         largest_files_source_win.cpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
         # Headers (for IDE project generation).
@@ -59,6 +61,7 @@ if(WIN32)
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
+        growth_spots.hpp
         largest_files_scan.hpp
         ntfs_mft.hpp
         storage_facts.hpp
@@ -89,6 +92,7 @@ else()
         ${SRCS}
         check_drive_linux.cpp
         check_disk_io_linux.cpp
+        growth_spots_linux.cpp
     )
 endif()
 
@@ -141,6 +145,7 @@ if(WIN32)
             drive_trend_test.cpp
             used_history_test.cpp
             check_drive_growth_test.cpp
+            growth_spots_test.cpp
             check_files_test.cpp
             check_largest_files_test.cpp
             check_single_file_test.cpp
@@ -172,6 +177,8 @@ if(WIN32)
             file_finder_win.cpp
             filter.cpp
             filter_win.cpp
+            growth_spots.cpp
+            growth_spots_win.cpp
             storage_facts.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -232,6 +239,9 @@ else()
             drive_trend_test.cpp
             used_history_test.cpp
             check_drive_growth_test.cpp
+            growth_spots.cpp
+            growth_spots_linux.cpp
+            growth_spots_test.cpp
             check_files.cpp
             check_files_checksum_test.cpp
             check_largest_files.cpp
