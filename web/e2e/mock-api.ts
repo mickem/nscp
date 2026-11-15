@@ -123,6 +123,7 @@ const FAILURES_FIXTURE = {
   enabled: true,
   max_entries: 50,
   arguments_recorded: true,
+  arguments_mode: "safe",
   statuses: "warning,critical,unknown",
   last_index: 2,
   dropped: 0,

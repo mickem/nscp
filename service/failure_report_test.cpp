@@ -74,6 +74,7 @@ TEST(failure_report, sends_the_newest_failure_with_a_snapshot_and_summarises_the
   // Recorded (`safe` is the default) but none were given, which is an empty
   // list rather than no key; and the context is reported on its own.
   EXPECT_TRUE(failure.at("arguments").as_array().empty());
+  EXPECT_EQ("safe", root.at("arguments_mode").as_string());
   EXPECT_EQ(nullptr, failure.if_contains("context"));
 
   const json::object &context = root.at("context").as_object();
@@ -150,6 +151,7 @@ TEST(failure_report, sends_arguments_only_when_they_are_recorded) {
   ASSERT_EQ(1u, sent.size());
   // The store's redaction is what leaves the host.
   EXPECT_EQ("password=***", sent.at(0).as_string());
+  EXPECT_EQ("all", root.at("arguments_mode").as_string());
 }
 
 TEST(failure_report, sends_no_arguments_key_when_the_mode_is_none) {
@@ -162,4 +164,5 @@ TEST(failure_report, sends_no_arguments_key_when_the_mode_is_none) {
   ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), &arguments, "s", 0, 1000));
   const json::object root = render(failure_report::from(store, store.list()), 1100);
   EXPECT_EQ(nullptr, root.at("failure").as_object().if_contains("arguments"));
+  EXPECT_EQ("none", root.at("arguments_mode").as_string());
 }

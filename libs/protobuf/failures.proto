@@ -98,9 +98,10 @@ message FailedCheck {
 	int32 depth = 4;
 	// The payload as it was returned, after the core's caps: the lines are
 	// truncated, the perf list is capped and `data` is cleared. `arguments`
-	// is filled from the request - with credential-looking values redacted -
-	// only when [/settings/core/failed checks] `record arguments` is on, and
-	// cleared otherwise.
+	// is filled from the request as [/settings/core/failed checks] `record
+	// arguments` says: nothing under `none`, the allow-listed options under
+	// `safe`, every option - credential-looking values redacted - under
+	// `all`.
 	PB.Commands.QueryResponseMessage.Response response = 5;
 	// The metrics snapshot the failure was recorded with; see MetricsContext.
 	MetricsContext context = 6;
@@ -178,6 +179,11 @@ message FailuresResponseMessage {
 		uint64 context_bytes_used = 13;
 		// The largest single snapshot that is kept (bytes).
 		uint64 max_context_size = 14;
+		// Which arguments are recorded, as `record arguments` spells it:
+		// "none", "safe" (only allow-listed options) or "all" (every option,
+		// credential-looking values redacted). `arguments_recorded` is true
+		// for the last two.
+		string arguments_mode = 15;
 	};
 
 	PB.Common.Header header = 1;

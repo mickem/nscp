@@ -397,6 +397,7 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
     payload->set_enabled(options.enabled);
     payload->set_max_entries(options.max_entries);
     payload->set_arguments_recorded(options.record_arguments != nsclient::core::failed_check_store::argument_mode::none);
+    payload->set_arguments_mode(nsclient::core::failed_check_store::format_argument_mode(options.record_arguments));
     payload->set_statuses(nsclient::core::failed_check_store::format_statuses(options.statuses));
     payload->set_last_index(store->last_index());
     payload->set_dropped(store->dropped());

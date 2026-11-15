@@ -365,7 +365,8 @@ export interface EventEntry {
  * One entry of the core's failed-check log (/api/v2/failures): a query that
  * came back WARNING, CRITICAL or UNKNOWN, with the result as the check
  * produced it. `arguments` is only present when the agent records them
- * (`record arguments` under [/settings/core/failed checks]).
+ * (`record arguments` under [/settings/core/failed checks] is `safe`, the
+ * default, or `all`); under `safe` it holds the allow-listed options only.
  */
 export interface FailedCheck {
   index: number;
@@ -439,6 +440,11 @@ export interface FailedChecks {
   enabled: boolean;
   max_entries: number;
   arguments_recorded: boolean;
+  /**
+   * `record arguments`: `none`, `safe` (only allow-listed options are kept)
+   * or `all`. Absent from an agent that predates the setting's modes.
+   */
+  arguments_mode?: "none" | "safe" | "all";
   statuses: string;
   last_index: number;
   dropped: number;

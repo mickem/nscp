@@ -29,6 +29,7 @@ namespace core {
 //
 //   {
 //     "sent_at": "<iso>",
+//     "arguments_mode": "none" | "safe" | "all",
 //     "failure": { <the entry as /api/v2/failures renders it>, "date": "<iso>" },
 //     "context": { "state", "snapshot_id", "captured_at": "<iso>", "age_seconds",
 //                  "metrics": {...flat, as /api/v2/metrics...}, "metadata": {...},
@@ -53,6 +54,9 @@ struct failure_report {
   // The start of the window: the previous report, or the oldest failure in it.
   std::int64_t since = 0;
   bool arguments_recorded = false;
+  // `record arguments` as it is spelled ("none", "safe", "all"), so the
+  // server can tell a list cut down to the allow-list from a complete one.
+  std::string arguments_mode = "none";
 
   static std::string iso_time(const std::int64_t epoch) {
     if (epoch <= 0) return "";
@@ -62,6 +66,7 @@ struct failure_report {
   std::string render(const std::int64_t now) const {
     boost::json::object root;
     root["sent_at"] = iso_time(now);
+    root["arguments_mode"] = arguments_mode;
 
     boost::json::object entry = failures_json::entry(failure, arguments_recorded);
     entry["date"] = iso_time(failure.timestamp());
@@ -161,7 +166,9 @@ struct failure_report {
     for (std::size_t i = 0; i < fresh.size(); ++i) {
       if (i != pick) report.suppressed.push_back(fresh[i]);
     }
-    report.arguments_recorded = store.get_options().record_arguments != failed_check_store::argument_mode::none;
+    const failed_check_store::argument_mode mode = store.get_options().record_arguments;
+    report.arguments_recorded = mode != failed_check_store::argument_mode::none;
+    report.arguments_mode = failed_check_store::format_argument_mode(mode);
     return report;
   }
 };

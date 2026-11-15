@@ -654,12 +654,15 @@ void NSClientT::boot_failed_checks() {
                                                "output and performance data, so a few hundred is cheap; the cap is " +
                                                    str::xtos(nsclient::core::failed_check_store::max_max_entries) + ".",
                                                str::xtos(nsclient::core::failed_check_store::default_max_entries), true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "record arguments", "bool", "Record the check's arguments",
-                                               "Store the options each failed check was called with, so the log shows what was asked and not only what "
-                                               "came back. Off by default because an argument can carry a credential (a database password, a token for "
-                                               "a forwarded check): even when on, any argument whose name mentions a password or a token is stored as "
-                                               "`***`, but a secret passed under another name is not.",
-                                               "false", true, false);
+    settings_manager::get_core()->register_key(
+        0xffff, path, "record arguments", "string", "Which of the check's arguments to record",
+        "Store the options each failed check was called with, so the log shows what was asked and not only what came back. none keeps "
+        "nothing; safe (the default) keeps only the options that describe the check - the thresholds, the filter and the syntax options, and "
+        "what was checked (time, type, drive, service, process, file, path, counter, ...) - and drops everything else, including anything "
+        "that names a host, a URL, a command or a query; all keeps every option. An argument can carry a credential (a database password, a "
+        "token for a forwarded check): under all, any argument whose name mentions a password or a token is stored as `***`, but a secret "
+        "passed under another name is not. true and false are read as all and none.",
+        nsclient::core::failed_check_store::format_argument_mode(nsclient::core::failed_check_store::argument_mode::safe), true, false);
     settings_manager::get_core()->register_key(0xffff, path, "statuses", "string", "Which results count as failed",
                                                "A comma-separated list of warning, critical and unknown. Drop warning to log only the results that need "
                                                "someone to act. OK is never recorded.",
@@ -722,9 +725,13 @@ void NSClientT::read_failed_check_settings() {
   nsclient::core::failed_check_store::options options = failures_->get_options();
   try {
     options.enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "enabled", "true"));
-    options.record_arguments = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "record arguments", "false"))
-                                   ? nsclient::core::failed_check_store::argument_mode::all
-                                   : nsclient::core::failed_check_store::argument_mode::none;
+    const std::string arguments = settings_manager::get_settings()->get_string(
+        path, "record arguments", nsclient::core::failed_check_store::format_argument_mode(nsclient::core::failed_check_store::argument_mode::safe));
+    std::string arguments_error;
+    if (!nsclient::core::failed_check_store::parse_argument_mode(arguments, options.record_arguments, arguments_error)) {
+      LOG_ERROR_CORE_STD("Invalid [" + path + "] record arguments '" + arguments + "', keeping '" +
+                         nsclient::core::failed_check_store::format_argument_mode(options.record_arguments) + "': " + arguments_error);
+    }
     const std::string max_entries =
         settings_manager::get_settings()->get_string(path, "max entries", str::xtos(nsclient::core::failed_check_store::default_max_entries));
     try {

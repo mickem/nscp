@@ -250,6 +250,8 @@ describe("fleet failure-context reports", () => {
     expect(reports()).toHaveLength(1);
     const first = reports()[0];
     expect(typeof first.body.sent_at).toBe("string");
+    // `record arguments` is left at its default.
+    expect(first.body.arguments_mode).toEqual("safe");
     // The newest failure with a snapshot is the one sent ...
     expect(first.body.failure.command).toEqual("check_warning");
     expect(first.body.failure.message).toEqual("three");

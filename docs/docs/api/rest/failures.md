@@ -31,9 +31,11 @@ effect on a settings reload; turning the log off empties it.
 enabled = true
 ; How many of the latest failures to keep (1-10000).
 max entries = 50
-; Keep the arguments the check was called with. Off by default: arguments
-; can carry secrets, and the log is readable by anyone with failures.list.
-record arguments = false
+; Which of the arguments the check was called with to keep: none, safe or
+; all. safe keeps only the options that describe the check (thresholds,
+; filter, syntax, what was checked); arguments can carry secrets, and the
+; log is readable by anyone with failures.list.
+record arguments = safe
 ; Which results count as failed.
 statuses = warning,critical,unknown
 ; Keep the agent's latest metrics snapshot with each failure.
@@ -58,10 +60,20 @@ Each entry is the check's response: its command and alias, status, every
 output line with its performance data, and who asked for it. Two things are
 deliberately **not** stored as they were:
 
-* **Arguments** are left out unless `record arguments` is on. When they are
-  recorded, the value of any argument whose name contains `password` or
-  `token` is replaced by `***`, in both the `password=secret` and the
-  `--password secret` shape.
+* **Arguments** are kept as `record arguments` says:
+
+    | Value | Keeps |
+    |---|---|
+    | `none` (or `false`) | Nothing. |
+    | `safe` (the default) | Only the options whose name is on an allow-list: the common filter options (`warning`, `critical`, `warn`, `crit`, `ok`, `filter`, `top-syntax`, `detail-syntax`, `ok-syntax`, `empty-syntax`, `perf-syntax`, `perf-config`, `empty-state`, `show-all`, ...) and what was checked (`time`, `type`, `drive`, `service`, `process`, `file`, `path`, `counter`, `exclude`, `computer`, `pattern`, `name`, ...). |
+    | `all` (or `true`) | Every option, with the value of any argument whose name contains `password` or `token` replaced by `***`. |
+
+    `safe` drops every option not on the list - a host, a URL, a command
+    line, a query, a user name, anything with a credential in its name - and
+    any bare value with no option name. In the CLI's `--key value` shape the
+    value goes with its key. Under `all`, the redaction covers both the
+    `password=secret` and the `--password secret` shape, but a secret passed
+    under another name is kept as it was.
 * **Secrets echoed in the message** are redacted the same way: a check that
   rejects its options repeats them ("unrecognised option 'password=secret'"),
   and that pair becomes `password=***` whether or not arguments are recorded.
@@ -169,7 +181,8 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
 {
     "enabled": true,
     "max_entries": 50,
-    "arguments_recorded": false,
+    "arguments_recorded": true,
+    "arguments_mode": "safe",
     "statuses": "warning,critical,unknown",
     "last_index": 12,
     "dropped": 0,
@@ -206,6 +219,7 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
                     }
                 }
             ],
+            "arguments": ["drive=C:", "warning=used > 80%", "critical=used > 90%"],
             "context": {
                 "state": "captured",
                 "snapshot_id": 15,
@@ -222,7 +236,8 @@ $ curl -k -s -u admin "https://localhost:8443/api/v2/failures?limit=1" | python 
 |----------------------|-------------|
 | `enabled`            | Whether the log is recording. `false` with an empty `entries` means switched off, not idle. |
 | `max_entries`        | The cap, as configured. |
-| `arguments_recorded` | Whether entries carry `arguments`. |
+| `arguments_recorded` | Whether entries carry `arguments`: true when `arguments_mode` is `safe` or `all`. |
+| `arguments_mode` | `record arguments` as configured: `none`, `safe` (only the allow-listed options are kept) or `all`. |
 | `statuses`           | The statuses recorded, as configured. |
 | `last_index`         | The highest `index` handed out so far; `0` before the first failure. Keeps counting across evictions and clears. |
 | `dropped`            | Entries the cap has evicted since the service started. |
@@ -243,7 +258,7 @@ Each entry:
 | `status`, `result` | The Nagios number and word. |
 | `message`   | The first output line, for a table that shows one line per row. |
 | `lines`     | Every output line with its `perf` object, in the same shape as [`/api/v2/queries/{name}/commands/execute`](queries.md#command-execute). |
-| `arguments` | The arguments the check was called with, redacted. **Only present when `arguments_recorded` is true**; an entry recorded while it was off has no key, so an empty list means "none were given". |
+| `arguments` | The arguments the check was called with, as `arguments_mode` keeps them: the allow-listed options under `safe`, every one (redacted) under `all`. **Only present when `arguments_recorded` is true**; an empty list means "none were given" (or, under `safe`, none that are kept). |
 | `context`   | The metrics snapshot the entry refers to; see below. |
 
 `context.state` is one of:
@@ -350,7 +365,7 @@ Empties the log and answers with the same envelope, plus how many entries went:
 
 ```
 $ curl -k -s -u admin -X DELETE https://localhost:8443/api/v2/failures
-{"enabled":true,"max_entries":50,"arguments_recorded":false,"statuses":"warning,critical,unknown","last_index":12,"dropped":0,"removed":12}
+{"enabled":true,"max_entries":50,"arguments_recorded":true,"arguments_mode":"safe","statuses":"warning,critical,unknown","last_index":12,"dropped":0,"removed":12}
 ```
 
 `last_index` is not reset, so a poller's `since` stays valid across a clear.
@@ -363,7 +378,7 @@ $ curl -k -s -u admin -X DELETE https://localhost:8443/api/v2/failures
 | `failures.delete` | `DELETE /api/v2/failures` |
 
 The log shows the output of every check the agent ran, for every caller, and
-its arguments when `record arguments` is on, and with `capture metrics` on
+the arguments `record arguments` keeps (by default the allow-listed ones), and with `capture metrics` on
 the metrics at the time, which `/api/v2/metrics` only serves to `metrics.list`.
 The built-in roles other than
 `full` do not carry these privileges; give `failures.list` to a role of your

@@ -193,13 +193,23 @@ describe("FailedChecks", () => {
     expect(screen.getByText("disabled")).toBeInTheDocument();
   });
 
+  it("says when only the allow-listed arguments are recorded", async () => {
+    installFetchMock({ "/api/v2/failures": envelope({ arguments_mode: "safe" }) });
+    renderWithProviders(<FailedChecks />);
+
+    await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
+    expect(screen.getByText(/allow-listed arguments recorded/)).toBeInTheDocument();
+  });
+
   it("says when arguments were not recorded rather than showing an empty list", async () => {
     const stripped = ENTRIES.map((e) => {
       const copy: Record<string, unknown> = { ...e };
       delete copy.arguments;
       return copy;
     });
-    installFetchMock({ "/api/v2/failures": envelope({ arguments_recorded: false, entries: stripped }) });
+    installFetchMock({
+      "/api/v2/failures": envelope({ arguments_recorded: false, arguments_mode: "none", entries: stripped }),
+    });
     renderWithProviders(<FailedChecks />);
 
     await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());

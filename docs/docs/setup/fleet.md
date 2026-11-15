@@ -558,11 +558,13 @@ The report:
 ```json
 {
   "sent_at": "2026-10-31T09:12:44Z",
+  "arguments_mode": "safe",
   "failure": {
     "index": 42, "timestamp": 1793437964, "date": "2026-10-31T09:12:44Z",
     "subject": "Scheduler", "depth": 0, "command": "check_cpu", "alias": "cpu",
     "status": 2, "result": "CRITICAL", "message": "CRITICAL: 5m: 97%",
-    "lines": [{ "message": "CRITICAL: 5m: 97%", "perf": { "total 5m": { "value": 97, "unit": "%" } } }]
+    "lines": [{ "message": "CRITICAL: 5m: 97%", "perf": { "total 5m": { "value": 97, "unit": "%" } } }],
+    "arguments": ["time=5m", "critical=load > 90"]
   },
   "context": {
     "state": "captured", "snapshot_id": 310, "captured_at": "2026-10-31T09:12:39Z", "age_seconds": 5,
@@ -580,7 +582,9 @@ The report:
 ```
 
 `failure` is the entry as [`/api/v2/failures`](../api/rest/failures.md#list-failed-checks)
-renders it, with `arguments` only when the agent records them. `context.metrics` and
+renders it, with `arguments` only when the agent records them; `arguments_mode` is the
+agent's [`record arguments`](../api/rest/failures.md#configuration) (`none`, `safe` or `all`),
+so a server can tell a list cut down to the allow-listed options from a complete one. `context.metrics` and
 `context.metadata` are only there when `context.state` is `captured`, in the shape
 `/api/v2/metrics?meta=1` serves. With [`prune metrics` or `prune pattern`](../api/rest/failures.md#pruning-the-snapshot)
 set, the snapshot is trimmed before it is kept and `context.pruned` says what was taken out,

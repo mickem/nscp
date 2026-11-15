@@ -181,9 +181,13 @@ export default function FailedChecks() {
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
           Keeping the last {data.max_entries} checks that came back {data.statuses.split(",").join(", ") || "non-OK"}
           {data.dropped > 0 ? ` · ${data.dropped} older ${data.dropped === 1 ? "entry" : "entries"} evicted` : ""}
-          {data.arguments_recorded
-            ? " · arguments recorded"
-            : " · arguments not recorded (record arguments = false under [/settings/core/failed checks])"}
+          {!data.arguments_recorded
+            ? " · arguments not recorded (record arguments = none under [/settings/core/failed checks])"
+            : data.arguments_mode === "safe"
+              ? " · allow-listed arguments recorded (record arguments = safe: thresholds, filter, syntax and what was checked)"
+              : data.arguments_mode === "all"
+                ? " · all arguments recorded (password and token values redacted)"
+                : " · arguments recorded"}
           {data.capture_metrics
             ? ` · metrics captured (${formatBytes(data.context_bytes_used)} of ${formatBytes(data.context_budget)})`
             : " · metrics not captured (capture metrics = false under [/settings/core/failed checks])"}

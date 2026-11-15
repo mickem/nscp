@@ -81,6 +81,8 @@ void describe(json::object &out, const PB::Failures::FailuresResponseMessage::Re
   out["enabled"] = payload.enabled();
   out["max_entries"] = static_cast<std::int64_t>(payload.max_entries());
   out["arguments_recorded"] = payload.arguments_recorded();
+  // A core older than the field says nothing; it only knew on and off.
+  out["arguments_mode"] = !payload.arguments_mode().empty() ? payload.arguments_mode() : (payload.arguments_recorded() ? "all" : "none");
   out["statuses"] = payload.statuses();
   out["last_index"] = static_cast<std::int64_t>(payload.last_index());
   out["dropped"] = static_cast<std::int64_t>(payload.dropped());
@@ -160,6 +162,7 @@ void failures_controller::list_failures(Mongoose::Request &request, boost::smatc
     out["enabled"] = false;
     out["max_entries"] = 0;
     out["arguments_recorded"] = false;
+    out["arguments_mode"] = "none";
     out["statuses"] = "";
     out["last_index"] = 0;
     out["dropped"] = 0;
