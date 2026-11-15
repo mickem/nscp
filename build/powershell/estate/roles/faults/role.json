@@ -45,7 +45,7 @@
         }
       },
       "eventlog": { "diagnostics": { "services": "true", "errors": "true" } },
-      "disk": { "facts": { "storage.volumes": "true" } },
+      "disk": { "facts": { "storage.volumes": "true" }, "diagnostics": { "growth spots": "true" } },
       "external scripts": {
         "scripts": {
           "fault_cpu_sh": "sh scripts/fault.sh cpu",
