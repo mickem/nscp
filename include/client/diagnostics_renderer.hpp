@@ -3,13 +3,12 @@
 
 #pragma once
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <cctype>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
-#include <ctime>
 #include <nscapi/protobuf/diagnostics.hpp>
+#include <str/number_format.hpp>
+#include <str/rfc3339.hpp>
 #include <string>
 #include <vector>
 
@@ -26,22 +25,6 @@
 namespace client {
 namespace diagnostics_detail {
 
-inline std::string iso_time(const std::int64_t epoch) {
-  if (epoch <= 0) return "";
-  return boost::posix_time::to_iso_extended_string(boost::posix_time::from_time_t(static_cast<std::time_t>(epoch))) + "Z";
-}
-
-inline std::string format_double(const double value) {
-  if (!std::isfinite(value)) return "";
-  char buffer[64];
-  std::snprintf(buffer, sizeof(buffer), "%.2f", value);
-  std::string text = buffer;
-  // 12.50 -> 12.5, 3.00 -> 3: the trailing zeros only widen the column.
-  while (!text.empty() && text.back() == '0') text.pop_back();
-  if (!text.empty() && text.back() == '.') text.pop_back();
-  return text;
-}
-
 inline std::string cell_text(const PB::Diagnostics::Cell &cell, const PB::Diagnostics::Column::Type type) {
   switch (cell.value_case()) {
     case PB::Diagnostics::Cell::kS: {
@@ -53,10 +36,12 @@ inline std::string cell_text(const PB::Diagnostics::Cell &cell, const PB::Diagno
       return text;
     }
     case PB::Diagnostics::Cell::kI:
-      if (type == PB::Diagnostics::Column::TIMESTAMP) return iso_time(cell.i());
+      if (type == PB::Diagnostics::Column::TIMESTAMP) return str::format_rfc3339(cell.i());
       return std::to_string(cell.i());
     case PB::Diagnostics::Cell::kF:
-      return format_double(cell.f());
+      // Up to three decimals, trailing zeros dropped (12.50 -> 12.5, 3.00 ->
+      // 3): they only widen the column.
+      return std::isfinite(cell.f()) ? str::render_fixed(cell.f(), -1) : std::string();
     case PB::Diagnostics::Cell::kB:
       return cell.b() ? "true" : "false";
     default:
@@ -88,7 +73,7 @@ inline std::string render_rows(const std::vector<std::vector<std::string> > &row
 
 inline std::string render_section(const PB::Diagnostics::Section &section) {
   std::string out = section.name() + " (" + (section.source().empty() ? std::string("unknown source") : section.source()) + ", captured " +
-                    iso_time(section.captured_at()) + ")";
+                    str::format_rfc3339(section.captured_at()) + ")";
   if (!section.description().empty()) out += "\n" + section.description();
   if (!section.error().empty()) out += "\nError: " + section.error();
   std::vector<std::vector<std::string> > rows;
@@ -133,13 +118,13 @@ inline std::string render_diagnostics(const std::string &envelope, const std::st
     if (snapshot.sections_size() == 0) return "Diagnostics section not found: " + section;
     return diagnostics_detail::render_section(snapshot.sections(0));
   }
-  std::string out = "Snapshot " + std::to_string(payload.snapshot_id()) + ", collected " + diagnostics_detail::iso_time(payload.captured_at()) + ", at most " +
+  std::string out = "Snapshot " + std::to_string(payload.snapshot_id()) + ", collected " + str::format_rfc3339(payload.captured_at()) + ", at most " +
                     std::to_string(payload.max_rows()) + " rows per table:";
   std::vector<std::vector<std::string> > rows;
   rows.push_back({"NAME", "SOURCE", "ROWS", "CAPTURED", "STATUS"});
   for (const PB::Diagnostics::Section &s : snapshot.sections()) {
     std::string status = s.error().empty() ? (s.truncated() ? "truncated" : "ok") : "error: " + s.error();
-    rows.push_back({s.name(), s.source(), std::to_string(s.rows_size()), diagnostics_detail::iso_time(s.captured_at()), status});
+    rows.push_back({s.name(), s.source(), std::to_string(s.rows_size()), str::format_rfc3339(s.captured_at()), status});
   }
   out += diagnostics_detail::render_rows(rows, "  ");
   for (const std::string &name : payload.excluded()) out += "\nLeft out by prune pattern: " + name;

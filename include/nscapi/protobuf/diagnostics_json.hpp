@@ -3,12 +3,11 @@
 
 #pragma once
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
 #include <cmath>
 #include <cstdint>
-#include <ctime>
 #include <nscapi/protobuf/diagnostics.hpp>
+#include <str/rfc3339.hpp>
 #include <string>
 
 // Diagnostics sections as JSON. Header-only and shared by everything that
@@ -32,11 +31,6 @@
 // when set, and `unit` and a column's `description` likewise.
 namespace diagnostics_json {
 
-inline std::string iso_time(const std::int64_t epoch) {
-  if (epoch <= 0) return "";
-  return boost::posix_time::to_iso_extended_string(boost::posix_time::from_time_t(static_cast<std::time_t>(epoch))) + "Z";
-}
-
 inline boost::json::value cell(const PB::Diagnostics::Cell &cell, const PB::Diagnostics::Column::Type type) {
   switch (cell.value_case()) {
     case PB::Diagnostics::Cell::kS:
@@ -44,7 +38,7 @@ inline boost::json::value cell(const PB::Diagnostics::Cell &cell, const PB::Diag
     case PB::Diagnostics::Cell::kI:
       if (type == PB::Diagnostics::Column::TIMESTAMP) {
         if (cell.i() <= 0) return nullptr;
-        return boost::json::value(iso_time(cell.i()));
+        return boost::json::value(str::format_rfc3339(cell.i()));
       }
       return boost::json::value(cell.i());
     case PB::Diagnostics::Cell::kF:
@@ -76,7 +70,7 @@ inline boost::json::object summary(const PB::Diagnostics::Section &section) {
   boost::json::object node;
   node["source"] = section.source();
   if (!section.description().empty()) node["description"] = section.description();
-  node["captured_at"] = iso_time(section.captured_at());
+  node["captured_at"] = str::format_rfc3339(section.captured_at());
   node["truncated"] = section.truncated();
   if (!section.error().empty()) node["error"] = section.error();
   return node;

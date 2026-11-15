@@ -54,3 +54,19 @@ TEST(Rfc3339, SecondsSinceCountsFromNow) {
   // boost accepts, so it reads as no timestamp at all.
   EXPECT_EQ(str::seconds_since_rfc3339("0001-01-01T00:00:00Z"), -1);
 }
+
+TEST(rfc3339, formats_epoch_seconds_as_utc) {
+  EXPECT_EQ("2025-11-15T10:42:07Z", str::format_rfc3339(1763203327));
+  EXPECT_EQ("1970-01-01T00:00:01Z", str::format_rfc3339(1));
+}
+
+TEST(rfc3339, formats_an_unset_time_as_empty) {
+  EXPECT_EQ("", str::format_rfc3339(0));
+  EXPECT_EQ("", str::format_rfc3339(-5));
+}
+
+TEST(rfc3339, format_and_parse_round_trip) {
+  const auto parsed = str::parse_rfc3339(str::format_rfc3339(1763203327));
+  ASSERT_TRUE(parsed);
+  EXPECT_EQ(boost::posix_time::from_time_t(1763203327), parsed.value());
+}

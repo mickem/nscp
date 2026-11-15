@@ -3,14 +3,13 @@
 
 #pragma once
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
 #include <cstdint>
-#include <ctime>
 #include <map>
 #include <metrics/metrics_json.hpp>
 #include <nscapi/protobuf/diagnostics_json.hpp>
 #include <nscapi/protobuf/failures_json.hpp>
+#include <str/rfc3339.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -66,18 +65,13 @@ struct failure_report {
   // server can tell a list cut down to the allow-list from a complete one.
   std::string arguments_mode = "none";
 
-  static std::string iso_time(const std::int64_t epoch) {
-    if (epoch <= 0) return "";
-    return boost::posix_time::to_iso_extended_string(boost::posix_time::from_time_t(static_cast<std::time_t>(epoch))) + "Z";
-  }
-
   std::string render(const std::int64_t now) const {
     boost::json::object root;
-    root["sent_at"] = iso_time(now);
+    root["sent_at"] = str::format_rfc3339(now);
     root["arguments_mode"] = arguments_mode;
 
     boost::json::object entry = failures_json::entry(failure, arguments_recorded);
-    entry["date"] = iso_time(failure.timestamp());
+    entry["date"] = str::format_rfc3339(failure.timestamp());
     // The context and diagnostics are reported on their own, below, with the
     // snapshots.
     entry.erase("context");
@@ -93,7 +87,7 @@ struct failure_report {
     context_node["state"] = nscapi::failures::context_state_name(state);
     if (reference.snapshot_id() > 0) {
       context_node["snapshot_id"] = static_cast<std::int64_t>(reference.snapshot_id());
-      context_node["captured_at"] = iso_time(reference.captured_at());
+      context_node["captured_at"] = str::format_rfc3339(reference.captured_at());
       context_node["age_seconds"] = failure.timestamp() > reference.captured_at() ? failure.timestamp() - reference.captured_at() : 0;
     }
     if (state == PB::Failures::MetricsContext::CAPTURED) {
@@ -113,7 +107,7 @@ struct failure_report {
     diagnostics_node["state"] = nscapi::failures::context_state_name(diagnostics_state);
     if (diagnostics_ref.snapshot_id() > 0) {
       diagnostics_node["snapshot_id"] = static_cast<std::int64_t>(diagnostics_ref.snapshot_id());
-      diagnostics_node["captured_at"] = iso_time(diagnostics_ref.captured_at());
+      diagnostics_node["captured_at"] = str::format_rfc3339(diagnostics_ref.captured_at());
       diagnostics_node["age_seconds"] = failure.timestamp() > diagnostics_ref.captured_at() ? failure.timestamp() - diagnostics_ref.captured_at() : 0;
     }
     if (diagnostics_state == PB::Failures::DiagnosticsContext::CAPTURED) {
@@ -155,12 +149,12 @@ struct failure_report {
       node["command"] = g.command;
       node["status"] = g.status;
       node["count"] = static_cast<std::int64_t>(g.count);
-      node["first"] = iso_time(g.first);
-      node["last"] = iso_time(g.last);
+      node["first"] = str::format_rfc3339(g.first);
+      node["last"] = str::format_rfc3339(g.last);
       by_check.push_back(node);
     }
     boost::json::object summary;
-    summary["since"] = iso_time(since);
+    summary["since"] = str::format_rfc3339(since);
     summary["count"] = static_cast<std::int64_t>(suppressed.size());
     summary["evicted"] = static_cast<std::int64_t>(evicted);
     summary["by_check"] = by_check;

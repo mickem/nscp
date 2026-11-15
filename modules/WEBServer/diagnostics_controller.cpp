@@ -22,7 +22,7 @@ bool parse_envelope(const std::string &envelope, PB::Diagnostics::DiagnosticsRes
 void describe(json::object &out, const PB::Diagnostics::DiagnosticsResponseMessage::Response &payload) {
   out["enabled"] = payload.enabled();
   out["snapshot_id"] = static_cast<std::int64_t>(payload.snapshot_id());
-  out["captured_at"] = diagnostics_json::iso_time(payload.captured_at());
+  out["captured_at"] = str::format_rfc3339(payload.captured_at());
   out["max_rows"] = static_cast<std::int64_t>(payload.max_rows());
   out["dropped"] = static_cast<std::int64_t>(payload.dropped());
   json::array excluded;
