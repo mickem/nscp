@@ -832,6 +832,20 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# The script-file sandbox behind `nscp lua|py list/show/delete` and the
+# /api/v2/scripts endpoints (include/scripts/script_files.hpp): header-only and
+# shared by LUAScript and PythonScript, so pinned once here.
+NSCP_CREATE_TEST(
+    script_files_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/scripts/script_files_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     pid_file_test
     SOURCES
