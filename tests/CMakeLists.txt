@@ -186,6 +186,24 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# nscapi::settings_proxy and the alias definitions (nscapi/command_alias.hpp),
+# driven through the stub core in nscapi/test_helpers.hpp.
+NSCP_CREATE_TEST(
+    nscapi_settings_core_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/settings/proxy_core_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/command_alias_test.cpp
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols command_object::read() needs, so compile them in (see
+        # graphite_module_test).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     settings_filter_test
     SOURCES
