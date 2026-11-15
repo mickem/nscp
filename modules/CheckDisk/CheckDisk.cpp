@@ -54,6 +54,10 @@ const check_drive::trend_map &deref_trends(const collector_thread::trend_snapsho
   static const check_drive::trend_map empty;
   return snapshot ? *snapshot : empty;
 }
+const check_drive::change_map &deref_changes(const collector_thread::change_snapshot &snapshot) {
+  static const check_drive::change_map empty;
+  return snapshot ? *snapshot : empty;
+}
 
 // Publish the logical drive list as a host tag (`drives=c:,d:`), consumed by
 // the web UI and by fleet group selectors. Windows-only: on other platforms
@@ -402,13 +406,15 @@ void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &reque
   compat::log_args(request);
   const std::shared_ptr<collector_thread> collector = get_collector_ptr();
   const collector_thread::trend_snapshot trends = collector ? collector->get_drive_trends() : collector_thread::trend_snapshot();
-  check_drive::check(request, response, deref_trends(trends));
+  const collector_thread::change_snapshot changes = collector ? collector->get_used_changes() : collector_thread::change_snapshot();
+  check_drive::check(request, response, deref_trends(trends), deref_changes(changes));
 }
 
 void CheckDisk::check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   const std::shared_ptr<collector_thread> collector = get_collector_ptr();
   const collector_thread::trend_snapshot trends = collector ? collector->get_drive_trends() : collector_thread::trend_snapshot();
-  check_drive::check(request, response, deref_trends(trends));
+  const collector_thread::change_snapshot changes = collector ? collector->get_used_changes() : collector_thread::change_snapshot();
+  check_drive::check(request, response, deref_trends(trends), deref_changes(changes));
 }
 
 void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

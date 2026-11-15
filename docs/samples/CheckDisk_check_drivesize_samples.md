@@ -181,3 +181,24 @@ no projection at all:
 check_drivesize "warn=trend_span < 1h" "crit=full_in < 12h"
 check_drivesize "filter=full_in = 'never'"
 ```
+**Alert on a sudden jump in used space (`used_change_1h`, `used_change_24h`):**
+
+```
+check_drivesize "warn=used_change_1h > 2G" "crit=used_change_1h > 10G"
+OK All 3 drive(s) are ok
+```
+
+An agent that has not been running for an hour yet has no value, renders
+`unknown` and fires no threshold:
+
+```
+check_drivesize drive=c: "detail-syntax=${drive} ${used}/${size} used, last hour ${used_change_1h}, last day ${used_change_24h}" "top-syntax=${status}: ${list}" "warning=used_change_1h > 1G" "critical=used_change_1h > 5G"
+OK: c: 1.171TB/1.818TB used, last hour unknown, last day unknown
+```
+
+List the drives that have no hour of history yet:
+
+```
+check_drivesize drive=c: "filter=used_change_1h = 'unknown'" "top-syntax=${count} drive(s) without an hour of history: ${list}" "detail-syntax=${drive}"
+1 drive(s) without an hour of history: c:|'c: used'=1.17094TB;1.45469;1.63653;0;1.81837 'c: used %'=64%;80;90;0;100
+```
