@@ -31,7 +31,7 @@
             "software.installed": "true",
             "services.installed": "true"
           },
-          "diagnostics": { "processes": "true" }
+          "diagnostics": { "processes": "true", "services": "true" }
         },
         "unix": {
           "facts": {
@@ -41,9 +41,10 @@
             "software.installed": "true",
             "services.installed": "true"
           },
-          "diagnostics": { "processes": "true" }
+          "diagnostics": { "processes": "true", "services": "true", "errors": "true" }
         }
       },
+      "eventlog": { "diagnostics": { "services": "true", "errors": "true" } },
       "disk": { "facts": { "storage.volumes": "true" } },
       "external scripts": {
         "scripts": {
