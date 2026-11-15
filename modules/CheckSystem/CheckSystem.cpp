@@ -281,6 +281,15 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "a typical host, and the list is truncated (with an error saying so) past the point where it would not fit the facts document.")
   ;
 
+  settings.alias().add_key_to_settings("diagnostics")
+  .add_bool("processes", sh::bool_key(&fresh->diagnostics_processes, false),
+        "PROCESS TABLES",
+        "Produce the processes.top_cpu and processes.top_memory diagnostics tables: the processes using the most CPU over the last second and "
+        "the ones with the largest working set, with their name, pid, CPU share, working set and private bytes - never their command line. "
+        "Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Turns on "
+        "the collector's per-process CPU sampling ('process cpu'), which it needs: one extra process-table query a second.")
+  ;
+
   settings.alias().add_key_to_settings()
   .add_string("counter access", sh::string_fun_key([this](const auto& value) { pdh_checker.counter_access_.set_mode(value); }, "any"),
         "COUNTER ACCESS MODE",
@@ -368,6 +377,10 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   if (!pdh_checker.counter_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(pdh_checker.counter_access_.get_config_error());
   if (!registry_access_.get_config_error().empty()) NSC_LOG_ERROR_STD(registry_access_.get_config_error());
+
+  // A section switched on turns on what it needs: the process tables are
+  // read off the per-process CPU sample, so that sampling is on with them.
+  if (fresh->diagnostics_processes) fresh->process_cpu_enabled = true;
 
   fresh->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
   fresh->add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -1523,6 +1536,15 @@ void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::fact
       response.error(software_facts::set_software, std::string("Failed to enumerate installed software: ") + e.what());
     }
   }
+}
+
+void CheckSystem::fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response) {
+  // Cheap by contract: the collector ranked the processes on its own thread;
+  // this copies the last result. Nothing while the section is off, which is
+  // how the core learns it was switched off.
+  const std::shared_ptr<pdh_thread> collector = get_collector();
+  if (!collector || !collector->diagnostics_processes) return;
+  process_tables::add_sections(response, collector->get_process_tables());
 }
 
 void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {

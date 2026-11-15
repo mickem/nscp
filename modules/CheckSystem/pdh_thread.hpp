@@ -10,6 +10,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
+#include <diagnostics/process_tables.hpp>
 #include <map>
 #include <memory>
 #include <nscapi/settings/proxy.hpp>
@@ -148,6 +149,10 @@ class pdh_thread {
   // sample / sleep / sample. Off by default (one extra system-process-table
   // query per second).
   bool process_cpu_enabled;
+  // [/settings/system/windows/diagnostics] processes: rank the per-process
+  // sample into the top-CPU and top-memory tables every tick. Forces
+  // process_cpu_enabled on (see CheckSystem::loadModuleEx).
+  bool diagnostics_processes = false;
   int min_threshold_;
   std::string subsystem;
   std::string disable_;
@@ -205,6 +210,9 @@ class pdh_thread {
   // Latest per-PID CPU% snapshot, or an empty map when process_cpu_enabled is
   // off or the collector has not yet completed its first two samples.
   process_checks::cpu_delta_map get_process_cpu_deltas();
+  // The last ranked process sample (captured_at 0 before the first two
+  // samples, or while diagnostics_processes is off).
+  process_tables::sample get_process_tables();
   metrics_hash get_metrics();
   // The help and unit of every configured counter, for the metrics walk.
   counter_meta_map get_counter_meta();
@@ -300,6 +308,17 @@ class pdh_thread {
   unsigned long long prev_sys_user_ = 0;
   bool have_prev_proc_cpu_ = false;
   process_checks::cpu_delta_map proc_cpu_deltas_;
+  // Name and memory of each process in the current table walk, for the
+  // diagnostics tables. Touched only by thread_proc.
+  struct proc_memory {
+    std::string name;
+    unsigned long long working_set = 0;
+    unsigned long long private_bytes = 0;
+  };
+  // Guarded by its own mutex: a diagnostics round must not wait on a
+  // collector holding mutex_.
+  boost::mutex process_tables_mutex_;
+  process_tables::sample process_tables_;
   // Diff the current system-process table against the previous tick and publish
   // a rolling 1 second CPU% per PID into proc_cpu_deltas_.
   void sample_process_cpu(error_list &errors);

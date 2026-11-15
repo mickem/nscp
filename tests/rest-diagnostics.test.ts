@@ -10,7 +10,8 @@
  * Nothing is collected unless [/settings/core/failed checks] `capture
  * diagnostics` is on, and nothing is collected because a check failed or a
  * request arrived: both read what the last round left. The core always adds
- * `failures.recent`.
+ * `failures.recent`; the process tables come from CheckSystem (Windows) and
+ * CheckSystemUnix once [/settings/system/<os>/diagnostics] processes is on.
  * Rounds run with the 1s metrics round here, so every wait below polls with a
  * deadline rather than sleeping a fixed time.
  */
@@ -21,6 +22,8 @@ import { NscpInstance, REST_URL } from "@fixtures/index";
 jest.setTimeout(300_000);
 
 type Json = Record<string, unknown>;
+
+const onWindows = process.platform === "win32";
 
 function config(
   failed: Record<string, string>,
@@ -118,6 +121,33 @@ async function section(key: string, name: string, rows = 1): Promise<Json> {
   });
 }
 
+function expectProcessTable(body: Json, sortedBy: "cpu" | "working_set"): void {
+  expect(typeof body.source).toBe("string");
+  expect(body.error).toBeUndefined();
+  const columns = (body.columns as Json[]).map((c) => [c.name, c.type, c.unit ?? ""]);
+  expect(columns).toEqual([
+    ["name", "string", ""],
+    ["pid", "int", ""],
+    ["cpu", "float", "percent"],
+    ["working_set", "int", "bytes"],
+    ["private_bytes", "int", "bytes"],
+  ]);
+  const rows = body.rows as Json[];
+  expect(rows.length).toBeGreaterThan(0);
+  // The row cap of the agent under test.
+  expect(rows.length).toBeLessThanOrEqual(5);
+  for (const row of rows) {
+    expect(typeof row.name).toBe("string");
+    expect(row.pid as number).toBeGreaterThan(0);
+    expect(row.cpu as number).toBeGreaterThanOrEqual(0);
+    expect(row.working_set as number).toBeGreaterThanOrEqual(0);
+    // No command lines, ever.
+    expect(Object.keys(row).sort()).toEqual(["cpu", "name", "pid", "private_bytes", "working_set"]);
+  }
+  const values = rows.map((r) => r[sortedBy] as number);
+  expect(values).toEqual([...values].sort((a, b) => b - a));
+}
+
 describe("REST diagnostics", () => {
   describe("capture diagnostics off (the default)", () => {
     let nscp: NscpInstance;
@@ -165,15 +195,18 @@ describe("REST diagnostics", () => {
     });
   });
 
-  describe("capture diagnostics on", () => {
+  describe("capture diagnostics on, processes on", () => {
     let nscp: NscpInstance;
     let key = "";
 
     beforeAll(async () => {
-      ({ nscp, key } = await startAgent({
-        "capture diagnostics": "true",
-        "diagnostics rows": "5",
-      }));
+      const diagnosticsPath = onWindows
+        ? "/settings/system/windows/diagnostics"
+        : "/settings/system/unix/diagnostics";
+      ({ nscp, key } = await startAgent(
+        { "capture diagnostics": "true", "diagnostics rows": "5" },
+        { [diagnosticsPath]: { processes: "true" } },
+      ));
     });
 
     afterAll(async () => {
@@ -224,9 +257,16 @@ describe("REST diagnostics", () => {
       expect(row.time as string).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
     });
 
+    it("publishes the top processes by CPU and by memory", async () => {
+      // CheckSystemUnix produces them from the next change on.
+      if (!onWindows) return;
+      expectProcessTable(await section(key, "processes.top_cpu"), "cpu");
+      expectProcessTable(await section(key, "processes.top_memory"), "working_set");
+    });
+
     it("records a failure with the snapshot, readable with failures.list", async () => {
-      // Wait for a round, then fail a check.
-      await section(key, "failures.recent", 0);
+      // Wait for a round that has the process tables, then fail a check.
+      await section(key, onWindows ? "processes.top_memory" : "failures.recent", onWindows ? 1 : 0);
       await run(key, "check_critical", "?message=with-diagnostics");
       const log = await get(key, "/api/v2/failures");
       expect(log.capture_diagnostics).toBe(true);
@@ -244,6 +284,12 @@ describe("REST diagnostics", () => {
       expect(diagnostics.snapshot_id).toEqual(ref.snapshot_id);
       const sections = diagnostics.sections as Record<string, Json>;
       expect(Object.keys(sections)).toContain("failures.recent");
+      if (onWindows) {
+        expect(Object.keys(sections)).toEqual(
+          expect.arrayContaining(["processes.top_cpu", "processes.top_memory"]),
+        );
+        expectProcessTable(sections["processes.top_memory"], "working_set");
+      }
     });
   });
 });

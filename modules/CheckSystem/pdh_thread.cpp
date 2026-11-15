@@ -5,6 +5,7 @@
 
 #include <win/sysinfo/sysinfo.h>
 
+#include <ctime>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/filter/realtime_helper.hpp>
@@ -65,6 +66,9 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
   };
 
   std::map<DWORD, proc_cpu_raw> current;
+  // Only filled for the diagnostics tables: the walk already has them.
+  std::map<DWORD, proc_memory> memory;
+  const bool tables = diagnostics_processes;
   try {
     hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION *> buffer = windows::system_info::get_system_process_information();
     const BYTE *end = reinterpret_cast<const BYTE *>(buffer.get()) + buffer.size();
@@ -76,6 +80,19 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
       r.kernel = static_cast<unsigned long long>(b->KernelTime.QuadPart);
       r.user = static_cast<unsigned long long>(b->UserTime.QuadPart);
       current[pid] = r;
+      if (tables && pid != 0) {
+        // PID 0 is the idle process: its "CPU" is the machine's free time.
+        proc_memory &m = memory[pid];
+        // The name points into the same block; one that does not is not read.
+        const BYTE *name = reinterpret_cast<const BYTE *>(b->ImageName.Buffer);
+        if (name != nullptr && b->ImageName.Length > 0 && name >= reinterpret_cast<const BYTE *>(buffer.get()) && name + b->ImageName.Length <= end) {
+          m.name = utf8::cvt<std::string>(std::wstring(b->ImageName.Buffer, b->ImageName.Length / sizeof(WCHAR)));
+        } else {
+          m.name = pid == 4 ? "System" : "";
+        }
+        m.working_set = static_cast<unsigned long long>(b->WorkingSetSize);
+        m.private_bytes = static_cast<unsigned long long>(b->PrivatePageCount);
+      }
       if (b->NextEntryOffset == 0) break;
       b = reinterpret_cast<windows::winapi::SYSTEM_PROCESS_INFORMATION *>(reinterpret_cast<PCHAR>(b) + b->NextEntryOffset);
     }
@@ -111,6 +128,29 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
       d.user_pct = static_cast<long long>(win_list_processes::process_info::to_percent(ud, capacity));
       d.total_pct = static_cast<long long>(win_list_processes::process_info::to_percent(kd + ud, capacity));
       out[static_cast<long long>(cur.first)] = d;
+    }
+    if (tables) {
+      std::vector<process_tables::process_row> rows;
+      rows.reserve(memory.size());
+      for (const auto &m : memory) {
+        process_tables::process_row row;
+        row.name = m.second.name;
+        row.pid = static_cast<long long>(m.first);
+        row.working_set = m.second.working_set;
+        row.private_bytes = m.second.private_bytes;
+        // A process new since the last tick has no CPU share yet.
+        const auto cur = current.find(m.first);
+        const auto prev = prev_proc_cpu_.find(m.first);
+        if (capacity > 0 && cur != current.end() && prev != prev_proc_cpu_.end() && prev->second.creation == cur->second.creation &&
+            cur->second.kernel >= prev->second.kernel && cur->second.user >= prev->second.user) {
+          const unsigned long long used = (cur->second.kernel - prev->second.kernel) + (cur->second.user - prev->second.user);
+          row.cpu = 100.0 * static_cast<double>(used) / static_cast<double>(capacity);
+        }
+        rows.push_back(row);
+      }
+      process_tables::sample ranked = process_tables::rank(rows, static_cast<std::int64_t>(std::time(nullptr)));
+      const boost::lock_guard<boost::mutex> guard(process_tables_mutex_);
+      process_tables_ = std::move(ranked);
     }
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
     if (writeLock.owns_lock()) {
@@ -895,6 +935,11 @@ os_updates_check::os_updates_obj pdh_thread::get_os_updates() { return os_update
 process_history_check::history_type pdh_thread::get_process_history() { return process_history.get(); }
 
 bool pdh_thread::is_disabled(const std::string &token) const { return disable_list::parse(disable_).count(token) > 0; }
+
+process_tables::sample pdh_thread::get_process_tables() {
+  const boost::lock_guard<boost::mutex> guard(process_tables_mutex_);
+  return process_tables_;
+}
 
 process_checks::cpu_delta_map pdh_thread::get_process_cpu_deltas() {
   boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));

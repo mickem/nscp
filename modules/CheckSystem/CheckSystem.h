@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <facts/host_facts.hpp>
+#include <nscapi/nscapi_diagnostics_helper.hpp>
 #include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -112,6 +113,10 @@ class CheckSystem : public nscapi::impl::simple_plugin {
 
   // Host facts
   void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
+
+  // Diagnostics ([/settings/system/windows/diagnostics]): copies the
+  // collector's last ranked process sample, never walks the table itself.
+  void fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response);
 
   // Legacy checks
   void checkCpu(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

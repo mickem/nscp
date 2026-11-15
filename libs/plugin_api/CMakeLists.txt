@@ -108,6 +108,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_facts_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_diagnostics_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/diagnostics/process_tables_test.cpp
     LIBRARIES
         GTest::gtest
         GTest::gtest_main
