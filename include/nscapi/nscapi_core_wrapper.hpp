@@ -116,6 +116,10 @@ class NSCAPI_EXPORT core_wrapper {
   // everything); `limit` caps the count (0 for no cap). Bytes rather than a
   // parsed message, for the same reason get_facts() is.
   std::string get_failures(unsigned long long since = 0, unsigned int limit = 0) const;
+  // One entry, with `context.metrics` filled from the snapshot it was
+  // recorded with. The same envelope as get_failures(), with that entry or -
+  // when the store no longer holds it - none.
+  std::string get_failure_context(unsigned long long index) const;
   // Drop every entry. The same envelope as get_failures(), with `removed`
   // set and no entries; empty on a core without the API.
   std::string clear_failures() const;

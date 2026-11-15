@@ -49,16 +49,21 @@ bool read_file(const fs::path &p, std::string &out) {
 }
 
 // Parse a millidegree-Celsius sysfs value into degrees Celsius. Returns false on
-// any parse error so the caller can skip the entry.
+// any parse error so the caller can skip the entry, and on a value at or below
+// absolute zero: that is a driver saying "no reading" (THERMAL_TEMP_INVALID is
+// -274000, and some virtual zones report -273000), never a temperature.
 bool read_millidegree(const fs::path &p, double &out) {
   std::string raw;
   if (!read_file(p, raw)) return false;
   if (raw.empty()) return false;
+  long long millidegrees;
   try {
-    out = std::stoll(raw) / 1000.0;
+    millidegrees = std::stoll(raw);
   } catch (...) {
     return false;
   }
+  if (millidegrees <= -273000) return false;
+  out = millidegrees / 1000.0;
   return true;
 }
 

@@ -102,6 +102,22 @@ function json(route: Route, body: JsonBody, headers: Record<string, string> = {}
   });
 }
 
+/** The metrics snapshot entry 2 was recorded with, as /api/v2/failures/2/context serves it. */
+const FAILURE_CONTEXT_FIXTURE = {
+  index: 2,
+  timestamp: 1760000060,
+  state: "captured",
+  snapshot_id: 7,
+  captured_at: 1760000055,
+  age_at_failure: 5,
+  size: 2048,
+  metrics: { "system.cpu.total.idle": 3, "system.mem.physical.used": 15032385536 },
+  metadata: {
+    "system.cpu.total.idle": { type: "gauge", unit: "percent" },
+    "system.mem.physical.used": { type: "gauge", unit: "bytes" },
+  },
+};
+
 /** Two failed checks, newest first, as /api/v2/failures serves them. */
 const FAILURES_FIXTURE = {
   enabled: true,
@@ -110,6 +126,10 @@ const FAILURES_FIXTURE = {
   statuses: "warning,critical,unknown",
   last_index: 2,
   dropped: 0,
+  capture_metrics: true,
+  context_budget: 4194304,
+  max_context_size: 1048576,
+  context_bytes_used: 2048,
   count: 2,
   entries: [
     {
@@ -131,6 +151,7 @@ const FAILURES_FIXTURE = {
         },
       ],
       arguments: ["drive=C:", "warning=used > 80%", "critical=used > 90%"],
+      context: { state: "captured", snapshot_id: 7, captured_at: 1760000055, age_at_failure: 5, size: 2048 },
     },
     {
       index: 1,
@@ -217,6 +238,8 @@ export async function mockApi(page: Page, overrides: Overrides = {}) {
         return json(route, []);
       case "/api/v2/failures":
         return json(route, FAILURES_FIXTURE);
+      case "/api/v2/failures/2/context":
+        return json(route, FAILURE_CONTEXT_FIXTURE);
       default:
         // Fail loudly: an unmocked endpoint means the fixture set is stale.
         return route.fulfill({ status: 404, body: `No e2e mock for ${path}` });

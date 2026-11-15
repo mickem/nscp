@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <metrics/metrics_json.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <net/web_server_limits.hpp>
 #include <net/web_server_logger.hpp>
@@ -1552,85 +1553,13 @@ bool WEBServer::password(const PB::Commands::ExecuteRequestMessage::Request &req
   return true;
 }
 
-namespace {
-json::value gauge_to_json(double v) {
-  // fits_int64 bounds at 2^63 exactly: numeric_limits::max() rounds up to
-  // 2^63 as a double, so the old comparison admitted that one value.
-  if (std::trunc(v) == v && str::fits_int64(v)) {
-    return json::value(static_cast<std::int64_t>(v));
-  }
-  return json::value(v);
-}
-
-// The OpenMetrics type of a metric, spelled as the exposition spells it, for
-// the described JSON view. A string has no numeric sample and becomes a label
-// of its bundle's `_info` family, so it reports as `info` here rather than as
-// a type the `/api/v2/metrics` reader could mistake for a number.
-const char *metric_type_name(const PB::Metrics::Metric &v) {
-  if (v.has_counter_value()) return "counter";
-  if (v.has_untyped_value()) return "unknown";
-  if (v.has_string_value()) return "info";
-  if (v.has_summary_value()) return "summary";
-  if (v.has_histogram_value()) return "histogram";
-  return "gauge";
-}
-
-// What a producer said one metric means: the `# HELP` text (falling back to
-// the bundle's, exactly as the exposition falls back), the unit, the type and
-// the labels. Only the parts that were declared are emitted, so a metric a
-// module publishes through the bare `add_metric()` shorthand carries its type
-// and nothing it never said.
-json::value describe_metric(const PB::Metrics::Metric &v, const PB::Metrics::MetricsBundle &b) {
-  json::object meta;
-  meta.insert(json::object::value_type("type", std::string(metric_type_name(v))));
-  const std::string &help = v.desc().empty() ? b.desc() : v.desc();
-  if (!help.empty()) meta.insert(json::object::value_type("help", help));
-  if (!v.unit().empty()) meta.insert(json::object::value_type("unit", v.unit()));
-  if (v.dims_size() > 0) {
-    json::object labels;
-    for (const PB::Common::KeyValue &dim : v.dims()) {
-      labels.insert(json::object::value_type(dim.key(), dim.value()));
-    }
-    meta.insert(json::object::value_type("labels", labels));
-  }
-  return json::value(meta);
-}
-}  // namespace
-
-// The two JSON renderings of a snapshot: the flat list of `/api/v2/metrics`,
-// and the per-key metadata that same endpoint serves for `?meta=1`. (A third,
-// nested rendering fed the root `/metrics` route, which was never reachable
-// and has been removed.) The OpenMetrics exposition used to be built in the same
-// pass; it lives in openmetrics_renderer.cpp now, because a conformant document
-// has to group samples into families and cannot be appended a line at a time.
-void build_metrics(json::object &metrics_list, json::object &metrics_meta, const std::string &trail, const PB::Metrics::MetricsBundle &b) {
-  for (const PB::Metrics::MetricsBundle &b2 : b.children()) {
-    build_metrics(metrics_list, metrics_meta, trail + "." + b2.key(), b2);
-  }
-  for (const PB::Metrics::Metric &v : b.value()) {
-    // Any numeric type, not just a gauge: a producer that types a monotonic
-    // count as a counter must not disappear from the JSON views and the web UI
-    // dashboard on its way to being described properly on the OpenMetrics one.
-    double value = 0;
-    if (nscapi::metrics::numeric_value(v, value)) {
-      metrics_list.insert(json::object::value_type(trail + "." + v.key(), gauge_to_json(value)));
-    } else if (v.has_string_value()) {
-      metrics_list.insert(json::object::value_type(trail + "." + v.key(), v.string_value().value()));
-    } else {
-      // Nothing the flat views can show, so nothing to describe either: the
-      // metadata document is keyed by the same keys as the value document.
-      continue;
-    }
-    metrics_meta.insert(json::object::value_type(trail + "." + v.key(), describe_metric(v, b)));
-  }
-}
 void WEBServer::submitMetrics(const PB::Metrics::MetricsMessage &response) const {
+  // The two JSON renderings of a snapshot: the flat list of `/api/v2/metrics`,
+  // and the per-key metadata that same endpoint serves for `?meta=1`. The
+  // OpenMetrics exposition lives in openmetrics_renderer.cpp, because a
+  // conformant document has to group samples into families.
   json::object metrics_list, metrics_meta;
-  for (const PB::Metrics::MetricsMessage::Response &p : response.payload()) {
-    for (const PB::Metrics::MetricsBundle &b : p.bundles()) {
-      build_metrics(metrics_list, metrics_meta, b.key(), b);
-    }
-  }
+  metrics_json::build(metrics_list, &metrics_meta, response);
   std::string open_metrics;
   std::string prometheus_text;
   if (openmetrics_legacy_) {
