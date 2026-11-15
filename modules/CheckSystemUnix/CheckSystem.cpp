@@ -42,6 +42,7 @@
 #include "check_temperature.h"
 #include "check_uptime.h"
 #include "collector_source.h"
+#include "pressure.h"
 #include "system_facts.h"
 
 namespace sh = nscapi::settings_helper;
@@ -411,6 +412,17 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     NSC_LOG_ERROR(std::string("Failed to fetch memory metrics: ") + e.what());
   } catch (...) {
     NSC_LOG_ERROR("Failed to fetch memory metrics");
+  }
+
+  // Pressure metrics: system.pressure.<resource>.{some,full}_{avg10,avg60,avg300,stall_seconds}
+  // and system.pressure.major_faults. Read live: the kernel already averages
+  // the stall figures, and a source this kernel does not have is left out.
+  try {
+    pressure::build_pressure_metrics(bundle, pressure::read_pressure());
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR(std::string("Failed to fetch pressure metrics: ") + e.what());
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to fetch pressure metrics");
   }
 
   // Uptime metrics: system.uptime.{uptime,boot,ticks.raw,boot.raw}

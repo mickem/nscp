@@ -19,6 +19,7 @@
  * Everything shares one `nscp test` process configured up front, so the
  * warm-up (collector samples + first metrics push) is paid only once.
  */
+import * as fs from "fs";
 import request from "supertest";
 
 import {
@@ -26,6 +27,7 @@ import {
   REST_URL,
   setupQueryNscp,
   onWindows,
+  onLinux,
   describeWithModules,
   itWithModules,
   moduleBuiltHere,
@@ -340,6 +342,52 @@ describeWithModules("CheckSystem")("metrics and real-time checks", () => {
       expect(described.metadata[k].help).toBeTruthy();
       // A queue length is a count and page faults a per-second rate: no unit.
       expect(described.metadata[k].unit).toBeUndefined();
+    }
+  });
+
+  it("publishes the pressure metrics on Linux", async () => {
+    if (!onLinux) return;
+    // Major faults come from /proc/vmstat, which every kernel has; the stall
+    // figures only where the kernel has PSI (4.20+, not disabled), and are
+    // then absent rather than 0.
+    const readable = (p: string): boolean => {
+      try {
+        return fs.readFileSync(p, "utf8").startsWith("some ");
+      } catch {
+        return false;
+      }
+    };
+    const psi = ["cpu", "memory", "io"].filter((r) => readable(`/proc/pressure/${r}`));
+    const wanted = [
+      "system.pressure.major_faults",
+      ...psi.flatMap((r) => [
+        `system.pressure.${r}.some_avg10`,
+        `system.pressure.${r}.some_avg300`,
+        `system.pressure.${r}.some_stall_seconds`,
+      ]),
+    ];
+    const described = await poll(
+      () => getJson<DescribedMetrics>(key, "/api/v2/metrics?meta=1"),
+      (d) => wanted.every((k) => k in d.metrics),
+    );
+    for (const k of wanted) {
+      expect(typeof described.metrics[k]).toBe("number");
+      expect(described.metrics[k] as number).toBeGreaterThanOrEqual(0);
+      expect(described.metadata[k].help).toBeTruthy();
+    }
+    expect(described.metadata["system.pressure.major_faults"].type).toEqual("counter");
+    for (const r of psi) {
+      expect(described.metadata[`system.pressure.${r}.some_avg10`].type).toEqual("gauge");
+      expect(described.metadata[`system.pressure.${r}.some_avg10`].unit).toEqual("percent");
+      expect(described.metadata[`system.pressure.${r}.some_avg10`].labels).toEqual({
+        resource: r,
+      });
+      expect(described.metadata[`system.pressure.${r}.some_stall_seconds`].type).toEqual("counter");
+    }
+    if (psi.length === 0) {
+      expect(
+        Object.keys(described.metrics).some((k) => /^system\.pressure\.(cpu|memory|io)\./.test(k)),
+      ).toBe(false);
     }
   });
 
