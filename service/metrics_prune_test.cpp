@@ -385,3 +385,37 @@ TEST(MetricsPrune, ZeroExemptionsAreGlobsOverTheFlatKey) {
     for (const std::string &redundant : metrics_prune::redundant_metrics()) EXPECT_NE(pattern, redundant);
   }
 }
+
+TEST(MetricsPrune, ZerosAndDuplicatesKeepAVolumeThatIsNotGrowing) {
+  PB::Metrics::MetricsMessage message;
+  PB::Metrics::MetricsBundle *disk_root = message.add_payload()->add_bundles();
+  disk_root->set_key("disk");
+  PB::Metrics::MetricsBundle *free = disk_root->add_children();
+  free->set_key("free");
+  const instance_scope c = for_instance(free, "C:", "drive");
+  c.metric("total").gauge(1000);
+  c.metric("used").gauge(400);
+  c.metric("free").gauge(600);
+  c.metric("free_pct").gauge(60);
+  c.metric("used_pct").gauge(40);
+  c.metric("user_free").gauge(0);
+  c.metric("used_change_1h").gauge(0);
+  c.metric("used_change_24h").gauge(0);
+
+  metrics_prune::rules r;
+  r.zeros = true;
+  r.duplicates = true;
+  metrics_prune::apply(message, r);
+  const json::object out = flat(message);
+  // 0 is "not growing", which rules the volume out: kept by `zeros`...
+  EXPECT_TRUE(out.contains("disk.free.C:.used_change_1h"));
+  EXPECT_TRUE(out.contains("disk.free.C:.used_change_24h"));
+  // ...and not a restatement of anything, so `duplicates` keeps it too,
+  // while it drops what can be worked out from used and total.
+  EXPECT_TRUE(out.contains("disk.free.C:.used"));
+  EXPECT_FALSE(out.contains("disk.free.C:.free"));
+  EXPECT_FALSE(out.contains("disk.free.C:.used_pct"));
+  EXPECT_FALSE(out.contains("disk.free.C:.user_free"));
+  EXPECT_TRUE(metrics_prune::is_zero_exempt("disk.free./var/log.used_change_24h"));
+  EXPECT_FALSE(metrics_prune::is_zero_exempt("disk.free.C:.used"));
+}

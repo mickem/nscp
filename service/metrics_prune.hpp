@@ -168,9 +168,10 @@ struct metrics_prune {
 
   // The metrics `zeros` keeps at 0, as flat-key globs. Each says how much
   // the system is waiting on something - a disk's queue, the processor's
-  // ready queue, the share of time tasks stalled - and "nothing is waiting"
-  // is the answer a reader of a failure wants to see, not a hole that looks
-  // exactly like a counter the agent does not collect.
+  // ready queue, the share of time tasks stalled - or how fast a volume is
+  // filling, and "nothing is waiting" or "not growing" is the answer a reader
+  // of a failure wants to see, not a hole that looks exactly like a value the
+  // agent does not collect.
   static const std::vector<std::string> &zero_exempt_metrics() {
     static const std::vector<std::string> list = {
         // Processor queue length, page faults (Windows), pressure stall
@@ -181,6 +182,10 @@ struct metrics_prune {
         "disk.io.*.avg_queue_length",
         // The default PDH counter for hard paging (Windows).
         "system.metrics.pdh.memory_pages_sec",
+        // How much a volume grew over the last hour and day: 0 is "not
+        // growing", which rules the volume out as the one filling up.
+        "disk.free.*.used_change_1h",
+        "disk.free.*.used_change_24h",
     };
     return list;
   }

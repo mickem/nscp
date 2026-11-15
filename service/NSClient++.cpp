@@ -709,7 +709,7 @@ void NSClientT::boot_failed_checks() {
         0xffff, path, "prune metrics", "string", "Trim the metrics kept with a failure",
         "A comma-separated list of rules applied to a snapshot before it is kept with a failure, and so before it is reported to a fleet "
         "server: zeros drops every numeric value that is 0 (except the pressure metrics - system.pressure, disk queue lengths, memory pages/sec - "
-        "where 0 is the reading that matters), empty every empty string, and duplicates every metric that only restates others "
+        "and the hour and day change in a volume's used space, where 0 is the reading that matters), empty every empty string, and duplicates every metric that only restates others "
         "(memory avail and %, a disk's free and percentages, CPU idle - used and total are kept) and every instance (a disk, an adapter, a "
         "core) whose values are all identical to an earlier one in the same section - `_Total` and the only disk, a row of idle adapters. "
         "The first instance is kept and the ones it stands for are listed with the context, so nothing is silently lost. Empty keeps the "
