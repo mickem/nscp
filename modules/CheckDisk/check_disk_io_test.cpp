@@ -564,6 +564,48 @@ TEST(DiskFree, BuildMetricsDescribesEveryValue) {
   const PB::Metrics::Metric *used_pct = metric_named(bundle, "C:.used_pct");
   ASSERT_NE(used_pct, nullptr);
   EXPECT_EQ(used_pct->unit(), "");
+  // No history handed over: no change values at all, not zeros.
+  EXPECT_EQ(metric_named(bundle, "C:.used_change_1h"), nullptr);
+  EXPECT_EQ(metric_named(bundle, "C:.used_change_24h"), nullptr);
+}
+
+TEST(DiskFree, BuildMetricsPublishesOnlyTheChangesThatExist) {
+  disk_free_check::disk_free d;
+  d.name = "C:";
+  d.total = 4000;
+  d.free = 1000;
+
+  used_history::changes hour_only;
+  hour_only.change_1h = -512;
+  PB::Metrics::MetricsBundle bundle;
+  d.build_metrics(&bundle, &hour_only);
+  ASSERT_EQ(bundle.value_size(), 7);
+  const PB::Metrics::Metric *hour = metric_named(bundle, "C:.used_change_1h");
+  ASSERT_NE(hour, nullptr);
+  // A gauge in bytes: space is freed as well as used.
+  EXPECT_TRUE(hour->has_gauge_value());
+  EXPECT_EQ(hour->gauge_value().value(), -512.0);
+  EXPECT_EQ(hour->unit(), "bytes");
+  EXPECT_FALSE(hour->desc().empty());
+  // The same instance and label as the volume's other metrics.
+  const PB::Metrics::Metric *total = metric_named(bundle, "C:.total");
+  ASSERT_NE(total, nullptr);
+  EXPECT_EQ(hour->alias(), "used_change_1h");
+  ASSERT_EQ(hour->dims_size(), total->dims_size());
+  for (int i = 0; i < hour->dims_size(); ++i) EXPECT_EQ(hour->dims(i).SerializeAsString(), total->dims(i).SerializeAsString());
+  EXPECT_EQ(metric_named(bundle, "C:.used_change_24h"), nullptr);
+
+  used_history::changes both;
+  both.change_1h = 0;
+  both.change_24h = 1 << 20;
+  PB::Metrics::MetricsBundle full;
+  d.build_metrics(&full, &both);
+  ASSERT_EQ(full.value_size(), 8);
+  // Not growing is a value, and it is published.
+  ASSERT_NE(metric_named(full, "C:.used_change_1h"), nullptr);
+  EXPECT_EQ(metric_named(full, "C:.used_change_1h")->gauge_value().value(), 0.0);
+  ASSERT_NE(metric_named(full, "C:.used_change_24h"), nullptr);
+  EXPECT_EQ(metric_named(full, "C:.used_change_24h")->gauge_value().value(), 1048576.0);
 }
 
 TEST(DiskIo, BuildMetricsDescribesEveryValueAndOnlyUnitsTheLatencies) {

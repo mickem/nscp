@@ -322,8 +322,15 @@ void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
     PB::Metrics::MetricsBundle *section = bundle->add_children();
     section->set_key("free");
     describe(section, "Space per mounted volume");
+    // Keyed like the disk-free rows themselves, so a direct lookup.
+    const collector_thread::change_snapshot changes = collector->get_used_changes();
     for (const disk_free_check::drives_type::value_type &v : drives) {
-      v.build_metrics(section);
+      const used_history::changes *c = nullptr;
+      if (changes) {
+        const used_history::change_map::const_iterator it = changes->find(v.name);
+        if (it != changes->end()) c = &it->second;
+      }
+      v.build_metrics(section, c);
     }
   }
 }

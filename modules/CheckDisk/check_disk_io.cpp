@@ -124,7 +124,7 @@ void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB
 
 namespace disk_free_check {
 
-void disk_free::build_metrics(PB::Metrics::MetricsBundle *section) const {
+void disk_free::build_metrics(PB::Metrics::MetricsBundle *section, const used_history::changes *changes) const {
   using nscapi::metrics::for_instance;
   using nscapi::metrics::instance_scope;
   const instance_scope vol = for_instance(section, name, "drive");
@@ -134,6 +134,12 @@ void disk_free::build_metrics(PB::Metrics::MetricsBundle *section) const {
   vol.metric("user_free").help("Free space the querying user may actually use, after quotas").unit("bytes").gauge(user_free);
   vol.metric("free_pct").help("Free space as a share of the volume").gauge(get_free_pct());
   vol.metric("used_pct").help("Used space as a share of the volume").gauge(get_used_pct());
+  // Gauges: space is freed as well as used. Absent, not 0, until the
+  // collector has a sample a full window old (see used_history.hpp).
+  if (changes != nullptr && changes->change_1h)
+    vol.metric("used_change_1h").help("Change in used space over the last hour (negative when space was freed)").unit("bytes").gauge(changes->change_1h.value());
+  if (changes != nullptr && changes->change_24h)
+    vol.metric("used_change_24h").help("Change in used space over the last 24 hours (negative when space was freed)").unit("bytes").gauge(changes->change_24h.value());
 }
 
 void disk_free_data::set(const drives_type &drives) {

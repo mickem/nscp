@@ -16,6 +16,8 @@
 #include <win/wmi/wmi_query.hpp>
 #endif
 
+#include "used_history.hpp"
+
 namespace disk_io_check {
 
 #ifdef WIN32
@@ -254,7 +256,9 @@ struct disk_free {
   disk_free(const disk_free &other) = default;
   disk_free &operator=(const disk_free &other) = default;
 
-  void build_metrics(PB::Metrics::MetricsBundle *section) const;
+  // The volume's metrics, plus used_change_1h/used_change_24h from
+  // `changes` for the windows it has a value for (none at all when null).
+  void build_metrics(PB::Metrics::MetricsBundle *section, const used_history::changes *changes = nullptr) const;
 
   std::string get_name() const { return name; }
   std::string get_device() const { return device; }

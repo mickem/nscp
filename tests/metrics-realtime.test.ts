@@ -323,6 +323,11 @@ describeWithModules("CheckSystem")("metrics and real-time checks", () => {
     expect(keys.some((k) => k.startsWith("disk.io.") && k.endsWith(".avg_queue_length"))).toBe(
       true,
     );
+    // The hour and day change in used space need a sample a full window old,
+    // which an agent started a moment ago does not have: absent, not 0.
+    expect(keys.filter((k) => k.startsWith("disk.free.") && /\.used_change_(1h|24h)$/.test(k))).toEqual(
+      [],
+    );
   });
 
   it("publishes the pressure metrics on Windows", async () => {
