@@ -139,6 +139,7 @@ nav:
       - Facts: api/rest/facts.md
       - Results: api/rest/results.md
       - Failed checks: api/rest/failures.md
+      - Diagnostics: api/rest/diagnostics.md
       - Legacy API: api/rest/legacy.md
   - FAQ: faq.md
 
