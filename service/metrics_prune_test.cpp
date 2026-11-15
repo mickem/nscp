@@ -334,3 +334,54 @@ TEST(MetricsPrune, TheLogRecordsWhatWasPrunedWithTheEntry) {
   EXPECT_EQ("system.io.C:", p.collapsed(0).key());
   EXPECT_EQ("system.io._Total", p.collapsed(0).value());
 }
+
+TEST(MetricsPrune, ZerosKeepsThePressureMetricsAtZero) {
+  PB::Metrics::MetricsMessage message;
+  PB::Metrics::MetricsBundle *system = message.add_payload()->add_bundles();
+  system->set_key("system");
+  PB::Metrics::MetricsBundle *pressure = system->add_children();
+  pressure->set_key("pressure");
+  metric(pressure, "processor_queue_length").gauge(0);
+  metric(pressure, "some_avg10").instance("io").label("resource", "io").gauge(0);
+  metric(pressure, "major_faults").counter(0);
+  PB::Metrics::MetricsBundle *pdh = system->add_children();
+  pdh->set_key("metrics");
+  metric(pdh, "pdh.memory_pages_sec").gauge(0);
+  metric(pdh, "pdh.disk_queue_length").gauge(0);
+  PB::Metrics::MetricsBundle *disk_root = message.mutable_payload(0)->add_bundles();
+  disk_root->set_key("disk");
+  PB::Metrics::MetricsBundle *io = disk_root->add_children();
+  io->set_key("io");
+  const instance_scope c = for_instance(io, "C:", "disk");
+  c.metric("queue_length").gauge(0);
+  c.metric("avg_queue_length").gauge(0);
+  c.metric("reads_per_sec").gauge(0);
+
+  metrics_prune::rules r;
+  r.zeros = true;
+  const metrics_prune::summary s = metrics_prune::apply(message, r);
+  const json::object out = flat(message);
+  EXPECT_TRUE(out.contains("system.pressure.processor_queue_length"));
+  EXPECT_TRUE(out.contains("system.pressure.io.some_avg10"));
+  EXPECT_TRUE(out.contains("system.pressure.major_faults"));
+  EXPECT_TRUE(out.contains("system.metrics.pdh.memory_pages_sec"));
+  EXPECT_TRUE(out.contains("disk.io.C:.queue_length"));
+  EXPECT_TRUE(out.contains("disk.io.C:.avg_queue_length"));
+  // Not pressure: a rate and the misnamed `% Disk Time` counter still go.
+  EXPECT_FALSE(out.contains("disk.io.C:.reads_per_sec"));
+  EXPECT_FALSE(out.contains("system.metrics.pdh.disk_queue_length"));
+  EXPECT_EQ(2u, s.zeros);
+}
+
+TEST(MetricsPrune, ZeroExemptionsAreGlobsOverTheFlatKey) {
+  EXPECT_TRUE(metrics_prune::is_zero_exempt("system.pressure.cpu.some_avg60"));
+  EXPECT_TRUE(metrics_prune::is_zero_exempt("disk.io._Total.queue_length"));
+  EXPECT_TRUE(metrics_prune::is_zero_exempt("disk.io.HarddiskVolume1.avg_queue_length"));
+  EXPECT_FALSE(metrics_prune::is_zero_exempt("disk.io.C:.queue_length_total"));
+  EXPECT_FALSE(metrics_prune::is_zero_exempt("system.io.C:.queue_length"));
+  EXPECT_FALSE(metrics_prune::is_zero_exempt("system.cpu.total.idle"));
+  // Exempt from `zeros` only: none of them is something `duplicates` drops.
+  for (const std::string &pattern : metrics_prune::zero_exempt_metrics()) {
+    for (const std::string &redundant : metrics_prune::redundant_metrics()) EXPECT_NE(pattern, redundant);
+  }
+}

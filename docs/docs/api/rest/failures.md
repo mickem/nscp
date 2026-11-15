@@ -110,7 +110,7 @@ comma-separated list of rules, all off by default:
 
 | Rule         | Drops |
 |--------------|-------|
-| `zeros`      | Every numeric value (gauge, counter) that is exactly `0`. |
+| `zeros`      | Every numeric value (gauge, counter) that is exactly `0`, except the pressure metrics: everything under `system.pressure` (processor queue length, page faults, Linux pressure stall figures), a disk's `queue_length` and `avg_queue_length` under `disk.io`, and the `memory_pages_sec` counter. For those, 0 is the reading that says nothing was waiting. |
 | `empty`      | Every string value that is empty. |
 | `duplicates` | Every metric that only restates others (see the list below), and every instance (a disk, an adapter, a core) whose values are all identical to an earlier instance in the same section. The first instance is kept. |
 

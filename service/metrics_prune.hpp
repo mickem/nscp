@@ -24,7 +24,11 @@ namespace core {
 // that is the only disk, network adapters with no MAC and no speed. Each rule
 // is opt-in:
 //
-//   zeros       a numeric value (gauge, counter, untyped) that is exactly 0
+//   zeros       a numeric value (gauge, counter, untyped) that is exactly 0,
+//               except the ones on the zero_exempt_metrics() list: pressure
+//               figures (a queue length, a stall share) for which 0 is the
+//               reading that matters, and which a reader could not tell from
+//               a value that was never collected if it went missing
 //   empty       a string value that is empty
 //   duplicates  an instance whose every value equals an earlier instance's in
 //               the same section (`_Total` and the one disk it totals, eight
@@ -162,6 +166,32 @@ struct metrics_prune {
     return list;
   }
 
+  // The metrics `zeros` keeps at 0, as flat-key globs. Each says how much
+  // the system is waiting on something - a disk's queue, the processor's
+  // ready queue, the share of time tasks stalled - and "nothing is waiting"
+  // is the answer a reader of a failure wants to see, not a hole that looks
+  // exactly like a counter the agent does not collect.
+  static const std::vector<std::string> &zero_exempt_metrics() {
+    static const std::vector<std::string> list = {
+        // Processor queue length, page faults (Windows), pressure stall
+        // information and major faults (Linux).
+        "system.pressure.*",
+        // Disk queue lengths, current and averaged over the interval.
+        "disk.io.*.queue_length",
+        "disk.io.*.avg_queue_length",
+        // The default PDH counter for hard paging (Windows).
+        "system.metrics.pdh.memory_pages_sec",
+    };
+    return list;
+  }
+
+  static bool is_zero_exempt(const std::string &flat_key) {
+    for (const std::string &pattern : zero_exempt_metrics()) {
+      if (glob_match(pattern.c_str(), flat_key.c_str())) return true;
+    }
+    return false;
+  }
+
   static summary apply(PB::Metrics::MetricsMessage &message, const rules &value) {
     summary result;
     if (!value.any()) return result;
@@ -297,7 +327,7 @@ struct metrics_prune {
         ++result.duplicates;
         continue;
       }
-      if (value.zeros && is_zero(metric)) {
+      if (value.zeros && is_zero(metric) && !is_zero_exempt(trail + "." + metric.key())) {
         ++result.zeros;
         continue;
       }
