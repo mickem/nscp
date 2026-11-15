@@ -39,10 +39,17 @@ std::vector<std::string> arguments_of(const PB::Failures::FailedCheck &entry) {
   return std::vector<std::string>(entry.response().arguments().begin(), entry.response().arguments().end());
 }
 
-failed_check_store::options with_arguments() {
+failed_check_store::options with_arguments(const failed_check_store::argument_mode mode = failed_check_store::argument_mode::all) {
   failed_check_store::options o;
-  o.record_arguments = true;
+  o.record_arguments = mode;
   return o;
+}
+
+std::vector<std::string> safe_filtered(const std::vector<std::string> &in) {
+  google::protobuf::RepeatedPtrField<std::string> arguments;
+  for (const std::string &a : in) arguments.Add()->assign(a);
+  failed_check_store::filter_safe_arguments(&arguments);
+  return std::vector<std::string>(arguments.begin(), arguments.end());
 }
 
 }  // namespace
@@ -200,7 +207,7 @@ TEST(failed_check_store, parse_statuses_rejects_ok_junk_and_empty) {
   EXPECT_FALSE(failed_check_store::parse_statuses(" , ", mask, error));
 }
 
-TEST(failed_check_store, arguments_are_dropped_unless_recording_is_on) {
+TEST(failed_check_store, arguments_are_dropped_when_the_mode_is_none) {
   PB::Commands::QueryRequestMessage request;
   add_request(request, "check_sql", {"query=select 1", "password=hunter2"});
   PB::Commands::QueryResponseMessage response;
@@ -209,6 +216,7 @@ TEST(failed_check_store, arguments_are_dropped_unless_recording_is_on) {
   response.mutable_payload(0)->add_arguments("password=hunter2");
 
   failed_check_store store;
+  store.configure(with_arguments(failed_check_store::argument_mode::none));
   EXPECT_EQ(1u, store.record_message(request, response, "NRPEServer", 0, 1));
   EXPECT_TRUE(arguments_of(store.list()[0]).empty());
 
@@ -218,6 +226,103 @@ TEST(failed_check_store, arguments_are_dropped_unless_recording_is_on) {
   ASSERT_EQ(2u, arguments.size());
   EXPECT_EQ("query=select 1", arguments[0]);
   EXPECT_EQ("password=***", arguments[1]);
+}
+
+TEST(failed_check_store, safe_is_the_default_mode) {
+  EXPECT_EQ(failed_check_store::argument_mode::safe, failed_check_store::options().record_arguments);
+  EXPECT_EQ(failed_check_store::argument_mode::safe, failed_check_store().get_options().record_arguments);
+}
+
+TEST(failed_check_store, safe_keeps_only_allow_listed_rest_pairs) {
+  PB::Commands::QueryRequestMessage request;
+  add_request(request, "check_sql", {"query=select 1", "password=hunter2", "warning=time > 5", "critical=time > 10", "host=db1", "--top-syntax=${list}"});
+  PB::Commands::QueryResponseMessage response;
+  *response.add_payload() = make_response("check_sql", PB::Common::ResultCode::CRITICAL, "slow");
+
+  failed_check_store store;
+  store.configure(with_arguments(failed_check_store::argument_mode::safe));
+  EXPECT_EQ(1u, store.record_message(request, response, "WEBServer:admin", 0, 1));
+  EXPECT_EQ((std::vector<std::string>{"warning=time > 5", "critical=time > 10", "--top-syntax=${list}"}), arguments_of(store.list()[0]));
+}
+
+TEST(failed_check_store, safe_keeps_the_arguments_the_estate_faults_role_uses) {
+  // The checks the `faults` role provokes (build/powershell/estate/roles/faults)
+  // must reach the log with their arguments under the default mode.
+  EXPECT_EQ((std::vector<std::string>{"time=1m", "warning=load > 70", "critical=load > 85"}),
+            safe_filtered({"time=1m", "warning=load > 70", "critical=load > 85"}));
+  EXPECT_EQ((std::vector<std::string>{"type=physical", "warning=used > 80%"}), safe_filtered({"type=physical", "warning=used > 80%"}));
+  EXPECT_EQ((std::vector<std::string>{"drive=C:", "critical=used > 90%"}), safe_filtered({"drive=C:", "critical=used > 90%"}));
+  EXPECT_EQ((std::vector<std::string>{"service=acme-sync", "critical=state != 'running'"}),
+            safe_filtered({"service=acme-sync", "critical=state != 'running'"}));
+}
+
+TEST(failed_check_store, safe_handles_the_cli_shape) {
+  // nscp client -a key=value passes --key then value.
+  EXPECT_EQ((std::vector<std::string>{"--warning", "load > 70", "--drive", "C:"}),
+            safe_filtered({"--warning", "load > 70", "--password", "hunter2", "--drive", "C:", "--host", "db1"}));
+  // A value containing an `=` stays a value.
+  EXPECT_EQ((std::vector<std::string>{"--filter", "name = 'x'", "--critical", "load>=80"}), safe_filtered({"--filter", "name = 'x'", "--critical", "load>=80"}));
+  // The value of a dropped key is dropped whatever it looks like.
+  EXPECT_EQ((std::vector<std::string>{"--time", "1m"}), safe_filtered({"--password", "warning=x", "--time", "1m"}));
+  // Undashed, as --raw-argument passes it.
+  EXPECT_EQ((std::vector<std::string>{"warning", "used > 80%"}), safe_filtered({"password", "hunter2", "warning", "used > 80%"}));
+}
+
+TEST(failed_check_store, safe_flags_do_not_swallow_the_next_argument) {
+  // A flag with no value followed by a dashed option or a REST pair: the
+  // pair is judged on its own key, never kept as the flag's value.
+  EXPECT_EQ((std::vector<std::string>{"--show-all", "--time", "1m"}), safe_filtered({"--show-all", "--time", "1m"}));
+  EXPECT_EQ((std::vector<std::string>{"show-all"}), safe_filtered({"show-all", "password=hunter2"}));
+  EXPECT_EQ((std::vector<std::string>{"show-all"}), safe_filtered({"show-all", "secret=hunter2"}));
+  EXPECT_EQ((std::vector<std::string>{"show-all", "warning=x"}), safe_filtered({"show-all", "warning=x"}));
+}
+
+TEST(failed_check_store, safe_drops_positionals_and_credential_keys) {
+  EXPECT_EQ(std::vector<std::string>(), safe_filtered({"select * from users", "hunter2"}));
+  EXPECT_EQ(std::vector<std::string>(), safe_filtered({"proxy-password=x", "--api-token", "abc", "token=x"}));
+  EXPECT_EQ(std::vector<std::string>(), safe_filtered({"=x", "-", "--"}));
+  EXPECT_TRUE(failed_check_store::is_safe_argument("--WARNING"));
+  EXPECT_TRUE(failed_check_store::is_safe_argument("detail-syntax"));
+  EXPECT_FALSE(failed_check_store::is_safe_argument("host"));
+  EXPECT_FALSE(failed_check_store::is_safe_argument("command"));
+  EXPECT_FALSE(failed_check_store::is_safe_argument(""));
+  for (const std::string &key : failed_check_store::safe_argument_keys()) EXPECT_FALSE(failed_check_store::is_sensitive_argument(key)) << key;
+}
+
+TEST(failed_check_store, safe_applies_before_the_argument_cap) {
+  google::protobuf::RepeatedPtrField<std::string> arguments;
+  for (std::size_t i = 0; i < failed_check_store::max_arguments + 5; ++i) arguments.Add()->assign("noise=" + std::to_string(i));
+  arguments.Add()->assign("warning=load > 70");
+  failed_check_store store;
+  store.configure(with_arguments(failed_check_store::argument_mode::safe));
+  ASSERT_TRUE(store.record(make_response("check_cpu", PB::Common::ResultCode::WARNING, "x"), &arguments, "s", 0, 1));
+  EXPECT_EQ((std::vector<std::string>{"warning=load > 70"}), arguments_of(store.list()[0]));
+}
+
+TEST(failed_check_store, parse_argument_mode_takes_modes_and_the_old_booleans) {
+  failed_check_store::argument_mode mode = failed_check_store::argument_mode::safe;
+  std::string error;
+  ASSERT_TRUE(failed_check_store::parse_argument_mode(" ALL ", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::all, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("safe", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::safe, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("none", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::none, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("true", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::all, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("1", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::all, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("False", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::none, mode);
+  ASSERT_TRUE(failed_check_store::parse_argument_mode("0", mode, error));
+  EXPECT_EQ(failed_check_store::argument_mode::none, mode);
+  mode = failed_check_store::argument_mode::safe;
+  EXPECT_FALSE(failed_check_store::parse_argument_mode("some", mode, error));
+  EXPECT_NE(std::string::npos, error.find("some"));
+  EXPECT_EQ(failed_check_store::argument_mode::safe, mode);
+  EXPECT_EQ("none", failed_check_store::format_argument_mode(failed_check_store::argument_mode::none));
+  EXPECT_EQ("safe", failed_check_store::format_argument_mode(failed_check_store::argument_mode::safe));
+  EXPECT_EQ("all", failed_check_store::format_argument_mode(failed_check_store::argument_mode::all));
 }
 
 TEST(failed_check_store, redaction_covers_dashed_keys_and_the_cli_pair_shape) {

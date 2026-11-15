@@ -722,7 +722,9 @@ void NSClientT::read_failed_check_settings() {
   nsclient::core::failed_check_store::options options = failures_->get_options();
   try {
     options.enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "enabled", "true"));
-    options.record_arguments = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "record arguments", "false"));
+    options.record_arguments = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "record arguments", "false"))
+                                   ? nsclient::core::failed_check_store::argument_mode::all
+                                   : nsclient::core::failed_check_store::argument_mode::none;
     const std::string max_entries =
         settings_manager::get_settings()->get_string(path, "max entries", str::xtos(nsclient::core::failed_check_store::default_max_entries));
     try {

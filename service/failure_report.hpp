@@ -161,7 +161,7 @@ struct failure_report {
     for (std::size_t i = 0; i < fresh.size(); ++i) {
       if (i != pick) report.suppressed.push_back(fresh[i]);
     }
-    report.arguments_recorded = store.get_options().record_arguments;
+    report.arguments_recorded = store.get_options().record_arguments != failed_check_store::argument_mode::none;
     return report;
   }
 };

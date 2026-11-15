@@ -71,8 +71,9 @@ TEST(failure_report, sends_the_newest_failure_with_a_snapshot_and_summarises_the
   EXPECT_EQ("Scheduler", failure.at("subject").as_string());
   EXPECT_EQ("1970-01-01T00:16:40Z", failure.at("date").as_string());
   EXPECT_EQ(97, failure.at("lines").as_array().at(0).as_object().at("perf").as_object().at("load").as_object().at("value").to_number<double>());
-  // Not recorded, so not sent; and the context is reported on its own.
-  EXPECT_EQ(nullptr, failure.if_contains("arguments"));
+  // Recorded (`safe` is the default) but none were given, which is an empty
+  // list rather than no key; and the context is reported on its own.
+  EXPECT_TRUE(failure.at("arguments").as_array().empty());
   EXPECT_EQ(nullptr, failure.if_contains("context"));
 
   const json::object &context = root.at("context").as_object();
@@ -139,7 +140,7 @@ TEST(failure_report, a_snapshot_released_before_it_was_read_reports_as_evicted) 
 TEST(failure_report, sends_arguments_only_when_they_are_recorded) {
   failed_check_store store;
   failed_check_store::options o;
-  o.record_arguments = true;
+  o.record_arguments = failed_check_store::argument_mode::all;
   store.configure(o);
   google::protobuf::RepeatedPtrField<std::string> arguments;
   arguments.Add()->assign("password=hunter2");
@@ -149,4 +150,16 @@ TEST(failure_report, sends_arguments_only_when_they_are_recorded) {
   ASSERT_EQ(1u, sent.size());
   // The store's redaction is what leaves the host.
   EXPECT_EQ("password=***", sent.at(0).as_string());
+}
+
+TEST(failure_report, sends_no_arguments_key_when_the_mode_is_none) {
+  failed_check_store store;
+  failed_check_store::options o;
+  o.record_arguments = failed_check_store::argument_mode::none;
+  store.configure(o);
+  google::protobuf::RepeatedPtrField<std::string> arguments;
+  arguments.Add()->assign("warning=load > 70");
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), &arguments, "s", 0, 1000));
+  const json::object root = render(failure_report::from(store, store.list()), 1100);
+  EXPECT_EQ(nullptr, root.at("failure").as_object().if_contains("arguments"));
 }

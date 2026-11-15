@@ -37,10 +37,13 @@ namespace core {
 // re-parsed later - the same choice the facts and metrics repositories make.
 // The payload is copied and capped on the way in (lines, line length, perf
 // entries, `data` dropped), so one check with an enormous output cannot own
-// the whole budget. Arguments are opt-in: a check's options can carry a
-// credential (`check_sql password=...`, a forwarded `check_nrpe` token), so
-// they are only recorded when the operator asks, and even then anything that
-// looks like one is redacted.
+// the whole budget. A check's options can carry a credential (`check_sql
+// password=...`, a forwarded `check_nrpe` token), so which arguments are kept
+// is the operator's choice (`record arguments`): none, only the ones whose key
+// is on an allow-list of options that describe the check rather than reach
+// something (`safe`, the default: thresholds, filters, syntax, the drive or
+// service checked), or all of them, with anything that looks like a
+// credential redacted.
 //
 // Metrics context is opt-in too (`capture metrics`): when on, each entry also
 // refers to the core's latest metrics snapshot at the instant it was recorded
@@ -84,10 +87,16 @@ class failed_check_store {
   static constexpr std::size_t min_context_budget = 64 * 1024;
   static constexpr std::size_t max_context_budget = 256 * 1024 * 1024;
 
+  // Which of a failed check's arguments are kept (`record arguments`).
+  //   none  nothing
+  //   safe  only arguments whose key is_safe_argument() accepts
+  //   all   everything, with credential-looking values redacted
+  enum class argument_mode { none, safe, all };
+
   struct options {
     bool enabled = true;
     std::size_t max_entries = default_max_entries;
-    bool record_arguments = false;
+    argument_mode record_arguments = argument_mode::safe;
     unsigned statuses = default_statuses;
     bool capture_metrics = false;
     std::size_t context_budget = default_context_budget;
@@ -159,8 +168,9 @@ class failed_check_store {
   }
 
   // Record one payload. `arguments` is the request's argument list for this
-  // command (null when the caller has none to offer); it is only kept when
-  // `record arguments` is on, and redacted then. Returns true when an entry
+  // command (null when the caller has none to offer), unredacted; what is kept
+  // of it is decided by `record arguments` (filter_arguments). Returns true
+  // when an entry
   // was stored: the store is enabled, and the result is one it records.
   // `context` is the latest metrics snapshot (null when there is none yet);
   // it is only kept when `capture metrics` is on.
@@ -179,7 +189,7 @@ class failed_check_store {
     item.set_depth(depth < 0 ? 0 : depth);
     PB::Commands::QueryResponseMessage::Response *copy = item.mutable_response();
     copy->CopyFrom(response);
-    sanitize(copy, current.record_arguments ? arguments : nullptr);
+    sanitize(copy, arguments, current.record_arguments);
 
     boost::unique_lock<boost::mutex> lock(mutex_);
     // Re-checked under the lock: configure() may have switched the store off
@@ -385,12 +395,140 @@ class failed_check_store {
     }
   }
 
+  // Parse `record arguments`: none, safe or all (case-insensitive, surrounding
+  // space ignored). The boolean spellings it had before it took a mode keep
+  // their meaning: true and 1 are all, false, 0 and an empty value are none.
+  // Returns false - with `error` saying why - on anything else.
+  static bool parse_argument_mode(const std::string &text, argument_mode &out, std::string &error) {
+    std::string token = text;
+    boost::algorithm::trim(token);
+    boost::algorithm::to_lower(token);
+    if (token == "safe") {
+      out = argument_mode::safe;
+    } else if (token == "all" || token == "true" || token == "1") {
+      out = argument_mode::all;
+    } else if (token == "none" || token == "false" || token == "0" || token.empty()) {
+      out = argument_mode::none;
+    } else {
+      error = "'" + token + "' is not an argument mode (expected none, safe or all)";
+      return false;
+    }
+    return true;
+  }
+
+  // The canonical spelling, as parse_argument_mode reads it.
+  static std::string format_argument_mode(const argument_mode mode) {
+    switch (mode) {
+      case argument_mode::none:
+        return "none";
+      case argument_mode::all:
+        return "all";
+      default:
+        return "safe";
+    }
+  }
+
+  // The option names `safe` keeps: the ones that say what a check was asked
+  // to look at and how to judge it, and nothing that reaches anything (a
+  // host, a URL, a command line, a query) or could carry a secret.
+  //
+  // The common filter options come from modern_filter::cli_helper
+  // (include/parsers/filter/cli_helper.hpp) and the help options every
+  // command takes; the rest are the subject keys the built-in checks use for
+  // the thing they check.
+  static const std::vector<std::string> &safe_argument_keys() {
+    static const std::vector<std::string> keys = {
+        // cli_helper: thresholds, filter and the output syntax.
+        "warning", "warn", "critical", "crit", "ok", "filter", "debug", "show-all", "empty-state", "perf-config", "escape-html", "list-separator",
+        "decimals", "byte-unit", "decimal-separator", "thousands-separator", "warmup-state", "top-syntax", "ok-syntax", "empty-syntax",
+        "detail-syntax", "perf-syntax", "unique-index",
+        // Every command.
+        "help", "help-pb", "show-default", "help-short",
+        // What is checked: the time window, the object, its kind.
+        "time", "type", "drive", "service", "process", "file", "path", "counter", "exclude", "computer", "pattern", "max-depth", "log",
+        "scan-range", "truncate-message", "unique", "mode", "total", "magic", "ignore-unreadable", "delta", "instances", "expand-index",
+        "reload", "mounted", "percpu", "name", "volume", "interface", "task", "namespace", "timezone"};
+    return keys;
+  }
+
+  // Whether `safe` keeps an argument with this key: one on the allow-list,
+  // compared without its leading dashes and ignoring case, that does not also
+  // name a credential.
+  static bool is_safe_argument(const std::string &key) {
+    std::string lower = key;
+    boost::algorithm::to_lower(lower);
+    const std::string::size_type first = lower.find_first_not_of('-');
+    if (first == std::string::npos) return false;
+    lower = lower.substr(first);
+    if (is_sensitive_argument(lower)) return false;
+    for (const std::string &allowed : safe_argument_keys()) {
+      if (lower == allowed) return true;
+    }
+    return false;
+  }
+
+  // Keep only the arguments `safe` allows, in place. Both transports are
+  // handled: `key=value` (REST, and the undashed pair of the CLI) is kept when
+  // the key is safe; a bare token is a key whose value is the token after it
+  // (`--key value`, the CLI's shape), and the two are kept or dropped
+  // together. A token that starts with a dash is never taken for a value: it
+  // is the next option, which is how a flag without a value (`--show-all`)
+  // does not swallow what follows. Nor is a `key=value` pair (a key without
+  // blanks before the `=`) taken for the value of a kept key: after a REST
+  // flag such as `show-all`, `password=x` is the next argument and is judged
+  // on its own key. The value of a dropped key is always dropped, whatever it
+  // looks like. An argument with no recognisable key - a bare positional
+  // value - is dropped.
+  static void filter_safe_arguments(google::protobuf::RepeatedPtrField<std::string> *arguments) {
+    if (arguments == nullptr) return;
+    google::protobuf::RepeatedPtrField<std::string> kept;
+    enum { no_value, keep_value, drop_value } pending = no_value;
+    for (const std::string &argument : *arguments) {
+      const bool dashed = !argument.empty() && argument[0] == '-';
+      const bool next_argument = dashed || (pending == keep_value && looks_like_pair(argument));
+      if (pending != no_value && !next_argument) {
+        if (pending == keep_value) *kept.Add() = argument;
+        pending = no_value;
+        continue;
+      }
+      pending = no_value;
+      const std::string::size_type eq = argument.find('=');
+      if (eq != std::string::npos) {
+        if (is_safe_argument(argument.substr(0, eq))) *kept.Add() = argument;
+        continue;
+      }
+      if (is_safe_argument(argument)) {
+        *kept.Add() = argument;
+        pending = keep_value;
+      } else {
+        pending = drop_value;
+      }
+    }
+    arguments->Swap(&kept);
+  }
+
+  // `key=value` with a key made of letters, digits, `-`, `_` and `.`: what an
+  // argument looks like, as opposed to a value that happens to contain an `=`
+  // (`name = 'x'`, `load>=80`). A threshold written `count=0` looks like one
+  // too, and is dropped after a kept `--warning`: losing a value is the safe
+  // way to be wrong.
+  static bool looks_like_pair(const std::string &token) {
+    const std::string::size_type eq = token.find('=');
+    if (eq == std::string::npos || eq == 0) return false;
+    for (std::string::size_type i = 0; i < eq; ++i) {
+      const char c = token[i];
+      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.')) return false;
+    }
+    return true;
+  }
+
   static std::int64_t now() { return static_cast<std::int64_t>(std::time(nullptr)); }
 
  private:
-  // Apply the per-entry caps to a copied payload and attach (or drop) the
-  // arguments. `arguments` is null when they are not to be recorded.
-  static void sanitize(PB::Commands::QueryResponseMessage::Response *copy, const google::protobuf::RepeatedPtrField<std::string> *arguments) {
+  // Apply the per-entry caps to a copied payload and attach what `mode` keeps
+  // of the arguments (null when the caller has none).
+  static void sanitize(PB::Commands::QueryResponseMessage::Response *copy, const google::protobuf::RepeatedPtrField<std::string> *arguments,
+                       const argument_mode mode) {
     // `data` is an opaque blob some modules use for their own protocol; it
     // has no place in a human-facing log and can be arbitrarily large.
     copy->clear_data();
@@ -405,11 +543,17 @@ class failed_check_store {
       }
     }
     copy->clear_arguments();
-    if (arguments == nullptr) return;
-    for (const std::string &argument : *arguments) {
+    if (arguments == nullptr || mode == argument_mode::none) return;
+    // Filtered before the caps, so a run of dropped arguments does not use up
+    // the count the kept ones are allowed.
+    google::protobuf::RepeatedPtrField<std::string> chosen(*arguments);
+    if (mode == argument_mode::safe) filter_safe_arguments(&chosen);
+    for (const std::string &argument : chosen) {
       if (copy->arguments_size() >= static_cast<int>(max_arguments)) break;
       copy->add_arguments(argument.size() > max_argument_length ? clip(argument, max_argument_length) : argument);
     }
+    // A no-op after `safe` (no allowed key names a credential), but cheap, and
+    // it keeps the two modes on one path.
     redact_arguments(copy->mutable_arguments());
   }
 
