@@ -13,6 +13,7 @@
   "localSettings": {
     "/settings/core/failed checks": {
       "capture metrics": "true",
+      "capture diagnostics": "true",
       "prune metrics": "zeros, empty, duplicates"
     },
     "/settings/fleet": { "failure context interval": "20s" }
@@ -29,7 +30,8 @@
             "network.interfaces": "true",
             "software.installed": "true",
             "services.installed": "true"
-          }
+          },
+          "diagnostics": { "processes": "true" }
         },
         "unix": {
           "facts": {
@@ -38,7 +40,8 @@
             "network.interfaces": "true",
             "software.installed": "true",
             "services.installed": "true"
-          }
+          },
+          "diagnostics": { "processes": "true" }
         }
       },
       "disk": { "facts": { "storage.volumes": "true" } },
