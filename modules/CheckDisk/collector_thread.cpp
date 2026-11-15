@@ -3,15 +3,18 @@
 
 #include "collector_thread.hpp"
 
+#include <chrono>
 #include <ctime>
 #include <functional>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
 #include <threads/guarded_thread.hpp>
+#include <vector>
 
 namespace {
 // Granularity of the persisted form: coarse enough to keep nsclient.db small,
@@ -28,6 +31,30 @@ disk_free_check::drives_type collector_thread::get_disk_free() { return disk_fre
 collector_thread::trend_snapshot collector_thread::get_drive_trends() {
   const boost::lock_guard<boost::mutex> lock(trends_mutex_);
   return snapshot_;
+}
+
+collector_thread::change_snapshot collector_thread::get_used_changes() {
+  const boost::lock_guard<boost::mutex> lock(changes_mutex_);
+  return changes_;
+}
+
+void collector_thread::update_used_history() {
+  // Spaced on the monotonic clock: the wall clock steps (NTP, a VM's time
+  // sync), and the windows are about elapsed time, not dates.
+  const long long now = static_cast<long long>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+  std::vector<used_history::reading> readings;
+  try {
+    for (const disk_free_check::disk_free &d : disk_free_.get()) readings.push_back(used_history::reading{d.name, d.total - d.free, d.total});
+  } catch (const std::exception &e) {
+    // The sample just stored could not be read back: skip the tick, as a
+    // failed fetch does, rather than read every volume as gone.
+    NSC_LOG_ERROR("Failed to read disk free data for the used-space history: " + utf8::utf8_from_native(e.what()));
+    return;
+  }
+  used_history_.update(now, readings);
+  const change_snapshot fresh = std::make_shared<const used_history::change_map>(used_history_.get());
+  const boost::lock_guard<boost::mutex> lock(changes_mutex_);
+  changes_ = fresh;
 }
 
 bool collector_thread::start() {
@@ -226,7 +253,7 @@ void collector_thread::thread_proc() {
     run_fetch(io_failures, "disk I/O metrics", fetch_disk_io, disk_io_stored_data);
   }
   if (!disable_disk_free && !stop_pending()) {
-    run_fetch(free_failures, "disk free metrics", fetch_disk_free, nullptr);
+    if (run_fetch(free_failures, "disk free metrics", fetch_disk_free, nullptr)) update_used_history();
   }
 
   const long long started = static_cast<long long>(std::time(nullptr));
@@ -249,6 +276,9 @@ void collector_thread::thread_proc() {
       // so the trend simply skips the tick and leaves a gap (which OLS over
       // irregular timestamps handles natively).
       const bool fetched = run_fetch(free_failures, "disk free metrics", fetch_disk_free, nullptr);
+      // The hour/day change values ride on every fetch; a failed one leaves a
+      // gap, like the trend.
+      if (fetched) update_used_history();
       if (!disable_trend && fetched) {
         const long long now = static_cast<long long>(std::time(nullptr));
         update_trends(now);

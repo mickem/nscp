@@ -15,6 +15,7 @@
 #include <trend/trend_buffer.hpp>
 
 #include "check_disk_io.hpp"
+#include "used_history.hpp"
 
 // Consecutive-failure tracker for a single collection.
 //
@@ -54,6 +55,8 @@ class collector_thread {
   typedef std::map<std::string, trend::trend_buffer> trend_map;
   // Immutable snapshot handed to checks: shared, never copied per check.
   typedef std::shared_ptr<const trend_map> trend_snapshot;
+  // The used_change_1h/24h values per volume, as of the last disk-free fetch.
+  typedef std::shared_ptr<const used_history::change_map> change_snapshot;
 
  private:
   std::shared_ptr<boost::thread> thread_;
@@ -86,6 +89,13 @@ class collector_thread {
   // aged out can be cleared instead of lingering in nsclient.db forever.
   std::set<std::string> saved_keys_;
 
+  // Used bytes per volume over the last hour and day (see used_history.hpp),
+  // fed from every disk-free fetch on a monotonic clock. Only the collector
+  // thread touches the tracker; readers get the published change values.
+  used_history::tracker used_history_;
+  boost::mutex changes_mutex_;
+  change_snapshot changes_;
+
  public:
   int collection_interval;
   std::string disable_;
@@ -116,6 +126,9 @@ class collector_thread {
   disk_free_check::drives_type get_disk_free();
   // May be null before the first collector tick has published anything.
   trend_snapshot get_drive_trends();
+  // Null before the first disk-free fetch (and with disk_free disabled); a
+  // volume without enough history has a key with unset values.
+  change_snapshot get_used_changes();
 
   bool start();
   bool stop();
@@ -129,6 +142,8 @@ class collector_thread {
   // one.
   bool stop_pending();
   void update_trends(long long now);
+  // Feed the last disk-free fetch into used_history_ and republish changes_.
+  void update_used_history();
   // Rebuild snapshot_ from trends_; must be called with trends_mutex_ held.
   void publish_trends();
   // Persistence via the core storage API (context "disk.trends", one key per

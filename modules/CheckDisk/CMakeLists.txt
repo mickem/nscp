@@ -139,6 +139,7 @@ if(WIN32)
             check_disk_write_test.cpp
             check_drive_test.cpp
             drive_trend_test.cpp
+            used_history_test.cpp
             check_files_test.cpp
             check_largest_files_test.cpp
             check_single_file_test.cpp
@@ -228,6 +229,7 @@ else()
             check_disk_write.cpp
             check_disk_write_test.cpp
             drive_trend_test.cpp
+            used_history_test.cpp
             check_files.cpp
             check_files_checksum_test.cpp
             check_largest_files.cpp
