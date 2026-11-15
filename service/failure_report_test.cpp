@@ -166,3 +166,72 @@ TEST(failure_report, sends_no_arguments_key_when_the_mode_is_none) {
   EXPECT_EQ(nullptr, root.at("failure").as_object().if_contains("arguments"));
   EXPECT_EQ("none", root.at("arguments_mode").as_string());
 }
+
+namespace {
+nsclient::core::diagnostics_snapshot_ptr diagnostics(nsclient::core::diagnostics_snapshot_store &snapshots, const std::int64_t now) {
+  nsclient::core::diagnostics_snapshot s;
+  s.captured_at = now;
+  PB::Diagnostics::Section *section = s.message.add_sections();
+  section->set_name("processes.top_cpu");
+  section->set_source("CheckSystem");
+  section->set_captured_at(now - 1);
+  section->add_columns()->set_name("name");
+  section->add_rows()->add_cells()->set_s("acme-indexer");
+  return snapshots.store(s);
+}
+}  // namespace
+
+TEST(failure_report, sends_the_diagnostics_beside_the_metrics_context) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  nsclient::core::diagnostics_snapshot_store tables;
+  failed_check_store store;
+  failed_check_store::options o = capturing();
+  o.capture_diagnostics = true;
+  store.configure(o);
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "cpu high"), nullptr, "Scheduler", 0, 1000, snapshot(snapshots, 995),
+                           diagnostics(tables, 996)));
+  const json::object root = render(failure_report::from(store, store.list()), 1100);
+  // Reported on its own, never inside the entry.
+  EXPECT_EQ(nullptr, root.at("failure").as_object().if_contains("diagnostics"));
+  const json::object &node = root.at("diagnostics").as_object();
+  EXPECT_EQ("captured", node.at("state").as_string());
+  EXPECT_EQ("1970-01-01T00:16:36Z", node.at("captured_at").as_string());
+  EXPECT_EQ(4, node.at("age_seconds").as_int64());
+  const json::object &section = node.at("sections").as_object().at("processes.top_cpu").as_object();
+  EXPECT_EQ("CheckSystem", section.at("source").as_string());
+  EXPECT_EQ("acme-indexer", section.at("rows").as_array().at(0).as_object().at("name").as_string());
+}
+
+TEST(failure_report, picks_a_failure_with_diagnostics_when_none_has_metrics) {
+  nsclient::core::diagnostics_snapshot_store tables;
+  failed_check_store store;
+  failed_check_store::options o;
+  o.capture_diagnostics = true;
+  store.configure(o);
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1000, nullptr, diagnostics(tables, 995)));
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1010));
+  const failure_report report = failure_report::from(store, store.list());
+  EXPECT_EQ(1u, report.failure.index());
+  const json::object root = render(report, 1100);
+  EXPECT_EQ("disabled", root.at("context").as_object().at("state").as_string());
+  EXPECT_EQ("captured", root.at("diagnostics").as_object().at("state").as_string());
+}
+
+TEST(failure_report, says_disabled_for_diagnostics_when_capture_is_off_and_evicted_when_released) {
+  nsclient::core::diagnostics_snapshot_store tables;
+  failed_check_store store;
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1000));
+  json::object root = render(failure_report::from(store, store.list()), 1100);
+  EXPECT_EQ("disabled", root.at("diagnostics").as_object().at("state").as_string());
+  EXPECT_EQ(nullptr, root.at("diagnostics").as_object().if_contains("sections"));
+
+  failed_check_store::options o;
+  o.capture_diagnostics = true;
+  store.configure(o);
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1010, nullptr, diagnostics(tables, 1005)));
+  failure_report report = failure_report::from(store, store.list());
+  report.diagnostics.reset();
+  root = render(report, 1100);
+  EXPECT_EQ("evicted", root.at("diagnostics").as_object().at("state").as_string());
+  EXPECT_EQ(nullptr, root.at("diagnostics").as_object().if_contains("sections"));
+}
