@@ -36,15 +36,18 @@ scan_result scan(const scan_request &request) {
 
   struct stat st;
   if (lstat(request.root.c_str(), &st) != 0) {
+    result.root_missing = true;
     result.error = "Path not found: " + request.root;
     return result;
   }
   // The root is the one link that is followed: the caller named it.
   if (S_ISLNK(st.st_mode) && stat(request.root.c_str(), &st) != 0) {
+    result.root_missing = true;
     result.error = "Path not found: " + request.root;
     return result;
   }
   if (!S_ISDIR(st.st_mode)) {
+    result.root_missing = true;
     result.error = "Not a folder: " + request.root;
     return result;
   }

@@ -79,6 +79,10 @@ struct scan_result {
   // Set when the scan could not run at all (missing root, MFT forced but not
   // available, ...). The check reports it as UNKNOWN.
   std::string error;
+  // Set with `error` when the reason is that the root does not exist or is
+  // not a folder, so a caller can tell "nothing there" from a scan that
+  // failed without reading the wording.
+  bool root_missing = false;
 };
 
 // Run a scan. Implemented once per platform.

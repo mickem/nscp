@@ -548,6 +548,7 @@ TEST(CheckLargestFilesScan, MissingRootIsAnError) {
   request.root = (boost::filesystem::temp_directory_path() / "nscp_largest_files_definitely_missing_9f2c").string();
   const scan_result result = largest_files::scan(request);
   EXPECT_NE(result.error.find("Path not found"), std::string::npos) << result.error;
+  EXPECT_TRUE(result.root_missing);
 }
 
 // A drive root keeps its trailing separator, which once doubled up in the

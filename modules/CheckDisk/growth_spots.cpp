@@ -225,7 +225,7 @@ dir_size walk_directory(const std::string &path, const walk_clock::time_point de
   request.abort = abort;
   const largest_files::scan_result result = largest_files::scan(request);
   dir_size out;
-  if (result.error.compare(0, 14, "Path not found") == 0 || result.error.compare(0, 12, "Not a folder") == 0) {
+  if (result.root_missing) {
     out.missing = true;
     return out;
   }

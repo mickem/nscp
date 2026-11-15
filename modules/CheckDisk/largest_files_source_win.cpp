@@ -747,11 +747,13 @@ scan_result scan(const scan_request &request) {
   const DWORD attributes = GetFileAttributesW(long_path(root).c_str());
   if (attributes == INVALID_FILE_ATTRIBUTES) {
     scan_result result;
+    result.root_missing = true;
     result.error = "Path not found: " + request.root;
     return result;
   }
   if ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
     scan_result result;
+    result.root_missing = true;
     result.error = "Not a folder: " + request.root;
     return result;
   }
