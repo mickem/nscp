@@ -15,8 +15,10 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/failures.hpp>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "diagnostics_snapshot.hpp"
 #include "metrics_snapshot.hpp"
 
 namespace nsclient {
@@ -54,6 +56,12 @@ namespace core {
 // `metrics context budget`, releasing the oldest first. A check that flaps
 // fifty times therefore costs the budget at most, never fifty snapshots, and
 // an entry whose snapshot went keeps its place with the state EVICTED.
+//
+// Diagnostics context works the same way (`capture diagnostics`): each entry
+// refers to the core's latest diagnostics snapshot (diagnostics_snapshot.hpp)
+// with a state of its own, and the distinct snapshots of both kinds are held
+// together under the one budget - so the oldest snapshot is released first,
+// whichever kind it is.
 //
 // Thread safety: record/list/clear/configure can be called from any thread.
 // record() is on the hot path of every check, so it does its copying outside
@@ -114,6 +122,7 @@ class failed_check_store {
   struct entry_with_context {
     entry item;
     metrics_snapshot_ptr context;
+    diagnostics_snapshot_ptr diagnostics;
   };
 
   failed_check_store() : next_index_(1), dropped_(0), context_bytes_(0) {}
@@ -136,15 +145,15 @@ class failed_check_store {
     if (!options_.enabled) {
       entries_.clear();
       held_.clear();
+      held_index_.clear();
       context_bytes_ = 0;
       return;
     }
     trim_locked();
     // Turning capture off lets go of what is held now; it does not wait for
     // the entries to age out.
-    if (!options_.capture_metrics) {
-      while (!held_.empty()) evict_locked(held_.begin()->first);
-    }
+    if (!options_.capture_metrics) evict_kind_locked(kind_metrics);
+    if (!options_.capture_diagnostics) evict_kind_locked(kind_diagnostics);
     enforce_budget_locked();
   }
 
@@ -185,9 +194,11 @@ class failed_check_store {
   // when an entry
   // was stored: the store is enabled, and the result is one it records.
   // `context` is the latest metrics snapshot (null when there is none yet);
-  // it is only kept when `capture metrics` is on.
+  // it is only kept when `capture metrics` is on. `diagnostics` likewise, the
+  // latest diagnostics snapshot, kept when `capture diagnostics` is on.
   bool record(const PB::Commands::QueryResponseMessage::Response &response, const google::protobuf::RepeatedPtrField<std::string> *arguments,
-              const std::string &subject, const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr()) {
+              const std::string &subject, const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr(),
+              const diagnostics_snapshot_ptr &diagnostics = diagnostics_snapshot_ptr()) {
     options current;
     {
       boost::unique_lock<boost::mutex> lock(mutex_);
@@ -211,7 +222,7 @@ class failed_check_store {
     item.set_index(next_index_++);
     stored added;
     added.item = item;
-    attach_locked(added, context);
+    attach_locked(added, context, diagnostics);
     entries_.push_back(added);
     trim_locked();
     enforce_budget_locked();
@@ -229,7 +240,8 @@ class failed_check_store {
   // pairing is by command name, each request payload used once. Returns how
   // many entries were stored.
   std::size_t record_message(const PB::Commands::QueryRequestMessage &request, const PB::Commands::QueryResponseMessage &response, const std::string &subject,
-                             const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr()) {
+                             const int depth, const std::int64_t now, const metrics_snapshot_ptr &context = metrics_snapshot_ptr(),
+                             const diagnostics_snapshot_ptr &diagnostics = diagnostics_snapshot_ptr()) {
     std::vector<bool> used(static_cast<std::size_t>(request.payload_size()), false);
     std::size_t stored = 0;
     for (const PB::Commands::QueryResponseMessage::Response &payload : response.payload()) {
@@ -241,7 +253,7 @@ class failed_check_store {
         arguments = &request.payload(i).arguments();
         break;
       }
-      if (record(payload, arguments, subject, depth, now, context)) ++stored;
+      if (record(payload, arguments, subject, depth, now, context, diagnostics)) ++stored;
     }
     return stored;
   }
@@ -271,6 +283,7 @@ class failed_check_store {
       if (s.item.index() != index) continue;
       out.item = s.item;
       out.context = s.context;
+      out.diagnostics = s.diagnostics;
       return true;
     }
     return false;
@@ -283,6 +296,7 @@ class failed_check_store {
     const std::size_t removed = entries_.size();
     entries_.clear();
     held_.clear();
+    held_index_.clear();
     context_bytes_ = 0;
     return removed;
   }
@@ -590,17 +604,45 @@ class failed_check_store {
   struct stored {
     entry item;
     metrics_snapshot_ptr context;
+    diagnostics_snapshot_ptr diagnostics;
   };
-  // A distinct snapshot the store refers to: its size, and how many entries
-  // refer to it.
+  // The two kinds of snapshot the budget covers. Their ids are counted
+  // separately, so a held snapshot is known by kind and id.
+  enum snapshot_kind { kind_metrics = 0, kind_diagnostics = 1 };
+  typedef std::pair<int, std::uint64_t> snapshot_key;
+  // A distinct snapshot the store refers to: which one, its size, and how
+  // many entries refer to it.
   struct held_snapshot {
+    snapshot_key key;
     std::size_t bytes = 0;
     std::size_t refs = 0;
   };
 
-  // Decide an incoming entry's context and account for it. Callers must hold
-  // the lock.
-  void attach_locked(stored &target, const metrics_snapshot_ptr &context) {
+  // Account for one more reference to a snapshot, holding it the first time.
+  // Callers must hold the lock.
+  void hold_locked(const snapshot_key &key, const std::size_t bytes) {
+    const std::map<snapshot_key, std::uint64_t>::const_iterator found = held_index_.find(key);
+    if (found != held_index_.end()) {
+      ++held_[found->second].refs;
+      return;
+    }
+    const std::uint64_t order = next_hold_++;
+    held_snapshot &held = held_[order];
+    held.key = key;
+    held.bytes = bytes;
+    held.refs = 1;
+    held_index_[key] = order;
+    context_bytes_ += bytes;
+  }
+
+  // Decide an incoming entry's context (metrics and diagnostics) and account
+  // for it. Callers must hold the lock.
+  void attach_locked(stored &target, const metrics_snapshot_ptr &context, const diagnostics_snapshot_ptr &diagnostics) {
+    attach_metrics_locked(target, context);
+    attach_diagnostics_locked(target, diagnostics);
+  }
+
+  void attach_metrics_locked(stored &target, const metrics_snapshot_ptr &context) {
     PB::Failures::MetricsContext *state = target.item.mutable_context();
     if (!options_.capture_metrics) {
       state->set_state(PB::Failures::MetricsContext::DISABLED);
@@ -633,41 +675,81 @@ class failed_check_store {
     }
     state->set_state(PB::Failures::MetricsContext::CAPTURED);
     target.context = context;
-    held_snapshot &held = held_[context->id];
-    if (held.refs == 0) {
-      held.bytes = context->wire_size;
-      context_bytes_ += held.bytes;
-    }
-    ++held.refs;
+    hold_locked(snapshot_key(kind_metrics, context->id), context->wire_size);
   }
 
-  // An entry is going away: drop its reference. Callers must hold the lock.
-  void release_locked(const stored &gone) {
-    if (!gone.context) return;
-    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(gone.context->id);
+  void attach_diagnostics_locked(stored &target, const diagnostics_snapshot_ptr &diagnostics) {
+    PB::Failures::DiagnosticsContext *state = target.item.mutable_diagnostics();
+    if (!options_.capture_diagnostics) {
+      state->set_state(PB::Failures::DiagnosticsContext::DISABLED);
+      return;
+    }
+    if (!diagnostics) {
+      state->set_state(PB::Failures::DiagnosticsContext::NONE);
+      return;
+    }
+    state->set_snapshot_id(diagnostics->id);
+    state->set_captured_at(diagnostics->captured_at);
+    state->set_size(diagnostics->wire_size);
+    if (diagnostics->wire_size > options_.max_context_size) {
+      state->set_state(PB::Failures::DiagnosticsContext::TOO_LARGE);
+      return;
+    }
+    state->set_state(PB::Failures::DiagnosticsContext::CAPTURED);
+    target.diagnostics = diagnostics;
+    hold_locked(snapshot_key(kind_diagnostics, diagnostics->id), diagnostics->wire_size);
+  }
+
+  // Drop one reference to a held snapshot. Callers must hold the lock.
+  void unref_locked(const snapshot_key &key) {
+    const std::map<snapshot_key, std::uint64_t>::iterator found = held_index_.find(key);
+    if (found == held_index_.end()) return;
+    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(found->second);
     if (it == held_.end()) return;
     if (--it->second.refs > 0) return;
     context_bytes_ -= it->second.bytes;
     held_.erase(it);
+    held_index_.erase(found);
   }
 
-  // Let go of one snapshot: every entry referring to it keeps its place and
-  // is marked EVICTED. Callers must hold the lock.
-  void evict_locked(const std::uint64_t id) {
-    for (stored &s : entries_) {
-      if (!s.context || s.context->id != id) continue;
-      s.context.reset();
-      s.item.mutable_context()->set_state(PB::Failures::MetricsContext::EVICTED);
-    }
-    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(id);
+  // An entry is going away: drop its references. Callers must hold the lock.
+  void release_locked(const stored &gone) {
+    if (gone.context) unref_locked(snapshot_key(kind_metrics, gone.context->id));
+    if (gone.diagnostics) unref_locked(snapshot_key(kind_diagnostics, gone.diagnostics->id));
+  }
+
+  // Let go of one held snapshot (by hold order): every entry referring to it
+  // keeps its place and is marked EVICTED. Callers must hold the lock.
+  void evict_locked(const std::uint64_t order) {
+    const std::map<std::uint64_t, held_snapshot>::iterator it = held_.find(order);
     if (it == held_.end()) return;
+    const snapshot_key key = it->second.key;
+    for (stored &s : entries_) {
+      if (key.first == kind_metrics && s.context && s.context->id == key.second) {
+        s.context.reset();
+        s.item.mutable_context()->set_state(PB::Failures::MetricsContext::EVICTED);
+      } else if (key.first == kind_diagnostics && s.diagnostics && s.diagnostics->id == key.second) {
+        s.diagnostics.reset();
+        s.item.mutable_diagnostics()->set_state(PB::Failures::DiagnosticsContext::EVICTED);
+      }
+    }
     context_bytes_ -= it->second.bytes;
+    held_index_.erase(key);
     held_.erase(it);
   }
 
-  // Release the oldest snapshots (lowest id) until the held ones fit the
-  // budget. The newest always fits on its own, because max_context_size is
-  // clamped to the budget. Callers must hold the lock.
+  // Let go of every held snapshot of one kind. Callers must hold the lock.
+  void evict_kind_locked(const snapshot_kind kind) {
+    std::vector<std::uint64_t> orders;
+    for (const std::pair<const std::uint64_t, held_snapshot> &h : held_) {
+      if (h.second.key.first == kind) orders.push_back(h.first);
+    }
+    for (const std::uint64_t order : orders) evict_locked(order);
+  }
+
+  // Release the oldest held snapshots, of either kind, until the held ones
+  // fit the budget. The newest always fits on its own, because
+  // max_context_size is clamped to the budget. Callers must hold the lock.
   void enforce_budget_locked() {
     while (context_bytes_ > options_.context_budget && !held_.empty()) evict_locked(held_.begin()->first);
   }
@@ -683,8 +765,12 @@ class failed_check_store {
 
   mutable boost::mutex mutex_;
   std::deque<stored> entries_;
-  // The distinct snapshots entries refer to, oldest (lowest id) first.
+  // The distinct snapshots entries refer to, by the order the store first
+  // held them - oldest first, whichever kind - and the same keyed by what
+  // they are.
   std::map<std::uint64_t, held_snapshot> held_;
+  std::map<snapshot_key, std::uint64_t> held_index_;
+  std::uint64_t next_hold_ = 1;
   options options_;
   unsigned long long next_index_;
   unsigned long long dropped_;

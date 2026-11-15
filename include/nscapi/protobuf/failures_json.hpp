@@ -47,6 +47,22 @@ inline boost::json::object context(const PB::Failures::FailedCheck &entry) {
   return node;
 }
 
+// The reference to the diagnostics snapshot an entry was recorded with, in the
+// same shape as context(): the state and, when it has one, which snapshot and
+// how old it was when the check failed. The tables are served on their own.
+inline boost::json::object diagnostics(const PB::Failures::FailedCheck &entry) {
+  const PB::Failures::DiagnosticsContext &context = entry.diagnostics();
+  boost::json::object node;
+  node["state"] = nscapi::failures::context_state_name(context.state());
+  if (context.snapshot_id() > 0) {
+    node["snapshot_id"] = static_cast<std::int64_t>(context.snapshot_id());
+    node["captured_at"] = context.captured_at();
+    node["age_at_failure"] = entry.timestamp() > context.captured_at() ? entry.timestamp() - context.captured_at() : 0;
+    node["size"] = static_cast<std::int64_t>(context.size());
+  }
+  return node;
+}
+
 // What `prune metrics` and `prune pattern` took out of a snapshot: the rules
 // and patterns, how many metrics each dropped, and every collapsed instance
 // with the one it duplicated.
@@ -106,6 +122,7 @@ inline boost::json::object entry(const PB::Failures::FailedCheck &entry, const b
     node["arguments"] = arguments;
   }
   node["context"] = context(entry);
+  node["diagnostics"] = diagnostics(entry);
   return node;
 }
 

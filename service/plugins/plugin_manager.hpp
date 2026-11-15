@@ -90,6 +90,9 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // The core's latest metrics snapshot, which a failure is recorded with when
   // the log captures metrics. Null in the tests, like failures_.
   metrics_snapshot_store_instance snapshots_;
+  // The core's latest diagnostics snapshot, attached the same way when the
+  // log captures diagnostics. Null in the tests.
+  diagnostics_snapshot_store_instance diagnostics_;
   // The last error reported for each fact set, so a producer that cannot
   // collect something logs the reason once rather than every round. Guarded by
   // its own mutex: the facts round runs on the scheduler pool.
@@ -239,6 +242,9 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   failed_check_store_instance get_failed_check_store() const { return failures_; }
   // Where the latest metrics snapshot is read from when a failure is recorded.
   void set_metrics_snapshot_store(const metrics_snapshot_store_instance &snapshots) { snapshots_ = snapshots; }
+  // Where the latest diagnostics snapshot is read from when a failure is
+  // recorded.
+  void set_diagnostics_snapshot_store(const diagnostics_snapshot_store_instance &diagnostics) { diagnostics_ = diagnostics; }
 
   // Apply one producer's response to `facts`: the sets it returned, the ones
   // it explicitly removed and the ones it says it could not collect.

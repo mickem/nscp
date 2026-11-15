@@ -347,8 +347,9 @@ NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned i
 //   GET since=N limit=M what arrived after index N, at most M
 //   CLEAR               drop every entry, answer with how many
 //   GET index=N include_context
-//                       entry N alone, with the metrics snapshot it was
-//                       recorded with (nothing once the cap evicted it)
+//                       entry N alone, with the metrics and diagnostics
+//                       snapshots it was recorded with (nothing once the
+//                       cap evicted it)
 //
 // An empty request is a plain GET, so a console verb can send nothing at all.
 // Read side only: what is recorded is decided by the core on every dispatch
@@ -389,6 +390,7 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
         PB::Failures::FailedCheck *entry = payload->add_entries();
         *entry = found.item;
         if (include_context && found.context) *entry->mutable_context()->mutable_metrics() = found.context->message;
+        if (include_context && found.diagnostics) *entry->mutable_diagnostics()->mutable_snapshot() = found.diagnostics->message;
       }
     } else {
       for (const PB::Failures::FailedCheck &entry : store->list(since, limit)) *payload->add_entries() = entry;
@@ -405,6 +407,8 @@ NSCAPI::errorReturn NSAPIFailuresQuery(const char *request_buffer, const unsigne
     payload->set_context_budget(options.context_budget);
     payload->set_max_context_size(options.max_context_size);
     payload->set_context_bytes_used(store->context_bytes_used());
+    payload->set_capture_diagnostics(options.enabled && options.capture_diagnostics);
+    payload->set_diagnostics_rows(static_cast<unsigned int>(options.diagnostics_rows));
 
     const std::string response = response_message.SerializeAsString();
     *response_buffer_len = static_cast<unsigned int>(response.size());

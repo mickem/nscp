@@ -275,6 +275,7 @@ NSClientT::NSClientT()
   plugins_->set_fact_repository(facts_);
   plugins_->set_failed_check_store(failures_);
   plugins_->set_metrics_snapshot_store(snapshots_);
+  plugins_->set_diagnostics_snapshot_store(diagnostics_);
   provider_ = new nscp_settings_provider(path_, log_instance_);
   log_instance_->startup();
 }
