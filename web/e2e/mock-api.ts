@@ -312,6 +312,10 @@ export async function mockApi(page: Page, overrides: Overrides = {}) {
       case "/api/v2/info/version":
         return json(route, { version: "0.17.0" });
       case "/api/v2/metrics":
+        // `?meta=1` is the described document the Metrics page reads.
+        if (new URL(route.request().url()).searchParams.get("meta") === "1") {
+          return json(route, { metrics: METRICS_FIXTURE, metadata: {} });
+        }
         return json(route, METRICS_FIXTURE);
       case "/api/v2/tags":
         return json(route, TAGS_FIXTURE);
