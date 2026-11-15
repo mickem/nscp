@@ -1,6 +1,7 @@
 ﻿import Stack from "@mui/material/Stack";
-import { nsclientApi, useGetMetricsQuery } from "../api/api.ts";
+import { nsclientApi, useGetDescribedMetricsQuery } from "../api/api.ts";
 import {
+  Chip,
   FormControl,
   InputLabel,
   MenuItem,
@@ -37,15 +38,26 @@ const REFRESH_RATES = [
 // How long a row stays highlighted after its value changes.
 const HIGHLIGHT_MS = 1500;
 
+// The toggle that clears a selection. Not "": a script module publishes its
+// metrics in a bundle with no name, so the empty string is a real module.
+const ALL = "\u0000all";
+// How that nameless module is spelled on screen.
+const UNNAMED = "(unnamed)";
+const moduleLabel = (module: string) => module || UNNAMED;
+
 export default function Metrics() {
   const dispatch = useAppDispatch();
   const [filter, setFilter] = useState<string>("");
   const [refreshRate, setRefreshRate] = useState<number>(0);
-  const { data: metrics, fulfilledTimeStamp } = useGetMetricsQuery(undefined, {
+  // null is "no selection"; "" is the module whose bundle has no name.
+  const [pickedModule, setPickedModule] = useState<string | null>(null);
+  const [pickedType, setPickedType] = useState<string | null>(null);
+  const { data, fulfilledTimeStamp } = useGetDescribedMetricsQuery(undefined, {
     pollingInterval: refreshRate || undefined,
   });
 
-  const result = useMemo(() => parseMetrics(metrics), [metrics]);
+  const result = useMemo(() => parseMetrics(data?.metrics), [data]);
+  const metadata = data?.metadata;
 
   // Track previous values per key so we can highlight rows that just changed.
   const previousValuesRef = useRef<Map<string, string | number>>(new Map());
@@ -80,21 +92,9 @@ export default function Metrics() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fulfilledTimeStamp]);
 
-  // The filter string drives both the toggle buttons and the free-text field.
-  // We treat "<module>" and "<module>.<type>" as structured filters from the
-  // toggles; anything else is a free-text search.
-  const [selectedModule, selectedType] = useMemo(() => {
-    const trimmed = filter.trim();
-    if (!trimmed) return ["", ""];
-    if (result.modules.includes(trimmed)) return [trimmed, ""];
-    const dot = trimmed.indexOf(".");
-    if (dot > 0) {
-      const head = trimmed.slice(0, dot);
-      const tail = trimmed.slice(dot + 1);
-      if (result.modules.includes(head)) return [head, tail];
-    }
-    return ["", ""];
-  }, [filter, result.modules]);
+  // A module that is no longer published (a script was unloaded) drops its
+  // selection instead of leaving an empty table behind a toggle that is gone.
+  const selectedModule = pickedModule !== null && result.modules.includes(pickedModule) ? pickedModule : null;
 
   const typesByModule = useMemo(() => {
     const map: Record<string, Set<string>> = {};
@@ -108,21 +108,31 @@ export default function Metrics() {
     );
   }, [result.metrics]);
 
-  const moduleTypes = selectedModule ? (typesByModule[selectedModule] ?? []) : [];
+  const moduleTypes = selectedModule !== null ? (typesByModule[selectedModule] ?? []) : [];
+  const selectedType = pickedType !== null && moduleTypes.includes(pickedType) ? pickedType : null;
 
-  const onPickModule = (mod: string | null) => setFilter(mod ?? "");
-  const onPickType = (t: string | null) => {
-    if (!selectedModule) return;
-    setFilter(t ? `${selectedModule}.${t}` : selectedModule);
+  const onPickModule = (mod: string | null) => {
+    setPickedModule(mod === null || mod === ALL ? null : mod);
+    setPickedType(null);
   };
+  const onPickType = (t: string | null) => setPickedType(t === null || t === ALL ? null : t);
 
+  // The toggles select exactly; the text field searches everything a row
+  // shows, including what the metric means.
   const needle = filter.trim().toLowerCase();
   const filteredMetrics = useMemo(() => {
-    if (!needle) return result.metrics;
-    return result.metrics.filter((m) =>
-      [m.key, m.module, m.type, m.instance, m.metric].some((f) => (f ?? "").toLowerCase().includes(needle)),
-    );
-  }, [result.metrics, needle]);
+    return result.metrics.filter((m) => {
+      if (selectedModule !== null && m.module !== selectedModule) return false;
+      if (selectedType !== null && m.type !== selectedType) return false;
+      if (!needle) return true;
+      const meta = metadata?.[m.key];
+      const labels = Object.entries(meta?.labels ?? {}).map(([k, v]) => `${k}=${v}`);
+      return [m.key, moduleLabel(m.module), meta?.help, meta?.unit, meta?.type, ...labels].some((f) =>
+        (f ?? "").toLowerCase().includes(needle),
+      );
+    });
+  }, [result.metrics, metadata, selectedModule, selectedType, needle]);
+  const isFiltered = filteredMetrics.length !== result.metrics.length;
 
   const onRefresh = () => {
     dispatch(nsclientApi.util.invalidateTags(["Metrics"]));
@@ -138,24 +148,24 @@ export default function Metrics() {
       <Toolbar>
         <ToggleButtonGroup
           size="small"
-          value={selectedModule}
+          value={selectedModule ?? ALL}
           exclusive
           onChange={(_e, f) => onPickModule(f)}
           aria-label="filter by module"
           sx={{ "& .MuiToggleButton-root": { px: 1, py: 0.5 } }}
         >
           {result.modules.map((m) => (
-            <ToggleButton key={m} value={m}>
-              {m}
+            <ToggleButton key={m} value={m} sx={m ? undefined : { fontStyle: "italic", textTransform: "none" }}>
+              {moduleLabel(m)}
             </ToggleButton>
           ))}
-          <ToggleButton value="">
+          <ToggleButton value={ALL} aria-label="all modules">
             <CloseIcon fontSize="small" />
           </ToggleButton>
         </ToggleButtonGroup>
         <Spacing />
         <FilterField value={filter} onChange={setFilter} placeholder="Filter metrics…" />
-        {needle && (
+        {isFiltered && (
           <Typography variant="body2" color="text.secondary">
             {filteredMetrics.length}/{result.metrics.length}
           </Typography>
@@ -177,17 +187,17 @@ export default function Metrics() {
         </FormControl>
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
-      {selectedModule && moduleTypes.length > 0 && (
+      {selectedModule !== null && moduleTypes.length > 0 && (
         <Toolbar>
           <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-            {selectedModule}.
+            {moduleLabel(selectedModule)}.
           </Typography>
           <ToggleButtonGroup
             size="small"
-            value={selectedType}
+            value={selectedType ?? ALL}
             exclusive
             onChange={(_e, t) => onPickType(t)}
-            aria-label={`filter by ${selectedModule} type`}
+            aria-label={`filter by ${moduleLabel(selectedModule)} type`}
             sx={{ "& .MuiToggleButton-root": { px: 1, py: 0.5 } }}
           >
             {moduleTypes.map((t) => (
@@ -195,7 +205,7 @@ export default function Metrics() {
                 {t}
               </ToggleButton>
             ))}
-            <ToggleButton value="">
+            <ToggleButton value={ALL} aria-label="all types">
               <CloseIcon fontSize="small" />
             </ToggleButton>
           </ToggleButtonGroup>
@@ -210,11 +220,15 @@ export default function Metrics() {
               <TableCell>Instance</TableCell>
               <TableCell>Metric</TableCell>
               <TableCell align="right">Value</TableCell>
+              <TableCell>Unit</TableCell>
+              <TableCell>Kind</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sortedMetrics.map((m) => {
               const changed = recentlyChanged.has(m.key);
+              const meta = metadata?.[m.key];
+              const labels = Object.entries(meta?.labels ?? {});
               return (
                 <TableRow
                   hover
@@ -225,11 +239,29 @@ export default function Metrics() {
                     transition: "background-color 1.5s ease-out",
                   }}
                 >
-                  <TableCell>{m.module}</TableCell>
+                  <TableCell sx={m.module ? undefined : { fontStyle: "italic", color: "text.secondary" }}>
+                    {moduleLabel(m.module)}
+                  </TableCell>
                   <TableCell>{m.type}</TableCell>
                   <TableCell>{m.instance}</TableCell>
-                  <TableCell>{m.metric}</TableCell>
+                  <TableCell title={m.key}>
+                    {m.metric}
+                    {meta?.help && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                        {meta.help}
+                      </Typography>
+                    )}
+                    {labels.length > 0 && (
+                      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", mt: 0.5 }}>
+                        {labels.map(([k, v]) => (
+                          <Chip key={k} size="small" variant="outlined" label={`${k}=${v}`} />
+                        ))}
+                      </Stack>
+                    )}
+                  </TableCell>
                   <TableCell align="right">{m.value}</TableCell>
+                  <TableCell>{meta?.unit ?? ""}</TableCell>
+                  <TableCell>{meta?.type ?? ""}</TableCell>
                 </TableRow>
               );
             })}

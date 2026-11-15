@@ -415,6 +415,12 @@ export interface MetricMetadata {
   labels?: { [key: string]: string };
 }
 
+/** GET /api/v2/metrics?meta=1: the values and, keyed alike, what each one means. */
+export interface DescribedMetrics {
+  metrics: Metrics;
+  metadata: { [key: string]: MetricMetadata };
+}
+
 /** What `prune metrics` and `prune pattern` took out of a snapshot before it was kept. */
 export interface FailedCheckContextPruned {
   rules: string;
@@ -935,6 +941,23 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Metrics"],
     }),
+    getDescribedMetrics: builder.query<DescribedMetrics, void>({
+      query: () => ({
+        url: "/v2/metrics?meta=1",
+        // The body is empty until the agent has collected its first snapshot,
+        // which is "no metrics yet" rather than a failed request.
+        responseHandler: async (response: Response) => {
+          const text = await response.text();
+          if (!response.ok) return { error: text, status: response.status };
+          return text.trim() ? JSON.parse(text) : {};
+        },
+      }),
+      transformResponse: (body: Partial<DescribedMetrics> | null) => ({
+        metrics: body?.metrics ?? {},
+        metadata: body?.metadata ?? {},
+      }),
+      providesTags: ["Metrics"],
+    }),
     getEvents: builder.query<EventEntry[], void>({
       query: () => ({
         url: "/v2/events",
@@ -1057,6 +1080,7 @@ export const {
   useLoginMutation,
   useLogoutMutation,
   useGetMetricsQuery,
+  useGetDescribedMetricsQuery,
   useGetCounterMetadataQuery,
   useGetChannelMetadataQuery,
   useGetEventsQuery,
