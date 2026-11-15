@@ -8,11 +8,13 @@
 #include <boost/optional.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
+#include <cstdint>
 #include <functional>
 #include <list>
 #include <map>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/diagnostics.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <set>
@@ -70,6 +72,13 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   simple_plugins_list metrics_fetchers_;
   simple_plugins_list metrics_submitters_;
   simple_plugins_list facts_fetchers_;
+  simple_plugins_list diagnostics_fetchers_;
+  // The section names each diagnostics producer returned on its last good
+  // round, by plugin id: when a fetch fails, those are the sections reported
+  // with the error. Only touched by the diagnostics round (one maintenance
+  // thread at a time), but guarded all the same.
+  boost::mutex diagnostics_names_mutex_;
+  std::map<unsigned int, std::vector<std::string> > diagnostics_names_;
   // Where the fact sets producers return are stored. Handed over by the core
   // at boot; null in the tests and in any build path that never boots facts,
   // where a facts round is simply a no-op.
@@ -181,6 +190,25 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // the result to every submitter. Returns the assembled message so a caller can
   // feed non-plugin consumers from the same snapshot.
   PB::Metrics::MetricsMessage process_metrics(PB::Metrics::MetricsBundle bundle);
+
+  // Ask every diagnostics producer for the sections it holds and return them
+  // together, each stamped with the module that produced it. Uncapped: the
+  // core's round applies the caps (diagnostics_round.hpp). A module whose
+  // fetch fails costs its own sections, which come back with `error` set,
+  // never the round.
+  PB::Diagnostics::DiagnosticsMessage collect_diagnostics();
+  bool has_diagnostics_fetchers() { return !diagnostics_fetchers_.empty(); }
+
+  // Fold one producer's answer into `out`. `fetched` is false, with
+  // `failure` saying why, when the call itself failed. On success every
+  // section is stamped with `source` and `names` becomes what it returned;
+  // on any failure (the call, an unreadable answer, or the module reporting
+  // its whole fetch failed) the sections in `names` - what it returned last
+  // time - are added with the error instead, or one section named after the
+  // module when there is no last time. Static, so the contract between a
+  // module and the core is tested directly.
+  static void apply_diagnostics_response(const std::string &source, bool fetched, const std::string &response, const std::string &failure,
+                                         std::int64_t now, std::vector<std::string> &names, PB::Diagnostics::DiagnosticsMessage &out);
 
   // Run one facts round: ask every producer what it has and apply what comes
   // back. `reason` is what the producers see (startup, scheduled, reload or

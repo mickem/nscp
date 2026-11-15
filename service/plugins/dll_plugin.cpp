@@ -47,6 +47,7 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       fRouteMessage(nullptr),
       fFetchMetrics(nullptr),
       fFetchFacts(nullptr),
+      fFetchDiagnostics(nullptr),
       fSubmitMetrics(nullptr),
       fOnEvent(nullptr) {
   load_dll();
@@ -468,6 +469,27 @@ NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchFacts(const char *request_
   }
 }
 
+NSCAPI::nagiosReturn nsclient::core::dll_plugin::fetchDiagnostics(std::string &response) {
+  if (!isLoaded() || !loaded_ || fFetchDiagnostics == nullptr) throw plugin_exception(get_alias_or_name(), "Library is not loaded");
+  char *buffer = nullptr;
+  unsigned int len = 0;
+  NSCAPI::nagiosReturn ret = NSCAPI::api_return_codes::hasFailed;
+  {
+    dispatch_lock dispatch(*this);
+    if (!dispatch.entered()) throw plugin_exception(get_alias_or_name(), "Library is unloading");
+    try {
+      ret = fFetchDiagnostics(get_id(), &buffer, &len);
+    } catch (...) {
+      throw plugin_exception(get_alias_or_name(), "Unhanded exception in fFetchDiagnostics.");
+    }
+  }
+  if (buffer != nullptr) {
+    response = std::string(buffer, len);
+    deleteBuffer(&buffer);
+  }
+  return ret;
+}
+
 NSCAPI::nagiosReturn nsclient::core::dll_plugin::submitMetrics(const std::string &request) {
   return submitMetrics(request.c_str(), static_cast<unsigned int>(request.size()));
 }
@@ -599,6 +621,7 @@ void nsclient::core::dll_plugin::unload_dll() {
   fHandleSchedule = nullptr;
   fFetchMetrics = nullptr;
   fFetchFacts = nullptr;
+  fFetchDiagnostics = nullptr;
   fSubmitMetrics = nullptr;
   fOnEvent = nullptr;
   module_.unload_library();
@@ -685,6 +708,9 @@ void nsclient::core::dll_plugin::loadRemoteProcs_(void) {
     fHandleSchedule = (nscapi::plugin_api::lpHandleSchedule)module_.load_proc("NSHandleSchedule");
     fFetchMetrics = (nscapi::plugin_api::lpFetchMetrics)module_.load_proc("NSFetchMetrics");
     fFetchFacts = (nscapi::plugin_api::lpFetchFacts)module_.load_proc("NSFetchFacts");
+    // Optional, like NSFetchFacts: a module built before diagnostics existed
+    // does not export it and is simply not asked.
+    fFetchDiagnostics = (nscapi::plugin_api::lpFetchDiagnostics)module_.load_proc("NSFetchDiagnostics");
     fSubmitMetrics = (nscapi::plugin_api::lpSubmitMetrics)module_.load_proc("NSSubmitMetrics");
     fOnEvent = (nscapi::plugin_api::lpOnEvent)module_.load_proc("NSOnEvent");
   } catch (plugin_exception &e) {

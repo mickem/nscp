@@ -41,6 +41,9 @@ EXPORTS
 {% if module.facts %}
 	NSFetchFacts
 {% endif %}
+{% if module.diagnostics == "produce" %}
+	NSFetchDiagnostics
+{% endif %}
 {% if module.events %}
 	NSOnEvent
 {% endif %}
@@ -115,6 +118,9 @@ using namespace Google::Protobuf;
 {% endif %}
 {% if module.facts %}
 #include <nscapi/nscapi_facts_helper.hpp>
+{% endif %}
+{% if module.diagnostics == "produce" %}
+#include <nscapi/nscapi_diagnostics_helper.hpp>
 {% endif %}
 {%if module.log_handler %}
 #include <nscapi/protobuf/log.hpp>
@@ -628,6 +634,50 @@ int {{module.name}}Module::fetchFacts(const std::string &request_buffer, std::st
 	return NSCAPI::api_return_codes::isSuccess;
 }
 {% endif %}
+{% if module.diagnostics == "produce" %}
+namespace {
+// Every string in a section is a protobuf string, which must be valid UTF-8:
+// one stray byte in a process name would otherwise fail the whole serialise
+// and cost every section this module produces.
+void make_valid_diagnostics(PB::Diagnostics::DiagnosticsMessage &message) {
+	for (PB::Diagnostics::Section &s : *message.mutable_sections()) {
+		s.set_name(utf8::make_valid(s.name()));
+		s.set_description(utf8::make_valid(s.description()));
+		s.set_error(utf8::make_valid(s.error()));
+		for (PB::Diagnostics::Column &c : *s.mutable_columns()) {
+			c.set_name(utf8::make_valid(c.name()));
+			c.set_unit(utf8::make_valid(c.unit()));
+			c.set_description(utf8::make_valid(c.description()));
+		}
+		for (PB::Diagnostics::Row &r : *s.mutable_rows()) {
+			for (PB::Diagnostics::Cell &cell : *r.mutable_cells()) {
+				if (cell.value_case() == PB::Diagnostics::Cell::kS) cell.set_s(utf8::make_valid(cell.s()));
+			}
+		}
+	}
+	message.set_error(utf8::make_valid(message.error()));
+}
+}  // namespace
+
+int {{module.name}}Module::fetchDiagnostics(std::string &reply) {
+	PB::Diagnostics::DiagnosticsMessage response_message;
+	try {
+		if (impl_) impl_->fetchDiagnostics(&response_message);
+	} catch (const std::exception &e) {
+		// The whole fetch failed: the core reports each section this module
+		// returned last time with this error, rather than reading silence as
+		// "no longer produced".
+		response_message.Clear();
+		response_message.set_error(std::string("Failed to collect diagnostics: ") + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		response_message.Clear();
+		response_message.set_error("Failed to collect diagnostics");
+	}
+	make_valid_diagnostics(response_message);
+	response_message.SerializeToString(&reply);
+	return NSCAPI::api_return_codes::isSuccess;
+}
+{% endif %}
 {% if module.metrics == "consume" or module.metrics == "both" %}
 int {{module.name}}Module::submitMetrics(const std::string &request) {
 	PB::Metrics::MetricsMessage metrics_message;
@@ -789,6 +839,12 @@ extern int NSFetchFacts(unsigned int plugin_id, const char* request_buffer, cons
 	return wrapper.NSFetchFacts(request_buffer, request_buffer_len, response_buffer, response_buffer_len); 
 }
 {% endif %}
+{% if module.diagnostics == "produce" %}
+extern int NSFetchDiagnostics(unsigned int plugin_id, char** response_buffer, unsigned int *response_buffer_len) {
+	nscapi::diagnostics_wrapper<plugin_impl_class> wrapper(plugin_instance.get(plugin_id));
+	return wrapper.NSFetchDiagnostics(response_buffer, response_buffer_len);
+}
+{% endif %}
 {% if module.events %}
 extern int NSOnEvent(unsigned int id, const char* buffer, unsigned int buffer_len) {
 	nscapi::event_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
@@ -836,6 +892,9 @@ extern "C" int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const
 {% endif %}
 {% if module.facts %}
 extern "C" int NSFetchFacts(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
+{% endif %}
+{% if module.diagnostics == "produce" %}
+extern "C" int NSFetchDiagnostics(unsigned int plugin_id, char** response_buffer, unsigned int *response_buffer_len);
 {% endif %}
 {% if module.events %}
 extern "C" int NSOnEvent(unsigned int plugin_id, const char* buffer, unsigned int buffer_len);
@@ -965,6 +1024,14 @@ public:
 	void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 	*/
 {% endif %}
+{% if module.diagnostics == "produce" %}
+	int fetchDiagnostics(std::string &reply);
+	/*
+	Add the following to {{module.name}} - cheap: copy what the module already
+	holds, never query, walk or wait (nscapi/nscapi_diagnostics_helper.hpp):
+	void fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response);
+	*/
+{% endif %}
 	// exposed functions
 {%if options.hasRegisterCommand %}
 	void registerCommands();
@@ -996,6 +1063,12 @@ metrics = False
 # `nscp test`'s facts verb speak about.
 facts = {}
 events = False
+# "produce": the module hands the core diagnostics sections (small tables, see
+# nscapi/nscapi_diagnostics_helper.hpp) through NSFetchDiagnostics, the way
+# "metrics": "produce" hands it metrics. The glue calls
+# fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage*) on the module class,
+# and the link fails when the class does not implement it.
+diagnostics = False
 
 class Module:
 	name = ''
@@ -1163,6 +1236,8 @@ for key, value in data.items():
 		metrics = value
 	elif key == "facts":
 		facts = value
+	elif key == "diagnostics":
+		diagnostics = value
 	elif key == "events":
 		events = value
 	elif key == "on_start":
@@ -1206,6 +1281,7 @@ module.cli = cli
 module.channels = channels
 module.metrics = metrics
 module.facts = facts
+module.diagnostics = diagnostics
 module.log_handler = log_handler
 module.command_fallback = command_fallback
 module.command_fallback_raw = command_fallback_raw

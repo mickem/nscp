@@ -412,6 +412,27 @@ struct facts_wrapper {
 };
 
 template <class impl_class>
+struct diagnostics_wrapper {
+  std::shared_ptr<impl_class> instance;
+  explicit diagnostics_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}
+
+  int NSFetchDiagnostics(char **response_buffer, unsigned int *response_buffer_len) {
+    try {
+      if (!instance) return NSCAPI::api_return_codes::hasFailed;
+      std::string reply;
+      const NSCAPI::nagiosReturn retCode = instance->fetchDiagnostics(reply);
+      helpers::wrap_string(reply, response_buffer, response_buffer_len);
+      return retCode;
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR_EXR("NSFetchDiagnostics", e);
+    } catch (...) {
+      NSC_LOG_ERROR_EX("NSFetchDiagnostics");
+    }
+    return NSCAPI::api_return_codes::hasFailed;
+  }
+};
+
+template <class impl_class>
 struct event_wrapper {
   std::shared_ptr<impl_class> instance;
   explicit event_wrapper(std::shared_ptr<impl_class> instance) : instance(instance) {}

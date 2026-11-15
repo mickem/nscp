@@ -84,6 +84,11 @@ class plugin_interface : public logging::logging_subscriber {
   // service/fact_repository.hpp for what the document is.
   virtual bool hasFactsFetcher() = 0;
   virtual NSCAPI::nagiosReturn fetchFacts(const std::string &request, std::string &response) = 0;
+  // Diagnostics producer: no request, the module's sections back as a
+  // serialised PB::Diagnostics::DiagnosticsMessage. Not pure: only a DLL
+  // module built with `"diagnostics": "produce"` has one.
+  virtual bool hasDiagnosticsFetcher() { return false; }
+  virtual NSCAPI::nagiosReturn fetchDiagnostics(std::string &) { throw plugin_exception(get_alias_or_name(), "Module does not produce diagnostics"); }
   virtual bool hasMetricsSubmitter() = 0;
   virtual NSCAPI::nagiosReturn submitMetrics(const std::string &request) = 0;
   virtual bool has_command_line_exec() = 0;

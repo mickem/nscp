@@ -9,6 +9,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/unordered_map.hpp>
 #include <chrono>
+#include <ctime>
 #include <file_helpers.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
@@ -155,6 +156,7 @@ nsclient::core::plugin_manager::plugin_manager(path_instance path_, logging::log
       metrics_fetchers_(log_instance_),
       metrics_submitters_(log_instance_),
       facts_fetchers_(log_instance_),
+      diagnostics_fetchers_(log_instance_),
       plugin_cache_(log_instance_),
       event_subscribers_(log_instance_) {}
 
@@ -467,7 +469,7 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 
 std::vector<nsclient::core::plugin_manager::walk_closing> nsclient::core::plugin_manager::close_walks(const unsigned long plugin_id) {
   std::vector<simple_plugins_list::closing> closings;
-  for (simple_plugins_list *list : {&metrics_fetchers_, &metrics_submitters_, &facts_fetchers_}) {
+  for (simple_plugins_list *list : {&metrics_fetchers_, &metrics_submitters_, &facts_fetchers_, &diagnostics_fetchers_}) {
     const simple_plugins_list::closing c = list->close_plugin(plugin_id);
     if (c) closings.push_back(c);
   }
@@ -638,7 +640,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
   // not come back.
   const std::vector<logging::logging_subscriber_instance> still_handling = log_instance_->clear_subscribers();
   std::vector<plugin_type> still_walked;
-  for (simple_plugins_list *list : {&metrics_fetchers_, &metrics_submitters_, &facts_fetchers_}) {
+  for (simple_plugins_list *list : {&metrics_fetchers_, &metrics_submitters_, &facts_fetchers_, &diagnostics_fetchers_}) {
     const std::vector<plugin_type> stuck = list->remove_all();
     still_walked.insert(still_walked.end(), stuck.begin(), stuck.end());
   }
@@ -801,6 +803,9 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
     if (plugin->hasFactsFetcher()) {
       facts_fetchers_.add_plugin(plugin);
     }
+    if (plugin->hasDiagnosticsFetcher()) {
+      diagnostics_fetchers_.add_plugin(plugin);
+    }
     if (plugin->hasMessageHandler()) {
       log_instance_->add_subscriber(plugin);
     }
@@ -893,7 +898,7 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // on the facts path mark it failing and later fixed. The waits are per
   // module - a round stuck in another module, or blocked on the lifecycle
   // lock this call holds, is not inside this one and is not waited for -
-  // and the three lists share one deadline. A refusal reopens them,
+  // and the lists share one deadline. A refusal reopens them,
   // so the module keeps its place in every list.
   const std::vector<walk_closing> walks = close_walks(plugin_id);
   const auto restore_walks = [&walks]() {
@@ -1708,6 +1713,65 @@ PB::Metrics::MetricsMessage nsclient::core::plugin_manager::process_metrics(PB::
   f.render();
   metrics_submitters_.do_all([&f](auto key) { return f.digest(key); });
   return f.result;
+}
+
+void nsclient::core::plugin_manager::apply_diagnostics_response(const std::string &source, const bool fetched, const std::string &response,
+                                                                const std::string &failure, const std::int64_t now, std::vector<std::string> &names,
+                                                                PB::Diagnostics::DiagnosticsMessage &out) {
+  std::string error = failure;
+  PB::Diagnostics::DiagnosticsMessage message;
+  if (fetched) {
+    if (!message.ParseFromString(response)) {
+      error = "returned diagnostics that are not a valid diagnostics message";
+    } else if (!message.error().empty()) {
+      error = message.error();
+    }
+  }
+  if (fetched && error.empty()) {
+    names.clear();
+    for (PB::Diagnostics::Section &section : *message.mutable_sections()) {
+      section.set_source(source);
+      names.push_back(section.name());
+      out.add_sections()->Swap(&section);
+    }
+    return;
+  }
+  if (error.empty()) error = "failed to collect diagnostics";
+  const std::vector<std::string> failed = names.empty() ? std::vector<std::string>{source} : names;
+  for (const std::string &name : failed) {
+    PB::Diagnostics::Section *section = out.add_sections();
+    section->set_name(name);
+    section->set_source(source);
+    section->set_captured_at(now);
+    section->set_error(error);
+  }
+}
+
+PB::Diagnostics::DiagnosticsMessage nsclient::core::plugin_manager::collect_diagnostics() {
+  PB::Diagnostics::DiagnosticsMessage out;
+  const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
+  // Like the metrics walk: one module failing must not cost the round, and a
+  // module unloaded since the walk list was copied throws "Library is not
+  // loaded", which costs only its own sections.
+  diagnostics_fetchers_.do_all([this, &out, now](const plugin_type &plugin) {
+    std::string response;
+    std::string failure;
+    bool fetched = false;
+    try {
+      fetched = NSCAPI::api_ok(plugin->fetchDiagnostics(response));
+      if (!fetched) failure = "failed to collect diagnostics";
+    } catch (const plugin_exception &e) {
+      failure = e.reason();
+    } catch (const std::exception &e) {
+      failure = utf8::utf8_from_native(e.what());
+    } catch (...) {
+      failure = "failed to collect diagnostics";
+    }
+    if (!failure.empty()) LOG_DEBUG_CORE_STD("Failed to fetch diagnostics from " + plugin->get_alias_or_name() + ": " + failure);
+    boost::unique_lock<boost::mutex> lock(diagnostics_names_mutex_);
+    apply_diagnostics_response(plugin->get_alias_or_name(), fetched, response, failure, now, diagnostics_names_[plugin->get_id()], out);
+  });
+  return out;
 }
 
 namespace {
