@@ -508,8 +508,12 @@ std::string emit(const family_set &collected, const dialect dialect) {
     if (!f.help.empty()) body += "# HELP " + described + " " + escape_help(f.help) + "\n";
     body += "# TYPE " + described + " " + type_word(f.type, dialect) + "\n";
     // `# UNIT` is an OpenMetrics 1.0 line; the older parser reads it as a
-    // comment, so it costs nothing to leave in both bodies.
-    if (!f.unit.empty()) body += "# UNIT " + described + " " + f.unit + "\n";
+    // comment, so it costs nothing to leave in both bodies - except where the
+    // text format's metadata names a sample rather than the family (a
+    // counter's `_total`): `# UNIT foo_seconds_total seconds` names something
+    // that does not end in its unit, which no reader of either format
+    // accepts, so the line is left out there.
+    if (!f.unit.empty() && described == f.name) body += "# UNIT " + described + " " + f.unit + "\n";
     for (const sample &s : f.samples) {
       body += f.name + s.suffix + s.labels + " " + s.value + "\n";
     }
