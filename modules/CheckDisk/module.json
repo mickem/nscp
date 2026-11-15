@@ -9,10 +9,10 @@
 	"commands" : {
 		"check_drivesize"	: "Check the size (free-space) of a drive or volume.",
 		"check_files"		: "Check various aspects of a file and/or folder.",
-		"check_single_file"	: { "description" : "Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file.", "experimental" : true },
-		"check_disk_io"		: { "description" : "Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).", "experimental" : true },
+		"check_single_file"	: { "description" : "Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file." },
+		"check_disk_io"		: { "description" : "Check disk I/O performance metrics (throughput, IOPS, queue length, busy time)." },
 		"check_disk_write"	: { "description" : "Verify that a disk is writable by creating a test file, writing to it, reading it back and deleting it.", "experimental" : true },
-		"check_disk_health"	: { "description" : "Combined per-drive health check (free space + I/O metrics).", "experimental" : true },
+		"check_disk_health"	: { "description" : "Combined per-drive health check (free space + I/O metrics)." },
 		"check_uncpath"		: { "description" : "Check free space on a UNC path (server share), with optional alternate credentials.", "experimental" : true },
 		"check_storagepool"	: { "description" : "Check Storage Spaces pool health and capacity. Windows only.", "experimental" : true },
 		"check_shadowcopy"	: { "description" : "Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume. Windows only.", "experimental" : true },
