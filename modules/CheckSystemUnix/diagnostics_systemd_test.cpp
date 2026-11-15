@@ -74,6 +74,17 @@ TEST(systemd_diagnostics, list_units_and_candidates) {
   for (const unit_listing &u : units)
     if (is_candidate(u)) picked.push_back(u.id);
   EXPECT_EQ(picked, (std::vector<std::string>{"acme-sync.service", "broken.service", "cron.service"}));
+
+  // A sweep reads the running units too; in between only the troubled ones...
+  EXPECT_EQ(select_units(units, true, {}), (std::vector<std::string>{"acme-sync.service", "broken.service", "cron.service"}));
+  EXPECT_EQ(select_units(units, false, {}), (std::vector<std::string>{"acme-sync.service", "broken.service"}));
+  // ...and the running ones the last sweep found restarted. A name in that
+  // set that is no longer running, or no longer there, adds nothing.
+  EXPECT_EQ(select_units(units, false, {"cron.service", "setup.service", "left.service"}),
+            (std::vector<std::string>{"acme-sync.service", "broken.service", "cron.service"}));
+  EXPECT_TRUE(is_running(units[3]));
+  EXPECT_FALSE(is_running(units[1]));
+  EXPECT_FALSE(is_running(units[5]));
 }
 
 TEST(systemd_diagnostics, exec_path_is_the_path_not_the_argv) {

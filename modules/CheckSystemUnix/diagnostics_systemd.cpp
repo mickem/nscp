@@ -75,6 +75,18 @@ bool is_candidate(const unit_listing &unit) {
   return unit.active == "failed" || unit.active == "activating" || unit.sub == "auto-restart" || (unit.active == "active" && unit.sub == "running");
 }
 
+bool is_running(const unit_listing &unit) { return unit.load != "not-found" && unit.active == "active" && unit.sub == "running"; }
+
+std::vector<std::string> select_units(const std::vector<unit_listing> &units, const bool sweep, const std::set<std::string> &restarted) {
+  std::vector<std::string> picked;
+  for (const unit_listing &u : units) {
+    if (!is_candidate(u)) continue;
+    if (is_running(u) && !sweep && restarted.count(u.id) == 0) continue;
+    picked.push_back(u.id);
+  }
+  return picked;
+}
+
 std::string show_properties() {
   return "Id,LoadState,ActiveState,SubState,Result,NRestarts,ExecMainCode,ExecMainStatus,ExecMainStartTimestampMonotonic,MainPID,ExecStart,User";
 }

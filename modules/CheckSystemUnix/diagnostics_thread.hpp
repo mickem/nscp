@@ -86,6 +86,12 @@ class collector {
   std::string errors_cursor_;
   std::int64_t service_events_since_ = 0;
   std::int64_t errors_since_ = 0;
+  // Every running unit is read on a sweep, one refresh in sweep_every (five
+  // minutes at the default refresh); the refreshes in between read the
+  // troubled units and the running ones the last sweep found restarted.
+  static constexpr int sweep_every = 10;
+  int refreshes_until_sweep_ = 0;
+  std::set<std::string> restarted_running_;
 
   std::shared_ptr<boost::thread> thread_;
   threads::stop_signal stop_signal_;

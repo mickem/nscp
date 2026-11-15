@@ -13,6 +13,7 @@
 #include <diagnostics/event_tables.hpp>
 #include <diagnostics/service_tables.hpp>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,16 @@ std::vector<unit_listing> parse_list_units(const std::string &output);
 // waiting to be restarted, or running (it may have been restarted before -
 // only its properties say). Everything else is left unread.
 bool is_candidate(const unit_listing &unit);
+// Whether the listing shows the unit up and running.
+bool is_running(const unit_listing &unit);
+
+// The units whose properties one refresh reads. A unit the listing shows in
+// trouble is read every time. A running one only has something to say when
+// it was restarted before, which only its properties tell - and a host has
+// far more running units than troubled ones - so those are all read on a
+// `sweep` and, in between, only the ones in `restarted`: the running units
+// the last sweep found a restart count on.
+std::vector<std::string> select_units(const std::vector<unit_listing> &units, bool sweep, const std::set<std::string> &restarted);
 
 // The properties services.problems reads, for `systemctl show --property=`.
 std::string show_properties();

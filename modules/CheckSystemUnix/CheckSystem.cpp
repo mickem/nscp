@@ -121,7 +121,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "Produce the services.problems and services.events diagnostics tables. services.problems lists the systemd services that failed, are "
         "waiting to be restarted, were restarted automatically (NRestarts) or whose last run did not succeed, with their state, exit status, "
         "executable (ExecStart's path, never its arguments), user, start time and restart count; it is re-read every 30 seconds with two bounded "
-        "systemctl calls. services.events holds the service manager's journal messages for a unit that failed, exited or is being restarted, "
+        "systemctl calls, which read the services that look troubled every time and every running one (for its restart count) every five "
+        "minutes. services.events holds the service manager's journal messages for a unit that failed, exited or is being restarted, "
         "with when, the service, and the message. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] "
         "capture diagnostics is on. Run on a thread of its own, the journal read every 10 seconds from where the last read stopped; at start the "
         "events are filled from the last ten minutes. Needs systemd: a host without it produces neither table.")

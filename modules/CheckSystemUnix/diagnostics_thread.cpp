@@ -63,10 +63,15 @@ void collector::add_sections(PB::Diagnostics::DiagnosticsMessage *out) const {
 void collector::refresh_problems() {
   service_tables::sample fresh;
   try {
-    std::vector<std::string> candidates;
-    for (const unit_listing &u : parse_list_units(source::systemctl({"list-units", "--type=service", "--all", "--no-legend", "--plain", "--no-pager"}))) {
-      if (is_candidate(u)) candidates.push_back(u.id);
+    const bool sweep = refreshes_until_sweep_ <= 0;
+    const std::vector<unit_listing> units =
+        parse_list_units(source::systemctl({"list-units", "--type=service", "--all", "--no-legend", "--plain", "--no-pager"}));
+    const std::vector<std::string> candidates = select_units(units, sweep, restarted_running_);
+    std::set<std::string> running;
+    for (const unit_listing &u : units) {
+      if (is_running(u)) running.insert(u.id);
     }
+    std::set<std::string> restarted;
     std::vector<service_tables::service_row> rows;
     const std::int64_t wall = now();
     const std::int64_t mono = source::monotonic_now_us();
@@ -76,8 +81,19 @@ void collector::refresh_problems() {
       args.insert(args.end(), candidates.begin() + static_cast<std::ptrdiff_t>(begin), candidates.begin() + static_cast<std::ptrdiff_t>(end));
       for (const auto &unit : parse_show(source::systemctl(args))) {
         service_tables::service_row row;
-        if (problem_row(unit, wall, mono, row)) rows.push_back(row);
+        if (!problem_row(unit, wall, mono, row)) continue;
+        rows.push_back(row);
+        const std::map<std::string, std::string>::const_iterator id = unit.find("Id");
+        if (id != unit.end() && running.count(id->second) > 0) restarted.insert(id->second);
       }
+    }
+    // Only a round that read everything it set out to moves the schedule: a
+    // failed sweep is tried again on the next refresh.
+    if (sweep) {
+      restarted_running_ = restarted;
+      refreshes_until_sweep_ = sweep_every - 1;
+    } else {
+      --refreshes_until_sweep_;
     }
     fresh = service_tables::make_sample(rows, wall);
   } catch (const std::exception &e) {
