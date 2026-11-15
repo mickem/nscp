@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package PB.Diagnostics;
+
+option optimize_for = LITE_RUNTIME;
+import "common.proto";
+
+//
+// Diagnostics: small point-in-time tables (the processes using the most CPU,
+// recent event log errors, services in trouble) that modules keep up to date
+// and the core collects on an interval, the way it collects metrics.
+//
+// A producer hands over what it already holds through NSFetchDiagnostics
+// (`"diagnostics": "produce"` in module.json, built with
+// include/nscapi/nscapi_diagnostics_helper.hpp). The core adds its own
+// sections, applies the caps ([/settings/core/failed checks]) and keeps the
+// result as the latest diagnostics snapshot, which a failed check is recorded
+// with and /api/v2/diagnostics serves (see service/diagnostics_snapshot.hpp).
+//
+
+message Column {
+	enum Type {
+		STRING = 0;
+		INT = 1;
+		FLOAT = 2;
+		// Seconds since the unix epoch, carried in a cell's `i`.
+		TIMESTAMP = 3;
+		BOOL = 4;
+	};
+	string name = 1;
+	Type type = 2;
+	// What the values are measured in ("bytes", "percent", ...); empty when
+	// nothing.
+	string unit = 3;
+	string description = 4;
+}
+
+// One value. A cell with no value set is a missing value (rendered as null).
+message Cell {
+	oneof value {
+		string s = 1;
+		int64 i = 2;
+		double f = 3;
+		bool b = 4;
+	}
+}
+
+// The cells of one row, in column order. The builder makes every row exactly
+// as wide as the section has columns.
+message Row {
+	repeated Cell cells = 1;
+}
+
+message Section {
+	// Dotted and lower case: "processes.top_cpu", "failures.recent".
+	string name = 1;
+	// The module that produced it (set by the core), or "core".
+	string source = 2;
+	string description = 3;
+	// When the producer took the data, seconds since the unix epoch. Per
+	// section: a snapshot can hold a process table one second old next to a
+	// directory walk ten minutes old.
+	int64 captured_at = 4;
+	repeated Column columns = 5;
+	repeated Row rows = 6;
+	// A row, cell or size cap cut it: "10 rows" is then "at least 10".
+	bool truncated = 7;
+	// Set when the section could not be collected. A section that failed and
+	// one that is absent mean different things to a reader.
+	string error = 8;
+}
+
+message DiagnosticsMessage {
+	repeated Section sections = 1;
+	// Set by a producer whose whole fetch failed. The core then reports each
+	// section that producer returned last time with this error.
+	string error = 2;
+}
+
+//
+// Reading the latest snapshot.
+// Consumer (REST, the `nscp test` console, a module) -> core, through
+// NSAPIDiagnosticsQuery. Never triggers a collection: the answer is the
+// snapshot the last round left.
+//
+message DiagnosticsRequestMessage {
+	message Request {
+		int64 id = 1;
+		// Only this section (empty for all of them).
+		string section = 2;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Request payload = 2;
+}
+
+message DiagnosticsResponseMessage {
+	message Response {
+		int64 id = 1;
+		PB.Common.Result result = 2;
+
+		// Whether diagnostics are collected at all
+		// ([/settings/core/failed checks] capture diagnostics).
+		bool enabled = 3;
+		// The snapshot's id, monotonic for the lifetime of the process; 0 when
+		// there is none yet (the first round has not run).
+		uint64 snapshot_id = 4;
+		// When the core finished the round, seconds since the unix epoch.
+		int64 captured_at = 5;
+		// The sections asked for: all of them, or the one named in the request
+		// (none when the snapshot does not have it).
+		DiagnosticsMessage snapshot = 6;
+		// The row cap in force (`diagnostics rows`).
+		uint32 max_rows = 7;
+		// Section names `prune pattern` left out of the snapshot.
+		repeated string excluded = 8;
+		// Sections dropped because the snapshot already held the most it may
+		// (16) or one of the same name.
+		uint32 dropped = 9;
+	};
+
+	PB.Common.Header header = 1;
+	repeated Response payload = 2;
+}

@@ -4,6 +4,7 @@ WRAP_PROTO(PROTO_PLUGIN_SRC plugin.proto)
 WRAP_PROTO(COMMON_PLUGIN_SRC common.proto)
 WRAP_PROTO(METRICS_PLUGIN_SRC metrics.proto)
 WRAP_PROTO(FACTS_PLUGIN_SRC facts.proto)
+WRAP_PROTO(DIAGNOSTICS_PLUGIN_SRC diagnostics.proto)
 WRAP_PROTO(FAILURES_PLUGIN_SRC failures.proto)
 WRAP_PROTO(LOG_PLUGIN_SRC log.proto)
 WRAP_PROTO(REGISTRY_PLUGIN_SRC registry.proto)
@@ -17,6 +18,7 @@ set(SRCS
     ${PROTO_PLUGIN_SRC_C}
     ${METRICS_PLUGIN_SRC_C}
     ${FACTS_PLUGIN_SRC_C}
+    ${DIAGNOSTICS_PLUGIN_SRC_C}
     ${FAILURES_PLUGIN_SRC_C}
     ${LOG_PLUGIN_SRC_C}
     ${REGISTRY_PLUGIN_SRC_C}
@@ -29,6 +31,7 @@ if(WIN32)
         plugin.proto
         metrics.proto
         facts.proto
+        diagnostics.proto
         failures.proto
         log.proto
         registry.proto
@@ -39,6 +42,7 @@ if(WIN32)
         ${PROTO_PLUGIN_SRC_H}
         ${METRICS_PLUGIN_SRC_H}
         ${FACTS_PLUGIN_SRC_H}
+        ${DIAGNOSTICS_PLUGIN_SRC_H}
         ${FAILURES_PLUGIN_SRC_H}
         ${LOG_PLUGIN_SRC_H}
         ${REGISTRY_PLUGIN_SRC_H}
@@ -71,6 +75,7 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
         ${PROTO_PLUGIN_SRC_LUA_C}
         ${METRICS_PLUGIN_SRC_LUA_C}
         ${FACTS_PLUGIN_SRC_LUA_C}
+        ${DIAGNOSTICS_PLUGIN_SRC_LUA_C}
         ${FAILURES_PLUGIN_SRC_LUA_C}
         ${LOG_PLUGIN_SRC_LUA_C}
         ${REGISTRY_PLUGIN_SRC_LUA_C}
@@ -83,6 +88,7 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
             plugin.proto
             metrics.proto
             facts.proto
+            diagnostics.proto
             failures.proto
             log.proto
             registry.proto
@@ -93,6 +99,7 @@ if(PROTOC_GEN_LUA_FOUND AND (LUA_FOUND OR LUA_SOURCE_FOUND))
             ${PROTO_PLUGIN_SRC_LUA_H}
             ${METRICS_PLUGIN_SRC_LUA_H}
             ${FACTS_PLUGIN_SRC_LUA_H}
+            ${DIAGNOSTICS_PLUGIN_SRC_LUA_H}
             ${FAILURES_PLUGIN_SRC_LUA_H}
             ${LOG_PLUGIN_SRC_LUA_H}
             ${REGISTRY_PLUGIN_SRC_LUA_H}

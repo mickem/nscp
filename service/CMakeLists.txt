@@ -261,6 +261,8 @@ NSCP_CREATE_TEST(
         failure_report.hpp
         metrics_prune_test.cpp
         metrics_prune.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/diagnostics_json_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/diagnostics_json.hpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp
     LIBRARIES
