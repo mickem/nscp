@@ -107,6 +107,20 @@ describe("DiagnosticsTable", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
+  it("shows the rows that were collected beside the error for the part that was not", () => {
+    render(
+      <DiagnosticsTable
+        name="eventlog.errors"
+        section={{ ...EVENTS, error: "Failed to subscribe to System: Access is denied." }}
+        now={NOW}
+      />,
+    );
+    expect(
+      screen.getByText("Not all of it could be collected: Failed to subscribe to System: Access is denied."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "eventlog.errors rows" })).toBeInTheDocument();
+  });
+
   it("says there are no rows rather than drawing an empty grid", () => {
     render(<DiagnosticsTable name="services.problems" section={{ ...EVENTS, rows: [] }} now={NOW} />);
     expect(screen.getByText(/No rows/)).toBeInTheDocument();

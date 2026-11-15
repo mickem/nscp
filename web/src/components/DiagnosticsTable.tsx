@@ -128,11 +128,14 @@ export default function DiagnosticsTable({ name, section, now, loading = false }
           {section.description}
         </Typography>
       )}
-      {section.error ? (
+      {/* An error does not rule out rows: a producer reading two logs reports
+          the one that failed and still carries the other's rows. */}
+      {section.error && (
         <Alert severity="warning" variant="outlined">
-          Could not be collected: {section.error}
+          {rows.length === 0 ? "Could not be collected" : "Not all of it could be collected"}: {section.error}
         </Alert>
-      ) : rows.length === 0 ? (
+      )}
+      {section.error && rows.length === 0 ? null : rows.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           {loading ? "Loading…" : "No rows: nothing to report when this was captured."}
         </Typography>

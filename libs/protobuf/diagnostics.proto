@@ -65,8 +65,10 @@ message Section {
 	repeated Row rows = 6;
 	// A row, cell or size cap cut it: "10 rows" is then "at least 10".
 	bool truncated = 7;
-	// Set when the section could not be collected. A section that failed and
-	// one that is absent mean different things to a reader.
+	// Set when the section could not be collected, or not all of it: a
+	// producer that reads several sources (two event logs) reports the one
+	// that failed here and still carries the rows from the others. A section
+	// that failed and one that is absent mean different things to a reader.
 	string error = 8;
 }
 

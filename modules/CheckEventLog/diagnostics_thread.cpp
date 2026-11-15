@@ -248,6 +248,15 @@ void eventlog_diagnostics::thread_proc() {
     feeds.push_back({"System", errors_query(), false});
   }
 
+  // A section can have more than one feed (eventlog.errors reads two logs):
+  // each failure names its log and they are reported together, beside the
+  // rows the feeds that did subscribe collect.
+  std::string service_failures, error_failures;
+  const auto failed = [&service_failures, &error_failures](const feed &f, const std::string &reason) {
+    std::string &failures = f.service ? service_failures : error_failures;
+    if (!failures.empty()) failures += "; ";
+    failures += reason;
+  };
   // Subscribe first, then seed: an event written in between is in both, and
   // the rings hold it once (by its record id).
   std::vector<HANDLE> handles;
@@ -260,18 +269,20 @@ void eventlog_diagnostics::thread_proc() {
         const std::string error = f.log->last_error.empty() ? "Failed to subscribe to " + f.channel : f.log->last_error;
         f.log.reset();
         f.signal.close();
-        set_error(f.service, error);
+        failed(f, error);
         continue;
       }
     } catch (const nsclient::nsclient_exception &e) {
       f.log.reset();
       f.signal.close();
-      set_error(f.service, e.reason());
+      failed(f, f.channel + ": " + e.reason());
       continue;
     }
     handles.push_back(f.signal.get());
     active.push_back(&f);
   }
+  if (!service_failures.empty()) set_error(true, service_failures);
+  if (!error_failures.empty()) set_error(false, error_failures);
 
   renderer render;
   const auto ring_of = [this](const bool service) -> event_tables::ring & { return service ? service_events_ : errors_ring_; };

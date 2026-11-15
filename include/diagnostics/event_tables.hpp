@@ -169,10 +169,9 @@ inline void add_service_events(PB::Diagnostics::DiagnosticsMessage *out, const r
       .column("id", type_int, "", "The event id (Windows); null for a journal entry")
       .column("message");
   detail::finish(t, s, state);
-  if (!state.error.empty()) {
-    t.error(state.error);
-    return;
-  }
+  // The error and the rows are independent: a reader that failed for one
+  // log, or on its last read, still has the rows it did collect.
+  if (!state.error.empty()) t.error(state.error);
   for (const event_row &e : s.rows) {
     auto r = t.row();
     r.add_time(e.time).add(e.service);
@@ -196,10 +195,9 @@ inline void add_errors(PB::Diagnostics::DiagnosticsMessage *out, const ring::sna
       .column("level")
       .column("message");
   detail::finish(t, s, state);
-  if (!state.error.empty()) {
-    t.error(state.error);
-    return;
-  }
+  // The error and the rows are independent: a reader that failed for one
+  // log, or on its last read, still has the rows it did collect.
+  if (!state.error.empty()) t.error(state.error);
   for (const event_row &e : s.rows) {
     auto r = t.row();
     r.add_time(e.time).add(e.log).add(e.source);

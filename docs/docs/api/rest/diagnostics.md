@@ -325,9 +325,11 @@ $ curl -k -s -u admin https://localhost:8443/api/v2/diagnostics/disk.growth_spot
 
 A column's `type` is `string`, `int`, `float`, `timestamp` or `bool`; `unit`
 and `description` are only there when set. A section that could not be
-collected carries an `error` and no rows: a failed table and an absent one
-mean different things, the first that something is wrong, the second that it
-is switched off.
+collected carries an `error`: a failed table and an absent one mean different
+things, the first that something is wrong, the second that it is switched
+off. An `error` does not rule out rows - `eventlog.errors` reads two logs, and
+when one of them cannot be read the section names it in `error` and still
+carries the rows from the other.
 
 A section the snapshot does not hold is a `404`, as is any section while
 `capture diagnostics` is off - the message says which.

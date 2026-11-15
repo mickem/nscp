@@ -148,5 +148,7 @@ TEST(event_tables, errors_table_carries_its_reader_state) {
   PB::Diagnostics::DiagnosticsMessage failed;
   event_tables::add_errors(&failed, ring.copy(), state);
   EXPECT_EQ(failed.sections(0).error(), state.error);
-  EXPECT_EQ(failed.sections(0).rows_size(), 0);
+  // One log failing does not hide what the other one collected.
+  ASSERT_EQ(failed.sections(0).rows_size(), 1);
+  EXPECT_EQ(failed.sections(0).rows(0).cells(5).s(), "second");
 }
