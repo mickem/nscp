@@ -40,6 +40,7 @@ eventlog_wrapper_new::eventlog_wrapper_new(const std::string &s_name) {
   name = eventlog_wrapper::find_eventlog_name(s_name);
   open();
 }
+eventlog_wrapper_new::eventlog_wrapper_new(const std::string &channel, const std::string &query) : name(channel), query(query) { open(); }
 eventlog_wrapper_new::~eventlog_wrapper_new() {
   if (isOpen()) close();
 }
@@ -59,13 +60,17 @@ void eventlog_wrapper_new::close() { hContext.close(); }
 bool eventlog_wrapper_new::notify(HANDLE &handle) {
   handle = CreateEvent(NULL, TRUE, TRUE, NULL);
   if (handle == NULL) {
-    NSC_LOG_ERROR_STD("Failed to create event: " + utf8::cvt<std::string>(error::lookup::last_error()));
+    last_error = "Failed to create event: " + error::lookup::last_error();
+    NSC_LOG_ERROR_STD(last_error);
     return false;
   }
 
-  hLog = eventlog::EvtSubscribe(NULL, handle, utf8::cvt<std::wstring>(name).c_str(), NULL, NULL, NULL, NULL, eventlog::api::EvtSubscribeToFutureEvents);
+  const std::wstring wquery = utf8::cvt<std::wstring>(query);
+  hLog = eventlog::EvtSubscribe(NULL, handle, utf8::cvt<std::wstring>(name).c_str(), query.empty() ? NULL : wquery.c_str(), NULL, NULL, NULL,
+                                eventlog::api::EvtSubscribeToFutureEvents);
   if (!hLog) {
-    NSC_LOG_ERROR_STD("Failed to subscribe: " + utf8::cvt<std::string>(error::lookup::last_error()));
+    last_error = "Failed to subscribe to " + name + ": " + error::lookup::last_error();
+    NSC_LOG_ERROR_STD(last_error);
     return false;
   }
   return true;

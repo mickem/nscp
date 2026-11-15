@@ -3,6 +3,7 @@
 
 #include <check/prefix_access_policy.hpp>
 #include <memory>
+#include <nscapi/nscapi_diagnostics_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 
@@ -10,9 +11,14 @@
 #include "filter.hpp"
 
 struct real_time_thread;
+class eventlog_diagnostics;
 class CheckEventLog : public nscapi::impl::simple_plugin {
  private:
   std::shared_ptr<real_time_thread> thread_;
+  // The diagnostics sections ([/settings/eventlog/diagnostics]); null while
+  // none is on. Replaced on a reload while a diagnostics round may be copying
+  // it, so it is published and read atomically.
+  std::shared_ptr<eventlog_diagnostics> diagnostics_;
   bool debug_;
   std::string syntax_;
   int buffer_length_;
@@ -38,6 +44,10 @@ class CheckEventLog : public nscapi::impl::simple_plugin {
   void insert_eventlog(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   void list_providers(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   void add_filter(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+
+  // Diagnostics: copies the rings the diagnostics thread fills, never reads a
+  // log itself.
+  void fetchDiagnostics(PB::Diagnostics::DiagnosticsMessage *response);
 
  private:
   // Render an already-positioned bookmark handle to XML and persist it under the

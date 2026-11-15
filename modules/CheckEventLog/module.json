@@ -11,6 +11,8 @@
 		"default_alias"	: "eventlog"
 	},
 
+	"diagnostics"	: "produce",
+
 	"commands" : {
 		"check_eventlog"	: "Check for errors in the event log.",
 		"CheckEventLog"		: "Legacy version of check_eventlog"

@@ -11,6 +11,7 @@ set(SRCS
     ${TARGET}.cpp
     realtime_data.cpp
     realtime_thread.cpp
+    diagnostics_thread.cpp
     filter_config_object.cpp
     filter.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -29,6 +30,7 @@ if(WIN32)
         ${SRCS}
         "${TARGET}.h"
         realtime_thread.hpp
+        diagnostics_thread.hpp
         realtime_data.hpp
         eventlog_record.hpp
         eventlog_wrapper.hpp

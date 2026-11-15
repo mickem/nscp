@@ -17,7 +17,7 @@
  */
 import request from "supertest";
 
-import { NscpInstance, REST_URL } from "@fixtures/index";
+import { NscpInstance, REST_URL, eventIdAllocator, resolveEventLogSource, writeEventLogEntry } from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
@@ -35,6 +35,8 @@ function config(
       WEBServer: "enabled",
       CheckHelpers: "enabled",
       CheckSystem: "enabled",
+      // The event tables on Windows; the journal ones are CheckSystemUnix's.
+      ...(onWindows ? { CheckEventLog: "enabled" } : {}),
     },
     "/settings/default": {
       password: "default-password",
@@ -221,7 +223,10 @@ describe("REST diagnostics", () => {
         : "/settings/system/unix/diagnostics";
       ({ nscp, key } = await startAgent(
         { "capture diagnostics": "true", "diagnostics rows": "5" },
-        { [diagnosticsPath]: { processes: "true", services: "true" } },
+        {
+          [diagnosticsPath]: { processes: "true", services: "true" },
+          ...(onWindows ? { "/settings/eventlog/diagnostics": { services: "true", errors: "true" } } : {}),
+        },
       ));
     });
 
@@ -304,6 +309,55 @@ describe("REST diagnostics", () => {
           expect(row.restart_count).toBeNull();
         }
       }
+    });
+
+    it("publishes the service crash events (services.events)", async () => {
+      // A healthy machine may have none in the last ten minutes.
+      if (!onWindows) return;
+      const body = await section(key, "services.events", 0);
+      expect(body.error).toBeUndefined();
+      expectRecent(body.captured_at);
+      expectColumns(body, [
+        ["time", "timestamp"],
+        ["service", "string"],
+        ["id", "int"],
+        ["message", "string"],
+      ]);
+      for (const row of body.rows as Json[]) {
+        expect([7031, 7034, 7024]).toContain(row.id);
+        expect(typeof row.service).toBe("string");
+      }
+    });
+
+    it("publishes the last errors written to the logs (eventlog.errors)", async () => {
+      if (!onWindows) return;
+      const body = await section(key, "eventlog.errors", 0);
+      expect(body.error).toBeUndefined();
+      expectRecent(body.captured_at);
+      expectColumns(body, [
+        ["time", "timestamp"],
+        ["log", "string"],
+        ["source", "string"],
+        ["id", "int"],
+        ["level", "string"],
+        ["message", "string"],
+      ]);
+
+      // Write an error of our own and watch it arrive. The source has no
+      // message for our id, so the message is the event's own string; the
+      // level and log are the agent's words, not the host's language.
+      const source = resolveEventLogSource();
+      const id = eventIdAllocator(20000).base;
+      const marker = `nscp-diagnostics-${id}`;
+      expect(writeEventLogEntry(source, id, "Error", marker)).toBe(true);
+      const row = await until("the injected error in eventlog.errors", async () => {
+        const s = await section(key, "eventlog.errors", 0);
+        return (s.rows as Json[]).find((r) => r.id === id && r.source === source);
+      });
+      expect(row.log).toEqual("Application");
+      expect(row.level).toEqual("error");
+      expect(row.message as string).toContain(marker);
+      expectRecent(row.time);
     });
 
     it("records a failure with the snapshot, readable with failures.list", async () => {
