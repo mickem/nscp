@@ -354,6 +354,12 @@ mind once `capture diagnostics` is on.
 
 ## Other ways in
 
+* The web UI's **Diagnostics** page shows every table of the latest snapshot,
+  `failures.recent` first, with the refresh selector the Metrics page has. It
+  reads these routes, so it needs `diagnostics.list`: a role without it is
+  told so on the page. With capture off the page says how to turn it on. The
+  **Failed checks** page shows the tables a failure was recorded with under
+  `failures.list`.
 * The `nscp test` prompt has `diagnostics` to list the tables and
   `diagnostics <section>` to print one.
 * Modules read the snapshot through the `NSAPIDiagnosticsQuery` core API

@@ -12,7 +12,10 @@ host* without going through the monitoring server.
 * [Clear the log](#clear-the-log) — `DELETE /api/v2/failures`
 
 The web UI shows the same log on its **Failed checks** page and, while
-something has failed, as a widget on the dashboard.
+something has failed, as a widget on the dashboard. Opening an entry shows
+what it was recorded with: *System at the time* (the metrics snapshot) and,
+with `capture diagnostics` on, *Diagnostics at the time* - one table per
+[diagnostics](diagnostics.md) section, `failures.recent` first.
 
 **The log is on by default** and lives in memory: it starts empty when the
 service starts and is never written to disk. It also records what the core

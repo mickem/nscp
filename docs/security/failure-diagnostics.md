@@ -18,7 +18,8 @@ disk (`disk.growth_spots`) - and they reach readers three ways:
 * **Live, over REST.** `GET /api/v2/diagnostics` and
   `GET /api/v2/diagnostics/<section>` serve the latest snapshot under a new
   grant, `diagnostics.list`, which no built-in role holds other than `full`
-  (through `*`).
+  (through `*`). The web UI's **Diagnostics** page reads these routes and
+  the **Failed checks** page the one below, under the same grants.
 * **With a failed check, over REST.** `GET /api/v2/failures/<index>/context`
   serves the diagnostics a failure was recorded with under the existing
   `failures.list` grant. A caller holding `failures.list` can therefore read
