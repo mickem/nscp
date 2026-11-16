@@ -23,6 +23,7 @@ BOOST_PYTHON_MODULE(NSCP) {
       .def("get_section", &script_wrapper::settings_wrapper::get_section)
       .def("get_string", &script_wrapper::settings_wrapper::get_string)
       .def("set_string", &script_wrapper::settings_wrapper::set_string)
+      .def("remove_key", &script_wrapper::settings_wrapper::remove_key)
       .def("get_bool", &script_wrapper::settings_wrapper::get_bool)
       .def("set_bool", &script_wrapper::settings_wrapper::set_bool)
       .def("get_int", &script_wrapper::settings_wrapper::get_int)

@@ -75,6 +75,7 @@ namespace settings_wrapper {
 int get_section(lua_State *L);
 int get_string(lua_State *L);
 int set_string(lua_State *L);
+int remove_key(lua_State *L);
 int get_bool(lua_State *L);
 int set_bool(lua_State *L);
 int get_int(lua_State *L);

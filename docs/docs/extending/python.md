@@ -904,6 +904,8 @@ Settings.set_string(path, key, value)
 ```
 
 Read or write a string. Writes are not persisted until `save()` is called.
+Writing an empty string stores the empty string; to delete a key, so that a
+read falls back to its default, use `remove_key`.
 
 ```python
 from NSCP import Settings, log
@@ -923,6 +925,14 @@ def init(plugin_id, plugin_alias, script_alias):
     config.set_string("/modules", "PythonScript", "enabled")
     config.save()
 ```
+
+#### `Settings.remove_key`
+
+```python
+Settings.remove_key(path, key)
+```
+
+Delete a key. Like a write, it is not persisted until `save()` is called.
 
 #### `Settings.get_bool` / `Settings.set_bool`
 

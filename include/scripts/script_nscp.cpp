@@ -16,6 +16,8 @@ std::string scripts::nscp::settings_provider_impl::get_string(std::string path, 
 
 void scripts::nscp::settings_provider_impl::set_string(std::string path, std::string key, std::string value) { settings_.set_string(path, key, value); }
 
+void scripts::nscp::settings_provider_impl::remove_key(std::string path, std::string key) { settings_.remove_key(path, key); }
+
 bool scripts::nscp::settings_provider_impl::get_bool(std::string path, std::string key, bool value) { return settings_.get_bool(path, key, value); }
 
 void scripts::nscp::settings_provider_impl::set_bool(std::string path, std::string key, bool value) { settings_.set_bool(path, key, value); }

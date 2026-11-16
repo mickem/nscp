@@ -63,7 +63,12 @@ message SettingsRequestMessage {
 			bool redact_sensitive = 8;
 		};
 		message Update {
+			// An empty `node.value` removes the key (or, with an empty key
+			// too, the whole path) - unless `store_empty` is set, in which
+			// case the key is set to the empty string. Senders that predate
+			// the field keep the remove behaviour.
 			Node node = 1;
+			bool store_empty = 2;
 		};
 		message Inventory {
 			string plugin = 11;

@@ -151,6 +151,8 @@ namespace NSCP.Helpers
             newQuery.Node.Path = path;
             newQuery.Node.Key = key;
             newQuery.Node.Value = value;
+            // Without it an empty value would remove the key instead of clearing it.
+            newQuery.StoreEmpty = true;
             SettingsRequestMessage.Types.Request request = new SettingsRequestMessage.Types.Request();
             request.PluginId = plugin_id;
             request.Update = newQuery;

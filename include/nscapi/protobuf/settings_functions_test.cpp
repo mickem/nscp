@@ -235,6 +235,20 @@ TEST_F(SettingsQueryTest, EraseGeneratesRequest) {
   EXPECT_FALSE(request.empty());
 }
 
+// set() is a set even for an empty value (store_empty); erase() is the
+// removal, and leaves the flag off.
+TEST_F(SettingsQueryTest, SetMarksStoreEmptyAndEraseDoesNot) {
+  settings_query query(1);
+  query.set("/test/path", "cleared", "");
+  query.erase("/test/path", "gone");
+  PB::Settings::SettingsRequestMessage message;
+  ASSERT_TRUE(message.ParseFromString(query.request()));
+  ASSERT_EQ(message.payload_size(), 2);
+  EXPECT_TRUE(message.payload(0).update().store_empty());
+  EXPECT_EQ(message.payload(0).update().node().value(), "");
+  EXPECT_FALSE(message.payload(1).update().store_empty());
+}
+
 TEST_F(SettingsQueryTest, ListGeneratesRequest) {
   settings_query query(1);
   query.list("/test/path");

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
@@ -13,7 +14,11 @@
 
 unsigned int nscapi::report::parse(std::string str) {
   unsigned int report = 0;
-  for (const std::string &key : str::utils::split_lst(str, std::string(","))) {
+  for (std::string key : str::utils::split_lst(str, std::string(","))) {
+    // `report = critical, warning` is how a list is naturally written: without
+    // the trim the second entry was " warning" and silently matched nothing.
+    boost::algorithm::trim(key);
+    boost::algorithm::to_lower(key);
     if (key == "all") {
       report |= REPORT_ERROR | REPORT_OK | REPORT_UNKNOWN | REPORT_WARNING;
     } else if (key == "error" || key == "err" || key == "critical" || key == "crit") {
@@ -48,11 +53,11 @@ std::string nscapi::report::to_string(unsigned int report) {
   }
   if ((report & REPORT_WARNING) == REPORT_WARNING) {
     if (!ret.empty()) ret += ",";
-    ret += "warn,";
+    ret += "warn";
   }
   if ((report & REPORT_UNKNOWN) == REPORT_UNKNOWN) {
     if (!ret.empty()) ret += ",";
-    ret += "unknown,";
+    ret += "unknown";
   }
   if (ret.empty()) ret = "<none>";
   return ret;

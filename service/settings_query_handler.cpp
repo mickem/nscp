@@ -335,7 +335,10 @@ void settings_query_handler::parse_registration(const PB::Settings::SettingsRequ
 
 void settings_query_handler::parse_update(const PB::Settings::SettingsRequestMessage::Request::Update &p, PB::Settings::SettingsResponseMessage::Response *rp) {
   rp->mutable_update();
-  if (!p.node().value().empty()) {
+  // An empty value is a removal unless the sender asked for it to be stored
+  // (store_empty): without the flag, settings_proxy::set_string(path, key, "")
+  // deleted the key instead of clearing it.
+  if (!p.node().value().empty() || (p.store_empty() && !p.node().key().empty())) {
     settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.node().value());
   } else if (!p.node().key().empty()) {
     settings_manager::get_settings()->remove_key(p.node().path(), p.node().key());

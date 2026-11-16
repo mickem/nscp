@@ -231,6 +231,7 @@ struct settings_wrapper {
 
   std::string get_string(std::string path, std::string key, std::string def = "");
   void set_string(std::string path, std::string key, std::string value);
+  void remove_key(std::string path, std::string key);
   bool get_bool(std::string path, std::string key, bool def);
   void set_bool(std::string path, std::string key, bool value);
   int get_int(std::string path, std::string key, int def);

@@ -61,6 +61,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_status_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_submit_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/failures_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/settings_functions.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_convert.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_copy.cpp
@@ -168,6 +169,39 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+# The return-code, report-mode and log-level helpers every plugin links
+# (include/nscapi/nscapi_helper.cpp).
+NSCP_CREATE_TEST(
+    nscapi_helper_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+# nscapi::settings_proxy and the alias definitions (nscapi/command_alias.hpp),
+# driven through the stub core in nscapi/test_helpers.hpp.
+NSCP_CREATE_TEST(
+    nscapi_settings_core_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/settings/proxy_core_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/command_alias_test.cpp
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols command_object::read() needs, so compile them in (see
+        # graphite_module_test). Nor the utf8 helpers command_alias.hpp logs
+        # through.
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -825,6 +859,20 @@ NSCP_CREATE_TEST(
     script_root_test
     SOURCES
         ${NSCP_INCLUDEDIR}/scripts/script_root_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+# The script-file sandbox behind `nscp lua|py list/show/delete` and the
+# /api/v2/scripts endpoints (include/scripts/script_files.hpp): header-only and
+# shared by LUAScript and PythonScript, so pinned once here.
+NSCP_CREATE_TEST(
+    script_files_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/scripts/script_files_test.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}

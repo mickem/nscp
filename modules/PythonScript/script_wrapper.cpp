@@ -1096,6 +1096,7 @@ std::shared_ptr<script_wrapper::settings_wrapper> script_wrapper::settings_wrapp
 
 std::string script_wrapper::settings_wrapper::get_string(std::string path, std::string key, std::string def) { return settings.get_string(path, key, def); }
 void script_wrapper::settings_wrapper::set_string(std::string path, std::string key, std::string value) { settings.set_string(path, key, value); }
+void script_wrapper::settings_wrapper::remove_key(std::string path, std::string key) { settings.remove_key(path, key); }
 bool script_wrapper::settings_wrapper::get_bool(std::string path, std::string key, bool def) { return settings.get_bool(path, key, def); }
 void script_wrapper::settings_wrapper::set_bool(std::string path, std::string key, bool value) { settings.set_bool(path, key, value); }
 int script_wrapper::settings_wrapper::get_int(std::string path, std::string key, int def) { return settings.get_int(path, key, def); }
