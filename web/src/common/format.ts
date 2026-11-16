@@ -26,3 +26,24 @@ export function formatBytes(bytes: number): string {
 export function formatDecimal(value: number, digits = 2): string {
   return String(Number(value.toFixed(digits)));
 }
+
+// What a declared unit is spelled as behind a value. A unit that is not listed
+// is shown as its producer wrote it.
+const UNIT_SUFFIX: Record<string, string> = {
+  percent: "%",
+  seconds: "s",
+  milliseconds: "ms",
+  celsius: "°C",
+  mhz: "MHz",
+  milliwatts: "mW",
+  milliwatthours: "mWh",
+};
+
+/** A value as a person reads it: scaled when it is a byte count, with its unit behind it. */
+export function formatMetricValue(value: string | number, unit?: string): string {
+  if (typeof value !== "number") return String(value);
+  if (unit === "bytes") return formatBytes(value);
+  const text = formatDecimal(value, 3);
+  if (!unit) return text;
+  return `${text} ${UNIT_SUFFIX[unit] ?? unit}`;
+}

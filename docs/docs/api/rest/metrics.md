@@ -208,6 +208,11 @@ that already ends in its unit keeps the name it had, which covers every `.%`
 key (`system_mem_physical_percent`) and the clock frequencies
 (`system_cpu_frequency_core_0_current_mhz`).
 
+A percentage whose key ends in `_pct` (`disk_free_free_pct`) is the one
+exception: `_pct` already says what `_percent` would, so the family keeps its
+name and is served without a `# UNIT` line, which is only valid on a name that
+ends in the unit. The unit is still in the `?meta=1` metadata.
+
 ### Types
 
 | Protobuf value    | Type        | Sample                          | Used for |

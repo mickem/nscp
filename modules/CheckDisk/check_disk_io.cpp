@@ -132,8 +132,10 @@ void disk_free::build_metrics(PB::Metrics::MetricsBundle *section, const used_hi
   vol.metric("free").help("Free space on the volume").unit("bytes").gauge(free);
   vol.metric("used").help("Used space on the volume").unit("bytes").gauge(total - free);
   vol.metric("user_free").help("Free space the querying user may actually use, after quotas").unit("bytes").gauge(user_free);
-  vol.metric("free_pct").help("Free space as a share of the volume").gauge(get_free_pct());
-  vol.metric("used_pct").help("Used space as a share of the volume").gauge(get_used_pct());
+  // The OpenMetrics renderer leaves a `_pct` name alone, so the unit describes
+  // the value without moving the family these two shipped under.
+  vol.metric("free_pct").help("Free space as a share of the volume").unit("percent").gauge(get_free_pct());
+  vol.metric("used_pct").help("Used space as a share of the volume").unit("percent").gauge(get_used_pct());
   // Gauges: space is freed as well as used. Absent, not 0, until the
   // collector has a sample a full window old (see used_history.hpp).
   if (changes != nullptr && changes->change_1h)

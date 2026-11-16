@@ -475,6 +475,33 @@ TEST(OpenmetricsRenderer, ANameThatAlreadyEndsInItsUnitIsNotSuffixedTwice) {
   EXPECT_FALSE(contains(body, "current_mhz_mhz"));
 }
 
+TEST(OpenmetricsRenderer, APercentageNamedPctKeepsItsNameAndGoesWithoutAUnitLine) {
+  // `disk_free_free_pct` shipped before it declared a unit. Declaring one must
+  // not rename it to `..._pct_percent`, and a `# UNIT` line on a name that
+  // does not end in the unit is one a strict parser rejects.
+  snapshot s;
+  PB::Metrics::MetricsBundle *disk = s.bundle("disk");
+  snapshot::described(snapshot::gauge(disk, "free.free_pct", 34.0), "Free space as a share of the volume", "percent");
+
+  for (const std::string &body : {render(s), render_text(s)}) {
+    EXPECT_EQ(body,
+              "# HELP disk_free_free_pct Free space as a share of the volume\n"
+              "# TYPE disk_free_free_pct gauge\n"
+              "disk_free_free_pct 34\n"
+              "# EOF\n");
+  }
+}
+
+TEST(OpenmetricsRenderer, OnlyAPercentageIsExcusedByAPctName) {
+  // The exception is for the one spelling of the one unit, not for any name
+  // that happens to end in `_pct`.
+  snapshot s;
+  PB::Metrics::MetricsBundle *disk = s.bundle("disk");
+  snapshot::described(snapshot::gauge(disk, "odd_pct", 5.0), "Not a percentage", "bytes");
+
+  EXPECT_TRUE(contains(render(s), "# UNIT disk_odd_pct_bytes bytes\n"));
+}
+
 // --- types ------------------------------------------------------------------
 
 TEST(OpenmetricsRenderer, ACounterCarriesTheTotalSuffixOnItsSample) {

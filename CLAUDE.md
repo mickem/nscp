@@ -267,7 +267,9 @@ the helper goes in its `ALLOWED` set with the reason.
   per-second rate declares none: the exposition appends the unit to the family
   name, and `..._received_bytes` would claim the sample is a byte count. A key
   that already ends in its unit (`.%` sanitises to `_percent`, `current_mhz`)
-  keeps the name it had, so declaring the unit there is free.
+  keeps the name it had, so declaring the unit there is free. So is `percent`
+  on a key ending in `_pct`: the renderer keeps that name and leaves the
+  `# UNIT` line off (`says_percent_already()` in `openmetrics_renderer.cpp`).
 - **A metric measured once per instance says so with `instance()` and
   `label()`**, rather than pasting the instance into the key and letting it
   become a family name:
