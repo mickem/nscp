@@ -195,8 +195,10 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/command_alias_test.cpp
         # The Windows plugin_api DLL does not export the settings_helper
         # symbols command_object::read() needs, so compile them in (see
-        # graphite_module_test).
+        # graphite_module_test). Nor the utf8 helpers command_alias.hpp logs
+        # through.
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}

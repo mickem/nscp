@@ -41,13 +41,13 @@ class fake_settings : public nscapi::settings_helper::settings_impl_interface {
   void debug(const char *, int, std::string) override {}
 };
 
-const std::string base = "/settings/system/real-time";
+const std::string realtime_section = "/settings/system/real-time";
 
 template <class T>
 T read(const std::string &section, const std::string &alias, const std::map<std::string, std::string> &keys, const std::string &oneliner = "") {
   auto settings = std::make_shared<fake_settings>();
-  for (const auto &kv : keys) settings->values[base + "/" + section + "/" + alias][kv.first] = kv.second;
-  T obj(alias, base + "/" + section);
+  for (const auto &kv : keys) settings->values[realtime_section + "/" + section + "/" + alias][kv.first] = kv.second;
+  T obj(alias, realtime_section + "/" + section);
   if (!oneliner.empty()) obj.set_value(oneliner);
   obj.read(settings, !oneliner.empty(), false);
   return obj;
@@ -61,7 +61,7 @@ std::list<std::string> L(std::initializer_list<std::string> v) { return v; }
 // comma separated entries; an empty value leaves the list alone, so a later
 // empty `time` does not wipe what `times` set.
 TEST(RealtimeFilterConfig, SetDataAndSetDatas) {
-  filters::cpu::filter_config_object o("x", base + "/cpu");
+  filters::cpu::filter_config_object o("x", realtime_section + "/cpu");
   o.set_datas(" 1m , 5m,15m ");
   EXPECT_EQ(o.data, L({"1m", "5m", "15m"}));
   o.set_data("");
@@ -112,7 +112,7 @@ TEST(RealtimeFilterConfig, ProcessReadsProcesses) {
 }
 
 TEST(RealtimeFilterConfig, ToStringNamesTheAlias) {
-  EXPECT_EQ(filters::cpu::filter_config_object("c", base).to_string().rfind("c[c] = {tpl: ", 0), 0u);
-  EXPECT_EQ(filters::mem::filter_config_object("m", base).to_string().rfind("m[m] = {tpl: ", 0), 0u);
-  EXPECT_EQ(filters::proc::filter_config_object("p", base).to_string().rfind("p[p] = {tpl: ", 0), 0u);
+  EXPECT_EQ(filters::cpu::filter_config_object("c", realtime_section).to_string().rfind("c[c] = {tpl: ", 0), 0u);
+  EXPECT_EQ(filters::mem::filter_config_object("m", realtime_section).to_string().rfind("m[m] = {tpl: ", 0), 0u);
+  EXPECT_EQ(filters::proc::filter_config_object("p", realtime_section).to_string().rfind("p[p] = {tpl: ", 0), 0u);
 }

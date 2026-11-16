@@ -18,7 +18,7 @@
 
 namespace {
 
-const std::string base = "/settings/external scripts/alias";
+const std::string alias_section = "/settings/external scripts/alias";
 
 class CommandAlias : public ::testing::Test {
  protected:
@@ -27,8 +27,8 @@ class CommandAlias : public ::testing::Test {
 
   // An alias as `name = <line>` directly under the alias section.
   alias::command_object one_liner(const std::string &name, const std::string &line) {
-    core().set_setting(base, name, line);
-    alias::command_object o(name, base);
+    core().set_setting(alias_section, name, line);
+    alias::command_object o(name, alias_section);
     o.set_value(line);
     o.read(nscapi::settings_proxy::create(1, nscapi::plugin_singleton->get_core()), true, false);
     return o;
@@ -48,12 +48,12 @@ TEST_F(CommandAlias, OneLinerSplitsCommandAndArguments) {
 }
 
 TEST_F(CommandAlias, SectionFormReadsTheCommandKey) {
-  core().set_setting(base + "/my_alias", "command", "check_memory type=physical");
-  alias::command_object o("my_alias", base);
+  core().set_setting(alias_section + "/my_alias", "command", "check_memory type=physical");
+  alias::command_object o("my_alias", alias_section);
   o.read(nscapi::settings_proxy::create(1, nscapi::plugin_singleton->get_core()), false, false);
   EXPECT_EQ(o.command, "check_memory");
   EXPECT_EQ(o.arguments, L({"type=physical"}));
-  EXPECT_TRUE(core().has_key(base + "/my_alias", "command"));
+  EXPECT_TRUE(core().has_key(alias_section + "/my_alias", "command"));
 }
 
 TEST_F(CommandAlias, EscapedSpaceAndBackslash) {
@@ -75,7 +75,7 @@ TEST_F(CommandAlias, MalformedLineIsRefused) {
 // set_command("") keeps what was there: an empty `command` key under a
 // section must not wipe the one-liner value it was cloned from.
 TEST_F(CommandAlias, EmptyCommandLeavesTheDefinitionAlone) {
-  alias::command_object o("x", base);
+  alias::command_object o("x", alias_section);
   o.set_command("check_ok a b");
   o.set_command("");
   EXPECT_EQ(o.command, "check_ok");
@@ -83,7 +83,7 @@ TEST_F(CommandAlias, EmptyCommandLeavesTheDefinitionAlone) {
 }
 
 TEST_F(CommandAlias, ToStringShowsCommandAndArguments) {
-  alias::command_object o("x", base);
+  alias::command_object o("x", alias_section);
   o.set_command("check_ok a b");
   const std::string s = o.to_string();
   EXPECT_NE(s.find("x[x] = {tpl: "), std::string::npos) << s;
