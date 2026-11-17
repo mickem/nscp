@@ -201,22 +201,41 @@ sample per second into `stress/results/<scenario>.json` (git-ignored; uploaded a
 
 - zero failed requests and zero lost submissions;
 - the agent answers `check_ok` within 2 s after the load stops;
-- RSS at the end of the load within 20 % of RSS after warm-up, thread count flat (the leak canary);
+- the RSS peak over the last 5 s of the load within 20 % of the peak over the first 5 s after warm-up, thread count flat
+  (the leak canary; peaks, because RSS under load is a sawtooth and two single samples measure where each landed);
 - the log has no `terminated by an uncaught exception` and no `Failed to` lines.
 
 Throughput is recorded, never asserted; a baseline file with regression bars comes once a few runs exist.
 
-| File                                        | Load                                                                                                                                                                                                                                                                         |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stress/rest-flood.stress.ts`               | N parallel workers (undici) on `check_ok`, a collector-backed `check_cpu` and `/api/v2/metrics`; the WEBServer threads and the dispatch path                                                                                                                                 |
-| `stress/scheduler-load.stress.ts`           | 1000 schedules at 5 s on a 50-thread pool into the REST passive result cache, drained once a second; delivered beats against expected, every schedule seen                                                                                                                   |
-| `stress/slow-check-isolation.stress.ts`     | Rounds of one slow check per engine at once (external script, Python, Lua, Lua→Python, Python→Lua), proven to overlap by marker files, with every fast path probed meanwhile; each probe must answer its own token within a quarter of a slow check. Over NRPE and over REST |
-| `stress/mixed-flood.stress.ts`              | N NRPE workers over every fast path (C++, Python, Lua, the cross-engine calls, an external process), each request checked against its own token, with one slow check per engine running behind for the whole window; no request may take as long as a slow check             |
-| `stress/scheduler-slow-neighbour.stress.ts` | 200 quick schedules over every fast path plus one slow schedule per engine on the default 10-thread pool, into the result cache; every quick schedule on time with its own message, no late starts                                                                           |
+| File                                        | Load                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stress/rest-flood.stress.ts`               | N parallel workers (undici) on `check_ok`, a collector-backed `check_cpu` and `/api/v2/metrics`; the WEBServer threads and the dispatch path                                                                                                                                                                                                                                                                               |
+| `stress/scheduler-load.stress.ts`           | 1000 schedules at 5 s on a 50-thread pool into the REST passive result cache, drained once a second; delivered beats against expected, every schedule seen                                                                                                                                                                                                                                                                 |
+| `stress/slow-check-isolation.stress.ts`     | Rounds of one slow check per engine at once (external script, Python, Lua, Lua→Python, Python→Lua), proven to overlap by marker files, with every fast path probed meanwhile; each probe must answer its own token within a quarter of a slow check. Over NRPE and over REST                                                                                                                                               |
+| `stress/mixed-flood.stress.ts`              | N NRPE workers over every fast path (C++, Python, Lua, the cross-engine calls, an external process), each request checked against its own token, with one slow check per engine running behind for the whole window; no request may take as long as a slow check                                                                                                                                                           |
+| `stress/scheduler-slow-neighbour.stress.ts` | 200 quick schedules over every fast path plus one slow schedule per engine on the default 10-thread pool, into the result cache; every quick schedule on time with its own message, no late starts                                                                                                                                                                                                                         |
+| `stress/nrpe-flood.stress.ts`               | N NRPE workers from a TypeScript NRPE v2 client (`stress/lib/nrpe-client.ts`) on a token-echoing `check_ok` and the collector-backed `check_cpu`, once in the clear and once over mutual TLS against the server's cert mode, one agent and one report per mode; every answer its own request's                                                                                                                             |
+| `stress/passive-flood.stress.ts`            | N workers submitting NSCA results from a TypeScript client (`stress/lib/nsca-client.ts`) into NSCAServer, drained from the result cache ten times a second (its `max entries` raised for the run: the default 1000 would evict a flood of unique keys between two polls); every submission back under its own key with its own status, host and message, nothing lost. NSCA is the one passive protocol the agent receives |
+| `stress/reload-soak.stress.ts`              | The REST flood and 200 schedules running while CheckHelpers, the Scheduler and LUAScript are reloaded in turn every 5 s, each round preceded by a settings write over REST and complete only once the reload is seen to apply; every round completed, every schedule seen, no failed request. Three minutes by default, `NSCP_STRESS_DURATION=1800` for a soak                                                             |
 
-Knobs, all environment variables: `NSCP_STRESS_DURATION` (seconds, default 60), `NSCP_STRESS_CONCURRENCY` (32),
-`NSCP_STRESS_RPS` (0 = unbounded), `NSCP_STRESS_RSS_TOLERANCE` (percent, 20) and `NSCP_STRESS_SCHEDULES` (1000 for
-`scheduler-load`, 200 for `scheduler-slow-neighbour`). A soak is the same scenario with `NSCP_STRESS_DURATION=1800`.
+Knobs, all environment variables: `NSCP_STRESS_DURATION` (seconds, default 60; 180 for `reload-soak`),
+`NSCP_STRESS_CONCURRENCY` (32), `NSCP_STRESS_RPS` (0 = unbounded), `NSCP_STRESS_RSS_TOLERANCE` (percent, 20) and
+`NSCP_STRESS_SCHEDULES` (1000 for `scheduler-load`, 200 for `scheduler-slow-neighbour` and `reload-soak`). A soak is the
+same scenario with `NSCP_STRESS_DURATION=1800`. The wire-protocol floods have their own: `NSCP_STRESS_NSCA_PORT` (15667)
+and `NSCP_STRESS_NSCA_CIPHER` (aes256; none, xor, aes128, aes192 or aes256 - the other ciphers are proven one by one in
+`nsca-loopback.test.ts`) for `passive-flood`, `NSCP_STRESS_NRPE_PORT` (below) for `nrpe-flood`, and
+`NSCP_STRESS_RELOAD_EVERY` (seconds between rounds, 5) for `reload-soak`.
+
+The NRPE and NSCA clients build and check every packet in TypeScript, but the stress harness has their connections made
+by a Python helper, `stress/lib/socket_pump.py` (standard library only, any Python 3.8+), driven over stdin/stdout by
+`stress/lib/socket-pump.ts`. Node's own loopback `connect()` crashes now and then on Windows: every libuv to date passes
+an uninitialised `OSVERSIONINFOW` to `RtlGetVersion` (libuv #5106, fixed in 1.53.0, which no Node release ships yet),
+and at a connection per request node dies on its stack cookie - exit `0xC0000409`, no output, Jest's `RUNS` line just
+stops. The pump also hangs up with a reset once the agent has closed, so neither side piles up `TIME_WAIT`. Its knobs:
+`NSCP_STRESS_SOCKETS` (`python`, the stress default; `node` puts the connections back on node, which is what the regular
+suites borrowing the NRPE client use), `NSCP_STRESS_PUMPS` (pump processes, 4 - one tops out below the agent) and
+`NSCP_STRESS_PYTHON` (`python` on Windows, `python3` elsewhere). The REST client keeps its undici keep-alive pool: it
+opens a handful of connections, not one per request.
 
 The engine scenarios (`slow-check-isolation`, `mixed-flood`, `scheduler-slow-neighbour`) share one agent setup,
 `stress/lib/engines.ts`: CheckHelpers, CheckExternalScripts, PythonScript and LUAScript with the fixture scripts in
@@ -234,6 +253,9 @@ NSCP_STRESS_DURATION=300 npx jest --config jest.stress.config.js --runInBand res
 The sanitizer workflow (`.github/workflows/tests-sanitizers.yml`) runs `rest-flood`, `scheduler-load`,
 `slow-check-isolation` and `mixed-flood` for a minute each against the ASan/UBSan build after ctest, with the RSS tolerance widened to 50 % for ASan's quarantine; a
 sanitizer report on the agent's shutdown fails the run through `NscpInstance.stop()` as in every other suite.
+`.github/workflows/stress-tests.yml` runs every scenario against a fresh Ubuntu package once a week and on demand
+("Run workflow": the window per scenario, a subset of scenarios, and whether to build and run on Windows as well), with
+`stress/results/` uploaded as an artifact; it never runs on a pull request.
 
 ## How the fixtures work
 

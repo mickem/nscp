@@ -50,6 +50,7 @@ describe("stress: every engine flooded, with long checks behind", () => {
   });
 
   afterAll(async () => {
+    agent?.nrpe.close();
     await agent?.nscp.stop();
   });
 

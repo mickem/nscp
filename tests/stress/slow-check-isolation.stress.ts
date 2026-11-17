@@ -91,6 +91,7 @@ describe("stress: a slow check in one engine does not hold up the others", () =>
 
   afterAll(async () => {
     await rest?.close();
+    agent?.nrpe.close();
     await agent?.nscp.stop();
   });
 

@@ -95,6 +95,7 @@ describe("stress: the scheduler keeps time next to slow checks", () => {
 
   afterAll(async () => {
     await client?.close();
+    agent?.nrpe.close();
     await agent?.nscp.stop();
   });
 

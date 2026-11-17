@@ -20,24 +20,44 @@ export async function expectResponsive(
   const t0 = performance.now();
   await probe();
   const tookMs = performance.now() - t0;
-  expect({ tookMs, withinMs, responsive: tookMs <= withinMs }).toMatchObject({ responsive: true });
+  expect({ tookMs, withinMs, responsive: tookMs <= withinMs }).toEqual({
+    tookMs,
+    withinMs,
+    responsive: true,
+  });
   return tookMs;
 }
 
 export interface GrowthReport {
   baseline: ProcessSample;
   final: ProcessSample;
+  /** The highest RSS over the first `PEAK_WINDOW` samples of the load. */
+  baselinePeakRss: number;
+  /** The highest RSS over the last `PEAK_WINDOW` samples of the load. */
+  finalPeakRss: number;
   rssGrowthPct: number;
   threadGrowth: number;
 }
 
 /**
- * The leak canary: RSS at the end of the load within `tolerancePct` of RSS
- * after warm-up, and the thread count flat (a pool that keeps spawning shows up
- * here before it shows up as a crash). Compares the sample `markBaseline()`
- * took with the one `markEnd()` took. The report is returned for the results
- * file. A null `tolerancePct` (NSCP_STRESS_RSS_TOLERANCE=off, a sanitizer
- * build) skips the RSS check only; the thread count is still asserted.
+ * How many samples (one a second) each end of the load takes its RSS peak
+ * over. The working set of an agent under load is a sawtooth, not a level: the
+ * passive flood's drain builds a response for a few thousand results twice a
+ * second and the heap swings 8 MiB with it, so two single samples measured
+ * where each happened to land - 41 MiB at the baseline, 50 at the end, +22% -
+ * from an agent that held 50-55 MiB at its peaks for five minutes and two
+ * million submissions. A leak raises the peak; a sawtooth does not.
+ */
+const PEAK_WINDOW = 5;
+
+/**
+ * The leak canary: the RSS peak at the end of the load within `tolerancePct`
+ * of the peak just after warm-up, and the thread count flat (a pool that keeps
+ * spawning shows up here before it shows up as a crash). The peaks are taken
+ * over the samples from `markBaseline()` on and up to `markEnd()`; the thread
+ * counts are those two samples'. The report is returned for the results file.
+ * A null `tolerancePct` (NSCP_STRESS_RSS_TOLERANCE=off, a sanitizer build)
+ * skips the RSS check only; the thread count is still asserted.
  */
 export function expectNoGrowth(
   sampler: Pick<Sampler, "samples" | "baselineIndex" | "endIndex">,
@@ -48,27 +68,27 @@ export function expectNoGrowth(
   expect(endIndex).toBeGreaterThan(baselineIndex);
   const baseline = samples[baselineIndex];
   const final = samples[endIndex];
-  const rssGrowthPct = ((final.rssBytes - baseline.rssBytes) / baseline.rssBytes) * 100;
+  const peak = (from: number, to: number) =>
+    Math.max(...samples.slice(from, to + 1).map((x) => x.rssBytes));
+  const baselinePeakRss = peak(baselineIndex, Math.min(baselineIndex + PEAK_WINDOW - 1, endIndex));
+  const finalPeakRss = peak(Math.max(endIndex - PEAK_WINDOW + 1, baselineIndex), endIndex);
+  const rssGrowthPct = ((finalPeakRss - baselinePeakRss) / baselinePeakRss) * 100;
   const threadGrowth = final.threads - baseline.threads;
-  const report = { baseline, final, rssGrowthPct, threadGrowth };
-  // One object per assertion, so a failure prints the numbers behind it. A
-  // toEqual against a copy with only the verdict flipped, not toMatchObject:
-  // the latter trims the diff down to the expected keys, and a failed run then
-  // says `withinTolerance: false` and nothing else.
+  const report = { baseline, final, baselinePeakRss, finalPeakRss, rssGrowthPct, threadGrowth };
+  // One object per assertion, so a failure prints the numbers behind it -
+  // which takes toEqual against the same numbers: toMatchObject only diffs the
+  // keys it was given, and printed nothing but `withinTolerance: false`.
   if (tolerancePct !== null) {
-    const rss = {
-      baselineMiB: Math.round(baseline.rssBytes / 2 ** 20),
-      finalMiB: Math.round(final.rssBytes / 2 ** 20),
-      rssGrowthPct: Math.round(rssGrowthPct * 10) / 10,
+    expect({ ...report, tolerancePct, withinTolerance: rssGrowthPct <= tolerancePct }).toEqual({
+      ...report,
       tolerancePct,
-      withinTolerance: rssGrowthPct <= tolerancePct,
-    };
-    expect(rss).toEqual({ ...rss, withinTolerance: true });
+      withinTolerance: true,
+    });
   }
   // "Flat" allows a thread or two: a worker that was mid-exit at the baseline
   // sample, or a lazily started helper. A pool that leaks threads shows a count
   // that climbs with the load, not by two.
-  expect({ ...report, flat: threadGrowth <= 2 }).toMatchObject({ flat: true });
+  expect({ ...report, flat: threadGrowth <= 2 }).toEqual({ ...report, flat: true });
   return report;
 }
 
