@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 namespace hlp {
 template <class T, class U = T*>
 struct buffer {
@@ -33,7 +35,10 @@ struct buffer {
     size_ = other.size_;
     return *this;
   }
-  T& operator[](const std::size_t pos) { return data[pos]; }
+  template <class I, typename std::enable_if<std::is_integral<I>::value, int>::type = 0>
+  T& operator[](const I pos) {
+    return data[pos];
+  }
   ~buffer() { delete[] data; }
   operator T*() const { return data; }
   std::size_t size() const { return size_; }
