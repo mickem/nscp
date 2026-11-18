@@ -6,7 +6,16 @@ set -e
 cd "$(dirname "$0")"
 docker compose up -d icinga-master
 echo "Waiting for the master..."
-until docker compose exec -T icinga-master icinga2 pki ticket --cn nscp-agent >/dev/null 2>&1; do sleep 2; done
+tries=0
+until docker compose exec -T icinga-master icinga2 pki ticket --cn nscp-agent >/dev/null 2>&1; do
+  tries=$((tries + 1))
+  if [ "$tries" -gt 30 ]; then
+    echo "The master did not come up:" >&2
+    docker compose logs icinga-master | grep -E 'critical|Error' >&2
+    exit 1
+  fi
+  sleep 2
+done
 ICINGA_TICKET=$(docker compose exec -T icinga-master icinga2 pki ticket --cn nscp-agent | tr -d '\r')
 export ICINGA_TICKET
 docker compose up -d --build nscp-agent
