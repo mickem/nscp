@@ -499,6 +499,14 @@ struct cli_helper : boost::noncopyable {
       filter.summary.returnCode = nscapi::plugin_helper::translateReturn(data.empty_state);
     }
     std::string msg = filter.get_message();
+    // An expression that failed on a record still produced a value - the
+    // number without its unit, false for a refused regular expression - and the
+    // verdict above was reached on it. Report the failure instead of a result
+    // the operator did not ask for.
+    const bool evaluation_failed = filter.has_evaluation_errors();
+    if (evaluation_failed) {
+      msg = "Filter evaluation failed: " + filter.get_evaluation_error();
+    }
     if (data.escape_html) {
       boost::replace_all(msg, "<", "&lt;");
       boost::replace_all(msg, ">", "&gt;");
@@ -511,6 +519,7 @@ struct cli_helper : boost::noncopyable {
     filter.fetch_perf(&writer);
     int retCode = filter.summary.returnCode;
     if ((data.empty_state != "ignored") && (!filter.summary.has_matched())) retCode = nscapi::plugin_helper::translateReturn(data.empty_state);
+    if (evaluation_failed) retCode = NSCAPI::query_return_codes::returnUNKNOWN;
     if (retCode == NSCAPI::query_return_codes::returnOK) {
       response->set_result(PB::Common::ResultCode::OK);
     } else if (retCode == NSCAPI::query_return_codes::returnWARN) {
