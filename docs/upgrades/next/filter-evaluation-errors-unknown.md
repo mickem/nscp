@@ -11,6 +11,7 @@ whatever value came back, so it reported a verdict nobody asked for:
 | Expression | Before | Now |
 |---|---|---|
 | `critical=load > 40k` (a unit the keyword does not take) | compared against a bare `40`: CRITICAL for a load of 50 | UNKNOWN: `Filter evaluation failed: Invalid unit: k: …` |
+| `critical=load != 'busy'` (text where a percentage or size keyword wants a number) | the text was read as `0`: `load != 0` | UNKNOWN: `Filter evaluation failed: Not a number: busy: …` |
 | a regular expression refused by the time budget or the 1 MiB subject limit | read as *no match*: OK, or "No entries found" | UNKNOWN (see the [security notice](../security/notices.md#a-refused-regular-expression-match-no-longer-reads-as-a-clean-result)) |
 | `check_ping … count=0` | nothing sent, `Packet loss = 0%`: OK | refused: `Invalid count: 0 (expected 1 or more)` |
 | `check_disk_write … warning=size > 8k` | the unit was refused and `size` compared against 0, so it always fired | `size` is a byte count: `8k` is 8192 |
