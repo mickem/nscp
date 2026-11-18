@@ -221,6 +221,18 @@ TEST(EvaluationErrors, NoRowForceEvaluationIsNotAnError) {
   EXPECT_EQ("EMPTY", empty.message);
 }
 
+TEST(EvaluationErrors, TextAgainstANumberStillNeverMatches) {
+  // The cross-type rule: text that is not a number never matches a numeric
+  // comparison, = and != alike. That is a defined answer, not a failure, so it
+  // must not turn the check UNKNOWN.
+  for (const char *crit : {"critical=load = 'beta'", "critical=load != 'beta'", "critical=load > 'beta'"}) {
+    const run_result r = run({"warning=none", crit});
+    EXPECT_EQ(PB::Common::ResultCode::OK, r.code) << crit << ": " << r.message;
+  }
+  // A quoted number still joins the numeric domain.
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run({"warning=none", "critical=load = '50'"}).code);
+}
+
 TEST(EvaluationErrors, SetupErrorsStillFailTheBuild) {
   const run_result r = run({"warning=none", "critical=no_such_keyword > 1"});
   EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);

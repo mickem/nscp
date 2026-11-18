@@ -57,7 +57,9 @@ struct filter_obj_handler : public native_context {
         .add_string_var("message", &filter_obj::get_message, "Human readable outcome of the write test");
     // Each keyword gets its own perf suffix so thresholds on several of them
     // produce distinct perf-data labels ("<file> write_time", "<file> size", ...).
-    registry_.add_int_var("size", &filter_obj::get_size, "Number of bytes written to (and read back from) the test file")
+    // A byte count, so a threshold can say `size > 1k`: as a plain int the unit
+    // was refused and the threshold silently compared against 0.
+    registry_.add_int_var("size", parsers::where::type_size, &filter_obj::get_size, "Number of bytes written to (and read back from) the test file")
         .add_int_perf("B", "", " size")
         .add_int_var("write_time", &filter_obj::get_write_time, "Time spent creating, writing and flushing the file to disk (ms)")
         .add_int_perf("ms", "", " write_time")
