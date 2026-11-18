@@ -239,10 +239,13 @@ struct match_result {
 class error_handler_impl : public parsers::where::error_handler_interface {
   std::string error;
   bool debug_;
-  error_handler_impl() : debug_(false) {}
+  // How many errors have been logged, so a caller can tell the ones raised in
+  // a stretch of work (evaluating the records) from the ones before it.
+  std::size_t error_count_;
+  error_handler_impl() : debug_(false), error_count_(0) {}
 
  public:
-  explicit error_handler_impl(const bool debug) : debug_(debug) {}
+  explicit error_handler_impl(const bool debug) : debug_(debug), error_count_(0) {}
   void log_error(std::string error) override;
   void log_warning(std::string error) override;
   void log_debug(std::string error) override;
@@ -250,6 +253,7 @@ class error_handler_impl : public parsers::where::error_handler_interface {
   void set_debug(bool debug_) override;
   bool has_errors() const;
   std::string get_errors() const;
+  std::size_t error_count() const { return error_count_; }
 };
 
 template <class TObject, class TFactory>
@@ -281,6 +285,38 @@ struct modern_filters {
   bool fetch_hash_;
   bool has_unique_index;
   error_type error_handler_;
+
+  // Errors raised while the records were evaluated or the message rendered: a
+  // converter refusing a unit (`load > 5k`), a keyword with no value to give
+  // (`loss` with nothing sent), a regular expression refused by the budget or
+  // the subject limit. Each of them hands back *some* value and the engine
+  // carries on, so the verdict that follows is not one the operator asked for.
+  // Setup errors (parsing, binding, perf registration) and the errors that the
+  // no-row force-evaluation logs by design are not counted - see
+  // evaluation_scope. cli_helper::post_process turns these into UNKNOWN.
+  std::size_t evaluation_error_count_ = 0;
+  std::string evaluation_error_;
+
+  std::size_t logged_error_count() const { return error_handler_ ? error_handler_->error_count() : 0; }
+
+  // Counts the errors logged while it is alive as evaluation errors.
+  struct evaluation_scope {
+    modern_filters &owner;
+    const std::size_t before;
+    explicit evaluation_scope(modern_filters &owner) : owner(owner), before(owner.logged_error_count()) {}
+    ~evaluation_scope() {
+      const std::size_t after = owner.logged_error_count();
+      if (after <= before) return;
+      owner.evaluation_error_count_ += after - before;
+      owner.evaluation_error_ = owner.error_handler_->get_errors();
+    }
+    evaluation_scope(const evaluation_scope &) = delete;
+    evaluation_scope &operator=(const evaluation_scope &) = delete;
+  };
+
+  bool has_evaluation_errors() const { return evaluation_error_count_ > 0; }
+  // The last evaluation error, as the engine logged it (with the expression).
+  std::string get_evaluation_error() const { return evaluation_error_; }
 
   struct perf_entry {
     std::string label;
@@ -541,8 +577,11 @@ struct modern_filters {
     summary.reset();
     records_.clear();
     deferred_records_.clear();
+    evaluation_error_count_ = 0;
+    evaluation_error_.clear();
   }
   match_result match(object_type record) {
+    const evaluation_scope scope(*this);
     context->set_object(record);
     auto debug = context->debug_enabled();
     if (debug) {
@@ -602,6 +641,7 @@ struct modern_filters {
   // stable summary state.
   void evaluate_deferred_records() {
     if (deferred_records_.empty()) return;
+    const evaluation_scope scope(*this);
     auto debug = context->debug_enabled();
     bool any_bound = false;
     for (const deferred_record &d : deferred_records_) {
@@ -728,6 +768,7 @@ struct modern_filters {
     }
   }
   std::string get_message() {
+    const evaluation_scope scope(*this);
     std::string message;
     if (!summary.has_matched() && !renderer_empty.empty())
       message = renderer_empty.render(context);

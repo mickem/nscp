@@ -10,6 +10,7 @@ bool error_handler_impl::has_errors() const { return !error.empty(); }
 void error_handler_impl::log_error(const std::string message) {
   NSC_DEBUG_MSG_STD(message);
   error = message;
+  ++error_count_;
 }
 void error_handler_impl::log_warning(const std::string message) { NSC_DEBUG_MSG_STD(message); }
 void error_handler_impl::log_debug(const std::string message) { NSC_DEBUG_MSG_STD(message); }
