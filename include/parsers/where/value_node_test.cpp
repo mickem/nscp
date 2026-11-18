@@ -118,18 +118,32 @@ TEST(StringValue, GetValueAsFloat) {
   EXPECT_FALSE(ctx->has_error());
 }
 
-TEST(StringValue, GetValueAsIntFromInvalidStringSetsError) {
+// Text that is not a number has no numeric value: a no-value operand, which
+// every numeric comparison treats as sure-false (the cross-type rule). It is a
+// warning, not an evaluation error - cli_helper ends a check UNKNOWN on those.
+TEST(StringValue, GetValueAsIntFromInvalidStringIsNoValue) {
   auto ctx = make_context();
   string_value sv("not_a_number");
   auto vc = sv.get_value(ctx, type_int);
-  EXPECT_TRUE(ctx->has_error());
+  EXPECT_FALSE(ctx->has_error()) << ctx->get_error();
+  EXPECT_TRUE(ctx->has_warn());
+  EXPECT_TRUE(vc.is_no_value);
+  EXPECT_FALSE(vc.is_unsure);
 }
 
-TEST(StringValue, GetValueAsFloatFromInvalidStringSetsError) {
+TEST(StringValue, GetValueAsFloatFromInvalidStringIsNoValue) {
   auto ctx = make_context();
   string_value sv("abc");
   auto vc = sv.get_value(ctx, type_float);
-  EXPECT_TRUE(ctx->has_error());
+  EXPECT_FALSE(ctx->has_error()) << ctx->get_error();
+  EXPECT_TRUE(ctx->has_warn());
+  EXPECT_TRUE(vc.is_no_value);
+}
+
+TEST(StringValue, GetValueFromInvalidStringKeepsTheUnsureFlag) {
+  auto ctx = make_context();
+  string_value sv("abc", true);
+  EXPECT_TRUE(sv.get_value(ctx, type_int).is_unsure);
 }
 
 TEST(StringValue, GetValueAsUnknownTypeSetsError) {

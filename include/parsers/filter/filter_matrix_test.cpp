@@ -515,17 +515,17 @@ TEST(FilterMatrixCustom, ConverterUnitsTakePrecedence) {
 // Known engine gap, pinned so a fix flips this test deliberately.
 // ============================================================================
 
-TEST(FilterMatrixKnownGaps, ExplicitConvertInAFilterStringSilentlyMatchesNothing) {
+TEST(FilterMatrixKnownGaps, ExplicitConvertInAFilterStringIsReportedNotSilentlyEmpty) {
   // unary_fun::infer_type never adopts a type (always type_tbd), so in
   // `convert(zval, 'k') > 1` the literal's int type wins the inference and
-  // function_convert refuses a unit conversion to plain int — every row
-  // errors and the comparison is silently false. No shipped filter uses the
-  // explicit convert() form (unit literals cover the need); pinned so a
-  // future fix is a deliberate change.
+  // function_convert refuses a unit conversion to plain int - every row
+  // errors. That used to be a silently empty (OK) result; an evaluation
+  // error now ends the check UNKNOWN naming it. No shipped filter uses the
+  // explicit convert() form (unit literals cover the need).
   const run_result r = run_query({"filter=convert(zval, 'k') > 1", "warning=none", "critical=none"});
   ASSERT_TRUE(r.built) << r.message;
-  EXPECT_EQ(r.code, PB::Common::ResultCode::OK) << r.message;
-  EXPECT_EQ(r.message, "EMPTY");
+  EXPECT_EQ(r.code, PB::Common::ResultCode::UNKNOWN) << r.message;
+  EXPECT_EQ(0u, r.message.find("Filter evaluation failed: could not convert to ")) << r.message;
 }
 
 // ============================================================================

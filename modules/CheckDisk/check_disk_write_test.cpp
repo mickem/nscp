@@ -134,6 +134,12 @@ TEST_F(CheckDiskWrite, ThresholdsApplyToTheKeywords) {
   // size is a deterministic keyword, so pin the thresholds to it.
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run({"file=" + test_file(), "size=4k", "warning=size > 1k"}, response), PB::Common::ResultCode::WARNING) << join_lines(response);
+  // The unit is honoured: 4k is not above 8k. (As a plain int keyword `8k`
+  // was refused and compared as 0, so this fired too.)
+  PB::Commands::QueryResponseMessage::Response above;
+  EXPECT_EQ(run({"file=" + test_file(), "size=4k", "warning=size > 8k"}, above), PB::Common::ResultCode::OK) << join_lines(above);
+  PB::Commands::QueryResponseMessage::Response bytes;
+  EXPECT_EQ(run({"file=" + test_file(), "size=4k", "warning=size >= 4096"}, bytes), PB::Common::ResultCode::WARNING) << join_lines(bytes);
 }
 
 TEST_F(CheckDiskWrite, StubbedFailureRendersTheIssues) {
