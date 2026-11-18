@@ -489,3 +489,36 @@ TEST(TaskInfo, ATotalOverAnUnreadableProcessIsUnknown) {
   total += unreadable;
   EXPECT_FALSE(total.task_value(total.working_set));
 }
+
+// ============================================================================
+// fetch-only: the Checkmk <<<ps>>> line
+// ============================================================================
+
+TEST(PsSectionLine, CarriesTheOwnerName) {
+  filter_obj p;
+  p.pid = 812;
+  p.uid = 0;
+  p.username = "root";
+  p.virtual_size = 2048 * 1024;
+  p.working_set = 512 * 1024;
+  p.user_time = 3;
+  p.kernel_time = 4;
+  p.exe = "sshd";
+  p.command_line = "sshd: /usr/sbin/sshd -D";
+  EXPECT_EQ("(root,2048,512,7,812) sshd: /usr/sbin/sshd -D", check_proc::check_proc_filter::ps_section_line(p));
+}
+
+TEST(PsSectionLine, FallsBackToTheUidWhenNssHasNoName) {
+  filter_obj p;
+  p.pid = 5;
+  p.uid = 1234;
+  p.exe = "worker";
+  EXPECT_EQ("(1234,0,0,0,5) worker", check_proc::check_proc_filter::ps_section_line(p));
+}
+
+TEST(PsSectionLine, LeavesTheUserEmptyWhenTheOwnerIsUnknown) {
+  filter_obj p;
+  p.pid = 9;
+  p.exe = "ghost";
+  EXPECT_EQ("(,0,0,0,9) ghost", check_proc::check_proc_filter::ps_section_line(p));
+}

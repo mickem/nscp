@@ -840,6 +840,18 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# The Checkmk agent line formats the native checks' `fetch-only` modes share
+# (include/check/check_mk_format.hpp): header-only, pinned once here.
+NSCP_CREATE_TEST(
+    check_mk_format_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/check/check_mk_format_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     access_policy_test
     SOURCES

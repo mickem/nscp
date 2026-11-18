@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+#include <check/check_mk_format.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -227,20 +228,27 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
            bool cpu_collector_enabled) {
   // `fetch-only` short-circuits the filter machinery and emits one line per
   // process in `<<<ps>>>` format: (user,vsz_kb,rss_kb,cputime,pid) cmdline.
-  // user is left empty here because process_info does not carry it.
+  //
+  // The owner is resolved here although check_process keeps resolve-owner off
+  // by default: Checkmk's process discovery and rules match on the user.
+  // fill_process_owner() caches SID -> name per thread, so only the first
+  // fetch after a new account appears pays for LookupAccountSid. A process
+  // whose token cannot be opened (protected/system) keeps an empty user; one
+  // whose SID has no name reports the SID string instead.
   for (int i = 0; i < request.arguments_size(); i++) {
     const std::string &a = request.arguments(i);
     if (a == "fetch-only" || a == "--fetch-only") {
       NSC_error err;
-      win_list_processes::process_list list = win_list_processes::enumerate_processes(false, false, true, &err);
+      win_list_processes::process_list list = win_list_processes::enumerate_processes(false, false, true, &err, DEFAULT_BUFFER_SIZE, true);
       std::string body;
       for (const win_list_processes::process_info &p : list) {
         const long long vsz_kb = static_cast<long long>(p.VirtualSize.get() / 1024);
         const long long rss_kb = static_cast<long long>(p.WorkingSetSize.get() / 1024);
         const long long cputime = static_cast<long long>(p.total_time.get());
         const std::string cmd = p.command_line.get().empty() ? p.exe.get() : p.command_line.get();
+        const std::string user = p.username.get().empty() ? p.sid.get() : p.username.get();
         if (!body.empty()) body += "\n";
-        body += "(," + str::xtos(vsz_kb) + "," + str::xtos(rss_kb) + "," + str::xtos(cputime) + "," + str::xtos(p.pid.get()) + ") " + cmd;
+        body += check_mk_format::ps_line(user, vsz_kb, rss_kb, cputime, static_cast<long long>(p.pid.get()), cmd);
       }
       nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_process", NSCAPI::query_return_codes::returnOK, body, "");
       return;

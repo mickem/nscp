@@ -31,14 +31,15 @@ MemTotal: 16382336 kB
 
 The dump is plain UTF-8 text divided into `<<<section_name>>>` blocks. Checkmk's parser routes each section to the appropriate "check plugin" on the server side (`mem`, `df`, `services`, `local`, `mrpe`, etc.).
 
-NSClient++ produces this dump from a Lua script (`scripts/lua/default_check_mk.lua`) that mixes three sources:
+NSClient++ produces this dump from a Lua script (`scripts/lua/default_check_mk.lua`) that mixes these sources:
 
-| Source                         | Sections                                           |
-|--------------------------------|----------------------------------------------------|
-| Internal metrics store         | `<<<uptime>>>`, `<<<mem>>>`                        |
-| Native check `fetch-only`      | `<<<services>>>`, `<<<ps>>>`, `<<<df>>>`           |
-| Settings-driven bridge         | `<<<local>>>`, `<<<mrpe>>>`                        |
-| Scheduler / passive submission | Cached entries inside `<<<local>>>` / `<<<mrpe>>>` |
+| Source                         | Sections                                                                   |
+|--------------------------------|----------------------------------------------------------------------------|
+| Internal metrics store         | `<<<uptime>>>`, `<<<mem>>>` (Windows)                                      |
+| `/proc` files, sent as-is      | `<<<mem>>>`, `<<<cpu>>>`, `<<<kernel>>>` (Linux)                           |
+| Native checks                  | `<<<services>>>`, `<<<ps>>>`, `<<<df>>>` (`fetch-only`); OS lines of `<<<check_mk>>>` (`check_os_version`) |
+| Settings-driven bridge         | `<<<local>>>`, `<<<mrpe>>>`                                                |
+| Scheduler / passive submission | Cached entries inside `<<<local>>>` / `<<<mrpe>>>`                         |
 
 You don't normally edit the Lua script — you control everything from `nsclient.ini`.
 
@@ -51,8 +52,8 @@ Enable these modules in `nsclient.ini`:
 ```ini
 [/modules]
 CheckMKServer = enabled   ; the agent listener (port 6556)
-CheckSystem   = enabled   ; mem, ps, services, uptime
-CheckDisk     = enabled   ; df / drive sizes (Windows)
+CheckSystem   = enabled   ; mem, ps, services, uptime, OS labels
+CheckDisk     = enabled   ; df / drive sizes and inodes
 CheckHelpers  = enabled   ; useful for local-check expressions
 Scheduler     = enabled   ; only if you want passive cached checks (Step 5)
 ```
@@ -90,23 +91,52 @@ You should see something like:
 Version: nsclient++
 AgentOS: windows
 Hostname: WIN-DESKTOP
-<<<systemtime>>>
-1715361234
+OSType: windows
+OSName: Windows 11 23H2
+OSVersion: 10.0.22631.3803
 <<<uptime>>>
 175140
+<<<systemtime>>>
+1715361234
 <<<mem>>>
 MemTotal:      16382336 kB
 MemFree:       8000000 kB
-SwapTotal:     32000000 kB
-SwapFree:      31000000 kB
+SwapTotal:     0 kB
+SwapFree:      0 kB
+PageTotal:     32000000 kB
+PageFree:      23000000 kB
+VirtualTotal:  137438953344 kB
+VirtualFree:   137438000000 kB
 <<<df>>>
 C: NTFS 1953511476 526123456 1427388020 27% C:
+<<<ps>>>
+(WIN-DESKTOP\jane,123456,67890,42,1234) explorer
+...
 <<<services>>>
 Spooler running/auto Print Spooler
 ...
-<<<ps>>>
-(,123456,67890,42,1234) explorer
+```
+
+A Linux host sends the same header (with `OSType: linux`, `OSPlatform`,
+`OSName` and `OSVersion` from `/etc/os-release`), its own `/proc/meminfo` as
+`<<<mem>>>`, `<<<cpu>>>` and `<<<kernel>>>`, and a `<<<df>>>` that also carries
+inode counts:
+
+```
+<<<cpu>>>
+0.26 0.47 0.52 2/566 160426 8
+126572
+<<<kernel>>>
+1715361234
+nr_free_pages 312345
 ...
+cpu  4705 356 584 3699176 23 23 0 0 0 0
+...
+<<<df>>>
+/dev/sda1 ext4 30297152 11962620 17371776 41% /
+[df_inodes_start]
+/dev/sda1 ext4 1921360 391218 1530142 21% /
+[df_inodes_end]
 ```
 
 Empty output usually means the source IP isn't in `allowed hosts` (the Checkmk site connects from its own IP, not the docker host's).
@@ -117,17 +147,25 @@ Empty output usually means the source IP isn't in `allowed hosts` (the Checkmk s
 
 These sections are produced automatically with no extra configuration:
 
-| Section            | Source                                                                         |
-|--------------------|--------------------------------------------------------------------------------|
-| `<<<check_mk>>>`   | Header with version, OS, hostname                                              |
-| `<<<systemtime>>>` | Current Unix epoch (Windows; lets Checkmk warn on clock skew)                  |
-| `<<<uptime>>>`     | Seconds since boot (read from the metrics store)                               |
-| `<<<mem>>>`        | `/proc/meminfo`-style kB lines (Windows: from `GlobalMemoryStatusEx` metrics)  |
-| `<<<df>>>`         | Per-volume size/used/free/mountpoint (Windows: `GetDiskFreeSpaceEx` per drive) |
-| `<<<services>>>`   | `name state/start_type display_name` per service (Windows SCM)                 |
-| `<<<ps>>>`         | `(user,vsz_kb,rss_kb,cputime,pid) cmdline` per process                         |
+| Section            | OS      | Source                                                                                                     |
+|--------------------|---------|------------------------------------------------------------------------------------------------------------|
+| `<<<check_mk>>>`   | both    | Version, hostname and the `OSType` / `OSName` / `OSVersion` lines Checkmk turns into `cmk/os_*` host labels (`check_os_version`) |
+| `<<<systemtime>>>` | Windows | Current Unix epoch (lets Checkmk warn on clock skew)                                                       |
+| `<<<uptime>>>`     | both    | Seconds since boot (read from the metrics store)                                                           |
+| `<<<mem>>>`        | both    | Linux: `/proc/meminfo` as-is. Windows: physical memory, commit limit (`PageTotal`/`PageFree`) and virtual address space from `GlobalMemoryStatusEx` |
+| `<<<cpu>>>`        | Linux   | `/proc/loadavg` and the CPU count, then the kernel's thread limit                                          |
+| `<<<kernel>>>`     | Linux   | Epoch, then `/proc/vmstat` and `/proc/stat` as-is (raw counters; Checkmk computes the rates)               |
+| `<<<df>>>`         | both    | Per-filesystem size/used/free/mountpoint (`check_drivesize fetch-only`); on Linux also the inode counts     |
+| `<<<services>>>`   | both    | `name state/start_type display_name` per service (Windows SCM; systemd units on Linux)                     |
+| `<<<ps>>>`         | both    | `(user,vsz_kb,rss_kb,cputime,pid) cmdline` per process; the user is the owner's account name              |
 
-Once Checkmk has a host pointing at your nscp instance, all of these light up automatically as services in WATO discovery (`Memory`, `Filesystem C:/`, `Service Summary`, `Uptime`, `CPU Load`, etc.).
+Once Checkmk has a host pointing at your nscp instance, these light up automatically as services in discovery: `Memory`, `Filesystem /` (or `Filesystem C:/`), `Uptime`, `Service Summary`, and on Linux also `CPU load`, `CPU utilization`, `Number of threads` and `Kernel Performance`.
+
+!!! note "No CPU services on Windows yet"
+    The agent dump carries no CPU section on Windows (`wmi_cpuload` /
+    `winperf_processor`), so a Windows host gets no `CPU load` or
+    `CPU utilization` service from discovery. Until it does, expose `check_cpu`
+    as a local check, as shown in Step 3.
 
 ---
 
@@ -320,7 +358,7 @@ considers the data expired before the next push. Either lengthen
 - **Symmetric encryption** (AES-256-CBC with pre-shared password). Checkmk site needs to be configured *without* encryption for nscp to work today, or routed through a TLS-terminating proxy.
 - **Real-Time Check (UDP push)**.
 - **`cmk-agent-ctl` mTLS**.
-- **`<<<logwatch>>>`** / **`<<<winperf_*>>>`** / **`<<<fileinfo>>>`** sections.
+- **`<<<logwatch>>>`** / **`<<<winperf_*>>>`** / **`<<<wmi_cpuload>>>`** / **`<<<fileinfo>>>`** sections — so no CPU, network interface or disk I/O services on Windows, and no network interface or disk I/O services on Linux.
 
 For these, fall back to the official Checkmk agent on hosts that need them, or expose the check via the local/mrpe bridge.
 

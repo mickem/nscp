@@ -632,7 +632,7 @@ wider reach.
 `check_process` has no access mode: the `command_line` keyword is there by design, and its default syntax does not
 show it, but any caller who can pass `detail-syntax=${command_line}` gets the argument list of every process the agent
 can see - database passwords, API tokens and connection strings passed on a command line included. `fetch-only` (the
-check_mk `<<<ps>>>` feed) returns the same command lines without being asked. Where callers may pass arguments, close
+check_mk `<<<ps>>>` feed) returns the same command lines, and each process's owner, without being asked. Where callers may pass arguments, close
 it by refusing arguments (below) or by running process checks only as aliases you define.
 
 The modes are `any` (anything the caller names), `allowed` (only what matches the list) and `predefined` (only names you

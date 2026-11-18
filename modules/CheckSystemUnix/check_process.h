@@ -345,6 +345,12 @@ bool parse_proc_status_uid(const std::string &content, long long &uid);
 // directory (LDAP/SSSD).
 std::string lookup_username(long long uid);
 
+// One line of the Checkmk `<<<ps>>>` section, as check_process fetch-only
+// emits it: (user,vsz_kb,rss_kb,cputime,pid) command line. The user is the
+// resolved owner name, or the numeric uid when NSS has no name for it, so a
+// rule on the user still matches something stable.
+std::string ps_section_line(const filter_obj &process);
+
 // Total CPU jiffies (all cores, including idle) from the aggregate "cpu "
 // line of /proc/stat. guest/guest_nice are already folded into user/nice by
 // the kernel and are NOT summed again.
