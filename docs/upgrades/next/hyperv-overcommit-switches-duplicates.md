@@ -10,9 +10,8 @@ action: conditional
 percentages added to its perfdata. The new `check_hyperv_switches` checks
 every virtual switch (`type` external/internal/private, `state`, `health`,
 `ports`), and `check_hyperv_vms` gained `name_count` so
-`critical=name_count > 1` finds VMs that share a name. A sample script,
-`scripts\check_scvmm_hosts.ps1`, checks the hosts System Center VMM manages
-through CheckExternalScripts. To compute the over-commitment
+`critical=name_count > 1` finds VMs that share a name. To compute the
+over-commitment
 `check_hyperv_host` now reads the virtual machines over WMI as well as the
 performance counters, so it needs the same rights as `check_hyperv_vms`
 (local administrator or Hyper-V Administrators; the default LocalSystem
