@@ -66,15 +66,25 @@ inline std::string vm_state_name(const long long state) {
   }
 }
 
-// Msvm_ComputerSystem.HealthState.
+// CIM HealthState, as Msvm_ComputerSystem and Msvm_VirtualEthernetSwitch
+// carry it. Hyper-V itself only sets 5, 20 and 25; the rest of the CIM table
+// is decoded so a value from a newer provider still reads as a word.
 inline std::string vm_health_name(const long long health) {
   switch (health) {
+    case 0:
+      return "unknown";
     case 5:
       return "ok";
+    case 10:
+      return "degraded";
+    case 15:
+      return "minor_failure";
     case 20:
       return "major_failure";
     case 25:
       return "critical_failure";
+    case 30:
+      return "non_recoverable_error";
     default:
       return "health_" + std::to_string(health);
   }
@@ -426,6 +436,10 @@ struct vm_record {
 
   long long generation = 0;
   std::string version;
+  // How many VMs on this host carry this display name, this one included
+  // (count_names). Hyper-V keys VMs by GUID and lets two share a name, which
+  // breaks every tool that addresses VMs by name.
+  long long name_count = 1;
   long long snapshots = 0;
   long long oldest_snapshot_epoch = 0;  // 0 when there are none
 
@@ -449,10 +463,20 @@ struct raw_rows {
   std::vector<raw_settings> settings;
 };
 
+// Fill vm_record::name_count: the number of records sharing each display
+// name. Compared case-insensitively, the way Get-VM -Name and the Hyper-V
+// Manager resolve a name.
+inline void count_names(std::vector<vm_record> &records) {
+  std::map<std::string, long long> counts;
+  for (const vm_record &record : records) counts[to_lower(record.name)] += 1;
+  for (vm_record &record : records) record.name_count = counts[to_lower(record.name)];
+}
+
 inline long long mb_to_bytes(const long long mb) { return mb * 1024LL * 1024LL; }
 
 // Join the per-class rows into one record per VM, in the order the VM rows
 // came in. Rows that reference a VM not in `rows.vms` are dropped.
+// name_count is filled in too (count_names).
 inline std::vector<vm_record> build_records(const raw_rows &rows) {
   std::vector<vm_record> out;
   std::map<std::string, std::size_t> index;
@@ -534,6 +558,176 @@ inline std::vector<vm_record> build_records(const raw_rows &rows) {
       record->generation = generation_of(s.sub_type);
       record->version = s.version;
     }
+  }
+  count_names(out);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Host over-commitment
+// ---------------------------------------------------------------------------
+
+// What the running virtual machines take from the host, summed over the
+// records build_records returned.
+struct guest_usage {
+  long long running = 0;          // running VMs
+  long long vcpus = 0;            // virtual processors configured on the running VMs
+  long long memory_assigned = 0;  // bytes currently backing the running VMs
+};
+
+inline guest_usage sum_running(const std::vector<vm_record> &records) {
+  guest_usage usage;
+  for (const vm_record &record : records) {
+    if (!record.is_running()) continue;
+    usage.running += 1;
+    usage.vcpus += record.vcpus;
+    usage.memory_assigned += record.memory_assigned;
+  }
+  return usage;
+}
+
+// `part` as a percentage of `whole`, to one decimal; 0 when `whole` is not
+// known (a counter that could not be read must not read as infinite).
+inline double percent_of(const long long part, const long long whole) {
+  if (whole <= 0) return 0.0;
+  return std::round(static_cast<double>(part) * 1000.0 / static_cast<double>(whole)) / 10.0;
+}
+
+// ---------------------------------------------------------------------------
+// Virtual switches
+// ---------------------------------------------------------------------------
+
+// Msvm_VirtualEthernetSwitch.EnabledState (the CIM table).
+inline std::string switch_state_name(const long long state) {
+  switch (state) {
+    case 0:
+      return "unknown";
+    case 1:
+      return "other";
+    case 2:
+      return "enabled";
+    case 3:
+      return "disabled";
+    case 4:
+      return "shutting_down";
+    case 5:
+      return "not_applicable";
+    case 6:
+      return "enabled_but_offline";
+    case 7:
+      return "in_test";
+    case 8:
+      return "deferred";
+    case 9:
+      return "quiesce";
+    case 10:
+      return "starting";
+    default:
+      return "state_" + std::to_string(state);
+  }
+}
+
+// The GUID an Msvm_EthernetPortAllocationSettingData row hangs off: its
+// InstanceID is "Microsoft:<owner>\<port>[\...]", where the owner is the
+// switch for the switch's own ports and the VM for a VM's connection. Lower
+// case; empty when the shape is anything else.
+inline std::string port_owner_guid(const std::string &instance_id) {
+  const std::string prefix = "Microsoft:";
+  if (instance_id.compare(0, prefix.size(), prefix) != 0) return "";
+  const std::string::size_type end = instance_id.find('\\', prefix.size());
+  const std::string owner = instance_id.substr(prefix.size(), end == std::string::npos ? std::string::npos : end - prefix.size());
+  return is_vm_guid(owner) ? to_lower(owner) : "";
+}
+
+// What a switch port's HostResource (the WMI path of what the port connects
+// to) says about the switch: a physical adapter makes it external, the host
+// (management OS) at least internal. Anything else (a VM's port points at
+// the switch itself) says nothing.
+enum class port_kind { other, external, internal };
+
+inline port_kind classify_host_resource(const std::string &host_resource) {
+  if (host_resource.find("Msvm_ExternalEthernetPort") != std::string::npos) return port_kind::external;
+  if (host_resource.find("Msvm_WiFiPort") != std::string::npos) return port_kind::external;
+  if (host_resource.find("Msvm_ComputerSystem") != std::string::npos) return port_kind::internal;
+  return port_kind::other;
+}
+
+// One Msvm_VirtualEthernetSwitch row.
+struct raw_switch {
+  std::string id;    // Name: the switch GUID, lower-cased
+  std::string name;  // ElementName
+  long long enabled_state = 0;
+  long long health_state = 0;
+  std::vector<long long> operational_status;
+};
+
+// One Msvm_EthernetPortAllocationSettingData row that belongs to a switch.
+struct raw_switch_port_setting {
+  std::string switch_id;  // port_owner_guid(InstanceID)
+  port_kind kind = port_kind::other;
+};
+
+// One Msvm_EthernetSwitchPort row.
+struct raw_switch_port {
+  std::string switch_id;  // SystemName, lower-cased
+};
+
+struct switch_rows {
+  std::vector<raw_switch> switches;
+  std::vector<raw_switch_port_setting> port_settings;
+  std::vector<raw_switch_port> ports;
+};
+
+struct switch_record {
+  std::string id;
+  std::string name;
+  long long state_code = 0;
+  long long health_code = 0;
+  long long operational_status_code = 0;
+  // external (bound to a physical adapter, possibly shared with the host),
+  // internal (host and VMs only) or private (VMs only), as Get-VMSwitch's
+  // SwitchType reports it.
+  std::string type = "private";
+  bool management_os = false;  // the host has a virtual adapter on the switch
+  long long ports = 0;         // ports on the switch: VM adapters plus the external/internal ones
+
+  std::string state() const { return switch_state_name(state_code); }
+  std::string health() const { return vm_health_name(health_code); }
+  std::string operational_status() const { return vm_operational_status_name(operational_status_code); }
+};
+
+// Join the switch rows into one record per switch, in the order the switch
+// rows came in. A switch with an external port is external whether or not
+// the host shares the adapter; one with only the host's port is internal;
+// one with neither is private.
+inline std::vector<switch_record> build_switch_records(const switch_rows &rows) {
+  std::vector<switch_record> out;
+  std::map<std::string, std::size_t> index;
+  for (const raw_switch &sw : rows.switches) {
+    switch_record record;
+    record.id = sw.id;
+    record.name = sw.name;
+    record.state_code = sw.enabled_state;
+    record.health_code = sw.health_state;
+    if (!sw.operational_status.empty()) record.operational_status_code = sw.operational_status[0];
+    index[sw.id] = out.size();
+    out.push_back(record);
+  }
+  std::map<std::string, std::pair<bool, bool> > kinds;  // switch id -> (external, internal)
+  for (const raw_switch_port_setting &ps : rows.port_settings) {
+    if (ps.kind == port_kind::external) kinds[ps.switch_id].first = true;
+    if (ps.kind == port_kind::internal) kinds[ps.switch_id].second = true;
+  }
+  for (const auto &entry : kinds) {
+    const auto it = index.find(entry.first);
+    if (it == index.end()) continue;
+    switch_record &record = out[it->second];
+    record.management_os = entry.second.second;
+    record.type = entry.second.first ? "external" : (entry.second.second ? "internal" : "private");
+  }
+  for (const raw_switch_port &port : rows.ports) {
+    const auto it = index.find(port.switch_id);
+    if (it != index.end()) out[it->second].ports += 1;
   }
   return out;
 }

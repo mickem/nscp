@@ -19,6 +19,7 @@
 
 #include "check_hyperv_host.hpp"
 #include "check_hyperv_internal.hpp"
+#include "check_hyperv_switches.hpp"
 #include "check_hyperv_vms.hpp"
 #include "hyperv_facts.hpp"
 
@@ -113,6 +114,9 @@ void CheckHyperV::check_hyperv_cpu(const PB::Commands::QueryRequestMessage::Requ
 }
 void CheckHyperV::check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_hyperv::check_hyperv_vms(request, response);
+}
+void CheckHyperV::check_hyperv_switches(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_hyperv::check_hyperv_switches(request, response);
 }
 
 // The host counters are one PDH sample, read every metrics interval. The

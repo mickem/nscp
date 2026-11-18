@@ -10,6 +10,7 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     check_hyperv_host.cpp
+    check_hyperv_switches.cpp
     check_hyperv_vms.cpp
     hyperv_facts.cpp
     vm_refresher.cpp
@@ -35,6 +36,7 @@ if(WIN32)
         ${SRCS}
         "${TARGET}.h"
         check_hyperv_host.hpp
+        check_hyperv_switches.hpp
         check_hyperv_vms.hpp
         check_hyperv_internal.hpp
         hyperv_facts.hpp

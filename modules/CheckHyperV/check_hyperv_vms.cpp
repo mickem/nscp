@@ -196,6 +196,9 @@ struct filter_obj_handler : public native_context {
 
     registry_.add_string_var("vm", [](auto obj) { return obj->vm.name; }, "Name of the virtual machine");
     registry_.add_string_var("id", [](auto obj) { return obj->vm.id; }, "GUID of the virtual machine");
+    registry_.add_int_var("name_count", type_int, [](auto obj) { return obj->vm.name_count; },
+                          "Virtual machines on this host with the same name as this one, itself included (compared case-insensitively), so "
+                          "name_count > 1 finds duplicate names");
     registry_.add_string_var("state", [](auto obj) { return obj->vm.state(); },
                              "Power state: running, off, saved, paused, starting, stopping, saving, pausing, resuming, fast_saved, fast_saving or "
                              "state_<n> for an unknown code");

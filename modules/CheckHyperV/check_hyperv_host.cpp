@@ -14,15 +14,21 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <string>
 #include <vector>
+#include <win/com_helpers.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_object_gather.hpp>
+#include <win/wmi/wmi_query.hpp>
+#include <windows.h>
 
 #include "check_hyperv_internal.hpp"
+#include "check_hyperv_vms.hpp"
 
 namespace po = boost::program_options;
 
 namespace check_hyperv {
 
+using check_hyperv_internal::guest_usage;
+using check_hyperv_internal::percent_of;
 using check_hyperv_internal::processor_sample;
 using check_hyperv_internal::round1;
 using check_hyperv_internal::with_total;
@@ -40,6 +46,14 @@ std::string counters_error(const std::string &object, const PDH::pdh_exception &
   std::string reason = e.reason();
   boost::algorithm::trim(reason);
   return "Hyper-V counters (" + object + ") not available - is the Hyper-V role installed and the hypervisor running on this host? (" + reason + ")";
+}
+
+// Physical memory the host has, in bytes; 0 when it cannot be read.
+long long physical_memory() {
+  MEMORYSTATUSEX status;
+  status.dwLength = sizeof(status);
+  if (!GlobalMemoryStatusEx(&status)) return 0;
+  return static_cast<long long>(status.ullTotalPhys);
 }
 
 }  // namespace
@@ -73,6 +87,15 @@ struct filter_obj {
   long long partitions = 0;
   long long total_pages = 0;
 
+  // What the running VMs take from the host (from the VM walk) against what
+  // the host has.
+  long long running_vms = 0;
+  long long vm_vcpus = 0;
+  long long memory_assigned = 0;
+  long long physical_memory = 0;
+  double cpu_overcommit = 0.0;
+  double memory_overcommit = 0.0;
+
   std::string show() const { return std::to_string(health_ok) + " ok, " + std::to_string(health_critical) + " critical"; }
 };
 
@@ -96,6 +119,27 @@ struct filter_obj_handler : public native_context {
     registry_.add_int_var("total_pages", parsers::where::type_int, [](auto obj) { return obj->total_pages; },
                           "Memory pages the hypervisor has allocated for its own use")
         .add_int_perf("", "", "_total_pages");
+    registry_.add_int_var("running_vms", parsers::where::type_int, [](auto obj) { return obj->running_vms; }, "Virtual machines that are running")
+        .add_int_perf("", "", "_running_vms");
+    registry_.add_int_var("vm_vcpus", parsers::where::type_int, [](auto obj) { return obj->vm_vcpus; },
+                          "Virtual processors configured on the running virtual machines (the root partition's are not counted)")
+        .add_int_perf("", "", "_vm_vcpus");
+    registry_.add_numbers("cpu_overcommit", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->cpu_overcommit); },
+                          [](auto obj) { return obj->cpu_overcommit; },
+                          "Virtual processors of the running virtual machines as % of the host's logical processors (vm_vcpus / "
+                          "logical_processors); above 100 the guests are promised more processors than the host has")
+        .add_float_perf("%", "", "_cpu_overcommit");
+    registry_.add_int_var("memory_assigned", parsers::where::type_int, [](auto obj) { return obj->memory_assigned; },
+                          "Memory currently assigned to the running virtual machines in bytes")
+        .add_int_perf("B", "", "_memory_assigned");
+    registry_.add_int_var("physical_memory", parsers::where::type_int, [](auto obj) { return obj->physical_memory; },
+                          "Physical memory of the host in bytes")
+        .add_int_perf("B", "", "_physical_memory");
+    registry_.add_numbers("memory_overcommit", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->memory_overcommit); },
+                          [](auto obj) { return obj->memory_overcommit; },
+                          "Memory assigned to the running virtual machines as % of the host's physical memory (memory_assigned / "
+                          "physical_memory); what is left is all the host itself and dynamic memory have to work with")
+        .add_float_perf("%", "", "_memory_overcommit");
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
@@ -122,12 +166,35 @@ void check_hyperv_host(const PB::Commands::QueryRequestMessage::Request &request
   f.add_manual_perf("logical_processors");
   f.add_manual_perf("virtual_processors");
   f.add_manual_perf("partitions");
+  f.add_manual_perf("cpu_overcommit");
+  f.add_manual_perf("memory_overcommit");
 
   std::map<std::string, double> values;
   try {
     values = fetch_host_counters();
   } catch (const PDH::pdh_exception &e) {
     return nscapi::protobuf::functions::set_response_bad(*response, counters_error(std::string(kHealthObject) + ", " + kHypervisorObject, e));
+  }
+
+  // The over-commitment keywords need the VMs themselves: the hypervisor's
+  // "Virtual Processors" counts the root partition's too, and no counter sums
+  // the guests' memory. A list that hides VMs from this account would make
+  // the host look idle, so that is reported rather than summed.
+  guest_usage usage;
+  {
+    const com_helper::mta_scope com;
+    try {
+      const std::vector<check_hyperv_internal::vm_record> records = check_hyperv_internal::build_records(fetch_vm_rows());
+      const std::string hidden = vms_hidden_from_caller(records.size(), counted_vms(values));
+      if (!hidden.empty()) return nscapi::protobuf::functions::set_response_bad(*response, hidden);
+      usage = check_hyperv_internal::sum_running(records);
+    } catch (const wmi_impl::wmi_exception &e) {
+      const std::string unavailable = hyperv_unavailable(e);
+      if (!unavailable.empty()) {
+        return nscapi::protobuf::functions::set_response_bad(*response, "Hyper-V virtual machine information not available: " + unavailable);
+      }
+      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to query Hyper-V virtual machines: " + e.reason());
+    }
   }
 
   auto obj = std::make_shared<filter_obj>();
@@ -137,6 +204,12 @@ void check_hyperv_host(const PB::Commands::QueryRequestMessage::Request &request
   obj->virtual_processors = static_cast<long long>(value_of(values, "Virtual Processors"));
   obj->partitions = static_cast<long long>(value_of(values, "Partitions"));
   obj->total_pages = static_cast<long long>(value_of(values, "Total Pages"));
+  obj->running_vms = usage.running;
+  obj->vm_vcpus = usage.vcpus;
+  obj->memory_assigned = usage.memory_assigned;
+  obj->physical_memory = physical_memory();
+  obj->cpu_overcommit = percent_of(obj->vm_vcpus, obj->logical_processors);
+  obj->memory_overcommit = percent_of(obj->memory_assigned, obj->physical_memory);
   f.match(obj);
 
   filter_helper.post_process(f);

@@ -33,6 +33,8 @@ TEST(CheckHyperV, HealthAndStatusNames) {
   EXPECT_EQ(vm_health_name(5), "ok");
   EXPECT_EQ(vm_health_name(20), "major_failure");
   EXPECT_EQ(vm_health_name(25), "critical_failure");
+  EXPECT_EQ(vm_health_name(10), "degraded");
+  EXPECT_EQ(vm_health_name(0), "unknown");
   EXPECT_EQ(vm_health_name(7), "health_7");
   EXPECT_EQ(vm_operational_status_name(2), "ok");
   EXPECT_EQ(vm_operational_status_name(15), "dormant");
@@ -345,4 +347,137 @@ TEST(CheckHyperV, PercentagesAreRoundedToOneDecimal) {
   lps[1].total_run_time = 2.0;
   lps[2].total_run_time = 2.0;
   EXPECT_DOUBLE_EQ(with_total(lps).back().total_run_time, 1.7);
+}
+
+// --- duplicate names --------------------------------------------------------
+
+TEST(CheckHyperV, NameCountCountsVmsSharingANameCaseInsensitively) {
+  raw_rows rows;
+  const char *const ids[] = {kVmA, "22222222-2222-2222-2222-222222222222", "33333333-3333-3333-3333-333333333333"};
+  const char *const names[] = {"web01", "WEB01", "db01"};
+  for (int i = 0; i < 3; ++i) {
+    raw_vm vm;
+    vm.id = ids[i];
+    vm.name = names[i];
+    rows.vms.push_back(vm);
+  }
+  const std::vector<vm_record> records = build_records(rows);
+  ASSERT_EQ(records.size(), 3u);
+  EXPECT_EQ(records[0].name_count, 2);
+  EXPECT_EQ(records[1].name_count, 2);
+  EXPECT_EQ(records[2].name_count, 1);
+}
+
+// --- over-commitment --------------------------------------------------------
+
+TEST(CheckHyperV, GuestUsageSumsOnlyRunningVms) {
+  std::vector<vm_record> records(3);
+  records[0].state_code = 2;
+  records[0].vcpus = 4;
+  records[0].memory_assigned = mb_to_bytes(4096);
+  records[1].state_code = 2;
+  records[1].vcpus = 8;
+  records[1].memory_assigned = mb_to_bytes(2048);
+  records[2].state_code = 3;  // off: configured but takes nothing
+  records[2].vcpus = 16;
+  const guest_usage usage = sum_running(records);
+  EXPECT_EQ(usage.running, 2);
+  EXPECT_EQ(usage.vcpus, 12);
+  EXPECT_EQ(usage.memory_assigned, mb_to_bytes(6144));
+  EXPECT_DOUBLE_EQ(percent_of(usage.vcpus, 8), 150.0);
+  EXPECT_DOUBLE_EQ(percent_of(usage.memory_assigned, mb_to_bytes(16384)), 37.5);
+}
+
+TEST(CheckHyperV, PercentOfAnUnknownWholeIsZero) {
+  EXPECT_DOUBLE_EQ(percent_of(12, 0), 0.0);
+  EXPECT_DOUBLE_EQ(percent_of(12, -1), 0.0);
+  EXPECT_DOUBLE_EQ(percent_of(1, 3), 33.3);
+  EXPECT_DOUBLE_EQ(percent_of(0, 3), 0.0);
+}
+
+// --- virtual switches -------------------------------------------------------
+
+namespace {
+const char *const kSwExt = "4b6a5c1d-2e3f-4a5b-8c7d-9e0f1a2b3c4d";
+const char *const kSwInt = "5C6D7E8F-9A0B-4C1D-8E2F-3A4B5C6D7E8F";  // upper-case as WMI may spell it
+const char *const kSwPriv = "6d7e8f90-a1b2-4c3d-9e4f-5a6b7c8d9e0f";
+
+raw_switch make_switch(const std::string &id, const std::string &name) {
+  raw_switch sw;
+  sw.id = to_lower(id);
+  sw.name = name;
+  sw.enabled_state = 2;
+  sw.health_state = 5;
+  sw.operational_status = {2};
+  return sw;
+}
+}  // namespace
+
+TEST(CheckHyperV, SwitchStateNames) {
+  EXPECT_EQ(switch_state_name(2), "enabled");
+  EXPECT_EQ(switch_state_name(3), "disabled");
+  EXPECT_EQ(switch_state_name(6), "enabled_but_offline");
+  EXPECT_EQ(switch_state_name(99), "state_99");
+}
+
+TEST(CheckHyperV, PortOwnerIsTheFirstSegmentWhenItIsAGuid) {
+  EXPECT_EQ(port_owner_guid(std::string("Microsoft:") + kSwInt + "\\AAAAAAAA-0000-0000-0000-000000000000"), to_lower(kSwInt));
+  // A VM's connection hangs off the VM GUID, with more segments: the owner is
+  // still read, and simply never matches a switch.
+  EXPECT_EQ(port_owner_guid(std::string("Microsoft:") + kVmA + "\\nic\\C"), kVmA);
+  EXPECT_EQ(port_owner_guid("Microsoft:Definition\\Default"), "");
+  EXPECT_EQ(port_owner_guid("Other:" + std::string(kSwExt)), "");
+  EXPECT_EQ(port_owner_guid(std::string("Microsoft:") + kSwExt), kSwExt);
+}
+
+TEST(CheckHyperV, HostResourceClassifiesThePort) {
+  EXPECT_EQ(classify_host_resource(
+                "[\\\\HV01\\root\\virtualization\\v2:Msvm_ExternalEthernetPort.CreationClassName=\"Msvm_ExternalEthernetPort\",DeviceID=\"Microsoft:X\"]"),
+            port_kind::external);
+  EXPECT_EQ(classify_host_resource("[\\\\HV01\\root\\virtualization\\v2:Msvm_WiFiPort.DeviceID=\"Microsoft:Y\"]"), port_kind::external);
+  EXPECT_EQ(classify_host_resource("[\\\\HV01\\root\\virtualization\\v2:Msvm_ComputerSystem.CreationClassName=\"Msvm_ComputerSystem\",Name=\"HV01\"]"),
+            port_kind::internal);
+  EXPECT_EQ(classify_host_resource("[\\\\HV01\\root\\virtualization\\v2:Msvm_VirtualEthernetSwitch.Name=\"abc\"]"), port_kind::other);
+  EXPECT_EQ(classify_host_resource(""), port_kind::other);
+}
+
+TEST(CheckHyperV, SwitchTypeComesFromItsPorts) {
+  switch_rows rows;
+  rows.switches.push_back(make_switch(kSwExt, "External"));
+  rows.switches.push_back(make_switch(kSwInt, "Internal"));
+  rows.switches.push_back(make_switch(kSwPriv, "Private"));
+  // External, shared with the management OS: both ports.
+  rows.port_settings.push_back({kSwExt, port_kind::external});
+  rows.port_settings.push_back({kSwExt, port_kind::internal});
+  rows.port_settings.push_back({to_lower(kSwInt), port_kind::internal});
+  // A port setting for a switch that is not listed is ignored.
+  rows.port_settings.push_back({"77777777-7777-7777-7777-777777777777", port_kind::external});
+  for (int i = 0; i < 3; ++i) rows.ports.push_back({kSwExt});
+  rows.ports.push_back({to_lower(kSwInt)});
+
+  const std::vector<switch_record> records = build_switch_records(rows);
+  ASSERT_EQ(records.size(), 3u);
+  EXPECT_EQ(records[0].name, "External");
+  EXPECT_EQ(records[0].type, "external");
+  EXPECT_TRUE(records[0].management_os);
+  EXPECT_EQ(records[0].ports, 3);
+  EXPECT_EQ(records[1].type, "internal");
+  EXPECT_TRUE(records[1].management_os);
+  EXPECT_EQ(records[1].ports, 1);
+  EXPECT_EQ(records[2].type, "private");
+  EXPECT_FALSE(records[2].management_os);
+  EXPECT_EQ(records[2].ports, 0);
+  EXPECT_EQ(records[0].state(), "enabled");
+  EXPECT_EQ(records[0].health(), "ok");
+  EXPECT_EQ(records[0].operational_status(), "ok");
+}
+
+TEST(CheckHyperV, ExternalSwitchWithoutTheHostIsStillExternal) {
+  switch_rows rows;
+  rows.switches.push_back(make_switch(kSwExt, "External"));
+  rows.port_settings.push_back({kSwExt, port_kind::external});
+  const std::vector<switch_record> records = build_switch_records(rows);
+  ASSERT_EQ(records.size(), 1u);
+  EXPECT_EQ(records[0].type, "external");
+  EXPECT_FALSE(records[0].management_os);
 }
