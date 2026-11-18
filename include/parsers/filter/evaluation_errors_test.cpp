@@ -54,6 +54,7 @@ struct filter_obj_handler : native_context {
   filter_obj_handler() {
     registry_.add_string_var("name", [](data_ptr o) { return o->name; }, "Row name");
     registry_.add_string_var("text", [](data_ptr o) { return o->text; }, "Free text");
+    registry_.add_int_var("sent", [](data_ptr o) { return o->sent; }, "Plain int keyword");
     registry_.add_int_var("load", type_pct, [](data_ptr o) { return o->load; }, "Percent keyword with a converter").add_int_perf("%");
     registry_.add_int_var_w_context(
         "loss", type_pct,
@@ -225,11 +226,23 @@ TEST(EvaluationErrors, TextAgainstANumberStillNeverMatches) {
   // The cross-type rule: text that is not a number never matches a numeric
   // comparison, = and != alike. That is a defined answer, not a failure, so it
   // must not turn the check UNKNOWN.
-  for (const char *crit : {"critical=load = 'beta'", "critical=load != 'beta'", "critical=load > 'beta'"}) {
+  for (const char *crit : {"critical=sent = 'beta'", "critical=sent != 'beta'", "critical=sent > 'beta'", "critical=sent < 'beta'"}) {
     const run_result r = run({"warning=none", crit});
     EXPECT_EQ(PB::Common::ResultCode::OK, r.code) << crit << ": " << r.message;
   }
   // A quoted number still joins the numeric domain.
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run({"warning=none", "critical=sent = '4'"}).code);
+}
+
+TEST(EvaluationErrors, TextGivenToAConverterIsNotReadAsZero) {
+  // A converter keyword turns its literal into a number. Text has none, and
+  // the converter used to read it as 0: `load != 'beta'` was `load != 0`.
+  for (const char *crit : {"critical=load != 'beta'", "critical=load > 'beta'"}) {
+    const run_result r = run({"warning=none", crit});
+    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << crit << ": " << r.message;
+    EXPECT_TRUE(starts_with(r.message, "Filter evaluation failed: Not a number: beta")) << r.message;
+  }
+  // A quoted number is still a number to the converter.
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run({"warning=none", "critical=load = '50'"}).code);
 }
 
