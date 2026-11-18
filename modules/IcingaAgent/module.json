@@ -1,0 +1,12 @@
+{
+	"module"		: {
+		"title"			: "Icinga 2 agent",
+		"description"	: "A native Icinga 2 agent: connects to an Icinga 2 master or satellite over the cluster protocol (JSON-RPC over TLS, port 5665) and runs the checks it schedules, without an icinga2 binary.",
+		"name"			: "IcingaAgent",
+		"alias"			: "icinga-agent",
+		"version"		: "auto",
+		"reload"		: true,
+		"experimental"	: true
+	},
+	"prepare_shutdown" : true
+}
