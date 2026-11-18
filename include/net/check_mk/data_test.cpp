@@ -95,6 +95,16 @@ TEST(CheckMkSection, ToStringDefaultsToSpaceSeparator) {
   EXPECT_EQ(s.to_string(), "<<<df>>>\na b\nc d\n");
 }
 
+TEST(CheckMkSection, ToStringNeverLetsAnItemBreakTheLine) {
+  // A field taken from the OS (a command line, a mountpoint) can carry a line
+  // break; on the wire that would start a new line, here a forged section.
+  packet::section s("ps");
+  packet::section::line l;
+  l.set_raw("(,1,2,3,4) evil\n<<<fake>>>\r\nforged");
+  s.lines.push_back(l);
+  EXPECT_EQ(s.to_string(), "<<<ps>>>\n(,1,2,3,4) evil <<<fake>>>  forged\n");
+}
+
 TEST(CheckMkSection, EmptyReflectsTitleAndLines) {
   packet::section s;
   EXPECT_TRUE(s.empty());

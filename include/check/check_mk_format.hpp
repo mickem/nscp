@@ -9,11 +9,32 @@
 // Checkmk's parser expects - a line it cannot parse is dropped silently, which
 // is why the formatting lives here, next to a unit test, rather than in each
 // check.
+//
+// Two kinds of field go on these lines. A token column (the ps user, the df
+// device and fstype, the service name) must stay one whitespace-free word and
+// goes through replace_chars(), which turns any whitespace into '_'. A
+// free-text column (the command line, the mountpoint, the display name) is the
+// rest of the line and keeps its spaces, but it comes from the OS and whoever
+// owns the thing it describes chooses it: a `\n` or `\r` there would end the
+// line early, and what follows would become a row or a `<<<name>>>` section
+// header of its own. Those go through sanitize_field().
 
 #include <cctype>
 #include <string>
 
 namespace check_mk_format {
+
+// Replaces every ASCII control character (0x00-0x1F and DEL) with one space,
+// so a free-text field can never break the line it is put on. Ordinary
+// spaces are left exactly as they are, and so are bytes >= 0x80 (UTF-8).
+inline std::string sanitize_field(const std::string &value) {
+  std::string out = value;
+  for (char &c : out) {
+    const unsigned char u = static_cast<unsigned char>(c);
+    if (u < 0x20 || u == 0x7f) c = ' ';
+  }
+  return out;
+}
 
 // Replaces every character in `bad` and every whitespace character with '_'.
 inline std::string replace_chars(const std::string &value, const char *bad) {
@@ -34,8 +55,11 @@ inline std::string ps_user(const std::string &user) { return replace_chars(user,
 // The command column is never empty: Checkmk's parser expects one, and a
 // process nothing could name (it exited mid-walk) reads as `[unknown]`, in
 // the bracket style ps uses for a process without a command line. Leading
-// whitespace is dropped so the program stays the first token.
-inline std::string ps_line(const std::string &user, long long vsz_kb, long long rss_kb, long long cputime, long long pid, const std::string &command) {
+// whitespace is dropped so the program stays the first token; control
+// characters are blanked first, so a command line that starts with one does
+// not end up with an empty program.
+inline std::string ps_line(const std::string &user, long long vsz_kb, long long rss_kb, long long cputime, long long pid, const std::string &raw_command) {
+  const std::string command = sanitize_field(raw_command);
   std::size_t start = 0;
   while (start < command.size() && std::isspace(static_cast<unsigned char>(command[start]))) ++start;
   const std::string cmd = command.substr(start);
@@ -65,7 +89,7 @@ inline std::string df_percent(long long used, long long avail) {
 inline std::string df_line(const std::string &device, const std::string &fs, long long total_kb, long long used_kb, long long avail_kb,
                            const std::string &mountpoint) {
   return df_token(device, "none") + " " + df_token(fs, "unknown") + " " + std::to_string(total_kb) + " " + std::to_string(used_kb) + " " +
-         std::to_string(avail_kb) + " " + df_percent(used_kb, avail_kb) + " " + mountpoint;
+         std::to_string(avail_kb) + " " + df_percent(used_kb, avail_kb) + " " + sanitize_field(mountpoint);
 }
 
 // One line of the `[df_inodes_start]` ... `[df_inodes_end]` block, in
@@ -75,7 +99,7 @@ inline std::string df_line(const std::string &device, const std::string &fs, lon
 inline std::string df_inodes_line(const std::string &device, const std::string &fs, long long total, long long free, const std::string &mountpoint) {
   const long long used = total > free ? total - free : 0;
   return df_token(device, "none") + " " + df_token(fs, "unknown") + " " + std::to_string(total) + " " + std::to_string(used) + " " + std::to_string(free) +
-         " " + (total > 0 ? df_percent(used, free) : std::string("-")) + " " + mountpoint;
+         " " + (total > 0 ? df_percent(used, free) : std::string("-")) + " " + sanitize_field(mountpoint);
 }
 
 // The start type field of a Windows `<<<services>>>` line. Checkmk's rules
@@ -96,7 +120,8 @@ inline std::string service_start_type(const std::string &start_type) {
 // would make `Agent` the state; the official agent sends it as `_`, as here.
 // The display name is the rest of the line and keeps its spaces.
 inline std::string service_line(const std::string &name, const std::string &state, const std::string &start_type, const std::string &display_name) {
-  return replace_chars(name, "") + " " + state + "/" + service_start_type(start_type) + " " + (display_name.empty() ? name : display_name);
+  return replace_chars(name, "") + " " + sanitize_field(state) + "/" + sanitize_field(service_start_type(start_type)) + " " +
+         sanitize_field(display_name.empty() ? name : display_name);
 }
 
 }  // namespace check_mk_format

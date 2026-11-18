@@ -43,20 +43,23 @@ struct packet {
       }
 
       // Render with the section's separator (defaults to space). Items are
-      // joined verbatim; whoever populated the line is responsible for any
-      // escaping appropriate to the chosen separator.
+      // joined verbatim except for line breaks: a `\r` or `\n` inside an item
+      // would end the line on the wire and let the rest pose as a row or a
+      // `<<<section>>>` header of its own, so both become a space here. This is
+      // the backstop; the producers (check_mk_format.hpp, the Lua script)
+      // already clean their fields. Any other escaping appropriate to the
+      // chosen separator is up to whoever populated the line.
       std::string to_string(int sep_char = ' ') const {
         std::string ret;
         bool first = true;
         const char sep = static_cast<char>(sep_char);
         for (const std::string &item : items) {
           if (first) {
-            ret += item;
             first = false;
           } else {
             ret.push_back(sep);
-            ret += item;
           }
+          for (const char c : item) ret.push_back(c == '\r' || c == '\n' ? ' ' : c);
         }
         return ret;
       }

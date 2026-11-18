@@ -241,8 +241,23 @@ local function build_df(packet, core)       fetch_section(packet, core, 'check_d
 -- core:simple_query returns lowercase code names (see lua_wrapper::push_code).
 local STATE_TO_INT = { ok = 0, warning = 1, critical = 2, unknown = 3 }
 
+-- A control character in a field (above all `\r` / `\n`) would end the line
+-- early and let the rest pose as a row or a `<<<section>>>` header of its own.
+-- Service names come from settings keys and passive submissions, messages and
+-- perfdata from whatever the check (or the submitter) produced, so every field
+-- on a local/mrpe line goes through one of these two.
+--
+-- no_controls() swaps each control character for one space and touches
+-- nothing else, so a name keeps its exact spacing (it is the service's
+-- identity in Checkmk) and perfdata keeps its exact labels.
+local function no_controls(s)
+  return (tostring(s or ''):gsub('%c', ' '))
+end
+
+-- squash() is for message text, which has always had every run of whitespace
+-- folded into one space.
 local function squash(s)
-  return ((s or ''):gsub('[\r\n]+', ' '):gsub('%s+', ' '))
+  return (no_controls(s):gsub('%s+', ' '))
 end
 
 -- Parse a settings spec like: "command=check_cpu warn=load>80 crit=load>90"
@@ -260,6 +275,7 @@ local function parse_spec(spec)
 end
 
 local function quote_local_name(name)
+  name = no_controls(name)
   if name:find('%s') or name == '' then
     return '"' .. (name:gsub('"', '\'')) .. '"'
   end
@@ -272,7 +288,8 @@ end
 -- with underscores so the metric label is a single token. Multiple metrics
 -- stay space-separated, which Checkmk does accept.
 local function normalize_local_perfdata(perf)
-  if not perf or perf == '' then return '-' end
+  perf = no_controls(perf)
+  if not perf:find('%S') then return '-' end
   perf = perf:gsub("'([^']*)'(=)", function(label, eq)
     return label:gsub('%s+', '_') .. eq
   end)
@@ -303,8 +320,9 @@ local function format_mrpe_line(name, code, message, perf, generated, ttl)
     prefix = string.format('cached(%d,%d) ', generated, ttl)
   end
   local text = squash(message)
-  if perf and perf ~= '' then text = text .. '|' .. perf end
-  return string.format('%s%s %d %s', prefix, name, code, text)
+  perf = no_controls(perf)
+  if perf:find('%S') then text = text .. '|' .. perf end
+  return string.format('%s%s %d %s', prefix, no_controls(name), code, text)
 end
 
 local function build_local(packet, core, settings, submissions)
