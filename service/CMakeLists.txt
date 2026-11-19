@@ -386,6 +386,12 @@ NSCP_CREATE_TEST(
         commands.hpp
         registry_query_handler.cpp
         registry_query_handler_test.cpp
+        # The core's key/value store and the handler plugins reach it through.
+        # Here rather than in a target of its own because the handler needs a
+        # plugin_manager, which this target already builds.
+        storage_manager.cpp
+        storage_query_handler.cpp
+        storage_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         path_manager.cpp
         ${service_test_SRCS}
