@@ -234,3 +234,132 @@ TEST_F(ZipBundleTest, a_bundle_refuses_the_calls_a_compiled_module_would_serve) 
   EXPECT_THROW(plugin->handleMessage("x", 1), nsclient::core::plugin_exception);
   EXPECT_THROW(plugin->commandLineExec(true, request, reply), nsclient::core::plugin_exception);
 }
+
+// ===== the plugin manager's lifecycle, driven by a bundle ===================
+//
+// A bundle is a module the plugin manager can load without a shared library,
+// so it stands in for one here: activating modules from [/modules], starting,
+// reloading, cloning and stopping them.
+
+namespace {
+void set_module(const std::string &key, const std::string &value) { settings_manager::get_settings()->set_string("/modules", key, value); }
+const zip_test::zip_entry kSimpleModule{"module.json", R"({"name":"Bundle","description":"","scripts":["check.sh"]})"};
+const zip_test::zip_entry kSimpleScript{"check.sh", "echo ok"};
+}  // namespace
+
+TEST_F(ZipBundleTest, load_active_plugins_loads_what_the_modules_section_enables) {
+  make_bundle("bundle", {kSimpleModule, kSimpleScript});
+  make_bundle("other", {kSimpleModule, kSimpleScript});
+  set_module("bundle", "enabled");
+  set_module("other", "disabled");
+
+  plugins_->load_active_plugins();
+  EXPECT_EQ(std::vector<std::string>{"bundle"}, plugins_->get_loaded_modules());
+  // Registered, not yet started: nothing is unpacked until start_plugins.
+  EXPECT_FALSE(fs::exists(unpacked("bundle") / "check.sh"));
+
+  plugins_->start_plugins(NSCAPI::normalStart);
+  EXPECT_TRUE(fs::exists(unpacked("bundle") / "check.sh"));
+}
+
+TEST_F(ZipBundleTest, a_module_can_be_loaded_under_an_alias) {
+  make_bundle("bundle", {kSimpleModule, kSimpleScript});
+  set_module("mine", "bundle");
+
+  plugins_->load_active_plugins();
+  ASSERT_EQ(std::vector<std::string>{"bundle"}, plugins_->get_loaded_modules());
+  EXPECT_TRUE(plugins_->get_plugin_cache()->has_module("mine"));
+  EXPECT_TRUE(plugins_->reload_plugin("mine"));
+}
+
+TEST_F(ZipBundleTest, an_enabled_module_missing_from_disk_is_reported_and_skipped) {
+  make_bundle("bundle", {kSimpleModule, kSimpleScript});
+  set_module("bundle", "enabled");
+  set_module("NotInstalled", "enabled");
+
+  plugins_->load_active_plugins();
+  EXPECT_EQ(std::vector<std::string>{"bundle"}, plugins_->get_loaded_modules());
+  EXPECT_TRUE(logger_->logged("NotInstalled"));
+}
+
+TEST_F(ZipBundleTest, load_active_plugins_needs_a_module_path) {
+  const auto unset = std::make_shared<nsclient::core::plugin_manager>(paths_, logger_);
+  EXPECT_THROW(unset->load_active_plugins(), std::exception);
+}
+
+TEST_F(ZipBundleTest, load_all_plugins_loads_disabled_modules_too) {
+  // "All" is what `nscp settings --generate` and the module listing want:
+  // every module named in [/modules], whatever it is set to.
+  make_bundle("bundle", {kSimpleModule, kSimpleScript});
+  set_module("bundle", "disabled");
+
+  plugins_->load_all_plugins();
+  EXPECT_EQ(std::vector<std::string>{"bundle"}, plugins_->get_loaded_modules());
+}
+
+TEST_F(ZipBundleTest, is_enabled_reads_the_modules_section) {
+  set_module("on", "enabled");
+  set_module("one", "1");
+  set_module("off", "disabled");
+  set_module("zero", "0");
+  set_module("no", "false");
+  set_module("aliased", "SomeModule");
+
+  EXPECT_TRUE(plugins_->is_enabled("on"));
+  EXPECT_TRUE(plugins_->is_enabled("one"));
+  EXPECT_TRUE(plugins_->is_enabled("aliased"));
+  EXPECT_FALSE(plugins_->is_enabled("off"));
+  EXPECT_FALSE(plugins_->is_enabled("zero"));
+  EXPECT_FALSE(plugins_->is_enabled("no"));
+  EXPECT_FALSE(plugins_->is_enabled("missing"));
+}
+
+TEST_F(ZipBundleTest, enable_and_disable_write_the_modules_section) {
+  ASSERT_TRUE(plugins_->enable_plugin("CheckThing"));
+  EXPECT_TRUE(plugins_->is_enabled("CheckThing"));
+  EXPECT_EQ("enabled", settings_manager::get_settings()->get_string("/modules", "CheckThing", ""));
+
+  ASSERT_TRUE(plugins_->disable_plugin("CheckThing"));
+  EXPECT_FALSE(plugins_->is_enabled("CheckThing"));
+  EXPECT_EQ("disabled", settings_manager::get_settings()->get_string("/modules", "CheckThing", ""));
+}
+
+TEST_F(ZipBundleTest, reloading_a_bundle_unpacks_it_again) {
+  make_bundle("bundle", {kSimpleModule, kSimpleScript});
+  ASSERT_TRUE(plugins_->load_single_plugin("bundle", "", true));
+  fs::remove(unpacked("bundle") / "check.sh");
+
+  EXPECT_TRUE(plugins_->reload_plugin("bundle"));
+  EXPECT_TRUE(fs::exists(unpacked("bundle") / "check.sh"));
+}
+
+TEST_F(ZipBundleTest, a_loaded_module_can_be_found_and_cloned_by_id) {
+  make_bundle("bundle", {kSimpleModule, kSimpleScript});
+  ASSERT_TRUE(plugins_->load_single_plugin("bundle", "", false));
+  const auto id = plugins_->get_plugin_cache()->find_plugin("bundle");
+  ASSERT_TRUE(id);
+
+  EXPECT_EQ("bundle", plugins_->find_plugin(id.value())->getModule());
+  const int clone = plugins_->clone_plugin(id.value());
+  EXPECT_GE(clone, 0);
+  EXPECT_NE(static_cast<int>(id.value()), clone);
+  EXPECT_FALSE(plugins_->is_dispatching_on_this_thread("bundle"));
+}
+
+TEST_F(ZipBundleTest, the_shutdown_sequence_unloads_every_module) {
+  make_bundle("bundle", {kSimpleModule, kSimpleScript});
+  make_bundle("second", {kSimpleModule, kSimpleScript});
+  set_module("bundle", "enabled");
+  set_module("second", "enabled");
+  plugins_->load_active_plugins();
+  plugins_->start_plugins(NSCAPI::normalStart);
+  plugins_->post_start_plugins();
+  ASSERT_TRUE(fs::exists(unpacked("bundle") / "check.sh"));
+  ASSERT_TRUE(fs::exists(unpacked("second") / "check.sh"));
+
+  plugins_->prepare_shutdown_plugins();
+  plugins_->stop_plugins();
+  EXPECT_TRUE(plugins_->get_loaded_modules().empty());
+  EXPECT_FALSE(fs::exists(unpacked("bundle")));
+  EXPECT_FALSE(fs::exists(unpacked("second")));
+}

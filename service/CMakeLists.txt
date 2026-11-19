@@ -383,6 +383,7 @@ NSCP_CREATE_TEST(
         plugins/zip_plugin.cpp
         plugins/zip_plugin_test.cpp
         plugins/zip_bundle_test.cpp
+        plugins/plugin_manager_dispatch_test.cpp
         plugins/zip_test_writer.hpp
         commands_test.cpp
         commands.hpp
