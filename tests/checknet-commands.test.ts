@@ -2138,7 +2138,13 @@ describe("CheckNet commands", () => {
       // file-existence oracle when `ca=` comes from the request, so it goes to
       // the agent log - but it still says which part of the setup failed.
       expect(messageOf(q)).not.toMatch(/failed to load .*CA bundle/i);
-      expect(q.result).toBe(OK);
+      // Compare the message along with the result: this is the one test that
+      // leaves the machine, and a bare "expected 0, received 2" does not say
+      // whether the site answered something else or was never reached.
+      expect({ result: q.result, message: messageOf(q) }).toEqual({
+        result: OK,
+        message: messageOf(q),
+      });
     });
   });
 
