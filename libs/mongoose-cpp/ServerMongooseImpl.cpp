@@ -463,8 +463,10 @@ void write_answer(mg_connection *connection, const int code, const char *headers
   }
   mg_printf(connection, "HTTP/1.1 %d %s\r\n%sContent-Length: %lu\r\n\r\n", code, reason_phrase(code), headers, static_cast<unsigned long>(body.size()));
   // What mg_http_reply() does once the answer is written: the connection may
-  // take its next request.
-  connection->is_resp = 0;
+  // take its next request. Mongoose 7.24 moved that "response in progress"
+  // marker from the is_resp bit to pfn_data (set to the connection when a
+  // request is handed over, NULL once it is answered).
+  connection->pfn_data = nullptr;
 }
 
 void write_reply(mg_connection *connection, const ServerMongooseImpl::reply &answer, const bool close, const bool head_only) {
@@ -597,7 +599,8 @@ void ServerMongooseImpl::event_handler(mg_connection *connection, int ev, void *
       if (connection->data[0] == kBodyRefused) {
         // The request reject_oversized() already answered, complete now that
         // its body has been read. Mongoose reads nothing further on this
-        // connection (is_resp stays set) and closes it once the 413 is out.
+        // connection (its response marker, pfn_data, stays set) and closes it
+        // once the 413 is out.
         connection->is_draining = 1;
         return;
       }
