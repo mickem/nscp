@@ -111,6 +111,8 @@ NSCP_CREATE_TEST(
         check_radius_test.cpp
         check_domain_test.cpp
         check_domain_parse.cpp
+        check_domain.cpp
+        check_domain_fetch.cpp
         check_http_json_test.cpp
         check_http_json.cpp
         check_webserver_test.cpp

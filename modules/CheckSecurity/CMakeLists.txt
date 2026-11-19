@@ -185,6 +185,7 @@ if(NOT WIN32)
         check_security_test
         SOURCES
             check_certificate_test.cpp
+            cert_filter_test.cpp
             cert_filter.cpp
             cert_source_openssl.cpp
             ${NSCP_FILTER_CPP}
