@@ -60,13 +60,14 @@ namespace {
 std::string fold_vm_name(const std::string &name) {
   // Case-insensitive the Unicode way, so "Büro" and "BÜRO" are one name the
   // way Get-VM -Name sees them; the invariant locale keeps the result the same
-  // whatever the service account's language is.
+  // whatever the service account's language is. LCMapStringW with the LCID
+  // rather than LCMapStringEx, which the Windows XP build does not have.
   std::wstring wide = utf8::cvt<std::wstring>(name);
   if (wide.empty()) return name;
-  const int size = LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, wide.c_str(), static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr, 0);
+  const int size = LCMapStringW(LOCALE_INVARIANT, LCMAP_LOWERCASE, wide.c_str(), static_cast<int>(wide.size()), nullptr, 0);
   if (size <= 0) return to_lower(name);
   std::wstring lowered(static_cast<std::size_t>(size), L'\0');
-  if (LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, wide.c_str(), static_cast<int>(wide.size()), &lowered[0], size, nullptr, nullptr, 0) <= 0) {
+  if (LCMapStringW(LOCALE_INVARIANT, LCMAP_LOWERCASE, wide.c_str(), static_cast<int>(wide.size()), &lowered[0], size) <= 0) {
     return to_lower(name);
   }
   return utf8::cvt<std::string>(lowered);
