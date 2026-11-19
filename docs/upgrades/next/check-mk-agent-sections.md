@@ -17,6 +17,7 @@ the Linux CPU sections:
 | `<<<df>>>` | Linux | Built by `check_drivesize fetch-only` instead of running `df`, and now carries inode counts. Requires `CheckDisk`. |
 | `<<<ps>>>` | both | The user field holds the process owner instead of being empty. |
 | `<<<check_mk>>>` | both | `OSType`, `OSName` and `OSVersion` (and `OSPlatform` on Linux), which Checkmk turns into `cmk/os_*` host labels. |
+| `<<<mem>>>`, `<<<uptime>>>` | Windows | Exact values. They were rounded to six significant digits (32 GiB of RAM was off by ~30 kB, and an uptime past 11.5 days was sent in scientific notation, e.g. `1.03457e+06`). The same applies to every number a Lua script reads through `Metrics()`. |
 
 If a Checkmk site already monitors hosts through NSClient++, run service
 discovery on them after upgrading: the memory service moves to Checkmk's

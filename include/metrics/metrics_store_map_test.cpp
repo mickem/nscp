@@ -81,8 +81,27 @@ TEST_F(MetricsStoreTest, GaugeValueIsFormattedAsString) {
 
   const auto result = store_.get("");
   ASSERT_EQ(1u, result.size());
-  // str::xtos(3600.0) → "3600"
   EXPECT_EQ("3600", result.at("sys.uptime"));
+}
+
+// The Checkmk agent dump copies these strings verbatim; a default stream
+// rounded them to six significant digits (and scientific notation).
+TEST_F(MetricsStoreTest, LargeIntegralGaugeKeepsEveryDigit) {
+  store_.set(make_gauge_message("mem", {{"total", 33777469440.0}, {"virtual", 140737488224256.0}, {"uptime", 1234567.0}}));
+
+  const auto result = store_.get("");
+  EXPECT_EQ("33777469440", result.at("mem.total"));
+  EXPECT_EQ("140737488224256", result.at("mem.virtual"));
+  EXPECT_EQ("1234567", result.at("mem.uptime"));
+}
+
+TEST_F(MetricsStoreTest, FractionalGaugeKeepsFifteenSignificantDigits) {
+  store_.set(make_gauge_message("cpu", {{"load", 0.1}, {"rate", 12345.678901}, {"neg", -2.5}}));
+
+  const auto result = store_.get("");
+  EXPECT_EQ("0.1", result.at("cpu.load"));
+  EXPECT_EQ("12345.678901", result.at("cpu.rate"));
+  EXPECT_EQ("-2.5", result.at("cpu.neg"));
 }
 
 // ============================================================================
