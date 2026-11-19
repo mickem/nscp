@@ -113,7 +113,10 @@ class ZipBundleTest : public ::testing::Test {
     ASSERT_TRUE(settings_manager::init_settings(provider_.get(), "ini:///" + p));
     logger_ = std::make_shared<bundle_logger>();
     paths_ = std::make_shared<nsclient::core::path_manager>(logger_);
-    paths_->set_overrides({{"scripts", scripts_.string()}});
+    // ${exe-path} too: a module missing from the module folder is looked for
+    // in ${exe-path}/modules next, and on a build where that is the build's
+    // own module folder the real CheckExternalScripts would load and stay.
+    paths_->set_overrides({{"scripts", scripts_.string()}, {"exe-path", dir_.string()}});
     plugins_ = std::make_shared<nsclient::core::plugin_manager>(paths_, logger_);
     plugins_->set_path(modules_);
   }
