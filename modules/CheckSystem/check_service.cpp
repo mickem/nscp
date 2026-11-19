@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <check/check_mk_format.hpp>
 #include <ctime>
 #include <str/format.hpp>
 #include <vector>
@@ -181,7 +182,7 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
       for (const win_list_services::service_info &info :
            win_list_services::enum_services("", win_list_services::parse_service_type("service"), win_list_services::parse_service_state("all"), excludes)) {
         if (!body.empty()) body += "\n";
-        body += info.name + " " + info.get_state_s() + "/" + info.get_start_type_s() + " " + (info.displayname.empty() ? info.name : info.displayname);
+        body += check_mk_format::service_line(info.name, info.get_state_s(), info.get_start_type_s(), info.displayname);
       }
       nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_service", NSCAPI::query_return_codes::returnOK, body, "");
       return;

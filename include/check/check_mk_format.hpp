@@ -31,9 +31,16 @@ inline std::string replace_chars(const std::string &value, const char *bad) {
 inline std::string ps_user(const std::string &user) { return replace_chars(user, ",()"); }
 
 // One `<<<ps>>>` line: `(user,vsz_kb,rss_kb,cputime,pid) command line`.
+// The command column is never empty: Checkmk's parser expects one, and a
+// process nothing could name (it exited mid-walk) reads as `[unknown]`, in
+// the bracket style ps uses for a process without a command line. Leading
+// whitespace is dropped so the program stays the first token.
 inline std::string ps_line(const std::string &user, long long vsz_kb, long long rss_kb, long long cputime, long long pid, const std::string &command) {
+  std::size_t start = 0;
+  while (start < command.size() && std::isspace(static_cast<unsigned char>(command[start]))) ++start;
+  const std::string cmd = command.substr(start);
   return "(" + ps_user(user) + "," + std::to_string(vsz_kb) + "," + std::to_string(rss_kb) + "," + std::to_string(cputime) + "," + std::to_string(pid) + ") " +
-         command;
+         (cmd.empty() ? std::string("[unknown]") : cmd);
 }
 
 // The device and filesystem columns of a `<<<df>>>` line. Checkmk splits the
@@ -69,6 +76,27 @@ inline std::string df_inodes_line(const std::string &device, const std::string &
   const long long used = total > free ? total - free : 0;
   return df_token(device, "none") + " " + df_token(fs, "unknown") + " " + std::to_string(total) + " " + std::to_string(used) + " " + std::to_string(free) +
          " " + (total > 0 ? df_percent(used, free) : std::string("-")) + " " + mountpoint;
+}
+
+// The start type field of a Windows `<<<services>>>` line. Checkmk's rules
+// know `auto`, `demand` and `disabled`, and its Service Summary counts a
+// service as autostart only when the field is exactly `auto`. NSClient++
+// tells delayed and trigger-start services apart (`delayed`, `auto_trigger`,
+// `delayed_trigger`); they are all SERVICE_AUTO_START, which is what the
+// official agent sends for them. Anything else (`demand`, `disabled`, `boot`,
+// `system`, `unknown`) passes through.
+inline std::string service_start_type(const std::string &start_type) {
+  if (start_type == "delayed" || start_type == "auto_trigger" || start_type == "delayed_trigger") return "auto";
+  return start_type;
+}
+
+// One Windows `<<<services>>>` line: `name state/start_type display name`.
+// Checkmk splits on whitespace and takes the first two columns as the name
+// and the status, so a space in the service name (`Windows Agent Service`)
+// would make `Agent` the state; the official agent sends it as `_`, as here.
+// The display name is the rest of the line and keeps its spaces.
+inline std::string service_line(const std::string &name, const std::string &state, const std::string &start_type, const std::string &display_name) {
+  return replace_chars(name, "") + " " + state + "/" + service_start_type(start_type) + " " + (display_name.empty() ? name : display_name);
 }
 
 }  // namespace check_mk_format

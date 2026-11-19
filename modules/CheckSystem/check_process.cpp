@@ -4,6 +4,7 @@
 #include "check_process.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <boost/algorithm/string.hpp>
 #include <check/check_mk_format.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
@@ -12,9 +13,14 @@
 #include <parsers/filter/realtime_helper.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
+#include <map>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
 #include <win/processes.hpp>
+#include <win/windows.hpp>
+// tlhelp32.h depends on windows.h types, so it must follow win/windows.hpp.
+#include <tlhelp32.h>
 
 namespace check_proc_filter {
 typedef win_list_processes::process_info filter_obj;
@@ -224,6 +230,32 @@ namespace active {
 
 namespace po = boost::program_options;
 
+namespace {
+// pid -> image name of every process, from a Toolhelp snapshot. Unlike
+// describe_pid it needs no handle on the process, so it names the ones
+// OpenProcess refuses even limited access to: System, Secure System and
+// Registry for LocalSystem, and every other account's processes for an agent
+// that does not run elevated. Empty on failure.
+std::map<DWORD, std::string> snapshot_process_names() {
+  std::map<DWORD, std::string> names;
+  const HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snap == INVALID_HANDLE_VALUE) return names;
+  PROCESSENTRY32W pe;
+  pe.dwSize = sizeof(pe);
+  try {
+    if (Process32FirstW(snap, &pe)) {
+      do {
+        names[pe.th32ProcessID] = utf8::cvt<std::string>(std::wstring(pe.szExeFile));
+      } while (Process32NextW(snap, &pe));
+    }
+  } catch (...) {
+    // A name that does not convert costs the fallback, not the section.
+  }
+  CloseHandle(snap);
+  return names;
+}
+}  // namespace
+
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const cpu_delta_map &cpu_deltas,
            bool cpu_collector_enabled) {
   // `fetch-only` short-circuits the filter machinery and emits one line per
@@ -240,12 +272,23 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     if (a == "fetch-only" || a == "--fetch-only") {
       NSC_error err;
       win_list_processes::process_list list = win_list_processes::enumerate_processes(false, false, true, &err, DEFAULT_BUFFER_SIZE, true);
+      // Names for the processes the walk above could not open. Checkmk's
+      // process rules match on the command, so a nameless line is a process
+      // no rule can see.
+      const std::map<DWORD, std::string> snapshot_names = snapshot_process_names();
       std::string body;
       for (const win_list_processes::process_info &p : list) {
         const long long vsz_kb = static_cast<long long>(p.VirtualSize.get() / 1024);
         const long long rss_kb = static_cast<long long>(p.WorkingSetSize.get() / 1024);
         const long long cputime = static_cast<long long>(p.total_time.get());
-        const std::string cmd = p.command_line.get().empty() ? p.exe.get() : p.command_line.get();
+        std::string cmd = p.command_line.get().empty() ? p.exe.get() : p.command_line.get();
+        // A command line may leave argv[0] out (` --vm-id {...}`); Checkmk
+        // takes the first token as the program, so put the image name there.
+        if (!cmd.empty() && std::isspace(static_cast<unsigned char>(cmd[0])) && !p.exe.get().empty()) cmd = p.exe.get() + cmd;
+        if (cmd.empty()) {
+          const auto it = snapshot_names.find(static_cast<DWORD>(p.pid.get()));
+          if (it != snapshot_names.end()) cmd = it->second;
+        }
         const std::string user = p.username.get().empty() ? p.sid.get() : p.username.get();
         if (!body.empty()) body += "\n";
         body += check_mk_format::ps_line(user, vsz_kb, rss_kb, cputime, static_cast<long long>(p.pid.get()), cmd);

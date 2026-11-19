@@ -35,9 +35,9 @@ NSClient++ produces this dump from a Lua script (`scripts/lua/default_check_mk.l
 
 | Source                         | Sections                                                                   |
 |--------------------------------|----------------------------------------------------------------------------|
-| Internal metrics store         | `<<<uptime>>>`, `<<<mem>>>` (Windows)                                      |
-| `/proc` files, sent as-is      | `<<<mem>>>`, `<<<cpu>>>`, `<<<kernel>>>` (Linux)                           |
-| Native checks                  | `<<<services>>>`, `<<<ps>>>`, `<<<df>>>` (`fetch-only`); OS lines of `<<<check_mk>>>` (`check_os_version`) |
+| Internal metrics store         | `<<<mem>>>` (Windows)                                                      |
+| `/proc` files, sent as-is      | `<<<mem>>>`, `<<<cpu>>>`, `<<<kernel>>>`, `<<<uptime>>>` (Linux)           |
+| Native checks                  | `<<<services>>>`, `<<<ps>>>`, `<<<df>>>` (`fetch-only`); `<<<uptime>>>` on Windows (`check_uptime`); OS lines of `<<<check_mk>>>` (`check_os_version`) |
 | Settings-driven bridge         | `<<<local>>>`, `<<<mrpe>>>`                                                |
 | Scheduler / passive submission | Cached entries inside `<<<local>>>` / `<<<mrpe>>>`                         |
 
@@ -151,12 +151,12 @@ These sections are produced automatically with no extra configuration:
 |--------------------|---------|------------------------------------------------------------------------------------------------------------|
 | `<<<check_mk>>>`   | both    | Version, hostname and the `OSType` / `OSName` / `OSVersion` lines Checkmk turns into `cmk/os_*` host labels (`check_os_version`) |
 | `<<<systemtime>>>` | Windows | Current Unix epoch (lets Checkmk warn on clock skew)                                                       |
-| `<<<uptime>>>`     | both    | Seconds since boot (read from the metrics store)                                                           |
+| `<<<uptime>>>`     | both    | Seconds since boot: `/proc/uptime` as-is on Linux, `check_uptime` on Windows. Built after every other section, like `<<<systemtime>>>`: Checkmk reads both against its own clock when the fetch ends, so time spent building the dump would otherwise read as clock skew and a late boot time |
 | `<<<mem>>>`        | both    | Linux: `/proc/meminfo` as-is. Windows: physical memory, commit limit (`PageTotal`/`PageFree`) and virtual address space from `GlobalMemoryStatusEx` |
 | `<<<cpu>>>`        | Linux   | `/proc/loadavg` and the CPU count, then the kernel's thread limit                                          |
 | `<<<kernel>>>`     | Linux   | Epoch, then `/proc/vmstat` and `/proc/stat` as-is (raw counters; Checkmk computes the rates)               |
 | `<<<df>>>`         | both    | Per-filesystem size/used/free/mountpoint (`check_drivesize fetch-only`); on Linux also the inode counts     |
-| `<<<services>>>`   | both    | `name state/start_type display_name` per service (Windows SCM; systemd units on Linux)                     |
+| `<<<services>>>`   | both    | `name state/start_type display_name` per service (Windows SCM; systemd units on Linux). On Windows, spaces in the name become `_` and every auto-start variant (delayed, trigger) is sent as `auto`, as the official agent does |
 | `<<<ps>>>`         | both    | `(user,vsz_kb,rss_kb,cputime,pid) cmdline` per process; the user is the owner's account name              |
 
 Once Checkmk has a host pointing at your nscp instance, these light up automatically as services in discovery: `Memory`, `Filesystem /` (or `Filesystem C:/`), `Uptime`, `Service Summary`, and on Linux also `CPU load`, `CPU utilization`, `Number of threads` and `Kernel Performance`.

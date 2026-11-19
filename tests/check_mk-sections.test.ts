@@ -67,8 +67,8 @@ describeIf(!onDarwin && moduleBuiltHere("CheckDisk"))("check_mk agent system sec
     await nscp.waitForPortFree(PORT);
     nscp.start();
     await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
-    // The Windows <<<mem>>> and <<<uptime>>> come from the metrics store,
-    // which the collector fills on its first tick; the dump skips them until then.
+    // The Windows <<<mem>>> comes from the metrics store,
+    // which the collector fills on its first tick; the dump skips it until then.
     await new Promise((r) => setTimeout(r, 5_000));
     dump = await fetchDump(PORT);
     sections = parseSections(dump);

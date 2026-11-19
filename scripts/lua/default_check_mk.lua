@@ -127,14 +127,30 @@ local function build_systemtime(packet)
   add_section(packet, 'systemtime', { tostring(os.time()) })
 end
 
--- Read uptime seconds from the metrics store. If the store hasn't ticked yet
--- (first request after a cold start) the section is omitted for that fetch;
--- Checkmk discovery just retries on the next cycle.
-local function build_uptime(packet, metrics)
-  local boot = metrics:value('system.uptime.boot.raw')
-  if boot and boot ~= '' and tonumber(boot) then
-    add_section(packet, 'uptime', { trim(boot) })
+-- Uptime in seconds, read when the dump is built: Checkmk computes "up since"
+-- as its own clock minus this number, so a value from the metrics store (up
+-- to one `metrics interval`, 10 s by default, old) moved the boot time
+-- forward by as much. Linux sends /proc/uptime as-is, as the official agent
+-- does; Windows takes the seconds from check_uptime's perfdata. The metrics
+-- store is the fallback, and if it has not ticked yet either (a cold start)
+-- the section is left out for that fetch.
+local function fresh_uptime(core)
+  if not IS_WIN then
+    local lines = read_lines('/proc/uptime')
+    return lines and lines[1] and trim(lines[1]) or nil
   end
+  local ok, _, _, perf = pcall(function() return core:simple_query('check_uptime', {}) end)
+  if not ok or not perf then return nil end
+  return perf:match("uptime'?=(%d+)")
+end
+
+local function build_uptime(packet, core, metrics)
+  local uptime = fresh_uptime(core)
+  if not uptime or uptime == '' then
+    uptime = metrics:value('system.uptime.boot.raw')
+    if not (uptime and tonumber(uptime)) then return end
+  end
+  add_section(packet, 'uptime', { trim(uptime) })
 end
 
 -- Windows: the eight lines the official Windows agent sends, built from the
@@ -346,9 +362,7 @@ function server_process(packet)
   local submissions = Submissions()
 
   safe('check_mk',  build_check_mk, packet, core)
-  safe('uptime',    build_uptime,   packet, metrics)
   if IS_WIN then
-    safe('systemtime', build_systemtime, packet)
     safe('mem',        build_mem_win,    packet, metrics)
   else
     safe('mem',    build_mem_linux,    packet)
@@ -360,6 +374,11 @@ function server_process(packet)
   safe('services', build_services, packet, core)
   safe('local', build_local, packet, core, settings, submissions)
   safe('mrpe',  build_mrpe,  packet, core, settings, submissions)
+  -- Last: Checkmk reads both against its own clock when the fetch ends, and
+  -- the sections above take seconds on a busy host (ps, services), which
+  -- showed up as a System Time offset and an "up since" late by as much.
+  safe('uptime', build_uptime, packet, core, metrics)
+  if IS_WIN then safe('systemtime', build_systemtime, packet) end
 end
 
 function client_process(packet)

@@ -16,6 +16,9 @@ the Linux CPU sections:
 | `<<<mem>>>` | Windows | `PageTotal`/`PageFree` (commit limit) and `VirtualTotal`/`VirtualFree` added; `SwapTotal`/`SwapFree` are 0, as the official agent sends them. |
 | `<<<df>>>` | Linux | Built by `check_drivesize fetch-only` instead of running `df`, and now carries inode counts. Requires `CheckDisk`. |
 | `<<<ps>>>` | both | The user field holds the process owner instead of being empty. |
+| `<<<ps>>>` | Windows | Every process has a command: one the agent cannot open (System, Registry, and other accounts' processes when not elevated) is named from a process snapshot, where it used to be sent without one and Checkmk dropped it. |
+| `<<<services>>>` | Windows | Delayed and trigger-start services are sent as `auto` and spaces in a service name as `_`, as the official agent does; Checkmk's Service Summary counted only plain `auto` services and misparsed names with spaces. |
+| `<<<uptime>>>`, `<<<systemtime>>>` | both | Read when the dump is finished rather than from the metrics store or at its start, so the System Time offset and the boot time no longer drift by the seconds it takes to build the dump. |
 | `<<<check_mk>>>` | both | `OSType`, `OSName` and `OSVersion` (and `OSPlatform` on Linux), which Checkmk turns into `cmk/os_*` host labels. |
 | `<<<mem>>>`, `<<<uptime>>>` | Windows | Exact values. They were rounded to six significant digits (32 GiB of RAM was off by ~30 kB, and an uptime past 11.5 days was sent in scientific notation, e.g. `1.03457e+06`). The same applies to every number a Lua script reads through `Metrics()`. |
 

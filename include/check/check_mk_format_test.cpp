@@ -11,6 +11,13 @@ TEST(CheckMkFormat, PsLineCarriesTheOwner) { EXPECT_EQ("(root,1024,512,7,1) /sbi
 
 TEST(CheckMkFormat, PsLineWithUnknownOwnerKeepsTheFieldCount) { EXPECT_EQ("(,10,20,0,42) a.exe", ps_line("", 10, 20, 0, 42, "a.exe")); }
 
+TEST(CheckMkFormat, PsLineAlwaysHasACommandColumn) {
+  EXPECT_EQ("(,0,0,0,4) [unknown]", ps_line("", 0, 0, 0, 4, ""));
+  EXPECT_EQ("(,0,0,0,4) [unknown]", ps_line("", 0, 0, 0, 4, "  "));
+}
+
+TEST(CheckMkFormat, PsLineKeepsTheProgramFirst) { EXPECT_EQ("(u,1,2,0,9) --vm-id {x}", ps_line("u", 1, 2, 0, 9, "  --vm-id {x}")); }
+
 TEST(CheckMkFormat, PsUserCannotSplitTheProcessInfoToken) {
   // A space would end the token, a comma would shift vsz/rss/cputime/pid.
   EXPECT_EQ("NT_AUTHORITY\\SYSTEM", ps_user("NT AUTHORITY\\SYSTEM"));
@@ -39,6 +46,28 @@ TEST(CheckMkFormat, DfPercentRoundsUpLikeDf) {
 
 TEST(CheckMkFormat, DfInodesLineMatchesDfInodeLayout) {
   EXPECT_EQ("/dev/sda1 ext4 1921360 391218 1530142 21% /", df_inodes_line("/dev/sda1", "ext4", 1921360, 1530142, "/"));
+}
+
+TEST(CheckMkFormat, ServiceStartTypeFoldsEveryAutoStartVariantIntoAuto) {
+  // Checkmk's Service Summary counts only `auto` as autostart.
+  EXPECT_EQ("auto", service_start_type("auto"));
+  EXPECT_EQ("auto", service_start_type("delayed"));
+  EXPECT_EQ("auto", service_start_type("auto_trigger"));
+  EXPECT_EQ("auto", service_start_type("delayed_trigger"));
+  EXPECT_EQ("demand", service_start_type("demand"));
+  EXPECT_EQ("disabled", service_start_type("disabled"));
+  EXPECT_EQ("unknown", service_start_type("unknown"));
+}
+
+TEST(CheckMkFormat, ServiceLineMatchesTheWindowsAgent) {
+  EXPECT_EQ("AudioSrv running/auto Windows Audio", service_line("AudioSrv", "running", "auto", "Windows Audio"));
+  EXPECT_EQ("MapsBroker stopped/auto Downloaded Maps Manager", service_line("MapsBroker", "stopped", "delayed", "Downloaded Maps Manager"));
+}
+
+TEST(CheckMkFormat, ServiceNameWithSpacesStaysOneColumn) {
+  // Checkmk's own sample: `Bonjour_Service running/auto Dienst "Bonjour"`.
+  EXPECT_EQ("Bonjour_Service running/auto Dienst \"Bonjour\"", service_line("Bonjour Service", "running", "auto", "Dienst \"Bonjour\""));
+  EXPECT_EQ("Windows_Agent_Service stopped/auto Windows Agent Service", service_line("Windows Agent Service", "stopped", "auto", ""));
 }
 
 TEST(CheckMkFormat, DfInodesLineWithoutInodeTablePrintsDash) {
