@@ -20,6 +20,9 @@ namespace check_svc_filter {
 using namespace parsers::where;
 
 bool check_state_is_perfect(const DWORD state, const DWORD start_type, const bool trigger) {
+  // A service whose configuration could not be read has no start type to
+  // say which state it belongs in; a settled state is as good as it gets.
+  if (start_type == win_list_services::start_type_unknown) return state == SERVICE_RUNNING || state == SERVICE_STOPPED;
   if (start_type == SERVICE_BOOT_START) return state == SERVICE_RUNNING;
   if (start_type == SERVICE_SYSTEM_START) return state == SERVICE_RUNNING;
   if (start_type == SERVICE_AUTO_START) {
@@ -32,6 +35,10 @@ bool check_state_is_perfect(const DWORD state, const DWORD start_type, const boo
 }
 
 bool check_state_is_ok(const DWORD state, const DWORD start_type, const bool delayed, const bool trigger, const DWORD exit_code) {
+  // Unreadable configuration: judged on the status alone, as is_problem()
+  // does - only a service that stopped on an error is wrong.
+  if (start_type == win_list_services::start_type_unknown)
+    return !(state == SERVICE_STOPPED && exit_code != NO_ERROR && exit_code != ERROR_SERVICE_NEVER_STARTED);
   if ((state == SERVICE_START_PENDING) && (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START))
     return true;
   if (delayed || trigger) {
