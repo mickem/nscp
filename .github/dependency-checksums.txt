@@ -72,7 +72,7 @@ lua             5.4.8     4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d7
 # cc4d78c4..., the commit it points at is the one below).
 googletest      1.12.1    58d77fa8070e8cec2dc1ed015d66b454c8d78850
 tinyxml2        10.1.0    57eea48c5bfc354ac45d53b2eb499e66c80d63e0
-mongoose        7.23      02bdbb9ed6f0a8f7c42228c6e7cb35d748b60551
+mongoose        7.24      91b87a6bd8568f101680d4fc0db3d8773f74eb6c
 mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 
 # check_nsclient, from https://github.com/mickem/check_nsclient/releases,

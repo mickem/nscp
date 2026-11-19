@@ -317,7 +317,7 @@ del tinyxml.zip
 Mongoose does not require building instead we need to download and configure where the build system can find it.
 
 ```commandline
-SET MONGOOSE_VERSION=7.23
+SET MONGOOSE_VERSION=7.24
 cd %BUILD_FOLDER%
 curl -L https://github.com/cesanta/mongoose/archive/refs/tags/%MONGOOSE_VERSION%.zip --output mongoose-%MONGOOSE_VERSION%.zip
 7z x mongoose-%MONGOOSE_VERSION%.zip
