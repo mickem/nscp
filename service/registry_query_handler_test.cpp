@@ -29,6 +29,7 @@
 #include "path_manager.hpp"
 #include "plugins/plugin_cache.hpp"
 #include "plugins/plugin_interface.hpp"
+#include "plugins/zip_test_writer.hpp"
 
 using nsclient::core::registry_query_handler;
 using PB::Registry::ItemType;
@@ -522,4 +523,81 @@ TEST_F(RegistryQueryTest, UnsupportedRegistrationTypeStillAnswers) {
   ASSERT_EQ(1, r.payload_size());
   EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_OK, status(r));
   EXPECT_TRUE(names(inventory(ItemType::QUERY)).empty());
+}
+
+// ============================================================================
+// Modules on disk that are not loaded
+// ============================================================================
+//
+// A zip bundle in the module folder stands in for a module that exists on disk
+// but has not been loaded: the registry has to open it to describe it, the way
+// it would open a DLL.
+
+namespace {
+class RegistryOnDiskTest : public RegistryQueryTest {
+ protected:
+  boost::filesystem::path modules_;
+
+  void SetUp() override {
+    RegistryQueryTest::SetUp();
+    modules_ = dir_.path() / "modules";
+    boost::filesystem::create_directories(modules_);
+    zip_test::write_zip(modules_ / "bundle.zip", {{"module.json", R"({"name":"Bundle","description":"from disk","experimental":true})"}});
+    // Not a module at all: the scan has to step over it.
+    settings_test::write_file(modules_ / "readme.txt", "not a module");
+    paths_->set_overrides({{"module-path", modules_.string()}});
+    plugins_->set_path(modules_);
+  }
+};
+}  // namespace
+
+TEST_F(RegistryOnDiskTest, AModuleOnDiskIsDescribedWhenAskedForByName) {
+  const auto response = inventory(ItemType::MODULE, "bundle");
+  const Inventory *bundle = find(response, "bundle");
+  ASSERT_NE(nullptr, bundle);
+  EXPECT_EQ("false", metadata(*bundle, "loaded"));
+  EXPECT_EQ("false", metadata(*bundle, "enabled"));
+  EXPECT_EQ("from disk", bundle->info().description());
+  // Looked at once, it is remembered.
+  EXPECT_TRUE(plugins_->get_plugin_cache()->has_module("bundle"));
+}
+
+TEST_F(RegistryOnDiskTest, AModuleNotOnDiskAskedForByNameReturnsNothing) {
+  EXPECT_TRUE(names(inventory(ItemType::MODULE, "NoSuchModule")).empty());
+  EXPECT_FALSE(plugins_->get_plugin_cache()->has_module("NoSuchModule"));
+}
+
+TEST_F(RegistryOnDiskTest, ListingEverythingSurvivesAModuleThatWillNotLoad) {
+  // The full listing scans the folder for shared libraries and opens each one
+  // it has not seen. One that is not a loadable library must cost only its
+  // own entry, not the listing.
+#ifdef WIN32
+  settings_test::write_file(modules_ / "Broken.dll", "not a library");
+#else
+  settings_test::write_file(modules_ / "libBroken.so", "not a library");
+#endif
+  ASSERT_FALSE(plugins_->get_plugin_cache()->has_all());
+
+  const auto response = inventory(ItemType::MODULE, "", true);
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_OK, status(response));
+  EXPECT_NE(nullptr, find(response, "CheckSystem"));
+  EXPECT_EQ(nullptr, find(response, "Broken"));
+  EXPECT_FALSE(plugins_->get_plugin_cache()->has_module("Broken"));
+  // The folder has been scanned once; the next listing does not scan again.
+  EXPECT_TRUE(plugins_->get_plugin_cache()->has_all());
+}
+
+TEST_F(RegistryOnDiskTest, AMissingModuleFolderIsNotAnError) {
+  paths_->set_overrides({{"module-path", (dir_.path() / "nowhere").string()}, {"exe-path", (dir_.path() / "nowhere").string()}});
+  const auto response = inventory(ItemType::MODULE, "", true);
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_OK, status(response));
+  EXPECT_EQ(nullptr, find(response, "bundle"));
+  EXPECT_FALSE(plugins_->get_plugin_cache()->has_module("bundle"));
+}
+
+TEST_F(RegistryQueryTest, AControlCommandWithNoHandlerIsAnError) {
+  // DUMMY_1 is the proto3 zero value - what a request that forgot to set the
+  // command carries.
+  const auto response = control(ItemType::MODULE, PB::Registry::Command::DUMMY_1, "CheckSystem");
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, status(response));
 }

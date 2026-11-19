@@ -18,6 +18,7 @@
 
 #include "path_manager.hpp"
 #include "plugins/plugin_manager.hpp"
+#include "plugins/zip_test_writer.hpp"
 #include "storage_manager.hpp"
 #include "storage_query_handler.hpp"
 
@@ -243,9 +244,9 @@ TEST_F(StorageTest, save_into_an_unwritable_location_is_logged_not_thrown) {
 
 // ===== storage_query_handler ================================================
 //
-// No module is loaded in these tests, so every request resolves to the
-// unnamed owner: what is checked is the dispatch, not the per-module scoping
-// (which storage_manager's own tests above cover).
+// Most of these load no module, so every request resolves to the unnamed
+// owner: what they check is the dispatch. The last ones load a zip bundle so a
+// request can name a real plugin.
 
 namespace {
 PB::Storage::StorageRequestMessage::Request *add_put(PB::Storage::StorageRequestMessage &msg, const std::string &context, const std::string &key,
@@ -358,4 +359,47 @@ TEST_F(StorageQueryHandlerTest, a_request_with_neither_get_nor_put_is_logged_and
   EXPECT_EQ(1, response.payload_size());
   ASSERT_EQ(1u, logger_->errors.size());
   EXPECT_NE(std::string::npos, logger_->errors.front().find("Unsupported action"));
+}
+
+namespace {
+// Load a zip bundle so there is a real plugin for a request to name, and
+// return its id. Both `id` and `plugin_id` are set on requests built from it:
+// the handler currently reads the former, the module-side helper fills in the
+// latter, and the test should not care which one wins.
+unsigned int load_bundle(const nsclient::core::plugin_mgr_instance &plugins, const boost::filesystem::path &dir, const std::string &name) {
+  const boost::filesystem::path modules = dir / "modules";
+  boost::filesystem::create_directories(modules);
+  zip_test::write_zip(modules / (name + ".zip"), {{"module.json", R"({"name":"x","description":""})"}});
+  plugins->set_path(modules);
+  if (!plugins->load_single_plugin(name, "", false)) return 0;
+  for (unsigned int id = 0; id < 16; id++) {
+    const auto p = plugins->find_plugin(id);
+    if (p && p->getModule() == name) return id;
+  }
+  return 0;
+}
+}  // namespace
+
+TEST_F(StorageQueryHandlerTest, a_request_from_a_loaded_module_is_stored_under_its_name) {
+  const unsigned int id = load_bundle(plugins_, dir_, "bundle");
+  ASSERT_NE(nullptr, plugins_->find_plugin(id));
+
+  PB::Storage::StorageRequestMessage put;
+  auto *r = add_put(put, "ctx", "key", "value");
+  r->set_id(id);
+  r->set_plugin_id(static_cast<int>(id));
+  run(put);
+
+  const std::map<std::string, std::string> expected{{"key", "value"}};
+  EXPECT_EQ(expected, as_map(store_->get("bundle", "ctx")));
+  EXPECT_TRUE(store_->get("", "ctx").empty());
+
+  PB::Storage::StorageRequestMessage get;
+  auto *g = add_get(get, "ctx");
+  g->set_id(id);
+  g->set_plugin_id(static_cast<int>(id));
+  const auto response = run(get);
+  ASSERT_EQ(1, response.payload_size());
+  ASSERT_EQ(1, response.payload(0).get().entry_size());
+  EXPECT_EQ("value", response.payload(0).get().entry(0).value());
 }
