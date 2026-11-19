@@ -368,7 +368,48 @@ TEST(CheckHyperV, NameCountCountsVmsSharingANameCaseInsensitively) {
   EXPECT_EQ(records[2].name_count, 1);
 }
 
+TEST(CheckHyperV, VmsWithoutANameAreNotDuplicatesOfEachOther) {
+  std::vector<vm_record> records(3);
+  records[2].name = "web01";
+  count_names(records);
+  EXPECT_EQ(records[0].name_count, 1);
+  EXPECT_EQ(records[1].name_count, 1);
+  EXPECT_EQ(records[2].name_count, 1);
+}
+
+TEST(CheckHyperV, NameCountUsesTheFoldItIsGiven) {
+  std::vector<vm_record> records(3);
+  records[0].name = "B\xC3\xBCro-01";  // Büro-01
+  records[1].name = "B\xC3\x9CRO-01";  // BÜRO-01
+  records[2].name = "db01";
+  count_names(records);  // ASCII fold: ü and Ü differ
+  EXPECT_EQ(records[0].name_count, 1);
+  const auto fold = [](const std::string &name) {
+    std::string key = to_lower(name);
+    const std::string upper = "\xC3\x9C", lower = "\xC3\xBC";
+    for (std::string::size_type at = key.find(upper); at != std::string::npos; at = key.find(upper, at)) key.replace(at, upper.size(), lower);
+    return key;
+  };
+  count_names(records, fold);
+  EXPECT_EQ(records[0].name_count, 2);
+  EXPECT_EQ(records[1].name_count, 2);
+  EXPECT_EQ(records[2].name_count, 1);
+}
+
 // --- over-commitment --------------------------------------------------------
+
+TEST(CheckHyperV, PartialVisibilityIsReported) {
+  std::vector<vm_record> records(3);
+  records[0].state_code = 2;  // running
+  records[1].state_code = 9;  // paused: keeps its worker process
+  records[1].process_id = 4242;
+  records[2].state_code = 3;  // off
+  EXPECT_EQ(with_worker_process(records), 2);
+  EXPECT_EQ(partial_vms_reason(records, 2), "");
+  EXPECT_EQ(partial_vms_reason(records, 1), "");  // a VM started after the counters were read
+  const std::string partial = partial_vms_reason(records, 5);
+  EXPECT_NE(partial.find("only 2 of the 5"), std::string::npos) << partial;
+}
 
 TEST(CheckHyperV, GuestUsageSumsOnlyRunningVms) {
   std::vector<vm_record> records(3);

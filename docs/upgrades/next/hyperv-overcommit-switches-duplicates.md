@@ -15,7 +15,14 @@ over-commitment
 `check_hyperv_host` now reads the virtual machines over WMI as well as the
 performance counters, so it needs the same rights as `check_hyperv_vms`
 (local administrator or Hyper-V Administrators; the default LocalSystem
-service account has them). Nothing to do on a default install; if the agent
-runs under an account that can read the counters but not see the VMs,
-`check_hyperv_host` now reports UNKNOWN with the reason - grant the account
-Hyper-V Administrators membership.
+service account has them). Nothing to do on a default install. If the agent
+runs under an account that can read the counters but not see every VM, or the
+VM list cannot be read in time (`vm-timeout`, 5 s by default), the check still
+reports the health summary but leaves the guest keywords at 0 with the new
+`guests_known` false and the reason in `guests_error`; add
+`or guests_known = 0` to a threshold on the over-commitment keywords so that
+does not read as an idle host, and grant the account Hyper-V Administrators
+membership. `check_hyperv_vms` now reports `health` as `unknown`, `degraded`,
+`minor_failure` or `non_recoverable_error` where it used to report
+`health_0`, `health_10`, `health_15` or `health_30`; a filter matching the old
+spellings must be updated.

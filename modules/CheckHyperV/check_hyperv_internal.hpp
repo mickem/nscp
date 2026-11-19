@@ -465,12 +465,18 @@ struct raw_rows {
 
 // Fill vm_record::name_count: the number of records sharing each display
 // name. Compared case-insensitively, the way Get-VM -Name and the Hyper-V
-// Manager resolve a name.
-inline void count_names(std::vector<vm_record> &records) {
+// Manager resolve a name; `fold` maps a name to its comparison key. This
+// header stays platform-neutral, so the default folds ASCII only and the
+// Windows caller passes a Unicode-aware fold (check_hyperv_vms.cpp). A VM
+// whose name could not be read is not a duplicate of every other such VM.
+template <typename Fold>
+inline void count_names(std::vector<vm_record> &records, Fold fold) {
   std::map<std::string, long long> counts;
-  for (const vm_record &record : records) counts[to_lower(record.name)] += 1;
-  for (vm_record &record : records) record.name_count = counts[to_lower(record.name)];
+  for (const vm_record &record : records)
+    if (!record.name.empty()) counts[fold(record.name)] += 1;
+  for (vm_record &record : records) record.name_count = record.name.empty() ? 1 : counts[fold(record.name)];
 }
+inline void count_names(std::vector<vm_record> &records) { count_names(records, [](const std::string &name) { return to_lower(name); }); }
 
 inline long long mb_to_bytes(const long long mb) { return mb * 1024LL * 1024LL; }
 
@@ -584,6 +590,31 @@ inline guest_usage sum_running(const std::vector<vm_record> &records) {
     usage.memory_assigned += record.memory_assigned;
   }
   return usage;
+}
+
+// The records whose VM has a worker process: running, and also paused (a
+// paused VM keeps its worker and its memory). These are what the health
+// summary counters count, so this is the number to hold them against.
+inline long long with_worker_process(const std::vector<vm_record> &records) {
+  long long active = 0;
+  for (const vm_record &record : records)
+    if (record.is_running() || record.process_id > 0) ++active;
+  return active;
+}
+
+// Why a sum over `records` would under-report the guests, or an empty string
+// when it can be trusted. Hyper-V's WMI provider only returns the VMs the
+// caller is authorised for, so an account allowed some VMs gets a list that
+// is merely short, and the sum over it reads as a nearly idle host. The health
+// counters are not filtered, so `counted` (VMs with a worker process) fewer
+// than the visible ones with a worker gives that away. Call after
+// hidden_vms_reason, which handles a list with nothing visible at all.
+inline std::string partial_vms_reason(const std::vector<vm_record> &records, const long long counted) {
+  const long long visible = with_worker_process(records);
+  if (visible >= counted) return "";
+  return "only " + std::to_string(visible) + " of the " + std::to_string(counted) +
+         " active virtual machine(s) Hyper-V reports are visible to this account: run as an elevated administrator or a member of Hyper-V "
+         "Administrators";
 }
 
 // `part` as a percentage of `whole`, to one decimal; 0 when `whole` is not

@@ -48,6 +48,32 @@ std::string counters_error(const std::string &object, const PDH::pdh_exception &
   return "Hyper-V counters (" + object + ") not available - is the Hyper-V role installed and the hypervisor running on this host? (" + reason + ")";
 }
 
+// A manual-reset waitable timer that becomes signalled `seconds` from now, the
+// abort event that bounds the VM walk: a stalled WMI provider must not hang a
+// check whose counter part is one PDH sample. Null (the walk then blocks as
+// before) when the timer cannot be created.
+class walk_deadline {
+ public:
+  explicit walk_deadline(const long long seconds) : timer_(CreateWaitableTimerW(nullptr, TRUE, nullptr)) {
+    if (timer_ == nullptr) return;
+    LARGE_INTEGER due;
+    due.QuadPart = -seconds * 10000000LL;  // relative, in 100 ns units
+    if (!SetWaitableTimer(timer_, &due, 0, nullptr, nullptr, FALSE)) {
+      CloseHandle(timer_);
+      timer_ = nullptr;
+    }
+  }
+  ~walk_deadline() {
+    if (timer_ != nullptr) CloseHandle(timer_);
+  }
+  walk_deadline(const walk_deadline &) = delete;
+  walk_deadline &operator=(const walk_deadline &) = delete;
+  HANDLE handle() const { return timer_; }
+
+ private:
+  HANDLE timer_;
+};
+
 // Physical memory the host has, in bytes; 0 when it cannot be read.
 long long physical_memory() {
   MEMORYSTATUSEX status;
@@ -95,6 +121,10 @@ struct filter_obj {
   long long physical_memory = 0;
   double cpu_overcommit = 0.0;
   double memory_overcommit = 0.0;
+  // Whether the VM walk could be trusted; when not, the over-commitment
+  // keywords above are 0 and guests_error says why.
+  bool guests_known = true;
+  std::string guests_error;
 
   std::string show() const { return std::to_string(health_ok) + " ok, " + std::to_string(health_critical) + " critical"; }
 };
@@ -140,6 +170,11 @@ struct filter_obj_handler : public native_context {
                           "Memory assigned to the running virtual machines as % of the host's physical memory (memory_assigned / "
                           "physical_memory); what is left is all the host itself and dynamic memory have to work with")
         .add_float_perf("%", "", "_memory_overcommit");
+    registry_.add_int_var("guests_known", parsers::where::type_bool, [](auto obj) { return obj->guests_known ? 1LL : 0LL; },
+                          "False when the virtual machines could not be read (WMI failed or timed out, or this account cannot see all of them), "
+                          "so running_vms, vm_vcpus, memory_assigned and the over-commitment keywords are 0 and mean nothing");
+    registry_.add_string_var("guests_error", [](auto obj) { return obj->guests_error; },
+                             "Why the virtual machines could not be read (empty when they were)");
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
@@ -152,9 +187,17 @@ void check_hyperv_host(const PB::Commands::QueryRequestMessage::Request &request
 
   modern_filter::data_container data;
   modern_filter::cli_helper<filter> filter_helper(request, response, data);
+  long long vm_timeout = 5;
 
   filter f;
   filter_helper.add_options("", "health_critical > 0", "", f.get_filter_syntax(), "unknown");
+  // clang-format off
+  filter_helper.get_desc().add_options()
+    ("vm-timeout", po::value<long long>(&vm_timeout)->default_value(5),
+        "Seconds to wait for the virtual machine list (WMI) behind the over-commitment keywords. When it runs out the check still "
+        "reports the health counters, with guests_known false.")
+    ;
+  // clang-format on
   filter_helper.add_syntax("${status}: ${list}",
                            "${health_ok} VMs ok, ${health_critical} critical, ${partitions} partitions on ${logical_processors} logical processors "
                            "(${virtual_processors} virtual)",
@@ -178,22 +221,30 @@ void check_hyperv_host(const PB::Commands::QueryRequestMessage::Request &request
 
   // The over-commitment keywords need the VMs themselves: the hypervisor's
   // "Virtual Processors" counts the root partition's too, and no counter sums
-  // the guests' memory. A list that hides VMs from this account would make
-  // the host look idle, so that is reported rather than summed.
+  // the guests' memory. The health counters count every VM with a worker
+  // process, so when they count none there is nothing to sum and the walk
+  // (which an account without Hyper-V rights could not vouch for) is skipped.
+  // A walk that fails, times out or is missing VMs would make the host look
+  // idle, so it leaves the guest keywords at 0 with guests_known false rather
+  // than taking the counter-based health summary down with it.
   guest_usage usage;
-  {
+  std::string guests_error;
+  const long long counted = counted_vms(values);
+  if (counted > 0) {
     const com_helper::mta_scope com;
+    if (vm_timeout <= 0) vm_timeout = 5;
+    const walk_deadline deadline(vm_timeout);
     try {
-      const std::vector<check_hyperv_internal::vm_record> records = check_hyperv_internal::build_records(fetch_vm_rows());
-      const std::string hidden = vms_hidden_from_caller(records.size(), counted_vms(values));
-      if (!hidden.empty()) return nscapi::protobuf::functions::set_response_bad(*response, hidden);
-      usage = check_hyperv_internal::sum_running(records);
+      const std::vector<check_hyperv_internal::vm_record> records = check_hyperv_internal::build_records(fetch_vm_rows(deadline.handle()));
+      guests_error = vms_hidden_from_caller(records.size(), counted);
+      if (guests_error.empty()) guests_error = check_hyperv_internal::partial_vms_reason(records, counted);
+      if (guests_error.empty()) usage = check_hyperv_internal::sum_running(records);
+    } catch (const wmi_impl::wmi_aborted &) {
+      guests_error = "Timed out after " + std::to_string(vm_timeout) + "s reading the Hyper-V virtual machines";
     } catch (const wmi_impl::wmi_exception &e) {
       const std::string unavailable = hyperv_unavailable(e);
-      if (!unavailable.empty()) {
-        return nscapi::protobuf::functions::set_response_bad(*response, "Hyper-V virtual machine information not available: " + unavailable);
-      }
-      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to query Hyper-V virtual machines: " + e.reason());
+      guests_error = unavailable.empty() ? "Failed to query Hyper-V virtual machines: " + e.reason()
+                                         : "Hyper-V virtual machine information not available: " + unavailable;
     }
   }
 
@@ -210,6 +261,8 @@ void check_hyperv_host(const PB::Commands::QueryRequestMessage::Request &request
   obj->physical_memory = physical_memory();
   obj->cpu_overcommit = percent_of(obj->vm_vcpus, obj->logical_processors);
   obj->memory_overcommit = percent_of(obj->memory_assigned, obj->physical_memory);
+  obj->guests_known = guests_error.empty();
+  obj->guests_error = guests_error;
   f.match(obj);
 
   filter_helper.post_process(f);

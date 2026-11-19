@@ -37,5 +37,16 @@ partition's processors too and no counter sums the guests' memory:
 `cpu_overcommit` and `memory_overcommit` are emitted as perfdata. Because of
 the VM walk the check needs the same rights as `check_hyperv_vms`: local
 administrator or *Hyper-V Administrators* membership (the default LocalSystem
-account has it). An account that cannot see the VMs gets UNKNOWN with the
-reason rather than an over-commitment of zero.
+account has it).
+
+When the health counters count no active virtual machines there is nothing to
+sum, so the walk is skipped and any account gets an over-commitment of zero.
+Otherwise a walk that cannot be trusted - WMI fails, it runs past
+`vm-timeout` (5 seconds by default), or this account sees fewer active VMs
+than the counters count - does not take the health summary down with it: the
+guest keywords stay 0, `guests_known` is false and `guests_error` says why.
+Make a threshold on over-commitment catch that case too:
+
+```
+check_hyperv_host "warning=cpu_overcommit > 300 or guests_known = 0" "critical=health_critical > 0 or memory_overcommit > 95"
+```

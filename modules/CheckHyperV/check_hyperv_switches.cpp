@@ -130,6 +130,7 @@ void check_hyperv_switches(const PB::Commands::QueryRequestMessage::Request &req
                            "%(status): all %(count) virtual switch(es) ok");
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;
+  f.add_manual_perf("ports");
 
   const com_helper::mta_scope com;
   try {

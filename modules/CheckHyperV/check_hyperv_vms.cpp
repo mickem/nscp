@@ -11,6 +11,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
+#include <str/utf8.hpp>
 #include <string>
 #include <vector>
 #include <win/com_helpers.hpp>
@@ -54,6 +55,23 @@ std::string hyperv_unavailable(const wmi_impl::wmi_exception &e) {
   }
   return "";
 }
+
+namespace {
+std::string fold_vm_name(const std::string &name) {
+  // Case-insensitive the Unicode way, so "Büro" and "BÜRO" are one name the
+  // way Get-VM -Name sees them; the invariant locale keeps the result the same
+  // whatever the service account's language is.
+  std::wstring wide = utf8::cvt<std::wstring>(name);
+  if (wide.empty()) return name;
+  const int size = LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, wide.c_str(), static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr, 0);
+  if (size <= 0) return to_lower(name);
+  std::wstring lowered(static_cast<std::size_t>(size), L'\0');
+  if (LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, wide.c_str(), static_cast<int>(wide.size()), &lowered[0], size, nullptr, nullptr, 0) <= 0) {
+    return to_lower(name);
+  }
+  return utf8::cvt<std::string>(lowered);
+}
+}  // namespace
 
 bool caller_may_see_all_vms() {
   // The default Hyper-V authorisation policy lets the local Administrators
@@ -203,7 +221,9 @@ struct filter_obj_handler : public native_context {
                              "Power state: running, off, saved, paused, starting, stopping, saving, pausing, resuming, fast_saved, fast_saving or "
                              "state_<n> for an unknown code");
     registry_.add_int_var("state_code", type_int, [](auto obj) { return obj->vm.state_code; }, "Raw EnabledState value behind `state`");
-    registry_.add_string_var("health", [](auto obj) { return obj->vm.health(); }, "Health as the host sees it: ok, major_failure or critical_failure");
+    registry_.add_string_var("health", [](auto obj) { return obj->vm.health(); },
+                             "Health as the host sees it: ok, degraded, minor_failure, major_failure, critical_failure, non_recoverable_error or "
+                             "unknown");
     registry_.add_string_var("operational_status", [](auto obj) { return obj->vm.operational_status(); },
                              "Operational status: ok, degraded, predictive_failure, stopped, in_service or dormant");
     registry_.add_string_var("operation", [](auto obj) { return obj->vm.operation(); },
@@ -278,7 +298,8 @@ void check_hyperv_vms(const PB::Commands::QueryRequestMessage::Request &request,
 
   const com_helper::mta_scope com;
   try {
-    const std::vector<vm_record> records = build_records(fetch_vm_rows());
+    std::vector<vm_record> records = build_records(fetch_vm_rows());
+    count_names(records, fold_vm_name);
     if (records.empty()) {
       const std::string hidden = vms_hidden_from_caller(0, counted_vms_or(-1));
       if (!hidden.empty()) return nscapi::protobuf::functions::set_response_bad(*response, hidden);
