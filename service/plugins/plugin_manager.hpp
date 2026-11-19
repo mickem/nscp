@@ -348,6 +348,10 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
     return boost::ends_with(file.string(), ".so");
 #endif
   }
+  // A ".zip module": an archive carrying a module.json, which find_file() and
+  // only_load_module() load as a zip_plugin. Kept apart from is_module(), whose
+  // callers (the boot-time module listing) mean a native shared library.
+  static bool is_module_bundle(const boost::filesystem::path &file) { return boost::algorithm::ends_with(file.string(), ".zip"); }
   static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
   static std::string file_to_module(const boost::filesystem::path &file) {
     std::string str = file.string();
