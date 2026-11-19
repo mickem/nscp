@@ -38,6 +38,16 @@ struct storage_item {
 
 class storage_manager {
  public:
+  // Entries read from a file written before storage was keyed by the module
+  // that owns them (file version < 2) are all held under this owner until a
+  // module claims them (see claim_legacy). Before that fix every request was
+  // resolved to whichever plugin happened to have id 0, so the owner written
+  // on disk says nothing about which module the entry really belongs to.
+  static const std::string legacy_owner;
+  // The layout save() writes. Version 1 (and 0, a missing file) predates
+  // per-module owners.
+  static const long long file_version = 2;
+
   typedef std::map<std::string, storage_item> storage_type;
   typedef std::list<std::string> key_list_type;
   typedef std::list<PB::Storage::Storage_Entry> entry_list;
@@ -62,6 +72,12 @@ class storage_manager {
   void load();
   void put(std::string plugin_name, const ::PB::Storage::Storage_Entry& entry);
   entry_list get(std::string plugin_name, std::string context);
+  // Move the legacy entries of `context` to `plugin_name`, and return them -
+  // but only when `plugin_name` holds nothing in that context yet, so a module
+  // that already has its own state never has it overwritten by the old shared
+  // copy. Atomic, so two modules reading the same context at once cannot both
+  // claim it. Returns an empty list when there was nothing to claim.
+  entry_list claim_legacy(const std::string& plugin_name, const std::string& context);
   void save();
 
  private:

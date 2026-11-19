@@ -6,6 +6,8 @@
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 
+#include <str/xtos.hpp>
+
 #include "plugins/dll_plugin.h"
 
 namespace nsclient {
@@ -18,34 +20,64 @@ storage_query_handler::storage_query_handler(nsclient::core::storage_manager_ins
 
 void storage_query_handler::parse(PB::Storage::StorageResponseMessage &response) {
   for (const PB::Storage::StorageRequestMessage::Request &r : request_.payload()) {
+    // plugin_id, not id: id is a request correlation number nobody sets, and
+    // reading it resolved every request to the plugin with id 0 - so every
+    // module shared one owner and could overwrite another's entries.
     if (r.has_get()) {
-      parse_get(r.id(), r.get(), response);
+      parse_get(r.plugin_id(), r.get(), response);
     } else if (r.has_put()) {
-      parse_put(r.id(), r.put(), response);
+      parse_put(r.plugin_id(), r.put(), response);
     } else {
       LOG_ERROR_CORE("Storage query: Unsupported action");
     }
   }
 }
 
+std::string storage_query_handler::resolve_owner(const long long plugin_id) {
+  if (plugin_id < 0) {
+    return "";
+  }
+  nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(static_cast<unsigned int>(plugin_id));
+  if (!plugin) {
+    return "";
+  }
+  return plugin->get_alias_or_name();
+}
+
 void storage_query_handler::parse_get(const long long plugin_id, const PB::Storage::StorageRequestMessage::Request::Get &q,
                                       PB::Storage::StorageResponseMessage &response) {
   PB::Storage::StorageResponseMessage::Response *payload = response.add_payload();
-  std::string plugin_name = "";
-  nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(static_cast<unsigned int>(plugin_id));
-  if (plugin) {
-    plugin_name = plugin->get_alias_or_name();
+  const std::string plugin_name = resolve_owner(plugin_id);
+  if (plugin_name.empty()) {
+    // An unresolved caller would otherwise read the legacy entries every
+    // module is about to claim (owner "" is where they are held).
+    LOG_ERROR_CORE("Storage query: unknown plugin id " + str::xtos(plugin_id) + " reading " + q.context());
+    payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
+    payload->mutable_result()->set_message("Unknown plugin id: " + str::xtos(plugin_id));
+    return;
   }
-  for (const ::PB::Storage::Storage_Entry &e : storage_->get(plugin_name, q.context())) {
+  storage_manager::entry_list entries = storage_->get(plugin_name, q.context());
+  if (entries.empty()) {
+    // Nothing of its own yet: take over what an older agent stored for this
+    // context before entries were kept per module.
+    entries = storage_->claim_legacy(plugin_name, q.context());
+  }
+  for (const ::PB::Storage::Storage_Entry &e : entries) {
     payload->mutable_get()->add_entry()->CopyFrom(e);
   }
 }
 void storage_query_handler::parse_put(const long long plugin_id, const PB::Storage::StorageRequestMessage::Request::Put &q,
                                       PB::Storage::StorageResponseMessage &response) {
-  std::string plugin_name = "";
-  nsclient::core::plugin_manager::plugin_type plugin = plugins_->find_plugin(static_cast<unsigned int>(plugin_id));
-  if (plugin) {
-    plugin_name = plugin->get_alias_or_name();
+  const std::string plugin_name = resolve_owner(plugin_id);
+  if (plugin_name.empty()) {
+    LOG_ERROR_CORE("Storage query: unknown plugin id " + str::xtos(plugin_id) + " writing " + q.entry().context());
+    PB::Storage::StorageResponseMessage::Response *payload = response.add_payload();
+    payload->mutable_put()->set_context(q.entry().context());
+    payload->mutable_put()->set_key(q.entry().key());
+    payload->mutable_put()->set_error("Unknown plugin id");
+    payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_ERROR);
+    payload->mutable_result()->set_message("Unknown plugin id: " + str::xtos(plugin_id));
+    return;
   }
   storage_->put(plugin_name, q.entry());
   // A plugin asking for a flush wants this entry on disk now rather than at

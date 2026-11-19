@@ -122,6 +122,9 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   virtual ~plugin_manager();
 
   plugin_cache *get_plugin_cache() { return &plugin_cache_; }
+  // The loaded plugins, by id. What find_plugin() resolves against; exposed
+  // like the other registries so a test can put a mock plugin in it.
+  master_plugin_list *get_plugin_list() { return &plugin_list_; }
   commands *get_commands() { return &commands_; }
   channels *get_channels() { return &channels_; }
   event_subscribers *get_event_subscribers() { return &event_subscribers_; }

@@ -13,6 +13,8 @@
 
 std::string mk_key(const std::string &plugin_name, const std::string &context, const std::string key = "") { return plugin_name + "." + context + "." + key; }
 
+const std::string nsclient::core::storage_manager::legacy_owner = "";
+
 template <typename T>
 bool read_chunk(::google::protobuf::io::CodedInputStream &stream, T &obj) {
   uint32_t size = 0;
@@ -47,15 +49,23 @@ void nsclient::core::storage_manager::load() {
     LOG_ERROR_CORE("Failed to read storage.");
     return;
   }
+  // A file older than version 2 was written while every request resolved to
+  // the plugin with id 0, so its owners are not the modules the entries
+  // belong to. Hold them all under the legacy owner; each module claims its
+  // own contexts on its first read (claim_legacy).
+  const bool legacy = header.version() < file_version;
   for (long long i = 0; i < header.entries(); i++) {
     ::PB::Storage::Storage::Block block;
     if (!read_chunk(*coded_in, block)) {
       LOG_ERROR_CORE("Failed to read block " + str::xtos(i) + " from storage.");
       continue;
     }
-    storage_[mk_key(block.owner(), block.entry().context(), block.entry().key())] = storage_item(block.owner(), block.entry());
+    const std::string owner = legacy ? legacy_owner : block.owner();
+    storage_[mk_key(owner, block.entry().context(), block.entry().key())] = storage_item(owner, block.entry());
   }
-  has_changed_ = false;
+  // Loading a legacy file marks the store changed, so the next save writes
+  // the new version even if no module has claimed anything yet.
+  has_changed_ = legacy && header.entries() > 0;
 }
 
 void nsclient::core::storage_manager::put(std::string plugin_name, const ::PB::Storage::Storage_Entry &entry) {
@@ -78,9 +88,49 @@ nsclient::core::storage_manager::entry_list nsclient::core::storage_manager::get
   }
   std::string key = mk_key(plugin_name, context);
   for (const storage_type::value_type &v : storage_) {
-    if (boost::algorithm::starts_with(v.first, key)) {
+    // The prefix of "disk" also covers "disk.trends"; only the context asked
+    // for belongs in the answer.
+    if (boost::algorithm::starts_with(v.first, key) && v.second.entry.context() == context) {
       ret.push_back(v.second.entry);
     }
+  }
+  return ret;
+}
+
+nsclient::core::storage_manager::entry_list nsclient::core::storage_manager::claim_legacy(const std::string &plugin_name, const std::string &context) {
+  entry_list ret;
+  if (plugin_name == legacy_owner) {
+    return ret;
+  }
+  boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!writeLock.owns_lock()) {
+    LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
+    return ret;
+  }
+  // Keys are "<owner>.<context>.<key>", so the prefix of "disk" also covers
+  // "disk.trends": compare the entry's own context, not just the prefix.
+  const std::string own_prefix = mk_key(plugin_name, context);
+  for (storage_type::const_iterator it = storage_.lower_bound(own_prefix); it != storage_.end() && boost::algorithm::starts_with(it->first, own_prefix);
+       ++it) {
+    if (it->second.entry.context() == context) {
+      return ret;
+    }
+  }
+  const std::string legacy_prefix = mk_key(legacy_owner, context);
+  storage_type::iterator it = storage_.lower_bound(legacy_prefix);
+  while (it != storage_.end() && boost::algorithm::starts_with(it->first, legacy_prefix)) {
+    if (it->second.entry.context() != context) {
+      ++it;
+      continue;
+    }
+    const ::PB::Storage::Storage_Entry entry = it->second.entry;
+    it = storage_.erase(it);
+    storage_[mk_key(plugin_name, entry.context(), entry.key())] = storage_item(plugin_name, entry);
+    ret.push_back(entry);
+  }
+  if (!ret.empty()) {
+    has_changed_ = true;
+    LOG_INFO_CORE("Storage: moved " + str::xtos(ret.size()) + " entries of " + context + " from the shared pre-upgrade store to " + plugin_name);
   }
   return ret;
 }
@@ -127,7 +177,7 @@ void nsclient::core::storage_manager::save() {
       codedstr_type coded_out = codedstr_type(new ::google::protobuf::io::CodedOutputStream(raw_out.get()));
 
       ::PB::Storage::Storage::File header;
-      header.set_version(1);
+      header.set_version(file_version);
       header.set_entries(storage_.size());
       if (!write_chunk<>(*coded_out, header)) {
         LOG_ERROR_CORE("Failed to write header to storage.");

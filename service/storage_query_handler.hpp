@@ -29,6 +29,9 @@ class storage_query_handler {
   void parse_put(const long long plugin_id, const PB::Storage::StorageRequestMessage::Request::Put &q, PB::Storage::StorageResponseMessage &response);
 
  private:
+  // The module a request is stored under: the alias it was loaded with, or
+  // its module name. Empty when the id names no loaded plugin.
+  std::string resolve_owner(long long plugin_id);
   logging::logger_instance get_logger() const { return logger_; }
   void add_module(PB::Storage::StorageResponseMessage::Response *rp, const plugin_cache_item &plugin);
   plugin_cache_item inventory_plugin_on_disk(plugin_cache::plugin_cache_list_type &list, std::string plugin);
