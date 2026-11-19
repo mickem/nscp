@@ -9,6 +9,10 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
+#include <memory>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -16,6 +20,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
+#include <threads/guarded_thread.hpp>
 #include <utility>
 #include <win/com_helpers.hpp>
 
@@ -205,70 +210,16 @@ void read_update(IUpdate *update, update_info &info) {
   }
 }
 
-// Minimal ISearchCompletedCallback: WUA invokes it (on one of its own threads)
-// when an asynchronous search finishes, whether it completed, failed or was
-// aborted. It owns the completion event so the handle stays valid for as long
-// as WUA holds a reference, even if the searching thread has already given up
-// on the job.
-class search_completed_callback final : public ISearchCompletedCallback {
-  LONG refs_;
-  HANDLE done_;
-
- public:
-  search_completed_callback() : refs_(1), done_(CreateEvent(nullptr, TRUE, FALSE, nullptr)) {}
-  search_completed_callback(const search_completed_callback &) = delete;
-  search_completed_callback &operator=(const search_completed_callback &) = delete;
-
-  HANDLE done_event() const { return done_; }
-
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppv) override {
-    if (ppv == nullptr) return E_POINTER;
-    if (riid == IID_IUnknown || riid == __uuidof(ISearchCompletedCallback)) {
-      *ppv = static_cast<ISearchCompletedCallback *>(this);
-      AddRef();
-      return S_OK;
-    }
-    *ppv = nullptr;
-    return E_NOINTERFACE;
-  }
-  ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&refs_)); }
-  ULONG STDMETHODCALLTYPE Release() override {
-    const LONG refs = InterlockedDecrement(&refs_);
-    if (refs == 0) delete this;
-    return static_cast<ULONG>(refs);
-  }
-  HRESULT STDMETHODCALLTYPE Invoke(ISearchJob *, ISearchCompletedCallbackArgs *) override {
-    if (done_ != nullptr) SetEvent(done_);
-    return S_OK;
-  }
-
- private:
-  ~search_completed_callback() {
-    if (done_ != nullptr) CloseHandle(done_);
-  }
-};
-
-// How long to wait for WUA to acknowledge RequestAbort() before giving up on
-// the job. WUA normally completes an aborted search within a second; the cap
-// only matters if it does not, in which case the job is abandoned without
-// EndSearch() (see pin_this_module) rather than holding shutdown hostage.
-const DWORD abort_grace_ms = 5000;
-
 bool abort_requested(HANDLE abort_event) { return abort_event != nullptr && WaitForSingleObject(abort_event, 0) == WAIT_OBJECT_0; }
 
 // Keep this DLL mapped for the remaining life of the process.
 //
-// BeginSearch() hands WUA its own reference to the completion callback, and
-// WUA keeps it until the job is torn down. On the abandoned-job path below we
-// return without EndSearch(), so that reference outlives the call -- and both
-// the callback's Invoke() and its Release()/destructor dispatch through a
-// vtable that lives in this module. stop_plugins() unloads it moments later,
-// so a late call from a WUA worker would land in unmapped memory: an access
-// violation during exactly the stalled shutdown this code exists to fix
-// (#1504). Pinning costs one abandoned module mapping (the module can no
-// longer be unloaded and reloaded without restarting the service) in the rare
-// case where WUA does not acknowledge RequestAbort() in time, which is the
-// better trade.
+// A search that outlives the collector that asked for it (see wua_search)
+// runs on a thread whose code is in this module. stop_plugins() unloads the
+// module moments after the collector has stopped, and the thread would then
+// return into unmapped memory. Pinning costs one module mapping that can no
+// longer be released until the process ends, and only on the path where a
+// stop found a search in flight.
 void pin_this_module() {
   // Any address inside the module image identifies it; PIN makes the reference
   // permanent, so the handle is deliberately never released.
@@ -277,23 +228,17 @@ void pin_this_module() {
   GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, reinterpret_cast<LPCWSTR>(&anchor), &self);
 }
 
-// Run the WUA search. Returns false when the search was abandoned because
-// abort_event was signalled (out is then left as "pending" and must not be
-// published); throws on any WUA failure.
+// Run the WUA search to the end. Throws on any WUA failure, with out.error
+// set to what failed.
 //
-// The search runs asynchronously (BeginSearch) rather than through the
-// blocking Search() so that a stop request can interrupt it: the synchronous
-// call goes online to Windows Update / WSUS and routinely takes minutes on a
-// server, and the collector thread that issued it cannot be joined until it
-// returns. That is what made the service take minutes to stop when the first
-// search of a fresh start was still running (#1504).
-bool perform_wua_search(os_updates_obj &out, HANDLE abort_event) {
+// This blocks for as long as WUA takes - it goes online to Windows Update or
+// WSUS and routinely needs minutes on a server - and there is deliberately no
+// way to interrupt it; see wua_search for why, and for what a stop does
+// instead.
+void perform_wua_search(os_updates_obj &out) {
   out.updates.clear();
   out.fetch_succeeded = false;
   out.error.clear();
-
-  // A stop that arrived before we got here: do not even touch WUA.
-  if (abort_requested(abort_event)) return false;
 
   // Scoped COM init (tolerates RPC_E_CHANGED_MODE): balanced on every exit
   // path, including the exceptions thrown below.
@@ -314,49 +259,11 @@ bool perform_wua_search(os_updates_obj &out, HANDLE abort_event) {
       throw nsclient::nsclient_exception(out.error);
     }
 
-    com_ptr<search_completed_callback> callback;
-    *callback.out() = new search_completed_callback();
-    if (callback->done_event() == nullptr) {
-      out.error = "Failed to create the WUA search completion event";
-      throw nsclient::nsclient_exception(out.error);
-    }
-
     bstr_holder criteria(L"IsInstalled=0 and Type='Software' and IsHidden=0");
-    VARIANT state;
-    VariantInit(&state);
-    com_ptr<ISearchJob> job;
-    hr = searcher->BeginSearch(criteria.b, static_cast<IUnknown *>(callback.get()), state, job.out());
-    if (FAILED(hr) || !job.get()) {
-      out.error = "WUA BeginSearch() failed (HRESULT=0x" + str::xtos(static_cast<long>(hr)) + ")";
-      throw nsclient::nsclient_exception(out.error);
-    }
-
-    // Block until WUA reports the job complete or a stop is requested.
-    HANDLE handles[2] = {callback->done_event(), abort_event};
-    const DWORD handle_count = abort_event != nullptr ? 2 : 1;
-    const DWORD wait = WaitForMultipleObjects(handle_count, handles, FALSE, INFINITE);
-    if (wait != WAIT_OBJECT_0) {
-      // Stop requested (or the wait itself failed, which we treat the same
-      // way: there is no point sitting on a search nobody will read).
-      job->RequestAbort();
-      // Let WUA wind the job down so EndSearch() releases it cleanly.
-      if (WaitForSingleObject(callback->done_event(), abort_grace_ms) == WAIT_OBJECT_0) {
-        com_ptr<ISearchResult> discarded;
-        searcher->EndSearch(job.get(), discarded.out());
-      } else {
-        // WUA did not acknowledge in time and we will not hold the unload
-        // hostage any longer: drop our references and abandon the job. WUA
-        // still holds one on the callback, so the module has to stay mapped
-        // for whatever it does with it next.
-        pin_this_module();
-      }
-      return false;
-    }
-
     com_ptr<ISearchResult> results;
-    hr = searcher->EndSearch(job.get(), results.out());
+    hr = searcher->Search(criteria.b, results.out());
     if (FAILED(hr) || !results.get()) {
-      out.error = "WUA EndSearch() failed (HRESULT=0x" + str::xtos(static_cast<long>(hr)) + ")";
+      out.error = "WUA Search() failed (HRESULT=0x" + str::xtos(static_cast<long>(hr)) + ")";
       throw nsclient::nsclient_exception(out.error);
     }
     OperationResultCode result_code = orcNotStarted;
@@ -384,19 +291,155 @@ bool perform_wua_search(os_updates_obj &out, HANDLE abort_event) {
     out.recompute();
     out.fetch_succeeded = true;
   }
-  return true;
+}
+
+// A WUA search, on a thread of its own.
+//
+// The collector must be able to stop at once - the search takes minutes, and
+// the thread that waits for it is joined by unloadModule (#1504) - but the
+// search itself must be left alone. It used to be cancelled: BeginSearch(),
+// and ISearchJob::RequestAbort() when the stop signal fired. WUA does not
+// survive that if the search happens to be completing at the same moment. Its
+// own worker is then inside CSearchJob::SearchCallbackInternal, building the
+// result, while RequestAbort() takes the job apart under it, and the process
+// dies with an access violation inside wuapicore.dll
+// (CSearchResult::PopulateBundledUpdates). A search starts with the collector,
+// so the ones a settings reload or a short-lived `nscp test` stops are the
+// ones about to complete.
+//
+// So the search is never cancelled. It runs to the end on its own thread and
+// the collector only waits for it: a stop ends the wait, not the search. The
+// thread is then left to finish by itself, with this module pinned so its
+// code stays mapped, and its COM objects are released by the thread that
+// created them, in the order WUA expects.
+//
+// There is one search per process, not one per collector. A reload stops the
+// collector and starts a new one, whose first act is to ask for a search
+// again: it is handed the one already running rather than starting a second,
+// so reloading over and over (a fleet server pushing configuration) cannot
+// pile searches up, and the result the first collector walked away from is
+// not wasted.
+struct wua_search {
+  os_updates_obj result;        // written by the search thread, read once `finished` is set
+  long long finished_at = 0;    // likewise
+  HANDLE finished;              // manual reset: set when the search thread is done with `result`
+
+  wua_search() : finished(CreateEvent(nullptr, TRUE, FALSE, nullptr)) {}
+  ~wua_search() {
+    if (finished != nullptr) CloseHandle(finished);
+  }
+  wua_search(const wua_search &) = delete;
+  wua_search &operator=(const wua_search &) = delete;
+
+  bool is_finished() const { return WaitForSingleObject(finished, 0) == WAIT_OBJECT_0; }
+};
+
+struct wua_search_slot {
+  boost::mutex mutex;
+  std::shared_ptr<wua_search> current;
+  // The thread running `current`, until someone has joined or detached it.
+  std::shared_ptr<boost::thread> thread;
+};
+
+// Allocated once and never freed on purpose: a search thread can still be
+// running when the module's statics are destroyed at process exit.
+wua_search_slot &search_slot() {
+  static wua_search_slot *const slot = new wua_search_slot();
+  return *slot;
+}
+
+// How old a finished search nobody collected may be and still be handed out.
+// Long enough to cover a reload - the old collector stops, the new one starts
+// and asks - and short enough that what is published as "just fetched" is.
+const long long unclaimed_result_max_age_seconds = 60;
+
+void run_search(const std::shared_ptr<wua_search> &search) {
+  try {
+    perform_wua_search(search->result);
+  } catch (const std::exception &e) {
+    search->result.fetch_succeeded = false;
+    if (search->result.error.empty()) search->result.error = e.what();
+  } catch (...) {
+    search->result.fetch_succeeded = false;
+    if (search->result.error.empty()) search->result.error = "unknown WUA error";
+  }
+  search->finished_at = now_seconds();
+  SetEvent(search->finished);
+}
+
+// The search in flight, or a new one if there is none.
+std::shared_ptr<wua_search> join_or_start_search() {
+  wua_search_slot &slot = search_slot();
+  std::shared_ptr<boost::thread> stale_thread;
+  std::shared_ptr<wua_search> search;
+  {
+    boost::mutex::scoped_lock lock(slot.mutex);
+    if (slot.current && slot.current->is_finished() && now_seconds() - slot.current->finished_at > unclaimed_result_max_age_seconds) {
+      slot.current.reset();
+      stale_thread.swap(slot.thread);
+    }
+    if (!slot.current) {
+      const std::shared_ptr<wua_search> fresh = std::make_shared<wua_search>();
+      if (fresh->finished == nullptr) throw nsclient::nsclient_exception("Failed to create the WUA search completion event");
+      slot.thread = threads::start_guarded_thread(
+          "os updates search", [fresh]() { run_search(fresh); }, NSC_THREAD_REPORTER);
+      slot.current = fresh;
+    }
+    search = slot.current;
+  }
+  // Its search has finished, so this returns at once.
+  if (stale_thread) stale_thread->join();
+  return search;
+}
+
+// Wait for `search` or for abort_event, whichever is first. False when it was
+// the abort: the search is then left running, see wua_search.
+bool wait_for_search(const std::shared_ptr<wua_search> &search, HANDLE abort_event) {
+  HANDLE handles[2] = {search->finished, abort_event};
+  const DWORD handle_count = abort_event != nullptr ? 2 : 1;
+  const DWORD wait = WaitForMultipleObjects(handle_count, handles, FALSE, INFINITE);
+  wua_search_slot &slot = search_slot();
+  if (wait == WAIT_OBJECT_0) {
+    std::shared_ptr<boost::thread> thread;
+    {
+      boost::mutex::scoped_lock lock(slot.mutex);
+      if (slot.current == search) {
+        slot.current.reset();
+        thread.swap(slot.thread);
+      }
+    }
+    // Joined, so that an unload which follows cannot unmap the module under
+    // the last instructions of the thread. One that was left behind earlier
+    // has been detached, and the module pinned for it.
+    if (thread) thread->join();
+    return true;
+  }
+  // Stop requested (or the wait itself failed, which is treated the same
+  // way: there is no point sitting on a search nobody will read).
+  boost::mutex::scoped_lock lock(slot.mutex);
+  if (slot.current == search && slot.thread) {
+    pin_this_module();
+    slot.thread->detach();
+    slot.thread.reset();
+  }
+  return false;
 }
 
 }  // namespace
 
 bool os_updates_data::force_fetch(const threads::stop_signal *stop) {
   if (!fetch_supported_) return true;
+  const HANDLE abort_event = stop != nullptr ? stop->native_handle() : nullptr;
+  // A stop that arrived before we got here: do not even touch WUA.
+  if (abort_requested(abort_event)) return false;
   os_updates_obj tmp;
   try {
-    // An aborted search publishes nothing: the collector is shutting down and
-    // a half-finished result would only replace good cached data with
-    // "pending".
-    if (!perform_wua_search(tmp, stop != nullptr ? stop->native_handle() : nullptr)) return false;
+    const std::shared_ptr<wua_search> search = join_or_start_search();
+    // A wait cut short by the stop publishes nothing: the collector is
+    // shutting down and a half-finished result would only replace good cached
+    // data with "pending".
+    if (!wait_for_search(search, abort_event)) return false;
+    tmp = search->result;
   } catch (const std::exception &e) {
     tmp.fetch_succeeded = false;
     if (tmp.error.empty()) tmp.error = e.what();
