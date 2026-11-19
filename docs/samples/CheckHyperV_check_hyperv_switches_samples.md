@@ -2,28 +2,28 @@
 
 ```
 check_hyperv_switches
-OK: all 3 virtual switch(es) ok|'LAN_ports'=9;0;0 'Internal_ports'=2;0;0 'Isolated_ports'=0;0;0
+OK: all 2 virtual switch(es) ok|'Default Switch_ports'=2 'FSE Switch_ports'=6
 ```
 
-**List every switch with its type, whether problems or not:**
+**List every switch with its type and state, whether problems or not:**
 
 ```
-check_hyperv_switches "top-syntax=${status}: ${list}"
-OK: LAN: external, enabled, health ok, Internal: internal, enabled, health ok, Isolated: private, enabled, health ok|'LAN_ports'=9;0;0 'Internal_ports'=2;0;0 'Isolated_ports'=0;0;0
+check_hyperv_switches "top-syntax=${status}: ${list}" "ok-syntax=${status}: ${list}"
+OK: Default Switch: internal, not_applicable, health ok, FSE Switch: internal, not_applicable, health ok|'Default Switch_ports'=2 'FSE Switch_ports'=6
 ```
 
-**The external switch must exist and be bound to a physical adapter:**
+**A switch the host must have; critical when it is missing:**
 
 ```
 check_hyperv_switches "filter=switch = 'LAN'" "critical=type != 'external' or health != 'ok'" empty-state=critical "empty-syntax=CRITICAL: switch LAN is missing"
 CRITICAL: switch LAN is missing
 ```
 
-**Warn when an external switch is not shared with the host (no management access over it):**
+**Ports per switch, and whether the host has an adapter on it:**
 
 ```
-check_hyperv_switches "filter=type = 'external'" "warning=management_os = 0"
-WARNING: LAN: external, enabled, health ok|'LAN_ports'=9;0;0
+check_hyperv_switches "warning=ports > 100" "ok-syntax=${status}: ${list}" "detail-syntax=${switch}: ${type}, ${ports} ports, host adapter ${management_os}"
+OK: Default Switch: internal, 2 ports, host adapter 1, FSE Switch: internal, 6 ports, host adapter 1|'Default Switch_ports'=2;100 'FSE Switch_ports'=6;100
 ```
 
 **On a host without the role the check reports UNKNOWN with a clear message:**

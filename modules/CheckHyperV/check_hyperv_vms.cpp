@@ -144,7 +144,7 @@ raw_rows fetch_vm_rows(HANDLE abort_event) {
   for_each_row(service, abort_event, "SELECT InstanceID, VirtualQuantity, Reservation, Limit, DynamicMemoryEnabled FROM Msvm_MemorySettingData", [&rows](const wmi_impl::row &row) {
     raw_memory_setting ms;
     ms.vm_id = settings_owner_guid(row.get_string_or_empty("InstanceID"));
-    if (ms.vm_id.empty()) return;  // a template or a snapshot's copy
+    if (ms.vm_id.empty()) return;  // a template; a checkpoint's copy is dropped by the join
     ms.startup_mb = row.get_int_or("VirtualQuantity", 0);
     ms.minimum_mb = row.get_int_or("Reservation", 0);
     ms.maximum_mb = row.get_int_or("Limit", 0);

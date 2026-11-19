@@ -286,17 +286,18 @@ inline std::string to_lower(std::string s) {
 
 // The VM a resource-setting row (Msvm_MemorySettingData, Msvm_ProcessorSettingData)
 // belongs to. Its InstanceID is "Microsoft:<owning settings id>\<resource guid>",
-// where the owning settings id is the VM GUID for the live configuration; the
-// template rows ("Microsoft:Definition\...") and the rows of a snapshot yield
-// an empty string, so they never join. A snapshot's settings id is either not
-// a VM GUID ("<vm guid>:<snapshot guid>") or the VM GUID followed by a second
-// path segment ("<vm guid>\<snapshot guid>\<resource guid>"), so exactly one
-// segment may follow the owner.
+// where the owning settings id is the VM GUID for the live configuration.
+// More segments may follow: a processor row is
+// "Microsoft:<vm guid>\b637f346-...\0". The template rows
+// ("Microsoft:Definition\...") yield an empty string. A checkpoint's rows are
+// owned by the checkpoint's own settings GUID (its
+// Msvm_VirtualSystemSettingData.InstanceID, "Microsoft:<checkpoint guid>"),
+// which is no VM's id, so build_records drops them when it joins.
 inline std::string settings_owner_guid(const std::string &instance_id) {
   const std::string prefix = "Microsoft:";
   if (instance_id.compare(0, prefix.size(), prefix) != 0) return "";
   const std::string::size_type end = instance_id.find('\\', prefix.size());
-  if (end == std::string::npos || instance_id.find('\\', end + 1) != std::string::npos) return "";
+  if (end == std::string::npos) return "";
   const std::string owner = instance_id.substr(prefix.size(), end - prefix.size());
   return is_vm_guid(owner) ? to_lower(owner) : "";
 }

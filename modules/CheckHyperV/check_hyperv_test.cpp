@@ -83,8 +83,10 @@ TEST(CheckHyperV, SettingsOwnerIsTheVmGuidOfLiveConfigurationsOnly) {
   EXPECT_EQ(settings_owner_guid(std::string("Microsoft:") + kVmB + "\\b637f346-6a0e-4dec-af52-bd70cb80a21d"), to_lower(kVmB));
   EXPECT_EQ(settings_owner_guid("Microsoft:Definition\\4764334d-e001-4176-82ee-5594ec9b530e"), "");
   EXPECT_EQ(settings_owner_guid(std::string("Microsoft:") + kVmA + ":ad3b4a5c-1234-4a51-9c2e-6f8a0b1c2d3e\\4764334d-e001-4176-82ee-5594ec9b530e"), "");
-  // A checkpoint's copy spelt with a second path segment must not join the live VM either.
-  EXPECT_EQ(settings_owner_guid(std::string("Microsoft:") + kVmA + "\\ad3b4a5c-1234-4a51-9c2e-6f8a0b1c2d3e\\4764334d-e001-4176-82ee-5594ec9b530e"), "");
+  // A processor row has a trailing instance segment (captured from a real host).
+  EXPECT_EQ(settings_owner_guid("Microsoft:1F735190-0F32-419E-B1D9-E6B86D0AB219\\b637f346-6a0e-4dec-af52-bd70cb80a21d\\0"),
+            "1f735190-0f32-419e-b1d9-e6b86d0ab219");
+  EXPECT_EQ(settings_owner_guid("Microsoft:Definition\\B637F347-6A0E-4DEC-AF52-BD70CB80A21D\\Default"), "");
   EXPECT_EQ(settings_owner_guid(std::string("Microsoft:") + kVmA), "");
   EXPECT_EQ(settings_owner_guid("Something else"), "");
   EXPECT_EQ(settings_owner_guid(""), "");
@@ -366,6 +368,43 @@ TEST(CheckHyperV, NameCountCountsVmsSharingANameCaseInsensitively) {
   EXPECT_EQ(records[0].name_count, 2);
   EXPECT_EQ(records[1].name_count, 2);
   EXPECT_EQ(records[2].name_count, 1);
+}
+
+// Rows as a real host returns them: a VM with one checkpoint. The checkpoint's
+// resource rows are owned by the checkpoint's own GUID, so they must not
+// overwrite the live VM's settings.
+TEST(CheckHyperV, ProcessorAndMemorySettingsJoinTheLiveVmNotItsCheckpoint) {
+  const std::string vm = "1f735190-0f32-419e-b1d9-e6b86d0ab219";
+  raw_rows rows;
+  raw_vm v;
+  v.id = vm;
+  v.name = "Ubuntu 18.04 LTS";
+  v.enabled_state = 2;
+  rows.vms.push_back(v);
+  const char *const processors[] = {"Microsoft:1F735190-0F32-419E-B1D9-E6B86D0AB219\\b637f346-6a0e-4dec-af52-bd70cb80a21d\\0",
+                                    "Microsoft:E665B47B-2C2B-4A93-A8BF-7245025AAD30\\b637f346-6a0e-4dec-af52-bd70cb80a21d\\0",
+                                    "Microsoft:Definition\\B637F347-6A0E-4DEC-AF52-BD70CB80A21D\\Maximum"};
+  const long long counts[] = {8, 2, 2048};
+  for (int i = 0; i < 3; ++i) {
+    raw_processor_setting ps;
+    ps.vm_id = settings_owner_guid(processors[i]);
+    ps.count = counts[i];
+    if (!ps.vm_id.empty()) rows.processor_settings.push_back(ps);
+  }
+  raw_memory_setting ms;
+  ms.vm_id = settings_owner_guid("Microsoft:1F735190-0F32-419E-B1D9-E6B86D0AB219\\4764334d-e001-4176-82ee-5594ec9b530e");
+  ms.startup_mb = 4096;
+  rows.memory_settings.push_back(ms);
+  raw_memory_setting snap = ms;
+  snap.vm_id = settings_owner_guid("Microsoft:E665B47B-2C2B-4A93-A8BF-7245025AAD30\\4764334d-e001-4176-82ee-5594ec9b530e");
+  snap.startup_mb = 1024;
+  rows.memory_settings.push_back(snap);
+
+  const std::vector<vm_record> records = build_records(rows);
+  ASSERT_EQ(records.size(), 1u);
+  EXPECT_EQ(records[0].vcpus, 8);
+  EXPECT_EQ(records[0].memory_startup, mb_to_bytes(4096));
+  EXPECT_EQ(sum_running(records).vcpus, 8);
 }
 
 TEST(CheckHyperV, VmsWithoutANameAreNotDuplicatesOfEachOther) {

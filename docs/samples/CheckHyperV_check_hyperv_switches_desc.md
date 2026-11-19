@@ -14,8 +14,11 @@ the switch's own ports connect to:
 | `internal` | No physical adapter, but the host has a virtual adapter on it: host and virtual machines can talk. |
 | `private`  | Neither: only the virtual machines on this host can talk over it. |
 
-The defaults warn on a switch that is not `enabled` and go critical on one
-whose `health` is not `ok`. `ports` counts every port on the switch (each
+The defaults warn on a switch whose `state` is anything but `enabled` or
+`not_applicable` and go critical on one whose `health` is not `ok`. A switch
+has no power state of its own, and Hyper-V reports most switches as
+`not_applicable`, so a threshold written as `state != 'enabled'` would warn on
+a healthy host. `ports` counts every port on the switch (each
 connected virtual machine network adapter, plus the external and host ports)
 and is emitted as perfdata.
 

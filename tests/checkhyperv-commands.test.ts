@@ -175,7 +175,10 @@ describeOnWindows("CheckHyperV commands", () => {
       /all \d+ virtual switch\(es\) ok|\w+: (external|internal|private), \w+, health \w+|No virtual switches found/,
     );
     // The default thresholds do not reference ports; it is still perfdata.
-    if (/No virtual switches found/.test(out)) return;    expect(out).toMatch(/'[^']+_ports'=\d+/);
+    if (/No virtual switches found/.test(out)) return;
+    // Healthy switches report state enabled or not_applicable; neither warns.
+    expect(out).not.toMatch(/(^|\s)WARNING\b.*(enabled|not_applicable), health ok/);
+    expect(out).toMatch(/'[^']+_ports'=\d+/);
   });
 
   it("check_hyperv_switches accepts pinned thresholds and filters on the switch keywords", async () => {

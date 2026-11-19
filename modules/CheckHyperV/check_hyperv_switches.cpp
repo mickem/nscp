@@ -97,7 +97,8 @@ struct filter_obj_handler : public native_context {
         "True when the host itself has a virtual network adapter on the switch (always for internal, optional for external)");
     registry_.add_string_var(
         "state", [](auto obj) { return obj->sw.state(); },
-        "Switch state: enabled, disabled, enabled_but_offline, starting, shutting_down, ... or state_<n> for an unknown code");
+        "Switch state: enabled or not_applicable (both normal; Hyper-V reports most switches as not_applicable), disabled, "
+        "enabled_but_offline, starting, shutting_down, ... or state_<n> for an unknown code");
     registry_.add_int_var("state_code", type_int, [](auto obj) { return obj->sw.state_code; }, "Raw EnabledState value behind `state`");
     registry_.add_string_var(
         "health", [](auto obj) { return obj->sw.health(); },
@@ -125,7 +126,9 @@ void check_hyperv_switches(const PB::Commands::QueryRequestMessage::Request &req
   modern_filter::cli_helper<filter> filter_helper(request, response, data);
 
   filter f;
-  filter_helper.add_options("state != 'enabled'", "health != 'ok'", "", f.get_filter_syntax(), "unknown");
+  // A switch has no power state of its own and Hyper-V reports most of them
+  // as not_applicable (5) rather than enabled (2), so both are healthy.
+  filter_helper.add_options("state not in ('enabled', 'not_applicable')", "health != 'ok'", "", f.get_filter_syntax(), "unknown");
   filter_helper.add_syntax("${status}: ${problem_list}", "${switch}: ${type}, ${state}, health ${health}", "${switch}", "No virtual switches found",
                            "%(status): all %(count) virtual switch(es) ok");
   if (!filter_helper.parse_options()) return;
