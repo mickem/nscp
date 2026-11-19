@@ -19,6 +19,8 @@ const NO_COUNTERS =
 // No role (the namespace is missing), or a stopped management service.
 const NO_NAMESPACE =
   /Hyper-V virtual machine information not available: (the Hyper-V role is not installed on this host \(root\\virtualization\\v2 missing\)|the Hyper-V management classes are missing)/;
+const NO_SWITCH_NAMESPACE =
+  /Hyper-V virtual switch information not available: (the Hyper-V role is not installed on this host \(root\\virtualization\\v2 missing\)|the Hyper-V management classes are missing)/;
 // An unelevated run on a Hyper-V host: WMI hides every VM from the caller
 // while the health summary counters still count them.
 const HIDDEN_VMS =
@@ -46,6 +48,8 @@ describeOnWindows("CheckHyperV commands", () => {
 
   it("check_hyperv_host reports the health summary or the documented no-counters contract", async () => {
     const out = await query("check_hyperv_host");
+    // A VM walk that fails (stopped vmms, unelevated run) only clears
+    // guests_known; the counter-based summary is reported regardless.
     if (NO_COUNTERS.test(out)) return;
     expect(out).toMatch(/\d+ VMs ok, \d+ critical, \d+ partitions on \d+ logical processors/);
     expect(out).toMatch(/'vms_health_ok'=\d+/);
@@ -61,6 +65,39 @@ describeOnWindows("CheckHyperV commands", () => {
       "critical=health_critical < 0",
     ]);
     expect(out).toMatch(/not available|OK/);
+    expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
+  });
+
+  it("check_hyperv_host accepts thresholds on the over-commitment keywords", async () => {
+    // cpu_overcommit / memory_overcommit < 0 is never true, so a Hyper-V host
+    // is OK whatever its load, and whether or not the VM walk succeeded.
+    const out = await query("check_hyperv_host", [
+      "warning=cpu_overcommit < 0 or memory_overcommit < 0",
+      "critical=vm_vcpus < 0 or memory_assigned < 0 or physical_memory < 0 or running_vms < 0",
+    ]);
+    expect(out).not.toMatch(/Unknown variable|Failed to parse/i);
+    if (NO_COUNTERS.test(out)) return;
+    expect(out).toMatch(/'vms_cpu_overcommit'=\d+(\.\d+)?%/);
+    expect(out).toMatch(/'vms_memory_overcommit'=\d+(\.\d+)?%/);
+    expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
+  });
+
+  it("check_hyperv_host reports whether the guests could be read in guests_known / guests_error", async () => {
+    // guests_known is false (with the reason in guests_error) when the VM walk
+    // failed or this account cannot see every VM; a threshold on it must parse
+    // and the pair must render, whatever the host's state. The impossible
+    // threshold keeps the result OK.
+    const out = await query("check_hyperv_host", [
+      "warning=guests_known = 0 and guests_known = 1",
+      "critical=guests_known = 0 and guests_known = 1",
+      "detail-syntax=known=${guests_known} error=[${guests_error}]",
+    ]);
+    expect(out).not.toMatch(/Unknown variable|Failed to parse/i);
+    if (NO_COUNTERS.test(out)) return;
+    expect(out).toMatch(/known=(0|1|true|false) error=\[[^\]]*\]/);
+    // A walk that could not be trusted says why; one that could leaves it empty.
+    if (/known=(0|false)/.test(out)) expect(out).toMatch(/error=\[.+\]/);
+    else expect(out).toMatch(/error=\[\]/);
     expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
   });
 
@@ -112,6 +149,49 @@ describeOnWindows("CheckHyperV commands", () => {
     ]);
     expect(out).toMatch(
       /information not available|none are visible to this account|cannot tell that there are none|no VMs matched/,
+    );
+    expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
+  });
+
+  it("check_hyperv_vms accepts name_count for duplicate-name detection", async () => {
+    // name_count < 1 never holds (a VM always counts itself): proves the
+    // keyword parses and evaluates without making the result depend on the
+    // host's VMs.
+    const out = await query("check_hyperv_vms", [
+      "warning=name_count < 1",
+      "critical=name_count < 1",
+      "empty-state=ok",
+    ]);
+    expect(out).not.toMatch(/Unknown variable|Failed to parse/i);
+    expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
+  });
+
+  // --- check_hyperv_switches ------------------------------------------------
+
+  it("check_hyperv_switches lists virtual switches or reports the documented no-role contract", async () => {
+    const out = await query("check_hyperv_switches");
+    if (NO_SWITCH_NAMESPACE.test(out)) return;
+    expect(out).toMatch(
+      /all \d+ virtual switch\(es\) ok|\w+: (external|internal|private), \w+, health \w+|No virtual switches found/,
+    );
+    // The default thresholds do not reference ports; it is still perfdata.
+    if (/No virtual switches found/.test(out)) return;
+    // Healthy switches report state enabled or not_applicable; neither warns.
+    expect(out).not.toMatch(/(^|\s)WARNING\b.*(enabled|not_applicable), health ok/);
+    expect(out).toMatch(/'[^']+_ports'=\d+/);
+  });
+
+  it("check_hyperv_switches accepts pinned thresholds and filters on the switch keywords", async () => {
+    const out = await query("check_hyperv_switches", [
+      "filter=type = 'external' or type = 'internal' or type = 'private'",
+      "warning=ports < 0",
+      "critical=management_os = 1 and ports < 0",
+      "empty-state=ok",
+      "empty-syntax=no switches matched",
+    ]);
+    expect(out).not.toMatch(/Unknown variable|Failed to parse/i);
+    expect(out).toMatch(
+      /information not available|no switches matched|virtual switch\(es\) ok|'\S+_ports'=\d+/,
     );
     expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
   });
