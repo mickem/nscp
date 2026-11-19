@@ -1167,7 +1167,7 @@ std::string cli_parser::get_description(const std::string &key) {
   } else if (key == "lua") {
     return "Execute lua scripts";
   } else if (key == "mk" || key == "check_mk") {
-    return "Use a check_mk (the protocol) client to request information from other systems via check_mk.";
+    return "Set up this host's Checkmk agent (`mk install`, `mk show`), or request information from other systems via check_mk.";
   } else if (key == "eventlog") {
     return "Inject event log message into the eventlog (mainly for testing eventlog filtering and setup)";
   } else if (key == "wmi") {

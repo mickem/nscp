@@ -39,6 +39,10 @@ class CheckMKClient : public nscapi::impl::simple_plugin {
                           PB::Commands::SubmitResponseMessage *response_message);
 
  private:
+  // `nscp mk install` / `nscp mk show`: configure and describe the local
+  // Checkmk agent (CheckMKServer) the way `nscp nrpe install` does for NRPE.
+  bool install_server(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const;
+  bool show_server(PB::Commands::ExecuteResponseMessage::Response *response) const;
   void add_command(std::string key, std::string args);
   void add_target(std::string key, std::string args);
   bool add_script(std::string alias, std::string file);

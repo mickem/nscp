@@ -45,9 +45,91 @@ You don't normally edit the Lua script — you control everything from `nsclient
 
 ---
 
+## Quick Setup with `nscp mk install`
+
+One command enables the agent and the modules its sections need, sets the port and who may connect, and adds local checks and MRPE entries. Run it on the monitored host, in an elevated prompt on Windows (or with `sudo` on Linux), then restart NSClient++:
+
+```commandline
+$ nscp mk install --allowed-hosts 10.0.0.5 --local "CPU Load=check_cpu warn=load>80 crit=load>95"
+Checkmk agent enabled on port 6556, for: 10.0.0.5
+Modules enabled: CheckMKServer, CheckSystem, CheckDisk
+Local check "CPU Load": check_cpu warn=load>80 crit=load>95
+Restart NSClient++ to apply. `nscp mk show` lists the configuration.
+```
+
+Replace `10.0.0.5` with the address of your Checkmk server (see [Step 6](#step-6-register-the-host-in-checkmk) for the Checkmk side). On Windows, restart with `net stop nscp && net start nscp`; on Linux, `sudo systemctl restart nsclient`.
+
+### Options
+
+| Option | What it does |
+|---|---|
+| `--allowed-hosts <list>` | Who may fetch the agent dump: a comma separated list of addresses, host names or networks (`10.0.0.0/24`). Written to `/settings/check_mk/server` only, so NRPE and the other listeners keep their own lists. Defaults to what is configured, which on a fresh install is `127.0.0.1`. |
+| `--port <port>` | The TCP port to listen on. Defaults to what is configured, `6556` on a fresh install, which is what Checkmk expects. |
+| `--local "<name>=<command> [args]"` | Add a local check, or replace the one with that name. `<name>` becomes the Checkmk service name and may contain spaces. Repeat the option for more than one. |
+| `--mrpe "<name>=<command> [args]"` | Add or replace an MRPE entry. The name cannot contain spaces (MRPE has no quoting): use `Uptime_Check`, not `Uptime Check`. Repeatable. |
+| `--remove-local <name>` | Remove a local check. Repeatable. |
+| `--remove-mrpe <name>` | Remove an MRPE entry. Repeatable. |
+| `--help` | List the options and their current values. |
+
+The name ends at the first `=`, so the command can carry `key=value` arguments as it would on the command line. Quote each `--local` / `--mrpe` value as a whole, as in the examples.
+
+The command always enables `CheckMKServer`, `CheckSystem` and `CheckDisk`. It does not touch `Scheduler` or `CheckHelpers`, which only [Step 5](#step-5-scheduler-driven-cached-checks-optional) and some local-check expressions need, and it does not open the firewall (see [Troubleshooting](#agent-dump-is-empty-connection-refused)).
+
+### Changing the setup later
+
+`install` starts from what is already configured, so a later run only changes what you pass. Running it again is safe.
+
+```commandline
+$ nscp mk install --mrpe "Uptime_Check=check_uptime warn=uptime<2d" --remove-local "CPU Load"
+Checkmk agent enabled on port 6556, for: 10.0.0.5
+Modules enabled: CheckMKServer, CheckSystem, CheckDisk
+MRPE entry "Uptime_Check": check_uptime warn=uptime<2d
+Removed local check "CPU Load"
+Restart NSClient++ to apply. `nscp mk show` lists the configuration.
+```
+
+To let a second Checkmk server (or a whole subnet) in, pass the complete list again. `--allowed-hosts` replaces the list, it does not add to it:
+
+```commandline
+$ nscp mk install --allowed-hosts "10.0.0.5,10.0.1.0/24"
+```
+
+If only this machine may connect, `install` says so, since a Checkmk site on another host could not fetch anything:
+
+```commandline
+$ nscp mk install
+Checkmk agent enabled on port 6556, for: 127.0.0.1
+Modules enabled: CheckMKServer, CheckSystem, CheckDisk
+WARNING: only this machine may connect. Pass --allowed-hosts <address of the Checkmk server> so the site can fetch the agent.
+Restart NSClient++ to apply. `nscp mk show` lists the configuration.
+```
+
+### Showing the configuration
+
+`nscp mk show` prints what the agent will run with after the next restart:
+
+```commandline
+$ nscp mk show
+Checkmk agent (CheckMKServer)
+Modules:
+  CheckMKServer: enabled
+  CheckSystem: enabled
+  CheckDisk: enabled
+Port: 6556
+Allowed hosts: 10.0.0.5
+Local checks:
+  CPU Load: check_cpu warn=load>80 crit=load>95
+MRPE entries:
+  Uptime_Check: check_uptime warn=uptime<2d
+```
+
+Everything the command writes is ordinary `nsclient.ini` configuration, the same keys the steps below describe, so you can also edit the file by hand or manage it with your configuration tooling.
+
+---
+
 ## Prerequisites
 
-Enable these modules in `nsclient.ini`:
+`nscp mk install` enables the modules for you. To set them up by hand instead, enable these in `nsclient.ini`:
 
 ```ini
 [/modules]
@@ -62,7 +144,7 @@ Scheduler     = enabled   ; only if you want passive cached checks (Step 5)
 
 ## Step 1 — Verify the Listener
 
-Configure the listener and start NSClient++:
+Configure the listener and start NSClient++ (`nscp mk install --allowed-hosts <checkmk-site-ip>` writes exactly this):
 
 ```ini
 [/settings/check_mk/server]
@@ -181,6 +263,12 @@ Disk C          = command=check_drivesize drive=C: "warn=free<20%" "crit=free<10
 Mail Queue      = command=check_files path="C:\Mail\Queue" maxage=5m
 ```
 
+From the command line, each line is one `--local` option:
+
+```commandline
+$ nscp mk install --local "CPU Load=check_cpu warn=load>80 crit=load>95" --local "Disk C=check_drivesize drive=C: \"warn=free<20%\" \"crit=free<10%\""
+```
+
 On every agent fetch, NSClient++ runs each command, formats the result as a Checkmk local-check line (`state "name" perfdata text`), and emits it inside `<<<local>>>`. Checkmk discovers each entry as a service named after the key.
 
 <!-- @formatter:off -->
@@ -201,11 +289,20 @@ MRPE is the "Nagios plugin" relay format. Functionally equivalent to local check
 ```ini
 [/settings/check_mk/server/mrpe]
 ; service-name = command=<nscp-check> [args...]
-Uptime    = command=check_uptime warn=uptime<2d
-Memory    = command=check_memory type=committed warn=used>80% crit=used>90%
+Uptime_Check = command=check_uptime warn=uptime<2d
+Commit       = command=check_memory type=committed warn=used>80% crit=used>90%
 ```
 
-Same pattern as local checks; the output goes into `<<<mrpe>>>` instead.
+Or from the command line:
+
+```commandline
+$ nscp mk install --mrpe "Uptime_Check=check_uptime warn=uptime<2d" --mrpe "Commit=check_memory type=committed warn=used>80% crit=used>90%"
+```
+
+Same pattern as local checks; the output goes into `<<<mrpe>>>` instead. Two differences:
+
+- **No spaces in the name.** An MRPE line cannot quote one, so Checkmk would read the second word as the return code. `nscp mk install` refuses such a name; use `_` instead.
+- **Pick names the built-in services do not use.** Checkmk already discovers `Uptime` and `Memory` from the system sections, so an MRPE entry called `Uptime` shows up as a second service with the same name.
 
 | Use `local` when…                               | Use `mrpe` when…                                   |
 |-------------------------------------------------|----------------------------------------------------|
@@ -288,6 +385,16 @@ Within one fetch interval (default ~1 minute) every monitored item turns green.
 
 ## Complete Configuration Example
 
+The listener, modules, local checks and MRPE entries below come from one command; the Scheduler part is configured by hand:
+
+```commandline
+$ nscp mk install --allowed-hosts "127.0.0.1,10.0.0.5" ^
+    --local "CPU Load=check_cpu warn=load>80 crit=load>95" ^
+    --local "Disk C=check_drivesize drive=C: \"warn=free<20%\" \"crit=free<10%\"" ^
+    --mrpe "Uptime_Check=check_uptime warn=uptime<2d" ^
+    --mrpe "Commit=check_memory type=committed warn=used>80% crit=used>90%"
+```
+
 ```ini
 [/modules]
 CheckMKServer = enabled
@@ -307,8 +414,8 @@ CPU Load = command=check_cpu warn=load>80 crit=load>95
 Disk C   = command=check_drivesize drive=C: "warn=free<20%" "crit=free<10%"
 
 [/settings/check_mk/server/mrpe]
-Uptime  = command=check_uptime warn=uptime<2d
-Memory  = command=check_memory type=committed warn=used>80% crit=used>90%
+Uptime_Check = command=check_uptime warn=uptime<2d
+Commit       = command=check_memory type=committed warn=used>80% crit=used>90%
 
 [/settings/scheduler/schedules/default]
 channel  = check_mk-mrpe
@@ -331,9 +438,14 @@ channel = check_mk-local
 
 Almost always one of:
 
-- **`CheckMKServer` not enabled** — check `/modules` and module load logs.
-- **`allowed hosts` blocks the source IP** — Checkmk connects from the site's IP, not from the docker host or 127.0.0.1.
-- **Port 6556 not reachable** — Windows Firewall, corporate routing, or another process bound to the port. Verify with `Test-NetConnection -ComputerName <host> -Port 6556`.
+- **`CheckMKServer` not enabled** — check `/modules` and module load logs, or run `nscp mk show`.
+- **`allowed hosts` blocks the source IP** — Checkmk connects from the site's IP. The agent logs each refusal with the address it saw: `Rejected connection from: 172.17.0.2, not in allowed hosts (10.0.0.5)`. Add that address with `nscp mk install --allowed-hosts "10.0.0.5,172.17.0.2"`.
+- **A Checkmk container on the same machine** — what address it connects from depends on the container runtime. With Docker Desktop or Rancher Desktop on WSL mirrored networking, connections from the container reach the agent as `127.0.0.1`, so keep `127.0.0.1` in the list; with plain Docker on Linux they come from the bridge network (`172.17.0.0/16`). The rejection line above tells you which.
+- **Port 6556 not reachable** — Windows Firewall, corporate routing, or another process bound to the port. Verify with `Test-NetConnection -ComputerName <host> -Port 6556`. `nscp mk install` does not open the firewall; on Windows, allow the Checkmk server in with:
+
+    ```powershell
+    New-NetFirewallRule -DisplayName "NSClient++ Checkmk agent" -Direction Inbound -Protocol TCP -LocalPort 6556 -RemoteAddress 10.0.0.5 -Action Allow
+    ```
 
 ### `Invalid data:` in Checkmk's `cmk -v` output
 

@@ -4,16 +4,16 @@
 #include "check_process.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <boost/algorithm/string.hpp>
+#include <cctype>
 #include <check/check_mk_format.hpp>
+#include <map>
 #include <nscapi/protobuf/functions_query.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
-#include <map>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>

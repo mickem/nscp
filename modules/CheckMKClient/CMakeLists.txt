@@ -36,6 +36,7 @@ if(WIN32)
         "${TARGET}.h"
         check_mk_client.hpp
         check_mk_handler.hpp
+        check_mk_install.hpp
         ${NSCP_INCLUDEDIR}/net/check_mk/data.hpp
         ${NSCP_INCLUDEDIR}/net/check_mk/parser.hpp
         ${NSCP_INCLUDEDIR}/net/check_mk/client/client_protocol.hpp

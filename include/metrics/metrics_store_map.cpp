@@ -1,11 +1,10 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-#include <metrics/metrics_store_map.hpp>
-#include <nscapi/nscapi_metrics_helper.hpp>
-
 #include <cmath>
 #include <locale>
+#include <metrics/metrics_store_map.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 #include <sstream>
 
 namespace metrics {

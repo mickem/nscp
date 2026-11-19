@@ -169,3 +169,82 @@ describeIf(!onDarwin && moduleBuiltHere("CheckDisk"))("check_mk agent system sec
     expect(lines.some((l) => l.startsWith("pgmajfault "))).toBe(true);
   });
 });
+
+// `nscp mk install` / `nscp mk show`: the setup command writes the settings the
+// agent then serves, so drive it for real and read the dump it produces.
+describeIf(!onDarwin && moduleBuiltHere("CheckDisk"))("nscp mk install", () => {
+  const INSTALL_PORT = 16557;
+  let nscp: NscpInstance;
+
+  beforeAll(() => {
+    nscp = new NscpInstance();
+  });
+
+  afterAll(async () => {
+    if (nscp) await nscp.stop();
+  });
+
+  it("writes the agent, its modules and the local/MRPE entries", async () => {
+    const r = await nscp.run([
+      "mk",
+      "install",
+      "--allowed-hosts",
+      "127.0.0.1,10.0.0.5",
+      "--port",
+      String(INSTALL_PORT),
+      "--local",
+      "OK Check=check_uptime warn=uptime<1s crit=uptime<1s",
+      "--local",
+      "Dropped=check_uptime",
+      "--mrpe",
+      "MRPE_OK=check_uptime warn=uptime<1s crit=uptime<1s",
+    ]);
+    expect(r.all).toContain(
+      `Checkmk agent enabled on port ${INSTALL_PORT}, for: 127.0.0.1,10.0.0.5`,
+    );
+    expect(r.all).not.toContain("WARNING");
+
+    const removed = await nscp.run(["mk", "install", "--remove-local", "Dropped"]);
+    expect(removed.all).toContain('Removed local check "Dropped"');
+    // A re-run keeps what it was not told to change.
+    expect(removed.all).toContain(`port ${INSTALL_PORT}, for: 127.0.0.1,10.0.0.5`);
+
+    const show = await nscp.run(["mk", "show"]);
+    for (const line of [
+      "CheckMKServer: enabled",
+      "CheckSystem: enabled",
+      "CheckDisk: enabled",
+      `Port: ${INSTALL_PORT}`,
+      "Allowed hosts: 127.0.0.1,10.0.0.5",
+      "OK Check: check_uptime warn=uptime<1s crit=uptime<1s",
+      "MRPE_OK: check_uptime warn=uptime<1s crit=uptime<1s",
+    ]) {
+      expect(show.all).toContain(line);
+    }
+    expect(show.all).not.toContain("Dropped");
+  });
+
+  it("refuses an MRPE name with a space and writes nothing", async () => {
+    const r = await nscp.run(["mk", "install", "--mrpe", "Has Space=check_uptime"], {
+      allowFailure: true,
+    });
+    expect(r.all).toContain('use "Has_Space"');
+    const show = await nscp.run(["mk", "show"]);
+    expect(show.all).not.toContain("Has");
+  });
+
+  it("serves what it configured", async () => {
+    await nscp.waitForPortFree(INSTALL_PORT);
+    nscp.start();
+    await nscp.waitForPort(INSTALL_PORT, { timeoutMs: 30_000 });
+    const sections = parseSections(await fetchDump(INSTALL_PORT));
+    expect(sections.get("local")).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^0 "OK Check" /)]),
+    );
+    expect(sections.get("mrpe")).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^MRPE_OK 0 /)]),
+    );
+    expect(sections.has("df")).toBe(true);
+    expect(sections.has("ps")).toBe(true);
+  });
+});

@@ -6,8 +6,6 @@
 // client targets and relay commands. The check_mk wire format and the option
 // parsing live in check_mk_handler.hpp and have their own tests.
 
-#include "CheckMKClient.h"
-
 #include <gtest/gtest.h>
 
 #include <map>
@@ -15,6 +13,10 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/test_helpers.hpp>
 #include <string>
+#include <vector>
+
+#include "CheckMKClient.h"
+#include "check_mk_install.hpp"
 
 // Test binaries have no generated module glue, so the plugin singleton
 // (normally provided by NSC_WRAP_DLL()) must be defined here.
@@ -171,4 +173,152 @@ TEST(CheckMkConnectionData, AMissingHandlerLeavesThePathsVerbatim) {
   const check_mk_client::connection_data con(check_mk_target_with({{"address", "h"}}), client::destination_container());
 
   EXPECT_EQ(con.ssl.ca_path, "${ca-path}");
+}
+
+// ============================================================================
+// `nscp mk install` / `nscp mk show`
+// ============================================================================
+
+namespace {
+
+PB::Commands::ExecuteResponseMessage::Response run_cli(CheckMKClient &module, const std::vector<std::string> &args) {
+  PB::Commands::ExecuteRequestMessage request;
+  PB::Commands::ExecuteRequestMessage::Request *payload = request.add_payload();
+  payload->set_command("mk");
+  for (const std::string &a : args) payload->add_arguments(a);
+  PB::Commands::ExecuteResponseMessage response;
+  EXPECT_TRUE(module.commandLineExec(NSCAPI::target_module, request, response));
+  EXPECT_EQ(response.payload_size(), 1);
+  return response.payload_size() > 0 ? response.payload(0) : PB::Commands::ExecuteResponseMessage::Response();
+}
+
+const nscapi::test_helpers::registered_key *update_of(const std::string &path, const std::string &key) {
+  for (const auto &k : nscapi::test_helpers::stub_core::instance().updated_settings()) {
+    if (k.path == path && k.key == key) return &k;
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+TEST_F(CheckMkModule, InstallEnablesTheAgentAndTheModulesItsSectionsNeed) {
+  const auto r = run_cli(module_, {"install", "--allowed-hosts", "10.0.0.5"});
+
+  EXPECT_EQ(r.result(), PB::Common::ResultCode::OK) << r.message();
+  for (const char *module : {"CheckMKServer", "CheckSystem", "CheckDisk"}) {
+    const auto *u = update_of("/modules", module);
+    ASSERT_NE(u, nullptr) << module;
+    EXPECT_EQ(u->default_value, "enabled");
+  }
+  ASSERT_NE(update_of("/settings/check_mk/server", "allowed hosts"), nullptr);
+  EXPECT_EQ(update_of("/settings/check_mk/server", "allowed hosts")->default_value, "10.0.0.5");
+  EXPECT_EQ(update_of("/settings/check_mk/server", "port")->default_value, "6556");
+  // Only the agent's own list: NRPE and the others keep /settings/default.
+  EXPECT_EQ(update_of("/settings/default", "allowed hosts"), nullptr);
+  EXPECT_EQ(r.message().find("WARNING"), std::string::npos) << r.message();
+}
+
+TEST_F(CheckMkModule, InstallKeepsTheConfiguredPortAndHostsWhenNotGiven) {
+  core().set_setting("/settings/check_mk/server", "port", "16556");
+  core().set_setting("/settings/check_mk/server", "allowed hosts", "192.168.1.10");
+
+  const auto r = run_cli(module_, {"install"});
+
+  EXPECT_EQ(r.result(), PB::Common::ResultCode::OK) << r.message();
+  EXPECT_EQ(update_of("/settings/check_mk/server", "port")->default_value, "16556");
+  EXPECT_EQ(update_of("/settings/check_mk/server", "allowed hosts")->default_value, "192.168.1.10");
+}
+
+TEST_F(CheckMkModule, InstallWarnsWhenOnlyThisMachineMayConnect) {
+  const auto r = run_cli(module_, {"install"});
+
+  EXPECT_EQ(r.result(), PB::Common::ResultCode::OK) << r.message();
+  EXPECT_EQ(update_of("/settings/check_mk/server", "allowed hosts")->default_value, "127.0.0.1") << "inherits /settings/default";
+  EXPECT_NE(r.message().find("WARNING: only this machine may connect"), std::string::npos) << r.message();
+}
+
+TEST_F(CheckMkModule, InstallAddsAndRemovesLocalChecksAndMrpeEntries) {
+  const auto r =
+      run_cli(module_, {"install", "--allowed-hosts", "10.0.0.5", "--local", "CPU Load=check_cpu warn=load>80", "--local", "Memory=command=check_memory",
+                        "--mrpe", "Uptime_Check=check_uptime warn=uptime<2d", "--remove-local", "Old check", "--remove-mrpe", "Gone"});
+
+  EXPECT_EQ(r.result(), PB::Common::ResultCode::OK) << r.message();
+  ASSERT_NE(update_of("/settings/check_mk/server/local", "CPU Load"), nullptr);
+  EXPECT_EQ(update_of("/settings/check_mk/server/local", "CPU Load")->default_value, "command=check_cpu warn=load>80");
+  EXPECT_EQ(update_of("/settings/check_mk/server/local", "Memory")->default_value, "command=check_memory") << "no doubled prefix";
+  EXPECT_EQ(update_of("/settings/check_mk/server/mrpe", "Uptime_Check")->default_value, "command=check_uptime warn=uptime<2d");
+  // erase(): an update without store_empty.
+  ASSERT_NE(update_of("/settings/check_mk/server/local", "Old check"), nullptr);
+  EXPECT_FALSE(update_of("/settings/check_mk/server/local", "Old check")->store_empty);
+  ASSERT_NE(update_of("/settings/check_mk/server/mrpe", "Gone"), nullptr);
+  EXPECT_FALSE(update_of("/settings/check_mk/server/mrpe", "Gone")->store_empty);
+}
+
+TEST_F(CheckMkModule, InstallRejectsBadInputWithoutWritingAnything) {
+  for (const std::vector<std::string> &args : std::vector<std::vector<std::string>>{
+           {"install", "--allowed-hosts", " "},
+           {"install", "--port", "65x"},
+           {"install", "--local", "no equals sign"},
+           {"install", "--local", "=check_cpu"},
+           {"install", "--mrpe", "Name="},
+           {"install", "--mrpe", "Uptime Check=check_uptime"},
+       }) {
+    core().reset();
+    const auto r = run_cli(module_, args);
+    EXPECT_EQ(r.result(), PB::Common::ResultCode::UNKNOWN) << args.back() << ": " << r.message();
+    EXPECT_TRUE(core().updated_settings().empty()) << args.back();
+  }
+}
+
+TEST_F(CheckMkModule, InstallHelpDescribesTheOptions) {
+  const auto r = run_cli(module_, {"install", "--help"});
+
+  EXPECT_EQ(r.result(), PB::Common::ResultCode::OK);
+  EXPECT_NE(r.message().find("Usage: nscp mk install"), std::string::npos) << r.message();
+  for (const char *option : {"allowed-hosts=ARG", "port=ARG", "local=ARG", "mrpe=ARG", "remove-local=ARG", "remove-mrpe=ARG"})
+    EXPECT_NE(r.message().find(option), std::string::npos) << option;
+  EXPECT_TRUE(core().updated_settings().empty());
+}
+
+TEST_F(CheckMkModule, ShowDescribesTheAgentConfiguration) {
+  core().set_setting("/settings/check_mk/server", "port", "16556");
+  core().set_setting("/settings/check_mk/server", "allowed hosts", "10.0.0.5");
+
+  const auto r = run_cli(module_, {"show"});
+
+  EXPECT_EQ(r.result(), PB::Common::ResultCode::OK) << r.message();
+  EXPECT_NE(r.message().find("Port: 16556"), std::string::npos) << r.message();
+  EXPECT_NE(r.message().find("Allowed hosts: 10.0.0.5"), std::string::npos) << r.message();
+  EXPECT_TRUE(core().updated_settings().empty()) << "show must not write";
+}
+
+TEST(CheckMkInstall, EntryNameEndsAtTheFirstEquals) {
+  const check_mk_install::entry e = check_mk_install::parse_entry(" CPU Load = check_cpu warn=load>80 ", "local");
+  EXPECT_EQ(e.name, "CPU Load");
+  EXPECT_EQ(e.command, "check_cpu warn=load>80");
+  EXPECT_EQ(e.value(), "command=check_cpu warn=load>80");
+}
+
+TEST(CheckMkInstall, MrpeNamesCannotContainSpacesButLocalNamesCan) {
+  EXPECT_EQ(check_mk_install::parse_entry("Disk C=check_drivesize drive=C:", "local").name, "Disk C");
+  EXPECT_EQ(check_mk_install::parse_entry("Uptime_Check=check_uptime", "mrpe").name, "Uptime_Check");
+  try {
+    check_mk_install::parse_entry("Uptime Check=check_uptime", "mrpe");
+    FAIL() << "a spaced MRPE name was accepted";
+  } catch (const std::invalid_argument &e) {
+    EXPECT_NE(std::string(e.what()).find("\"Uptime_Check\""), std::string::npos) << e.what();
+  }
+}
+
+TEST(CheckMkInstall, CommandOfStripsThePrefix) {
+  EXPECT_EQ(check_mk_install::command_of("command=check_cpu warn=load>80"), "check_cpu warn=load>80");
+  EXPECT_EQ(check_mk_install::command_of("check_cpu"), "check_cpu");
+}
+
+TEST(CheckMkInstall, LoopbackOnlyRecognisesTheDefault) {
+  EXPECT_TRUE(check_mk_install::loopback_only("127.0.0.1"));
+  EXPECT_TRUE(check_mk_install::loopback_only("127.0.0.1, ::1"));
+  EXPECT_FALSE(check_mk_install::loopback_only("127.0.0.1,10.0.0.5"));
+  EXPECT_FALSE(check_mk_install::loopback_only("10.0.0.0/24"));
+  EXPECT_FALSE(check_mk_install::loopback_only(""));
 }
