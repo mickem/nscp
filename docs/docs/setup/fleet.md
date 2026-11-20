@@ -548,8 +548,10 @@ How it works:
   longer interval than the agent's. A server that does not send it never gets a report, and
   one that stops sending it gets no more. `failure context = false` sends nothing, whatever
   the server says.
-- **One report per interval.** When the interval has passed and something failed since the
-  last report, the next poll turn sends `POST /agent/v1/failure-context`. It carries the
+- **One report per interval.** The interval is a wait after a report, not before one: a
+  failure on a host that has not reported within it goes on the next poll turn, and a host
+  that has reported within it waits until it has passed. The report is
+  `POST /agent/v1/failure-context`. It carries the
   newest failure that still has a snapshot, metrics or diagnostics (the freshest picture of
   the system in trouble), or the newest failure when none has one. Every other failure since the last
   report goes into a `suppressed` summary, grouped by check and status, so a check that flapped
