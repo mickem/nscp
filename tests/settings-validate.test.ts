@@ -117,6 +117,42 @@ describe("nscp settings --validate", () => {
       "warning: Section [/settings/no such module] is not used by any installed module.",
     );
   });
+
+  // The sections the core reads itself are declared whether or not the agent
+  // is booted, so the report is the one the running agent logs: a typo gets
+  // its suggestion, and with --load-all - where anything unclaimed is a
+  // warning - the correct spelling is not reported as read by nothing.
+  it("knows the core's own sections without a running agent", async () => {
+    const core =
+      "\n[/settings/core]\n" +
+      "settings maintenance interval = 7m\n" +
+      "metrics interval = 20s\n" +
+      "diagnostics interval = 30s\n" +
+      "settings maintenance threads = 1\n" +
+      "\n[/settings/core/failed checks]\nmax entries = 10\n" +
+      "\n[/settings/facts]\ninterval = 2h\n";
+
+    const clean = withConfig(CLEAN + core);
+    const ok = await clean.run(["settings", "--validate", "--load-all"], { allowFailure: true });
+    expect(ok.stdout).not.toContain("/settings/core");
+    expect(ok.stdout).not.toContain("/settings/facts");
+    expect(ok.exitCode).toBe(0);
+
+    const typo = withConfig(
+      CLEAN +
+        "\n[/settings/core]\nmetric interval = 20s\n" +
+        "\n[/settings/core/failed checks]\nmax entires = 10\n",
+    );
+    const r = await typo.run(["settings", "--validate"], { allowFailure: true });
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toContain(
+      "warning: Key 'metric interval' in [/settings/core] is not a known key. Did you mean 'metrics interval'?",
+    );
+    expect(r.stdout).toContain(
+      "warning: Key 'max entires' in [/settings/core/failed checks] is not a known key. Did you mean 'max entries'?",
+    );
+    expect(r.stdout).toMatch(/2 warning\(s\)/);
+  });
 });
 
 describe("nscp test", () => {
