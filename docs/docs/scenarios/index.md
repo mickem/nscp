@@ -64,6 +64,7 @@ direction (active vs. passive) and protocol that matches your setup.
 | [Active Monitoring with NRPE](nrpe.md)                        | Let the monitoring server poll NSClient++ over NRPE (Nagios-style active checks) |
 | [Passive Monitoring (NSCA/NRDP)](passive-monitoring-nsca.md)  | Have NSClient++ push results to your monitoring server on a schedule             |
 | [Passive Monitoring (NSCA-NG)](passive-monitoring-nsca-ng.md) | TLS-PSK successor to NSCA — modern crypto, same passive-push pattern             |
+| [Native Icinga 2 Agent](icinga-agent.md)                      | Let an Icinga 2 master schedule checks on NSClient++ over the cluster protocol, with certificates from the Icinga CA (experimental) |
 | [Passive Monitoring (Icinga 2)](passive-monitoring-icinga.md) | Submit scheduled check results to the Icinga 2 REST API                          |
 | [Passive Monitoring (Graphite)](passive-monitoring-graphite.md) | Push perfdata and system metrics to a Graphite/carbon backend for graphing     |
 | [Polled Passive Checks (Nagios Core)](nagios-result-cache.md) | Cache scheduled results in the agent and let one active `check_nsclient` check feed them all into Nagios as passive checks |

@@ -1,0 +1,92 @@
+module: IcingaAgent
+namespace: client
+platforms:
+- unix
+unix:
+  info:
+    description: 'A native Icinga 2 agent: connects to an Icinga 2 master or satellite over the cluster
+      protocol (JSON-RPC over TLS, port 5665) and runs the checks it schedules, without an icinga2 binary.'
+    experimental: true
+    title: IcingaAgent
+  paths:
+    /settings/Icinga/agent:
+      info:
+        advanced: false
+        description: 'Native Icinga 2 agent: connect to an Icinga 2 parent over the cluster protocol and
+          run the checks it schedules.'
+        subkey: false
+        title: Icinga agent
+      keys:
+        allow arguments:
+          advanced: false
+          default_value: 'true'
+          description: Whether the parent may pass arguments to the checks it runs. True (the default)
+            because Icinga CheckCommands carry their thresholds as arguments; false runs only argument-less
+            queries and aliases defined on the agent. Which queries the parent may run at all is the permission
+            policy's job (/settings/permissions).
+          sample: false
+          title: ALLOW ARGUMENTS
+        allowed ciphers:
+          advanced: false
+          default_value: ''
+          description: OpenSSL cipher list for TLS 1.2 and earlier. Empty (the default) leaves the library's
+            own selection in place. TLS 1.3 suites are not affected by it.
+          sample: false
+          title: ALLOWED CIPHERS
+        certificate directory:
+          advanced: false
+          default_value: ${certificate-path}/icinga
+          description: Where the agent keeps <endpoint name>.crt, <endpoint name>.key and ca.crt. Generated
+            on first start.
+          sample: false
+          title: CERTIFICATE DIRECTORY
+        endpoint name:
+          advanced: false
+          default_value: vm
+          description: This agent's endpoint name, the CN of its certificate. Must match the Endpoint
+            object on the master. Defaults to the lower-cased host name.
+          sample: false
+          title: ENDPOINT NAME
+        parent endpoint:
+          advanced: false
+          default_value: ''
+          description: 'The parent''s endpoint name, the CN of its certificate. Required: a parent presenting
+            any other certificate is refused, even one the Icinga CA signed. It is also the principal
+            checks run as, so the permission policy sees `IcingaAgent:<parent endpoint>`.'
+          sample: false
+          title: PARENT ENDPOINT
+        parent host:
+          advanced: false
+          default_value: ''
+          description: Address of the Icinga 2 master or satellite to connect to. Empty (the default)
+            leaves the agent disabled.
+          sample: false
+          title: PARENT HOST
+        parent port:
+          advanced: false
+          default_value: '5665'
+          description: The parent's cluster port.
+          sample: false
+          title: PARENT PORT
+        threads:
+          advanced: false
+          default_value: '4'
+          description: How many checks run at the same time.
+          sample: false
+          title: WORKER THREADS
+        ticket:
+          advanced: false
+          default_value: ''
+          description: A ticket from `icinga2 pki ticket --cn <endpoint name>` on the master. With it
+            the master signs the agent's certificate right away; without it the request waits for `icinga2
+            ca sign` on the master.
+          sample: false
+          title: TICKET
+        tls version:
+          advanced: false
+          default_value: 1.2+
+          description: 'Which TLS versions the agent negotiates with its parent, in the same vocabulary
+            as the other servers and clients: an exact version (1.0, 1.1, 1.2, 1.3), a trailing + for
+            that version or later, or `any`. The default, 1.2+, is what Icinga 2 accepts out of the box.'
+          sample: false
+          title: TLS VERSION
