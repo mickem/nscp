@@ -499,13 +499,19 @@ struct cli_helper : boost::noncopyable {
       filter.summary.returnCode = nscapi::plugin_helper::translateReturn(data.empty_state);
     }
     std::string msg = filter.get_message();
-    // An expression that failed on a record still produced a value - the
-    // number without its unit, false for a refused regular expression - and the
-    // verdict above was reached on it. Report the failure instead of a result
-    // the operator did not ask for.
-    const bool evaluation_failed = filter.has_evaluation_errors();
-    if (evaluation_failed) {
-      msg = filter.get_evaluation_failure();
+    int retCode = filter.summary.returnCode;
+    if ((data.empty_state != "ignored") && (!filter.summary.has_matched())) retCode = nscapi::plugin_helper::translateReturn(data.empty_state);
+    // An expression that failed on a record gave that record no verdict. A
+    // WARNING or CRITICAL the other records reached stands, with the failure
+    // beside it; anything else could be the failure hiding a problem, so the
+    // check is UNKNOWN and says why.
+    if (filter.has_evaluation_errors()) {
+      if (retCode == NSCAPI::query_return_codes::returnWARN || retCode == NSCAPI::query_return_codes::returnCRIT) {
+        msg = filter.with_evaluation_failure(msg);
+      } else {
+        retCode = NSCAPI::query_return_codes::returnUNKNOWN;
+        msg = filter.get_evaluation_failure();
+      }
     }
     if (data.escape_html) {
       boost::replace_all(msg, "<", "&lt;");
@@ -517,9 +523,6 @@ struct cli_helper : boost::noncopyable {
       line->set_message(msg);
     }
     filter.fetch_perf(&writer);
-    int retCode = filter.summary.returnCode;
-    if ((data.empty_state != "ignored") && (!filter.summary.has_matched())) retCode = nscapi::plugin_helper::translateReturn(data.empty_state);
-    if (evaluation_failed) retCode = NSCAPI::query_return_codes::returnUNKNOWN;
     if (retCode == NSCAPI::query_return_codes::returnOK) {
       response->set_result(PB::Common::ResultCode::OK);
     } else if (retCode == NSCAPI::query_return_codes::returnWARN) {

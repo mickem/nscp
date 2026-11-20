@@ -230,33 +230,32 @@ struct realtime_filter_helper {
       // active check path.
       item->filter.match_post();
       // A record whose evaluation failed (a regular expression refused by the
-      // budget or the subject limit, a unit the keyword does not take) was
-      // not a non-match: it got no verdict at all. Dropping it as one is how
-      // a real-time filter would miss the very line it exists to alert on.
-      if (item->filter.has_evaluation_errors()) {
+      // budget or the subject limit, a unit the keyword does not take) got no
+      // verdict at all: modern_filters neither matched it nor dropped it as a
+      // non-match. The rest of the batch - for a log file, every line written
+      // since the last read - is still judged, so an oversized line written
+      // beside a matching one cannot hide it.
+      const bool failed = item->filter.has_evaluation_errors();
+      if (failed) {
         item->error_count.fetch_add(1, std::memory_order_relaxed);
-        const std::string failure = item->filter.get_evaluation_failure();
-        NSC_LOG_ERROR("Realtime filter '" + item->get_alias() + "': " + failure);
-        if (is_silent || item->is_event() || item->is_events()) return false;
-        nscapi::core_helper ch(core, plugin_id);
-        if (!ch.submit_simple_message(item->get_target(), item->get_source_id(), item->get_target_id(), item->command,
-                                      NSCAPI::query_return_codes::returnUNKNOWN, failure, "", response)) {
-          NSC_LOG_ERROR("Failed to submit '" + failure);
-        }
-        return true;
+        NSC_LOG_ERROR("Realtime filter '" + item->get_alias() + "': " + item->filter.get_evaluation_failure());
       }
-      if (!result.matched_filter) {
+      if (!result.matched_filter && !failed) {
         return false;
       }
-      item->match_count.fetch_add(1, std::memory_order_relaxed);
+      if (result.matched_filter) item->match_count.fetch_add(1, std::memory_order_relaxed);
 
       if (is_silent) {
         NSC_TRACE_MSG("Eventlog filter is silenced " + item->get_alias());
-        return true;
+        // Only what matched counts as an alert: a failure alone sent nothing.
+        return result.matched_filter;
       }
 
       nscapi::core_helper ch(core, plugin_id);
+      // An event channel carries records, not a status: it gets the records
+      // that matched, and the failure stays in the log and the error count.
       if (item->is_event()) {
+        if (!result.matched_filter) return false;
         typedef std::list<std::map<std::string, std::string> > list_type;
         typedef std::map<std::string, std::string> hash_type;
 
@@ -270,6 +269,7 @@ struct realtime_filter_helper {
         return true;
       }
       if (item->is_events()) {
+        if (!result.matched_filter) return false;
         const std::list<std::map<std::string, std::string> > keys = item->filter.records_;
         if (!ch.emit_event(item->get_event_name(), item->get_alias(), keys, response)) {
           item->error_count.fetch_add(1, std::memory_order_relaxed);
@@ -278,10 +278,20 @@ struct realtime_filter_helper {
         return true;
       }
 
-      std::string message = item->filter.get_message();
-      if (message.empty()) message = "Nothing matched";
-      if (!ch.submit_simple_message(item->get_target(), item->get_source_id(), item->get_target_id(), item->command, item->filter.summary.returnCode, message,
-                                    "", response)) {
+      // A status: the verdict the matched records reached, as for an active
+      // check - a WARNING or CRITICAL stands with the failure beside it, and
+      // anything else (including a batch where nothing matched) is UNKNOWN.
+      int code = item->filter.summary.returnCode;
+      std::string message;
+      if (failed && !(result.matched_filter && (code == NSCAPI::query_return_codes::returnWARN || code == NSCAPI::query_return_codes::returnCRIT))) {
+        code = NSCAPI::query_return_codes::returnUNKNOWN;
+        message = item->filter.get_evaluation_failure();
+      } else {
+        message = item->filter.get_message();
+        if (message.empty()) message = "Nothing matched";
+        if (failed) message = item->filter.with_evaluation_failure(message);
+      }
+      if (!ch.submit_simple_message(item->get_target(), item->get_source_id(), item->get_target_id(), item->command, code, message, "", response)) {
         item->error_count.fetch_add(1, std::memory_order_relaxed);
         NSC_LOG_ERROR("Failed to submit '" + message);
       }

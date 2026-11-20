@@ -220,8 +220,9 @@ TEST(EvaluationErrors, PerfDataIsKeptWithTheFailure) {
 TEST(EvaluationErrors, AKeywordWithNoValueIsUnknown) {
   std::vector<data_obj> rows = default_rows();
   rows.push_back({"c", 10, 0, 0, "gamma"});
-  // Row c sent nothing: its loss used to read 0% and pass.
-  const run_result r = run({"warning=loss > 5%", "critical=loss > 10%"}, rows);
+  // Row c sent nothing: its loss used to read 0% and pass. No other row
+  // reaches the threshold, so nothing stands beside the failure.
+  const run_result r = run({"warning=loss > 30%", "critical=loss > 50%"}, rows);
   EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
   EXPECT_TRUE(starts_with(r.message, "Filter evaluation failed: No packages were sent")) << r.message;
 
@@ -234,12 +235,56 @@ TEST(EvaluationErrors, AKeywordWithNoValueIsUnknown) {
 TEST(EvaluationErrors, ARegexRefusedForItsSubjectSizeIsUnknownInAThreshold) {
   std::vector<data_obj> rows = default_rows();
   rows.push_back({"big", 1, 4, 0, std::string(parsers::where::max_regex_subject_bytes() + 1, 'x')});
-  // Both readings of a refused match used to come out OK.
-  for (const char *crit : {"critical=text regexp 'needle'", "critical=text not regexp 'x'"}) {
-    const run_result r = run({"warning=none", crit}, rows);
-    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << crit << ": " << r.message;
-    EXPECT_TRUE(starts_with(r.message, "Filter evaluation failed: Refusing to match a regular expression")) << r.message;
-  }
+  // A refused match used to come out OK.
+  const run_result r = run({"warning=none", "critical=text regexp 'needle'"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_TRUE(starts_with(r.message, "Filter evaluation failed: Refusing to match a regular expression")) << r.message;
+}
+
+// --- a verdict the other records reached --------------------------------------
+
+TEST(EvaluationErrors, ACriticalOtherRecordsReachedStandsBesideTheFailure) {
+  // b loses 25% and is CRITICAL on its own; c's loss has no value. Replacing
+  // that CRITICAL with UNKNOWN would downgrade a real alert.
+  std::vector<data_obj> rows = default_rows();
+  rows.push_back({"c", 10, 0, 0, "gamma"});
+  const run_result r = run({"warning=loss > 5%", "critical=loss > 10%", "top-syntax=%(status): %(crit_list)"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
+  EXPECT_EQ("CRITICAL: b=20 (Filter evaluation failed: No packages were sent (in: loss > 10%))", r.message);
+
+  // The same for a refused regular expression beside a record that matches.
+  rows = default_rows();
+  rows.push_back({"big", 1, 4, 0, std::string(parsers::where::max_regex_subject_bytes() + 1, 'x')});
+  const run_result regex = run({"warning=none", "critical=text not regexp 'x'", "top-syntax=%(status): %(crit_list)"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, regex.code) << regex.message;
+  EXPECT_TRUE(starts_with(regex.message, "CRITICAL: a=50, b=20 (Filter evaluation failed: Refusing to match")) << regex.message;
+}
+
+TEST(EvaluationErrors, AFailedRecordGetsNoVerdictOfItsOwn) {
+  // c's loss would read 0%, which `loss >= 0%` matches: the failed record must
+  // neither pass the filter nor fire a threshold on that substitute.
+  std::vector<data_obj> rows = default_rows();
+  rows.push_back({"c", 10, 0, 0, "gamma"});
+  const run_result filtered = run({"filter=loss >= 0%", "warning=none", "critical=sent >= 0", "top-syntax=%(status): %(crit_list)"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, filtered.code) << filtered.message;
+  EXPECT_TRUE(starts_with(filtered.message, "CRITICAL: a=50, b=20 (Filter evaluation failed: No packages were sent")) << filtered.message;
+
+  // Only c could fire `loss < 1%` on its substitute 0: it does not, and the
+  // failure is reported instead.
+  const run_result only_c = run({"warning=none", "critical=loss < 1% and sent = 0"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, only_c.code) << only_c.message;
+}
+
+TEST(EvaluationErrors, AWarningIsKeptAndAnEmptyCriticalStateToo) {
+  std::vector<data_obj> rows = default_rows();
+  rows.push_back({"c", 10, 0, 0, "gamma"});
+  // b warns at 25%; c fails.
+  const run_result warn = run({"warning=loss > 5%", "critical=loss > 50%"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, warn.code) << warn.message;
+  EXPECT_NE(std::string::npos, warn.message.find("(Filter evaluation failed: ")) << warn.message;
+  // A summary-only threshold that fails gives no verdict either.
+  const run_result summary = run({"warning=none", "critical=count > 5k"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, summary.code) << summary.message;
 }
 
 TEST(EvaluationErrors, ARegexRefusedInTheFilterIsNotAnEmptyOk) {
