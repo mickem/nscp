@@ -29,6 +29,7 @@ import * as forge from "node-forge";
 import {
   describeWithModules,
   generateCertChain,
+  itOnUnix,
   NscpInstance,
   type CertBundle,
 } from "@fixtures/index";
@@ -614,7 +615,12 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(fs.readdirSync(certDir)).toContain(`${name}.key`);
     });
 
-    it("closes the connection to the parent when it stops", async () => {
+    // Unix only: the fixture's stop() is a SIGKILL on Windows - Node has no
+    // signal a Windows child turns into a clean shutdown (see
+    // rest-session-persistence.test.ts) - so the module's stop() never runs
+    // there and there is nothing to observe. The code under test is the same
+    // on every platform.
+    itOnUnix("closes the connection to the parent when it stops", async () => {
       const before = master.sessions.length;
       const { agent } = await freshAgent({});
       const session = await master.waitForSession((s) => master.sessions.indexOf(s) >= before);
