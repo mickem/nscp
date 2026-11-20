@@ -101,11 +101,13 @@ class os_updates_data final {
   // Issue a WUA search if the cache is older than the configured TTL.
   // Safe to call from the collector loop; no-op until TTL has elapsed.
   //
-  // `stop` is the collector's stop signal: when it fires mid-search the
-  // in-flight WUA job is aborted, nothing is published and false is returned,
-  // so a shutdown never has to wait out a multi-minute search (#1504). Pass
-  // nullptr to run uninterruptibly. Returns true otherwise, including when the
-  // search failed (the failure is recorded in the published data's error).
+  // `stop` is the collector's stop signal: when it fires mid-search this
+  // stops waiting, publishes nothing and returns false, so a shutdown never
+  // has to wait out a multi-minute search (#1504). The search itself is not
+  // cancelled - cancelling one can crash inside WUA - and finishes on its own
+  // thread; the next fetch in this process picks it up. Pass nullptr to wait
+  // however long it takes. Returns true otherwise, including when the search
+  // failed (the failure is recorded in the published data's error).
   bool fetch(const threads::stop_signal *stop = nullptr);
 
   // Force a search regardless of TTL. Used on the first collector tick and

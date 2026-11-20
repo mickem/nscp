@@ -833,11 +833,12 @@ void pdh_thread::aux_thread_proc() {
       if (!disable_cpu_frequency && !stop_requested()) run_fetch("CPU frequency metrics", [this] { cpu_frequency.fetch(&stop_signal_); });
       if (!disable_battery && !stop_requested()) run_fetch("battery metrics", [this] { battery.fetch(&stop_signal_); });
       // os_updates.fetch() is a no-op until its internal TTL has elapsed
-      // (default 1h). The search itself can take minutes; it aborts the
-      // in-flight WUA job when stop() fires.
+      // (default 1h). The search itself can take minutes; when stop() fires
+      // this stops waiting for it and the search finishes on its own thread
+      // (see wua_search in check_os_updates.cpp).
       if (!disable_os_updates && !stop_requested()) {
         run_fetch("OS updates metrics", [this] {
-          if (!os_updates.fetch(&stop_signal_)) NSC_DEBUG_MSG("OS updates search aborted: collector is stopping");
+          if (!os_updates.fetch(&stop_signal_)) NSC_DEBUG_MSG("Not waiting for the OS updates search: collector is stopping");
         });
       }
     }
@@ -1129,8 +1130,8 @@ bool pdh_thread::stop() {
     thread_->join();
     thread_.reset();
   }
-  // aux_thread_ may be mid-fetch before it sees the event. The WUA search
-  // aborts on the signal, but a WMI provider stall still has to run its
+  // aux_thread_ may be mid-fetch before it sees the event. The wait for a WUA
+  // search ends on the signal, but a WMI provider stall still has to run its
   // course, so say so in the log rather than sit silently: an operator
   // watching a slow shutdown then knows which collector to look at (#1504).
   // The thread is never detached: it runs against this object and this

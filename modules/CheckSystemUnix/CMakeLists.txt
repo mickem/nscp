@@ -217,6 +217,9 @@ NSCP_CREATE_TEST(
         filter_config_object_test.cpp
         check_cpu.cpp
         check_memory.cpp
+        check_pagefile.cpp
+        check_network.cpp
+        collector_checks_test.cpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.cpp
         ${NSCP_INCLUDEDIR}/facts/network_facts.cpp
         ${NSCP_INCLUDEDIR}/facts/software_facts.cpp

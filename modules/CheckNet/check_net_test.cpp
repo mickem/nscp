@@ -28,7 +28,111 @@
 #include "check_tcp.h"
 #include "filter.hpp"
 
+#include <parsers/filter/cli_helper.hpp>
+
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
+
+// ============================================================================
+// check_ping - the keyword registry, driven the way CheckNet::check_ping does
+// over fabricated ping results (no ICMP socket needed).
+// ============================================================================
+
+namespace {
+struct ping_outcome {
+  PB::Common::ResultCode code;
+  std::string message;
+  std::string perf;
+};
+
+ping_outcome run_ping_filter(const std::vector<std::string> &args, const std::vector<result_container> &results) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_ping");
+  for (const std::string &a : args) request.add_arguments(a);
+  PB::Commands::QueryResponseMessage::Response response;
+  modern_filter::data_container data;
+  modern_filter::cli_helper<ping_filter::filter> helper(request, &response, data);
+  ping_filter::filter filter;
+  helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", filter.get_filter_syntax(), "unknown");
+  helper.add_syntax("${status}: ${ok_count}/${count} (${problem_list})", "${ip} Packet loss = ${loss}%, RTA = ${time}ms", "${host}", "No hosts found",
+                    "%(status): All %(count) hosts are ok");
+  if (helper.parse_options() && helper.build_filter(filter)) {
+    for (const auto &r : results) filter.match(std::make_shared<ping_filter::filter_obj>(r));
+    helper.post_process(filter);
+  }
+  ping_outcome out{response.result(), "", ""};
+  for (int i = 0; i < response.lines_size(); ++i) {
+    out.message += response.lines(i).message();
+    for (const auto &p : response.lines(i).perf()) out.perf += p.alias() + "=" + std::to_string(static_cast<long long>(p.float_value().value())) + ";";
+  }
+  return out;
+}
+
+result_container ping_result(const std::string &host, std::size_t sent, std::size_t replies, std::size_t time, std::vector<std::size_t> rtts = {},
+                             int ttl = -1) {
+  result_container r;
+  r.destination_ = host;
+  r.ip_ = "192.0.2.1";
+  r.num_send_ = sent;
+  r.num_replies_ = replies;
+  r.num_timeouts_ = sent - replies;
+  r.time_ = time;
+  r.rtts_ = rtts;
+  r.ttl_ = ttl;
+  return r;
+}
+}  // namespace
+
+TEST(CheckPingFilter, DefaultThresholdsOnTimeAndLoss) {
+  EXPECT_EQ(PB::Common::ResultCode::OK, run_ping_filter({}, {ping_result("a", 10, 10, 20)}).code);
+  const ping_outcome slow = run_ping_filter({}, {ping_result("a", 10, 10, 80)});
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, slow.code);
+  EXPECT_EQ("WARNING: 0/1 (192.0.2.1 Packet loss = 0%, RTA = 80ms)", slow.message);
+  const ping_outcome lossy = run_ping_filter({}, {ping_result("a", 10, 8, 20)});
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, lossy.code);
+  EXPECT_EQ("CRITICAL: 0/1 (192.0.2.1 Packet loss = 20%, RTA = 20ms)", lossy.message);
+}
+
+TEST(CheckPingFilter, LossTakesAPercentLiteral) {
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run_ping_filter({"warning=none", "critical=loss >= 50%"}, {ping_result("a", 4, 2, 1)}).code);
+  EXPECT_EQ(PB::Common::ResultCode::OK, run_ping_filter({"warning=none", "critical=loss > 50%"}, {ping_result("a", 4, 2, 1)}).code);
+}
+
+TEST(CheckPingFilter, CounterKeywords) {
+  const ping_outcome r =
+      run_ping_filter({"warning=none", "critical=sent = 5 and recv = 3 and timeout = 2", "detail-syntax=${host}/${ip} ${sent}/${recv}/${timeout}"},
+                      {ping_result("example.com", 5, 3, 7)});
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code);
+  EXPECT_EQ("CRITICAL: 0/1 (example.com/192.0.2.1 5/3/2)", r.message);
+}
+
+TEST(CheckPingFilter, OptionalJitterAndTtl) {
+  const result_container measured = ping_result("a", 4, 4, 10, {10, 20, 10, 20}, 57);
+  const result_container single = ping_result("b", 1, 1, 10, {10});
+
+  // Perf data follows the keywords the thresholds reference.
+  const ping_outcome r = run_ping_filter(
+      {"warning=none", "critical=jitter > 1000 or ttl > 1000 or loss > 99%", "show-all", "detail-syntax=${host}:${jitter}/${ttl}"}, {measured, single});
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.code);
+  EXPECT_NE(std::string::npos, r.message.find("a:10/57")) << r.message;
+  EXPECT_NE(std::string::npos, r.message.find("b:unknown/unknown")) << r.message;
+  // Unknown optional values emit no perf data; measured ones do.
+  EXPECT_NE(std::string::npos, r.perf.find("a_jitter=10;")) << r.perf;
+  EXPECT_NE(std::string::npos, r.perf.find("a_ttl=57;")) << r.perf;
+  EXPECT_EQ(std::string::npos, r.perf.find("b_jitter")) << r.perf;
+  EXPECT_NE(std::string::npos, r.perf.find("a_loss=0;")) << r.perf;
+
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run_ping_filter({"warning=none", "critical=jitter > 5"}, {measured}).code);
+  // An unknown jitter compares false against every number...
+  EXPECT_EQ(PB::Common::ResultCode::OK, run_ping_filter({"warning=none", "critical=jitter > 5"}, {single}).code);
+  // ...and is tested for presence by name.
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run_ping_filter({"warning=none", "critical=ttl = 'unknown'"}, {single}).code);
+}
+
+TEST(CheckPingFilter, NoHostsUsesTheEmptyState) {
+  const ping_outcome r = run_ping_filter({}, {});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_EQ("No hosts found", r.message);
+}
 
 // ============================================================================
 // check_ping (existing) - filter_obj

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "check_domain_internal.hpp"
+#include "loopback_test_support.hpp"
 
 namespace {
 using namespace check_net::domain;
@@ -107,3 +108,174 @@ TEST(CheckDomain, WhoisParsesOnlyKnownUnambiguousFields) {
     EXPECT_THROW(parse_whois(text, "example.com"), std::exception) << text;
 }
 }  // namespace
+
+// ============================================================================
+// The check_domain command: option validation, and full lookups against a
+// loopback RDAP (TLS) or WHOIS server, so nothing leaves the host.
+// ============================================================================
+
+namespace {
+using namespace check_net_test;
+
+struct domain_result {
+  PB::Common::ResultCode code;
+  std::string message;
+  std::string perf;
+};
+
+domain_result run_domain(const std::vector<std::string> &args, const std::string &default_ca = "") {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_domain");
+  for (const std::string &a : args) request.add_arguments(a);
+  PB::Commands::QueryResponseMessage::Response response;
+  check_net::check_domain(default_ca, request, &response);
+  domain_result r{response.result(), "", ""};
+  for (int i = 0; i < response.lines_size(); ++i) {
+    r.message += response.lines(i).message();
+    for (const auto &p : response.lines(i).perf()) r.perf += p.alias() + "=" + std::to_string(static_cast<long long>(p.float_value().value())) + ";";
+  }
+  return r;
+}
+
+bool contains(const std::string &haystack, const std::string &needle) { return haystack.find(needle) != std::string::npos; }
+
+// An RDAP URL that refuses the connection straight away.
+std::string dead_rdap() { return "rdap-url=https://127.0.0.1:" + closed_port() + "/domain/{domain}"; }
+
+// The expiration `days` (and a bit) from now, as WHOIS/RDAP spell it.
+std::string expiry_in(const int days) {
+  const auto t = boost::posix_time::second_clock::universal_time() + boost::posix_time::hours(24 * days + 12);
+  return boost::posix_time::to_iso_extended_string(t) + "Z";
+}
+
+// A WHOIS server that checks the query line and answers with `body`.
+script_type whois_reply(const std::string &body, std::string *query = nullptr) {
+  return [body, query](tcp::socket &s) {
+    const std::string line = read_line(s);
+    if (query) *query = line;
+    send(s, body);
+    boost::system::error_code ec;
+    s.shutdown(tcp::socket::shutdown_both, ec);
+  };
+}
+}  // namespace
+
+TEST(CheckDomainCommand, RejectsOutOfRangeTimeout) {
+  for (const auto &timeout : {"timeout=0", "timeout=301"}) {
+    const domain_result r = run_domain({"domain=example.com", timeout});
+    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << timeout;
+    EXPECT_EQ("timeout must be between 1 and 300 seconds", r.message) << timeout;
+  }
+}
+
+TEST(CheckDomainCommand, WhoisFallbackNeedsAServerAndPort) {
+  const char *expected = "whois-fallback requires whois-server and a nonzero whois-port";
+  EXPECT_EQ(expected, run_domain({"domain=example.com", "whois-fallback=true"}).message);
+  EXPECT_EQ(expected, run_domain({"domain=example.com", "whois-fallback=true", "whois-server=127.0.0.1", "whois-port=0"}).message);
+}
+
+TEST(CheckDomainCommand, InvalidDomainIsReportedWithoutALookup) {
+  const domain_result r = run_domain({"domain=https://example.com", dead_rdap()});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_TRUE(contains(r.message, "Domain lookup failed: ")) << r.message;
+}
+
+TEST(CheckDomainCommand, RdapFailureWithoutFallbackIsUnknown) {
+  const domain_result r = run_domain({"domain=example.com", dead_rdap(), "timeout=5"});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_TRUE(contains(r.message, "Domain lookup failed: ")) << r.message;
+}
+
+TEST(CheckDomainCommand, NonHttpsRdapUrlIsRejected) {
+  const domain_result r = run_domain({"domain=example.com", "rdap-url=http://127.0.0.1/{domain}"});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_TRUE(contains(r.message, "RDAP requires an HTTPS URL")) << r.message;
+}
+
+TEST(CheckDomainCommand, WhoisFallbackAnswersWhenRdapIsDown) {
+  std::string query;
+  scripted_server whois(whois_reply("Domain Name: EXAMPLE.COM\r\nRegistry Expiry Date: " + expiry_in(90) + "\r\n", &query));
+  const domain_result r =
+      run_domain({"domain=Example.COM.", dead_rdap(), "timeout=5", "whois-fallback=true", "whois-server=127.0.0.1", "whois-port=" + whois.port()});
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.code) << r.message;
+  EXPECT_EQ("example.com\r\n", query);
+  EXPECT_EQ(0u, r.message.find("OK: example.com expires in 90d (")) << r.message;
+  EXPECT_TRUE(contains(r.message, "Z, registry, whois:127.0.0.1:" + whois.port() + ")")) << r.message;
+  EXPECT_TRUE(contains(r.perf, "example.com=90;")) << r.perf;
+}
+
+TEST(CheckDomainCommand, ThresholdsAndDetailOverWhois) {
+  // A date-only expiry is midnight of that day, so cutting the time off
+  // expiry_in() loses up to a day: 21 days and a bit from now leaves 20 or
+  // 21 whole days, whatever the time of day. With 20 it left 19 through
+  // every morning (UTC), and the "2" below did not match.
+  scripted_server whois(whois_reply("domain: example.com\nexpires: " + expiry_in(21).substr(0, 10) + "\n"));
+  const domain_result r = run_domain({"domain=example.com", dead_rdap(), "timeout=5", "whois-fallback=true", "whois-server=127.0.0.1",
+                                      "whois-port=" + whois.port(), "detail-syntax=${domain} ${expires_in} ${expiration_type} ${source}"});
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, r.code) << r.message;
+  EXPECT_TRUE(contains(r.message, "example.com 2")) << r.message;
+  EXPECT_TRUE(contains(r.message, " whois whois:127.0.0.1:" + whois.port())) << r.message;
+}
+
+TEST(CheckDomainCommand, BothSourcesFailingNamesEach) {
+  scripted_server whois(whois_reply("No match for domain\r\n"));
+  const domain_result r =
+      run_domain({"domain=example.com", dead_rdap(), "timeout=5", "whois-fallback=true", "whois-server=127.0.0.1", "whois-port=" + whois.port()});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_TRUE(contains(r.message, "RDAP: ")) << r.message;
+  EXPECT_TRUE(contains(r.message, "; WHOIS: No supported WHOIS expiration date")) << r.message;
+}
+
+#ifdef USE_SSL
+namespace {
+// A TLS RDAP server answering one request with `status` and `body`.
+script_type rdap_reply(const test_identity &id, const int status, const std::string &body, const std::string &headers = "", std::string *head = nullptr) {
+  return tls_server(id, [status, body, headers, head](boost::asio::ssl::stream<tcp::socket &> &stream) {
+    std::string data;
+    char buf[4096];
+    boost::system::error_code ec;
+    while (!ec && data.find("\r\n\r\n") == std::string::npos) data.append(buf, stream.read_some(boost::asio::buffer(buf), ec));
+    if (head) *head = data;
+    const std::string reply = http_response(status, body, headers);
+    boost::asio::write(stream, boost::asio::buffer(reply), ec);
+    stream.shutdown(ec);
+  });
+}
+}  // namespace
+
+TEST(CheckDomainCommand, RdapLookupOverVerifiedTls) {
+  test_identity id;
+  const std::string ca = id.write_pem();
+  std::string head;
+  scripted_server server(rdap_reply(
+      id, 200, R"({"objectClassName":"domain","ldhName":"example.com","events":[{"eventAction":"expiration","eventDate":")" + expiry_in(5) + R"("}]})",
+      "Content-Type: application/rdap+json\r\n", &head));
+  const std::string url = "https://localhost:" + server.port() + "/domain/{domain}";
+  const domain_result r = run_domain({"domain=example.com", "rdap-url=" + url, "timeout=5", "detail-syntax=${expires_in} ${expiration_type} ${source}"}, ca);
+  boost::filesystem::remove(ca);
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
+  EXPECT_EQ("CRITICAL: 5 registry rdap:https://localhost:" + server.port() + "/domain/example.com", r.message);
+  EXPECT_TRUE(contains(head, "GET /domain/example.com HTTP/1.1")) << head;
+  EXPECT_TRUE(contains(head, "User-Agent: NSClient++ check_domain")) << head;
+}
+
+TEST(CheckDomainCommand, RdapHttpErrorIsReported) {
+  test_identity id;
+  const std::string ca = id.write_pem();
+  scripted_server server(rdap_reply(id, 404, "not found"));
+  const domain_result r = run_domain({"domain=example.com", "rdap-url=https://localhost:" + server.port() + "/{domain}", "ca=" + ca, "timeout=5"});
+  boost::filesystem::remove(ca);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_TRUE(contains(r.message, "RDAP returned HTTP 404")) << r.message;
+}
+
+TEST(CheckDomainCommand, RdapWithoutExpirationIsAnError) {
+  test_identity id;
+  const std::string ca = id.write_pem();
+  scripted_server server(rdap_reply(id, 200, R"({"objectClassName":"domain","ldhName":"example.com"})"));
+  const domain_result r = run_domain({"domain=example.com", "rdap-url=https://localhost:" + server.port() + "/{domain}", "ca=" + ca, "timeout=5"});
+  boost::filesystem::remove(ca);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_TRUE(contains(r.message, "No RDAP expiration event for domain")) << r.message;
+}
+#endif  // USE_SSL

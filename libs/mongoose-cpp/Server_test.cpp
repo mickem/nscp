@@ -1031,6 +1031,35 @@ TEST(ServerImpl, AHeadRequestOnAKeptConnectionLeavesTheNextAnswerReadable) {
   EXPECT_NE(bytes.find("alive", second), std::string::npos) << bytes;
 }
 
+TEST(ServerImpl, ARequestWithMoreHeadersThanTheTableHoldsIsDropped) {
+  // Mongoose parses headers into a fixed table (MG_MAX_HTTP_HEADERS). Up to
+  // 7.23 a request with more was served with the surplus silently ignored -
+  // an Authorization or Content-Length past the table was never seen, which a
+  // proxy in front that did see it would frame differently. From 7.24 the
+  // request does not parse: the connection is closed unanswered. Pinned here
+  // so a mongoose bump that changes either side of the limit is noticed.
+  const int port = choose_port_base() + 47;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/ping", new FixedHandler(200, "alive"));
+  const ServerFixture fx;
+  fx.start(port, controller);
+
+  const auto request_with = [](const std::size_t headers) {
+    std::ostringstream oss;
+    oss << "GET /ping HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n";
+    for (std::size_t i = 2; i < headers; ++i) oss << "X-Filler-" << i << ": v\r\n";
+    oss << "\r\n";
+    return oss.str();
+  };
+  const std::size_t table = MG_MAX_HTTP_HEADERS;
+  const std::string fits = raw_exchange(port, {{request_with(table), std::chrono::milliseconds(0)}}, std::chrono::milliseconds(1500));
+  const std::string overflows = raw_exchange(port, {{request_with(table + 1), std::chrono::milliseconds(0)}}, std::chrono::milliseconds(1500));
+  fx.server->stop();
+
+  EXPECT_NE(fits.find("HTTP/1.1 200"), std::string::npos) << fits;
+  EXPECT_EQ(count_of(overflows, "HTTP/1.1 "), 0u) << overflows;
+}
+
 TEST(ServerImpl, ABodyLimitAboveTheReceiveBufferIsSaidToBeCapped) {
   const ServerFixture fx;
   fx.server->setBodyLimit(static_cast<std::size_t>(MG_MAX_RECV_SIZE) + 1);

@@ -8,8 +8,8 @@
 // Everything here stops at the metadata: the constructor opens the archive and
 // parses module.json, which is where an operator's mistake (a missing file, a
 // typo in the json, a script under a name nothing can provide) turns into a
-// clear error or a silently wrong provider. Actually installing the scripts
-// needs a live plugin manager, so that half belongs to the integration suite.
+// clear error or a silently wrong provider. Installing the scripts needs a
+// plugin manager to load the bundle through; zip_bundle_test.cpp covers that.
 //
 // The archives are built here rather than checked in, because the interesting
 // cases are all about *what module.json says* - a fixture per variation would
@@ -25,97 +25,15 @@
 #include <string>
 #include <vector>
 
+#include "zip_test_writer.hpp"
+
 namespace fs = boost::filesystem;
 using nsclient::core::zip_plugin;
 
 namespace {
 
-// --- a minimal zip writer ---------------------------------------------------
-//
-// STORED (uncompressed) entries only, which is all a reader needs to accept.
-// The repo has a zip *reader* (bytes::unzip, libzip or miniz depending on the
-// platform) but no writer, and pulling one of those backends into a test just
-// to lay down a few hundred bytes is more coupling than the job needs.
-
-uint32_t crc32_of(const std::string &data) {
-  uint32_t crc = 0xFFFFFFFFu;
-  for (const unsigned char c : data) {
-    crc ^= c;
-    for (int k = 0; k < 8; k++) crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
-  }
-  return crc ^ 0xFFFFFFFFu;
-}
-
-void put16(std::string &out, const uint16_t v) {
-  out.push_back(static_cast<char>(v & 0xFF));
-  out.push_back(static_cast<char>((v >> 8) & 0xFF));
-}
-void put32(std::string &out, const uint32_t v) {
-  out.push_back(static_cast<char>(v & 0xFF));
-  out.push_back(static_cast<char>((v >> 8) & 0xFF));
-  out.push_back(static_cast<char>((v >> 16) & 0xFF));
-  out.push_back(static_cast<char>((v >> 24) & 0xFF));
-}
-
-struct zip_entry {
-  std::string name;
-  std::string data;
-};
-
-void write_zip(const fs::path &path, const std::vector<zip_entry> &entries) {
-  std::string body;    // local headers + data
-  std::string central; // central directory
-  for (const zip_entry &e : entries) {
-    const uint32_t crc = crc32_of(e.data);
-    const uint32_t offset = static_cast<uint32_t>(body.size());
-
-    put32(body, 0x04034b50);                                 // local file header
-    put16(body, 20);                                         // version needed
-    put16(body, 0);                                          // flags
-    put16(body, 0);                                          // method: stored
-    put16(body, 0);                                          // mod time
-    put16(body, 0);                                          // mod date
-    put32(body, crc);
-    put32(body, static_cast<uint32_t>(e.data.size()));       // compressed size
-    put32(body, static_cast<uint32_t>(e.data.size()));       // uncompressed size
-    put16(body, static_cast<uint16_t>(e.name.size()));
-    put16(body, 0);                                          // extra length
-    body += e.name;
-    body += e.data;
-
-    put32(central, 0x02014b50);                              // central directory header
-    put16(central, 20);                                      // version made by
-    put16(central, 20);                                      // version needed
-    put16(central, 0);
-    put16(central, 0);
-    put16(central, 0);
-    put16(central, 0);
-    put32(central, crc);
-    put32(central, static_cast<uint32_t>(e.data.size()));
-    put32(central, static_cast<uint32_t>(e.data.size()));
-    put16(central, static_cast<uint16_t>(e.name.size()));
-    put16(central, 0);                                       // extra
-    put16(central, 0);                                       // comment
-    put16(central, 0);                                       // disk number
-    put16(central, 0);                                       // internal attrs
-    put32(central, 0);                                       // external attrs
-    put32(central, offset);
-    central += e.name;
-  }
-
-  std::string out = body + central;
-  put32(out, 0x06054b50);                                    // end of central directory
-  put16(out, 0);                                             // this disk
-  put16(out, 0);                                             // disk with cd
-  put16(out, static_cast<uint16_t>(entries.size()));         // entries on this disk
-  put16(out, static_cast<uint16_t>(entries.size()));         // entries total
-  put32(out, static_cast<uint32_t>(central.size()));
-  put32(out, static_cast<uint32_t>(body.size()));
-  put16(out, 0);                                             // comment length
-
-  std::ofstream f(path.string().c_str(), std::ios::binary);
-  f.write(out.data(), static_cast<std::streamsize>(out.size()));
-}
+using zip_test::write_zip;
+using zip_test::zip_entry;
 
 class ZipPluginTest : public ::testing::Test {
  protected:

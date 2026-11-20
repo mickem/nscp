@@ -1,4 +1,5 @@
-import { Card, CardContent, Typography } from "@mui/material";
+import { Typography } from "@mui/material";
+import CollapsibleCard from "./atoms/CollapsibleCard.tsx";
 import { useMemo } from "react";
 import { SettingsDescription, useGetSettingsDescriptionsQuery } from "../api/api.ts";
 import SettingSwitchSections, { groupSwitchSections, SwitchSection } from "./SettingSwitchSections.tsx";
@@ -43,22 +44,17 @@ export default function FactSetsWidget() {
   if (sections.length === 0) return null;
 
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Typography gutterBottom variant="h6" component="div">
-          Fact sets
-        </Typography>
-        {/* Writing the setting is not collecting: the module re-reads which
+    <CollapsibleCard title="Fact sets" storageKey="facts.settings">
+      {/* Writing the setting is not collecting: the module re-reads which
             sets it produces when the configuration is reloaded. The unsaved
             configuration banner at the top of the page is how that is done,
             so this says what to expect rather than offering a second button
             for it. */}
-        <Typography variant="body2" color="text.secondary">
-          Nothing is collected until you turn a set on. A set starts (or stops) collecting when the configuration is
-          saved and reloaded.
-        </Typography>
-        <SettingSwitchSections sections={sections} />
-      </CardContent>
-    </Card>
+      <Typography variant="body2" color="text.secondary">
+        Nothing is collected until you turn a set on. A set starts (or stops) collecting when the configuration is saved
+        and reloaded.
+      </Typography>
+      <SettingSwitchSections sections={sections} />
+    </CollapsibleCard>
   );
 }

@@ -51,6 +51,14 @@ UNKNOWN with a message saying so. With the role installed but the *Hyper-V
 Virtual Machine Management* service (vmms) stopped, the namespace is there
 but its classes are not, and the message points at the service instead.
 
+`name_count` is the number of VMs on this host that share the VM's name,
+itself included (compared case-insensitively, the way `Get-VM -Name` matches).
+Hyper-V keys virtual machines by GUID and lets two of them carry the same
+name - typically after an import that kept the original or a failed
+migration - which breaks every script and tool that addresses VMs by name.
+`critical=name_count > 1` catches it. The count is per host: two VMs with the
+same name on different cluster nodes are not seen.
+
 `snapshots` and `oldest_snapshot` count the checkpoints someone took. The
 recovery points Hyper-V Replica keeps for a replicated VM are not
 checkpoints and are not counted.

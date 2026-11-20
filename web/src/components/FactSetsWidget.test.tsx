@@ -139,6 +139,17 @@ describe("FactSetsWidget", () => {
     expect(screen.getByRole("tooltip")).toHaveTextContent("the OS family, product name and kernel version");
   });
 
+  it("folds away under its title", async () => {
+    installFetchMock({ "/api/v2/settings/descriptions": jsonResponse(descriptions) });
+    renderWithProviders(<FactSetsWidget />, { withRouter: false });
+
+    const header = await screen.findByRole("button", { name: "Fact sets" });
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(header);
+    expect(header).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(screen.queryByLabelText("os")).not.toBeInTheDocument());
+  });
+
   it("renders nothing when no loaded module produces facts", async () => {
     // Not an empty card: there is no switch to offer, and a heading with
     // nothing under it reads as a list that failed to load.

@@ -46,3 +46,10 @@ Hyper-V virtual machine information not available: the Hyper-V role is not insta
 check_hyperv_vms
 Hyper-V reports 1 virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member of Hyper-V Administrators
 ```
+
+**Two virtual machines with the same name (an import that kept the original):**
+
+```
+check_hyperv_vms "critical=name_count > 1" "detail-syntax=${vm} (${id}): ${name_count} VMs share the name"
+CRITICAL: web-01 (1e4f6e3b-0f7c-4a51-9c2e-6f8a0b1c2d3e): 2 VMs share the name, web-01 (9a8b7c6d-5e4f-4321-8765-0fedcba98765): 2 VMs share the name|...
+```
