@@ -207,14 +207,17 @@ fleet_sync::manifest_status fleet_sync::check_manifest(const std::string &state_
 }
 
 fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
-                       nsclient::core::fact_repository_instance facts, nsclient::core::failed_check_store_instance failures, reload_function request_reload)
+                       nsclient::core::fact_repository_instance facts, nsclient::core::failed_check_store_instance failures, reload_function request_reload,
+                       fleet_seams seams)
     : logger_(std::move(logger)),
       config_(std::move(config)),
       tags_(std::move(tags)),
       facts_(std::move(facts)),
       failed_checks_(std::move(failures)),
-      request_reload_(std::move(request_reload)) {
+      request_reload_(std::move(request_reload)),
+      seams_(std::move(seams)) {
   failure_pacer_.configure(config_.failure_context_interval);
+  if (!seams_.start_thread) return;
   thread_ = threads::start_guarded_thread(
       "fleet sync", [this] { this->thread_proc(); },
       [this](const std::string &message) { log_error(message); });
@@ -235,11 +238,15 @@ void fleet_sync::stop() {
   thread_.reset();
 }
 
+std::int64_t fleet_sync::wall_now() const { return seams_.wall_clock ? seams_.wall_clock() : static_cast<std::int64_t>(std::time(nullptr)); }
+std::chrono::steady_clock::time_point fleet_sync::steady_now() const { return seams_.steady_clock ? seams_.steady_clock() : std::chrono::steady_clock::now(); }
+
 void fleet_sync::log_error(const std::string &message) const { logger_->error(log_module, __FILE__, __LINE__, message); }
 void fleet_sync::log_info(const std::string &message) const { logger_->info(log_module, __FILE__, __LINE__, message); }
 void fleet_sync::log_debug(const std::string &message) const { logger_->debug(log_module, __FILE__, __LINE__, message); }
 
 http::response fleet_sync::do_call(const char *verb, const std::string &path, const std::string &payload, std::size_t max_response_bytes) {
+  if (seams_.transport) return seams_.transport(verb, path, payload, max_response_bytes);
   const std::string full_url = identity_.mtls_url + path;
   const http::parsed_url parsed = http::parse_url(full_url);
   http::http_client_options options(parsed.protocol, config_.tls_version, "none", "");
@@ -342,7 +349,7 @@ void fleet_sync::load_applied_state() {
     // sends nothing (a crash-looping agent must not report once per start).
     const json::value *failure_sent = root.if_contains("failure_context_sent_at");
     if (failure_sent != nullptr && failure_sent->is_int64()) {
-      failure_pacer_.restore(failure_sent->as_int64(), static_cast<std::int64_t>(std::time(nullptr)));
+      failure_pacer_.restore(failure_sent->as_int64(), wall_now());
     }
     const json::value *bundles = root.if_contains("bundles");
     if (bundles != nullptr && bundles->is_array()) {
@@ -440,7 +447,7 @@ std::string fleet_sync::current_facts_hash() const {
 }
 
 void fleet_sync::note_server_response(const http::response &response, const fleet_call call) {
-  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+  const std::chrono::steady_clock::time_point now = steady_now();
   if (!response.is_2xx() && response.status_code_ != 304) {
     // Trouble - a rejection, a rate limit, a 5xx or a proxy's error page - on
     // a poll or a report: no upload this loop turn, on top of whatever the
@@ -468,7 +475,7 @@ void fleet_sync::note_server_response(const http::response &response, const flee
     const boost::optional<unsigned long> retry_after = get_retry_after(response);
     if (retry_after && call != fleet_call::poll) {
       facts_pacer_.hold(now, clamp_sleep_seconds(retry_after.value()));
-      failure_pacer_.hold(static_cast<std::int64_t>(std::time(nullptr)), clamp_sleep_seconds(retry_after.value()));
+      failure_pacer_.hold(wall_now(), clamp_sleep_seconds(retry_after.value()));
     }
     // And says nothing about what the server holds, whatever headers the
     // error page happens to carry.
@@ -543,7 +550,7 @@ void fleet_sync::log_facts_failure(const std::string &hash, const unsigned int s
   // news, the same one rejected again at every backoff step is not - but
   // once a day it is again, so an operator who missed the first line (a 413
   // retried daily, an upload the network keeps cutting) is told once more.
-  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+  const std::chrono::steady_clock::time_point now = steady_now();
   if (hash != last_facts_error_hash_ || status != last_facts_error_status_ || now >= last_facts_error_at_ + std::chrono::hours(24)) {
     last_facts_error_hash_ = hash;
     last_facts_error_status_ = status;
@@ -559,7 +566,7 @@ void fleet_sync::maybe_upload_facts() {
   // The cached hash first: in steady state the server holds what we hold, and
   // this is the whole cost of the call - the document is not rendered.
   const std::string current = facts_->get_hash();
-  if (!facts_pacer_.should_upload(current, std::chrono::steady_clock::now())) return;
+  if (!facts_pacer_.should_upload(current, steady_now())) return;
 
   // A miss: render what we send, with its hash and collection time from the
   // same lock. The snapshot's own hash is the one that counts from here on,
@@ -567,7 +574,7 @@ void fleet_sync::maybe_upload_facts() {
   // last complete round's (fact_repository::begin_round). The size cap needs
   // no check here: the repository enforces it, a lowered one included.
   const nsclient::core::fact_repository::snapshot snapshot = facts_->get_snapshot();
-  if (!facts_pacer_.should_upload(snapshot.hash, std::chrono::steady_clock::now())) return;
+  if (!facts_pacer_.should_upload(snapshot.hash, steady_now())) return;
 
   // The sets, largest first, for the messages that ask the operator to turn
   // one off. Only rendered when one of those is logged.
@@ -587,7 +594,7 @@ void fleet_sync::maybe_upload_facts() {
   try {
     body = onboarding::build_facts_upload(snapshot.hash, snapshot.collected, snapshot.json);
   } catch (const std::exception &e) {
-    facts_pacer_.refused(snapshot.hash, std::chrono::steady_clock::now());
+    facts_pacer_.refused(snapshot.hash, steady_now());
     log_error("Facts document not uploaded: " + utf8::utf8_from_native(e.what()));
     return;
   }
@@ -602,12 +609,12 @@ void fleet_sync::maybe_upload_facts() {
     // not retried every turn. Logged once per document (log_facts_failure),
     // not through the transport bookkeeping, whose "restored" line every
     // successful poll would otherwise re-arm.
-    facts_pacer_.rejected(snapshot.hash, std::chrono::steady_clock::now());
+    facts_pacer_.rejected(snapshot.hash, steady_now());
     log_facts_failure(snapshot.hash, 0, "Facts upload failed: " + utf8::utf8_from_native(e.what()));
     return;
   }
   note_transport_success();
-  const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+  const std::chrono::steady_clock::time_point now = steady_now();
 
   if (response.is_2xx()) {
     // The acknowledgement's own X-Facts-Hash, when it carries a readable one,
@@ -676,7 +683,7 @@ void fleet_sync::maybe_upload_facts() {
 
 void fleet_sync::maybe_report_failure_context() {
   if (!failed_checks_ || !config_.failure_context) return;
-  const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
+  const std::int64_t now = wall_now();
   // Steady state: no failure since the last report, or the interval has not
   // passed - one compare, nothing listed.
   if (!failure_pacer_.due(failed_checks_->last_index(), now)) return;
@@ -1137,6 +1144,16 @@ void fleet_sync::thread_proc() {
 }
 
 void fleet_sync::run() {
+  if (!begin()) return;
+  while (true) {
+    const poll_sleep sleep = turn();
+    // Clamped after the jitter, so no sleep - a day-long Retry-After jittered
+    // upwards included - runs past the longest one we allow.
+    boost::this_thread::sleep_for(boost::chrono::milliseconds(std::min(with_jitter_ms(sleep.seconds, sleep.at_least), max_sleep_seconds * 1000UL)));
+  }
+}
+
+bool fleet_sync::begin() {
   // A fresh life of the sync - after a restart by thread_proc too - carries no
   // turn over: a skip left by the turn that died must not suppress the repair
   // upload below.
@@ -1145,7 +1162,7 @@ void fleet_sync::run() {
   const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(config_.state_file);
   if (!loaded) {
     log_error("No fleet enrollment found (" + config_.state_file + "): run `nscp enroll` first; fleet sync disabled");
-    return;
+    return false;
   }
   identity_ = loaded.value();
   while (!identity_.mtls_url.empty() && identity_.mtls_url.back() == '/') identity_.mtls_url.pop_back();
@@ -1164,7 +1181,7 @@ void fleet_sync::run() {
                 "'): the client certificate and the pinned server certificate cannot protect a plaintext channel, so configuration and bundle delivery "
                 "would be unauthenticated. Fleet sync disabled. Re-enroll against an https url, or - only on a trusted network - re-enroll with "
                 "`nscp enroll --insecure` or set [tls] allow plaintext = true in boot.ini.");
-      return;
+      return false;
     }
     // Allowed, but never silent: this is the channel that applies configuration
     // and runs signed bundles, and over plaintext the only thing still
@@ -1200,7 +1217,7 @@ void fleet_sync::run() {
     note_transport_success();
     if (heartbeat.status_code_ == 403) {
       log_error("Fleet server rejected our certificate (revoked): re-enroll with a new install command; fleet sync disabled");
-      return;
+      return false;
     }
   } catch (const std::exception &e) {
     log_transport_failure("Fleet heartbeat", utf8::utf8_from_native(e.what()));
@@ -1212,38 +1229,38 @@ void fleet_sync::run() {
   // condition as every turn of the loop below.
   if (transport_ok_) maybe_upload_facts();
 
-  while (true) {
-    // Whatever the last turn carried over applies to this one, and to this
-    // one only - even if its poll fails before the upload is considered.
-    facts_pacer_.begin_turn();
-    failure_pacer_.begin_turn();
-    const poll_sleep sleep = poll_once();
-    // When the server is unreachable the poll already logged it; don't pile
-    // further failures (and further log entries) on top with a renewal
-    // call that cannot succeed either.
-    if (transport_ok_) {
-      maybe_renew();
-      // Module tags changed since the last successful report (e.g. a module
-      // was (re)loaded and re-detected its facts): re-report so the server
-      // updates group membership promptly. Identical tag maps are a server-
-      // side no-op, and the revision only moves on real changes, so this
-      // stays quiet in steady state.
-      if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
-        report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
-      }
-      // The server said, in answer to the hash in this poll, that it holds
-      // something else: upload. Steady state is one hash compare per poll.
-      // Not in a turn whose poll or report got an error: that server, or the
-      // proxy in front of it, is in no state for a megabyte - and not after a
-      // report or renewal that could not reach it, which the transport check
-      // above does not cover because it ran before them.
-      if (transport_ok_) maybe_upload_facts();
-      // A failed check the server has not heard about, at most one report
-      // per interval, under the same conditions as the facts upload.
-      if (transport_ok_) maybe_report_failure_context();
+  return true;
+}
+
+fleet_sync::poll_sleep fleet_sync::turn() {
+  // Whatever the last turn carried over applies to this one, and to this
+  // one only - even if its poll fails before the upload is considered.
+  facts_pacer_.begin_turn();
+  failure_pacer_.begin_turn();
+  const poll_sleep sleep = poll_once();
+  // When the server is unreachable the poll already logged it; don't pile
+  // further failures (and further log entries) on top with a renewal
+  // call that cannot succeed either.
+  if (transport_ok_) {
+    maybe_renew();
+    // Module tags changed since the last successful report (e.g. a module
+    // was (re)loaded and re-detected its facts): re-report so the server
+    // updates group membership promptly. Identical tag maps are a server-
+    // side no-op, and the revision only moves on real changes, so this
+    // stays quiet in steady state.
+    if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
+      report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
     }
-    // Clamped after the jitter, so no sleep - a day-long Retry-After jittered
-    // upwards included - runs past the longest one we allow.
-    boost::this_thread::sleep_for(boost::chrono::milliseconds(std::min(with_jitter_ms(sleep.seconds, sleep.at_least), max_sleep_seconds * 1000UL)));
+    // The server said, in answer to the hash in this poll, that it holds
+    // something else: upload. Steady state is one hash compare per poll.
+    // Not in a turn whose poll or report got an error: that server, or the
+    // proxy in front of it, is in no state for a megabyte - and not after a
+    // report or renewal that could not reach it, which the transport check
+    // above does not cover because it ran before them.
+    if (transport_ok_) maybe_upload_facts();
+    // A failed check the server has not heard about, at most one report
+    // per interval, under the same conditions as the facts upload.
+    if (transport_ok_) maybe_report_failure_context();
   }
+  return sleep;
 }
