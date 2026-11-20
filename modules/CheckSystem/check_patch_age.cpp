@@ -79,8 +79,8 @@ std::string patch_obj::get_message() const {
   std::string m;
   if (count == 0) {
     m = "No hotfixes reported";
-  } else if (age_days >= 0) {
-    m = str::xtos(count) + " hotfixes installed, newest " + newest_id + " on " + newest_installed + " (" + str::xtos(age_days) + "d ago)";
+  } else if (age_days.has_value()) {
+    m = str::xtos(count) + " hotfixes installed, newest " + newest_id + " on " + newest_installed + " (" + str::xtos(age_days.value()) + "d ago)";
   } else {
     m = str::xtos(count) + " hotfixes installed, newest install date unknown";
   }
@@ -109,7 +109,7 @@ patch_obj build_patch_obj(const std::vector<hotfix_entry> &entries, const std::v
     const long long secs = now_epoch - newest_epoch;
     o.age_days = secs > 0 ? secs / 86400LL : 0;
   } else {
-    o.age_days = -1;
+    o.age_days = boost::none;
   }
 
   o.required = static_cast<long long>(required.size());
@@ -128,9 +128,17 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_int_var("patches", &patch_obj::get_count, "Total number of installed hotfixes")
       .add_int_var("count", &patch_obj::get_count, "Deprecated alias for patches (the name clashes with the generic count summary keyword).")
-      .add_int_var("age", &patch_obj::get_age, "Days since the newest hotfix was installed (-1 if the install date is unknown)")
+      .add_int_var("age_known", parsers::where::type_bool, &patch_obj::get_age_known,
+                   "1 if at least one hotfix has a parseable install date, 0 if `age` is unknown. An age threshold never fires on an unknown "
+                   "age, so add `or age_known = 0` to alert on a host that reports no install dates")
       .add_int_var("required", &patch_obj::get_required, "Number of hotfixes requested via the hotfix= option")
       .add_int_var("missing", &patch_obj::get_missing, "Number of requested hotfixes that are not installed");
+  // age has no value when no hotfix carries a parseable install date: it renders
+  // as 'unknown', compares false against every number and emits no perfdata.
+  // age_known is the flag to threshold on for that case.
+  registry_.add_optional_int_var("age", [](auto obj) { return obj->get_age(); }, "unknown",
+                                 "Days since the newest hotfix was installed. 'unknown' when no hotfix has a parseable install date; "
+                                 "every numeric comparison is then false, so test `age_known = 0` for it");
   registry_.add_string_var("newest_id", &patch_obj::get_newest_id, "HotFixID of the most recently installed hotfix")
       .add_string_var("newest_installed", &patch_obj::get_newest_installed, "Install date of the newest hotfix (as reported by Windows)")
       .add_string_var("ids", &patch_obj::get_ids, "Semicolon-separated list of all installed HotFixIDs (use 'ids like KBxxxxxxx' to test presence)")

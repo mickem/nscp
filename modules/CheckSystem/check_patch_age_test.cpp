@@ -61,7 +61,9 @@ TEST(CheckPatchAge, AggregatesNewestAndAge) {
   EXPECT_EQ(o.count, 2);
   EXPECT_EQ(o.newest_id, "KB222");
   EXPECT_EQ(o.newest_installed, "2/20/2024");
-  EXPECT_EQ(o.age_days, 10);
+  ASSERT_TRUE(o.age_days.has_value());
+  EXPECT_EQ(o.age_days.value(), 10);
+  EXPECT_EQ(o.get_age_known(), 1);
   EXPECT_EQ(o.ids, "KB111;KB222");
   EXPECT_EQ(o.missing, 0);
 }
@@ -79,7 +81,46 @@ TEST(CheckPatchAge, UnknownAgeWhenNoDatesParse) {
   std::vector<hotfix_entry> entries = {make_hotfix("KB111", ""), make_hotfix("KB222", "N/A")};
   const patch_obj o = build_patch_obj(entries, {}, parse_installed_on("3/1/2024"));
   EXPECT_EQ(o.count, 2);
-  EXPECT_EQ(o.age_days, -1);
+  EXPECT_FALSE(o.age_days.has_value());
+  EXPECT_EQ(o.get_age_known(), 0);
+}
+
+namespace {
+std::vector<hotfix_entry> undated_hotfixes() { return {make_hotfix("KB111", ""), make_hotfix("KB222", "N/A")}; }
+}  // namespace
+
+TEST(CheckPatchAge, UnknownAgeRendersAsUnknownAndNeverTripsAnAgeThreshold) {
+  PB::Commands::QueryResponseMessage::Response response;
+  // No sentinel: neither direction of a numeric threshold fires on an unknown age.
+  EXPECT_EQ(run_patch(undated_hotfixes(), parse_installed_on("3/1/2024"), {"warning=age < 0", "critical=age > 5", "detail-syntax=age=%(age)"}, response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_NE(join_lines(response).find("age=unknown"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckPatchAge, UnknownAgeEmitsNoAgePerf) {
+  PB::Commands::QueryResponseMessage::Response response;
+  run_patch(undated_hotfixes(), parse_installed_on("3/1/2024"), {}, response);
+  ASSERT_GT(response.lines_size(), 0);
+  bool saw_patches = false;
+  for (const auto &p : response.lines(0).perf()) {
+    EXPECT_EQ(p.alias().find("age"), std::string::npos) << p.alias();
+    if (p.alias().find("patches") != std::string::npos) saw_patches = true;
+  }
+  EXPECT_TRUE(saw_patches);
+}
+
+TEST(CheckPatchAge, AgeKnownFlagTripsOnUnknownAge) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_patch(undated_hotfixes(), parse_installed_on("3/1/2024"), {"critical=age > 5 or age_known = 0"}, response), PB::Common::ResultCode::CRITICAL)
+      << join_lines(response);
+}
+
+TEST(CheckPatchAge, AgeKnownFlagIsQuietWhenTheAgeIsKnown) {
+  PB::Commands::QueryResponseMessage::Response response;
+  // Newest hotfix is 10 days old: under the 90 day limit, and the age is known.
+  EXPECT_EQ(run_patch(sample_hotfixes(), parse_installed_on("3/1/2024"), {"critical=age > 90 or age_known = 0"}, response), PB::Common::ResultCode::OK)
+      << join_lines(response);
 }
 
 TEST(CheckPatchAge, DefaultOkWithoutThresholds) {

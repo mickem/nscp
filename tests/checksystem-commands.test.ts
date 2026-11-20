@@ -884,11 +884,24 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     // `patches` is the renamed keyword (was `count`, which clashed with the
     // generic summary keyword).
     expect(perf["patch_patches"]).toBeDefined();
-    expect(perf["patch_age"]).toBeDefined();
     expect(perf["patch_missing"]).toBeDefined();
     // A real Windows host has at least one servicing hotfix and none missing.
     expect(perf["patch_patches"].value as number).toBeGreaterThan(0);
     expect(perf["patch_missing"].value as number).toBe(0);
+  });
+
+  it("check_patch_age exposes the age_known flag (Windows)", async () => {
+    if (!onWindows) return;
+    // age is optional ('unknown' when no hotfix carries an install date) and
+    // age_known is the flag for that case. No host has gone 100000 days
+    // unpatched, so this is a deterministic OK whether or not this machine
+    // reports install dates; it proves both keywords parse over REST.
+    const q = await executeQuery(key, "check_patch_age", {
+      warning: "none",
+      critical: "age_known = 1 and age > 100000",
+    });
+    expect(messageOf(q)).not.toMatch(/invalid|error/i);
+    expect(q.result).toBe(OK);
   });
 
   it("check_patch_age is CRITICAL when a required hotfix is absent (Windows)", async () => {
