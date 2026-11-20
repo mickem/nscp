@@ -22,10 +22,10 @@
  * IcingaAgent:<master>, and pinning the master's certificate with
  * `parent fingerprint`.
  */
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import * as tls from "tls";
 import {
   GenericContainer,
   NscpInstance,
@@ -134,18 +134,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** The SHA-256 fingerprint of the certificate a TLS server presents. */
-function serverFingerprint(port: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const socket = tls.connect({ host: "127.0.0.1", port, rejectUnauthorized: false }, () => {
-      const fingerprint = socket.getPeerCertificate().fingerprint256;
-      socket.end();
-      resolve(fingerprint);
-    });
-    socket.on("error", reject);
-  });
-}
-
 const enabled = !skipDocker() && moduleBuiltHere("IcingaAgent") && moduleBuiltHere("CheckHelpers");
 
 describeIf(enabled)(`IcingaAgent against a real Icinga 2 master (${IMAGE})`, () => {
@@ -183,6 +171,13 @@ describeIf(enabled)(`IcingaAgent against a real Icinga 2 master (${IMAGE})`, () 
       await sleep(2_000);
     }
     throw new Error(`no results from the agent for every service: ${JSON.stringify(last)}`);
+  }
+
+  /** SHA-256 of the master's own certificate file, as `openssl x509 -fingerprint -sha256` prints it. */
+  async function masterFingerprint(): Promise<string> {
+    const r = await master.exec(["cat", `/var/lib/icinga2/certs/${MASTER}.crt`]);
+    if (r.exitCode !== 0) throw new Error(`cannot read the master's certificate: ${r.output}`);
+    return new crypto.X509Certificate(r.output).fingerprint256;
   }
 
   async function ticket(): Promise<string> {
@@ -303,7 +298,9 @@ describeIf(enabled)(`IcingaAgent against a real Icinga 2 master (${IMAGE})`, () 
     });
 
     it("verifies the master on the first connection", async () => {
-      const fingerprint = await serverFingerprint(port);
+      // What an operator does: fingerprint the master's certificate on the
+      // master, from the file - not from whatever answers on the port.
+      const fingerprint = await masterFingerprint();
       ({ nscp } = await startAgent({ ticket: await ticket(), "parent fingerprint": fingerprint }));
       const deadline = Date.now() + 60_000;
       while (
