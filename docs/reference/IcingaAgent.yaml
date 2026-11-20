@@ -97,9 +97,12 @@ unix:
         ticket:
           advanced: false
           default_value: ''
-          description: A ticket from `icinga2 pki ticket --cn <endpoint name>` on the master. With it
-            the master signs the agent's certificate right away; without it the request waits for `icinga2
-            ca sign` on the master.
+          description: 'A ticket from `icinga2 pki ticket --cn <endpoint name>` on the master. With it
+            the master signs the agent''s certificate right away; without it the request waits for `icinga2
+            ca sign` on the master. Treat it as a password: it does not expire, and whoever holds it can
+            have the master sign a certificate for this endpoint name. The agent sends it to the parent
+            on every connect, so on a first connection that is not verified (no `ca.crt`, no `parent
+            fingerprint`) it goes to whoever answers at `parent host`.'
           sample: false
           title: TICKET
         tls version:
@@ -115,7 +118,8 @@ unix:
           default_value: 'true'
           description: 'Whether the agent may make its first connection without being able to verify the
             parent: no `ca.crt` in the certificate directory yet and no `parent fingerprint`. Only the
-            certificate exchange happens on such a connection, never a check. True (the default) is how
+            certificate exchange happens on such a connection, never a check - but the exchange includes
+            the `ticket`, and the CA the agent trusts from then on is the one that peer sends. True (the default) is how
             `icinga2 node setup` behaves without `--trustedcert`; set it to false to require the CA or
             the pin up front.'
           sample: false

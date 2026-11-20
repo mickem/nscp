@@ -216,6 +216,7 @@ Restart NSClient++. The log shows the bootstrap:
 
 ```
 Icinga agent: no CA at .../icinga/ca.crt yet, the parent's certificate is NOT verified on this connection; no checks run until it is
+Icinga agent: the `ticket` is sent over this unverified connection, to whoever answers at icinga-master.example.com:5665. ...
 Icinga agent: Connected to Icinga endpoint 'icinga-master' at icinga-master.example.com:5665
 Icinga agent: stored the certificate signed by the Icinga CA in .../icinga/win-host-01.crt
 Icinga agent: Disconnected from icinga-master.example.com: Received a signed certificate, reconnecting with it
@@ -269,6 +270,20 @@ master's certificate does not break the agent.
 **Trust on first use (the default).** With neither, the first connection is not verified. The agent runs no checks on
 it; it only asks for its certificate and stores the CA the master returns. To forbid this - and refuse to connect until
 a CA or a pin is in place - set `trust on first use = false`.
+
+<!-- @formatter:off -->
+!!! danger "An unverified first connection sends the ticket to whoever answers"
+    Without the CA or a pin the agent cannot tell the master from anyone else at `parent host` - a machine on the
+    path, a poisoned DNS record, a mistyped address - and it sends the ticket in its first message. A ticket does not
+    expire and is not used up: whoever holds it can have the real master sign a certificate for this endpoint name
+    and connect to the master **as this agent**, reporting results for the host and receiving its checks. The same
+    peer can answer with a CA of its own, which the agent then trusts as its parent's and runs checks for.
+
+    Use trust on first use only on a network you trust for that one connection. Everywhere else install `ca.crt` or
+    set `parent fingerprint`, and set `trust on first use = false`. If a ticket may have leaked, change `TicketSalt`
+    on the master: that invalidates every ticket it has issued, which is the only way to withdraw one, but it does
+    not revoke a certificate that was already signed with it.
+<!-- @formatter:on -->
 
 In every case a master whose certificate is not for `parent endpoint` is refused, even when the same CA signed it.
 
@@ -337,6 +352,9 @@ The host stays UP while the agent is connected (`Zone 'win-host-01' is connected
 | Services pending forever, master logs "no connection"          | The agent is not connected: check the NSClient++ log, the firewall to port 5665, and that the Endpoint and Zone exist on the master. |
 | `` ... not the pinned `parent fingerprint` ``                   | `parent fingerprint` is not the master's current certificate. Print it again on the master; once the agent has the CA the pin no longer matters. |
 | `` `trust on first use` is off: not connecting ``                 | Copy the master's `ca.crt` into the certificate directory (picked up on the next attempt, within seconds) or set `parent fingerprint` and restart. |
+| `` the `ticket` is sent over this unverified connection ``      | The first connection has no `ca.crt` and no `parent fingerprint` to verify the master with. Expected once with trust on first use; see [above](#trusting-the-master-on-the-first-connection) for what it exposes. |
+| `The certificate in pki::UpdateCertificate is for 'x', not for this agent` / `was not issued by the Icinga CA` | The parent answered with a certificate the agent did not ask for; it is not stored. With trust on first use, check that `parent host` really is the master. |
+| `could not be used together and were replaced`                  | The stored certificate was unreadable or not for the stored key. The agent generated a new pair and has to be signed again (ticket, or `icinga2 ca sign`). |
 | `invalid TLS settings ... not connecting`                       | `tls version` or `allowed ciphers` has a value OpenSSL rejects.                                                  |
 
 ---

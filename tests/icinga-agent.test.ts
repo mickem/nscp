@@ -180,8 +180,19 @@ class FakeIcingaMaster {
     throw new Error(`no matching agent connection (${this.sessions.length} seen)`);
   }
 
-  /** What Icinga's pki::RequestCertificate handler does: sign the public key the agent connected with. */
-  signPeer(session: Session): string {
+  /**
+   * What Icinga's pki::RequestCertificate handler does: sign the public key
+   * the agent connected with. `as` forges what a real master never issues: a
+   * certificate for another name, or one signed by a CA that is not ours.
+   */
+  signPeer(
+    session: Session,
+    as: { commonName?: string; ca?: { keyPem: string; certPem: string } } = {},
+  ): string {
+    const caKey = as.ca
+      ? (forge.pki.privateKeyFromPem(as.ca.keyPem) as forge.pki.rsa.PrivateKey)
+      : this.caKey;
+    const caCert = as.ca ? forge.pki.certificateFromPem(as.ca.certPem) : this.caCert;
     const raw = session.socket.getPeerCertificate().raw;
     const peer = forge.pki.certificateFromAsn1(
       forge.asn1.fromDer(forge.util.createBuffer(raw.toString("binary"))),
@@ -192,14 +203,16 @@ class FakeIcingaMaster {
     cert.serialNumber = "7f" + crypto.randomBytes(8).toString("hex");
     cert.validity.notBefore = new Date();
     cert.validity.notAfter = new Date(Date.now() + 365 * 24 * 3600 * 1000);
-    cert.setSubject(peer.subject.attributes);
-    cert.setIssuer(this.caCert.subject.attributes);
+    cert.setSubject(
+      as.commonName ? [{ name: "commonName", value: as.commonName }] : peer.subject.attributes,
+    );
+    cert.setIssuer(caCert.subject.attributes);
     cert.setExtensions([
       { name: "basicConstraints", cA: false },
       { name: "keyUsage", digitalSignature: true, keyEncipherment: true },
       { name: "extKeyUsage", serverAuth: true, clientAuth: true },
     ] as unknown as Parameters<typeof cert.setExtensions>[0]);
-    cert.sign(this.caKey, forge.md.sha256.create());
+    cert.sign(caKey, forge.md.sha256.create());
     return forge.pki.certificateToPem(cert);
   }
 }
@@ -308,6 +321,35 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(session.closed).toBe(false);
     });
 
+    it("says that the ticket goes to a parent it could not verify", async () => {
+      await waitForLog(nscp, "the `ticket` is sent over this unverified connection");
+    });
+
+    it("rejects a certificate for its key that carries another name", async () => {
+      session.send("pki::UpdateCertificate", {
+        cert: master.signPeer(session, { commonName: "some-other-agent" }),
+        ca: master.pki.ca.certPem,
+      });
+      await waitForLog(nscp, "is for 'some-other-agent', not for this agent");
+      expect(fs.existsSync(path.join(certDir, "ca.crt"))).toBe(false);
+    });
+
+    it("rejects a certificate the CA sent with it did not issue", async () => {
+      const other = generateCertChain({
+        outDir: nscp.scratch("other-pki"),
+        caCommonName: "Icinga CA",
+        signed: {},
+      });
+      session.send("pki::UpdateCertificate", {
+        cert: master.signPeer(session, { ca: other.ca }),
+        ca: master.pki.ca.certPem,
+      });
+      await waitForLog(nscp, "was not issued by the Icinga CA");
+      expect(fs.existsSync(path.join(certDir, "ca.crt"))).toBe(false);
+      await sleep(500);
+      expect(session.closed).toBe(false);
+    });
+
     it("stores the signed certificate and reconnects verified", async () => {
       session.send("pki::UpdateCertificate", {
         cert: master.signPeer(session),
@@ -315,6 +357,8 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       });
       const verified = await verifiedSession();
       expect(fs.readFileSync(path.join(certDir, "ca.crt"), "utf8")).toBe(master.pki.ca.certPem);
+      // Written beside the targets and renamed into place: nothing left behind.
+      expect(fs.readdirSync(certDir).filter((f) => f.endsWith(".new"))).toEqual([]);
       // The key never left the agent; the certificate it now presents is the one we signed.
       expect(fs.existsSync(path.join(certDir, `${AGENT}.key`))).toBe(true);
       if (process.platform !== "win32") {
@@ -581,6 +625,34 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       // stops the agent the same way and must not leave the old socket open.
       expect(agent.capturedStdout()).toContain("Agent is stopping");
       expect(session.closed).toBe(true);
+    });
+
+    it("replaces a certificate it cannot use instead of failing every connect", async () => {
+      // What a full disk or a kill mid-write used to leave: a truncated
+      // certificate beside a key. Both exist, so nothing was regenerated, and
+      // TLS could not be set up until someone deleted the file by hand.
+      const agent = new NscpInstance();
+      const certDir = path.join(agent.workDir, "icinga-certs");
+      fs.mkdirSync(certDir, { recursive: true });
+      fs.writeFileSync(path.join(certDir, `${AGENT}.crt`), "-----BEGIN CERTIFICATE-----\nMIIB");
+      fs.writeFileSync(path.join(certDir, `${AGENT}.key`), "not a key");
+      const before = master.sessions.length;
+      await agent.configure({
+        "/modules": { IcingaAgent: "enabled", CheckHelpers: "enabled" },
+        "/settings/Icinga/agent": {
+          "parent host": "127.0.0.1",
+          "parent port": String(port),
+          "parent endpoint": PARENT,
+          "endpoint name": AGENT,
+          "certificate directory": certDir,
+        },
+      });
+      nscp = agent;
+      agent.start();
+      await waitForLog(agent, "could not be used together and were replaced");
+      const session = await master.waitForSession((s) => master.sessions.indexOf(s) >= before);
+      await session.waitFor("pki::RequestCertificate");
+      expect(session.peerCn).toBe(AGENT);
     });
 
     it("refuses a parent fingerprint that is not one", async () => {

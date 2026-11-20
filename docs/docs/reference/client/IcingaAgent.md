@@ -63,12 +63,35 @@ master against it. For the first connection there are three choices:
 |---------------------------------------------------------|------------------------------------------------------------|
 | Install the master's `ca.crt` up front                  | Verified against the CA, checks run straight away          |
 | Set `parent fingerprint` (the master's certificate)     | Verified against the pin, as `node setup --trustedcert`    |
-| Neither (the default, `trust on first use = true`)      | Not verified: only the certificate exchange, no checks     |
+| Neither (the default, `trust on first use = true`)      | Not verified: no checks, but the ticket is sent (see below) |
 
 The CA to install is the master's `/var/lib/icinga2/certs/ca.crt` - the CA certificate, never its key - copied to
 `<certificate directory>/ca.crt` by whatever deploys the agent. The fingerprint is what
 `openssl x509 -noout -fingerprint -sha256 -in /var/lib/icinga2/certs/<master>.crt` prints on the master. Set
 `trust on first use = false` to refuse a first connection that cannot be verified either way.
+
+#### What an unverified first connection gives away
+
+With neither the CA nor a pin, the agent cannot tell the master from anyone else who answers at `parent host` - a
+machine on the path, a poisoned DNS record, a wrong address in the configuration. It runs no checks for that peer,
+but the certificate exchange itself hands over two things:
+
+- **The ticket.** It is sent in the first message. A ticket is derived from the endpoint name and the master's
+  `TicketSalt`: it does not expire and is not used up. Whoever holds it can have the real master sign a certificate
+  for this endpoint name, for a key of their own, at any time - and then connect to the master as this agent: report
+  check results for the host, and receive the checks meant for it, with whatever the master puts in their arguments.
+  The only way to withdraw a ticket is to change `TicketSalt` on the master, which invalidates every ticket it issued.
+- **The agent's trust.** The agent stores the CA that peer sends and verifies every later connection against it. A
+  peer that answers with its own CA is the agent's parent from then on, and may run every query the permission
+  policy grants `IcingaAgent:<parent endpoint>` - every query at all while the policy is off.
+
+Both are avoided by verifying the first connection: install `ca.crt` or set `parent fingerprint`, and set
+`trust on first use = false` so a host that was deployed without either refuses to connect rather than falling back.
+If the ticket may have gone to the wrong peer, treat it as leaked and change `TicketSalt` on the master; that stops
+new certificates being signed with it, but does not revoke one that already was. The agent logs an error each time it
+sends the ticket over an unverified connection.
+
+The ticket is a password setting: the settings API and the web UI mask its value.
 
 #### Certificate renewal
 
@@ -393,7 +416,7 @@ threads=4
 
 #### TICKET <a id="/settings/Icinga/agent/ticket"></a>
 
-A ticket from \`icinga2 pki ticket --cn <endpoint name>\` on the master. With it the master signs the agent's certificate right away; without it the request waits for \`icinga2 ca sign\` on the master.
+A ticket from \`icinga2 pki ticket --cn <endpoint name>\` on the master. With it the master signs the agent's certificate right away; without it the request waits for \`icinga2 ca sign\` on the master. Treat it as a password: it does not expire, and whoever holds it can have the master sign a certificate for this endpoint name. The agent sends it to the parent on every connect, so on a first connection that is not verified (no \`ca.crt\`, no \`parent fingerprint\`) it goes to whoever answers at \`parent host\`.
 
 
 | Key            | Description                                       |
@@ -433,7 +456,7 @@ tls version=1.2+
 
 #### TRUST ON FIRST USE <a id="/settings/Icinga/agent/trust on first use"></a>
 
-Whether the agent may make its first connection without being able to verify the parent: no \`ca.crt\` in the certificate directory yet and no \`parent fingerprint\`. Only the certificate exchange happens on such a connection, never a check. True (the default) is how \`icinga2 node setup\` behaves without \`--trustedcert\`; set it to false to require the CA or the pin up front.
+Whether the agent may make its first connection without being able to verify the parent: no \`ca.crt\` in the certificate directory yet and no \`parent fingerprint\`. Only the certificate exchange happens on such a connection, never a check - but the exchange includes the \`ticket\`, and the CA the agent trusts from then on is the one that peer sends. True (the default) is how \`icinga2 node setup\` behaves without \`--trustedcert\`; set it to false to require the CA or the pin up front.
 
 
 | Key            | Description                                       |

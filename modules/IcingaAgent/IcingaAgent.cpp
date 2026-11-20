@@ -72,7 +72,10 @@ class agent : public std::enable_shared_from_this<agent> {
         paths_(pki_paths::for_endpoint(config_.certificate_directory, config_.endpoint_name)) {}
 
   void start() {
-    ensure_bootstrap_certificate(paths_, config_.endpoint_name);
+    if (ensure_bootstrap_certificate(paths_, config_.endpoint_name)) {
+      NSC_LOG_ERROR("Icinga agent: the certificate and key in " + config_.certificate_directory + " for '" + config_.endpoint_name +
+                    "' could not be used together and were replaced with a new self-signed pair; the parent has to sign it again");
+    }
     auto self = shared_from_this();
     threads_.push_back(threads::start_guarded_thread(
         "icinga agent connection", [self]() { threads::run_io_context_guarded("icinga agent connection", self->net_io_, NSC_THREAD_REPORTER); },
@@ -152,6 +155,13 @@ class agent : public std::enable_shared_from_this<agent> {
         // on such a connection: execute() refuses checks until the parent is
         // verified.
         NSC_LOG_ERROR("Icinga agent: no CA at " + paths_.ca + " yet, the parent's certificate is NOT verified on this connection; no checks run until it is");
+        if (!config_.connection.ticket.empty()) {
+          NSC_LOG_ERROR(
+              "Icinga agent: the `ticket` is sent over this unverified connection, to whoever answers at " + config_.connection.host + ":" +
+              config_.connection.port +
+              ". Anyone holding it can have the master sign a certificate for '" + config_.endpoint_name +
+              "'. Install the master's ca.crt or set `parent fingerprint` to verify the parent first.");
+        }
         opts.verify_mode = "none";
         config_.connection.verify_parent = false;
       }
@@ -216,7 +226,7 @@ class agent : public std::enable_shared_from_this<agent> {
         NSC_LOG_ERROR("Icinga agent: pki::UpdateCertificate without a certificate");
         return false;
       }
-      store_signed_certificate(paths_, std::string(cert->value().as_string()),
+      store_signed_certificate(paths_, config_.endpoint_name, std::string(cert->value().as_string()),
                                ca != obj.end() && ca->value().is_string() ? std::string(ca->value().as_string()) : std::string());
       NSC_LOG_MESSAGE("Icinga agent: stored the certificate signed by the Icinga CA in " + paths_.certificate);
       return true;
@@ -322,9 +332,12 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
       .add_string("endpoint name", sh::string_key(&config.endpoint_name, default_name), "ENDPOINT NAME",
                   "This agent's endpoint name, the CN of its certificate. Must match the Endpoint object on the master. Defaults to the "
                   "lower-cased host name.")
-      .add_string("ticket", sh::string_key(&config.connection.ticket), "TICKET",
-                  "A ticket from `icinga2 pki ticket --cn <endpoint name>` on the master. With it the master signs the agent's certificate "
-                  "right away; without it the request waits for `icinga2 ca sign` on the master.")
+      .add_password("ticket", sh::string_key(&config.connection.ticket), "TICKET",
+                    "A ticket from `icinga2 pki ticket --cn <endpoint name>` on the master. With it the master signs the agent's certificate "
+                    "right away; without it the request waits for `icinga2 ca sign` on the master. Treat it as a password: it does not expire, "
+                    "and whoever holds it can have the master sign a certificate for this endpoint name. The agent sends it to the parent on "
+                    "every connect, so on a first connection that is not verified (no `ca.crt`, no `parent fingerprint`) it goes to whoever "
+                    "answers at `parent host`.")
       .add_string("parent fingerprint", sh::string_key(&config.parent_fingerprint_setting), "PARENT FINGERPRINT",
                   "SHA-256 fingerprint of the parent's certificate, as `openssl x509 -noout -fingerprint -sha256 -in <cert>` prints it "
                   "(colons and the `SHA256 Fingerprint=` prefix are optional). Pins the parent on the first connection, before the agent has "
@@ -332,7 +345,8 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
                   "it instead, so a renewed parent certificate keeps working. Empty (the default): no pin.")
       .add_bool("trust on first use", sh::bool_key(&config.trust_on_first_use, true), "TRUST ON FIRST USE",
                 "Whether the agent may make its first connection without being able to verify the parent: no `ca.crt` in the certificate "
-                "directory yet and no `parent fingerprint`. Only the certificate exchange happens on such a connection, never a check. "
+                "directory yet and no `parent fingerprint`. Only the certificate exchange happens on such a connection, never a check - but "
+                "the exchange includes the `ticket`, and the CA the agent trusts from then on is the one that peer sends. "
                 "True (the default) is how `icinga2 node setup` behaves without `--trustedcert`; set it to false to require the CA or the "
                 "pin up front.")
       .add_string("certificate directory", sh::path_key(&config.certificate_directory, "${certificate-path}/icinga"), "CERTIFICATE DIRECTORY",

@@ -26,10 +26,18 @@ struct evp_pkey_free {
 struct bio_free {
   void operator()(BIO *p) const { BIO_free(p); }
 };
+struct x509_store_free {
+  void operator()(X509_STORE *p) const { X509_STORE_free(p); }
+};
+struct x509_store_ctx_free {
+  void operator()(X509_STORE_CTX *p) const { X509_STORE_CTX_free(p); }
+};
 
 using x509_ptr = std::unique_ptr<X509, x509_free>;
 using evp_pkey_ptr = std::unique_ptr<EVP_PKEY, evp_pkey_free>;
 using bio_ptr = std::unique_ptr<BIO, bio_free>;
+using x509_store_ptr = std::unique_ptr<X509_STORE, x509_store_free>;
+using x509_store_ctx_ptr = std::unique_ptr<X509_STORE_CTX, x509_store_ctx_free>;
 
 }  // namespace ossl
 }  // namespace icinga_agent

@@ -22,6 +22,21 @@ What stands between a parent and the agent's checks:
   either it cannot be verified, and by default (`trust on first use = true`)
   the agent makes it anyway but runs no checks on it, only the certificate
   exchange; `trust on first use = false` refuses it.
+- **What an unverified first connection gives away.** No check runs on it,
+  but the agent sends its `ticket` in the first message, to whoever answers at
+  `parent host`. A ticket does not expire and is not used up: its holder can
+  have the real master sign a certificate for the agent's endpoint name and
+  then connect to the master as that agent - reporting check results for the
+  host and receiving the checks meant for it. It can only be withdrawn by
+  changing `TicketSalt` on the master, which invalidates every ticket but
+  revokes no certificate already signed with one. The
+  same peer can answer the request with a CA of its own; the agent stores it
+  and from then on treats that peer as its parent, running the queries the
+  permission policy grants (all of them while the policy is off). The agent
+  logs an error whenever it sends a ticket this way.
+- **What the agent accepts as its certificate.** Only one for its own key,
+  with its own endpoint name as CN, issued by the CA delivered with it (or
+  the one already stored). Anything else is refused and nothing is replaced.
 - **A pinned parent name.** `parent endpoint` is required: a parent whose
   certificate carries any other CN is refused, even one the same CA signed.
 - **The core permission policy.** Every check runs as the principal
@@ -32,10 +47,16 @@ What stands between a parent and the agent's checks:
   arguments). Set it to `false` to allow only argument-less queries and the
   aliases defined on the agent.
 
+The `ticket` is a password setting, so the settings API and the web UI mask
+it; it is still stored in the configuration file like any other secret
+there.
+
 **What to do:** nothing unless you load `IcingaAgent`. If you do, install the
 master's `ca.crt` with the agent (or set `parent fingerprint`) so the first
 connection is verified, and set `trust on first use = false` on a managed
-fleet. Enable the permission policy and grant the parent only the checks it
+fleet. Rely on trust on first use only where you trust the network for that
+one connection, and if a ticket may have reached the wrong peer, change
+`TicketSalt` on the master. Enable the permission policy and grant the parent only the checks it
 monitors, for example:
 
 ```ini

@@ -15,5 +15,6 @@ convention: import `ifw-api` into the CheckCommand and the master sends the
 query name and argument definitions. Checks run as
 `IcingaAgent:<parent endpoint>`, so the permission policy decides which ones
 the parent may run. Install the master's `ca.crt` with the agent, or set
-`parent fingerprint`, so the first connection is verified too; see the
+`parent fingerprint`, so the first connection is verified too: an unverified
+one sends the ticket to whoever answers; see the
 [security notice](../security/notices.md#icingaagent-what-a-connected-icinga-parent-may-run).
