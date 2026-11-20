@@ -491,6 +491,8 @@ void CheckNSCP::check_nscp(const PB::Commands::QueryRequestMessage::Request &req
   // Defaults preserve the historical verdict: any crash report or any logged
   // error makes the agent CRITICAL.
   filter_helper.add_options("", "crashes > 0 or errors > 0", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("crashes", modern_filter::shorthand::above);
+  filter_helper.add_short_threshold("errors", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${list}", "${crashes} crash(es), ${errors} error(s), uptime ${uptime}", "nscp", "", "");
   filter_helper.get_desc().add_options()(
       "max-unit", po::value<std::string>(&max_unit_str)->default_value("w"),
