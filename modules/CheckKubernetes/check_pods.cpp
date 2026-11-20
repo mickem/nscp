@@ -139,6 +139,7 @@ void check_pods(const settings &defaults, const PB::Commands::QueryRequestMessag
   filter_helper.add_options("phase = 'Pending' or restarts > 5",
                             "phase = 'Failed' or phase = 'Unknown' or pod_status like 'BackOff' or pod_status = 'OOMKilled' or pod_status = 'missing'",
                             "phase != 'Succeeded'", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("restarts", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${problem_list}", "${namespace}/${name}=${pod_status}", "${namespace}/${name}", "%(status): No pods found",
                            "%(status): All %(count) pods are fine");
   // clang-format off
