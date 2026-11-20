@@ -100,6 +100,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // No default thresholds: healthy session counts are workload-specific, so
   // the check is informational until the user thresholds sessions/max_idle.
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("sessions", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${list}", "${name}: ${sessions} sessions (${running} running)", "${name}", "%(status): No user sessions found", "");
   mssql_options::add_connection_options(filter_helper.get_desc(), info);
 

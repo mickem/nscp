@@ -145,6 +145,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // sysadmin) and suspect_pages -1 (no msdb access) are missing permissions,
   // not findings, and `suspect_pages > 0` does not match -1.
   filter_helper.add_options("checkdb_age > 1209600 or checkdb_age = -1", "suspect_pages > 0", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("checkdb_age", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${problem_count}/${count} databases (${problem_list})", "${name}: checkdb age ${checkdb_age}s, ${suspect_pages} suspect pages",
                            // Not "all checked recently, no suspect pages": with a login that cannot
                            // reach DBCC DBINFO or msdb, every value is a sentinel and that phrasing
