@@ -644,6 +644,7 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
   po::options_description desc = nscapi::program_options::create_desc(request);
   perf_filter::filter filter;
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.disable_short_thresholds();
   filter_helper.add_syntax("%(status): %(message) %(list)", "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n", "%(key)", "", "");
   // clang-format off
   filter_helper.get_desc().add_options()
