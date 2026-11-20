@@ -205,7 +205,11 @@ TEST(CheckDomainCommand, WhoisFallbackAnswersWhenRdapIsDown) {
 }
 
 TEST(CheckDomainCommand, ThresholdsAndDetailOverWhois) {
-  scripted_server whois(whois_reply("domain: example.com\nexpires: " + expiry_in(20).substr(0, 10) + "\n"));
+  // A date-only expiry is midnight of that day, so cutting the time off
+  // expiry_in() loses up to a day: 21 days and a bit from now leaves 20 or
+  // 21 whole days, whatever the time of day. With 20 it left 19 through
+  // every morning (UTC), and the "2" below did not match.
+  scripted_server whois(whois_reply("domain: example.com\nexpires: " + expiry_in(21).substr(0, 10) + "\n"));
   const domain_result r = run_domain({"domain=example.com", dead_rdap(), "timeout=5", "whois-fallback=true", "whois-server=127.0.0.1",
                                       "whois-port=" + whois.port(), "detail-syntax=${domain} ${expires_in} ${expiration_type} ${source}"});
   EXPECT_EQ(PB::Common::ResultCode::WARNING, r.code) << r.message;
