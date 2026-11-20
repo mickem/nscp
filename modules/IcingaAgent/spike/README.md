@@ -80,4 +80,5 @@ before it holds the CA, and refuses to start without `parent endpoint`.
 * Certificate renewal before expiry (the master re-signs on request, so
   sending `pki::RequestCertificate` on every connect should cover it - untested).
 * `deadline` / `check_timeout`, `event_command`s, `/v1/actions/execute-command`.
-* Reference docs, samples, integration test, Windows MSI entry.
+* Reference docs, samples, Windows MSI entry. (The protocol is covered by
+  `tests/icinga-agent.test.ts`, against a fake master.)

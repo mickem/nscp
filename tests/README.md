@@ -118,6 +118,7 @@ Docker-free scenarios (always run, including in no-docker CI pipelines):
 | `tests/checkdisk-commands.test.ts`      | CheckDisk drive/IO checks, both OSes                                                                                    |
 | `tests/checkdisk-unix.test.ts`          | CheckDisk file/drive checks (Linux)                                                                                     |
 | `tests/checkmssql-commands.test.ts`     | CheckMSSQL contract tests (Windows); a docker-gated block adds live SQL Server 2022 coverage                            |
+| `tests/icinga-agent.test.ts`            | IcingaAgent against a fake Icinga 2 master (TLS + netstring JSON-RPC + its own CA): ticket signing, checks, policy      |
 | `tests/metrics-realtime.test.ts`        | Metrics + real-time filters, both OSes                                                                                  |
 | `tests/rest-aliases-v2.test.ts`         | CheckHelpers alias listing                                                                                              |
 | `tests/rest-api-discovery.test.ts`      | `/api`, `/api/v1`, `/api/v2`, isalive                                                                                   |
