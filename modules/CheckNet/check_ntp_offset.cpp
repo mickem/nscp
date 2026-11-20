@@ -262,6 +262,7 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
 
   filter f;
   filter_helper.add_options("offset > 50 or stratum >= 16", "offset > 100 or stratum >= 16 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("offset", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
   filter_helper.add_syntax("${status}: ${problem_list}", "${server} offset=${offset_signed}ms stratum=${stratum}", "${server}", "No NTP server checked",
                            "%(status): %(list)");
   // clang-format off
