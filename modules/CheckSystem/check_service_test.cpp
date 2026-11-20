@@ -6,10 +6,12 @@
 #include <gtest/gtest.h>
 
 #include <boost/optional.hpp>
+#include <boost/regex.hpp>
 #include <cstddef>
 #include <list>
 #include <memory>
 #include <nsclient/nsclient_exception.hpp>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <win/services_paging.hpp>
@@ -161,6 +163,20 @@ TEST(CheckServiceIsProblem, UnreadableConfigurationIsJudgedOnStatus) {
   EXPECT_FALSE(is_problem(SERVICE_STOPPED, unknown, false, false, ERROR_SERVICE_NEVER_STARTED));
   EXPECT_FALSE(is_problem(SERVICE_STOPPED, unknown, false, false, 0));
   EXPECT_TRUE(is_problem(SERVICE_STOPPED, unknown, false, false, ERROR_PROCESS_ABORTED));
+}
+
+// enum_services keeps a service it cannot open with start_type_unknown; the
+// default check_service thresholds must not turn that into a critical.
+TEST(CheckServiceStateIsOk, UnreadableConfigurationIsJudgedOnStatus) {
+  using service_checks::check_svc_filter::check_state_is_ok;
+  using service_checks::check_svc_filter::check_state_is_perfect;
+  const DWORD unknown = win_list_services::start_type_unknown;
+  EXPECT_TRUE(check_state_is_ok(SERVICE_RUNNING, unknown, false, false, 0));
+  EXPECT_TRUE(check_state_is_ok(SERVICE_STOPPED, unknown, false, false, ERROR_SERVICE_NEVER_STARTED));
+  EXPECT_FALSE(check_state_is_ok(SERVICE_STOPPED, unknown, false, false, ERROR_PROCESS_ABORTED));
+  EXPECT_TRUE(check_state_is_perfect(SERVICE_RUNNING, unknown, false));
+  EXPECT_TRUE(check_state_is_perfect(SERVICE_STOPPED, unknown, false));
+  EXPECT_FALSE(check_state_is_perfect(SERVICE_START_PENDING, unknown, false));
 }
 
 TEST(CheckServiceIsProblem, BinaryPathLosesItsArguments) {
@@ -729,6 +745,27 @@ TEST(CheckServiceEmptyResult, FilterMatchingNoServiceReturnsUnknown) {
   ASSERT_EQ(response.lines_size(), 1);
   EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << response.lines(0).message();
   EXPECT_EQ(response.lines(0).message(), "UNKNOWN: No services found");
+}
+
+TEST(CheckServiceFetchOnly, ListsEveryServiceTheAccountCanEnumerate) {
+  // The Checkmk <<<services>>> body. Run unelevated, some services refuse
+  // SERVICE_QUERY_CONFIG; that used to fail the whole command, and Checkmk lost
+  // the section. Every enumerable service must be listed either way.
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_service");
+  request.add_arguments("fetch-only");
+
+  PB::Commands::QueryResponseMessage::Response response;
+  service_checks::check(request, &response);
+
+  ASSERT_EQ(response.lines_size(), 1);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << response.lines(0).message();
+  const std::string &body = response.lines(0).message();
+  ASSERT_FALSE(body.empty());
+  // `name state/start_type display name`, one per service.
+  const boost::regex line_shape("^.+ [a-z]+/[a-z_]+ .+$");
+  std::istringstream lines(body);
+  for (std::string line; std::getline(lines, line);) EXPECT_TRUE(boost::regex_match(line, line_shape)) << line;
 }
 
 TEST(CheckServiceEmptyResult, NamedServiceExcludedByFilterReturnsUnknown) {

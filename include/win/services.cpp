@@ -403,7 +403,22 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
           info.service_exit_code = data[i].ServiceStatusProcess.dwServiceSpecificExitCode;
 
           service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
-          if (!hService) throw nsclient::nsclient_exception("Failed to open service: " + info.name);
+          if (!hService) {
+            const DWORD open_error = GetLastError();
+            if (strict_config) throw nsclient::nsclient_exception("Failed to open service: " + info.name + ": " + error::lookup::last_error(open_error));
+            // A service whose security descriptor does not let this account
+            // read its configuration (common when the agent is not running as
+            // LocalSystem) keeps what its status said, as enum_services_where
+            // does. Throwing here used to end the whole walk, so one
+            // locked-down service failed every check_service call and dropped
+            // the Checkmk <<<services>>> section. Debug, not error: it is
+            // expected, and it would repeat on every check.
+            NSC_DEBUG_MSG("Cannot read the configuration of service " + info.name + ": " + error::lookup::last_error(open_error));
+            info.start_type = start_type_unknown;
+            info.binary_path = "N/A";
+            ret.push_back(info);
+            continue;
+          }
 
           try {
             hlp::buffer<BYTE, QUERY_SERVICE_CONFIG *> qscData = queryServiceConfig(hService, info.name);
@@ -414,7 +429,8 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
           } catch (std::exception &e) {
             if (strict_config) throw;
             NSC_LOG_ERROR("Failed to query service config: " + info.name + ": " + e.what());
-            info.start_type = 0;
+            // Not 0: that is SERVICE_BOOT_START.
+            info.start_type = start_type_unknown;
             info.binary_path = "N/A";
             info.error_control = 0;
           }

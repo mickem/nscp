@@ -1,12 +1,33 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <cmath>
+#include <locale>
 #include <metrics/metrics_store_map.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
-#include <str/xtos.hpp>
+#include <sstream>
 
 namespace metrics {
 namespace {
+
+// The store hands values out as strings (the Lua Metrics() API, which
+// default_check_mk.lua copies straight into the agent dump), so the
+// conversion has to keep every digit. A plain stream keeps six significant
+// digits: 32 GiB of RAM came out as 3.37775e+10 bytes and an uptime past
+// 999999 s in scientific notation. Integral values - byte counts, seconds,
+// counters - print as exact integers; anything else keeps 15 significant
+// digits, which round-trips decimal input without max_digits10's noise
+// (0.1 stays "0.1").
+std::string format_value(const double value) {
+  if (std::isfinite(value) && value == std::floor(value) && std::fabs(value) < 9.0e18) {
+    return std::to_string(static_cast<long long>(value));
+  }
+  std::ostringstream ss;
+  ss.imbue(std::locale::classic());
+  ss.precision(15);
+  ss << value;
+  return ss.str();
+}
 
 void build_metrics(metrics_store::values_map &metrics, const PB::Metrics::MetricsBundle &b, const std::string &path) {
   const std::string p = path.empty() ? b.key() : path + "." + b.key();
@@ -18,7 +39,7 @@ void build_metrics(metrics_store::values_map &metrics, const PB::Metrics::Metric
   for (const PB::Metrics::Metric &v : b.value()) {
     double value = 0;
     if (nscapi::metrics::numeric_value(v, value))
-      metrics[p + "." + v.key()] = str::xtos(value);
+      metrics[p + "." + v.key()] = format_value(value);
     else if (v.has_string_value())
       metrics[p + "." + v.key()] = v.string_value().value();
   }

@@ -126,12 +126,31 @@ bool is_safe_entry(const std::string &name) {
   return true;
 }
 
+// Write through a sibling temp file and rename it over the target, so a reader
+// (or the next start after a crash) sees the old content or the new, never a
+// truncated file. rename() replaces an existing target on POSIX and Windows.
 void write_file(const fs::path &path, const std::string &data) {
   fs::create_directories(path.parent_path());
-  std::ofstream out(path.string().c_str(), std::ios::binary | std::ios::trunc);
-  if (!out) throw onboarding::onboarding_error("Failed to write " + path.string(), false);
-  out.write(data.data(), static_cast<std::streamsize>(data.size()));
-  if (!out) throw onboarding::onboarding_error("Failed to write " + path.string(), false);
+  fs::path tmp = path;
+  tmp += ".tmp";
+  {
+    std::ofstream out(tmp.string().c_str(), std::ios::binary | std::ios::trunc);
+    if (!out) throw onboarding::onboarding_error("Failed to write " + tmp.string(), false);
+    out.write(data.data(), static_cast<std::streamsize>(data.size()));
+    out.close();
+    if (!out) {
+      boost::system::error_code ignored;
+      fs::remove(tmp, ignored);
+      throw onboarding::onboarding_error("Failed to write " + tmp.string(), false);
+    }
+  }
+  boost::system::error_code ec;
+  fs::rename(tmp, path, ec);
+  if (ec) {
+    boost::system::error_code ignored;
+    fs::remove(tmp, ignored);
+    throw onboarding::onboarding_error("Failed to replace " + path.string() + ": " + ec.message(), false);
+  }
 }
 
 // Copy a JSON string in full: c_str() would truncate at an embedded nul.

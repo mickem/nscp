@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <check/check_mk_format.hpp>
 #include <cstdlib>
 #include <ctime>
 #include <list>
@@ -679,12 +680,18 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
 }  // namespace
 
 namespace {
-// `fetch-only` short-circuits the filter machinery and emits one line per
-// mounted filesystem in `<<<df>>>` format: mountpoint fs total_kb used_kb
-// avail_kb pct% mountpoint. Mirrors the Windows check_drive_win.cpp behaviour so
-// the fetch-only contract is identical across platforms.
+// `fetch-only` short-circuits the filter machinery and returns the body of the
+// Checkmk `<<<df>>>` section, the way the official Linux agent builds it from
+// `df -PTlk` and `df -PTli`: one line per mounted filesystem
+// (device fstype total_kb used_kb avail_kb pct% mountpoint), then the same
+// filesystems' inode counts between `[df_inodes_start]` and `[df_inodes_end]`.
+// The selection is the one check_drivesize drive=* uses, so pseudo and image
+// filesystems are already gone. The Windows variant in check_drive_win.cpp
+// emits the same block layout without the inode part (NTFS has no fixed inode
+// table).
 void do_fetch_only(PB::Commands::QueryResponseMessage::Response *response) {
-  std::string body;
+  std::string blocks;
+  std::string inodes;
   std::vector<std::string> wanted = {"*"};
   std::vector<std::string> not_found;
   for (const drive_container &drive : find_drives(wanted, not_found)) {
@@ -695,12 +702,14 @@ void do_fetch_only(PB::Commands::QueryResponseMessage::Response *response) {
     const long long avail_kb = static_cast<long long>(vfs.f_bavail * bs / 1024);
     const long long free_kb = static_cast<long long>(vfs.f_bfree * bs / 1024);
     const long long used_kb = total_kb - free_kb;
-    const long long pct = total_kb > 0 ? (used_kb * 100) / total_kb : 0;
-    const std::string fs = drive.fs.empty() ? "unknown" : drive.fs;
-    const std::string &mp = drive.mountpoint;
-    if (!body.empty()) body += "\n";
-    body += mp + " " + fs + " " + str::xtos(total_kb) + " " + str::xtos(used_kb) + " " + str::xtos(avail_kb) + " " + str::xtos(pct) + "% " + mp;
+    const std::string device = drive.device.empty() ? drive.mountpoint : drive.device;
+    blocks += check_mk_format::df_line(device, drive.fs, total_kb, used_kb, avail_kb, drive.mountpoint) + "\n";
+    inodes += check_mk_format::df_inodes_line(device, drive.fs, static_cast<long long>(vfs.f_files), static_cast<long long>(vfs.f_ffree), drive.mountpoint) +
+              "\n";
   }
+  std::string body = blocks;
+  if (!inodes.empty()) body += "[df_inodes_start]\n" + inodes + "[df_inodes_end]";
+  while (!body.empty() && body.back() == '\n') body.pop_back();
   nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_drivesize", NSCAPI::query_return_codes::returnOK, body, "");
 }
 }  // namespace

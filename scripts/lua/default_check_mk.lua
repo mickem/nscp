@@ -3,9 +3,12 @@
 --
 -- Emits a check_mk agent dump over the CheckMKServer TCP listener.
 --
--- All sections are sourced from native NSClient++ check commands using their
--- `fetch-only` mode, which returns raw OS data without running any threshold
--- logic. The Lua layer only wraps that data in `<<<section>>>` headers.
+-- Row-per-thing sections (ps, df, services) come from native NSClient++ check
+-- commands in their `fetch-only` mode, which returns the section body already
+-- in Checkmk's format without running any threshold logic. Counter sections
+-- on Linux (kernel, cpu, mem) are the /proc files themselves, sent as-is the
+-- way the official agent sends them. The Lua layer only adds the
+-- `<<<section>>>` headers.
 --
 -- Local-check entries are configured under
 --   /settings/check_mk/server/local/<service name> = command=<nscp_cmd> [args ...]
@@ -31,6 +34,20 @@ local function hostname()
   local out = p:read('*a') or ''
   p:close()
   return trim(out)
+end
+
+-- The lines of a file, or nil when it cannot be read.
+local function read_lines(path)
+  local f = io.open(path, 'r')
+  if not f then return nil end
+  local content = f:read('*a')
+  f:close()
+  return split_lines(content)
+end
+
+local function append_all(target, lines)
+  for _, ln in ipairs(lines or {}) do target[#target + 1] = ln end
+  return target
 end
 
 local function add_section(packet, title, body)
@@ -62,72 +79,161 @@ end
 -- ---------------------------------------------------------------------------
 -- Sections
 -- ---------------------------------------------------------------------------
-local function build_check_mk(packet)
-  add_section(packet, 'check_mk', {
+
+-- The OS lines of the check_mk header, which Checkmk turns into the host
+-- labels cmk/os_type, cmk/os_platform, cmk/os_name and cmk/os_version. The
+-- official agents read them from /etc/os-release (Linux) and the OS caption
+-- and version (Windows); check_os_version reads the same sources. Resolved on
+-- the first fetch and kept for the life of the script: the OS does not change
+-- under a running agent, and the Windows check also queries WMI for the BIOS.
+local os_lines_cache = nil
+local function os_lines(core)
+  if os_lines_cache then return os_lines_cache end
+  local syntax = IS_WIN and '${version}|${kernel_version}' or '${distribution}|${distribution_name}|${version}'
+  local ok, _, msg = pcall(function()
+    return core:simple_query('check_os_version', { 'top-syntax=${list}', 'ok-syntax=${list}', 'detail-syntax=' .. syntax })
+  end)
+  local lines = { 'OSType: ' .. AGENT_OS }
+  if ok and msg and msg ~= '' then
+    local fields = {}
+    for field in (msg .. '|'):gmatch('([^|]*)|') do fields[#fields + 1] = trim(field) end
+    local platform, name, version
+    if IS_WIN then
+      name, version = fields[1], fields[2]
+    else
+      platform, name, version = fields[1], fields[2], fields[3]
+    end
+    if platform and platform ~= '' then lines[#lines + 1] = 'OSPlatform: ' .. platform end
+    if name and name ~= '' then lines[#lines + 1] = 'OSName: ' .. name end
+    if version and version ~= '' then lines[#lines + 1] = 'OSVersion: ' .. version end
+    os_lines_cache = lines
+  end
+  -- Not cached on failure (CheckSystem not loaded yet, a transient error):
+  -- the next fetch tries again and the header still carries OSType.
+  return lines
+end
+
+local function build_check_mk(packet, core)
+  local body = {
     'Version: nsclient++',
     'AgentOS: ' .. AGENT_OS,
     'Hostname: ' .. (hostname() or 'unknown'),
-  })
+  }
+  append_all(body, os_lines(core))
+  add_section(packet, 'check_mk', body)
 end
 
 local function build_systemtime(packet)
   add_section(packet, 'systemtime', { tostring(os.time()) })
 end
 
--- Read uptime seconds from the metrics store. If the store hasn't ticked yet
--- (first request after a cold start) the section is omitted for that fetch;
--- Checkmk discovery just retries on the next cycle.
-local function build_uptime(packet, metrics)
-  local boot = metrics:value('system.uptime.boot.raw')
-  if boot and boot ~= '' and tonumber(boot) then
-    add_section(packet, 'uptime', { trim(boot) })
+-- Uptime in seconds, read when the dump is built: Checkmk computes "up since"
+-- as its own clock minus this number, so a value from the metrics store (up
+-- to one `metrics interval`, 10 s by default, old) moved the boot time
+-- forward by as much. Linux sends /proc/uptime as-is, as the official agent
+-- does; Windows takes the seconds from check_uptime's perfdata. The metrics
+-- store is the fallback, and if it has not ticked yet either (a cold start)
+-- the section is left out for that fetch.
+local function fresh_uptime(core)
+  if not IS_WIN then
+    local lines = read_lines('/proc/uptime')
+    return lines and lines[1] and trim(lines[1]) or nil
   end
+  local ok, _, _, perf = pcall(function() return core:simple_query('check_uptime', {}) end)
+  if not ok or not perf then return nil end
+  return perf:match("uptime'?=(%d+)")
 end
 
--- Build /proc/meminfo-style output from the system.mem.* metrics. Same
--- "skip on cold start" behavior as build_uptime.
-local function build_mem(packet, metrics)
+local function build_uptime(packet, core, metrics)
+  local uptime = fresh_uptime(core)
+  if not uptime or uptime == '' then
+    uptime = metrics:value('system.uptime.boot.raw')
+    if not (uptime and tonumber(uptime)) then return end
+  end
+  add_section(packet, 'uptime', { trim(uptime) })
+end
+
+-- Windows: the eight lines the official Windows agent sends, built from the
+-- GlobalMemoryStatusEx metrics. Page* is the commit limit and the commit
+-- still available (ullTotalPageFile / ullAvailPageFile), Virtual* the address
+-- space; the Page* lines are what make Checkmk pick its Windows memory check
+-- (mem_win) instead of the Linux one. Swap* is 0, as the official agent
+-- sends it: Windows has no separate swap. Skipped for the first fetch after a
+-- cold start, before the collector has ticked, like build_uptime.
+local function build_mem_win(packet, metrics)
   local phys_total = metrics:value('system.mem.physical.total')
   local phys_avail = metrics:value('system.mem.physical.avail')
   if not (phys_total and phys_avail) then return end
   local body = {
-    meminfo_line('MemTotal', phys_total),
-    meminfo_line('MemFree',  phys_avail),
+    meminfo_line('MemTotal',  phys_total),
+    meminfo_line('MemFree',   phys_avail),
+    meminfo_line('SwapTotal', 0),
+    meminfo_line('SwapFree',  0),
   }
-  local page_total = metrics:value('system.mem.page.total')
-  local page_avail = metrics:value('system.mem.page.avail')
-  if page_total and page_avail then
-    body[#body + 1] = meminfo_line('SwapTotal', page_total)
-    body[#body + 1] = meminfo_line('SwapFree',  page_avail)
+  local commit_total = metrics:value('system.mem.commited.total')
+  local commit_avail = metrics:value('system.mem.commited.avail')
+  if commit_total and commit_avail then
+    body[#body + 1] = meminfo_line('PageTotal', commit_total)
+    body[#body + 1] = meminfo_line('PageFree',  commit_avail)
+  end
+  local virt_total = metrics:value('system.mem.virtual.total')
+  local virt_avail = metrics:value('system.mem.virtual.avail')
+  if virt_total and virt_avail then
+    body[#body + 1] = meminfo_line('VirtualTotal', virt_total)
+    body[#body + 1] = meminfo_line('VirtualFree',  virt_avail)
   end
   add_section(packet, 'mem', body)
+end
+
+-- Linux: /proc/meminfo as-is, which is what Checkmk's mem check parses
+-- (MemAvailable, Buffers, Cached, Slab, Committed_AS, HugePages_* ...). Like
+-- the official agent, drop the summary lines very old kernels print
+-- ("Mem:", "Swap:", "...total:").
+local function build_mem_linux(packet)
+  local lines = read_lines('/proc/meminfo')
+  if not lines then return end
+  local body = {}
+  for _, ln in ipairs(lines) do
+    if not (ln:match('^Mem:') or ln:match('^Swap:') or ln:match('total:')) then body[#body + 1] = ln end
+  end
+  if #body > 0 then add_section(packet, 'mem', body) end
+end
+
+-- Linux: the load averages with the CPU count appended to the same line, then
+-- the kernel's thread limit - the line layout of the official agent's
+-- `<<<cpu>>>`, which Checkmk's CPU load and thread checks read.
+local function build_cpu_linux(packet)
+  local loadavg = read_lines('/proc/loadavg')
+  if not loadavg or not loadavg[1] then return end
+  local cpus = 0
+  for _, ln in ipairs(read_lines('/proc/cpuinfo') or {}) do
+    if ln:match('^processor') then cpus = cpus + 1 end
+  end
+  local body = { trim(loadavg[1]) .. ' ' .. tostring(cpus) }
+  local threads_max = read_lines('/proc/sys/kernel/threads-max')
+  if threads_max and threads_max[1] then body[#body + 1] = trim(threads_max[1]) end
+  add_section(packet, 'cpu', body)
+end
+
+-- Linux: the current epoch, then /proc/vmstat and /proc/stat as-is. Checkmk
+-- computes CPU utilisation, context switches, process creations and major
+-- page faults from the deltas between two fetches, so these are the raw
+-- cumulative counters, not rates.
+local function build_kernel_linux(packet)
+  local stat = read_lines('/proc/stat')
+  if not stat then return end
+  local body = { tostring(os.time()) }
+  append_all(body, read_lines('/proc/vmstat'))
+  append_all(body, stat)
+  add_section(packet, 'kernel', body)
 end
 
 -- These sections are row-per-thing (one entry per process / service / drive),
 -- which the metrics store doesn't represent. They stay on `check_X fetch-only`.
 local function build_ps(packet, core)       fetch_section(packet, core, 'check_process',  'ps')       end
 local function build_services(packet, core) fetch_section(packet, core, 'check_service',  'services') end
-local function build_df_win(packet, core)   fetch_section(packet, core, 'check_drivesize','df')       end
-
--- Linux has no check_drivesize equivalent in nscp; fall back to /bin/df until
--- a native fetch-only is added.
-local function build_df_linux(packet)
-  local p = io.popen('df -PT -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null')
-  if not p then return end
-  local raw = split_lines(p:read('*a') or '')
-  p:close()
-  local body = {}
-  for i, line in ipairs(raw) do
-    if i > 1 then
-      local fs, ftype, total, used, avail, pct, mp = line:match(
-        '^(%S+)%s+(%S+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%%%s+(.+)$')
-      if fs then
-        body[#body + 1] = string.format('%s %s %s %s %s %s%% %s', fs, ftype, total, used, avail, pct, mp)
-      end
-    end
-  end
-  if #body > 0 then add_section(packet, 'df', body) end
-end
+-- On Linux the df body also carries the [df_inodes_start] block.
+local function build_df(packet, core)       fetch_section(packet, core, 'check_drivesize','df')       end
 
 -- ---------------------------------------------------------------------------
 -- local-check / MRPE bridge driven by settings
@@ -255,20 +361,24 @@ function server_process(packet)
   local metrics = Metrics()
   local submissions = Submissions()
 
-  safe('check_mk',  build_check_mk, packet)
-  safe('uptime',    build_uptime,   packet, metrics)
-  safe('mem',       build_mem,      packet, metrics)
-  safe('ps',        build_ps,       packet, core)
+  safe('check_mk',  build_check_mk, packet, core)
   if IS_WIN then
-    safe('systemtime', build_systemtime, packet)
-    safe('df',         build_df_win,     packet, core)
-    safe('services',   build_services,   packet, core)
+    safe('mem',        build_mem_win,    packet, metrics)
   else
-    safe('df',       build_df_linux, packet)
-    safe('services', build_services, packet, core)
+    safe('mem',    build_mem_linux,    packet)
+    safe('cpu',    build_cpu_linux,    packet)
+    safe('kernel', build_kernel_linux, packet)
   end
+  safe('df',       build_df,       packet, core)
+  safe('ps',       build_ps,       packet, core)
+  safe('services', build_services, packet, core)
   safe('local', build_local, packet, core, settings, submissions)
   safe('mrpe',  build_mrpe,  packet, core, settings, submissions)
+  -- Last: Checkmk reads both against its own clock when the fetch ends, and
+  -- the sections above take seconds on a busy host (ps, services), which
+  -- showed up as a System Time offset and an "up since" late by as much.
+  safe('uptime', build_uptime, packet, core, metrics)
+  if IS_WIN then safe('systemtime', build_systemtime, packet) end
 end
 
 function client_process(packet)

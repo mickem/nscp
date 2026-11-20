@@ -12,7 +12,7 @@ the agent's privileges (`SYSTEM` or `root`). Command lines routinely carry
 passwords, API tokens and connection strings, and none of it is redacted. The
 default syntax does not render it, but a caller who may pass arguments can ask
 for it with `detail-syntax=${command_line}`, and `fetch-only` (the check_mk
-`<<<ps>>>` feed) lists every process's command line unconditionally. Use them
+`<<<ps>>>` feed) lists every process's command line and owner unconditionally. Use them
 in your own aliases rather than exposing them to callers; see
 [Data disclosure](../../setup/securing.md#data-disclosure-restricting-what-a-check-may-read).
 
