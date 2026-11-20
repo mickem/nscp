@@ -63,15 +63,22 @@ describeIf(!onDarwin && moduleBuiltHere("CheckDisk"))("check_mk agent system sec
         CheckDisk: "enabled",
       },
       "/settings/check_mk/server": { port: PORT, "allowed hosts": "127.0.0.1" },
+      // The Windows <<<mem>>> comes from the metrics store, which is empty
+      // until the first metrics round: one interval (10 s by default) after start.
+      "/settings/core": { "metrics interval": "1s" },
     });
     await nscp.waitForPortFree(PORT);
     nscp.start();
     await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
-    // The Windows <<<mem>>> comes from the metrics store,
-    // which the collector fills on its first tick; the dump skips it until then.
-    await new Promise((r) => setTimeout(r, 5_000));
-    dump = await fetchDump(PORT);
-    sections = parseSections(dump);
+    // The dump leaves <<<mem>>> out until that first round has run, so fetch
+    // until it is there rather than guess how long a loaded runner takes.
+    const deadline = Date.now() + 60_000;
+    for (;;) {
+      dump = await fetchDump(PORT);
+      sections = parseSections(dump);
+      if (sections.has("mem") || Date.now() > deadline) break;
+      await new Promise((r) => setTimeout(r, 1_000));
+    }
   });
 
   afterAll(async () => {
