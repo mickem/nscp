@@ -28,11 +28,11 @@
 #include "fleet_sync.hpp"
 #endif
 #ifdef WIN32
+#include "shared_folder.hpp"
 #include "windows_ca_store.hpp"
 #endif
 
 #ifdef WIN32
-#include <win/acl.hpp>
 #include <win/com_helpers.hpp>
 #include <win/service_control.hpp>
 com_helper::initialize_com com_helper_;
@@ -115,96 +115,11 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   }
 
   // Create the shared folder and lock it down before anything writes into it.
-  //
-  // Only for the modern layout: the legacy one lives in the install directory,
-  // whose permissions are the installer's business. On the modern layout the
-  // folder sits under %ProgramData%, which grants Users: Read & Execute by
-  // inheritance - so creating it and walking away would publish the
-  // configuration (passwords), the fleet private key and the log to every
-  // account on the machine.
+  // Modern layout only; what it refuses, leaves alone and complains about is
+  // shared_folder::prepare().
   void prepare_shared_folder() override {
 #ifdef WIN32
-    if (path_->get_layout() != nscp::paths::layout::modern) return;
-    const std::string shared = path_->expand_path("${shared-path}");
-    if (shared.empty()) return;
-
-    // Outside the try below on purpose: this one is fatal. A junction or
-    // symbolic link where the shared folder should be is not a permissions
-    // problem an operator fixes in place - it is a redirect. %ProgramData%
-    // lets any local account create one under our name before we first run,
-    // and every path-based operation follows it: the lockdown would land on
-    // the link's target while the link stays the creator's to remove and
-    // replace with a real folder holding a configuration of their choosing,
-    // which the next start would then load as SYSTEM. So the configuration is
-    // not read from behind a link, ever. Relocating the folder is supported
-    // through the [paths] section of boot.ini instead.
-    {
-      std::list<std::string> reparse_errors;
-      if (nsclient::windows_acl::is_reparse_point(shared, reparse_errors)) {
-        throw settings::settings_exception(__FILE__, __LINE__,
-                                           "Refusing to use " + shared +
-                                               ": it is a junction or symbolic link, not a directory. The shared folder must be a real directory; "
-                                               "remove the link (and whatever created it), or relocate the folder with a [paths] override in boot.ini.");
-      }
-    }
-
-    try {
-      // Look before acting. This runs during the settings bootstrap of *every*
-      // process, not just the service: an unelevated `nscp client ...` has no
-      // WRITE_DAC, so it used to fail below and announce that a folder which is
-      // in fact locked down "may be readable by every user on this machine".
-      // Restricting it is the service's job, and the same reasoning as the
-      // trust-store export below applies - complaining about something working
-      // as designed is noise that trains operators to ignore the message.
-      boost::system::error_code ec;
-      if (boost::filesystem::is_directory(shared, ec)) {
-        std::list<std::string> state_errors;
-        switch (nsclient::windows_acl::inspect_protection(shared, state_errors)) {
-          case nsclient::windows_acl::protection::restricted:
-            LOG_DEBUG_CORE(shared + " is already restricted to SYSTEM and Administrators");
-            return;
-          case nsclient::windows_acl::protection::unknown:
-            // Reading the security descriptor needs READ_CONTROL, which the
-            // lockdown denies to everyone else - so being unable to look is
-            // itself evidence that the folder is not open, and there is nothing
-            // useful an unprivileged process could do about it either way.
-            for (const std::string &e : state_errors) LOG_DEBUG_CORE("acl: " + e);
-            LOG_DEBUG_CORE("Cannot inspect the permissions on " + shared + "; leaving that to the service");
-            return;
-          case nsclient::windows_acl::protection::open:
-            break;  // genuinely wide open - fix it, and complain if we cannot
-        }
-      }
-
-      boost::filesystem::create_directories(shared, ec);
-      if (ec) {
-        LOG_ERROR_CORE("Failed to create " + shared + ": " + ec.message());
-        return;
-      }
-      std::list<std::string> errors;
-      if (!nsclient::windows_acl::protect_directory(shared, errors)) {
-        for (const std::string &e : errors) LOG_ERROR_CORE("acl: " + e);
-        // Loud, and deliberately not fatal: refusing to start would take a
-        // working agent offline over a permissions problem an operator can fix.
-        // Say plainly what is exposed instead - and it is exposed, not "may
-        // be": we either just created the folder (which inherits
-        // Users: Read & Execute from %ProgramData%) or looked and found it open.
-        LOG_ERROR_CORE("Could not restrict access to " + shared +
-                       " - it is readable by every user on this machine, including the configuration and the fleet identity.");
-        return;
-      }
-      errors.clear();
-      if (!nsclient::windows_acl::is_protected(shared, errors)) {
-        // Setting the DACL and the DACL actually excluding everyone else are
-        // different claims; check the second one rather than assume it.
-        for (const std::string &e : errors) LOG_ERROR_CORE("acl: " + e);
-        LOG_ERROR_CORE("Access to " + shared + " is wider than SYSTEM and Administrators after locking it down.");
-        return;
-      }
-      LOG_DEBUG_CORE("Restricted " + shared + " to SYSTEM and Administrators");
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE(std::string("Failed to prepare the shared folder: ") + e.what());
-    }
+    nsclient::core::shared_folder::prepare(*path_, log_instance_);
 #endif
   }
 

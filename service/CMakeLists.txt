@@ -263,6 +263,10 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         acl_test.cpp
         ${NSCP_INCLUDEDIR}/win/acl.cpp
+        # What is done with those ACL calls when the shared folder is prepared.
+        # Windows only, like acl_test: both compile to nothing elsewhere.
+        shared_folder_test.cpp
+        shared_folder.hpp
         ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
         permissions_test.cpp
         permissions.hpp
