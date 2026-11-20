@@ -76,6 +76,7 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 
   filter_type filter;
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("size", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${list}", "${path} (${size})", "${path}", "%(status): No files found", "");
   // clang-format off
   filter_helper.get_desc().add_options()

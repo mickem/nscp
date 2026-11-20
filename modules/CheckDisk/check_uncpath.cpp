@@ -140,6 +140,8 @@ void check_uncpath(const PB::Commands::QueryRequestMessage::Request &request, PB
   filter_type filter;
   // Mirror check_drivesize defaults.
   filter_helper.add_options("used_pct > 80", "used_pct > 90", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("free_pct", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent_number);
+  filter_helper.add_short_threshold_replaces("used_pct");
   filter_helper.add_syntax("${status}: ${list}", "${path}: ${used}/${size} used (${free} free)", "${path}", "%(status): No paths checked",
                            "%(status): All UNC paths are ok.");
   // clang-format off

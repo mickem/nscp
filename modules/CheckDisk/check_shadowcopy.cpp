@@ -171,6 +171,7 @@ void check_shadowcopy(const PB::Commands::QueryRequestMessage::Request &request,
   // no shadow copies is common and not inherently a problem; require snapshots
   // explicitly with empty-state=critical.
   filter_helper.add_options("newest > 26h", "newest > 50h", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("newest", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds);
   filter_helper.add_syntax("${status}: ${list}", "${volume}: ${copies} copies, newest ${newest_date}", "${volume}", "%(status): No shadow copies found",
                            "%(status): All %(count) volume(s) have recent shadow copies.");
 
