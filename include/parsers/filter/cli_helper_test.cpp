@@ -1117,22 +1117,22 @@ struct short_threshold_case {
   }
   std::string message() const { return response->lines_size() > 0 ? response->lines(0).message() : ""; }
 };
-typedef std::vector<std::string> strings;
+typedef std::vector<std::string> string_list;
 }  // namespace
 
 // Every shape the short form arrives in: on its own, mixed into key=value
 // arguments (REST, NRPE, the test console), and mixed into dashed ones.
 TEST(CliHelperShortThresholds, EveryArgumentShapeIsAccepted) {
-  const std::vector<strings> shapes{{"-w", "80", "-c", "90"},        {"-w80", "-c90"},  {"-w=80", "-c=90"}, {"w=80", "c=90"}, {"show-all=true", "-w", "80", "-c", "90"},
+  const std::vector<string_list> shapes{{"-w", "80", "-c", "90"},        {"-w80", "-c90"},  {"-w=80", "-c=90"}, {"w=80", "c=90"}, {"show-all=true", "-w", "80", "-c", "90"},
                                     {"-w", "80", "-c", "90", "show-all=true"}, {"--show-all", "-w", "80", "-c", "90"},     {"--w", "80", "--c", "90"}};
-  for (const strings &shape : shapes) {
+  for (const string_list &shape : shapes) {
     short_threshold_case c(shape);
     modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
     helper.add_options("load > 70", "load > 95", "", {});
     helper.add_short_threshold("load", modern_filter::shorthand::above);
     ASSERT_TRUE(helper.parse_options()) << boost::join(shape, " ") << ": " << c.message();
-    EXPECT_EQ(strings({"load > 80"}), c.data.warn_string) << boost::join(shape, " ");
-    EXPECT_EQ(strings({"load > 90"}), c.data.crit_string) << boost::join(shape, " ");
+    EXPECT_EQ(string_list({"load > 80"}), c.data.warn_string) << boost::join(shape, " ");
+    EXPECT_EQ(string_list({"load > 90"}), c.data.crit_string) << boost::join(shape, " ");
   }
 }
 
@@ -1141,8 +1141,8 @@ TEST(CliHelperShortThresholds, WithoutADeclaredKeywordItBoundsCount) {
   modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
   helper.add_options("", "", "", {});
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"count > 5"}), c.data.warn_string);
-  EXPECT_EQ(strings({"count < 1"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"count > 5"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"count < 1"}), c.data.crit_string);
 }
 
 // The keyword can be declared after add_options(), where the check's own
@@ -1153,8 +1153,8 @@ TEST(CliHelperShortThresholds, OnlyTheGivenSideReplacesItsDefault) {
   helper.add_options("free < 20%", "free < 5%", "", {});
   helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent);
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"free < 20%"}), c.data.warn_string);
-  EXPECT_EQ(strings({"free < 10%"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"free < 20%"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"free < 10%"}), c.data.crit_string);
 }
 
 TEST(CliHelperShortThresholds, NextToAnExplicitWarningItIsOneMoreExpression) {
@@ -1163,8 +1163,8 @@ TEST(CliHelperShortThresholds, NextToAnExplicitWarningItIsOneMoreExpression) {
   helper.add_options("load > 70", "load > 95", "", {});
   helper.add_short_threshold("load", modern_filter::shorthand::above);
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"state = 'bad'", "load > 80"}), c.data.warn_string);
-  EXPECT_EQ(strings({"load > 95"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"state = 'bad'", "load > 80"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"load > 95"}), c.data.crit_string);
 }
 
 TEST(CliHelperShortThresholds, AnExpressionIsUsedAsItIs) {
@@ -1173,9 +1173,9 @@ TEST(CliHelperShortThresholds, AnExpressionIsUsedAsItIs) {
   helper.add_options("load > 70", "load > 95", "", {});
   helper.add_short_threshold("load", modern_filter::shorthand::above);
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"user > 80"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"user > 80"}), c.data.warn_string);
   // "none" is what build_filter() strips, leaving the check without a critical.
-  EXPECT_EQ(strings({"none"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"none"}), c.data.crit_string);
 }
 
 TEST(CliHelperShortThresholds, DurationsAndLists) {
@@ -1185,8 +1185,8 @@ TEST(CliHelperShortThresholds, DurationsAndLists) {
   helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
   helper.add_short_threshold("loss", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent);
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"(time > 500) or (loss > 20%)"}), c.data.warn_string);
-  EXPECT_EQ(strings({"time > 300000"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"(time > 500) or (loss > 20%)"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"time > 300000"}), c.data.crit_string);
 }
 
 TEST(CliHelperShortThresholds, ABadThresholdIsReported) {
@@ -1251,8 +1251,8 @@ TEST(CliHelperShortThresholds, TheRestOfTheDefaultIsKept) {
   helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", {});
   helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"time > 2000"}), c.data.warn_string);
-  EXPECT_EQ(strings({"result != 'ok'", "time > 5000"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"time > 2000"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"result != 'ok'", "time > 5000"}), c.data.crit_string);
 }
 
 TEST(CliHelperShortThresholds, ADefaultOnAnotherKeywordCanBeNamedAsReplaced) {
@@ -1262,8 +1262,8 @@ TEST(CliHelperShortThresholds, ADefaultOnAnotherKeywordCanBeNamedAsReplaced) {
   helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent);
   helper.add_short_threshold_replaces("used");
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"free < 20%"}), c.data.warn_string);
-  EXPECT_EQ(strings({"used > 90%"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"free < 20%"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"used > 90%"}), c.data.crit_string);
 }
 
 // An expression is a threshold of its own, as with warning=.
@@ -1273,7 +1273,7 @@ TEST(CliHelperShortThresholds, AnExpressionReplacesTheWholeDefault) {
   helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", {});
   helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"code = 500"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"code = 500"}), c.data.crit_string);
 }
 
 // A bound on the number of matches says how many problems are a problem, so
@@ -1283,6 +1283,6 @@ TEST(CliHelperShortThresholds, ACountBoundReplacesTheWholeDefault) {
   modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
   helper.add_options("level = 'warning'", "level = 'error'", "", {});
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(strings({"level = 'warning'"}), c.data.warn_string);
-  EXPECT_EQ(strings({"count > 10"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"level = 'warning'"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"count > 10"}), c.data.crit_string);
 }
