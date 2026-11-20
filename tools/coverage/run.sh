@@ -8,6 +8,8 @@
 #   SUITES=integration tools/coverage/run.sh  # tests/ jest suite only
 #   BUILD_DIR=tmp/cov tools/coverage/run.sh   # custom build dir
 #   SKIP_BUILD=1 tools/coverage/run.sh        # re-run tests in an existing tree
+#   KEEP_TRACEFILES=1 SUITES=integration tools/coverage/run.sh
+#                                             # merge with the unit run before it
 #   JEST_ARGS="checkdisk" tools/coverage/run.sh          # jest test pattern
 #   CTEST_ARGS="-R parsers_where_test" tools/coverage/run.sh
 #   CMAKE_ARGS="-DBUILD_MODULE_WEBServer=OFF" tools/coverage/run.sh
@@ -167,7 +169,19 @@ mkdir -p "$OUT_DIR"
 # date - gcovr aborts on an md5 mismatch the moment a covered source file has
 # changed since. Only the suites that run here belong in the merge (see the
 # one-suite note above), so drop the leftovers before starting.
-rm -f "$OUT_DIR/unit.json" "$OUT_DIR/integration.json"
+#
+# KEEP_TRACEFILES=1 is for the suites run as two invocations over one tree, as
+# the CI workflow does to give each its own step: the tracefile of the suite
+# that is not running now is from the same sources and belongs in the merge.
+# Without it the second invocation deleted the first one's data, and the
+# "merged" report CI published was the integration suite alone. The suite that
+# does run always starts from nothing.
+if [ -z "${KEEP_TRACEFILES:-}" ] || [ "$run_unit" = 1 ]; then
+    rm -f "$OUT_DIR/unit.json"
+fi
+if [ -z "${KEEP_TRACEFILES:-}" ] || [ "$run_integration" = 1 ]; then
+    rm -f "$OUT_DIR/integration.json"
+fi
 
 # Safety net for the function-line mismatch prune_stale_notes() cannot reach: a
 # SKIP_BUILD run, or a header whose inline function genuinely lands on different
