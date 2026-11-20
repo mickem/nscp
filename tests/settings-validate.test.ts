@@ -131,4 +131,39 @@ describe("nscp test", () => {
       await nscp.stop();
     }
   });
+
+  // The core's own keys are registered at boot, so only a running agent knows
+  // them. They were once registered with the key and its type swapped - as
+  // keys named "string" and "int" - which left the real ones unknown: a typo
+  // in one was passed over, and the correct spelling was itself listed as
+  // read by nothing.
+  it("knows the core's own keys in [/settings/core]", async () => {
+    const nscp = withConfig(
+      CLEAN +
+        "\n[/settings/core]\n" +
+        "settings maintenance interval = 7m\n" +
+        "metrics interval = 20s\n" +
+        "metric interval = 20s\n" +
+        "diagnostics interval = 30s\n" +
+        "settings maintenance threads = 1\n",
+    );
+    nscp.start();
+    try {
+      await waitForOutput(nscp, /1 entry is ignored because nothing reads it/, 60_000);
+      const out = nscp.capturedStdout();
+      expect(out).toContain(
+        "Key 'metric interval' in [/settings/core] is not a known key. Did you mean 'metrics interval'?",
+      );
+      for (const key of [
+        "settings maintenance interval",
+        "metrics interval",
+        "diagnostics interval",
+        "settings maintenance threads",
+      ]) {
+        expect(out).not.toContain(`Key '${key}' in [/settings/core]`);
+      }
+    } finally {
+      await nscp.stop();
+    }
+  });
 });

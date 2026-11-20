@@ -447,19 +447,19 @@ bool NSClientT::boot_start_plugins(bool boot) {
     return false;
   }
   if (boot) {
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "settings maintenance interval", "Maintenance interval",
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance interval", "string", "Maintenance interval",
                                                "How often settings shall reload config if it has changed", "5m", true, false);
     std::vector<std::string> interval_errors;
     nsclient::core::core_settings::schedule_or_fallback(
         [this](const std::string &interval) { scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, interval); }, "'settings maintenance interval'",
         settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m"), "5m", interval_errors);
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "metrics interval", "Maintenance interval",
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "metrics interval", "string", "Metrics interval",
                                                "How often to fetch metrics from modules", "10s", true, false);
     nsclient::core::core_settings::schedule_or_fallback(
         [this](const std::string &interval) { scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, interval); }, "'metrics interval'",
         settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "10s"), "10s", interval_errors);
     log_setting_errors(log_instance_, interval_errors);
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "diagnostics interval", "Diagnostics interval",
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "diagnostics interval", "string", "Diagnostics interval",
                                                "How often to collect diagnostics (the tables kept with a failed check and served on "
                                                "/api/v2/diagnostics) from the modules that produce them. Empty, the default, collects them at the "
                                                "end of every metrics round, on the same thread. Only used while [/settings/core/failed checks] "
@@ -475,7 +475,7 @@ bool NSClientT::boot_start_plugins(bool boot) {
         diagnostics_with_metrics_ = true;
       }
     }
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "int", "settings maintenance threads", "Maintenance thread count",
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance threads", "int", "Maintenance thread count",
                                                "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
     int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));
     scheduler_.set_threads(count);
