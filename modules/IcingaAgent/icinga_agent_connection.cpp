@@ -59,9 +59,10 @@ void connection::on_handshake(const boost::system::error_code &ec) {
   if (closed_) return;
   if (ec) return close("TLS handshake with " + config_.host + " failed: " + ec.message());
   const std::string cn = peer_cn(stream_.native_handle());
-  if (!config_.parent_endpoint.empty() && cn != config_.parent_endpoint) {
+  if (cn != config_.parent_endpoint) {
     return close("Parent presented the certificate of '" + cn + "', expected '" + config_.parent_endpoint + "'");
   }
+  parent_cn_ = cn;
   established_ = true;
   cb_.log_info("Connected to Icinga endpoint '" + cn + "' at " + config_.host + ":" + config_.port);
   // Same opening as Icinga for Windows: Hello, then ask for a (renewed)

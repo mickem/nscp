@@ -64,10 +64,20 @@ A CheckCommand without `ifw-api` (plain `plugin-check-command`) arrives with
 only its name and no macros; the agent runs a query of that name without
 arguments.
 
+## Which checks the master may run
+
+The core permission policy decides, as for every other transport. The agent
+runs every check as `IcingaAgent:<parent endpoint>`, a name it has verified
+against the Icinga CA, so `agent/nsclient.ini` grants the master
+`CheckSystem.*` and `CheckDisk.*` and the `not allowed` service (a CheckHelpers
+command) comes back `Permission denied`. The module's only own switch is
+`allow arguments` (default true). It runs no checks on the first connection,
+before it holds the CA, and refuses to start without `parent endpoint`.
+
 ## Not in the spike
 
 * Listening for the master (we only connect out), several parents/HA.
 * Certificate renewal before expiry (the master re-signs on request, so
   sending `pki::RequestCertificate` on every connect should cover it - untested).
 * `deadline` / `check_timeout`, `event_command`s, `/v1/actions/execute-command`.
-* Reference docs, samples, integration test, Windows MSI entry, security notice.
+* Reference docs, samples, integration test, Windows MSI entry.

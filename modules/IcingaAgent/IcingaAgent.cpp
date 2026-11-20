@@ -17,7 +17,6 @@
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
-#include <set>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <threads/guarded_io_context.hpp>
@@ -36,7 +35,7 @@ struct agent_config {
   connection_config connection;
   std::string endpoint_name;
   std::string certificate_directory;
-  std::string allowed_commands;  // "any" or a comma separated list
+  bool allow_arguments = true;
   int threads = 4;
   int reconnect_seconds = 10;
 };
@@ -52,16 +51,7 @@ class agent : public std::enable_shared_from_this<agent> {
         net_work_(asio::make_work_guard(net_io_)),
         check_work_(asio::make_work_guard(check_io_)),
         reconnect_timer_(net_io_),
-        paths_(pki_paths::for_endpoint(config_.certificate_directory, config_.endpoint_name)) {
-    if (config_.allowed_commands != "any") {
-      std::vector<std::string> list;
-      boost::split(list, config_.allowed_commands, boost::is_any_of(","));
-      for (auto &c : list) {
-        boost::trim(c);
-        if (!c.empty()) allowed_.insert(boost::to_lower_copy(c));
-      }
-    }
-  }
+        paths_(pki_paths::for_endpoint(config_.certificate_directory, config_.endpoint_name)) {}
 
   void start() {
     ensure_bootstrap_certificate(paths_, config_.endpoint_name);
@@ -108,12 +98,16 @@ class agent : public std::enable_shared_from_this<agent> {
       if (boost::filesystem::exists(paths_.ca)) {
         ssl_->load_verify_file(paths_.ca);
         ssl_->set_verify_mode(asio::ssl::verify_peer);
+        config_.connection.verify_parent = true;
       } else {
         // Trust on first use, like `icinga2 node setup --trustedcert`: until
         // the master has handed us its CA we cannot verify it. The CA comes
         // with the signed certificate; from then on the parent is verified.
-        NSC_LOG_ERROR("Icinga agent: no CA at " + paths_.ca + " yet, the parent's certificate is NOT verified on this connection");
+        // Nothing but the certificate exchange happens on such a connection:
+        // execute() refuses checks until the parent is verified.
+        NSC_LOG_ERROR("Icinga agent: no CA at " + paths_.ca + " yet, the parent's certificate is NOT verified on this connection; no checks run until it is");
         ssl_->set_verify_mode(asio::ssl::verify_none);
+        config_.connection.verify_parent = false;
       }
     } catch (const std::exception &e) {
       NSC_LOG_ERROR(std::string("Icinga agent: failed to set up TLS: ") + e.what());
@@ -173,17 +167,23 @@ class agent : public std::enable_shared_from_this<agent> {
     result.execution_start = now();
     result.command_line = req.query;
     for (const auto &a : req.arguments) result.command_line += " " + a;
-    if (!req.error.empty()) {
+    if (!conn->parent_verified()) {
+      result.exit_status = 3;
+      result.output = "UNKNOWN: the agent has not verified this parent against the Icinga CA yet and runs no checks for it";
+    } else if (!req.error.empty()) {
       result.exit_status = 3;
       result.output = "UNKNOWN: " + req.error;
-    } else if (!allowed_.empty() && allowed_.count(boost::to_lower_copy(req.query)) == 0) {
+    } else if (!config_.allow_arguments && !req.arguments.empty()) {
       result.exit_status = 3;
-      result.output = "UNKNOWN: command '" + req.query + "' is not allowed on this agent (see /settings/Icinga/agent/allowed commands)";
+      result.output = "UNKNOWN: arguments are not allowed on this agent (see /settings/Icinga/agent/allow arguments)";
     } else {
       try {
         nscapi::core_helper ch(core_, static_cast<int>(plugin_id_));
         std::string message, perf;
-        result.exit_status = ch.simple_query(req.query, req.arguments, message, perf, nscapi::protobuf::functions::no_truncation);
+        // The verified parent's CN is the principal: the core permission
+        // policy sees `IcingaAgent:<parent>`, as NRPE does with a client
+        // certificate (docs/docs/concepts/permissions.md).
+        result.exit_status = ch.simple_query_as(conn->parent_name(), req.query, req.arguments, message, perf, nscapi::protobuf::functions::no_truncation);
         result.output = message;
         result.perfdata = perf;
       } catch (const std::exception &e) {
@@ -206,7 +206,6 @@ class agent : public std::enable_shared_from_this<agent> {
   asio::executor_work_guard<asio::io_context::executor_type> check_work_;
   asio::steady_timer reconnect_timer_;
   pki_paths paths_;
-  std::set<std::string> allowed_;
   std::shared_ptr<asio::ssl::context> ssl_;
   std::shared_ptr<connection> connection_;
   std::list<std::shared_ptr<boost::thread>> threads_;
@@ -248,7 +247,8 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
                   "Address of the Icinga 2 master or satellite to connect to. Empty (the default) leaves the agent disabled.")
       .add_string("parent port", sh::string_key(&config.connection.port, "5665"), "PARENT PORT", "The parent's cluster port.")
       .add_string("parent endpoint", sh::string_key(&config.connection.parent_endpoint), "PARENT ENDPOINT",
-                  "The parent's endpoint name (its certificate CN). When set, a parent presenting any other certificate is refused.")
+                  "The parent's endpoint name, the CN of its certificate. Required: a parent presenting any other certificate is refused, even one "
+                  "the Icinga CA signed. It is also the principal checks run as, so the permission policy sees `IcingaAgent:<parent endpoint>`.")
       .add_string("endpoint name", sh::string_key(&config.endpoint_name, default_name), "ENDPOINT NAME",
                   "This agent's endpoint name, the CN of its certificate. Must match the Endpoint object on the master. Defaults to the "
                   "lower-cased host name.")
@@ -257,8 +257,10 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
                   "right away; without it the request waits for `icinga2 ca sign` on the master.")
       .add_string("certificate directory", sh::path_key(&config.certificate_directory, "${certificate-path}/icinga"), "CERTIFICATE DIRECTORY",
                   "Where the agent keeps <endpoint name>.crt, <endpoint name>.key and ca.crt. Generated on first start.")
-      .add_string("allowed commands", sh::string_key(&config.allowed_commands, "any"), "ALLOWED COMMANDS",
-                  "Which queries the parent may run: `any` or a comma separated list of query names.")
+      .add_bool("allow arguments", sh::bool_key(&config.allow_arguments, true), "ALLOW ARGUMENTS",
+                "Whether the parent may pass arguments to the checks it runs. True (the default) because Icinga CheckCommands carry their "
+                "thresholds as arguments; false runs only argument-less queries and aliases defined on the agent. Which queries the parent may "
+                "run at all is the permission policy's job (/settings/permissions).")
       .add_int("threads", sh::int_key(&config.threads, 4), "WORKER THREADS", "How many checks run at the same time.");
 
   settings.register_all();
@@ -267,6 +269,12 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
   if (mode != NSCAPI::normalStart && mode != NSCAPI::reloadStart) return true;
   if (config.connection.host.empty()) {
     NSC_LOG_MESSAGE("Icinga agent: no parent host configured under /settings/Icinga/agent, not connecting");
+    return true;
+  }
+  if (config.connection.parent_endpoint.empty()) {
+    NSC_LOG_ERROR(
+        "Icinga agent: `parent endpoint` is not set under /settings/Icinga/agent: refusing to connect, since any certificate "
+        "the Icinga CA signed could then act as the parent");
     return true;
   }
   boost::to_lower(config.endpoint_name);

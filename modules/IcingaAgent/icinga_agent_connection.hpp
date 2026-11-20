@@ -25,7 +25,10 @@ namespace icinga_agent {
 struct connection_config {
   std::string host;
   std::string port = "5665";
-  std::string parent_endpoint;  // expected CN of the parent; empty = do not check
+  std::string parent_endpoint;  // expected CN of the parent (required)
+  // Whether the TLS context verifies the parent against the Icinga CA. False
+  // only on the first connection, before the CA has been received.
+  bool verify_parent = false;
   std::string ticket;
   std::string agent_version;
   int heartbeat_interval = 20;  // seconds
@@ -52,6 +55,12 @@ class connection : public std::enable_shared_from_this<connection> {
   // Thread-safe: queue a framed message.
   void send(std::string framed);
 
+  // True once the handshake verified the parent's certificate against the
+  // Icinga CA and its CN matched `parent_endpoint`. Only then may it run
+  // checks: on an unverified connection the CN is whatever the peer chose.
+  bool parent_verified() const { return config_.verify_parent && established_; }
+  const std::string &parent_name() const { return parent_cn_; }
+
  private:
   void on_resolve(const boost::system::error_code &ec, const boost::asio::ip::tcp::resolver::results_type &results);
   void on_connect(const boost::system::error_code &ec);
@@ -76,6 +85,7 @@ class connection : public std::enable_shared_from_this<connection> {
   bool writing_ = false;
   bool closed_ = false;
   bool established_ = false;
+  std::string parent_cn_;
 };
 
 }  // namespace icinga_agent
