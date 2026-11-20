@@ -140,6 +140,7 @@ void check_radius(const PB::Commands::QueryRequestMessage::Request &request, PB:
   std::string host, secret_file, password_file, username, mode, family_arg, nas;
   int port = 1812, timeout = 3000;
   helper.add_options("", "result != 'ok'", "", filter.get_filter_syntax(), "unknown");
+  helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
   helper.add_syntax("${status}: ${list}", "${server}:${port} ${result}, reply=${reply}, time=${time}ms", "${server}_${port}", "No RADIUS server checked", "");
   // clang-format off
   helper.get_desc().add_options()

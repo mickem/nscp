@@ -671,6 +671,7 @@ void check_tcp_impl(const std::string &default_ca_file, const PB::Commands::Quer
 
   filter f;
   filter_helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
   filter_helper.add_syntax("${status}: ${problem_list}", "${host}:${port} ${result} in ${time}ms", "${host}_${port}", "No hosts checked", "%(status): %(list)");
   // clang-format off
   filter_helper.get_desc().add_options()

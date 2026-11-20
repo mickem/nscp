@@ -289,6 +289,7 @@ void check_phpfpm_status(const std::string &default_ca_file, const PB::Commands:
 
   filter f;
   filter_helper.add_options("listen_queue > 0", "result != 'ok'", "", f.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("listen_queue", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${list}",
                            "${result}: pool ${pool}: ${active_processes} active, ${idle_processes} idle, ${listen_queue} queued", "${pool}",
                            "No status page fetched", "");
@@ -379,6 +380,7 @@ void check_tomcat_status(const std::string &default_ca_file, const PB::Commands:
 
   filter f;
   filter_helper.add_options("thread_usage > 75", "result != 'ok' or thread_usage > 90", "", f.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("thread_usage", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number);
   filter_helper.add_syntax("${status}: ${list}", "${connector} ${result}: ${threads_busy}/${threads_max} threads busy", "${connector}",
                            "No connectors found", "");
   add_fetch_options(filter_helper.get_desc(), &url, "http://127.0.0.1:8080/manager/status", opt, default_ca_file);
