@@ -312,6 +312,61 @@ expression is read as one.
 The same information is available over REST as
 [`GET /api/v2/queries/{query}/help`](../api/rest/queries.md#get-query-help).
 
+### Simple mode: start from sample thresholds
+
+An empty `Arguments` field is a poor place to start if you have not written a
+filter expression before. The **Simple mode** switch at the bottom of the card
+fills it in for you: turn it on and the field gets a sample `warning=` and
+`critical=` threshold for the check you are looking at.
+
+![check_cpu in simple mode](../images/web-check_cpu-simple-mode.png)
+
+For `check_cpu` that is:
+
+```text
+"warning=load > 80" "critical=load > 90"
+```
+
+Now there is something to edit. Change `80` to `50`, press `Execute`, and you
+have run your first check with a threshold of your own. The quotes are already
+in place, so each expression is passed to the check as one argument.
+
+Where the sample comes from:
+
+* **The check's own defaults.** Most checks already have a warning and a
+  critical threshold that apply when you give none; simple mode writes exactly
+  those onto the line. The result is therefore the same as with an empty field
+  until you change something, and the values are the ones the check was
+  designed around (`used > 80%` / `used > 90%` for `check_memory`,
+  `temperature > 70` / `temperature > 90` for `check_temperature`, and so on).
+* **A prepared sample**, for the few checks that have no default because the
+  right value depends on the machine. `check_load` gets `load5 > 4` and
+  `load5 > 8`, `check_swap_io` gets `swap_out > 100` and `swap_out > 1000`.
+  These are meant to be adjusted, and the line under the field says so.
+* **Nothing**, for a check that only reports - `check_os_version`,
+  `check_installed_software` - where no number would mean anything until you
+  decide what to alert on. The line under the field tells you that, and the
+  keyword list in the panel below shows what there is to alert on.
+
+A few things worth knowing:
+
+* What you typed wins. If the field already sets `warning=` (or its short
+  spelling `warn=`), only the missing `critical=` is added, and the other way
+  round.
+* Switching simple mode off takes the sample out again - but only what it
+  added and you left untouched. A threshold you have edited is yours and stays.
+* The switch is remembered in your browser. With it on, every check you open
+  from the `Queries` list starts with its sample in place.
+* It only changes what is in the field. Nothing is saved to the configuration
+  and nothing changes for your monitoring server; to keep a threshold, put it
+  in the command your monitoring server sends or in an
+  [alias](../api/rest/aliases.md).
+
+`warning=` and `critical=` are what classic plugins call `-w` and `-c`. In
+NSClient++ they take an expression over the check's keywords rather than a bare
+number, which is what lets one check alert on several things at once; see
+[Checks](../concepts/checks.md) for the full story.
+
 
 ## Loading modules via Web Interface
 

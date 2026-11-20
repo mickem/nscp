@@ -14,13 +14,16 @@ import {
   Card,
   CardActions,
   CardContent, Chip,
+  FormControlLabel,
+  Switch,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField
+  TextField,
+  Tooltip
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router";
 import { Toolbar } from "../components/atoms/Toolbar.tsx";
@@ -38,8 +41,23 @@ import SyntaxArgumentsField, { SyntaxArgumentsFieldHandle } from "../components/
 import QueryHelpPanel from "../components/QueryHelpPanel.tsx";
 import { makeVocabulary } from "../common/queryHelp.ts";
 import { contextAt, CursorContext } from "../common/syntax.ts";
+import {
+  addSamples,
+  readSimpleMode,
+  removeSamples,
+  sampleThresholds,
+  splitArguments,
+  writeSimpleMode,
+} from "../common/sampleThresholds.ts";
 
-const CMD_REGEXP = /\\?.|^$/g;
+/** What simple mode put on the argument line, and for which check. */
+interface AppliedSample {
+  id: string;
+  /** The arguments as written, so switching the mode off can take them out. */
+  added: string[];
+  /** "none" when the check has nothing to sample. */
+  source: "defaults" | "sample" | "none";
+}
 
 export default function Query() {
   const { id } = useParams();
@@ -57,6 +75,51 @@ export default function Query() {
   const argumentsRef = useRef<SyntaxArgumentsFieldHandle>(null);
   const [result, setResult] = useState<QueryExecutionResult | undefined>(undefined);
   const vocabulary = useMemo(() => makeVocabulary(help), [help]);
+  // Simple mode writes a sample `warning=` and `critical=` onto the argument
+  // line: the check's own defaults, spelled out where they can be edited. It
+  // is remembered, so with it on every check opens with its sample in place.
+  const [simple, setSimple] = useState<boolean>(readSimpleMode);
+  const [applied, setApplied] = useState<AppliedSample | undefined>(undefined);
+
+  // The sample depends on the help, which arrives after the page does - and,
+  // going from one check to the next, after the id has changed. Written while
+  // rendering (React re-renders at once) rather than in an effect, so the line
+  // never shows a frame of one check with the thresholds of another.
+  const helpReady = !!id && !!help && !helpLoading && help.name.toLowerCase() === id.toLowerCase();
+  if (simple && helpReady && applied?.id !== id) {
+    const sample = sampleThresholds(id, vocabulary);
+    if (sample) {
+      const next = addSamples(args, sample);
+      setArgs(next.line);
+      setApplied({ id, added: next.added, source: sample.source });
+    } else {
+      setApplied({ id, added: [], source: "none" });
+    }
+  }
+
+  // One line under the arguments saying what the switch did - or why it did
+  // nothing, which would otherwise look like a switch that does not work.
+  let simpleNote: string | undefined;
+  if (simple && applied && applied.id === id) {
+    if (applied.source === "none") {
+      simpleNote = "This check has no default thresholds, so there is no sample to add. Its keywords are listed below.";
+    } else if (applied.added.length === 0) {
+      simpleNote = "The arguments already set warning and critical, so nothing was added.";
+    } else if (applied.source === "defaults") {
+      simpleNote = "Sample thresholds added: the values this check uses by default. Change the numbers and press Execute.";
+    } else {
+      simpleNote = "Sample thresholds added. Change the numbers to suit this machine and press Execute.";
+    }
+  }
+
+  const onSimpleChange = (on: boolean) => {
+    writeSimpleMode(on);
+    setSimple(on);
+    if (!on && applied) {
+      setArgs(removeSamples(args, applied.added));
+      setApplied(undefined);
+    }
+  };
 
   // `warning` / `critical` can now be a Nagios range string like "4:5"
   // (issue #748); `value` / `minimum` / `maximum` are always numeric.
@@ -78,20 +141,7 @@ export default function Query() {
 
   const doExecuteQuery = async () => {
     setBusy(true);
-    const parsed_args =
-      args.match(CMD_REGEXP)?.reduce(
-        (p, c) => {
-          if (c === '"') {
-            p.quote ^= 1;
-          } else if (!p.quote && c === " ") {
-            p.a.push("");
-          } else {
-            p.a[p.a.length - 1] += c.replace(/\\(.)/, "$1");
-          }
-          return p;
-        },
-        { a: [""], quote: 0 },
-      ).a || [];
+    const parsed_args = splitArguments(args);
     setResult(await executeQuery({ query: id || "", args: parsed_args }).unwrap());
     setBusy(false);
   };
@@ -135,8 +185,20 @@ export default function Query() {
               placeholder={"filter=free < 10% \"warning=free < 20%\""}
             />
           </Stack>
+          {simpleNote && (
+            <Typography variant="caption" sx={{ display: "block", color: "text.secondary", paddingTop: 1 }}>
+              {simpleNote}
+            </Typography>
+          )}
         </CardContent>
         <CardActions sx={{ justifyContent: "flex-end" }}>
+          <Tooltip title="Start from a sample warning and critical threshold instead of an empty line">
+            <FormControlLabel
+              sx={{ marginRight: "auto", paddingLeft: 1 }}
+              control={<Switch size="small" checked={simple} onChange={(e) => onSimpleChange(e.target.checked)} />}
+              label="Simple mode"
+            />
+          </Tooltip>
           <Button onClick={doExecuteQuery} color="success" loading={busy}>
             Execute
           </Button>
