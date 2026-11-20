@@ -100,6 +100,7 @@ void check_rds_licenses(const PB::Commands::QueryRequestMessage::Request &reques
   // The `total_licenses > 0` guard keeps the built-in/unlimited packs (which report no
   // meaningful counts) from tripping the exhaustion thresholds.
   filter_helper.add_options("available < 10 and total_licenses > 0", "available = 0 and total_licenses > 0", "", f.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("available", modern_filter::shorthand::below);
   filter_helper.add_syntax("${status}: ${list}", "${description}: ${issued}/${total_licenses} issued, ${available} available", "${description}",
                            "No license key packs found", "");
   if (!filter_helper.parse_options()) return;

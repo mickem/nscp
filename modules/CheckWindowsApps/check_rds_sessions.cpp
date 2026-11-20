@@ -78,6 +78,7 @@ void check_rds_sessions(const PB::Commands::QueryRequestMessage::Request &reques
 
   filter f;
   filter_helper.add_options("", "", "", f.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("total_sessions", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${list}", "${active} active, ${inactive} inactive (${total_sessions} total)", "sessions", "No session counters found", "");
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;
