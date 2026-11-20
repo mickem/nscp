@@ -776,6 +776,7 @@ NSClient++ consists of the following features most which can be disabled when do
 | ElasticPlugin     | Elastic Search support | Support for submitting metrics to elastic                                                 |
 | NSCPlugins        | check_nt support       | NSClient Server Plugin. Support for the old NSClient protocol (check_nt)                  |
 | NCPAPlugins       | NCPA support           | NCPA Server Plugin. Serves the Nagios NCPA API (check_ncpa.py and the XI NCPA wizard)     |
+| IcingaAgentPlugin | Icinga 2 agent         | Native Icinga 2 agent: runs the checks an Icinga 2 master schedules on it (experimental)  |
 | PythonScript      | Python Scripting       | Allows running INTERNAL scripts written in Python                                         |
 | SampleScripts     | Scripts                | Scripts for checking and testing various aspects of your computer and NSClient++          |
 | Shortcuts         | Shortcuts              | Main Service shortcuts                                                                    |

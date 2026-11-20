@@ -143,6 +143,9 @@
             <Component Id="NCPAServer" Guid="27E1C6EA-73AA-4825-8CE3-249A76CD4B5E" Win64="$(var.Win64)">
               <File Id="NCPAServerDLL" Name="NCPAServer.dll" DiskId="1" Source="$(var.Source)/modules/NCPAServer.dll" Vital="no" />
             </Component>
+            <Component Id="IcingaAgent" Guid="456D4DAC-7DAE-49C0-BADD-49CB33880496" Win64="$(var.Win64)">
+              <File Id="IcingaAgentDLL" Name="IcingaAgent.dll" DiskId="1" Source="$(var.Source)/modules/IcingaAgent.dll" Vital="no" />
+            </Component>
             <Component Id="NSCA" Guid="C2C9E95A-28A6-4ea0-BF71-73B8CE509369" Win64="$(var.Win64)">
               <File Id="NSCAClientDLL" Name="NSCAClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCAClient.dll" Vital="no" />
               <File Id="NSCAServerDLL" Name="NSCAServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCAServer.dll" Vital="no" />
@@ -376,6 +379,9 @@
           <?if "$(var.Runtime)" = "dynamic"?>
             <ComponentRef Id="MongooseLibs" />
           <?endif?>
+        </Feature>
+        <Feature Id="IcingaAgentPlugin" Title="Icinga 2 agent" Description="Native Icinga 2 agent: connects to an Icinga 2 master or satellite over the cluster protocol and runs the checks it schedules (experimental)" Level="1" Absent="allow">
+          <ComponentRef Id="IcingaAgent" />
         </Feature>
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to a legacy NSCA server" Level="1" Absent="allow">
           <ComponentRef Id="NSCA" />
