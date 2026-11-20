@@ -4,9 +4,10 @@
 #include "icinga_agent_connection.hpp"
 
 #include <openssl/ssl.h>
-#include <openssl/x509.h>
 
 #include <chrono>
+
+#include "icinga_agent_openssl.hpp"
 
 namespace icinga_agent {
 
@@ -17,12 +18,9 @@ namespace {
 double unix_now() { return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); }
 
 std::string peer_cn(SSL *ssl) {
-  X509 *cert = SSL_get1_peer_certificate(ssl);
-  if (!cert) return "";
-  char buf[256] = {0};
-  X509_NAME_get_text_by_NID(X509_get_subject_name(cert), NID_commonName, buf, sizeof(buf));
-  X509_free(cert);
-  return buf;
+  // get1: we own a reference, released by the handle.
+  const ossl::x509_ptr cert(SSL_get1_peer_certificate(ssl));
+  return ossl::common_name(cert.get());
 }
 }  // namespace
 

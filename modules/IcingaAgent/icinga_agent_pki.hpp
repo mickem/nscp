@@ -28,7 +28,4 @@ void store_signed_certificate(const pki_paths &paths, const std::string &cert_pe
 // True when `certificate` exists and is not self-signed (issuer != subject).
 bool is_signed(const std::string &certificate);
 
-// Subject CN of a PEM certificate file, empty when unreadable.
-std::string certificate_cn(const std::string &certificate);
-
 }  // namespace icinga_agent

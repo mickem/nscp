@@ -25,6 +25,7 @@ if(WIN32)
         icinga_agent_protocol.hpp
         icinga_agent_connection.hpp
         icinga_agent_pki.hpp
+        icinga_agent_openssl.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )
     set(EXTRA_LIBS CRYPT32)
