@@ -32,6 +32,7 @@ interface SeenRequest {
   method: string;
   url: string;
   body: any;
+  at: number;
 }
 
 interface FleetOptions {
@@ -97,7 +98,7 @@ async function startFleet(name: string, options: FleetOptions = {}): Promise<Fle
       } catch {
         /* keep raw */
       }
-      requests.push({ method: req.method ?? "", url: req.url ?? "", body });
+      requests.push({ method: req.method ?? "", url: req.url ?? "", body, at: Date.now() });
 
       const parsed = new URL(req.url ?? "/", "http://x");
       if (req.method === "POST" && parsed.pathname === "/enroll/v1") {
@@ -292,6 +293,20 @@ describe("fleet sync certificate lifecycle", () => {
     );
     // Two deadlines plus backoff, and the loop must still be polling after it.
     await fleet.waitFor("polls to continue past the two hung ones", () => fleet!.count("/agent/v1/desired-state") >= 4, 90_000);
+  });
+
+  it("polls no more often than `min poll interval`, whatever the server asks for", async () => {
+    // The fake server asks for a poll every second. The operator's floor is
+    // four: read from [/settings/fleet] at start, and applied to every
+    // interval the server names.
+    fleet = await startFleet("minpoll", { fleetSettings: { "min poll interval": "4s" } });
+    const steady = () => fleet!.requests.filter((r) => r.url.startsWith("/agent/v1/desired-state") && r.url.includes("current_hash=h-1"));
+    await fleet.waitFor("three steady-state polls", () => steady().length >= 3);
+    const polls = steady();
+    for (let i = 1; i < polls.length; ++i) {
+      // The sleep is jittered by 10% either way.
+      expect(polls[i].at - polls[i - 1].at).toBeGreaterThanOrEqual(3500);
+    }
   });
 
   it("recovers from a corrupt applied-state file by re-applying", async () => {

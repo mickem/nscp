@@ -894,6 +894,30 @@ void NSClientT::boot_fleet_sync() {
     } catch (const std::exception &e) {
       LOG_ERROR_CORE_STD("Invalid fleet 'failure context interval' value '" + failure_interval + "', falling back to 1h: " + utf8::utf8_from_native(e.what()));
     }
+    // The three poll interval keys share one shape: a duration, at least a
+    // second, falling back to the default with an error when it does not parse.
+    const auto reg_interval = [this, &reg_key](const char *key, const char *title, const char *description, const char *def, unsigned long &target) {
+      const std::string value = reg_key(key, title, description, def);
+      try {
+        const long seconds = str::format::stox_as_time_sec<long>(value, "s");
+        if (seconds < 1) throw std::invalid_argument("must be at least 1s");
+        target = static_cast<unsigned long>(seconds);
+      } catch (const std::exception &e) {
+        LOG_ERROR_CORE_STD(std::string("Invalid fleet '") + key + "' value '" + value + "', falling back to " + def + ": " + utf8::utf8_from_native(e.what()));
+      }
+    };
+    reg_interval("poll interval", "Poll interval",
+                 "How often to ask the fleet server for this host's configuration until the server names an interval of its own, which it does in "
+                 "every answer. Read when the service starts.",
+                 "60s", config.poll_interval);
+    reg_interval("min poll interval", "Shortest poll interval",
+                 "The shortest interval the fleet server may ask this host to poll at: a shorter one is raised to this. Use it to keep a host on a "
+                 "metered or slow link from polling as often as the rest of the fleet. Read when the service starts.",
+                 "1s", config.min_poll_interval);
+    reg_interval("max poll interval", "Longest poll interval",
+                 "The longest interval the fleet server may ask this host to poll at: a longer one is lowered to this, so a configuration change "
+                 "reaches the host within it. Raised to `min poll interval` when set below it. Read when the service starts.",
+                 "1d", config.max_poll_interval);
 
     std::string manifest_detail;
     const fleet_sync::manifest_status manifest = fleet_sync::check_manifest(config.state_file, manifest_detail);

@@ -690,6 +690,27 @@ The agent goes back to whatever is in its own `nsclient.ini`; nothing else is to
 `MASTER_KEY` and the *same* volume. Agents see the same server with the same pinned
 certificate and nothing re-enrolls.
 
+**How often the agent polls.** The server names the poll interval in every answer, so
+there is normally nothing to set on the host. Three settings bound it from the agent's
+side, for a host that should not follow the rest of the fleet: one on a metered or slow
+link, say, or one that must pick up changes within a known time.
+
+```ini
+[/settings/fleet]
+; Used until the server names an interval, which its first answer does.
+poll interval = 60s
+; Never poll more often than this, even if the server asks for it.
+min poll interval = 5m
+; Never poll less often than this, even if the server asks for it.
+max poll interval = 1h
+```
+
+The defaults (`1s` and `1d`) leave the choice to the server. A `max poll interval` set
+below `min poll interval` is raised to it. The bounds apply to the interval only: a
+`Retry-After` on a rate-limited or failing poll is slept as the server gave it, and the
+backoff after a failed poll is a multiple of the interval in force (twice, four times, at
+most five times). The three are read when the service starts.
+
 ---
 
 ## Troubleshooting

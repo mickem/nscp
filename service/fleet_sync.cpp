@@ -217,6 +217,12 @@ fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config c
       request_reload_(std::move(request_reload)),
       seams_(std::move(seams)) {
   failure_pacer_.configure(config_.failure_context_interval);
+  // Bounds that make sense whatever was configured: never under a second
+  // (a zero would spin on the server), and a ceiling below the floor means
+  // the floor - polling too rarely is the safer way to be wrong.
+  config_.min_poll_interval = std::max(1ul, std::min(config_.min_poll_interval, max_sleep_seconds));
+  config_.max_poll_interval = std::max(config_.min_poll_interval, std::min(config_.max_poll_interval, max_sleep_seconds));
+  poll_interval_ = bounded_poll_interval(config_.poll_interval);
   if (!seams_.start_thread) return;
   thread_ = threads::start_guarded_thread(
       "fleet sync", [this] { this->thread_proc(); },
@@ -236,6 +242,10 @@ void fleet_sync::stop() {
     thread_->join();
   }
   thread_.reset();
+}
+
+unsigned long fleet_sync::bounded_poll_interval(const unsigned long seconds) const {
+  return std::max(config_.min_poll_interval, std::min(seconds, config_.max_poll_interval));
 }
 
 std::int64_t fleet_sync::wall_now() const { return seams_.wall_clock ? seams_.wall_clock() : static_cast<std::int64_t>(std::time(nullptr)); }
@@ -1053,7 +1063,7 @@ fleet_sync::poll_sleep fleet_sync::poll_once() {
   if (response.status_code_ == 304) {
     failures_ = 0;
     const boost::optional<unsigned long> next = onboarding::parse_next_poll(response.payload_);
-    if (next) poll_interval_ = std::max(1ul, next.value());
+    if (next) poll_interval_ = bounded_poll_interval(next.value());
     return poll_interval_;
   }
   // A Retry-After is a wait the server named, and the loop sleeps it - no
@@ -1081,7 +1091,7 @@ fleet_sync::poll_sleep fleet_sync::poll_once() {
   failures_ = 0;
   try {
     const onboarding::desired_state state = onboarding::parse_desired_state(response.payload_);
-    poll_interval_ = std::max(1ul, state.next_poll_in_seconds);
+    poll_interval_ = bounded_poll_interval(state.next_poll_in_seconds);
     log_debug("New desired state " + state.state_hash + " with " + str::xtos(state.bundles.size()) + " bundle(s)");
 
     std::vector<std::string> errors;
