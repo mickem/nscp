@@ -192,6 +192,20 @@ if(OPENSSL_FOUND)
         ${EXTRA_LIBS}
         onboarding
     )
+    # The sync itself, stepped by hand against a scripted fleet server (see
+    # fleet_seams). It needs what the service links for it: the http client's
+    # library, and boost::chrono for the interruptible sleep.
+    set(FLEET_SYNC_TEST_SRCS
+        fleet_sync.cpp
+        fleet_sync.hpp
+        fleet_sync_test.cpp
+        ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
+    )
+    set(FLEET_SYNC_TEST_LIBS
+        nscp_net
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+    )
 endif(OPENSSL_FOUND)
 
 NSCP_MAKE_EXE_SBIN(${TARGET} "${service_SRCS}")
@@ -262,6 +276,7 @@ NSCP_CREATE_TEST(
         diagnostics_round_test.cpp
         failure_report_test.cpp
         failure_report.hpp
+        ${FLEET_SYNC_TEST_SRCS}
         metrics_prune_test.cpp
         metrics_prune.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/diagnostics_json_test.cpp
@@ -274,6 +289,7 @@ NSCP_CREATE_TEST(
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
         ${FACTS_HASH_LIBS}
+        ${FLEET_SYNC_TEST_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         settings_manager
