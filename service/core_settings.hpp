@@ -5,6 +5,7 @@
 
 #include <exception>
 #include <functional>
+#include <limits>
 #include <settings/settings_interface.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
@@ -54,12 +55,27 @@ bool schedule_or_fallback(Add add, const std::string &what, const std::string &v
   return false;
 }
 
+// A byte or row count as an operator typed it: digits only. Not
+// str::stox<std::size_t>, which is lexical_cast and takes "-1" as the largest
+// size_t - a cap removed by a typo.
+constexpr const char *const not_a_size = "not a non-negative whole number";
+inline bool parse_size(const std::string &text, std::size_t &out) {
+  unsigned long long value = 0;
+  if (!str::parse_unsigned(text, value) || value > (std::numeric_limits<std::size_t>::max)()) return false;
+  out = static_cast<std::size_t>(value);
+  return true;
+}
+
 // [/settings/facts] max size, applied to the repository. A cap that cannot be
 // used leaves the previous one in force; a cap lowered under the document the
 // repository holds drops the largest sets until the rest fits, and says which.
 inline void apply_facts_max_size(fact_repository &facts, const std::string &max_size, std::vector<std::string> &errors) {
+  std::size_t value = 0;
+  if (!parse_size(max_size, value)) {
+    errors.push_back("Invalid facts 'max size' value '" + max_size + "', keeping the previous one: " + not_a_size);
+    return;
+  }
   try {
-    const std::size_t value = str::stox<std::size_t>(max_size);
     if (value < fact_repository::min_max_size) {
       errors.push_back("Facts 'max size' " + max_size + " is too small to hold any fact set; keeping the previous cap of " + str::xtos(facts.get_max_size()) +
                        " bytes.");
@@ -84,11 +100,7 @@ inline failed_check_store::options read_failed_checks(const reader &get, failed_
   // A byte or row count. A value that does not parse keeps `value` as it was.
   const auto read_size = [&get, &section, &errors](const std::string &key, const std::size_t fallback, std::size_t &value) {
     const std::string text = get(key, str::xtos(fallback));
-    try {
-      value = str::stox<std::size_t>(text);
-    } catch (const std::exception &e) {
-      errors.push_back("Invalid " + section + key + " '" + text + "', keeping " + str::xtos(value) + ": " + utf8::utf8_from_native(e.what()));
-    }
+    if (!parse_size(text, value)) errors.push_back("Invalid " + section + key + " '" + text + "', keeping " + str::xtos(value) + ": " + not_a_size);
   };
 
   options.enabled = settings::settings_interface::string_to_bool(get("enabled", "true"));

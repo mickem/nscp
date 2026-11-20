@@ -40,8 +40,10 @@ class FleetSettingsTest : public ::testing::Test {
  protected:
   nsclient::core::path_instance paths_;
   std::map<std::string, std::string> values_;
-  // What was declared, as the settings registry would see it.
+  // What was declared, as the settings registry would see it, and how often
+  // each key was declared by the last read().
   std::map<std::string, std::string> types_;
+  std::map<std::string, int> declared_;
   std::map<std::string, std::string> defaults_;
   std::vector<std::string> errors_;
 
@@ -52,11 +54,13 @@ class FleetSettingsTest : public ::testing::Test {
 
   fleet_config read() {
     errors_.clear();
+    declared_.clear();
     return fs::read(
         [this](const char *key, const char *type, const char *title, const char *description, const char *fallback) {
           EXPECT_STRNE(title, "") << key;
           EXPECT_STRNE(description, "") << key;
           types_[key] = type;
+          ++declared_[key];
           defaults_[key] = fallback;
           const auto found = values_.find(key);
           return found == values_.end() ? std::string(fallback) : found->second;
@@ -98,6 +102,7 @@ TEST_F(FleetSettingsTest, EveryKeyIsDeclaredOnce) {
   EXPECT_EQ(keys, std::set<std::string>({"state file", "managed path", "hostname", "tls version", "timeout", "failure context", "failure context interval",
                                          "poll interval", "min poll interval", "max poll interval"}));
   for (const auto &entry : types_) EXPECT_EQ(entry.second, entry.first == "failure context" ? "bool" : "string") << entry.first;
+  for (const auto &entry : declared_) EXPECT_EQ(entry.second, 1) << entry.first;
 }
 
 TEST_F(FleetSettingsTest, TheTreeTheSyncWritesIsRootedAtTheFleetFolder) {
@@ -175,6 +180,26 @@ TEST_F(FleetSettingsTest, APollIntervalOfZeroIsRefused) {
     EXPECT_EQ(config.min_poll_interval, defaults.min_poll_interval) << key;
     EXPECT_EQ(config.max_poll_interval, defaults.max_poll_interval) << key;
   }
+}
+
+TEST_F(FleetSettingsTest, ATimeoutOfZeroIsRefused) {
+  // Zero would be a deadline every request to the fleet server misses.
+  values_["timeout"] = "0s";
+  const fleet_config config = read();
+  ASSERT_EQ(errors_.size(), 1u);
+  EXPECT_NE(errors_.front().find("Invalid fleet 'timeout' value '0s', falling back to 60s: must be at least 1s"), std::string::npos) << errors_.front();
+  EXPECT_EQ(config.timeout_seconds, fleet_config().timeout_seconds);
+  values_["timeout"] = "1s";
+  EXPECT_EQ(read().timeout_seconds, 1u);
+  EXPECT_TRUE(errors_.empty());
+}
+
+TEST_F(FleetSettingsTest, AFailureContextIntervalOfZeroIsLeftToThePacersFloor) {
+  // failure_context_pacer::configure() raises anything under its 5s floor, so
+  // the reader passes a zero through rather than refusing it twice.
+  values_["failure context interval"] = "0s";
+  EXPECT_EQ(read().failure_context_interval, 0u);
+  EXPECT_TRUE(errors_.empty());
 }
 
 TEST_F(FleetSettingsTest, OneBadValueDoesNotStopTheRestFromApplying) {

@@ -65,7 +65,10 @@ inline fleet_config read(const key_reader &key, path_manager &paths, std::vector
                                   "accepts the connection and then stops responding would otherwise stall the sync loop indefinitely.",
                                   "60s");
   try {
-    config.timeout_seconds = static_cast<unsigned int>(str::format::stox_as_time_sec<long>(timeout, "s"));
+    // Zero would be a deadline every request misses before it is sent.
+    const long seconds = str::format::stox_as_time_sec<long>(timeout, "s");
+    if (seconds < 1) throw std::invalid_argument("must be at least 1s");
+    config.timeout_seconds = static_cast<unsigned int>(seconds);
   } catch (const std::exception &e) {
     errors.push_back("Invalid fleet 'timeout' value '" + timeout + "', falling back to 60s: " + utf8::utf8_from_native(e.what()));
   }

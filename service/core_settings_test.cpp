@@ -100,6 +100,22 @@ TEST(CoreSettingsFactsMaxSize, ACapThatIsNotANumberKeepsThePreviousOne) {
   }
 }
 
+TEST(CoreSettingsFactsMaxSize, ASignedOrPaddedCapKeepsThePreviousOne) {
+  // lexical_cast reads "-1" as the largest size_t, which removed the cap.
+  fact_repository facts;
+  std::vector<std::string> errors;
+  cs::apply_facts_max_size(facts, "4096", errors);
+  for (const std::string text : {"-1", "+5", " 5", "5 ", "99999999999999999999999"}) {
+    errors.clear();
+    cs::apply_facts_max_size(facts, text, errors);
+    EXPECT_EQ(facts.get_max_size(), 4096u) << text;
+    ASSERT_EQ(errors.size(), 1u) << text;
+    EXPECT_NE(errors.front().find("Invalid facts 'max size' value '" + text + "', keeping the previous one: not a non-negative whole number"),
+              std::string::npos)
+        << errors.front();
+  }
+}
+
 TEST(CoreSettingsFactsMaxSize, ACapTooSmallForAnySetKeepsThePreviousOne) {
   // 0 or 1 would not hold even an empty set, so every set would be dropped and
   // rejected forever: a way of switching facts off that reads like a typo.
@@ -245,6 +261,22 @@ TEST(CoreSettingsFailedChecks, ACountThatIsNotANumberKeepsWhatWasInForce) {
   EXPECT_TRUE(mentions(errors, "Invalid [/settings/core/failed checks] metrics context budget '4mb', keeping 200000"));
   EXPECT_TRUE(mentions(errors, "Invalid [/settings/core/failed checks] max context size '', keeping 3000"));
   EXPECT_TRUE(mentions(errors, "Invalid [/settings/core/failed checks] diagnostics rows 'few', keeping 4"));
+}
+
+TEST(CoreSettingsFailedChecks, ASignedOrPaddedCountKeepsWhatWasInForce) {
+  // lexical_cast reads "-1" as the largest size_t: no limit at all.
+  failed_check_store::options in_force;
+  in_force.max_entries = 123;
+  in_force.diagnostics_rows = 4;
+  for (const std::string text : {"-1", "+5", " 5"}) {
+    std::vector<std::string> errors;
+    const failed_check_store::options options = read({{"max entries", text}, {"diagnostics rows", text}}, errors, in_force);
+    EXPECT_EQ(options.max_entries, 123u) << text;
+    EXPECT_EQ(options.diagnostics_rows, 4u) << text;
+    ASSERT_EQ(errors.size(), 2u) << text;
+    EXPECT_TRUE(mentions(errors, "Invalid [/settings/core/failed checks] max entries '" + text + "', keeping 123: not a non-negative whole number")) << text;
+    EXPECT_TRUE(mentions(errors, "Invalid [/settings/core/failed checks] diagnostics rows '" + text + "', keeping 4")) << text;
+  }
 }
 
 TEST(CoreSettingsFailedChecks, AnUnknownArgumentModeKeepsWhatWasInForce) {
