@@ -3,6 +3,12 @@
 
 #pragma once
 
+// Before any protobuf header: on Windows it defines PROTOBUF_USE_DLLS, and a
+// protobuf header seen without it declares the library's functions with a
+// different linkage than the generated headers do (C2375) - which is what
+// happens when this header is included before one of the message headers.
+#include <nscapi/dll_defines_protobuf.hpp>
+
 #ifdef WIN32
 #pragma warning(push)
 #pragma warning(disable : 4018)
