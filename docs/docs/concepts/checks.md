@@ -280,6 +280,86 @@ check_memory "warn=free < 20%" "crit=free < 10%"
 check_drivesize "warn=free < 15%" "crit=free < 5%"
 ```
 
+### Short thresholds: `-w` and `-c`
+
+When all you want is "warn at 80, critical at 90", every filter check also takes its bounds the way
+most monitoring plugins do:
+
+```shell
+check_cpu -w 80 -c 90
+check_drivesize -w 20% -c 10%
+check_http url=https://example.com -w 2 -c 5
+check_ping host=192.168.0.1 -w 100,20% -c 500,60%
+```
+
+`-w` and `-c` are a short way of writing `warning=` and `critical=`. Each check knows which keyword a
+bare number bounds and on which side, so `check_cpu -w 80` is exactly `check_cpu "warning=load > 80"`
+and `check_drivesize -w 20%` is `check_drivesize "warning=free < 20%"`. The performance data
+thresholds, `show-all` and the syntaxes behave as they do for the long form, because the long form is
+what the check ends up running. `help` on a command says what its `-w` stands for.
+
+| You write   | Means                                                                 |
+|-------------|-----------------------------------------------------------------------|
+| `-w 80`     | The check's own side: `load > 80` for a CPU, `free < 80%` for a disk   |
+| `-w 10:`    | Below 10                                                              |
+| `-w ~:10`   | Above 10                                                              |
+| `-w 10:20`  | Outside 10 to 20                                                      |
+| `-w @10:20` | Inside 10 to 20                                                       |
+| `-w "used > 80% or free < 1g"` | Anything that is not a number or a range is used as the expression it is |
+
+The ranges are the ones from the
+[monitoring plugins guidelines](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT).
+
+A short threshold **takes the place of the default bound** on its side and leaves the other side
+alone: `check_cpu -c 95` keeps the default warning. Whatever else the default says stays, so a
+failing request is still critical when you move the time bound:
+
+```shell
+# default critical: time > 5000 or result != 'ok'
+check_tcp host=db01 port=5432 -c 10
+# runs with:        result != 'ok' or time > 10000
+```
+
+`show-default` on a command lists its defaults, and a full `warning=` / `critical=` replaces them
+entirely when that is what you want. `-w80`, `-w=80` and `w=80` are accepted too, and the short form
+can be mixed with any other argument.
+
+What a bare number bounds:
+
+| Check                                                        | `-w N` means                      | A number without a unit is  |
+|--------------------------------------------------------------|-----------------------------------|-----------------------------|
+| `check_cpu`                                                  | `load > N`                        | percent                     |
+| `check_drivesize`, `check_memory`, `check_pagefile`          | `free < N`                        | percent (`10g` is a size)   |
+| `check_uptime`                                               | `uptime < N`                      | seconds (`2d`, `12h`)       |
+| `check_load`                                                 | `load1 > N`, then `load5`, `load15` | —                         |
+| `check_ping`                                                 | `time > N`, then `loss > N%`      | milliseconds, percent       |
+| `check_http`, `check_tcp`, `check_dns`, `check_radius`, `check_kdc` | `time > N`                 | seconds (`500ms`, `5m`)     |
+| `check_ntp_offset`, `check_w32time`                          | `offset > N`                      | seconds (`500ms`)           |
+| `check_certificate`, `check_domain`                          | `expires_in < N`                  | days                        |
+| `check_temperature`                                          | `temperature > N`                 | degrees                     |
+| `check_battery`                                              | `charge < N`                      | percent                     |
+| `check_network`                                              | `throughput > N`                  | —                           |
+| `check_os_updates`                                           | `updates > N`                     | —                           |
+| `check_single_file`                                          | `age > N`                         | seconds (`5m`, `2h`)        |
+| `check_service`, `check_process`, `check_files`, `check_eventlog`, `check_logfile`, … | `count > N` | matched items        |
+
+A check that measures no single value bounds `count`, the number of items that matched the filter:
+`check_process process=nginx -c 1:` is critical when fewer than one `nginx` is running, and
+`check_files path=/var/spool/queue -w 100 -c 500` alerts on a growing queue. Such a bound says how
+many matches are a problem, so it replaces the whole default of its side. `check_process` is the
+exception: a process that is not running stays critical next to a bound on how many are. A check that takes a
+list reads one value per keyword and any of them can be left out (`check_ping -w ,20%`).
+
+Durations follow the standard plugins and are in **seconds** unless you give a unit, also where the
+keyword itself counts milliseconds: `check_http -w 2` and `check_http "warning=time > 2000"` are the
+same thing, and so are `-w 500ms` and `-w 0.5`.
+
+!!! note "Through `check_nrpe`"
+    `check_nrpe` reads `-c` as its own *command* option, so put the short thresholds after `-a`,
+    where it passes everything on untouched: `check_nrpe -H host -c check_cpu -a -w 80 -c 90`.
+    If your `check_nrpe` still picks them up, use the forms it cannot mistake for its own:
+    `-a w=80 c=90`.
+
 ### Disabling a threshold
 
 ```shell
