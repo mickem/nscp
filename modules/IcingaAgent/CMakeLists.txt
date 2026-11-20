@@ -6,10 +6,21 @@ project(${TARGET})
 
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
+# The protocol pieces: no socket, no core, so the unit test links them alone.
+set(PROTOCOL_SRCS
+    icinga_agent_arguments.cpp
+    icinga_agent_execute.cpp
+    icinga_agent_fingerprint.cpp
+    icinga_agent_json.cpp
+    icinga_agent_macros.cpp
+    icinga_agent_messages.cpp
+    icinga_agent_netstring.cpp
+)
+
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
-    icinga_agent_protocol.cpp
+    ${PROTOCOL_SRCS}
     icinga_agent_connection.cpp
     icinga_agent_pki.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -25,6 +36,13 @@ if(WIN32)
         ${SRCS}
         "${TARGET}.h"
         icinga_agent_protocol.hpp
+        icinga_agent_arguments.hpp
+        icinga_agent_execute.hpp
+        icinga_agent_fingerprint.hpp
+        icinga_agent_json.hpp
+        icinga_agent_macros.hpp
+        icinga_agent_messages.hpp
+        icinga_agent_netstring.hpp
         icinga_agent_connection.hpp
         icinga_agent_pki.hpp
         icinga_agent_openssl.hpp
@@ -52,8 +70,14 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 NSCP_CREATE_TEST(
     ${TARGET}_test
     SOURCES
-        icinga_agent_protocol_test.cpp
-        icinga_agent_protocol.cpp
+        icinga_agent_arguments_test.cpp
+        icinga_agent_execute_test.cpp
+        icinga_agent_fingerprint_test.cpp
+        icinga_agent_json_test.cpp
+        icinga_agent_macros_test.cpp
+        icinga_agent_messages_test.cpp
+        icinga_agent_netstring_test.cpp
+        ${PROTOCOL_SRCS}
     LIBRARIES
         GTest::gtest_main
         ${Boost_JSON_LIBRARY}
