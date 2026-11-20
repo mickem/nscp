@@ -44,6 +44,7 @@ import Trail from "../components/atoms/Trail.tsx";
 import { formatAge } from "../common/formatAge.ts";
 import { formatBytes } from "../common/format.ts";
 import DiagnosticsTable from "../components/DiagnosticsTable.tsx";
+import FailedChecksSettingsWidget from "../components/FailedChecksSettingsWidget.tsx";
 import { orderSectionNames } from "../common/diagnostics.ts";
 
 const REFRESH_RATES = [
@@ -201,6 +202,10 @@ export default function FailedChecks() {
               : " · diagnostics not captured (capture diagnostics = false under [/settings/core/failed checks])"}
         </Typography>
       )}
+      {/* The settings, folded above the log they configure. */}
+      <Box sx={{ mb: 2 }}>
+        <FailedChecksSettingsWidget />
+      </Box>
       <TableContainer sx={{ width: "100%" }}>
         <Table size="small">
           <TableHead>

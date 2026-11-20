@@ -1,4 +1,5 @@
-import { Card, CardContent, Typography } from "@mui/material";
+import { Typography } from "@mui/material";
+import CollapsibleCard from "./atoms/CollapsibleCard.tsx";
 import { useMemo } from "react";
 import { SettingsDescription, useGetSettingsDescriptionsQuery } from "../api/api.ts";
 import SettingSwitchSections, { groupSwitchSections, isOn, SwitchSection } from "./SettingSwitchSections.tsx";
@@ -50,30 +51,25 @@ export default function DiagnosticsSettingsWidget() {
   const tablesOn = sections.some((section) => section.keys.some((entry) => isTableSwitch(entry) && isOn(entry)));
 
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Typography gutterBottom variant="h6" component="div">
-          Diagnostics tables
-        </Typography>
-        {/* Writing the setting is not collecting: the core and the modules
+    <CollapsibleCard title="Diagnostics tables" storageKey="diagnostics.settings">
+      {/* Writing the setting is not collecting: the core and the modules
             re-read it when the configuration is reloaded, which the unsaved
             configuration banner at the top of the page offers. */}
-        <Typography variant="body2" color="text.secondary">
-          Nothing is collected until <code>capture diagnostics</code> is on, which alone gives the last failed checks;
-          every other table is turned on in the module that produces it. A change takes effect when the configuration
-          is saved and reloaded.
+      <Typography variant="body2" color="text.secondary">
+        Nothing is collected until <code>capture diagnostics</code> is on, which alone gives the last failed checks;
+        every other table is turned on in the module that produces it. A change takes effect when the configuration is
+        saved and reloaded.
+      </Typography>
+      {capture !== undefined && !isOn(capture) && tablesOn && (
+        <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+          Tables are turned on, but <code>capture diagnostics</code> is off: none of them is collected.
         </Typography>
-        {capture !== undefined && !isOn(capture) && tablesOn && (
-          <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-            Tables are turned on, but <code>capture diagnostics</code> is off: none of them is collected.
-          </Typography>
-        )}
-        <SettingSwitchSections
-          sections={sections}
-          // `errors` and `services` are keys in more than one module.
-          label={(section, entry) => `${section.owner}: ${entry.key}`}
-        />
-      </CardContent>
-    </Card>
+      )}
+      <SettingSwitchSections
+        sections={sections}
+        // `errors` and `services` are keys in more than one module.
+        label={(section, entry) => `${section.owner}: ${entry.key}`}
+      />
+    </CollapsibleCard>
   );
 }
