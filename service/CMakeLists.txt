@@ -199,6 +199,8 @@ if(OPENSSL_FOUND)
         fleet_sync.cpp
         fleet_sync.hpp
         fleet_sync_test.cpp
+        fleet_settings.hpp
+        fleet_settings_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
     )
     set(FLEET_SYNC_TEST_LIBS
@@ -281,6 +283,8 @@ NSCP_CREATE_TEST(
         metrics_prune.hpp
         reload_request_test.cpp
         reload_request.hpp
+        core_settings_test.cpp
+        core_settings.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/diagnostics_json_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/diagnostics_json.hpp
         ../include/parsers/cron/cron_parser.hpp
