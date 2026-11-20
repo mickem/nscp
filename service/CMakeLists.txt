@@ -279,6 +279,8 @@ NSCP_CREATE_TEST(
         ${FLEET_SYNC_TEST_SRCS}
         metrics_prune_test.cpp
         metrics_prune.hpp
+        reload_request_test.cpp
+        reload_request.hpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/diagnostics_json_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/protobuf/diagnostics_json.hpp
         ../include/parsers/cron/cron_parser.hpp
