@@ -281,3 +281,63 @@ TEST(CheckInstalledSoftware, the_keg_in_use_is_the_linked_one_or_the_highest_ver
   EXPECT_EQ(pick_keg_version({".metadata"}, ""), "");
   EXPECT_EQ(pick_keg_version({}, ""), "");
 }
+
+TEST(CheckInstalledSoftware, fetch_installed_dispatches_to_rpm_and_pacman) {
+  installed_software::package_manager rpm;
+  rpm.name = "rpm";
+  rpm.binary = "/usr/bin/rpm";
+  const installed_software::fetch_result from_rpm = installed_software::fetch_installed(rpm, [](const std::string &cmd) {
+    EXPECT_EQ(cmd.compare(0, 17, "/usr/bin/rpm -qa "), 0) << cmd;
+    return installed_software::command_result("bash\t5.1-2\tx86_64\tFedora\t100\t1700000000\n", true);
+  });
+  EXPECT_TRUE(from_rpm.ok);
+  ASSERT_EQ(from_rpm.entries.size(), 1u);
+  EXPECT_EQ(from_rpm.entries[0].manager, "rpm");
+
+  installed_software::package_manager pacman;
+  pacman.name = "pacman";
+  pacman.binary = "/usr/bin/pacman";
+  const installed_software::fetch_result from_pacman = installed_software::fetch_installed(pacman, [](const std::string &cmd) {
+    EXPECT_EQ(cmd.compare(0, 19, "/usr/bin/pacman -Q "), 0) << cmd;
+    return installed_software::command_result("bash 5.2.026-2\n", true);
+  });
+  EXPECT_TRUE(from_pacman.ok);
+  ASSERT_EQ(from_pacman.entries.size(), 1u);
+  EXPECT_EQ(from_pacman.entries[0].name, "bash");
+
+  // A query that fails is a failure, not a host without software.
+  for (const installed_software::package_manager &pm : {rpm, pacman}) {
+    const installed_software::fetch_result failed =
+        installed_software::fetch_installed(pm, [](const std::string &) { return installed_software::command_result("partial", false); });
+    EXPECT_FALSE(failed.ok) << pm.name;
+    EXPECT_TRUE(failed.entries.empty()) << pm.name;
+  }
+}
+
+TEST(CheckInstalledSoftware, fetch_installed_with_an_unknown_manager_is_a_failure) {
+  installed_software::package_manager unknown;
+  unknown.name = "portage";
+  unknown.binary = "/usr/bin/emerge";
+  bool ran = false;
+  const installed_software::fetch_result r = installed_software::fetch_installed(unknown, [&](const std::string &) {
+    ran = true;
+    return installed_software::command_result("", true);
+  });
+  EXPECT_FALSE(r.ok);
+  EXPECT_FALSE(ran);
+}
+
+TEST(CheckInstalledSoftware, the_command_inventories_this_host_or_says_why_not) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_installed_software");
+  PB::Commands::QueryResponseMessage::Response response;
+  installed_software::check_installed_software(request, &response);
+  ASSERT_EQ(response.lines_size(), 1);
+  if (installed_software::detect_manager().empty()) {
+    EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
+    EXPECT_EQ(response.lines(0).message(), "No supported package manager found (dpkg/rpm/pacman/pkgutil)");
+  } else {
+    // No thresholds by default: an inventory is OK whatever it holds.
+    EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << response.lines(0).message();
+  }
+}

@@ -5,6 +5,11 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+#include <parsers/filter/cli_helper.hpp>
+#include <string>
+#include <vector>
+
 using os_updates::filter_obj;
 
 // ============================================================================
@@ -334,4 +339,76 @@ TEST(CheckOsUpdates, a_rapid_security_response_counts_as_security_by_its_version
   EXPECT_EQ(obj.security, 1);
   EXPECT_TRUE(obj.packages[0].security);
   EXPECT_FALSE(obj.packages[1].security);
+}
+
+TEST(CheckOsUpdates, show_summarises_the_update_count) {
+  filter_obj none;
+  none.count = 0;
+  none.security = 0;
+  EXPECT_EQ(none.show(), "no updates available");
+
+  filter_obj some;
+  some.count = 4;
+  some.security = 0;
+  EXPECT_EQ(some.show(), "4 updates available");
+  some.security = 2;
+  EXPECT_EQ(some.show(), "4 updates available (2 security)");
+}
+
+TEST(CheckOsUpdates, fetch_updates_dispatches_to_dnf_and_zypper) {
+  std::string cmd;
+  const filter_obj dnf = os_updates::fetch_updates("dnf", [&](const std::string &c) -> std::string {
+    cmd = c;
+    return "kernel.x86_64                  5.14.0-1   baseos\n";
+  });
+  EXPECT_EQ(cmd.compare(0, 4, "dnf "), 0) << cmd;
+  EXPECT_EQ(dnf.manager, "dnf");
+  EXPECT_EQ(dnf.count, 1);
+
+  const filter_obj zypper = os_updates::fetch_updates("zypper", [&](const std::string &c) -> std::string {
+    cmd = c;
+    return "";
+  });
+  EXPECT_EQ(cmd.compare(0, 7, "zypper "), 0) << cmd;
+  EXPECT_EQ(zypper.manager, "zypper");
+  EXPECT_EQ(zypper.count, 0);
+}
+
+TEST(CheckOsUpdates, the_update_keywords_render_and_trip_the_default_thresholds) {
+  // The command body minus the package manager: the same options and syntax,
+  // over a result that is known.
+  const auto run = [](const filter_obj &result, const std::vector<std::string> &args) {
+    PB::Commands::QueryRequestMessage::Request request;
+    request.set_command("check_os_updates");
+    for (const std::string &a : args) request.add_arguments(a);
+    PB::Commands::QueryResponseMessage::Response response;
+    modern_filter::data_container data;
+    modern_filter::cli_helper<os_updates::filter> helper(request, &response, data);
+    os_updates::filter filter;
+    helper.add_options("updates > 0", "security > 0", "", filter.get_filter_syntax(), "ok");
+    helper.add_syntax("${status}: ${list}", "${updates} updates available (${security} security) via ${manager}", "updates", "", "");
+    if (!helper.parse_options() || !helper.build_filter(filter)) return response;
+    filter.match(std::make_shared<filter_obj>(result));
+    helper.post_process(filter);
+    return response;
+  };
+  filter_obj updates;
+  updates.manager = "apt";
+  updates.count = 3;
+  updates.security = 0;
+
+  const auto warn = run(updates, {});
+  EXPECT_EQ(warn.result(), PB::Common::ResultCode::WARNING);
+  ASSERT_EQ(warn.lines_size(), 1);
+  EXPECT_EQ(warn.lines(0).message(), "WARNING: 3 updates available (0 security) via apt");
+
+  updates.security = 1;
+  EXPECT_EQ(run(updates, {}).result(), PB::Common::ResultCode::CRITICAL);
+
+  // `count` is the deprecated spelling of `updates`, and a manager that does
+  // not record when it last refreshed renders that as unknown.
+  const auto alias = run(updates, {"critical=none", "warning=count > 100", "detail-syntax=${last_checked}"});
+  EXPECT_EQ(alias.result(), PB::Common::ResultCode::OK);
+  ASSERT_EQ(alias.lines_size(), 1);
+  EXPECT_EQ(alias.lines(0).message(), "OK: unknown");
 }

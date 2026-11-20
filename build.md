@@ -1008,6 +1008,46 @@ ctest --test-dir cmake-build-debug-wsl -R str_test --output-on-failure
 ./cmake-build-debug-wsl/bin/str_test --gtest_filter='FormatTest.*'
 ```
 
+#### Unit tests that run a check against this machine
+
+Most of a check is pure: a parser that takes the text of a `/proc` file, a
+renderer that takes a record. Those are tested on captured input and need
+nothing from the host. Two parts are not, and a module's unit binary covers
+them as well:
+
+* **The command body** - option parsing, the keyword registry, default
+  thresholds, the syntax templates. A test builds a request the way REST does
+  (every argument one `key=value` token) and calls the check function
+  directly. `modules/CheckSystemUnix/check_test_support.hpp` has the helpers
+  (`make_request`, `message_of`, `has_perf_like`).
+* **The platform reader** - the `*_source_linux.cpp` loop over `/proc` or
+  `/sys` that feeds the parser. It can only be shown to find its files by
+  reading the real ones.
+
+Such a test runs on whatever machine CI hands it, so it must not depend on
+what that machine is doing:
+
+* Look for something that is certainly there. The process tests look for the
+  test binary itself, found by `getpid()`, and for a process name that cannot
+  exist; they never assume `systemd`, `bash` or a second process.
+* Pin the thresholds (`warning=load1 > 100000`, or `warning=none`) so the
+  state says nothing about the host's health, and assert on the message.
+* Where the hardware may be missing - temperature sensors, a battery - assert
+  the documented no-data answer in that case instead of skipping the test, so
+  the contract is checked on exactly the machines that exercise it.
+* Share anything slow. The collector needs two one-second ticks before it has
+  a sample; `check_process_history_test.cpp` starts one for the whole suite in
+  `SetUpTestSuite()` rather than one per case.
+
+`check_process_command_test.cpp`, `check_process_history_test.cpp`,
+`live_checks_test.cpp` and `linux_sources_test.cpp` under
+`modules/CheckSystemUnix/` are the examples to copy. A file that reads one
+platform's kernel goes in that platform's `PLATFORM_TEST_SRCS` in the module's
+`CMakeLists.txt`; the rest are platform-neutral and build on macOS too.
+
+These tests complement the `tests/` suite, they do not replace it: only that
+suite goes through real command dispatch and the REST transport.
+
 ### In-process script tests (`nscp unit`)
 
 `nscp unit` boots PythonScript or LUAScript, runs a test script's

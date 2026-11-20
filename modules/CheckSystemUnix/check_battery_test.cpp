@@ -7,6 +7,7 @@
 
 #include <boost/filesystem.hpp>
 #include <fstream>
+#include <map>
 #include <string>
 
 namespace {
@@ -366,5 +367,70 @@ TEST(CheckBattery, battery_present_keyword_and_present_alias_both_parse) {
     battery_check::check_battery(request, &response, battery_check::read_battery_from(sysfs.root()));
     EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << keyword << ": " << join_lines(response);
     EXPECT_NE(join_lines(response).find("80%"), std::string::npos) << keyword << ": " << join_lines(response);
+  }
+}
+
+TEST(CheckBattery, show_and_time_remaining_render_known_and_unknown_values) {
+  battery_check::battery_info info;
+  info.name = "BAT0";
+  info.status = "discharging";
+  info.power_source = "battery";
+  info.charge_percent = -1;
+  info.time_remaining = -1;
+  EXPECT_EQ(info.show(), "BAT0: unknown (discharging, battery)");
+  EXPECT_EQ(info.get_time_remaining_s(), "unknown");
+
+  info.charge_percent = 42;
+  info.time_remaining = 5400;
+  EXPECT_EQ(info.show(), "BAT0: 42% (discharging, battery)");
+  EXPECT_EQ(info.get_time_remaining_s(), "01:30");
+}
+
+TEST(CheckBattery, metrics_carry_what_was_measured_and_leave_out_the_rest) {
+  battery_check::battery_info info;
+  info.name = "BAT0";
+  info.status = "discharging";
+  info.power_source = "battery";
+  info.battery_present = true;
+  info.charge_percent = 42;
+  info.health_percent = 90;
+  info.time_remaining = 3600;
+  info.discharge_rate = 12000;
+  info.design_capacity = 50000;
+  info.full_capacity = 45000;
+  info.remaining_capacity = 18900;
+  info.charge_rate = 0;
+
+  PB::Metrics::MetricsBundle section;
+  info.build_metrics(&section);
+  std::map<std::string, const PB::Metrics::Metric *> by_key;
+  for (const auto &m : section.value()) by_key[m.key()] = &m;
+
+  ASSERT_TRUE(by_key.count("BAT0.charge"));
+  EXPECT_DOUBLE_EQ(by_key["BAT0.charge"]->gauge_value().value(), 42);
+  EXPECT_EQ(by_key["BAT0.charge"]->unit(), "percent");
+  EXPECT_DOUBLE_EQ(by_key["BAT0.health"]->gauge_value().value(), 90);
+  EXPECT_EQ(by_key["BAT0.status"]->string_value().value(), "discharging");
+  EXPECT_EQ(by_key["BAT0.power_source"]->string_value().value(), "battery");
+  EXPECT_EQ(by_key["BAT0.battery_present"]->string_value().value(), "true");
+  EXPECT_DOUBLE_EQ(by_key["BAT0.time_remaining"]->gauge_value().value(), 3600);
+  EXPECT_EQ(by_key["BAT0.time_remaining"]->unit(), "seconds");
+  EXPECT_DOUBLE_EQ(by_key["BAT0.discharge_rate"]->gauge_value().value(), 12000);
+  EXPECT_DOUBLE_EQ(by_key["BAT0.full_capacity"]->gauge_value().value(), 45000);
+  // A battery that is discharging has no charge rate: absent, not zero.
+  EXPECT_EQ(by_key.count("BAT0.charge_rate"), 0u);
+  // The battery rides a label so every battery shares one family.
+  ASSERT_EQ(by_key["BAT0.charge"]->dims_size(), 1);
+  EXPECT_EQ(by_key["BAT0.charge"]->dims(0).key(), "battery");
+  EXPECT_EQ(by_key["BAT0.charge"]->dims(0).value(), "BAT0");
+
+  // Unknown time and capacities are left out the same way.
+  battery_check::battery_info bare;
+  bare.name = "BAT1";
+  PB::Metrics::MetricsBundle bare_section;
+  bare.build_metrics(&bare_section);
+  for (const auto &m : bare_section.value()) {
+    EXPECT_EQ(m.key().find("capacity"), std::string::npos) << m.key();
+    EXPECT_NE(m.key(), "BAT1.time_remaining");
   }
 }

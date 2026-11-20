@@ -7,6 +7,7 @@
 
 using checks::check_svc_filter::compute_cpu_pct;
 using checks::check_svc_filter::filter_obj;
+using checks::check_svc_filter::parse_stat_times;
 using checks::check_svc_filter::parse_status_mem;
 using checks::check_svc_filter::parse_stat_times;
 using checks::check_svc_filter::parse_systemctl_show;
@@ -92,6 +93,26 @@ TEST(CheckService, ParsesStatTimesWithParensInComm) {
   EXPECT_EQ(utime, 250u);
   EXPECT_EQ(stime, 125u);
   EXPECT_EQ(starttime, 9876u);
+}
+
+TEST(CheckService, StatTimesThatAreNotNumbersAreRejected) {
+  unsigned long long utime = 7, stime = 7, starttime = 7;
+  // The right number of fields, but utime is not a number: a truncated or
+  // foreign stat line must be refused, not read as zeroes.
+  EXPECT_FALSE(parse_stat_times("1234 (bash) S 1 1234 1234 0 -1 4194304 100 0 0 0 abc 125 0 0 20 0 1 0 9876 8192000 500 0", utime, stime, starttime));
+  EXPECT_FALSE(parse_stat_times("1234 (bash) S 1 2 3", utime, stime, starttime));
+}
+
+TEST(CheckService, UnparsableShowValuesFallBackToZero) {
+  const std::vector<filter_obj> svcs = parse_systemctl_show(
+      "Id=odd.service\n"
+      "ActiveState=active\n"
+      "SubState=running\n"
+      "MainPID=not-a-pid\n"
+      "TasksCurrent=[not set]\n");
+  ASSERT_EQ(svcs.size(), 1u);
+  EXPECT_EQ(svcs[0].pid, 0);
+  EXPECT_EQ(svcs[0].tasks, 0);
 }
 
 TEST(CheckService, ComputesLifetimeCpuPercent) {

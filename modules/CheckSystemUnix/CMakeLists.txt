@@ -95,7 +95,7 @@ else()
         process_top_source_linux.cpp
         diagnostics_source_linux.cpp
     )
-    set(PLATFORM_TEST_SRCS service_facts_linux_test.cpp systemd_units_linux_test.cpp)
+    set(PLATFORM_TEST_SRCS service_facts_linux_test.cpp systemd_units_linux_test.cpp linux_sources_test.cpp)
     set(PLATFORM_LIBS)
 endif()
 set(SRCS ${SRCS} ${PLATFORM_SRCS})
@@ -175,7 +175,11 @@ NSCP_CREATE_TEST(
         check_os_version_test.cpp
         check_os_version.cpp
         check_process_test.cpp
+        check_process_command_test.cpp
         check_process.cpp
+        check_process_history.cpp
+        check_process_history_test.cpp
+        live_checks_test.cpp
         check_service_test.cpp
         check_service.cpp
         check_service_launchd.cpp
