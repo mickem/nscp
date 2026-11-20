@@ -337,6 +337,69 @@ TEST_F(FleetSyncTest, a_304_sets_the_poll_interval_the_server_names) {
   EXPECT_EQ(turn(), 45u);
 }
 
+TEST_F(FleetSyncTest, polls_at_the_configured_interval_until_the_server_names_one) {
+  config.poll_interval = 300;
+  int asked = 0;
+  routes[poll_path] = [&](const seen_call &) {
+    return asked > 0 ? answer(304, "{\"next_poll_in_seconds\":" + std::to_string(asked) + "}") : answer(304, "{}");
+  };
+  start();
+  EXPECT_EQ(turn(), 300u) << "a 304 without a hint keeps the interval in force";
+  asked = 20;
+  EXPECT_EQ(turn(), 20u);
+  asked = 0;
+  EXPECT_EQ(turn(), 20u) << "and what the server named stays in force after it";
+}
+
+TEST_F(FleetSyncTest, holds_the_interval_the_server_asks_for_to_the_configured_bounds) {
+  config.min_poll_interval = 30;
+  config.max_poll_interval = 600;
+  int asked = 1;
+  routes[poll_path] = [&](const seen_call &) { return answer(304, "{\"next_poll_in_seconds\":" + std::to_string(asked) + "}"); };
+  start();
+  EXPECT_EQ(turn(), 30u) << "a shorter one is raised to the floor";
+  asked = 120;
+  EXPECT_EQ(turn(), 120u) << "one inside the bounds is the server's to choose";
+  asked = 3600;
+  EXPECT_EQ(turn(), 600u) << "a longer one is lowered to the ceiling";
+
+  // The same bounds on the interval a new desired state names.
+  routes[poll_path] = [](const seen_call &) { return answer(200, R"({"state_hash":"h-1","next_poll_in_seconds":5,"merged_config_json":{},"bundles":[]})"); };
+  EXPECT_EQ(turn(), 30u) << log->all();
+}
+
+TEST_F(FleetSyncTest, the_bounds_apply_to_the_starting_interval_too) {
+  config.poll_interval = 10;
+  config.min_poll_interval = 30;
+  routes[poll_path] = [](const seen_call &) { return answer(304, "{}"); };
+  start();
+  EXPECT_EQ(turn(), 30u);
+}
+
+TEST_F(FleetSyncTest, a_ceiling_below_the_floor_is_the_floor) {
+  config.min_poll_interval = 120;
+  config.max_poll_interval = 30;
+  routes[poll_path] = [](const seen_call &) { return answer(304, R"({"next_poll_in_seconds":5})"); };
+  start();
+  EXPECT_EQ(turn(), 120u);
+}
+
+TEST_F(FleetSyncTest, the_bounds_do_not_shorten_a_wait_the_server_named_for_one_call) {
+  config.max_poll_interval = 60;
+  routes[poll_path] = [](const seen_call &) { return answer(429, "slow down", {{"retry-after", "900"}}); };
+  start();
+  EXPECT_EQ(turn(), 900u) << "a Retry-After is not a poll interval";
+}
+
+TEST_F(FleetSyncTest, a_failed_poll_backs_off_from_the_interval_in_force) {
+  config.min_poll_interval = 100;
+  routes[poll_path] = [](const seen_call &) { return answer(500, "boom"); };
+  start();
+  EXPECT_EQ(turn(), 200u);
+  EXPECT_EQ(turn(), 400u);
+  EXPECT_EQ(turn(), 500u) << "capped at five intervals";
+}
+
 TEST_F(FleetSyncTest, a_rate_limited_poll_sleeps_the_retry_after_and_is_not_a_failure) {
   routes[poll_path] = [](const seen_call &) { return answer(429, "slow down", {{"retry-after", "120"}}); };
   start();

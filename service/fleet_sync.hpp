@@ -50,6 +50,16 @@ struct fleet_config {
   // most one report per `failure_context_interval` seconds.
   bool failure_context = true;
   unsigned long failure_context_interval = onboarding::failure_context_pacer::default_interval_seconds;
+  // [/settings/fleet] poll interval, min poll interval, max poll interval: how
+  // often the host asks the fleet server for its desired state. The server
+  // names the interval in every answer; `poll_interval` is only what is used
+  // until it has, and the other two bound what it may ask for. They bound the
+  // interval alone: a Retry-After is a wait the server named for one call and
+  // is slept as given, and the backoff after a failed poll is a multiple of
+  // the interval in force.
+  unsigned long poll_interval = 60;
+  unsigned long min_poll_interval = 1;
+  unsigned long max_poll_interval = 86400;
 };
 
 // What the sync reaches the outside world through: the fleet server and the
@@ -149,6 +159,8 @@ class fleet_sync {
   http::response do_call(const char *verb, const std::string &path, const std::string &payload = "", std::size_t max_response_bytes = 0);
   void report_state(const boost::optional<std::string> &applied_hash, const std::vector<std::string> &errors);
   void maybe_renew();
+  // An interval the server asked for, held to the operator's bounds.
+  unsigned long bounded_poll_interval(unsigned long seconds) const;
   std::map<std::string, std::string> collect_tags() const;
 
   // Upload the facts document to /agent/v1/facts when the server has said it
