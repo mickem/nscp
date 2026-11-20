@@ -315,6 +315,26 @@ query_request parse_execute_command(const json::value &params_value) {
   return req;
 }
 
+bool normalize_fingerprint(const std::string &text, std::string &out) {
+  std::string value = text;
+  const std::size_t eq = value.find('=');
+  if (eq != std::string::npos) value = value.substr(eq + 1);  // "SHA256 Fingerprint=..."
+  std::string hex;
+  for (const char c : value) {
+    if (c == ':' || c == ' ' || c == '\t') continue;
+    if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+      hex += c;
+    } else if (c >= 'A' && c <= 'F') {
+      hex += static_cast<char>(c - 'A' + 'a');
+    } else {
+      return false;
+    }
+  }
+  if (hex.size() != 64) return false;
+  out = hex;
+  return true;
+}
+
 std::vector<std::string> split_perfdata(const std::string &perfdata) {
   std::vector<std::string> out;
   std::string cur;

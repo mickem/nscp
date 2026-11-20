@@ -104,3 +104,19 @@ TEST(IcingaAgentProtocol, CheckResultShape) {
   ASSERT_EQ(cr.at("performance_data").as_array().size(), 2u);
   EXPECT_EQ(cr.at("performance_data").as_array()[0], "'a b'=1;2;3");
 }
+
+TEST(IcingaAgentProtocol, NormalizesFingerprints) {
+  const std::string hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+  std::string out;
+  ASSERT_TRUE(normalize_fingerprint(hex, out));
+  EXPECT_EQ(out, hex);
+  // What `openssl x509 -noout -fingerprint -sha256` prints.
+  ASSERT_TRUE(normalize_fingerprint("SHA256 Fingerprint=01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF", out));
+  EXPECT_EQ(out, hex);
+  ASSERT_TRUE(normalize_fingerprint("0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567 89AB CDEF", out));
+  EXPECT_EQ(out, hex);
+  // SHA-1 length, a stray character, nothing at all.
+  EXPECT_FALSE(normalize_fingerprint("01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67", out));
+  EXPECT_FALSE(normalize_fingerprint(hex.substr(0, 63) + "g", out));
+  EXPECT_FALSE(normalize_fingerprint("", out));
+}

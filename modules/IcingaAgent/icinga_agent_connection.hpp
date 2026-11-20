@@ -29,6 +29,11 @@ struct connection_config {
   // Whether the TLS context verifies the parent against the Icinga CA. False
   // only on the first connection, before the CA has been received.
   bool verify_parent = false;
+  // SHA-256 of the parent's certificate (64 lower-case hex digits), or empty.
+  // Used only while verify_parent is false: a parent presenting exactly this
+  // certificate is verified on the first connection too, the way
+  // `icinga2 node setup --trustedcert` pins the parent.
+  std::string parent_fingerprint;
   std::string ticket;
   std::string agent_version;
   int heartbeat_interval = 20;  // seconds
@@ -57,10 +62,11 @@ class connection : public std::enable_shared_from_this<connection> {
   // Thread-safe: queue a framed message.
   void send(std::string framed);
 
-  // True once the handshake verified the parent's certificate against the
-  // Icinga CA and its CN matched `parent_endpoint`. Only then may it run
-  // checks: on an unverified connection the CN is whatever the peer chose.
-  bool parent_verified() const { return config_.verify_parent && established_; }
+  // True once the handshake verified the parent - against the Icinga CA, or
+  // against the pinned fingerprint before the CA is known - and its CN
+  // matched `parent_endpoint`. Only then may it run checks: on an unverified
+  // connection the CN is whatever the peer chose.
+  bool parent_verified() const { return (config_.verify_parent || pinned_) && established_; }
   const std::string &parent_name() const { return parent_cn_; }
 
  private:
@@ -87,6 +93,7 @@ class connection : public std::enable_shared_from_this<connection> {
   bool writing_ = false;
   bool closed_ = false;
   bool established_ = false;
+  bool pinned_ = false;
   std::string parent_cn_;
 };
 

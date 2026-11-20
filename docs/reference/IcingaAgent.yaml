@@ -55,6 +55,16 @@ unix:
             checks run as, so the permission policy sees `IcingaAgent:<parent endpoint>`.'
           sample: false
           title: PARENT ENDPOINT
+        parent fingerprint:
+          advanced: false
+          default_value: ''
+          description: 'SHA-256 fingerprint of the parent''s certificate, as `openssl x509 -noout -fingerprint
+            -sha256 -in <cert>` prints it (colons and the `SHA256 Fingerprint=` prefix are optional).
+            Pins the parent on the first connection, before the agent has the Icinga CA - the equivalent
+            of `icinga2 node setup --trustedcert`. Once the CA is stored the parent is verified against
+            it instead, so a renewed parent certificate keeps working. Empty (the default): no pin.'
+          sample: false
+          title: PARENT FINGERPRINT
         parent host:
           advanced: false
           default_value: ''
@@ -90,3 +100,13 @@ unix:
             that version or later, or `any`. The default, 1.2+, is what Icinga 2 accepts out of the box.'
           sample: false
           title: TLS VERSION
+        trust on first use:
+          advanced: false
+          default_value: 'true'
+          description: 'Whether the agent may make its first connection without being able to verify the
+            parent: no `ca.crt` in the certificate directory yet and no `parent fingerprint`. Only the
+            certificate exchange happens on such a connection, never a check. True (the default) is how
+            `icinga2 node setup` behaves without `--trustedcert`; set it to false to require the CA or
+            the pin up front.'
+          sample: false
+          title: TRUST ON FIRST USE

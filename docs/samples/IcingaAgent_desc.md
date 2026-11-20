@@ -43,9 +43,20 @@ refused, even one the same CA signed. `endpoint name` must match the agent's `En
 
 #### How the parent is trusted
 
-The very first connection cannot verify the master: the agent has no CA yet (the same trust on first use as
-`icinga2 node setup` without `--trustedcert`). Nothing but the certificate exchange happens on that connection - a check
-sent over it is answered `UNKNOWN`. From then on every connection verifies the master against the stored CA.
+Icinga has no public CA: every installation has its own, created on the master. Once the agent holds it (`ca.crt` in
+the certificate directory, stored from the master's answer to the certificate request), every connection verifies the
+master against it. For the first connection there are three choices:
+
+| How                                                     | First connection                                           |
+|---------------------------------------------------------|------------------------------------------------------------|
+| Install the master's `ca.crt` up front                  | Verified against the CA, checks run straight away          |
+| Set `parent fingerprint` (the master's certificate)     | Verified against the pin, as `node setup --trustedcert`    |
+| Neither (the default, `trust on first use = true`)      | Not verified: only the certificate exchange, no checks     |
+
+The CA to install is the master's `/var/lib/icinga2/certs/ca.crt` - the CA certificate, never its key - copied to
+`<certificate directory>/ca.crt` by whatever deploys the agent. The fingerprint is what
+`openssl x509 -noout -fingerprint -sha256 -in /var/lib/icinga2/certs/<master>.crt` prints on the master. Set
+`trust on first use = false` to refuse a first connection that cannot be verified either way.
 
 #### Check commands on the master
 

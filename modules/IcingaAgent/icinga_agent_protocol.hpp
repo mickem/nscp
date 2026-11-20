@@ -93,6 +93,12 @@ struct check_result {
 
 std::string make_check_result(const std::string &host, const std::string &service, const check_result &result);
 
+// Normalise a certificate fingerprint as an operator writes it - the output
+// of `openssl x509 -noout -fingerprint -sha256` ("SHA256 Fingerprint=AB:CD:.."),
+// with or without the prefix, colons or spaces, in either case - to 64
+// lower-case hex digits. False when it is not a SHA-256 fingerprint.
+bool normalize_fingerprint(const std::string &text, std::string &out);
+
 // Split rendered perfdata into the array Icinga 2 expects.
 std::vector<std::string> split_perfdata(const std::string &perfdata);
 

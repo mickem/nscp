@@ -235,13 +235,42 @@ icinga2 ca sign <fingerprint>
 
 The agent picks the signed certificate up on its next connection.
 
-<!-- @formatter:off -->
-!!! note "The first connection is trust on first use"
-    Before it has the Icinga CA, the agent cannot verify the master's certificate - the same situation as
-    `icinga2 node setup` without `--trustedcert`. It runs no checks on that connection; it only asks for its
-    certificate. From the moment it holds the CA, every connection verifies the master against it, and a master
-    whose certificate is not for `parent endpoint` is refused even when the same CA signed it.
-<!-- @formatter:on -->
+### Trusting the master on the first connection
+
+Icinga has no public CA: every installation creates its own on the master. Until the agent holds it, it cannot verify
+the master - the situation `icinga2 node setup` is in without `--trustedcert`. Pick one of:
+
+**Install the CA up front (recommended for deployments).** Copy the master's CA certificate - the certificate only,
+never `ca.key` - to the agent before its first start:
+
+```
+/var/lib/icinga2/certs/ca.crt   (on the master)
+  ->  <certificate directory>/ca.crt   (on the agent, default ${certificate-path}/icinga/ca.crt)
+```
+
+The agent then verifies the master from the very first connection and runs checks on it.
+
+**Pin the master's certificate.** Print its fingerprint on the master and put it in the agent's configuration - one
+line, convenient for an install command:
+
+```
+openssl x509 -noout -fingerprint -sha256 -in /var/lib/icinga2/certs/icinga-master.crt
+SHA256 Fingerprint=3C:91:...:7A
+```
+
+```ini
+[/settings/Icinga/agent]
+parent fingerprint = 3C:91:...:7A
+```
+
+The pin is only used until the agent has the CA; after that the master is verified against the CA, so renewing the
+master's certificate does not break the agent.
+
+**Trust on first use (the default).** With neither, the first connection is not verified. The agent runs no checks on
+it; it only asks for its certificate and stores the CA the master returns. To forbid this - and refuse to connect until
+a CA or a pin is in place - set `trust on first use = false`.
+
+In every case a master whose certificate is not for `parent endpoint` is refused, even when the same CA signed it.
 
 ---
 
@@ -291,6 +320,8 @@ The host stays UP while the agent is connected (`Zone 'win-host-01' is connected
 | Services `UNKNOWN: ... has not verified this parent`           | The agent is still on its bootstrap connection; it reconnects verified once the certificate is signed.           |
 | Services `UNKNOWN: Permission denied: IcingaAgent:...`          | The permission policy is on and does not grant that check; add it to the `IcingaAgent:<parent>` rule.            |
 | Services pending forever, master logs "no connection"          | The agent is not connected: check the NSClient++ log, the firewall to port 5665, and that the Endpoint and Zone exist on the master. |
+| `` ... not the pinned `parent fingerprint` ``                   | `parent fingerprint` is not the master's current certificate. Print it again on the master; once the agent has the CA the pin no longer matters. |
+| `` `trust on first use` is off: not connecting ``                 | Copy the master's `ca.crt` into the certificate directory (picked up on the next attempt, within seconds) or set `parent fingerprint` and restart. |
 | `invalid TLS settings ... not connecting`                       | `tls version` or `allowed ciphers` has a value OpenSSL rejects.                                                  |
 
 ---

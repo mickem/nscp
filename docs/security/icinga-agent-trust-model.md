@@ -15,11 +15,13 @@ module only ever runs queries: Icinga event commands and the master's ad-hoc
 What stands between a parent and the agent's checks:
 
 - **Mutual TLS against the Icinga CA.** The agent verifies the parent against
-  the CA the parent issued when it signed the agent's certificate. The very
-  first connection, before that CA exists on the agent, cannot be verified
-  (the same trust on first use as `icinga2 node setup` without
-  `--trustedcert`); the agent runs no checks on such a connection, only the
-  certificate exchange.
+  the CA the parent issued when it signed the agent's certificate. Icinga has
+  no public CA, so the first connection needs the CA installed up front
+  (`ca.crt` in the certificate directory) or the parent's certificate pinned
+  (`parent fingerprint`, as `icinga2 node setup --trustedcert`). Without
+  either it cannot be verified, and by default (`trust on first use = true`)
+  the agent makes it anyway but runs no checks on it, only the certificate
+  exchange; `trust on first use = false` refuses it.
 - **A pinned parent name.** `parent endpoint` is required: a parent whose
   certificate carries any other CN is refused, even one the same CA signed.
 - **The core permission policy.** Every check runs as the principal
@@ -30,9 +32,11 @@ What stands between a parent and the agent's checks:
   arguments). Set it to `false` to allow only argument-less queries and the
   aliases defined on the agent.
 
-**What to do:** nothing unless you load `IcingaAgent`. If you do, enable the
-permission policy and grant the parent only the checks it monitors, for
-example:
+**What to do:** nothing unless you load `IcingaAgent`. If you do, install the
+master's `ca.crt` with the agent (or set `parent fingerprint`) so the first
+connection is verified, and set `trust on first use = false` on a managed
+fleet. Enable the permission policy and grant the parent only the checks it
+monitors, for example:
 
 ```ini
 [/settings/permissions]

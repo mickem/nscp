@@ -39,6 +39,8 @@ struct agent_config {
   bool allow_arguments = true;
   std::string tls_version = "1.2+";
   std::string allowed_ciphers;
+  std::string parent_fingerprint_setting;
+  bool trust_on_first_use = true;
   int threads = 4;
   int reconnect_seconds = 10;
 };
@@ -115,12 +117,31 @@ class agent : public std::enable_shared_from_this<agent> {
         opts.ca_path = paths_.ca;
         opts.verify_mode = "peer";
         config_.connection.verify_parent = true;
+      } else if (!config_.connection.parent_fingerprint.empty()) {
+        // No CA yet, but the parent's certificate is pinned, as with
+        // `icinga2 node setup --trustedcert`: the connection checks the
+        // fingerprint after the handshake and counts as verified.
+        NSC_LOG_MESSAGE("Icinga agent: no CA at " + paths_.ca + " yet, verifying the parent by its pinned `parent fingerprint`");
+        opts.verify_mode = "none";
+        config_.connection.verify_parent = false;
+      } else if (!config_.trust_on_first_use) {
+        // Checked on every attempt, so a ca.crt put in place later is picked
+        // up without a restart; said once, not every ten seconds.
+        if (!refusal_logged_) {
+          NSC_LOG_ERROR("Icinga agent: no CA at " + paths_.ca +
+                        " and no `parent fingerprint`, and `trust on first use` is off: not connecting. Copy the "
+                        "master's ca.crt there, or pin its certificate.");
+          refusal_logged_ = true;
+        }
+        schedule_reconnect();
+        return;
       } else {
-        // Trust on first use, like `icinga2 node setup --trustedcert`: until
-        // the master has handed us its CA we cannot verify it. The CA comes
-        // with the signed certificate; from then on the parent is verified.
-        // Nothing but the certificate exchange happens on such a connection:
-        // execute() refuses checks until the parent is verified.
+        // Trust on first use, like `icinga2 node setup` without
+        // `--trustedcert`: until the master has handed us its CA we cannot
+        // verify it. The CA comes with the signed certificate; from then on
+        // the parent is verified. Nothing but the certificate exchange happens
+        // on such a connection: execute() refuses checks until the parent is
+        // verified.
         NSC_LOG_ERROR("Icinga agent: no CA at " + paths_.ca + " yet, the parent's certificate is NOT verified on this connection; no checks run until it is");
         opts.verify_mode = "none";
         config_.connection.verify_parent = false;
@@ -234,6 +255,7 @@ class agent : public std::enable_shared_from_this<agent> {
   std::shared_ptr<connection> connection_;
   std::list<std::shared_ptr<boost::thread>> threads_;
   bool stopping_ = false;
+  bool refusal_logged_ = false;
 };
 
 }  // namespace icinga_agent
@@ -279,6 +301,16 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
       .add_string("ticket", sh::string_key(&config.connection.ticket), "TICKET",
                   "A ticket from `icinga2 pki ticket --cn <endpoint name>` on the master. With it the master signs the agent's certificate "
                   "right away; without it the request waits for `icinga2 ca sign` on the master.")
+      .add_string("parent fingerprint", sh::string_key(&config.parent_fingerprint_setting), "PARENT FINGERPRINT",
+                  "SHA-256 fingerprint of the parent's certificate, as `openssl x509 -noout -fingerprint -sha256 -in <cert>` prints it "
+                  "(colons and the `SHA256 Fingerprint=` prefix are optional). Pins the parent on the first connection, before the agent has "
+                  "the Icinga CA - the equivalent of `icinga2 node setup --trustedcert`. Once the CA is stored the parent is verified against "
+                  "it instead, so a renewed parent certificate keeps working. Empty (the default): no pin.")
+      .add_bool("trust on first use", sh::bool_key(&config.trust_on_first_use, true), "TRUST ON FIRST USE",
+                "Whether the agent may make its first connection without being able to verify the parent: no `ca.crt` in the certificate "
+                "directory yet and no `parent fingerprint`. Only the certificate exchange happens on such a connection, never a check. "
+                "True (the default) is how `icinga2 node setup` behaves without `--trustedcert`; set it to false to require the CA or the "
+                "pin up front.")
       .add_string("certificate directory", sh::path_key(&config.certificate_directory, "${certificate-path}/icinga"), "CERTIFICATE DIRECTORY",
                   "Where the agent keeps <endpoint name>.crt, <endpoint name>.key and ca.crt. Generated on first start.")
       .add_bool("allow arguments", sh::bool_key(&config.allow_arguments, true), "ALLOW ARGUMENTS",
@@ -311,6 +343,11 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
   if (!socket_helpers::is_valid_peer_principal(config.connection.parent_endpoint)) {
     NSC_LOG_ERROR("Icinga agent: `parent endpoint` '" + socket_helpers::escape_for_log(config.connection.parent_endpoint) +
                   "' cannot be a permission principal (no ':', '=' or control characters): not connecting");
+    return true;
+  }
+  if (!config.parent_fingerprint_setting.empty() &&
+      !icinga_agent::normalize_fingerprint(config.parent_fingerprint_setting, config.connection.parent_fingerprint)) {
+    NSC_LOG_ERROR("Icinga agent: `parent fingerprint` is not a SHA-256 certificate fingerprint (64 hex digits): not connecting");
     return true;
   }
   {

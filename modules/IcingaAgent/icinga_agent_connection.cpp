@@ -3,8 +3,13 @@
 
 #include "icinga_agent_connection.hpp"
 
+#include <openssl/evp.h>
+#include <openssl/ssl.h>
+
 #include <chrono>
 #include <net/socket/socket_helpers.hpp>
+
+#include "icinga_agent_openssl.hpp"
 
 namespace icinga_agent {
 
@@ -12,6 +17,23 @@ namespace asio = boost::asio;
 namespace json = boost::json;
 
 namespace {
+// SHA-256 over the peer certificate's DER encoding, as lower-case hex: what
+// `openssl x509 -fingerprint -sha256` prints, without the colons.
+std::string peer_fingerprint(SSL *ssl) {
+  const ossl::x509_ptr cert(SSL_get1_peer_certificate(ssl));
+  if (!cert) return "";
+  unsigned char digest[EVP_MAX_MD_SIZE];
+  unsigned int length = 0;
+  if (X509_digest(cert.get(), EVP_sha256(), digest, &length) != 1) return "";
+  static const char *const hex = "0123456789abcdef";
+  std::string out;
+  for (unsigned int i = 0; i < length; ++i) {
+    out += hex[digest[i] >> 4];
+    out += hex[digest[i] & 0x0F];
+  }
+  return out;
+}
+
 double unix_now() { return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); }
 
 }  // namespace
@@ -56,6 +78,13 @@ void connection::on_handshake(const boost::system::error_code &ec) {
   }
   if (cn != config_.parent_endpoint) {
     return close("Parent presented the certificate of '" + cn + "', expected '" + config_.parent_endpoint + "'");
+  }
+  if (!config_.verify_parent && !config_.parent_fingerprint.empty()) {
+    const std::string fingerprint = peer_fingerprint(stream_.native_handle());
+    if (fingerprint != config_.parent_fingerprint) {
+      return close("Parent presented a certificate with SHA-256 fingerprint " + fingerprint + ", not the pinned `parent fingerprint`");
+    }
+    pinned_ = true;
   }
   parent_cn_ = cn;
   established_ = true;

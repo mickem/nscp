@@ -8,16 +8,21 @@
  * public key of the certificate the agent connected with. That keeps the suite
  * docker-free and deterministic, and lets it drive the cases a real master
  * never produces on demand (a check on the unverified bootstrap connection, a
- * parent presenting the wrong name). The end-to-end run against a real
- * Icinga 2.16 master lives in modules/IcingaAgent/spike/.
+ * parent presenting the wrong name). The master-side configuration in
+ * docs/docs/scenarios/icinga-agent.md was verified against a real Icinga 2.16
+ * master.
  *
  * Covered: the ticket exchange on the unverified first connection, the
  * verified reconnect, ifw-api argument expansion, plain CheckCommands, the
  * core permission policy seeing `IcingaAgent:<parent endpoint>`, refused
- * event commands, heartbeats, `allow arguments = false`, and the parent-name
- * pin.
+ * event commands, heartbeats, `allow arguments = false`, the parent-name
+ * pin, TLS settings, and every way into the first connection: a pinned
+ * `parent fingerprint`, a ca.crt installed up front, and `trust on first
+ * use = false`.
  */
+import * as crypto from "crypto";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as tls from "tls";
 import * as forge from "node-forge";
@@ -412,6 +417,109 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       const later = master.sessions.slice(before);
       expect(later.length).toBeGreaterThan(0);
       expect(later.some((s) => s.messages.some((m) => m.method === "icinga::Hello"))).toBe(false);
+    });
+  },
+);
+
+describeWithModules("IcingaAgent", "CheckHelpers")(
+  "IcingaAgent: trusting the parent on the first connection",
+  () => {
+    let master: FakeIcingaMaster;
+    let port: number;
+    let masterFingerprint: string;
+    let nscp: NscpInstance | undefined;
+
+    beforeAll(async () => {
+      const pki = generateCertChain({
+        outDir: fs.mkdtempSync(path.join(os.tmpdir(), "icinga-master-pki-")),
+        caCommonName: "Icinga CA",
+        signed: { master: { commonName: PARENT, isServer: true } },
+      });
+      master = new FakeIcingaMaster(pki);
+      port = await master.listen("master");
+      // What `openssl x509 -noout -fingerprint -sha256` prints, colons and all.
+      masterFingerprint = new crypto.X509Certificate(pki.signed.master.certPem).fingerprint256;
+    });
+
+    afterEach(async () => {
+      await nscp?.stop();
+      nscp = undefined;
+    });
+
+    afterAll(async () => {
+      await master?.close();
+    });
+
+    /** A fresh agent - no certificates yet - with these settings on top of the basics. */
+    async function freshAgent(
+      settings: Record<string, string>,
+      preinstallCa = false,
+    ): Promise<{ agent: NscpInstance; certDir: string }> {
+      const agent = new NscpInstance();
+      const certDir = path.join(agent.workDir, "icinga-certs");
+      if (preinstallCa) {
+        fs.mkdirSync(certDir, { recursive: true });
+        fs.writeFileSync(path.join(certDir, "ca.crt"), master.pki.ca.certPem);
+      }
+      await agent.configure({
+        "/modules": { IcingaAgent: "enabled", CheckHelpers: "enabled" },
+        "/settings/log": { level: "debug" },
+        "/settings/Icinga/agent": {
+          "parent host": "127.0.0.1",
+          "parent port": String(port),
+          "parent endpoint": PARENT,
+          "endpoint name": AGENT,
+          "certificate directory": certDir,
+          ...settings,
+        },
+      });
+      nscp = agent;
+      agent.start();
+      return { agent, certDir };
+    }
+
+    it("runs checks on the first connection when the parent's fingerprint is pinned", async () => {
+      const before = master.sessions.length;
+      await freshAgent({ "parent fingerprint": masterFingerprint });
+      const session = await master.waitForSession((s) => master.sessions.indexOf(s) >= before);
+      expect(session.authorized).toBe(false); // the agent still has only its bootstrap certificate
+      await session.waitFor("icinga::Hello");
+      const cr = await session.execute("pinned", "check_ok", { ifw_api_command: "check_ok" });
+      expect(cr.exit_status).toBe(0);
+    });
+
+    it("refuses a parent whose certificate does not match the pin", async () => {
+      const before = master.sessions.length;
+      const { agent } = await freshAgent({ "parent fingerprint": "00".repeat(32) });
+      await waitForLog(agent, "not the pinned `parent fingerprint`");
+      const later = master.sessions.slice(before);
+      expect(later.some((s) => s.messages.some((m) => m.method === "icinga::Hello"))).toBe(false);
+    });
+
+    it("verifies the parent from the first connection when ca.crt is installed up front", async () => {
+      const before = master.sessions.length;
+      const { agent } = await freshAgent({}, true);
+      const session = await master.waitForSession((s) => master.sessions.indexOf(s) >= before);
+      await session.waitFor("icinga::Hello");
+      const cr = await session.execute("preinstalled", "check_ok", { ifw_api_command: "check_ok" });
+      expect(cr.exit_status).toBe(0);
+      expect(agent.capturedStdout()).not.toContain("NOT verified");
+    });
+
+    it("does not connect at all with trust on first use off and nothing to verify against", async () => {
+      const before = master.sessions.length;
+      const { agent } = await freshAgent({ "trust on first use": "false" });
+      await waitForLog(agent, "`trust on first use` is off: not connecting");
+      await sleep(1_000);
+      expect(master.sessions.length).toBe(before);
+    });
+
+    it("refuses a parent fingerprint that is not one", async () => {
+      const before = master.sessions.length;
+      const { agent } = await freshAgent({ "parent fingerprint": "not-a-fingerprint" });
+      await waitForLog(agent, "is not a SHA-256 certificate fingerprint");
+      await sleep(1_000);
+      expect(master.sessions.length).toBe(before);
     });
   },
 );
