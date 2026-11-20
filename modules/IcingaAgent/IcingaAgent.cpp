@@ -5,6 +5,7 @@
 
 #include <config.h>
 
+#include <atomic>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -81,17 +82,19 @@ class agent : public std::enable_shared_from_this<agent> {
           "icinga agent checks", [self]() { threads::run_io_context_guarded("icinga agent checks", self->check_io_, NSC_THREAD_REPORTER); },
           NSC_THREAD_REPORTER));
     }
-    asio::post(net_io_, [self]() { self->connect(); });
+    const std::weak_ptr<agent> weak = self;
+    asio::post(net_io_, [weak]() {
+      if (const auto me = weak.lock()) me->connect();
+    });
   }
 
+  // Only the threads own the agent (through `self` above). Every handler and
+  // connection callback holds a weak_ptr instead: a handler still queued when
+  // the loops stop would otherwise keep the agent alive from inside the
+  // io_context the agent itself owns, and so would the connection through its
+  // callbacks.
   void stop() {
-    auto self = shared_from_this();
-    asio::post(net_io_, [self]() {
-      self->stopping_ = true;
-      self->reconnect_timer_.cancel();
-      if (self->connection_) self->connection_->close("Agent is stopping");
-      self->connection_.reset();
-    });
+    stopping_ = true;
     net_work_.reset();
     check_work_.reset();
     // Long-running checks are not interrupted; stop the loops and wait.
@@ -101,6 +104,12 @@ class agent : public std::enable_shared_from_this<agent> {
       if (t && t->joinable()) t->join();
     }
     threads_.clear();
+    // The threads are gone, so nothing else touches the connection: close it
+    // here rather than in a handler posted to a loop that is being stopped,
+    // which may never run and would leave the socket open to the parent.
+    reconnect_timer_.cancel();
+    if (connection_) connection_->close("Agent is stopping");
+    connection_.reset();
   }
 
  private:
@@ -160,16 +169,29 @@ class agent : public std::enable_shared_from_this<agent> {
       NSC_LOG_MESSAGE("Icinga agent: connecting with a self-signed certificate for '" + config_.endpoint_name + "' to request a signed one" +
                       (config_.connection.ticket.empty() ? " (no ticket: sign it on the master with `icinga2 ca sign`)" : ""));
     }
-    auto self = shared_from_this();
+    const std::weak_ptr<agent> weak = shared_from_this();
     connection::callbacks cb;
     cb.log_info = [](const std::string &m) { NSC_LOG_MESSAGE("Icinga agent: " + m); };
     cb.log_error = [](const std::string &m) { NSC_LOG_ERROR("Icinga agent: " + m); };
     cb.log_debug = [](const std::string &m) { NSC_DEBUG_MSG("Icinga agent: " + m); };
-    cb.execute = [self](std::shared_ptr<connection> conn, const boost::json::value &params) {
-      asio::post(self->check_io_, [self, conn, params]() { self->execute(conn, params); });
+    cb.execute = [weak](std::shared_ptr<connection> conn, const boost::json::value &params) {
+      const auto me = weak.lock();
+      if (!me) return;
+      asio::post(me->check_io_, [weak, conn, params]() {
+        if (const auto agent = weak.lock()) agent->execute(conn, params);
+      });
     };
-    cb.update_certificate = [self](const boost::json::value &params) { return self->update_certificate(params); };
-    cb.closed = [self]() { asio::post(self->net_io_, [self]() { self->schedule_reconnect(); }); };
+    cb.update_certificate = [weak](const boost::json::value &params) {
+      const auto me = weak.lock();
+      return me && me->update_certificate(params);
+    };
+    cb.closed = [weak]() {
+      const auto me = weak.lock();
+      if (!me) return;
+      asio::post(me->net_io_, [weak]() {
+        if (const auto agent = weak.lock()) agent->schedule_reconnect();
+      });
+    };
     connection_ = std::make_shared<connection>(net_io_, *ssl_, config_.connection, std::move(cb));
     connection_->start();
   }
@@ -177,9 +199,10 @@ class agent : public std::enable_shared_from_this<agent> {
   void schedule_reconnect() {
     if (stopping_) return;
     reconnect_timer_.expires_after(std::chrono::seconds(config_.reconnect_seconds));
-    auto self = shared_from_this();
-    reconnect_timer_.async_wait([self](const boost::system::error_code &ec) {
-      if (!ec) self->connect();
+    const std::weak_ptr<agent> weak = shared_from_this();
+    reconnect_timer_.async_wait([weak](const boost::system::error_code &ec) {
+      if (ec) return;
+      if (const auto me = weak.lock()) me->connect();
     });
   }
 
@@ -254,7 +277,8 @@ class agent : public std::enable_shared_from_this<agent> {
   std::shared_ptr<asio::ssl::context> ssl_;
   std::shared_ptr<connection> connection_;
   std::list<std::shared_ptr<boost::thread>> threads_;
-  bool stopping_ = false;
+  // Set by stop() on the caller's thread, read on the connection thread.
+  std::atomic<bool> stopping_{false};
   bool refusal_logged_ = false;
 };
 
@@ -368,7 +392,6 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
       return true;
     }
   }
-  boost::to_lower(config.endpoint_name);
   config.connection.agent_version = std::string("NSClient++/") + STRPRODUCTVER;
   if (config.threads < 1) config.threads = 1;
   try {

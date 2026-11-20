@@ -556,6 +556,33 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(master.sessions.length).toBe(before);
     });
 
+    it("keeps a configured endpoint name as written", async () => {
+      // Icinga endpoint names and tickets are case-sensitive: only the
+      // host-name default is lower-cased, never what the operator wrote.
+      const name = "Nscp-Agent-MixedCase";
+      const before = master.sessions.length;
+      const { certDir } = await freshAgent({ "endpoint name": name });
+      const session = await master.waitForSession((s) => master.sessions.indexOf(s) >= before);
+      await session.waitFor("icinga::Hello");
+      expect(session.peerCn).toBe(name);
+      // Read the directory rather than stat the path: Windows and macOS
+      // filesystems would find a lower-cased file under this name too.
+      expect(fs.readdirSync(certDir)).toContain(`${name}.key`);
+    });
+
+    it("closes the connection to the parent when it stops", async () => {
+      const before = master.sessions.length;
+      const { agent } = await freshAgent({});
+      const session = await master.waitForSession((s) => master.sessions.indexOf(s) >= before);
+      await session.waitFor("icinga::Hello");
+      await agent.stop();
+      nscp = undefined;
+      // Closed by the agent itself, not by the process going away: a reload
+      // stops the agent the same way and must not leave the old socket open.
+      expect(agent.capturedStdout()).toContain("Agent is stopping");
+      expect(session.closed).toBe(true);
+    });
+
     it("refuses a parent fingerprint that is not one", async () => {
       const before = master.sessions.length;
       const { agent } = await freshAgent({ "parent fingerprint": "not-a-fingerprint" });
