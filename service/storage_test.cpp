@@ -5,6 +5,15 @@
 // reach it through (storage_query_handler). The store is what keeps module
 // state - the WEB server's session table among it - across restarts, so the
 // on-disk round trip is the part worth pinning down.
+//
+// Stored entries are owned by the module that wrote them: the handler resolves
+// the request's plugin_id to the plugin's alias or module name and keys the
+// entry by it. It used to read the request's `id` instead, which nobody sets,
+// so every module resolved to the plugin with id 0 and they all shared one
+// namespace - the WEB server's session table could be overwritten by any other
+// module storing "web.sessions"/"sessions". A file written by such an agent
+// (version < 2) is loaded under a legacy owner, and each module claims its own
+// contexts from it on its first read.
 
 #include <gtest/gtest.h>
 
@@ -12,17 +21,64 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <nscapi/protobuf/io.hpp>
+#include <nscapi/protobuf/storage.hpp>
 #include <nsclient/logger/logger.hpp>
+#include <settings/test_helpers.hpp>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "path_manager.hpp"
+#include "plugins/plugin_interface.hpp"
 #include "plugins/plugin_manager.hpp"
 #include "plugins/zip_test_writer.hpp"
 #include "storage_manager.hpp"
 #include "storage_query_handler.hpp"
 
 namespace {
+
+// A loaded module, as far as storage can tell: an id, a module name and an
+// optional alias. Nothing else is ever called on it.
+class storage_test_plugin : public nsclient::core::plugin_interface {
+ public:
+  storage_test_plugin(unsigned int id, std::string module, std::string alias = "") : plugin_interface(id, std::move(alias)), module_(std::move(module)) {}
+
+  bool load_plugin(NSCAPI::moduleLoadMode) override { return true; }
+  bool has_start() override { return false; }
+  bool start_plugin() override { return true; }
+  bool has_prepare_shutdown() override { return false; }
+  void prepare_shutdown_plugin() override {}
+  void unload_plugin() override {}
+  std::string getName() override { return module_; }
+  std::string getDescription() override { return module_; }
+  std::string get_version() override { return "1.0.0"; }
+  bool hasCommandHandler() override { return false; }
+  NSCAPI::nagiosReturn handleCommand(std::string, std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool hasNotificationHandler() override { return false; }
+  NSCAPI::nagiosReturn handleNotification(const char *, std::string &, std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  NSCAPI::nagiosReturn handle_schedule(const std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool hasMessageHandler() override { return false; }
+  void handleMessage(const char *, unsigned int) override {}
+  bool has_on_event() override { return false; }
+  NSCAPI::nagiosReturn on_event(const std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool hasMetricsFetcher() override { return false; }
+  NSCAPI::nagiosReturn fetchMetrics(std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool hasFactsFetcher() override { return false; }
+  NSCAPI::nagiosReturn fetchFacts(const std::string &, std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool hasMetricsSubmitter() override { return false; }
+  NSCAPI::nagiosReturn submitMetrics(const std::string &) override { return NSCAPI::cmd_return_codes::returnIgnored; }
+  bool has_command_line_exec() override { return false; }
+  int commandLineExec(bool, std::string &, std::string &) override { return 0; }
+  bool has_routing_handler() override { return false; }
+  bool route_message(const char *, const char *, unsigned int, char **, char **, unsigned int *) override { return false; }
+  bool is_duplicate(boost::filesystem::path, std::string) override { return false; }
+  std::string getModule() override { return module_; }
+  void on_log_message(const std::string &) override {}
+
+ private:
+  std::string module_;
+};
 
 // Records error lines so a test can tell a quiet success from a logged failure.
 class recording_logger : public nsclient::logging::logger {
@@ -244,20 +300,26 @@ TEST_F(StorageTest, save_into_an_unwritable_location_is_logged_not_thrown) {
 
 // ===== storage_query_handler ================================================
 //
-// Most of these load no module, so every request resolves to the unnamed
-// owner: what they check is the dispatch. The last ones load a zip bundle so a
-// request can name a real plugin.
+// Most of these come from a mock plugin put straight into the plugin list
+// (module "plugin", id kOwnerId): what they check is the dispatch. The last
+// ones load a zip bundle so a request can name a plugin loaded the real way.
 
 namespace {
+// Well clear of the ids the plugin list hands out (from 0), so a bundle loaded
+// by the same test cannot collide with it.
+constexpr int kOwnerId = 100;
+
 PB::Storage::StorageRequestMessage::Request *add_put(PB::Storage::StorageRequestMessage &msg, const std::string &context, const std::string &key,
                                                      const std::string &value, bool flush = false) {
   auto *r = msg.add_payload();
+  r->set_plugin_id(kOwnerId);
   r->mutable_put()->mutable_entry()->CopyFrom(make_entry(context, key, value));
   r->mutable_put()->set_flush(flush);
   return r;
 }
 PB::Storage::StorageRequestMessage::Request *add_get(PB::Storage::StorageRequestMessage &msg, const std::string &context) {
   auto *r = msg.add_payload();
+  r->set_plugin_id(kOwnerId);
   r->mutable_get()->set_context(context);
   return r;
 }
@@ -271,6 +333,7 @@ class StorageQueryHandlerTest : public StorageTest {
   void SetUp() override {
     StorageTest::SetUp();
     plugins_ = std::make_shared<nsclient::core::plugin_manager>(path_, logger_);
+    plugins_->get_plugin_list()->append_plugin(std::make_shared<storage_test_plugin>(kOwnerId, "plugin"));
     store_ = make_store();
   }
 
@@ -289,7 +352,7 @@ TEST_F(StorageQueryHandlerTest, put_stores_the_entry_and_answers_nothing) {
 
   EXPECT_EQ(0, response.payload_size());
   const std::map<std::string, std::string> expected{{"key", "value"}};
-  EXPECT_EQ(expected, as_map(store_->get("", "ctx")));
+  EXPECT_EQ(expected, as_map(store_->get("plugin", "ctx")));
 }
 
 TEST_F(StorageQueryHandlerTest, put_without_flush_does_not_write_to_disk) {
@@ -308,13 +371,13 @@ TEST_F(StorageQueryHandlerTest, put_with_flush_writes_the_store_to_disk) {
   auto loaded = make_store();
   loaded->load();
   const std::map<std::string, std::string> expected{{"key", "value"}};
-  EXPECT_EQ(expected, as_map(loaded->get("", "ctx")));
+  EXPECT_EQ(expected, as_map(loaded->get("plugin", "ctx")));
 }
 
 TEST_F(StorageQueryHandlerTest, get_answers_one_payload_with_every_entry_in_the_context) {
-  store_->put("", make_entry("ctx", "a", "1"));
-  store_->put("", make_entry("ctx", "b", "2"));
-  store_->put("", make_entry("other", "c", "3"));
+  store_->put("plugin", make_entry("ctx", "a", "1"));
+  store_->put("plugin", make_entry("ctx", "b", "2"));
+  store_->put("plugin", make_entry("other", "c", "3"));
 
   PB::Storage::StorageRequestMessage request;
   add_get(request, "ctx");
@@ -363,9 +426,8 @@ TEST_F(StorageQueryHandlerTest, a_request_with_neither_get_nor_put_is_logged_and
 
 namespace {
 // Load a zip bundle so there is a real plugin for a request to name, and
-// return its id. Both `id` and `plugin_id` are set on requests built from it:
-// the handler currently reads the former, the module-side helper fills in the
-// latter, and the test should not care which one wins.
+// return its id. The handler reads `plugin_id`, which the module-side helper
+// fills in on every get and put.
 unsigned int load_bundle(const nsclient::core::plugin_mgr_instance &plugins, const boost::filesystem::path &dir, const std::string &name) {
   const boost::filesystem::path modules = dir / "modules";
   boost::filesystem::create_directories(modules);
@@ -386,20 +448,290 @@ TEST_F(StorageQueryHandlerTest, a_request_from_a_loaded_module_is_stored_under_i
 
   PB::Storage::StorageRequestMessage put;
   auto *r = add_put(put, "ctx", "key", "value");
-  r->set_id(id);
   r->set_plugin_id(static_cast<int>(id));
   run(put);
 
   const std::map<std::string, std::string> expected{{"key", "value"}};
   EXPECT_EQ(expected, as_map(store_->get("bundle", "ctx")));
-  EXPECT_TRUE(store_->get("", "ctx").empty());
+  EXPECT_TRUE(store_->get("plugin", "ctx").empty());
 
   PB::Storage::StorageRequestMessage get;
   auto *g = add_get(get, "ctx");
-  g->set_id(id);
   g->set_plugin_id(static_cast<int>(id));
   const auto response = run(get);
   ASSERT_EQ(1, response.payload_size());
   ASSERT_EQ(1, response.payload(0).get().entry_size());
   EXPECT_EQ("value", response.payload(0).get().entry(0).value());
 }
+
+// ===== ownership and the legacy layout ======================================
+
+namespace {
+
+template <typename T>
+void write_chunk(::google::protobuf::io::CodedOutputStream &stream, const T &obj) {
+  const std::string tmp = obj.SerializeAsString();
+  stream.WriteVarint32(static_cast<uint32_t>(tmp.size()));
+  stream.WriteString(tmp);
+}
+
+template <typename T>
+bool read_chunk(::google::protobuf::io::CodedInputStream &stream, T &obj) {
+  uint32_t size = 0;
+  if (!stream.ReadVarint32(&size)) return false;
+  std::string tmp;
+  if (!stream.ReadString(&tmp, size)) return false;
+  return obj.ParseFromString(tmp);
+}
+
+struct stored_block {
+  std::string owner;
+  std::string context;
+  std::string key;
+  std::string value;
+};
+
+class StorageOwnerTest : public ::testing::Test {
+ protected:
+  settings_test::temp_dir dir_;
+  nsclient::logging::logger_instance logger_ = settings_test::make_null_logger();
+  nsclient::core::path_instance paths_;
+  nsclient::core::plugin_mgr_instance plugins_;
+  nsclient::core::storage_manager_instance storage_;
+
+  // Ids as the real plugin list hands them out: the first module loaded gets
+  // 0, which is exactly the id an unset `id` field resolved to.
+  static constexpr int kSystem = 0;     // CheckSystem
+  static constexpr int kWeb = 1;        // WEBServer
+  static constexpr int kLogA = 2;       // CheckLogFile, alias "logs_a"
+  static constexpr int kLogB = 3;       // CheckLogFile, alias "logs_b"
+  static constexpr int kUnknown = 42;   // not loaded
+
+  void SetUp() override {
+    paths_ = std::make_shared<nsclient::core::path_manager>(logger_);
+    paths_->set_overrides({{"data-path", dir_.string()}});
+    plugins_ = std::make_shared<nsclient::core::plugin_manager>(paths_, logger_);
+    plugins_->get_plugin_list()->append_plugin(std::make_shared<storage_test_plugin>(kSystem, "CheckSystem"));
+    plugins_->get_plugin_list()->append_plugin(std::make_shared<storage_test_plugin>(kWeb, "WEBServer"));
+    plugins_->get_plugin_list()->append_plugin(std::make_shared<storage_test_plugin>(kLogA, "CheckLogFile", "logs_a"));
+    plugins_->get_plugin_list()->append_plugin(std::make_shared<storage_test_plugin>(kLogB, "CheckLogFile", "logs_b"));
+    storage_ = std::make_shared<nsclient::core::storage_manager>(paths_, logger_);
+  }
+
+  void TearDown() override {
+    storage_.reset();
+    plugins_.reset();
+  }
+
+  boost::filesystem::path db() const { return dir_.file("nsclient.db"); }
+
+  PB::Storage::StorageResponseMessage run(const PB::Storage::StorageRequestMessage &request) {
+    PB::Storage::StorageResponseMessage response;
+    nsclient::core::storage_query_handler(storage_, plugins_, logger_, request).parse(response);
+    return response;
+  }
+
+  // What nscapi::core_helper::put_storage sends.
+  PB::Storage::StorageResponseMessage put(int plugin_id, const std::string &context, const std::string &key, const std::string &value, bool flush = false) {
+    PB::Storage::StorageRequestMessage request;
+    auto *payload = request.add_payload();
+    payload->set_plugin_id(plugin_id);
+    payload->mutable_put()->mutable_entry()->set_context(context);
+    payload->mutable_put()->mutable_entry()->set_key(key);
+    payload->mutable_put()->mutable_entry()->set_value(value);
+    payload->mutable_put()->set_flush(flush);
+    return run(request);
+  }
+
+  // What nscapi::core_helper::get_storage_strings sends.
+  PB::Storage::StorageResponseMessage get_raw(int plugin_id, const std::string &context) {
+    PB::Storage::StorageRequestMessage request;
+    auto *payload = request.add_payload();
+    payload->set_plugin_id(plugin_id);
+    payload->mutable_get()->set_context(context);
+    return run(request);
+  }
+
+  // key -> value, the way get_storage_strings hands it to a module.
+  std::map<std::string, std::string> get(int plugin_id, const std::string &context) {
+    std::map<std::string, std::string> ret;
+    const PB::Storage::StorageResponseMessage response = get_raw(plugin_id, context);
+    EXPECT_EQ(1, response.payload_size());
+    for (const auto &p : response.payload()) {
+      EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_OK, p.result().code()) << p.result().message();
+      for (const auto &e : p.get().entry()) ret[e.key()] = e.value();
+    }
+    return ret;
+  }
+
+  // An nsclient.db as an agent without per-module owners wrote it: version 1,
+  // and every entry owned by whatever plugin had id 0 at the time.
+  void write_legacy_db(const std::vector<stored_block> &blocks) {
+    std::ofstream out(db().string().c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+    {
+      ::google::protobuf::io::OstreamOutputStream raw(&out);
+      ::google::protobuf::io::CodedOutputStream coded(&raw);
+      ::PB::Storage::Storage::File header;
+      header.set_version(1);
+      header.set_entries(static_cast<long long>(blocks.size()));
+      write_chunk(coded, header);
+      for (const stored_block &b : blocks) {
+        ::PB::Storage::Storage::Block block;
+        block.set_owner(b.owner);
+        block.mutable_entry()->set_context(b.context);
+        block.mutable_entry()->set_key(b.key);
+        block.mutable_entry()->set_value(b.value);
+        write_chunk(coded, block);
+      }
+    }
+  }
+
+  // The file on disk, as written: its header version and its blocks.
+  long long read_db(std::vector<stored_block> &blocks) {
+    std::ifstream in(db().string().c_str(), std::ios::in | std::ios::binary);
+    ::google::protobuf::io::IstreamInputStream raw(&in);
+    ::google::protobuf::io::CodedInputStream coded(&raw);
+    ::PB::Storage::Storage::File header;
+    EXPECT_TRUE(read_chunk(coded, header));
+    for (long long i = 0; i < header.entries(); i++) {
+      ::PB::Storage::Storage::Block block;
+      EXPECT_TRUE(read_chunk(coded, block));
+      blocks.push_back({block.owner(), block.entry().context(), block.entry().key(), block.entry().value()});
+    }
+    return header.version();
+  }
+
+  void reload() {
+    storage_ = std::make_shared<nsclient::core::storage_manager>(paths_, logger_);
+    storage_->load();
+  }
+};
+
+TEST_F(StorageOwnerTest, modules_storing_the_same_context_and_key_do_not_overwrite_each_other) {
+  put(kWeb, "web.sessions", "sessions", "web-state");
+  put(kSystem, "web.sessions", "sessions", "something-else");
+
+  EXPECT_EQ((std::map<std::string, std::string>{{"sessions", "web-state"}}), get(kWeb, "web.sessions"));
+  EXPECT_EQ((std::map<std::string, std::string>{{"sessions", "something-else"}}), get(kSystem, "web.sessions"));
+}
+
+TEST_F(StorageOwnerTest, the_first_plugin_loaded_is_not_everyones_owner) {
+  // Plugin id 0 is a real plugin, and the id the old handler always used.
+  // Writing as id 1 must not be visible to id 0.
+  put(kWeb, "web.sessions", "sessions", "web-state");
+  EXPECT_TRUE(get(kSystem, "web.sessions").empty());
+}
+
+TEST_F(StorageOwnerTest, two_instances_of_one_module_are_kept_apart_by_alias) {
+  put(kLogA, "logfile.bookmarks", "/var/log/a", "100");
+  put(kLogB, "logfile.bookmarks", "/var/log/b", "200");
+
+  EXPECT_EQ((std::map<std::string, std::string>{{"/var/log/a", "100"}}), get(kLogA, "logfile.bookmarks"));
+  EXPECT_EQ((std::map<std::string, std::string>{{"/var/log/b", "200"}}), get(kLogB, "logfile.bookmarks"));
+}
+
+TEST_F(StorageOwnerTest, entries_are_saved_under_the_owning_module) {
+  put(kWeb, "web.sessions", "sessions", "web-state", true);  // flush writes it now
+
+  std::vector<stored_block> blocks;
+  EXPECT_EQ(2, read_db(blocks));
+  ASSERT_EQ(1u, blocks.size());
+  EXPECT_EQ("WEBServer", blocks[0].owner);
+  EXPECT_EQ("web-state", blocks[0].value);
+
+  reload();
+  EXPECT_EQ((std::map<std::string, std::string>{{"sessions", "web-state"}}), get(kWeb, "web.sessions"));
+  EXPECT_TRUE(get(kSystem, "web.sessions").empty());
+}
+
+TEST_F(StorageOwnerTest, an_unknown_plugin_id_is_refused) {
+  const PB::Storage::StorageResponseMessage put_response = put(kUnknown, "web.sessions", "sessions", "stolen");
+  ASSERT_EQ(1, put_response.payload_size());
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, put_response.payload(0).result().code());
+
+  const PB::Storage::StorageResponseMessage get_response = get_raw(kUnknown, "web.sessions");
+  ASSERT_EQ(1, get_response.payload_size());
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, get_response.payload(0).result().code());
+  EXPECT_EQ(0, get_response.payload(0).get().entry_size());
+
+  storage_->save();
+  EXPECT_FALSE(boost::filesystem::exists(db()));
+}
+
+TEST_F(StorageOwnerTest, an_unknown_plugin_cannot_read_unclaimed_legacy_entries) {
+  write_legacy_db({{"CheckSystem", "web.sessions", "sessions", "old-web-state"}});
+  reload();
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_ERROR, get_raw(kUnknown, "web.sessions").payload(0).result().code());
+  EXPECT_EQ((std::map<std::string, std::string>{{"sessions", "old-web-state"}}), get(kWeb, "web.sessions"));
+}
+
+TEST_F(StorageOwnerTest, a_legacy_file_is_claimed_by_the_first_module_to_read_each_context) {
+  // As an older agent left it: everything owned by the plugin that had id 0
+  // (here CheckSystem), whichever module actually wrote it.
+  write_legacy_db({
+      {"CheckSystem", "web.sessions", "sessions", "old-web-state"},
+      {"CheckSystem", "disk.trends", "C:", "trend"},
+      {"", "logfile.bookmarks", "/var/log/a", "100"},
+  });
+  reload();
+
+  EXPECT_EQ((std::map<std::string, std::string>{{"sessions", "old-web-state"}}), get(kWeb, "web.sessions"));
+  // Moved, not copied: another module reading the same context gets nothing.
+  EXPECT_TRUE(get(kSystem, "web.sessions").empty());
+  // ...and the module that claimed it still has it on the next read.
+  EXPECT_EQ((std::map<std::string, std::string>{{"sessions", "old-web-state"}}), get(kWeb, "web.sessions"));
+  // The owner on disk does not matter: an entry written under "" is claimed
+  // the same way.
+  EXPECT_EQ((std::map<std::string, std::string>{{"/var/log/a", "100"}}), get(kLogA, "logfile.bookmarks"));
+
+  storage_->save();
+  std::vector<stored_block> blocks;
+  EXPECT_EQ(2, read_db(blocks));
+  std::map<std::string, std::string> owners;  // context -> owner
+  for (const stored_block &b : blocks) owners[b.context] = b.owner;
+  EXPECT_EQ("WEBServer", owners["web.sessions"]);
+  EXPECT_EQ("logs_a", owners["logfile.bookmarks"]);
+  // Nobody has read disk.trends yet, so it is still waiting to be claimed,
+  // and survives the save.
+  EXPECT_EQ("", owners["disk.trends"]);
+  EXPECT_EQ(3u, blocks.size());
+
+  // A version 2 file is taken at its word: the owners are real, nothing is
+  // re-read as legacy.
+  reload();
+  EXPECT_TRUE(get(kSystem, "web.sessions").empty());
+  EXPECT_EQ((std::map<std::string, std::string>{{"sessions", "old-web-state"}}), get(kWeb, "web.sessions"));
+  EXPECT_EQ((std::map<std::string, std::string>{{"C:", "trend"}}), get(kSystem, "disk.trends"));
+}
+
+TEST_F(StorageOwnerTest, a_module_with_state_of_its_own_does_not_take_legacy_entries) {
+  write_legacy_db({{"CheckSystem", "web.sessions", "sessions", "old-web-state"}});
+  reload();
+
+  put(kWeb, "web.sessions", "sessions", "new-web-state");
+  EXPECT_EQ((std::map<std::string, std::string>{{"sessions", "new-web-state"}}), get(kWeb, "web.sessions"));
+}
+
+TEST_F(StorageOwnerTest, a_legacy_file_is_rewritten_in_the_new_layout_even_before_anything_is_claimed) {
+  write_legacy_db({{"CheckSystem", "web.sessions", "sessions", "old-web-state"}});
+  reload();
+  storage_->save();
+
+  std::vector<stored_block> blocks;
+  EXPECT_EQ(2, read_db(blocks));
+  ASSERT_EQ(1u, blocks.size());
+  EXPECT_EQ("", blocks[0].owner);
+}
+
+TEST_F(StorageOwnerTest, claiming_a_context_does_not_take_a_longer_context_it_is_a_prefix_of) {
+  write_legacy_db({
+      {"CheckSystem", "disk", "a", "1"},
+      {"CheckSystem", "disk.trends", "C:", "trend"},
+  });
+  reload();
+
+  EXPECT_EQ((std::map<std::string, std::string>{{"a", "1"}}), get(kWeb, "disk"));
+  EXPECT_EQ((std::map<std::string, std::string>{{"C:", "trend"}}), get(kSystem, "disk.trends"));
+}
+
+}  // namespace

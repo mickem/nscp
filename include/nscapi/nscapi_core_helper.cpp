@@ -32,6 +32,9 @@ nscapi::core_helper::storage_map nscapi::core_helper::get_storage_strings(std::s
   PB::Storage::StorageRequestMessage rrm;
   PB::Storage::StorageRequestMessage::Request *payload = rrm.add_payload();
 
+  // The core keys stored entries by the module that owns them, so a get has
+  // to say who is asking just as a put does.
+  payload->set_plugin_id(plugin_id_);
   payload->mutable_get()->set_context(context);
   std::string buffer;
   get_core()->storage_query(rrm.SerializeAsString(), buffer);
@@ -40,7 +43,7 @@ nscapi::core_helper::storage_map nscapi::core_helper::get_storage_strings(std::s
   resp_msg.ParseFromString(buffer);
   for (const ::PB::Storage::StorageResponseMessage::Response &response_payload : resp_msg.payload()) {
     if (response_payload.result().code() != PB::Common::Result_StatusCodeType_STATUS_OK) {
-      CORE_LOG_ERROR("Failed to store data " + context + ": " + response_payload.result().message());
+      CORE_LOG_ERROR("Failed to read stored data " + context + ": " + response_payload.result().message());
     } else {
       add_entry(response_payload.get(), ret);
     }
