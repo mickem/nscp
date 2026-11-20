@@ -14,7 +14,10 @@
  *  - the time of the last report is kept in applied-state.json, so a restart
  *    inside the interval sends nothing;
  *  - the diagnostics snapshot rides on the same opt-in, as a `diagnostics`
- *    object beside `context`.
+ *    object beside `context`;
+ *  - a report refused as too large (413) is given up on; any other report
+ *    that does not land - an error status, a missing route, a cut connection -
+ *    is paced, said once, and never re-sent on every poll.
  *
  * Failures are produced by running CheckHelpers' check_critical / check_warning
  * over REST, so their number is exact. The fake server speaks plain http, like
@@ -56,6 +59,12 @@ describe("fleet failure-context reports", () => {
    * restarted agent only learns the 1s poll interval from a body.
    */
   let fullAnswers = 0;
+  /**
+   * What the fake server does with a report: the status it answers with, any
+   * extra headers, or `reset` to cut the connection without answering.
+   */
+  type ReportAnswer = { status: number; headers?: Record<string, string> } | "reset";
+  let reportAnswer = { status: 202 } as ReportAnswer;
 
   const signingKeys = crypto.generateKeyPairSync("ed25519");
   const signingPubPem = signingKeys.publicKey.export({ type: "spki", format: "pem" }).toString();
@@ -206,8 +215,16 @@ describe("fleet failure-context reports", () => {
             }),
           );
         } else if (req.method === "POST" && parsed.pathname === "/agent/v1/failure-context") {
-          res.writeHead(202, { "Content-Type": "application/json" });
-          res.end("{}");
+          if (reportAnswer === "reset") {
+            // A proxy that passes the small calls and resets the large POST.
+            req.socket.destroy();
+            return;
+          }
+          res.writeHead(reportAnswer.status, {
+            "Content-Type": "application/json",
+            ...(reportAnswer.headers ?? {}),
+          });
+          res.end(reportAnswer.status < 300 ? "{}" : JSON.stringify({ error: "refused" }));
         } else if (
           parsed.pathname === "/agent/v1/heartbeat" ||
           parsed.pathname === "/agent/v1/state-report" ||
@@ -338,5 +355,87 @@ describe("fleet failure-context reports", () => {
     await new Promise((r) => setTimeout(r, (INTERVAL_SECONDS + 3) * 1000));
     await settle(2);
     expect(reports().length).toBe(before);
+  });
+
+  const said = (line: string) => nscp.capturedStdout().split(line).length - 1;
+
+  it("gives up on a report the server refuses as too large, and moves on to the next failure", async () => {
+    // "unheard" is still waiting from the case above, and the interval since
+    // the last report has long passed: it goes as soon as the server asks.
+    const before = reports().length;
+    reportAnswer = { status: 413 };
+    advertise = true;
+    await waitFor("the refused report", () => reports().length > before);
+    expect(reports()[before].body.failure.message).toEqual("unheard");
+    await waitFor("the too-large log line", () => said("refused a failure report as too large") > 0);
+    // It would be too large every time, so it is not sent again ...
+    await settle(4);
+    expect(reports()).toHaveLength(before + 1);
+    expect(said("refused a failure report as too large")).toBe(1);
+
+    // ... and it does not hold up the next failure, which is reported on its
+    // own: the one given up on is not summarised into it either.
+    reportAnswer = { status: 202 };
+    await run("check_critical", "after-too-large");
+    await waitFor("the next report", () => reports().length > before + 1);
+    const next = reports()[before + 1];
+    expect(next.body.failure.message).toEqual("after-too-large");
+    expect(next.body.suppressed.count).toBe(0);
+  });
+
+  // A report that does not land is retried a minute later at the earliest
+  // (the pacer's rule, and its unit tests' business), so each case below gets
+  // a fresh agent - a fresh pacer - rather than a minute's wait.
+  const rejections: {
+    what: string;
+    answer: ReportAnswer;
+    logged: RegExp;
+  }[] = [
+    {
+      what: "a server that advertises reports but has no route for them (404)",
+      answer: { status: 404 },
+      logged: /advertises failure reports but has no \/agent\/v1\/failure-context route \(404\)/g,
+    },
+    {
+      what: "a rate limit with a Retry-After (503)",
+      answer: { status: 503, headers: { "Retry-After": "30" } },
+      logged: /Failure report to the fleet server failed: 503 /g,
+    },
+    {
+      what: "a plain server error (500)",
+      answer: { status: 500 },
+      logged: /Failure report to the fleet server failed: 500 /g,
+    },
+    {
+      what: "a connection cut before the answer",
+      answer: "reset",
+      // No status: the transport's own error text follows the colon.
+      logged: /Failure report to the fleet server failed: (?!\d{3} )/g,
+    },
+  ];
+
+  it.each(rejections)("paces the report after $what", async ({ answer, logged }) => {
+    await nscp.stop();
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
+    reportAnswer = answer;
+    advertise = true;
+    await startAgent();
+    const before = reports().length;
+    await run("check_critical", "rejected");
+    // The last report that landed may be less than an interval old.
+    await waitFor(
+      "the rejected report",
+      () => reports().length > before,
+      (INTERVAL_SECONDS + 20) * 1000,
+    );
+    await waitFor("the log line", () => (nscp.capturedStdout().match(logged) ?? []).length > 0);
+    // Every poll since still advertises reports, and none of them brings the
+    // report back: it is not re-sent each turn, nor logged again.
+    await settle(5);
+    expect(reports()).toHaveLength(before + 1);
+    expect((nscp.capturedStdout().match(logged) ?? []).length).toBe(1);
+    // The sync itself is untouched by the report's trouble.
+    expect(nscp.capturedStdout()).not.toContain("connection restored");
+    reportAnswer = { status: 202 };
   });
 });
