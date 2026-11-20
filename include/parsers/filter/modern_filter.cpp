@@ -15,6 +15,11 @@ void error_handler_impl::log_error(const std::string message) {
 void error_handler_impl::log_warning(const std::string message) { NSC_DEBUG_MSG_STD(message); }
 void error_handler_impl::log_debug(const std::string message) { NSC_DEBUG_MSG_STD(message); }
 std::string error_handler_impl::get_errors() const { return error; }
+void error_handler_impl::log_evaluation_error(const std::string &message, const std::string &expression, const std::string &evaluated) {
+  NSC_DEBUG_MSG_STD(message + ": " + evaluated);
+  error = message + " (in: " + expression + ")";
+  ++error_count_;
+}
 
 bool error_handler_impl::is_debug() const { return debug_; }
 void error_handler_impl::set_debug(bool debug) { debug_ = debug; }

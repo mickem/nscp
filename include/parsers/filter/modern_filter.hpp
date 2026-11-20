@@ -247,6 +247,10 @@ class error_handler_impl : public parsers::where::error_handler_interface {
  public:
   explicit error_handler_impl(const bool debug) : debug_(debug), error_count_(0) {}
   void log_error(std::string error) override;
+  // Logs the evaluated tree (debug log only) but keeps, as get_errors(), the
+  // error with the expression as written: that is what reaches a check's
+  // output, so it must not carry the record's values.
+  void log_evaluation_error(const std::string &error, const std::string &expression, const std::string &evaluated) override;
   void log_warning(std::string error) override;
   void log_debug(std::string error) override;
   bool is_debug() const override;
@@ -315,8 +319,27 @@ struct modern_filters {
   };
 
   bool has_evaluation_errors() const { return evaluation_error_count_ > 0; }
-  // The last evaluation error, as the engine logged it (with the expression).
+  // The last evaluation error: the error and the expression as written,
+  // never the record's values.
   std::string get_evaluation_error() const { return evaluation_error_; }
+
+  // What a check reports when its evaluation failed: one line, bounded. The
+  // error text can still quote something from the data - a getter's
+  // exception, a path - so it is capped well inside an NRPE payload.
+  static constexpr std::size_t max_failure_detail = 400;
+  std::string get_evaluation_failure() const {
+    std::string detail = evaluation_error_;
+    for (char &c : detail) {
+      if (c == '\r' || c == '\n' || c == '\t') c = ' ';
+    }
+    if (detail.size() > max_failure_detail) {
+      std::size_t cut = max_failure_detail;
+      // Do not split a UTF-8 sequence: back off over continuation bytes.
+      while (cut > 0 && (static_cast<unsigned char>(detail[cut]) & 0xC0) == 0x80) --cut;
+      detail = detail.substr(0, cut) + "...";
+    }
+    return "Filter evaluation failed: " + detail;
+  }
 
   struct perf_entry {
     std::string label;
@@ -731,15 +754,22 @@ struct modern_filters {
       if (r.is_unsure) force_unsure_seen = true;
       return r.matched && !r.is_unsure;
     };
-    if (engine_crit && (engine_crit->match(context, false) || force_sure_true(engine_crit))) {
+    // A summary-only expression (`count > 5k`) is evaluated right here, once,
+    // and fails the same way a per-record one does. The force-evaluation
+    // above is the one path whose errors are expected and not counted.
+    auto summary_match = [&](filter_engine &engine) -> bool {
+      const evaluation_scope scope(*this);
+      return engine->match(context, false);
+    };
+    if (engine_crit && (summary_match(engine_crit) || force_sure_true(engine_crit))) {
       nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
       summary.move_hits_crit();
       matched = true;
-    } else if (engine_warn && (engine_warn->match(context, false) || force_sure_true(engine_warn))) {
+    } else if (engine_warn && (summary_match(engine_warn) || force_sure_true(engine_warn))) {
       nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
       summary.move_hits_warn();
       matched = true;
-    } else if (engine_ok && engine_ok->match(context, false)) {
+    } else if (engine_ok && summary_match(engine_ok)) {
       // TODO: Unsure of this, should this not re-set matched?
       // What is matched for?
       matched = true;

@@ -43,6 +43,7 @@
 #include <map>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/registry.hpp>
 #include <nscapi/protobuf/settings.hpp>
 #include <string>
@@ -93,7 +94,14 @@ class stub_core {
     registered_paths_.clear();
     registrations_.clear();
     updated_settings_.clear();
+    submissions_.clear();
   }
+
+  // ----- what the module submitted -----------------------------------------
+
+  // Every message submitted to a channel (core_helper::submit_simple_message
+  // and friends), as the core received it. Each is acknowledged as delivered.
+  const std::vector<PB::Commands::SubmitRequestMessage> &submissions() const { return submissions_; }
 
   // ----- configuring what the module reads ---------------------------------
 
@@ -249,6 +257,19 @@ class stub_core {
     (*response)[payload.size()] = '\0';
   }
 
+  static NSCAPI::errorReturn notify(const char *channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+    PB::Commands::SubmitRequestMessage message;
+    message.ParseFromString(std::string(request, request_len));
+    if (message.channel().empty() && channel != nullptr) message.set_channel(channel);
+    instance().submissions_.push_back(message);
+    PB::Commands::SubmitResponseMessage reply;
+    PB::Commands::SubmitResponseMessage::Response *r = reply.add_payload();
+    r->set_command(message.payload_size() > 0 ? message.payload(0).command() : "");
+    r->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+    write_response(reply.SerializeAsString(), response, response_len);
+    return NSCAPI::api_return_codes::isSuccess;
+  }
+
   static NSCAPI::errorReturn settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
     stub_core &self = instance();
     PB::Settings::SettingsRequestMessage req;
@@ -388,6 +409,7 @@ class stub_core {
     if (n == "NSAPIExpandPath") return reinterpret_cast<nscapi::core_api::FUNPTR>(&expand_path);
     if (n == "NSAPIGetApplicationVersionStr") return reinterpret_cast<nscapi::core_api::FUNPTR>(&application_version);
     if (n == "NSAPIDestroyBuffer") return reinterpret_cast<nscapi::core_api::FUNPTR>(&destroy_buffer);
+    if (n == "NSAPINotify") return reinterpret_cast<nscapi::core_api::FUNPTR>(&notify);
     // Everything else (logging above all) stays null, which the wrapper
     // treats as a no-op.
     return nullptr;
@@ -398,6 +420,7 @@ class stub_core {
   std::map<std::string, std::vector<std::string> > keys_;
   std::map<std::string, std::vector<std::string> > sections_;
   std::vector<registered_key> registered_keys_;
+  std::vector<PB::Commands::SubmitRequestMessage> submissions_;
   std::vector<registered_key> updated_settings_;
   std::vector<std::string> registered_paths_;
   // (PB::Registry::ItemType, name) in registration order.

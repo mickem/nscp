@@ -67,7 +67,7 @@ bool engine_filter::match(error_handler error, execution_context_type context, b
   if (!expect_object && require_object(context)) return false;
   value_container v = ast_parser.evaluate(context);
   if (context->has_error()) {
-    error->log_error(context->get_error() + ": " + ast_parser.result_as_tree(context));
+    error->log_evaluation_error(context->get_error(), filter_string, ast_parser.result_as_tree(context));
   }
   if (context->has_warn()) {
     error->log_warning(context->get_warn() + ": " + ast_parser.result_as_tree(context));
@@ -91,7 +91,7 @@ force_match_result engine_filter::match_force(error_handler error, execution_con
   // UNKNOWN rather than silently treating the result as a sure verdict.
   value_container v = ast_parser.evaluate(context);
   if (context->has_error()) {
-    error->log_error(context->get_error() + ": " + ast_parser.result_as_tree(context));
+    error->log_evaluation_error(context->get_error(), filter_string, ast_parser.result_as_tree(context));
   }
   // Suppress warnings here: the lack of an object is intentional in this
   // mode, so per-variable "no object instance" warnings are noise.

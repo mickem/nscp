@@ -106,3 +106,49 @@ TEST(ShadowCopy, UnknownDateGivesNegativeAge) {
   EXPECT_EQ(vols.front().get_newest(), -1);  // no parseable date
   EXPECT_EQ(vols.front().get_newest_date(), "unknown");
 }
+
+// --- the check over volumes already read --------------------------------------
+
+namespace {
+// One volume whose newest copy is `installed`, judged at 2024-01-17 08:30 UTC,
+// with `used` bytes of shadow storage.
+PB::Commands::QueryResponseMessage::Response evaluate_one(const std::string &installed, const std::vector<std::string> &args, long long used = 0) {
+  raw_storage st;
+  st.volume = "Win32_Volume.DeviceID=\"\\\\?\\Volume{v1}\\\"";
+  st.used = used;
+  const volumes_type vols = build_volumes({shadow("\\\\?\\Volume{v1}\\", installed)}, {st}, parse_cim_datetime("20240117083000.000000-000"));
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_shadowcopy");
+  for (const std::string &a : args) request.add_arguments(a);
+  PB::Commands::QueryResponseMessage::Response response;
+  shadowcopy_check::check::evaluate(request, &response, vols);
+  return response;
+}
+std::string message_of(const PB::Commands::QueryResponseMessage::Response &r) { return r.lines_size() > 0 ? r.lines(0).message() : ""; }
+}  // namespace
+
+TEST(ShadowCopyCheck, DefaultThresholdsAreDurations) {
+  // `newest > 26h` / `newest > 50h`. As a plain int keyword the unit was
+  // refused and both compared against 0, so every volume was CRITICAL.
+  const auto fresh = evaluate_one("20240116223000.000000-000", {});  // 10h old
+  EXPECT_EQ(PB::Common::ResultCode::OK, fresh.result()) << message_of(fresh);
+  const auto stale = evaluate_one("20240116023000.000000-000", {});  // 30h old
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, stale.result()) << message_of(stale);
+  const auto old = evaluate_one("20240114203000.000000-000", {});  // 60h old
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, old.result()) << message_of(old);
+}
+
+TEST(ShadowCopyCheck, NewestTakesPlainSecondsAndOtherUnits) {
+  const std::string ten_hours_old = "20240116223000.000000-000";
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, evaluate_one(ten_hours_old, {"warning=none", "critical=newest > 35999"}).result());
+  EXPECT_EQ(PB::Common::ResultCode::OK, evaluate_one(ten_hours_old, {"warning=none", "critical=newest > 36000"}).result());
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, evaluate_one(ten_hours_old, {"warning=none", "critical=newest > 599m"}).result());
+  EXPECT_EQ(PB::Common::ResultCode::OK, evaluate_one(ten_hours_old, {"warning=none", "critical=newest > 1d"}).result());
+}
+
+TEST(ShadowCopyCheck, StorageKeywordsAreByteCounts) {
+  const std::string fresh = "20240116223000.000000-000";
+  const long long three_gib = 3LL * 1024 * 1024 * 1024;
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, evaluate_one(fresh, {"warning=none", "critical=used > 2G"}, three_gib).result());
+  EXPECT_EQ(PB::Common::ResultCode::OK, evaluate_one(fresh, {"warning=none", "critical=used > 4G"}, three_gib).result());
+}

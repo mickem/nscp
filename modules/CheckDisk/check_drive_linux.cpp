@@ -15,6 +15,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <check/check_mk_format.hpp>
+#include <check/duration_keyword.hpp>
 #include <cstdlib>
 #include <ctime>
 #include <list>
@@ -397,6 +398,9 @@ struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_user_used = parsers::where::type_custom_int_3;
   static const parsers::where::value_type type_custom_user_free = parsers::where::type_custom_int_4;
   static const parsers::where::value_type type_custom_full_in = parsers::where::type_custom_int_5;
+  // Seconds: the documented `trend_span < 1h` (as a plain int the unit was
+  // refused and the threshold compared against 0).
+  static const parsers::where::value_type type_custom_trend_span = parsers::where::type_custom_int_6;
   static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_9;
 
   filter_obj_handler() {
@@ -471,8 +475,9 @@ struct filter_obj_handler : public native_context {
             "until enough history exists")
         .add_int_perf("", "", " rate");
     registry_
-        .add_int_var("trend_span", [](std::shared_ptr<filter_obj> obj) { return obj->get_trend_span(); },
-                     "Seconds of history behind the trend estimate (0 = no data); use e.g. warn=trend_span < 1h to assert data sufficiency")
+        .add_int_var(
+            "trend_span", type_custom_trend_span, [](std::shared_ptr<filter_obj> obj) { return obj->get_trend_span(); },
+            "Seconds of history behind the trend estimate (0 = no data); use e.g. warn=trend_span < 1h to assert data sufficiency")
         .no_perf();
     registry_
         .add_int_var("trend_samples", [](std::shared_ptr<filter_obj> obj) { return obj->get_trend_samples(); },
@@ -516,6 +521,7 @@ struct filter_obj_handler : public native_context {
         .add_human_string_context("used_change_1h", &filter_obj::get_used_change_1h_human, "")
         .add_human_string_context("used_change_24h", &filter_obj::get_used_change_24h_human, "");
 
+    registry_.add_converter(type_custom_trend_span, &duration_keyword::parse_duration<std::shared_ptr<filter_obj>>);
     registry_.add_converter(type_custom_total_free, &calculate_total_used)
         .add_converter(type_custom_total_used, &calculate_total_used)
         .add_converter(type_custom_user_free, &calculate_user_used)

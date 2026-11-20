@@ -3,6 +3,7 @@
 
 #include "filter.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <error/error_com.hpp>
 #include <parsers/where/node.hpp>
 
@@ -71,8 +72,8 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
                    "more triggers).")
       .add_int_var("number_of_missed_runs", &filter_obj::get_number_of_missed_runs,
                    "Number of times the task was scheduled to run but did not (0 on the legacy ITask API).")
-      .add_int_var("last_run_age", &filter_obj::get_last_run_age,
-                   "Seconds since the task last ran (-1 if it has never run). Use e.g. last_run_age > 86400 to alert on stale tasks.")
+      .add_int_var("last_run_age", parsers::where::type_custom_int_2, &filter_obj::get_last_run_age,
+                   "Seconds since the task last ran (-1 if it has never run); takes durations, e.g. last_run_age > 1d to alert on stale tasks.")
       .add_int_var("hidden", type_bool, &filter_obj::get_hidden,
                    "True if the task is marked hidden (ITaskSettings Hidden flag). Always false on the legacy ITask API.");
 
@@ -81,6 +82,9 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
       .add_human_string("next_run_time", &filter_obj::get_next_run_time_s, "");
 
   registry_.add_converter(type_custom_state, &fun_convert_status);
+  // last_run_age is seconds: `last_run_age > 1d` reads as written (as a plain
+  // int the unit was refused and the threshold compared against 0).
+  registry_.add_converter(parsers::where::type_custom_int_2, &duration_keyword::parse_duration<std::shared_ptr<filter_obj> >);
 }
 
 namespace tasksched_filter {
