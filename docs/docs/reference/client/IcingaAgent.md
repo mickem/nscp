@@ -70,6 +70,14 @@ The CA to install is the master's `/var/lib/icinga2/certs/ca.crt` - the CA certi
 `openssl x509 -noout -fingerprint -sha256 -in /var/lib/icinga2/certs/<master>.crt` prints on the master. Set
 `trust on first use = false` to refuse a first connection that cannot be verified either way.
 
+#### Certificate renewal
+
+The master renews the agent's certificate, as for an Icinga agent. Icinga issues agent certificates for 397 days and
+signs a new one - same key, no ticket needed - when the agent asks within 30 days of expiry, or when its CA is newer
+than the agent's copy. The agent asks on every connection and, on a connection that stays up, every
+`certificate request interval` seconds (default a day, as the Icinga agent does). It checks that the new certificate is
+for its own key, stores it and the CA, and reconnects with them; there is nothing to do on either side.
+
 #### Check commands on the master
 
 Checks follow the `ifw-api` convention Icinga 2.14 introduced for Icinga for Windows: import `ifw-api` into the
@@ -153,20 +161,21 @@ IcingaAgent = enabled
 
 Native Icinga 2 agent: connect to an Icinga 2 parent over the cluster protocol and run the checks it schedules.
 
-| Key                                             | Default Value              | Description           |
-|-------------------------------------------------|----------------------------|-----------------------|
-| [allow arguments](#allow-arguments)             | true                       | ALLOW ARGUMENTS       |
-| [allowed ciphers](#allowed-ciphers)             |                            | ALLOWED CIPHERS       |
-| [certificate directory](#certificate-directory) | ${certificate-path}/icinga | CERTIFICATE DIRECTORY |
-| [endpoint name](#endpoint-name)                 | vm                         | ENDPOINT NAME         |
-| [parent endpoint](#parent-endpoint)             |                            | PARENT ENDPOINT       |
-| [parent fingerprint](#parent-fingerprint)       |                            | PARENT FINGERPRINT    |
-| [parent host](#parent-host)                     |                            | PARENT HOST           |
-| [parent port](#parent-port)                     | 5665                       | PARENT PORT           |
-| [threads](#worker-threads)                      | 4                          | WORKER THREADS        |
-| [ticket](#ticket)                               |                            | TICKET                |
-| [tls version](#tls-version)                     | 1.2+                       | TLS VERSION           |
-| [trust on first use](#trust-on-first-use)       | true                       | TRUST ON FIRST USE    |
+| Key                                                           | Default Value              | Description                  |
+|---------------------------------------------------------------|----------------------------|------------------------------|
+| [allow arguments](#allow-arguments)                           | true                       | ALLOW ARGUMENTS              |
+| [allowed ciphers](#allowed-ciphers)                           |                            | ALLOWED CIPHERS              |
+| [certificate directory](#certificate-directory)               | ${certificate-path}/icinga | CERTIFICATE DIRECTORY        |
+| [certificate request interval](#certificate-request-interval) | 86400                      | CERTIFICATE REQUEST INTERVAL |
+| [endpoint name](#endpoint-name)                               | vm                         | ENDPOINT NAME                |
+| [parent endpoint](#parent-endpoint)                           |                            | PARENT ENDPOINT              |
+| [parent fingerprint](#parent-fingerprint)                     |                            | PARENT FINGERPRINT           |
+| [parent host](#parent-host)                                   |                            | PARENT HOST                  |
+| [parent port](#parent-port)                                   | 5665                       | PARENT PORT                  |
+| [threads](#worker-threads)                                    | 4                          | WORKER THREADS               |
+| [ticket](#ticket)                                             |                            | TICKET                       |
+| [tls version](#tls-version)                                   | 1.2+                       | TLS VERSION                  |
+| [trust on first use](#trust-on-first-use)                     | true                       | TRUST ON FIRST USE           |
 
 
 ```ini
@@ -174,6 +183,7 @@ Native Icinga 2 agent: connect to an Icinga 2 parent over the cluster protocol a
 [/settings/Icinga/agent]
 allow arguments=true
 certificate directory=${certificate-path}/icinga
+certificate request interval=86400
 endpoint name=vm
 parent port=5665
 threads=4
@@ -239,6 +249,26 @@ Where the agent keeps <endpoint name>.crt, <endpoint name>.key and ca.crt. Gener
 [/settings/Icinga/agent]
 # CERTIFICATE DIRECTORY
 certificate directory=${certificate-path}/icinga
+```
+
+#### CERTIFICATE REQUEST INTERVAL <a id="/settings/Icinga/agent/certificate request interval"></a>
+
+Seconds between requests for a renewed certificate on an open connection; one is also sent on every connect. The parent only issues a new certificate within 30 days of the current one expiring (or when its CA is newer than the agent's), so the default, a day like the Icinga agent's, renews in time on a connection that stays up for months. 0 asks only on connect.
+
+
+| Key            | Description                                       |
+|----------------|---------------------------------------------------|
+| Path:          | [/settings/Icinga/agent](#/settings/Icinga/agent) |
+| Key:           | certificate request interval                      |
+| Default value: | `86400`                                           |
+
+
+**Sample:**
+
+```
+[/settings/Icinga/agent]
+# CERTIFICATE REQUEST INTERVAL
+certificate request interval=86400
 ```
 
 #### ENDPOINT NAME <a id="/settings/Icinga/agent/endpoint name"></a>

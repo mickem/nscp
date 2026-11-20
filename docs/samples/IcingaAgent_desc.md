@@ -58,6 +58,14 @@ The CA to install is the master's `/var/lib/icinga2/certs/ca.crt` - the CA certi
 `openssl x509 -noout -fingerprint -sha256 -in /var/lib/icinga2/certs/<master>.crt` prints on the master. Set
 `trust on first use = false` to refuse a first connection that cannot be verified either way.
 
+#### Certificate renewal
+
+The master renews the agent's certificate, as for an Icinga agent. Icinga issues agent certificates for 397 days and
+signs a new one - same key, no ticket needed - when the agent asks within 30 days of expiry, or when its CA is newer
+than the agent's copy. The agent asks on every connection and, on a connection that stays up, every
+`certificate request interval` seconds (default a day, as the Icinga agent does). It checks that the new certificate is
+for its own key, stores it and the CA, and reconnects with them; there is nothing to do on either side.
+
 #### Check commands on the master
 
 Checks follow the `ifw-api` convention Icinga 2.14 introduced for Icinga for Windows: import `ifw-api` into the

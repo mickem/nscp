@@ -274,6 +274,21 @@ In every case a master whose certificate is not for `parent endpoint` is refused
 
 ---
 
+### Certificate renewal
+
+Nothing to do. Icinga issues the agent's certificate for 397 days and renews it - same key, no new ticket - once the
+agent asks within 30 days of expiry. The agent asks on every connection and once a day on a connection that stays up
+(`certificate request interval`), stores the renewed certificate and reconnects with it:
+
+```
+Icinga agent: stored the certificate signed by the Icinga CA in .../icinga/win-host-01.crt
+Icinga agent: Disconnected from icinga-master.example.com: Received a signed certificate, reconnecting with it
+```
+
+A CA renewed on the master reaches the agent the same way.
+
+---
+
 ## Step 5 — Restrict what the master may run
 
 Every check runs as `IcingaAgent:<parent endpoint>` in the core permission policy. The policy is off by default, so a

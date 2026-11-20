@@ -38,6 +38,11 @@ struct connection_config {
   std::string agent_version;
   int heartbeat_interval = 20;  // seconds
   int idle_timeout = 120;       // seconds without anything from the parent
+  // How often to ask the parent for a renewed certificate on an open
+  // connection, as the Icinga agent does (RENEW_INTERVAL): the parent only
+  // issues one within 30 days of expiry, and a long-lived connection would
+  // otherwise only ask when it reconnects.
+  int certificate_request_interval = 24 * 60 * 60;
 };
 
 class connection : public std::enable_shared_from_this<connection> {
@@ -78,12 +83,14 @@ class connection : public std::enable_shared_from_this<connection> {
   void dispatch(const std::string &payload);
   void write_next();
   void schedule_heartbeat();
+  void schedule_certificate_request();
   void arm_idle_timer();
 
   boost::asio::io_context &io_;
   boost::asio::ip::tcp::resolver resolver_;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> stream_;
   boost::asio::steady_timer heartbeat_timer_;
+  boost::asio::steady_timer certificate_timer_;
   boost::asio::steady_timer idle_timer_;
   connection_config config_;
   callbacks cb_;

@@ -40,6 +40,16 @@ unix:
             on first start.
           sample: false
           title: CERTIFICATE DIRECTORY
+        certificate request interval:
+          advanced: false
+          default_value: '86400'
+          description: Seconds between requests for a renewed certificate on an open connection; one is
+            also sent on every connect. The parent only issues a new certificate within 30 days of the
+            current one expiring (or when its CA is newer than the agent's), so the default, a day like
+            the Icinga agent's, renews in time on a connection that stays up for months. 0 asks only on
+            connect.
+          sample: false
+          title: CERTIFICATE REQUEST INTERVAL
         endpoint name:
           advanced: false
           default_value: vm

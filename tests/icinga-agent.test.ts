@@ -188,7 +188,8 @@ class FakeIcingaMaster {
     );
     const cert = forge.pki.createCertificate();
     cert.publicKey = peer.publicKey;
-    cert.serialNumber = "7f";
+    // Random, so a renewal yields a certificate that differs from the first.
+    cert.serialNumber = "7f" + crypto.randomBytes(8).toString("hex");
     cert.validity.notBefore = new Date();
     cert.validity.notAfter = new Date(Date.now() + 365 * 24 * 3600 * 1000);
     cert.setSubject(peer.subject.attributes);
@@ -388,6 +389,47 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(pinned.socket.getCipher().name).toBe("ECDHE-RSA-AES128-SHA256");
       const cr = await pinned.execute("tls", "check_ok", { ifw_api_command: "check_ok" });
       expect(cr.exit_status).toBe(0);
+    });
+
+    it("asks for a renewed certificate on an open connection and switches to it", async () => {
+      await nscp.stop();
+      await configureAgent({ "certificate request interval": "2" });
+      nscp.start();
+      const open = await verifiedSession();
+      const certPath = path.join(certDir, `${AGENT}.crt`);
+      const before = fs.readFileSync(certPath, "utf8");
+      // One request on connect, then another from the timer - on the same
+      // connection, without a ticket (the certificate it presents is the proof).
+      await open.waitFor("pki::RequestCertificate");
+      const requests = () => open.messages.filter((m) => m.method === "pki::RequestCertificate");
+      const deadline = Date.now() + 15_000;
+      while (requests().length < 2 && Date.now() < deadline) await sleep(200);
+      expect(requests().length).toBeGreaterThanOrEqual(2);
+      expect(requests()[1].params?.ticket).toBeUndefined();
+      expect(open.closed).toBe(false);
+      // The master renews, as Icinga does within 30 days of expiry.
+      open.send("pki::UpdateCertificate", {
+        cert: master.signPeer(open),
+        ca: master.pki.ca.certPem,
+      });
+      const renewed = await master.waitForSession(
+        (s) => s !== open && s.authorized && s.peerCn === AGENT,
+        30_000,
+      );
+      await renewed.waitFor("icinga::Hello");
+      const after = fs.readFileSync(certPath, "utf8");
+      expect(after).not.toBe(before);
+      expect(renewed.socket.getPeerCertificate().fingerprint256).toBe(
+        new crypto.X509Certificate(after).fingerprint256,
+      );
+      session = renewed;
+      const cr = await session.execute("renewed", "check_ok", { ifw_api_command: "check_ok" });
+      expect(cr.exit_status).toBe(0);
+      // Back to the default for what follows.
+      await nscp.stop();
+      await configureAgent({ "certificate request interval": "86400" });
+      nscp.start();
+      session = await verifiedSession();
     });
 
     it("refuses invalid tls settings at startup instead of on every reconnect", async () => {

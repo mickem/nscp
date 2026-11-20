@@ -39,7 +39,7 @@ double unix_now() { return std::chrono::duration<double>(std::chrono::system_clo
 }  // namespace
 
 connection::connection(asio::io_context &io, asio::ssl::context &ctx, connection_config config, callbacks cb)
-    : io_(io), resolver_(io), stream_(io, ctx), heartbeat_timer_(io), idle_timer_(io), config_(std::move(config)), cb_(std::move(cb)) {}
+    : io_(io), resolver_(io), stream_(io, ctx), heartbeat_timer_(io), certificate_timer_(io), idle_timer_(io), config_(std::move(config)), cb_(std::move(cb)) {}
 
 void connection::start() {
   auto self = shared_from_this();
@@ -96,6 +96,7 @@ void connection::on_handshake(const boost::system::error_code &ec) {
   send(make_hello(config_.agent_version));
   send(make_certificate_request(config_.ticket));
   schedule_heartbeat();
+  schedule_certificate_request();
   read();
 }
 
@@ -179,6 +180,22 @@ void connection::write_next() {
   });
 }
 
+void connection::schedule_certificate_request() {
+  if (config_.certificate_request_interval <= 0) return;
+  auto self = shared_from_this();
+  certificate_timer_.expires_after(std::chrono::seconds(config_.certificate_request_interval));
+  certificate_timer_.async_wait([self](const boost::system::error_code &ec) {
+    if (ec || self->closed_) return;
+    // No ticket: the certificate this connection presents is what proves
+    // who we are now. The parent answers with pki::UpdateCertificate only
+    // when ours expires within 30 days or its CA is newer than ours, and
+    // says nothing otherwise.
+    self->cb_.log_debug("Asking the parent for a renewed certificate");
+    self->send(make_certificate_request(""));
+    self->schedule_certificate_request();
+  });
+}
+
 void connection::schedule_heartbeat() {
   auto self = shared_from_this();
   heartbeat_timer_.expires_after(std::chrono::seconds(config_.heartbeat_interval));
@@ -209,6 +226,7 @@ void connection::close(const std::string &reason) {
   boost::system::error_code ignored;
   resolver_.cancel();
   heartbeat_timer_.cancel();
+  certificate_timer_.cancel();
   idle_timer_.cancel();
   stream_.lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ignored);
   stream_.lowest_layer().close(ignored);

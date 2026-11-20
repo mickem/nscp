@@ -324,7 +324,11 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
       .add_string("allowed ciphers", sh::string_key(&config.allowed_ciphers), "ALLOWED CIPHERS",
                   "OpenSSL cipher list for TLS 1.2 and earlier. Empty (the default) leaves the library's own selection in place. TLS 1.3 "
                   "suites are not affected by it.")
-      .add_int("threads", sh::int_key(&config.threads, 4), "WORKER THREADS", "How many checks run at the same time.");
+      .add_int("threads", sh::int_key(&config.threads, 4), "WORKER THREADS", "How many checks run at the same time.")
+      .add_int("certificate request interval", sh::int_key(&config.connection.certificate_request_interval, 24 * 60 * 60), "CERTIFICATE REQUEST INTERVAL",
+               "Seconds between requests for a renewed certificate on an open connection; one is also sent on every connect. The parent only "
+               "issues a new certificate within 30 days of the current one expiring (or when its CA is newer than the agent's), so the default, "
+               "a day like the Icinga agent's, renews in time on a connection that stays up for months. 0 asks only on connect.");
 
   settings.register_all();
   settings.notify();
