@@ -32,6 +32,7 @@ struct counters_info {
   double lazy_writes = -1;
   double deadlocks = -1;
   double lock_waits = -1;
+  double latch_wait_ms = -1;  // average wait per waiting latch request over the window
 
   double get_hit_ratio() const { return hit_ratio; }
   long long get_page_life_expectancy() const { return page_life_expectancy; }
@@ -41,6 +42,7 @@ struct counters_info {
   double get_lazy_writes() const { return lazy_writes; }
   double get_deadlocks() const { return deadlocks; }
   double get_lock_waits() const { return lock_waits; }
+  double get_latch_wait_ms() const { return latch_wait_ms; }
 
   std::string show() const { return "mssql"; }
 };
@@ -49,7 +51,8 @@ struct counters_info {
 // rates use (value - prev) / elapsed; the hit ratio prefers the delta of
 // value/base over the sampling window (the lifetime ratio converges to ~100%
 // and hides regressions) and falls back to the lifetime ratio when the base
-// did not move.
+// did not move. The average latch wait is the same kind of value/base pair
+// but has no lifetime fallback: no waits in the window is 0.
 counters_info build_counters(const std::vector<counter_row> &rows);
 
 void check(const mssql_odbc::connection_info &defaults, const PB::Commands::QueryRequestMessage::Request &request,

@@ -24,14 +24,18 @@ namespace {
 //
 // object_name carries the instance prefix (SQLServer: or MSSQL$<instance>:) and
 // the columns are nchar-padded, hence the RTRIM + LIKE '%:...' matching. Locks
-// counters exist per lock type; only the _Total instance is wanted.
+// counters exist per lock type; only the _Total instance is wanted. The
+// Latches object has no instances, and its counter names are distinct from
+// every other name selected here, which the @c1 primary key relies on.
 const std::string COUNTER_PREDICATE =
     "(RTRIM(pc.object_name) LIKE '%:Buffer Manager' AND RTRIM(pc.counter_name) IN"
     " ('Buffer cache hit ratio', 'Buffer cache hit ratio base', 'Page life expectancy', 'Lazy writes/sec'))"
     " OR (RTRIM(pc.object_name) LIKE '%:SQL Statistics' AND RTRIM(pc.counter_name) IN"
     " ('Batch Requests/sec', 'SQL Compilations/sec', 'SQL Re-Compilations/sec'))"
     " OR (RTRIM(pc.object_name) LIKE '%:Locks' AND RTRIM(pc.instance_name) = '_Total' AND RTRIM(pc.counter_name) IN"
-    " ('Number of Deadlocks/sec', 'Lock Waits/sec'))";
+    " ('Number of Deadlocks/sec', 'Lock Waits/sec'))"
+    " OR (RTRIM(pc.object_name) LIKE '%:Latches' AND RTRIM(pc.counter_name) IN"
+    " ('Average Latch Wait Time (ms)', 'Average Latch Wait Time Base'))";
 
 // Most of these counters are cumulative since instance start, so a single read
 // is meaningless as a rate. Two snapshots bracket a WAITFOR DELAY sampling
@@ -71,7 +75,11 @@ filter_obj_handler::filter_obj_handler() {
       .add_float("deadlocks", &filter_obj::get_deadlocks, "Deadlocks per second across all lock types (-1 if unavailable)")
       .add_float_perf("", "", "_deadlocks")
       .add_float("lock_waits", &filter_obj::get_lock_waits, "Lock requests per second that had to wait (-1 if unavailable)")
-      .add_float_perf("", "", "_lock_waits");
+      .add_float_perf("", "", "_lock_waits")
+      .add_float("latch_wait_ms", &filter_obj::get_latch_wait_ms,
+                 "Average time in milliseconds a latch request that had to wait spent waiting, over the sampling window; 0 when no latch request waited "
+                 "(-1 if unavailable)")
+      .add_float_perf("ms", "", "_latch_wait_ms");
   registry_
       .add_int_var("page_life_expectancy", &filter_obj::get_page_life_expectancy,
                    "Seconds a page stays in the buffer pool without being referenced (-1 if unavailable)")
@@ -85,6 +93,8 @@ counters_info build_counters(const std::vector<counter_row> &rows) {
   counters_info info;
   long long hit_value = -1, hit_base = -1, hit_value_prev = -1, hit_base_prev = -1;
   bool has_hit_prev = false, has_base_prev = false;
+  long long latch_value = -1, latch_base = -1, latch_value_prev = -1, latch_base_prev = -1;
+  bool has_latch_prev = false, has_latch_base_prev = false;
   for (const counter_row &row : rows) {
     if (row.name == "Buffer cache hit ratio") {
       hit_value = row.value;
@@ -94,6 +104,14 @@ counters_info build_counters(const std::vector<counter_row> &rows) {
       hit_base = row.value;
       has_base_prev = row.has_prev;
       hit_base_prev = row.prev_value;
+    } else if (row.name == "Average Latch Wait Time (ms)") {
+      latch_value = row.value;
+      has_latch_prev = row.has_prev;
+      latch_value_prev = row.prev_value;
+    } else if (row.name == "Average Latch Wait Time Base") {
+      latch_base = row.value;
+      has_latch_base_prev = row.has_prev;
+      latch_base_prev = row.prev_value;
     } else if (row.name == "Page life expectancy") {
       info.page_life_expectancy = row.value;
     } else if (row.name == "Batch Requests/sec") {
@@ -120,6 +138,20 @@ counters_info build_counters(const std::vector<counter_row> &rows) {
     } else {
       // Nothing touched the cache during the window: fall back to lifetime.
       info.hit_ratio = 100.0 * static_cast<double>(hit_value) / static_cast<double>(hit_base);
+    }
+  }
+  // "Average Latch Wait Time (ms)" is the cumulative milliseconds waited and
+  // its base the cumulative number of latch requests that waited, so the
+  // average is the one delta over the other. There is no lifetime fallback as
+  // for the hit ratio: a window in which nothing waited is a real 0, and the
+  // average since instance start would report an old incident for ever.
+  if (latch_value >= 0 && latch_base >= 0 && has_latch_prev && has_latch_base_prev) {
+    const long long waited_ms = mssql_sampling::delta(latch_value, latch_value_prev);
+    const long long waits = mssql_sampling::delta(latch_base, latch_base_prev);
+    if (waited_ms >= 0 && waits > 0) {
+      info.latch_wait_ms = static_cast<double>(waited_ms) / static_cast<double>(waits);
+    } else if (waited_ms >= 0 && waits == 0) {
+      info.latch_wait_ms = 0;
     }
   }
   return info;
