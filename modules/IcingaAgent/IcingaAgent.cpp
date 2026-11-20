@@ -11,6 +11,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread/thread.hpp>
 #include <chrono>
+#include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -126,7 +127,7 @@ class agent : public std::enable_shared_from_this<agent> {
     cb.execute = [self](std::shared_ptr<connection> conn, const boost::json::value &params) {
       asio::post(self->check_io_, [self, conn, params]() { self->execute(conn, params); });
     };
-    cb.update_certificate = [self](const boost::json::value &params) { self->update_certificate(params); };
+    cb.update_certificate = [self](const boost::json::value &params) { return self->update_certificate(params); };
     cb.closed = [self]() { asio::post(self->net_io_, [self]() { self->schedule_reconnect(); }); };
     connection_ = std::make_shared<connection>(net_io_, *ssl_, config_.connection, std::move(cb));
     connection_->start();
@@ -141,20 +142,23 @@ class agent : public std::enable_shared_from_this<agent> {
     });
   }
 
-  void update_certificate(const boost::json::value &params) {
+  // True when a certificate was stored and the agent should reconnect with it.
+  bool update_certificate(const boost::json::value &params) {
     try {
       const auto &obj = params.as_object();
       const auto cert = obj.find("cert");
       const auto ca = obj.find("ca");
       if (cert == obj.end() || !cert->value().is_string()) {
         NSC_LOG_ERROR("Icinga agent: pki::UpdateCertificate without a certificate");
-        return;
+        return false;
       }
       store_signed_certificate(paths_, std::string(cert->value().as_string()),
                                ca != obj.end() && ca->value().is_string() ? std::string(ca->value().as_string()) : std::string());
       NSC_LOG_MESSAGE("Icinga agent: stored the certificate signed by the Icinga CA in " + paths_.certificate);
+      return true;
     } catch (const std::exception &e) {
       NSC_LOG_ERROR(std::string("Icinga agent: failed to store the signed certificate: ") + e.what());
+      return false;
     }
   }
 
@@ -275,6 +279,11 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
     NSC_LOG_ERROR(
         "Icinga agent: `parent endpoint` is not set under /settings/Icinga/agent: refusing to connect, since any certificate "
         "the Icinga CA signed could then act as the parent");
+    return true;
+  }
+  if (!socket_helpers::is_valid_peer_principal(config.connection.parent_endpoint)) {
+    NSC_LOG_ERROR("Icinga agent: `parent endpoint` '" + socket_helpers::escape_for_log(config.connection.parent_endpoint) +
+                  "' cannot be a permission principal (no ':', '=' or control characters): not connecting");
     return true;
   }
   boost::to_lower(config.endpoint_name);

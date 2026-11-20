@@ -44,7 +44,9 @@ class connection : public std::enable_shared_from_this<connection> {
     // An event::ExecuteCommand. The handler runs it and calls send() with the
     // event::CheckResult.
     std::function<void(std::shared_ptr<connection>, const boost::json::value &params)> execute;
-    std::function<void(const boost::json::value &params)> update_certificate;
+    // Store what pki::UpdateCertificate carried; true when it was stored, so
+    // the connection reconnects with it. A rejected one keeps the connection.
+    std::function<bool(const boost::json::value &params)> update_certificate;
     std::function<void()> closed;
   };
 

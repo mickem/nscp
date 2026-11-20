@@ -3,11 +3,8 @@
 
 #include "icinga_agent_connection.hpp"
 
-#include <openssl/ssl.h>
-
 #include <chrono>
-
-#include "icinga_agent_openssl.hpp"
+#include <net/socket/socket_helpers.hpp>
 
 namespace icinga_agent {
 
@@ -17,11 +14,6 @@ namespace json = boost::json;
 namespace {
 double unix_now() { return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); }
 
-std::string peer_cn(SSL *ssl) {
-  // get1: we own a reference, released by the handle.
-  const ossl::x509_ptr cert(SSL_get1_peer_certificate(ssl));
-  return ossl::common_name(cert.get());
-}
 }  // namespace
 
 connection::connection(asio::io_context &io, asio::ssl::context &ctx, connection_config config, callbacks cb)
@@ -56,7 +48,12 @@ void connection::on_connect(const boost::system::error_code &ec) {
 void connection::on_handshake(const boost::system::error_code &ec) {
   if (closed_) return;
   if (ec) return close("TLS handshake with " + config_.host + " failed: " + ec.message());
-  const std::string cn = peer_cn(stream_.native_handle());
+  // The same CN reader and principal rules NRPE uses for `client identity
+  // source = cn`: the CN becomes the policy subject IcingaAgent:<cn>.
+  const std::string cn = socket_helpers::extract_peer_subject_cn(stream_.native_handle());
+  if (!socket_helpers::is_valid_peer_principal(cn)) {
+    return close("Parent presented a certificate whose CN is not usable as an identity: '" + socket_helpers::escape_for_log(cn) + "'");
+  }
   if (cn != config_.parent_endpoint) {
     return close("Parent presented the certificate of '" + cn + "', expected '" + config_.parent_endpoint + "'");
   }
@@ -119,9 +116,9 @@ void connection::dispatch(const std::string &payload) {
     // replay log for us.
     send(make_log_position(unix_now()));
   } else if (method == "pki::UpdateCertificate") {
-    cb_.update_certificate(params);
-    // Reconnect with the new certificate.
-    close("Received a signed certificate, reconnecting with it");
+    // Reconnect with the new certificate - only if it was stored: dropping
+    // the connection over a rejected one would just repeat the request.
+    if (cb_.update_certificate(params)) close("Received a signed certificate, reconnecting with it");
   } else if (method == "icinga::Hello") {
     cb_.log_debug("Parent hello: " + json::serialize(params));
   } else {

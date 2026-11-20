@@ -13,7 +13,6 @@
 #include <openssl/x509.h>
 
 #include <memory>
-#include <string>
 
 namespace icinga_agent {
 namespace ossl {
@@ -31,14 +30,6 @@ struct bio_free {
 using x509_ptr = std::unique_ptr<X509, x509_free>;
 using evp_pkey_ptr = std::unique_ptr<EVP_PKEY, evp_pkey_free>;
 using bio_ptr = std::unique_ptr<BIO, bio_free>;
-
-// Subject CN of a certificate; empty when it has none.
-inline std::string common_name(const X509 *cert) {
-  if (!cert) return "";
-  char buf[256] = {0};
-  if (X509_NAME_get_text_by_NID(X509_get_subject_name(cert), NID_commonName, buf, sizeof(buf)) < 0) return "";
-  return buf;
-}
 
 }  // namespace ossl
 }  // namespace icinga_agent

@@ -289,6 +289,19 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(String(cr.output)).toContain("has not verified this parent");
     });
 
+    it("rejects a signed certificate that is not for its own key", async () => {
+      // The master's own certificate: signed by the right CA, wrong key.
+      session.send("pki::UpdateCertificate", {
+        cert: master.pki.signed.master.certPem,
+        ca: master.pki.ca.certPem,
+      });
+      await waitForLog(nscp, "is not for this agent's key");
+      expect(fs.existsSync(path.join(certDir, "ca.crt"))).toBe(false);
+      // Nothing was stored, so there is nothing to reconnect with.
+      await sleep(500);
+      expect(session.closed).toBe(false);
+    });
+
     it("stores the signed certificate and reconnects verified", async () => {
       session.send("pki::UpdateCertificate", {
         cert: master.signPeer(session),

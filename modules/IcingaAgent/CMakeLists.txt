@@ -16,6 +16,8 @@ set(SRCS
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
+# socket_helpers' certificate and peer-identity helpers sit behind USE_SSL.
+add_definitions(-DUSE_SSL)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 if(WIN32)
@@ -38,6 +40,7 @@ OPENSSL_LINK_FIX(${TARGET})
 target_link_libraries(
     ${TARGET}
     ${Boost_JSON_LIBRARY}
+    nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
