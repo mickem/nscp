@@ -187,6 +187,7 @@ void check_temperature(const PB::Commands::QueryRequestMessage::Request &request
 
   filter_type filter;
   filter_helper.add_options("temperature > 70", "temperature > 90", "", filter.get_filter_syntax(), "critical");
+  filter_helper.add_short_threshold("temperature", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${list}", "${name}: ${temperature} C", "${name}", "", "%(status): All thermal zones seem ok.");
 
   if (!filter_helper.parse_options()) return;

@@ -249,6 +249,7 @@ void check_battery(const PB::Commands::QueryRequestMessage::Request &request, PB
 
   filter_type filter;
   filter_helper.add_options("charge < 20", "charge < 10", "battery_present = 'true'", filter.get_filter_syntax(), "warning");
+  filter_helper.add_short_threshold("charge", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent_number);
   // The empty-syntax renders when zero records match (no battery, or all
   // filtered out) — without it the top-syntax renders a useless ": ".
   filter_helper.add_syntax("${status}: ${list}", "${name}: ${charge}% (${power_source}, ${battery_status})", "${name}", "No battery found",

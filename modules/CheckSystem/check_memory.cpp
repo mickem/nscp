@@ -202,6 +202,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   filter_type filter;
   filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent);
+  filter_helper.add_short_threshold_replaces("used");
   filter_helper.add_syntax("${status}: ${list}", "${type}: ${used}/${size}", "${type}", "", "");
   filter_helper.get_desc().add_options()("type", po::value<std::vector<std::string>>(&types),
                                          "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)");

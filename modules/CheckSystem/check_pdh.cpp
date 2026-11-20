@@ -164,6 +164,7 @@ void check::check_pdh(const std::shared_ptr<pdh_thread> &collector, const PB::Co
   // clang-format off
   filter_type filter;
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("value", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${list}", "${alias} = ${value}", "${alias}", "", "");
   filter_helper.get_desc().add_options()
     ("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check.\n"
