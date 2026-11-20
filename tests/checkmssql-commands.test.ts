@@ -539,7 +539,7 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
 
   it("check_mssql_counters reads the average latch wait", async () => {
     // Both latch counters exist on every instance, so the value is a real
-    // average (0 on an idle container) and never the -1 "unavailable" marker.
+    // average (0 on an idle container) and never the 'unknown' no-value marker.
     // Referencing the keyword in a threshold is what puts it in the perfdata.
     const out = await query("check_mssql_counters", [
       "warning=latch_wait_ms < 0",
@@ -549,8 +549,8 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).not.toMatch(/invalid expression/i);
     expect(out).toMatch(/^OK/m);
-    expect(out).toMatch(/latch wait \d+(\.\d+)?ms/);
-    expect(out).toMatch(/mssql_latch_wait_ms'?=\d+(\.\d+)?ms/);
+    expect(out).toMatch(/latch wait \d+ms/);
+    expect(out).toMatch(/mssql_latch_wait_ms'?=\d+ms/);
   });
 
   it("check_mssql_availability_groups reports the documented no-AG contract", async () => {

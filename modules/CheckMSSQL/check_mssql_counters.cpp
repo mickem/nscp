@@ -3,6 +3,7 @@
 
 #include "check_mssql_counters.hpp"
 
+#include <cmath>
 #include <memory>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -75,11 +76,16 @@ filter_obj_handler::filter_obj_handler() {
       .add_float("deadlocks", &filter_obj::get_deadlocks, "Deadlocks per second across all lock types (-1 if unavailable)")
       .add_float_perf("", "", "_deadlocks")
       .add_float("lock_waits", &filter_obj::get_lock_waits, "Lock requests per second that had to wait (-1 if unavailable)")
-      .add_float_perf("", "", "_lock_waits")
-      .add_float("latch_wait_ms", &filter_obj::get_latch_wait_ms,
-                 "Average time in milliseconds a latch request that had to wait spent waiting, over the sampling window; 0 when no latch request waited "
-                 "(-1 if unavailable)")
-      .add_float_perf("ms", "", "_latch_wait_ms");
+      .add_float_perf("", "", "_lock_waits");
+  // latch_wait_ms has no value when a latch counter or a snapshot is missing,
+  // or the counters were reset inside the window: it renders as 'unknown',
+  // compares false against every number and emits no perfdata.
+  registry_
+      .add_optional_int_var("latch_wait_ms", [](auto obj) { return obj->get_latch_wait_ms(); }, "unknown",
+                            "Average time in whole milliseconds a latch request that had to wait spent waiting, over the sampling window; 0 when no "
+                            "latch request waited. 'unknown' when the counters are unavailable; every numeric comparison is then false, so test "
+                            "`latch_wait_ms = 'unknown'` for it")
+      .add_int_perf("ms", "", "_latch_wait_ms");
   registry_
       .add_int_var("page_life_expectancy", &filter_obj::get_page_life_expectancy,
                    "Seconds a page stays in the buffer pool without being referenced (-1 if unavailable)")
@@ -144,14 +150,15 @@ counters_info build_counters(const std::vector<counter_row> &rows) {
   // its base the cumulative number of latch requests that waited, so the
   // average is the one delta over the other. There is no lifetime fallback as
   // for the hit ratio: a window in which nothing waited is a real 0, and the
-  // average since instance start would report an old incident for ever.
+  // average since instance start would report an old incident for ever. And
+  // there is no -1: without both counters in both snapshots it has no value.
   if (latch_value >= 0 && latch_base >= 0 && has_latch_prev && has_latch_base_prev) {
     const long long waited_ms = mssql_sampling::delta(latch_value, latch_value_prev);
     const long long waits = mssql_sampling::delta(latch_base, latch_base_prev);
     if (waited_ms >= 0 && waits > 0) {
-      info.latch_wait_ms = static_cast<double>(waited_ms) / static_cast<double>(waits);
+      info.latch_wait_ms = std::llround(static_cast<double>(waited_ms) / static_cast<double>(waits));
     } else if (waited_ms >= 0 && waits == 0) {
-      info.latch_wait_ms = 0;
+      info.latch_wait_ms = 0LL;
     }
   }
   return info;

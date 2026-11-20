@@ -15,19 +15,23 @@ cold or thrashing cache.
 
 The check returns one row per instance.
 
-Any counter reads `-1` when unavailable on the instance or reset during the
+Any counter except `latch_wait_ms` reads `-1` when unavailable on the instance or reset during the
 sampling window. Guard low-value
 thresholds with `>= 0` so missing data does not become a false low-value alert.
 Use a separate `= -1` condition if missing data should alert.
 
-`latch_wait_ms` is the average time, in milliseconds, that a latch request
+`latch_wait_ms` is the average time, in whole milliseconds, that a latch request
 which had to wait spent waiting. It is computed over the same sampling window
 from `Average Latch Wait Time (ms)` and its base counter, and reads `0` when no
 latch request waited during the window — unlike the hit ratio it never falls
 back to the average since instance start, which would keep reporting an old
 incident. A sustained high value points at contention on in-memory structures
 (typically `tempdb` allocation pages or a hot index page); read it next to
-`check_mssql_waits`.
+`check_mssql_waits`. When the latch counters are unavailable or were reset
+during the window it has no value rather than `-1`: it renders as `unknown`,
+emits no perfdata and compares false against every number, so a threshold such
+as `latch_wait_ms > 10` needs no guard. Add `or latch_wait_ms = 'unknown'` if
+missing data should alert.
 
 All counters except `latch_wait_ms` are emitted as **perfdata by default** (no
 threshold needed) — this check is primarily a graphing source.
