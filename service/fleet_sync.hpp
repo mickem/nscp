@@ -6,6 +6,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
@@ -49,6 +50,36 @@ struct fleet_config {
   // most one report per `failure_context_interval` seconds.
   bool failure_context = true;
   unsigned long failure_context_interval = onboarding::failure_context_pacer::default_interval_seconds;
+  // [/settings/fleet] poll interval, min poll interval, max poll interval: how
+  // often the host asks the fleet server for its desired state. The server
+  // names the interval in every answer; `poll_interval` is only what is used
+  // until it has, and the other two bound what it may ask for. They bound the
+  // interval alone: a Retry-After is a wait the server named for one call and
+  // is slept as given, and the backoff after a failed poll is a multiple of
+  // the interval in force.
+  unsigned long poll_interval = 60;
+  unsigned long min_poll_interval = 1;
+  unsigned long max_poll_interval = 86400;
+};
+
+// What the sync reaches the outside world through: the fleet server and the
+// two clocks. The defaults (everything empty) are the real ones. They are
+// replaceable so a unit test can answer a call with any status, and move time
+// by a minute, without a server, a socket or a wait - see fleet_sync_test.cpp.
+// The pacing rules themselves are tested where they live
+// (onboarding::facts_upload_pacer, onboarding::failure_context_pacer); this is
+// for what the sync makes of an answer.
+struct fleet_seams {
+  // One call to the fleet server; `path` is relative to the management url.
+  // Throws for a call that got no answer, as the http client does.
+  typedef std::function<http::response(const char *verb, const std::string &path, const std::string &payload, std::size_t max_response_bytes)>
+      transport_function;
+  transport_function transport;
+  // Seconds since the epoch, for what is persisted across restarts.
+  std::function<std::int64_t()> wall_clock;
+  std::function<std::chrono::steady_clock::time_point()> steady_clock;
+  // Off for a sync that is stepped by hand rather than run on its thread.
+  bool start_thread = true;
 };
 
 // The post-enrollment fleet sync loop (see the fleet agent integration
@@ -80,11 +111,15 @@ class fleet_sync {
   static manifest_status check_manifest(const std::string &state_file, std::string &detail);
 
   fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
-             nsclient::core::fact_repository_instance facts, nsclient::core::failed_check_store_instance failures, reload_function request_reload);
+             nsclient::core::fact_repository_instance facts, nsclient::core::failed_check_store_instance failures, reload_function request_reload,
+             fleet_seams seams = fleet_seams());
   ~fleet_sync();
   void stop();
 
  private:
+  // Steps a sync built without its thread: begin(), then turn() by turn().
+  friend struct fleet_sync_test_access;
+
   // Retry wrapper: catches whatever escapes run() and starts it again after a
   // widening delay, so no single failure ends the sync for the life of the
   // process.
@@ -93,6 +128,10 @@ class fleet_sync {
   // Returns normally only for a deliberate stop; everything else throws and is
   // retried by thread_proc.
   void run();
+  // The start of a life: the identity, the applied state, the heartbeat and
+  // the first state report. False for a deliberate stop (not enrolled, a
+  // plaintext url nobody allowed, a revoked certificate).
+  bool begin();
   // One poll cycle; returns how many seconds to sleep before the next one.
   // How long to sleep before the next poll, and whether that is a wait the
   // server named (a Retry-After): a minimum, jittered upwards only.
@@ -102,6 +141,9 @@ class fleet_sync {
     poll_sleep(const unsigned long seconds_, const bool at_least_ = false) : seconds(seconds_), at_least(at_least_) {}  // NOLINT: implicit on purpose
   };
   poll_sleep poll_once();
+  // One turn of the loop - the poll and everything that follows it - returning
+  // the sleep before the next.
+  poll_sleep turn();
   // `stale` is set when the server says a bundle is no longer ours (the
   // desired state changed under us): the cycle is abandoned without reporting
   // a failure and the next poll picks up the new state.
@@ -117,6 +159,8 @@ class fleet_sync {
   http::response do_call(const char *verb, const std::string &path, const std::string &payload = "", std::size_t max_response_bytes = 0);
   void report_state(const boost::optional<std::string> &applied_hash, const std::vector<std::string> &errors);
   void maybe_renew();
+  // An interval the server asked for, held to the operator's bounds.
+  unsigned long bounded_poll_interval(unsigned long seconds) const;
   std::map<std::string, std::string> collect_tags() const;
 
   // Upload the facts document to /agent/v1/facts when the server has said it
@@ -155,6 +199,9 @@ class fleet_sync {
   void log_error(const std::string &message) const;
   void log_info(const std::string &message) const;
   void log_debug(const std::string &message) const;
+
+  std::int64_t wall_now() const;
+  std::chrono::steady_clock::time_point steady_now() const;
 
   nsclient::logging::logger_instance logger_;
   fleet_config config_;
@@ -200,6 +247,7 @@ class fleet_sync {
   bool bad_failure_header_logged_ = false;
   unsigned int last_failure_report_error_ = 0;
   reload_function request_reload_;
+  fleet_seams seams_;
 
   onboarding::enrolled_identity identity_;
   std::string current_hash_;

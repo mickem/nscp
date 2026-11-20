@@ -135,6 +135,8 @@ describe("core fleet sync loop", () => {
   let pollStatus = 200;
   /** Defer the next poll only: answer it 503 with this Retry-After (seconds). */
   let deferNextPoll: number | null = null;
+  /** The status that deferred poll is answered with: 503, or 429 for a rate limit. */
+  let deferStatus = 503;
   /** A server that acknowledges uploads and keeps nothing. */
   let forgetUploads = false;
   /** State reports answered without X-Facts-Hash (a proxy stripping it on that route). */
@@ -315,9 +317,9 @@ describe("core fleet sync loop", () => {
           res.end("{}");
         } else if (parsed.pathname === "/agent/v1/desired-state") {
           if (deferNextPoll !== null) {
-            res.writeHead(503, { "Content-Type": "text/html", "Retry-After": String(deferNextPoll) });
+            res.writeHead(deferStatus, { "Content-Type": "text/html", "Retry-After": String(deferNextPoll) });
             deferNextPoll = null;
-            res.end("<html><body>503 Service Unavailable</body></html>");
+            res.end(`<html><body>${deferStatus} deferred</body></html>`);
             return;
           }
           if (pollStatus !== 200) {
@@ -670,6 +672,21 @@ describe("core fleet sync loop", () => {
     expect(next.at - deferred.at).toBeGreaterThanOrEqual(4000);
   });
 
+  it("sleeps a rate limit's Retry-After too, without counting it as a failure", async () => {
+    // A 429 is the server pacing the agent, not failing: the wait it names is
+    // slept the same way, but nothing is logged as a failed poll.
+    deferStatus = 429;
+    deferNextPoll = 3;
+    await waitFor("the rate-limited poll", () => deferNextPoll === null);
+    deferStatus = 503;
+    const limited = requests[requests.length - 1];
+    await waitFor("the next call", () => requests.length > requests.indexOf(limited) + 1);
+    const next = requests[requests.indexOf(limited) + 1];
+    expect(next.at - limited.at).toBeGreaterThanOrEqual(3000);
+    await waitFor("the rate-limit log line", () => nscp.capturedStdout().includes("Desired-state poll rate limited"));
+    expect(nscp.capturedStdout()).not.toContain("Desired-state poll failed: 429");
+  });
+
   it("paces a rejected upload, and does not give up on it", async () => {
     // A 404 from a server that asked for the document: a proxy without the
     // route, say. Not a verdict on the document, so it is paced like any
@@ -775,6 +792,29 @@ describe("core fleet sync loop", () => {
     expect(factsUploads()).toHaveLength(cutBefore + 1);
     expect(nscp.capturedStdout().split("connection restored").length).toBe(restoredBefore);
     resetUploads = false;
+    answerFull = false;
+  });
+
+  it("gives up on a document the server refuses as too large, naming the largest sets", async () => {
+    // A fresh agent (a fresh pacer), `agent` on, against a server that holds
+    // nothing and answers the upload it asked for with a 413.
+    await nscp.stop();
+    factsStatus = 413;
+    heldFactsHash = "none";
+    answerFull = true;
+    const before = factsUploads().length;
+    nscp.start();
+    await waitFor("the refused upload", () => factsUploads().length > before);
+    // The operator is told which sets to turn off, largest first - here the
+    // only one enabled.
+    await waitFor("the too-large log line", () => nscp.capturedStdout().includes("refused the facts document as too large"));
+    expect(nscp.capturedStdout()).toMatch(/Largest sets, as JSON: agent \(\d+ bytes\)/);
+    // The same document would be too large every time: the server goes on
+    // answering "none", and it is not sent again.
+    await settle(5);
+    expect(factsUploads()).toHaveLength(before + 1);
+    expect(nscp.capturedStdout().split("refused the facts document as too large").length - 1).toBe(1);
+    factsStatus = 200;
     answerFull = false;
   });
 });

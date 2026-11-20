@@ -15,21 +15,24 @@
 #include "agent_facts.hpp"
 #include "cli_parser.hpp"
 #include "core_api.h"
+#include "core_settings.hpp"
 #include "diagnostics_round.hpp"
 #include "fatal_handler.hpp"
 #include "logger/nsclient_logger.hpp"
+#include "reload_request.hpp"
 #ifdef HAVE_ONBOARDING
 #include <net/socket/socket_helpers.hpp>
 #include <str/format.hpp>
 
+#include "fleet_settings.hpp"
 #include "fleet_sync.hpp"
 #endif
 #ifdef WIN32
+#include "shared_folder.hpp"
 #include "windows_ca_store.hpp"
 #endif
 
 #ifdef WIN32
-#include <win/acl.hpp>
 #include <win/com_helpers.hpp>
 #include <win/service_control.hpp>
 com_helper::initialize_com com_helper_;
@@ -112,96 +115,11 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   }
 
   // Create the shared folder and lock it down before anything writes into it.
-  //
-  // Only for the modern layout: the legacy one lives in the install directory,
-  // whose permissions are the installer's business. On the modern layout the
-  // folder sits under %ProgramData%, which grants Users: Read & Execute by
-  // inheritance - so creating it and walking away would publish the
-  // configuration (passwords), the fleet private key and the log to every
-  // account on the machine.
+  // Modern layout only; what it refuses, leaves alone and complains about is
+  // shared_folder::prepare().
   void prepare_shared_folder() override {
 #ifdef WIN32
-    if (path_->get_layout() != nscp::paths::layout::modern) return;
-    const std::string shared = path_->expand_path("${shared-path}");
-    if (shared.empty()) return;
-
-    // Outside the try below on purpose: this one is fatal. A junction or
-    // symbolic link where the shared folder should be is not a permissions
-    // problem an operator fixes in place - it is a redirect. %ProgramData%
-    // lets any local account create one under our name before we first run,
-    // and every path-based operation follows it: the lockdown would land on
-    // the link's target while the link stays the creator's to remove and
-    // replace with a real folder holding a configuration of their choosing,
-    // which the next start would then load as SYSTEM. So the configuration is
-    // not read from behind a link, ever. Relocating the folder is supported
-    // through the [paths] section of boot.ini instead.
-    {
-      std::list<std::string> reparse_errors;
-      if (nsclient::windows_acl::is_reparse_point(shared, reparse_errors)) {
-        throw settings::settings_exception(__FILE__, __LINE__,
-                                           "Refusing to use " + shared +
-                                               ": it is a junction or symbolic link, not a directory. The shared folder must be a real directory; "
-                                               "remove the link (and whatever created it), or relocate the folder with a [paths] override in boot.ini.");
-      }
-    }
-
-    try {
-      // Look before acting. This runs during the settings bootstrap of *every*
-      // process, not just the service: an unelevated `nscp client ...` has no
-      // WRITE_DAC, so it used to fail below and announce that a folder which is
-      // in fact locked down "may be readable by every user on this machine".
-      // Restricting it is the service's job, and the same reasoning as the
-      // trust-store export below applies - complaining about something working
-      // as designed is noise that trains operators to ignore the message.
-      boost::system::error_code ec;
-      if (boost::filesystem::is_directory(shared, ec)) {
-        std::list<std::string> state_errors;
-        switch (nsclient::windows_acl::inspect_protection(shared, state_errors)) {
-          case nsclient::windows_acl::protection::restricted:
-            LOG_DEBUG_CORE(shared + " is already restricted to SYSTEM and Administrators");
-            return;
-          case nsclient::windows_acl::protection::unknown:
-            // Reading the security descriptor needs READ_CONTROL, which the
-            // lockdown denies to everyone else - so being unable to look is
-            // itself evidence that the folder is not open, and there is nothing
-            // useful an unprivileged process could do about it either way.
-            for (const std::string &e : state_errors) LOG_DEBUG_CORE("acl: " + e);
-            LOG_DEBUG_CORE("Cannot inspect the permissions on " + shared + "; leaving that to the service");
-            return;
-          case nsclient::windows_acl::protection::open:
-            break;  // genuinely wide open - fix it, and complain if we cannot
-        }
-      }
-
-      boost::filesystem::create_directories(shared, ec);
-      if (ec) {
-        LOG_ERROR_CORE("Failed to create " + shared + ": " + ec.message());
-        return;
-      }
-      std::list<std::string> errors;
-      if (!nsclient::windows_acl::protect_directory(shared, errors)) {
-        for (const std::string &e : errors) LOG_ERROR_CORE("acl: " + e);
-        // Loud, and deliberately not fatal: refusing to start would take a
-        // working agent offline over a permissions problem an operator can fix.
-        // Say plainly what is exposed instead - and it is exposed, not "may
-        // be": we either just created the folder (which inherits
-        // Users: Read & Execute from %ProgramData%) or looked and found it open.
-        LOG_ERROR_CORE("Could not restrict access to " + shared +
-                       " - it is readable by every user on this machine, including the configuration and the fleet identity.");
-        return;
-      }
-      errors.clear();
-      if (!nsclient::windows_acl::is_protected(shared, errors)) {
-        // Setting the DACL and the DACL actually excluding everyone else are
-        // different claims; check the second one rather than assume it.
-        for (const std::string &e : errors) LOG_ERROR_CORE("acl: " + e);
-        LOG_ERROR_CORE("Access to " + shared + " is wider than SYSTEM and Administrators after locking it down.");
-        return;
-      }
-      LOG_DEBUG_CORE("Restricted " + shared + " to SYSTEM and Administrators");
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE(std::string("Failed to prepare the shared folder: ") + e.what());
-    }
+    nsclient::core::shared_folder::prepare(*path_, log_instance_);
 #endif
   }
 
@@ -294,6 +212,13 @@ NSClientT::~NSClientT() {
 }
 
 namespace sh = nscapi::settings_helper;
+
+namespace {
+// What a settings reader had to say about values it could not use.
+void log_setting_errors(const nsclient::logging::logger_instance &log, const std::vector<std::string> &errors) {
+  for (const std::string &error : errors) log->error("core", __FILE__, __LINE__, error);
+}
+}  // namespace
 
 /**
  * Initialize the program
@@ -524,22 +449,16 @@ bool NSClientT::boot_start_plugins(bool boot) {
   if (boot) {
     settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "settings maintenance interval", "Maintenance interval",
                                                "How often settings shall reload config if it has changed", "5m", true, false);
-    std::string smi = settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m");
-    try {
-      scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, smi);
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid 'settings maintenance interval' value '" + smi + "', falling back to '5m': " + utf8::utf8_from_native(e.what()));
-      scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, "5m");
-    }
+    std::vector<std::string> interval_errors;
+    nsclient::core::core_settings::schedule_or_fallback(
+        [this](const std::string &interval) { scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, interval); }, "'settings maintenance interval'",
+        settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m"), "5m", interval_errors);
     settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "metrics interval", "Maintenance interval",
                                                "How often to fetch metrics from modules", "10s", true, false);
-    smi = settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "10s");
-    try {
-      scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, smi);
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid 'metrics interval' value '" + smi + "', falling back to '10s': " + utf8::utf8_from_native(e.what()));
-      scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, "10s");
-    }
+    nsclient::core::core_settings::schedule_or_fallback(
+        [this](const std::string &interval) { scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, interval); }, "'metrics interval'",
+        settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "10s"), "10s", interval_errors);
+    log_setting_errors(log_instance_, interval_errors);
     settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "diagnostics interval", "Diagnostics interval",
                                                "How often to collect diagnostics (the tables kept with a failed check and served on "
                                                "/api/v2/diagnostics) from the modules that produce them. Empty, the default, collects them at the "
@@ -641,13 +560,11 @@ void NSClientT::boot_facts() {
       LOG_DEBUG_CORE("No loaded module produces facts, inventory will not be collected");
       return;
     }
-    const std::string interval = settings_manager::get_settings()->get_string(path, "interval", "1h");
-    try {
-      scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, interval);
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid facts 'interval' value '" + interval + "', falling back to '1h': " + utf8::utf8_from_native(e.what()));
-      scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, "1h");
-    }
+    std::vector<std::string> interval_errors;
+    nsclient::core::core_settings::schedule_or_fallback(
+        [this](const std::string &interval) { scheduler_.add_task(task_scheduler::schedule_metadata::FACTS, interval); }, "facts 'interval'",
+        settings_manager::get_settings()->get_string(path, "interval", "1h"), "1h", interval_errors);
+    log_setting_errors(log_instance_, interval_errors);
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Failed to configure facts: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
@@ -746,88 +663,33 @@ void NSClientT::boot_failed_checks() {
 }
 
 void NSClientT::read_failed_check_settings() {
-  const std::string path = "/settings/core/failed checks";
-  // A byte count. A value that does not parse keeps `value` as it was (the
-  // previous setting, or the default) and says so.
-  const auto read_size_setting = [this, &path](const std::string &key, const std::size_t fallback, std::size_t &value) {
-    const std::string text = settings_manager::get_settings()->get_string(path, key, str::xtos(fallback));
-    try {
-      value = str::stox<std::size_t>(text);
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid [" + path + "] " + key + " '" + text + "', keeping " + str::xtos(value) + ": " + utf8::utf8_from_native(e.what()));
-    }
-  };
-  nsclient::core::failed_check_store::options options = failures_->get_options();
+  // What each key means and what an unusable value falls back to:
+  // core_settings::read_failed_checks().
+  std::vector<std::string> errors;
   try {
-    options.enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "enabled", "true"));
-    const std::string arguments = settings_manager::get_settings()->get_string(
-        path, "record arguments", nsclient::core::failed_check_store::format_argument_mode(nsclient::core::failed_check_store::argument_mode::safe));
-    std::string arguments_error;
-    if (!nsclient::core::failed_check_store::parse_argument_mode(arguments, options.record_arguments, arguments_error)) {
-      LOG_ERROR_CORE_STD("Invalid [" + path + "] record arguments '" + arguments + "', keeping '" +
-                         nsclient::core::failed_check_store::format_argument_mode(options.record_arguments) + "': " + arguments_error);
-    }
-    const std::string max_entries =
-        settings_manager::get_settings()->get_string(path, "max entries", str::xtos(nsclient::core::failed_check_store::default_max_entries));
-    try {
-      options.max_entries = str::stox<std::size_t>(max_entries);
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid [" + path + "] max entries '" + max_entries + "', keeping " + str::xtos(options.max_entries) + ": " +
-                         utf8::utf8_from_native(e.what()));
-    }
-    options.capture_metrics = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "capture metrics", "false"));
-    read_size_setting("metrics context budget", nsclient::core::failed_check_store::default_context_budget, options.context_budget);
-    read_size_setting("max context size", nsclient::core::failed_check_store::default_max_context_size, options.max_context_size);
-    const std::string prune = settings_manager::get_settings()->get_string(path, "prune metrics", "");
-    std::string prune_error;
-    if (!nsclient::core::metrics_prune::parse(prune, options.prune, prune_error)) {
-      LOG_ERROR_CORE_STD("Invalid [" + path + "] prune metrics '" + prune + "', keeping '" + nsclient::core::metrics_prune::format(options.prune) +
-                         "': " + prune_error);
-    }
-    options.prune.patterns = nsclient::core::metrics_prune::parse_patterns(settings_manager::get_settings()->get_string(path, "prune pattern", ""));
-    options.capture_diagnostics =
-        settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "capture diagnostics", "false"));
-    read_size_setting("diagnostics rows", nsclient::core::diagnostics_round::default_max_rows, options.diagnostics_rows);
-    options.diagnostics_rows = nsclient::core::diagnostics_round::clamp_rows(options.diagnostics_rows);
-    const std::string statuses = settings_manager::get_settings()->get_string(
-        path, "statuses", nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses));
-    std::string error;
-    unsigned mask = 0;
-    if (nsclient::core::failed_check_store::parse_statuses(statuses, mask, error)) {
-      options.statuses = mask;
-    } else {
-      LOG_ERROR_CORE_STD("Invalid [" + path + "] statuses '" + statuses + "', keeping '" +
-                         nsclient::core::failed_check_store::format_statuses(options.statuses) + "': " + error);
-    }
+    const nsclient::core::failed_check_store::options options = nsclient::core::core_settings::read_failed_checks(
+        [](const std::string &key, const std::string &fallback) {
+          return settings_manager::get_settings()->get_string(nsclient::core::core_settings::failed_checks_section, key, fallback);
+        },
+        failures_->get_options(), errors);
     failures_->configure(options);
   } catch (const std::exception &e) {
-    LOG_ERROR_CORE_STD("Failed to read the failed-check log settings: " + utf8::utf8_from_native(e.what()));
+    errors.push_back("Failed to read the failed-check log settings: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    LOG_ERROR_CORE("Failed to read the failed-check log settings");
+    errors.push_back("Failed to read the failed-check log settings");
   }
+  log_setting_errors(log_instance_, errors);
 }
 
 // [/settings/facts] max size, applied to the repository. Read at boot, on a
 // settings-only reload, and on a full reload before its facts round, so a cap
 // that was raised or lowered applies without a restart.
 void NSClientT::read_facts_max_size() {
-  const std::string max_size =
-      settings_manager::get_settings()->get_string("/settings/facts", "max size", str::xtos(nsclient::core::fact_repository::default_max_size));
-  try {
-    const std::size_t value = str::stox<std::size_t>(max_size);
-    if (value < nsclient::core::fact_repository::min_max_size) {
-      LOG_ERROR_CORE_STD("Facts 'max size' " + max_size + " is too small to hold any fact set; keeping the previous cap of " +
-                         str::xtos(facts_->get_max_size()) + " bytes.");
-      return;
-    }
-    const std::vector<std::string> dropped = facts_->set_max_size(value);
-    for (const std::string &fact_set : dropped) {
-      LOG_ERROR_CORE_STD("Dropped the fact set '" + fact_set + "': the facts document no longer fits the lowered [/settings/facts] max size of " + max_size +
-                         " bytes. Disable a set, or raise max size.");
-    }
-  } catch (const std::exception &e) {
-    LOG_ERROR_CORE_STD("Invalid facts 'max size' value '" + max_size + "', keeping the previous one: " + utf8::utf8_from_native(e.what()));
-  }
+  std::vector<std::string> errors;
+  nsclient::core::core_settings::apply_facts_max_size(
+      *facts_, settings_manager::get_settings()->get_string("/settings/facts", "max size", str::xtos(nsclient::core::fact_repository::default_max_size)),
+      errors);
+  log_setting_errors(log_instance_, errors);
 }
 
 // Start the fleet configuration sync loop - but only when this host has been
@@ -836,64 +698,27 @@ void NSClientT::read_facts_max_size() {
 void NSClientT::boot_fleet_sync() {
 #ifdef HAVE_ONBOARDING
   try {
-    const std::string path = "/settings/fleet";
+    const std::string path = nsclient::core::fleet_settings::section;
     settings_manager::get_core()->register_path(0xffff, path, "Fleet configuration sync",
                                                 "Settings for keeping this host in sync with an NSClient fleet server (active once the host is "
                                                 "enrolled with `nscp enroll`).",
                                                 true, false);
-    const auto reg_key = [&path](const char *key, const char *title, const char *description, const char *def) {
-      settings_manager::get_core()->register_key(0xffff, path, key, "string", title, description, def, true, false);
-      return settings_manager::get_settings()->get_string(path, key, def);
-    };
-
-    fleet_config config;
-    config.state_file = path_->expand_path(reg_key("state file", "State file",
-                                                   "The enrollment manifest written by `nscp enroll` (certificates, keys and server urls). "
-                                                   "Fleet sync only runs when this file exists.",
-                                                   DEFAULT_FLEET_STATE_LOCATION));
-    // Rooted at ${fleet-folder}: the sync *writes* this tree - the rendered
-    // fleet.ini, the staged scripts, the bundle cache - so a relative value
-    // would scatter it wherever the service happened to be started from.
-    config.managed_path = path_->resolve_path(
-        reg_key("managed path", "Managed path",
-                "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept. A relative name is taken relative to the "
-                "fleet folder; an absolute path is used as given.",
-                "${" FLEET_FOLDER_KEY "}"),
-        "${" FLEET_FOLDER_KEY "}");
-    config.hostname = socket_helpers::expand_hostname(
-        reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
-    config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");
-    const std::string timeout = reg_key("timeout", "Request timeout",
-                                        "How long a single request to the fleet server may take before it is abandoned and retried. A server that "
-                                        "accepts the connection and then stops responding would otherwise stall the sync loop indefinitely.",
-                                        "60s");
-    try {
-      config.timeout_seconds = static_cast<unsigned int>(str::format::stox_as_time_sec<long>(timeout, "s"));
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid fleet 'timeout' value '" + timeout + "', falling back to 60s: " + utf8::utf8_from_native(e.what()));
-    }
+    // The keys, their descriptions and what is made of their values:
+    // fleet_settings::read().
+    std::vector<std::string> setting_errors;
+    fleet_config config = nsclient::core::fleet_settings::read(
+        [&path](const char *key, const char *type, const char *title, const char *description, const char *fallback) {
+          settings_manager::get_core()->register_key(0xffff, path, key, type, title, description, fallback, true, false);
+          return settings_manager::get_settings()->get_string(path, key, fallback);
+        },
+        *path_, setting_errors);
+    log_setting_errors(log_instance_, setting_errors);
     config.nscp_version = CURRENT_SERVICE_VERSION;
     config.local_config_probe = [] { return settings_manager::has_local_configuration(); };
     // Same boot.ini opt-in that allows a plaintext settings source: whether
     // this agent may take its configuration over an unauthenticated channel is
     // one question, and the fleet channel is the same channel by another name.
     config.allow_plaintext = settings_manager::get_core()->get_allow_plaintext();
-    settings_manager::get_core()->register_key(
-        0xffff, path, "failure context", "bool", "Send failure context",
-        "Send the fleet server a failed check from [/settings/core/failed checks], with the metrics snapshot it was recorded with when capture "
-        "metrics is on there, and a summary of the other failures since the last report. Only to a server that asks for it, and at most once "
-        "per `failure context interval`. Read when the service starts.",
-        "true", true, false);
-    config.failure_context = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "failure context", "true"));
-    const std::string failure_interval = reg_key("failure context interval", "Failure report interval",
-                                                 "The least time between two failed-check reports to the fleet server (at least 5s; the server can ask "
-                                                 "for longer). Failures in between are summarised in the next report. Read when the service starts.",
-                                                 "1h");
-    try {
-      config.failure_context_interval = static_cast<unsigned long>(str::format::stox_as_time_sec<long>(failure_interval, "s"));
-    } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid fleet 'failure context interval' value '" + failure_interval + "', falling back to 1h: " + utf8::utf8_from_native(e.what()));
-    }
 
     std::string manifest_detail;
     const fleet_sync::manifest_status manifest = fleet_sync::check_manifest(config.state_file, manifest_detail);
@@ -1096,58 +921,31 @@ bool NSClientT::do_reload(const std::string module) {
 
 NSCAPI::errorReturn NSClientT::reload(const std::string module) {
   try {
-    std::string task = module;
-    bool delayed = false;
-    if (module.size() > 8 && module.substr(0, 8) == "delayed,") {
-      task = module.substr(8);
-      delayed = true;
-    } else if (module.size() > 6 && module.substr(0, 6) == "delay,") {
-      task = module.substr(6);
-      delayed = true;
-    } else if (module.size() > 6 && module.substr(0, 8) == "instant,") {
-      task = module.substr(8);
-      delayed = false;
-    } else if (module == "service") {
-      delayed = false;
-    }
-    // A reload requested from inside a call the core dispatched into a module
-    // cannot be run inline on that thread. The thread may belong to a module
-    // other than the one it is dispatching: a Lua check served over NRPE runs
-    // on an NRPE pool thread while dispatching LUAScript, so
-    // core.reload("NRPEServer") - or "service", which reloads every module -
-    // would have the NRPE server stop and join its own pool from one of its
-    // members. Which module owns the thread is not something the core can
-    // see, so any reload of a module is deferred whenever this thread is
-    // inside any module; "settings" touches no module at all. The scheduler's
-    // worker is not inside any module, so hand it over exactly as "delayed,"
-    // does; the call then returns before the reload has applied, which is the
-    // only order in which it can apply.
-    if (!delayed && task != "settings" && plugins_->is_dispatching_on_this_thread()) {
-      if (scheduler_.is_running()) {
-        LOG_DEBUG_CORE_STD("Reload of " + task + " requested from inside a call into a module: deferring it to the scheduler");
-        delayed = true;
-      } else if (task == "service" || plugins_->is_dispatching_on_this_thread(task)) {
-        // No scheduler to hand it to (`nscp unit`, `nscp client` without
-        // --boot). Reloading the module this thread is inside would unload
-        // the code - a script and its interpreter state - that the call
-        // returns into, so refuse rather than run it inline. Reloading some
-        // other module from here is what the unit-test scripts do to apply
-        // the configuration they have just set, and none of those run on a
-        // thread the reloaded module owns, so that still applies inline.
-        LOG_ERROR_CORE_STD("Refusing to reload " + task +
+    const nsclient::core::reload_request::request request = nsclient::core::reload_request::parse(module);
+    // Why a reload asked for from inside a module is deferred or refused:
+    // reload_request::decide().
+    nsclient::core::reload_request::caller caller;
+    caller.inside_any_module = plugins_->is_dispatching_on_this_thread();
+    caller.inside_target = plugins_->is_dispatching_on_this_thread(request.task);
+    caller.scheduler_running = scheduler_.is_running();
+    switch (nsclient::core::reload_request::decide(request, caller)) {
+      case nsclient::core::reload_request::action::refuse:
+        LOG_ERROR_CORE_STD("Refusing to reload " + request.task +
                            " from inside a call into the module being reloaded while the scheduler is not running: request it from outside the module");
         return NSCAPI::api_return_codes::hasFailed;
-      }
+      case nsclient::core::reload_request::action::defer:
+        if (request.delayed) {
+          LOG_TRACE_CORE("Delayed reload");
+        } else {
+          LOG_DEBUG_CORE_STD("Reload of " + request.task + " requested from inside a call into a module: deferring it to the scheduler");
+        }
+        scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", request.task);
+        return NSCAPI::api_return_codes::isSuccess;
+      case nsclient::core::reload_request::action::run_inline:
+        break;
     }
-    if (delayed) {
-      LOG_TRACE_CORE("Delayed reload");
-      scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);
-      return NSCAPI::api_return_codes::isSuccess;
-    } else {
-      LOG_TRACE_CORE("Instant reload");
-      return do_reload(task) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
-    }
-
+    LOG_TRACE_CORE("Instant reload");
+    return do_reload(request.task) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
   } catch (const std::exception &e) {
     LOG_ERROR_CORE("Reload failed: " + utf8::utf8_from_native(e.what()));
     return NSCAPI::api_return_codes::hasFailed;

@@ -145,7 +145,9 @@ jobs:
       shell: bash
       # NSCP_SKIP_DOCKER=1: no docker daemon inside this container, so the
       # container-backed scenarios (mysql, docker, ...) skip themselves.
-      run: SKIP_BUILD=1 BUILD_DIR=tmp/nscp SUITES=integration tools/coverage/run.sh
+      # KEEP_TRACEFILES=1: merge with the unit step's tracefile instead of
+      # deleting it, so the published report covers both suites.
+      run: SKIP_BUILD=1 KEEP_TRACEFILES=1 BUILD_DIR=tmp/nscp SUITES=integration tools/coverage/run.sh
 
     - name: Upload coverage report
       if: always()
