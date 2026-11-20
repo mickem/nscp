@@ -37,9 +37,23 @@ struct agent_config {
   std::string endpoint_name;
   std::string certificate_directory;
   bool allow_arguments = true;
+  std::string tls_version = "1.2+";
+  std::string allowed_ciphers;
   int threads = 4;
   int reconnect_seconds = 10;
 };
+
+// The TLS settings of the agent as the options every socket module uses.
+// Only the protocol part: the certificate, key, CA and verify mode depend on
+// where the bootstrap stands and are filled in per connection.
+inline socket_helpers::connection_info::ssl_opts tls_options(const agent_config &config) {
+  socket_helpers::connection_info::ssl_opts opts;
+  opts.enabled = true;
+  opts.tls_version = config.tls_version;
+  opts.allowed_ciphers = config.allowed_ciphers;
+  opts.ssl_options = "default-workarounds";
+  return opts;
+}
 
 // Owns the two io_contexts: one thread drives the connection, a small pool
 // runs checks (a check blocks its thread until it returns).
@@ -91,14 +105,15 @@ class agent : public std::enable_shared_from_this<agent> {
   void connect() {
     if (stopping_) return;
     try {
-      ssl_ = std::make_shared<asio::ssl::context>(asio::ssl::context::tls_client);
-      ssl_->set_options(asio::ssl::context::default_workarounds | asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 | asio::ssl::context::no_tlsv1 |
-                        asio::ssl::context::no_tlsv1_1);
-      ssl_->use_certificate_chain_file(paths_.certificate);
-      ssl_->use_private_key_file(paths_.key, asio::ssl::context::pem);
+      // The context is built the way the other socket modules build theirs,
+      // from the same options and the same `tls version` / `allowed ciphers`
+      // vocabulary (socket_helpers::connection_info::ssl_opts).
+      socket_helpers::connection_info::ssl_opts opts = tls_options(config_);
+      opts.certificate = paths_.certificate;
+      opts.certificate_key = paths_.key;
       if (boost::filesystem::exists(paths_.ca)) {
-        ssl_->load_verify_file(paths_.ca);
-        ssl_->set_verify_mode(asio::ssl::verify_peer);
+        opts.ca_path = paths_.ca;
+        opts.verify_mode = "peer";
         config_.connection.verify_parent = true;
       } else {
         // Trust on first use, like `icinga2 node setup --trustedcert`: until
@@ -107,9 +122,14 @@ class agent : public std::enable_shared_from_this<agent> {
         // Nothing but the certificate exchange happens on such a connection:
         // execute() refuses checks until the parent is verified.
         NSC_LOG_ERROR("Icinga agent: no CA at " + paths_.ca + " yet, the parent's certificate is NOT verified on this connection; no checks run until it is");
-        ssl_->set_verify_mode(asio::ssl::verify_none);
+        opts.verify_mode = "none";
         config_.connection.verify_parent = false;
       }
+      ssl_ = std::make_shared<asio::ssl::context>(socket_helpers::tls_method_parser(opts.tls_version));
+      ssl_->set_options(opts.get_ctx_opts());
+      std::list<std::string> errors;
+      opts.configure_ssl_context(*ssl_, errors);
+      if (!errors.empty()) throw std::runtime_error(boost::algorithm::join(errors, "; "));
     } catch (const std::exception &e) {
       NSC_LOG_ERROR(std::string("Icinga agent: failed to set up TLS: ") + e.what());
       schedule_reconnect();
@@ -265,6 +285,13 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
                 "Whether the parent may pass arguments to the checks it runs. True (the default) because Icinga CheckCommands carry their "
                 "thresholds as arguments; false runs only argument-less queries and aliases defined on the agent. Which queries the parent may "
                 "run at all is the permission policy's job (/settings/permissions).")
+      .add_string("tls version", sh::string_key(&config.tls_version, "1.2+"), "TLS VERSION",
+                  "Which TLS versions the agent negotiates with its parent, in the same vocabulary as the other servers and clients: an exact "
+                  "version (1.0, 1.1, 1.2, 1.3), a trailing + for that version or later, or `any`. The default, 1.2+, is what Icinga 2 accepts "
+                  "out of the box.")
+      .add_string("allowed ciphers", sh::string_key(&config.allowed_ciphers), "ALLOWED CIPHERS",
+                  "OpenSSL cipher list for TLS 1.2 and earlier. Empty (the default) leaves the library's own selection in place. TLS 1.3 "
+                  "suites are not affected by it.")
       .add_int("threads", sh::int_key(&config.threads, 4), "WORKER THREADS", "How many checks run at the same time.");
 
   settings.register_all();
@@ -285,6 +312,20 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
     NSC_LOG_ERROR("Icinga agent: `parent endpoint` '" + socket_helpers::escape_for_log(config.connection.parent_endpoint) +
                   "' cannot be a permission principal (no ':', '=' or control characters): not connecting");
     return true;
+  }
+  {
+    // Refuse a bad `tls version` or `allowed ciphers` here, once, rather than
+    // on every reconnect attempt.
+    try {
+      const socket_helpers::connection_info::ssl_opts opts = icinga_agent::tls_options(config);
+      asio::ssl::context probe(socket_helpers::tls_method_parser(opts.tls_version));
+      std::list<std::string> errors;
+      opts.configure_ssl_context(probe, errors);
+      if (!errors.empty()) throw std::runtime_error(boost::algorithm::join(errors, "; "));
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR(std::string("Icinga agent: invalid TLS settings under /settings/Icinga/agent: ") + e.what() + ": not connecting");
+      return true;
+    }
   }
   boost::to_lower(config.endpoint_name);
   config.connection.agent_version = std::string("NSClient++/") + STRPRODUCTVER;

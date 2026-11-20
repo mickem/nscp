@@ -371,6 +371,33 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(without.exit_status).toBe(0);
     });
 
+    it("negotiates the configured tls version and cipher", async () => {
+      await nscp.stop();
+      await configureAgent({
+        "tls version": "1.2",
+        "allowed ciphers": "ECDHE-RSA-AES128-SHA256",
+      });
+      nscp.start();
+      const pinned = await verifiedSession();
+      expect(pinned.socket.getProtocol()).toBe("TLSv1.2");
+      expect(pinned.socket.getCipher().name).toBe("ECDHE-RSA-AES128-SHA256");
+      const cr = await pinned.execute("tls", "check_ok", { ifw_api_command: "check_ok" });
+      expect(cr.exit_status).toBe(0);
+    });
+
+    it("refuses invalid tls settings at startup instead of on every reconnect", async () => {
+      await nscp.stop();
+      const before = master.sessions.length;
+      await configureAgent({ "tls version": "1.4+", "allowed ciphers": "" });
+      nscp.start();
+      await waitForLog(nscp, "invalid TLS settings");
+      await sleep(1_000);
+      expect(master.sessions.length).toBe(before);
+      // Back to the defaults for what follows.
+      await nscp.stop();
+      await configureAgent({ "tls version": "1.2+" });
+    });
+
     it("refuses a parent whose certificate carries another name", async () => {
       await nscp.stop();
       const before = master.sessions.length;
