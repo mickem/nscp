@@ -886,13 +886,16 @@ void NSClientT::boot_fleet_sync() {
         "true", true, false);
     config.failure_context = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string(path, "failure context", "true"));
     const std::string failure_interval = reg_key("failure context interval", "Failure report interval",
-                                                 "The least time between two failed-check reports to the fleet server (at least 5s; the server can ask "
-                                                 "for longer). Failures in between are summarised in the next report. Read when the service starts.",
-                                                 "1h");
+                                                 "The least time between two failed-check reports to the fleet server (the server can ask for longer). "
+                                                 "A host that has not reported within it reports its next failure at once; failures inside it are "
+                                                 "summarised in the next report. 0 reports every failed check on its own. Read when the service starts.",
+                                                 "1m");
     try {
-      config.failure_context_interval = static_cast<unsigned long>(str::format::stox_as_time_sec<long>(failure_interval, "s"));
+      const long seconds = str::format::stox_as_time_sec<long>(failure_interval, "s");
+      if (seconds < 0) throw std::invalid_argument("the interval cannot be negative");
+      config.failure_context_interval = static_cast<unsigned long>(seconds);
     } catch (const std::exception &e) {
-      LOG_ERROR_CORE_STD("Invalid fleet 'failure context interval' value '" + failure_interval + "', falling back to 1h: " + utf8::utf8_from_native(e.what()));
+      LOG_ERROR_CORE_STD("Invalid fleet 'failure context interval' value '" + failure_interval + "', falling back to 1m: " + utf8::utf8_from_native(e.what()));
     }
 
     std::string manifest_detail;

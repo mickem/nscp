@@ -20,8 +20,10 @@ lists what it took out, and `prune pattern` leaves out every metric whose
 key contains one of a list of text (`VirtualBox, Hyper-V Virtual`). An
 enrolled agent also sends *failure context* to a fleet server that asks for
 it: at most one report per `[/settings/fleet] failure context interval`
-(default `1h`), carrying the newest failure with its snapshot and a count of
-the others. It is not a feed of every failed check. Capture is off by
+(default `1m`), carrying the newest failure with its snapshot and a count of
+the others. A host that has been quiet reports its next failure on the next
+poll; the interval is the wait before it reports again. It is not a feed of
+every failed check unless you set the interval to `0`. Capture is off by
 default, so nothing changes until you turn it on. Without it a fleet report
 carries the failure and no metrics. Set `failure context = false` under
 `[/settings/fleet]` to send no reports. See the

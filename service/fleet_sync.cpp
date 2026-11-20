@@ -71,6 +71,8 @@ const char *renew_path = "/agent/v1/renew";
 const char *heartbeat_path = "/agent/v1/heartbeat";
 const char *facts_path = "/agent/v1/facts";
 const char *failure_context_path = "/agent/v1/failure-context";
+// With no interval between failure reports, the most that go in one loop turn.
+const std::size_t max_failure_reports_per_turn = 25;
 // Renew when the client certificate has fewer days than this left.
 const long renew_threshold_days = 14;
 // Longest we will ever sleep between polls, whatever the server asks for
@@ -687,6 +689,25 @@ void fleet_sync::maybe_report_failure_context() {
     failure_pacer_.dropped(failed_checks_->last_index());
     return;
   }
+  if (failure_pacer_.interval() > 0) {
+    // One report for the lot: one failure in full, the rest summarised.
+    send_failure_report(fresh, now);
+    return;
+  }
+  // No interval (`failure context interval = 0`, and a server that asks for
+  // none): every failure is a report of its own, oldest first so the server
+  // sees them in the order they happened. Bounded per turn - the log can hold
+  // thousands - and the rest go in the next one.
+  std::size_t reports = 0;
+  for (auto it = fresh.rbegin(); it != fresh.rend() && reports < max_failure_reports_per_turn; ++it, ++reports) {
+    if (!send_failure_report(nsclient::core::failed_check_store::entry_list(1, *it), now)) return;
+  }
+}
+
+// Report `fresh` (failures the server has not heard of, newest first, not
+// empty) as one report. False when it did not land and nothing more should be
+// tried this turn; true when it was sent, or given up on for good.
+bool fleet_sync::send_failure_report(const nsclient::core::failed_check_store::entry_list &fresh, const std::int64_t now) {
   const unsigned long long newest = fresh.front().index();
   nsclient::core::failure_report report = nsclient::core::failure_report::from(*failed_checks_, fresh);
   // Indices the log handed out since the last report that it no longer
@@ -711,7 +732,7 @@ void fleet_sync::maybe_report_failure_context() {
   } catch (const std::exception &e) {
     failure_pacer_.dropped(newest);
     log_error("Failed check not reported to the fleet server: " + utf8::utf8_from_native(e.what()));
-    return;
+    return true;
   }
 
   http::response response;
@@ -729,7 +750,7 @@ void fleet_sync::maybe_report_failure_context() {
     } else {
       log_debug(message);
     }
-    return;
+    return false;
   }
   note_transport_success();
 
@@ -744,7 +765,7 @@ void fleet_sync::maybe_report_failure_context() {
     } catch (const std::exception &e) {
       log_error("Could not record the failure report time: " + utf8::utf8_from_native(e.what()));
     }
-    return;
+    return true;
   }
   note_server_response(response, fleet_call::failure_report);
   if (response.status_code_ == 404 || response.status_code_ == 410) {
@@ -758,7 +779,7 @@ void fleet_sync::maybe_report_failure_context() {
       log_info("The fleet server advertises failure reports but has no " + std::string(failure_context_path) + " route (" + str::xtos(response.status_code_) +
                "); not reporting failed checks to it until it advertises them again.");
     }
-    return;
+    return false;
   }
   if (response.status_code_ == 413) {
     // This report is too large and will be every time: give up on these
@@ -767,7 +788,7 @@ void fleet_sync::maybe_report_failure_context() {
     log_error("The fleet server refused a failure report as too large (" + str::xtos(body.size()) +
               " bytes). Lower what the snapshot holds (fewer modules publishing metrics) or turn capture metrics off under "
               "[/settings/core/failed checks].");
-    return;
+    return true;
   }
   failure_pacer_.rejected(now);
   const std::string message = "Failure report to the fleet server failed: " + str::xtos(response.status_code_) + " " + response.payload_.substr(0, 512);
@@ -777,6 +798,7 @@ void fleet_sync::maybe_report_failure_context() {
   } else {
     log_debug(message);
   }
+  return false;
 }
 
 void fleet_sync::maybe_renew() {

@@ -464,4 +464,5 @@ Modules read the same log through the `NSAPIFailuresQuery` core API
 
 An enrolled agent can also [send failure context](../../setup/fleet.md#send-failure-context)
 to a fleet server that asks for it: one failed check from this log with its
-snapshots, at most once per `[/settings/fleet] failure context interval`.
+snapshots, at most once per `[/settings/fleet] failure context interval`
+(a minute by default; `0` sends every failed check).

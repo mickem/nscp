@@ -18,7 +18,7 @@ Two new ways the failed-check log's contents reach a reader:
   `metrics.list`.
 * **Failure context sent to the fleet server.** An enrolled agent whose fleet
   server asks for it (`X-Failure-Context: accept` on its desired-state answers) sends it
-  one failed check per `failure context interval` (default `1h`): the entry
+  one failed check per `failure context interval` (default `1m`; `0` sends every one): the entry
   as `/api/v2/failures` renders it, the snapshot when one was captured, and a
   per-check count of the other failures since the last report. This is new
   data leaving the host: check output lines and performance data, who ran the

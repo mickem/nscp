@@ -13,6 +13,8 @@
  *    is summarised in `suppressed`;
  *  - the time of the last report is kept in applied-state.json, so a restart
  *    inside the interval sends nothing;
+ *  - `failure context interval = 0` is no pacing: every failure is a report of
+ *    its own, oldest first, with nothing summarised;
  *  - the diagnostics snapshot rides on the same opt-in, as a `diagnostics`
  *    object beside `context`.
  *
@@ -338,5 +340,34 @@ describe("fleet failure-context reports", () => {
     await new Promise((r) => setTimeout(r, (INTERVAL_SECONDS + 3) * 1000));
     await settle(2);
     expect(reports().length).toBe(before);
+  });
+
+  it("sends every failure on its own when the interval is 0", async () => {
+    // The interval is read at start.
+    await nscp.stop();
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
+    await nscp.configure({ "/settings/fleet": { "failure context interval": "0" } });
+    advertise = false;
+    await startAgent();
+    await waitForSnapshot();
+    const before = reports().length;
+    await run("check_critical", "all-one");
+    await run("check_warning", "all-two");
+    await run("check_critical", "all-three");
+    advertise = true;
+    await waitFor("three reports", () => reports().length >= before + 3);
+    await settle(3);
+    const sent = reports().slice(before);
+    // One each, in the order they failed, nothing folded into a count.
+    expect(sent.map((r) => r.body.failure.message)).toEqual(["all-one", "all-two", "all-three"]);
+    for (const report of sent) {
+      expect(report.body.suppressed.count).toBe(0);
+      expect(report.body.suppressed.evicted).toBe(0);
+    }
+
+    // And the next one does not wait for anything but the next poll.
+    await run("check_critical", "all-four");
+    await waitFor("the fourth report", () => reports().length >= before + 4, 15_000);
+    expect(reports()[before + 3].body.failure.message).toEqual("all-four");
   });
 });

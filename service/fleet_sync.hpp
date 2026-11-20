@@ -46,7 +46,7 @@ struct fleet_config {
   bool allow_plaintext = false;
   // [/settings/fleet] failure context: report a failed check, with the
   // metrics snapshot it was recorded with, to a server that asks for it - at
-  // most one report per `failure_context_interval` seconds.
+  // most one report per `failure_context_interval` seconds (0 for no limit).
   bool failure_context = true;
   unsigned long failure_context_interval = onboarding::failure_context_pacer::default_interval_seconds;
 };
@@ -124,8 +124,10 @@ class fleet_sync {
   void maybe_upload_facts();
   // Report the newest failed check, with its metrics snapshot, to
   // /agent/v1/failure-context when the server takes reports and the interval
-  // since the last one has passed. Cheap otherwise: one index compare.
+  // since the last one has passed - or, with no interval, every failed check
+  // in a report of its own. Cheap otherwise: one index compare.
   void maybe_report_failure_context();
+  bool send_failure_report(const nsclient::core::failed_check_store::entry_list &fresh, std::int64_t now);
   // Which fleet call a response answered: they share one rule, which differs
   // only in what trouble and a Retry-After mean for the facts upload and the
   // failure report.

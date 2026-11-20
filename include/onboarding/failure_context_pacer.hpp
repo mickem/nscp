@@ -38,10 +38,15 @@ boost::optional<unsigned long> parse_failure_context_header(const std::string &v
 //    report is a server that does not have the route after all - the same as
 //    no header, until a poll says otherwise again.
 //  * One report per host per interval, not per check: `check_cpu` failing and
-//    then `check_drive_size` within the hour is one report. The interval is
-//    the operator's (`failure context interval`, at least 5 seconds), raised
-//    to the server's `min-interval` when that is longer. The loop only asks
-//    once per poll, so in practice the poll interval is a floor too.
+//    then `check_drive_size` within the minute is one report. The interval is
+//    a wait after a report, not before one: a host that has been quiet reports
+//    its next failure at once. It is the operator's (`failure context
+//    interval`, a minute by default), raised to the server's `min-interval`
+//    when that is longer. The loop only asks once per poll, so in practice the
+//    poll interval is a floor too.
+//  * An interval of 0 is no pacing at all: a report is due whenever there is
+//    a failure the server has not heard of, and the caller sends each failure
+//    as a report of its own rather than one with the rest summarised.
 //  * A report goes when there is a failure the server has not heard of (an
 //    index past the last one sent) and the interval since the last report has
 //    passed. The caller picks which failure; the rest are summarised in it.
@@ -59,10 +64,10 @@ boost::optional<unsigned long> parse_failure_context_header(const std::string &v
 //    the next candidate.
 class failure_context_pacer {
  public:
-  static constexpr unsigned long min_interval_seconds = 5;
-  static constexpr unsigned long default_interval_seconds = 3600;
+  static constexpr unsigned long default_interval_seconds = 60;
 
-  void configure(const unsigned long interval_seconds) { interval_ = (std::max)(interval_seconds, min_interval_seconds); }
+  // 0 for no interval: every failure is reported.
+  void configure(const unsigned long interval_seconds) { interval_ = interval_seconds; }
 
   // The time of the last report sent before this process started, as
   // persisted. Indices do not survive a restart (the failed-check log starts
@@ -99,6 +104,7 @@ class failure_context_pacer {
   bool server_accepts_reports() const { return accepted_; }
 
   // The interval in force: the operator's, or the server's minimum if longer.
+  // 0 when neither asks for one.
   unsigned long interval() const { return (std::max)(interval_, server_min_interval_); }
 
   // Whether to report now, when the newest failure in the log has index

@@ -67,9 +67,39 @@ TEST(failure_context_pacer, one_report_per_interval_whatever_fails) {
   EXPECT_EQ(1000 + 3600, p.next_at());
 }
 
-TEST(failure_context_pacer, the_interval_has_a_floor_and_the_server_can_raise_it) {
+TEST(failure_context_pacer, the_default_interval_is_a_minute) {
+  pacer p;
+  p.start();
+  p.begin_turn();
+  p.server_accepts(0);
+  EXPECT_EQ(60ul, p.interval());
+  // A host that has been quiet reports at once: the interval is a wait after
+  // a report, not before one.
+  ASSERT_TRUE(p.due(1, 1000));
+  p.sent(1, 1000);
+  EXPECT_FALSE(p.due(2, 1059));
+  EXPECT_TRUE(p.due(2, 1060));
+}
+
+TEST(failure_context_pacer, no_interval_reports_every_failure) {
+  pacer p = accepting(0);
+  EXPECT_EQ(0ul, p.interval());
+  ASSERT_TRUE(p.due(1, 1000));
+  p.sent(1, 1000);
+  // The next failure is due in the same second, and the one after it.
+  EXPECT_TRUE(p.due(2, 1000));
+  p.sent(2, 1000);
+  EXPECT_TRUE(p.due(3, 1000));
+  // Still nothing without a new failure, and a rejection still backs off.
+  EXPECT_FALSE(p.due(2, 5000));
+  p.rejected(1000);
+  EXPECT_FALSE(p.due(3, 1059));
+  EXPECT_TRUE(p.due(3, 1060));
+}
+
+TEST(failure_context_pacer, the_server_can_raise_the_interval) {
   pacer p = accepting(1);
-  EXPECT_EQ(pacer::min_interval_seconds, p.interval());
+  EXPECT_EQ(1ul, p.interval());
   p.configure(3600);
   p.server_accepts(7200);
   EXPECT_EQ(7200ul, p.interval());
@@ -79,6 +109,9 @@ TEST(failure_context_pacer, the_interval_has_a_floor_and_the_server_can_raise_it
   // A server minimum below the operator's interval changes nothing.
   p.server_accepts(60);
   EXPECT_EQ(3600ul, p.interval());
+  // And it applies to an operator who asked for none.
+  p.configure(0);
+  EXPECT_EQ(60ul, p.interval());
 }
 
 TEST(failure_context_pacer, the_last_report_survives_a_restart) {

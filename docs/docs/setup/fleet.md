@@ -512,9 +512,10 @@ When checks fail, the agent can send the server *failure context*: one failed ch
 [log of failed checks](../api/rest/failures.md), what it said and, when the agent captures
 them, the host's metrics and [diagnostics](../api/rest/diagnostics.md) (the top processes,
 the services in trouble, the last log errors, the failures before it) at that moment, plus a count of the other failures since the last
-report. It is an example of the host in trouble, not a feed of failures: at most one report
-goes per interval, whatever fails, and alerting on each failed check stays with your
-monitoring system.
+report. By default it is an example of the host in trouble, not a feed of failures: at most
+one report goes per interval (a minute), whatever fails, and alerting on each failed check
+stays with your monitoring system. Set the interval to `0` to have every failed check
+reported.
 
 ```ini
 [/settings/core/failed checks]
@@ -537,8 +538,9 @@ processes = true
 [/settings/fleet]
 ; Send failure context to a server that asks (the default).
 failure context = true
-; At most one report per interval (at least 5s; the server can ask for longer).
-failure context interval = 1h
+; At most one report per interval (the server can ask for longer). A host that
+; has been quiet reports its next failure at once. 0 reports every failed check.
+failure context interval = 1m
 ```
 
 How it works:
@@ -555,7 +557,11 @@ How it works:
   newest failure that still has a snapshot, metrics or diagnostics (the freshest picture of
   the system in trouble), or the newest failure when none has one. Every other failure since the last
   report goes into a `suppressed` summary, grouped by check and status, so a check that flapped
-  thirty times in the hour reaches the server as one report and a count.
+  thirty times in the interval reaches the server as one report and a count.
+- **Or every failure.** With `failure context interval = 0` nothing is summarised: each
+  failed check goes as a report of its own, oldest first, at most 25 in one poll turn with
+  the rest following in the next. A server that asks for a `min-interval` still gets no
+  more than one report per that interval.
 - **Survives a restart.** The time of the last report is kept with the applied fleet state,
   so an agent that restarts inside the interval sends nothing until it has passed.
 - **Backs off like the facts upload.** No report in a turn whose poll or report was turned
