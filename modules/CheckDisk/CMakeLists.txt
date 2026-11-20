@@ -244,6 +244,7 @@ else()
             growth_spots_test.cpp
             check_files.cpp
             check_files_checksum_test.cpp
+            check_files_test.cpp
             check_largest_files.cpp
             check_largest_files_test.cpp
             largest_files_scan.cpp
