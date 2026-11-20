@@ -103,6 +103,7 @@ void check_storagepool(const PB::Commands::QueryRequestMessage::Request &request
   // so the check must not go critical simply because there are no pools.
   filter_helper.add_options("health_status = 'Warning' or free_pct < 20", "health_status = 'Unhealthy' or free_pct < 10", "",
                             filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("free_pct", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent_number);
   filter_helper.add_syntax("${status}: ${list}", "${name}: ${health_status}, ${used}/${capacity} used", "${name}", "%(status): No storage pools found",
                            "%(status): All storage pools are healthy.");
 
