@@ -12,6 +12,13 @@ check_patch_age "warn=age > 40" "crit=age > 90"
 WARNING: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (57d ago)
 ```
 
+**Also alert when Windows reports no install dates (the age is then unknown):**
+
+```
+check_patch_age "warn=age > 40" "crit=age > 90 or age_known = 0"
+CRITICAL: 42 hotfixes installed, newest install date unknown
+```
+
 **Verify a specific hotfix is installed (vulnerability response) — CRITICAL if missing:**
 
 ```

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -28,7 +29,10 @@ struct hotfix_entry {
 // counterpart to check_os_updates (which reports *pending* updates).
 struct patch_obj {
   long long count;               // total installed hotfixes
-  long long age_days;            // days since the newest hotfix was installed; -1 if unknown
+  // Days since the newest hotfix was installed. Disengaged when no hotfix
+  // carries a parseable install date: there is then no number to compare, and a
+  // sentinel such as -1 would sail under every `age > N` threshold.
+  boost::optional<long long> age_days;
   std::string newest_id;         // HotFixID of the newest hotfix
   std::string newest_installed;  // its InstalledOn string
   std::string ids;               // ';'-joined list of all installed HotFixIDs
@@ -36,10 +40,11 @@ struct patch_obj {
   long long missing;             // requested hotfixes that are not installed
   std::string missing_ids;       // ';'-joined list of the missing requested hotfixes
 
-  patch_obj() : count(0), age_days(-1), required(0), missing(0) {}
+  patch_obj() : count(0), required(0), missing(0) {}
 
   long long get_count() const { return count; }
-  long long get_age() const { return age_days; }
+  boost::optional<long long> get_age() const { return age_days; }
+  long long get_age_known() const { return age_days.has_value() ? 1 : 0; }
   long long get_required() const { return required; }
   long long get_missing() const { return missing; }
   std::string get_newest_id() const { return newest_id; }
