@@ -91,6 +91,7 @@ void check_cpu_utilization_from(const PB::Commands::QueryRequestMessage::Request
 
   filter_type filter;
   filter_helper.add_options("usage > 90", "usage > 95", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("usage", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number);
   filter_helper.add_syntax("${status}: ${list}", "user: ${user}% system: ${system}% iowait: ${iowait}% steal: ${steal}% idle: ${idle}%", "cpu", "", "");
   // Emit the full breakdown as perf data (not just the thresholded 'usage').
   filter_helper.set_default_perf_config("extra(usage;user;system;iowait;irq;softirq;steal;guest;idle)");
