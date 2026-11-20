@@ -116,8 +116,15 @@ void registry_query_handler::find_plugins_on_disk(boost::unordered_set<std::stri
   for (boost::filesystem::directory_iterator itr(pluginPath); itr != end_itr; ++itr) {
     if (!is_directory(itr->status())) {
       boost::filesystem::path file = itr->path().filename();
+      std::string module;
       if (nsclient::core::plugin_manager::is_module(pluginPath / file)) {
-        const std::string module = nsclient::core::plugin_manager::file_to_module(file);
+        module = nsclient::core::plugin_manager::file_to_module(file);
+      } else if (nsclient::core::plugin_manager::is_module_bundle(pluginPath / file)) {
+        // A .zip bundle loads through the same only_load_module() as a
+        // library, so an unloaded one belongs in the listing too.
+        module = file.string().substr(0, file.string().size() - 4);
+      }
+      if (!module.empty()) {
         if (!plugins_->get_plugin_cache()->has_module(module)) {
           plugin_cache_item itm = inventory_plugin_on_disk(tmp_list, file.string());
           if (!itm.dll.empty()) {
@@ -126,7 +133,11 @@ void registry_query_handler::find_plugins_on_disk(boost::unordered_set<std::stri
               continue;
             }
             unique_instances.emplace(key);
-            if (q.name() != itm.dll && q.name() != itm.alias) {
+            // Only reached for a listing of everything (inventory_modules
+            // answers a named lookup itself). The old unguarded form let an
+            // empty name through only because an on-disk item's alias is
+            // always empty too; say what is meant instead.
+            if (!q.name().empty() && q.name() != itm.dll && q.name() != itm.alias) {
               continue;
             }
             add_module(rp, itm, false);

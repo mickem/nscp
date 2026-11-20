@@ -595,6 +595,34 @@ TEST_F(RegistryOnDiskTest, AMissingModuleFolderIsNotAnError) {
   EXPECT_FALSE(plugins_->get_plugin_cache()->has_module("bundle"));
 }
 
+TEST_F(RegistryOnDiskTest, FirstFullListingIncludesTheModulesOnDisk) {
+  // The scan runs once per process (the cache remembers it ran); the listing
+  // that triggers it is the one that must carry its results, not the next.
+  const auto first = inventory(ItemType::MODULE, "", true);
+  EXPECT_EQ((std::vector<std::string>{"CheckExternalScripts", "CheckSystem", "bundle"}), names(first));
+  const Inventory *bundle = find(first, "bundle");
+  ASSERT_NE(nullptr, bundle);
+  EXPECT_EQ("from disk", bundle->info().description());
+  EXPECT_TRUE(bundle->info().experimental());
+  EXPECT_EQ("false", metadata(*bundle, "loaded"));
+  EXPECT_EQ("false", metadata(*bundle, "enabled"));
+
+  // The second, served from the cache, says the same - once.
+  EXPECT_EQ(names(first), names(inventory(ItemType::MODULE, "", true)));
+}
+
+TEST_F(RegistryOnDiskTest, PlainListingDoesNotScanTheDisk) {
+  EXPECT_EQ((std::vector<std::string>{"CheckExternalScripts", "CheckSystem"}), names(inventory(ItemType::MODULE)));
+  EXPECT_FALSE(plugins_->get_plugin_cache()->has_all());
+}
+
+TEST_F(RegistryOnDiskTest, ABundleThatWillNotLoadCostsOnlyItsOwnEntry) {
+  zip_test::write_zip(modules_ / "Broken.zip", {{"module.json", "{not json"}});
+  const auto response = inventory(ItemType::MODULE, "", true);
+  EXPECT_EQ(PB::Common::Result_StatusCodeType_STATUS_OK, status(response));
+  EXPECT_EQ((std::vector<std::string>{"CheckExternalScripts", "CheckSystem", "bundle"}), names(response));
+}
+
 TEST_F(RegistryQueryTest, AControlCommandWithNoHandlerIsAnError) {
   // DUMMY_1 is the proto3 zero value - what a request that forgot to set the
   // command carries.
