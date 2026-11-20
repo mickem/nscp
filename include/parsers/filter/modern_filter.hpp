@@ -319,6 +319,19 @@ struct modern_filters {
   };
 
   bool has_evaluation_errors() const { return evaluation_error_count_ > 0; }
+
+  // One expression evaluated against the current record. `failed` when it
+  // logged an error while it ran: the value it compared was a substitute (the
+  // number without its unit, false for a refused regular expression), so the
+  // record gets no verdict from it - neither a match nor a non-match.
+  enum class verdict { no, yes, failed };
+  verdict evaluate(const filter_engine &engine, const bool expect_object) {
+    if (!engine) return verdict::no;
+    const std::size_t before = logged_error_count();
+    const bool matched = engine->match(context, expect_object);
+    if (logged_error_count() > before) return verdict::failed;
+    return matched ? verdict::yes : verdict::no;
+  }
   // The last evaluation error: the error and the expression as written,
   // never the record's values.
   std::string get_evaluation_error() const { return evaluation_error_; }
@@ -339,6 +352,12 @@ struct modern_filters {
       detail = detail.substr(0, cut) + "...";
     }
     return "Filter evaluation failed: " + detail;
+  }
+  // A verdict the records that did evaluate reached, with the failure beside
+  // it: a WARNING or CRITICAL found on other records is kept, not replaced.
+  std::string with_evaluation_failure(const std::string &message) const {
+    if (message.empty()) return get_evaluation_failure();
+    return message + " (" + get_evaluation_failure() + ")";
   }
 
   struct perf_entry {
@@ -614,7 +633,9 @@ struct modern_filters {
     // done should be set if we want to bail out after the first hit!
     // I.e. mode==first (mode==all)
     summary.count();
-    if (!engine_filter.get() || engine_filter->match(context, true)) {
+    // A record the filter could not evaluate is not matched: it is reported
+    // (as an evaluation error) rather than kept or dropped on a substitute.
+    if (!engine_filter.get() || evaluate(engine_filter, true) == verdict::yes) {
       if (debug) {
         context->debug(parsers::where::object_match::match);
       }
@@ -672,7 +693,11 @@ struct modern_filters {
       if (debug) {
         context->debug(parsers::where::object_match::match);
       }
-      if (engine_crit && engine_crit->match(context, true)) {
+      // A threshold that failed on this record leaves it without a verdict:
+      // not escalated on a substituted value, and not listed as ok either.
+      const verdict crit = evaluate(engine_crit, true);
+      if (crit == verdict::failed) continue;
+      if (crit == verdict::yes) {
         if (debug) {
           context->debug(parsers::where::object_match::critical);
         }
@@ -682,7 +707,11 @@ struct modern_filters {
           summary.matched_crit(d.current);
         nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
         any_bound = true;
-      } else if (engine_warn && engine_warn->match(context, true)) {
+        continue;
+      }
+      const verdict warn = evaluate(engine_warn, true);
+      if (warn == verdict::failed) continue;
+      if (warn == verdict::yes) {
         if (debug) {
           context->debug(parsers::where::object_match::warning);
         }
@@ -692,21 +721,20 @@ struct modern_filters {
           summary.matched_warn(d.current);
         nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
         any_bound = true;
-      } else if (engine_ok && engine_ok->match(context, true)) {
+        continue;
+      }
+      const verdict ok = evaluate(engine_ok, true);
+      if (ok == verdict::failed) continue;
+      if (ok == verdict::yes) {
         if (debug) {
           context->debug(parsers::where::object_match::ok);
         }
-        if (d.second_unique_match)
-          summary.matched_ok_unique();
-        else
-          summary.matched_ok(d.current);
         any_bound = true;
-      } else {
-        if (d.second_unique_match)
-          summary.matched_ok_unique();
-        else
-          summary.matched_ok(d.current);
       }
+      if (d.second_unique_match)
+        summary.matched_ok_unique();
+      else
+        summary.matched_ok(d.current);
     }
     if (any_bound) {
       has_matched = true;
@@ -759,7 +787,7 @@ struct modern_filters {
     // above is the one path whose errors are expected and not counted.
     auto summary_match = [&](filter_engine &engine) -> bool {
       const evaluation_scope scope(*this);
-      return engine->match(context, false);
+      return evaluate(engine, false) == verdict::yes;
     };
     if (engine_crit && (summary_match(engine_crit) || force_sure_true(engine_crit))) {
       nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);

@@ -95,6 +95,7 @@ class stub_core {
     registrations_.clear();
     updated_settings_.clear();
     submissions_.clear();
+    events_.clear();
   }
 
   // ----- what the module submitted -----------------------------------------
@@ -102,6 +103,8 @@ class stub_core {
   // Every message submitted to a channel (core_helper::submit_simple_message
   // and friends), as the core received it. Each is acknowledged as delivered.
   const std::vector<PB::Commands::SubmitRequestMessage> &submissions() const { return submissions_; }
+  // Every event emitted (core_helper::emit_event), as the core received it.
+  const std::vector<PB::Commands::EventMessage> &events() const { return events_; }
 
   // ----- configuring what the module reads ---------------------------------
 
@@ -270,6 +273,13 @@ class stub_core {
     return NSCAPI::api_return_codes::isSuccess;
   }
 
+  static NSCAPI::errorReturn emit_event(const char *request, const int request_len) {
+    PB::Commands::EventMessage message;
+    message.ParseFromString(std::string(request, static_cast<std::size_t>(request_len)));
+    instance().events_.push_back(message);
+    return NSCAPI::api_return_codes::isSuccess;
+  }
+
   static NSCAPI::errorReturn settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
     stub_core &self = instance();
     PB::Settings::SettingsRequestMessage req;
@@ -410,6 +420,7 @@ class stub_core {
     if (n == "NSAPIGetApplicationVersionStr") return reinterpret_cast<nscapi::core_api::FUNPTR>(&application_version);
     if (n == "NSAPIDestroyBuffer") return reinterpret_cast<nscapi::core_api::FUNPTR>(&destroy_buffer);
     if (n == "NSAPINotify") return reinterpret_cast<nscapi::core_api::FUNPTR>(&notify);
+    if (n == "NSCAPIEmitEvent") return reinterpret_cast<nscapi::core_api::FUNPTR>(&emit_event);
     // Everything else (logging above all) stays null, which the wrapper
     // treats as a no-op.
     return nullptr;
@@ -421,6 +432,7 @@ class stub_core {
   std::map<std::string, std::vector<std::string> > sections_;
   std::vector<registered_key> registered_keys_;
   std::vector<PB::Commands::SubmitRequestMessage> submissions_;
+  std::vector<PB::Commands::EventMessage> events_;
   std::vector<registered_key> updated_settings_;
   std::vector<std::string> registered_paths_;
   // (PB::Registry::ItemType, name) in registration order.

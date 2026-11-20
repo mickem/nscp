@@ -3,11 +3,13 @@ icon: "🔒 💥"
 modules: [filters, CheckDisk, CheckSystem, CheckSystemUnix, CheckNet, CheckHyperV, CheckWindowsApps, CheckTaskSched, CheckLogFile, CheckEventLog]
 action: conditional
 ---
-**An expression that fails while a check runs now ends the check UNKNOWN.**
-When a `filter`, `warning` or `critical` expression, or a function in a
-syntax template, failed while the check was evaluated, the error only reached
-the debug log and the check carried on with whatever value came back, so it
-reported a verdict nobody asked for:
+**An expression that fails while a check runs is now reported, not
+evaluated on a substitute.** When a `filter`, `warning` or `critical`
+expression, or a function in a syntax template, failed while the check was
+evaluated, the error only reached the debug log and the check carried on with
+whatever value came back, so it reported a verdict nobody asked for. Now the
+record it failed on gets no verdict at all - it is neither matched nor
+flagged - and the check says so:
 
 | Expression | Before | Now |
 |---|---|---|
@@ -18,14 +20,23 @@ reported a verdict nobody asked for:
 | `detail-syntax=%(format_bytes(size, 'ZB'))` (a function in a template that fails) | an empty placeholder in an otherwise clean result | UNKNOWN |
 | `check_ping … count=0` | nothing sent, `Packet loss = 0%`: OK | refused: `Invalid count: 0 (expected 1 or more)` |
 
+Where the records that did evaluate reached WARNING or CRITICAL, that state
+stands and the failure is appended to the message
+(`CRITICAL: b=20 (Filter evaluation failed: …)`), so a real alert is not
+downgraded. Anything else - OK, or nothing matched - could be the failure
+hiding a problem, and the check is UNKNOWN.
+
 The message names the error and the expression as you wrote it, on one line
 of at most a few hundred characters. It never repeats the values of the
 record that failed: those stay in the debug log.
 
 Real-time filters (`CheckLogFile` and `CheckEventLog` with `real-time` set)
-report the same failures: a filter that submits a status submits UNKNOWN with
-the message, and one that feeds an event channel, which carries no status,
-logs it as an error and counts it on the filter.
+follow the same rule over each batch (for a log file, every line written since
+the last read). A filter that submits a status keeps the WARNING or CRITICAL
+its matched records reached, with the failure beside it, and submits UNKNOWN
+otherwise. One that feeds an event channel still emits every record that
+matched; the failure, which an event cannot carry, is logged as an error and
+counted on the filter.
 
 Some keywords that hold seconds or bytes could not take a unit at all, so a
 threshold written the way their own descriptions, defaults or the documented
