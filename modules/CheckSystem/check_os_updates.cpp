@@ -517,6 +517,7 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
   filter_type filter;
   std::string update_filter;
   filter_helper.add_options("updates > 0", "security > 0 or critical > 0", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("updates", modern_filter::shorthand::above);
   // Top-syntax renders with no record attached (record variables read as 0
   // there), so the update counts are rendered via ${list} from the
   // detail-syntax. The old top-syntax referenced ${count}, which resolved to
