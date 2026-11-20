@@ -7,6 +7,7 @@
 
 #include <list>
 #include <string>
+#include <vector>
 
 namespace nsclient {
 namespace windows_acl {
@@ -42,10 +43,18 @@ namespace windows_acl {
 // checked to be a plain directory, and secured through that same handle;
 // anything else is refused.
 //
+// `service_sids` are the string SIDs (`S-1-5-80-...`) of the accounts the
+// service runs as when that is not SYSTEM - see nscp/service_account.hpp. Each
+// is granted read, write and delete on the folder and everything in it, and
+// deliberately nothing more: not WRITE_DAC, not WRITE_OWNER and not ownership,
+// so the service can use its state but cannot hand anyone else access to it.
+// The DACL is replaced as a whole, so calling this without a SID that an
+// earlier call granted is also how that grant is taken away.
+//
 // Returns true when the directory ends up owned by Administrators and with the
 // intended DACL. On failure `errors` describes what went wrong; the caller
 // decides how loud to be.
-bool protect_directory(const std::string &path, std::list<std::string> &errors);
+bool protect_directory(const std::string &path, std::list<std::string> &errors, const std::vector<std::string> &service_sids = std::vector<std::string>());
 
 // Whether the entry at `path` is a reparse point (junction, symbolic link or
 // similar) rather than a real file or directory. Cheap and needs no access to
@@ -56,8 +65,13 @@ bool is_reparse_point(const std::string &path, std::list<std::string> &errors);
 
 // What could be determined about a directory's protection.
 enum class protection {
-  // Owned by SYSTEM or Administrators, and no ACE grants anyone else.
+  // Owned by SYSTEM or Administrators, no ACE grants anyone outside the
+  // expected set, and every expected service account has its grant.
   restricted,
+  // Nobody unexpected has access, but an expected service account is missing
+  // its grant: the folder is safe and the service cannot use it. What is left
+  // behind when the account is switched and the folder is not re-protected.
+  incomplete,
   // Someone else has access, or owns it (and so can grant themselves access).
   open,
   // The security descriptor could not be read at all. Distinct from `open` on
@@ -72,12 +86,16 @@ enum class protection {
 // Used by the caller to verify rather than assume - "we set a DACL" and "the
 // DACL excludes everyone else" are different claims, and both traps above are
 // cases where the first is true and the second is not.
-protection inspect_protection(const std::string &path, std::list<std::string> &errors);
+//
+// A grant to one of `service_sids` is expected rather than reported, as long
+// as it carries no right to change the permissions or the owner.
+protection inspect_protection(const std::string &path, std::list<std::string> &errors,
+                              const std::vector<std::string> &service_sids = std::vector<std::string>());
 
 // inspect_protection() for callers that have the access to tell the difference
 // and only care whether the directory is locked down. Anything other than
 // `restricted` is false.
-bool is_protected(const std::string &path, std::list<std::string> &errors);
+bool is_protected(const std::string &path, std::list<std::string> &errors, const std::vector<std::string> &service_sids = std::vector<std::string>());
 
 // Make a file or directory inherit its security from its parent, discarding
 // whatever descriptor it carried, and propagate that through any subtree

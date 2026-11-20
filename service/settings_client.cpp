@@ -9,6 +9,7 @@
 #include <fstream>
 #include <nscp/layout_migration.hpp>
 #include <nscp/path_defaults.hpp>
+#include <nscp/service_account.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 #ifdef WIN32
@@ -111,6 +112,16 @@ int nsclient_core::settings_client::migrate_layout(const std::string &mode, cons
     const std::string to = core_->get_path()->expand_path("${shared-path}");
     core_->get_path()->set_layout(current_layout);
 
+    // The recorded service account travels with the layout: a virtual account
+    // has to keep its access to the folder the state ends up in, and cannot
+    // follow it back to the install folder at all.
+    const nscp::service_account::identity service = nscp::service_account::from_boot_ini_file(core_->get_path()->expand_path(BOOT_CONF_LOCATION));
+    const std::string why_not = nscp::service_account::layout_change_refusal(service, target_layout);
+    if (!why_not.empty()) {
+      error_msg(__FILE__, __LINE__, why_not);
+      return -1;
+    }
+
     if (from == to) {
       std::cout << "Already using the " << nscp::paths::layout_name(target_layout) << " layout (" << from << "); nothing to do." << std::endl;
       return 1;
@@ -146,7 +157,7 @@ int nsclient_core::settings_client::migrate_layout(const std::string &mode, cons
 #ifdef WIN32
     if (target_layout == nscp::paths::layout::modern) {
       std::list<std::string> acl_errors;
-      if (!nsclient::windows_acl::protect_directory(to, acl_errors)) {
+      if (!nsclient::windows_acl::protect_directory(to, acl_errors, nscp::service_account::acl_principals(service))) {
         for (const std::string &e : acl_errors) error_msg(__FILE__, __LINE__, "acl: " + e);
         error_msg(__FILE__, __LINE__, "Refusing to migrate into " + to + ": it could not be restricted to SYSTEM and Administrators.");
         return -1;

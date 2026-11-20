@@ -9,8 +9,13 @@
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 #include "NSClient++.h"
+#include "service_account_switch.hpp"
 #include "service_manager.hpp"
 #include "settings_client.hpp"
+#ifdef WIN32
+#include <win/acl.hpp>
+#include <win/service_account.hpp>
+#endif
 #ifndef WIN32
 #include <pid_file.hpp>
 #endif
@@ -109,6 +114,10 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
         ("pid", po::value<std::string>()->implicit_value(pidfile::get_default_pidfile("nscp")), "Create a pid file")
 #endif
         ("description", po::value<std::string>()->default_value(""), "Description of service")
+        ("account", po::value<std::string>(),
+         "Windows only (experimental): the account the service runs as. 'system' is LocalSystem, the default; 'virtual' is the service's own "
+         "NT SERVICE\\<name> account, with a reduced set of privileges - it needs the modern layout. With --install it is applied to the new "
+         "service; on its own it switches the installed one. Needs an elevated prompt, and a service restart to take effect.")
       ;
 
       client.add_options()
@@ -389,6 +398,82 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
   }
 }
 
+namespace {
+namespace account_switch = nsclient::core::service_account_switch;
+
+// Work out what `--account <value>` asks for on this installation. False, with
+// the reason on stderr, when the question cannot even be put.
+bool read_account_request(const std::shared_ptr<NSClient> &core, const std::string &service_name, const std::string &account,
+                          account_switch::request &request) {
+#ifdef WIN32
+  if (account.empty() || !nscp::service_account::is_known(account)) {
+    std::cerr << "ERROR: Unknown service account '" << account << "': use 'system' or 'virtual'." << std::endl;
+    return false;
+  }
+  // The layout and ${shared-path} both come out of boot.ini, which the
+  // settings bootstrap reads; without it there is no telling where the
+  // account would need access.
+  if (!core->load_configuration_1()) {
+    std::cerr << "ERROR: Could not read boot.ini and the settings, so the layout of this installation is unknown. Nothing was changed." << std::endl;
+    return false;
+  }
+  request.wanted = nscp::service_account::parse(account);
+  request.service_name = service_name;
+  request.layout = core->get_path()->get_layout();
+  request.shared_folder = core->get_path()->expand_path("${shared-path}");
+  return true;
+#else
+  static_cast<void>(core);
+  static_cast<void>(service_name);
+  static_cast<void>(account);
+  static_cast<void>(request);
+  std::cerr << "ERROR: --account is only supported on Windows; elsewhere the package decides which account the service runs as." << std::endl;
+  return false;
+#endif
+}
+
+// Carry the request out. 0 when the service was switched, 1 otherwise.
+int switch_service_account(const account_switch::request &request) {
+#ifdef WIN32
+  account_switch::operations ops;
+  ops.is_installed = [](const std::string &service) { return win_service_control::isInstalled(utf8::cvt<std::wstring>(service)); };
+  ops.protect = [](const std::string &folder, const std::vector<std::string> &service_sids, std::list<std::string> &errors) {
+    // Setting the DACL and the DACL being what was meant are different claims;
+    // the second is the one the service depends on.
+    return nsclient::windows_acl::protect_directory(folder, errors, service_sids) && nsclient::windows_acl::is_protected(folder, errors, service_sids);
+  };
+  ops.record = [](const std::string &key, const std::string &value) { settings_manager::write_boot_ini_key("service", key, value); };
+  ops.set_account = [](const std::string &service, const std::string &account) {
+    win_service_control::SetAccount(utf8::cvt<std::wstring>(service), utf8::cvt<std::wstring>(account));
+  };
+  ops.set_unrestricted_sid = [](const std::string &service) { win_service_control::SetUnrestrictedSid(utf8::cvt<std::wstring>(service)); };
+  ops.set_required_privileges = [](const std::string &service, const std::vector<std::string> &privileges) {
+    std::vector<std::wstring> wide;
+    for (const std::string &privilege : privileges) wide.push_back(utf8::cvt<std::wstring>(privilege));
+    win_service_control::SetRequiredPrivileges(utf8::cvt<std::wstring>(service), wide);
+  };
+  ops.set_group_membership = [](const std::string &member_sid, const std::string &group_sid, const bool add, std::string &error) {
+    return nsclient::windows_service_account::set_group_membership(member_sid, group_sid, add, error);
+  };
+  ops.info = [](const std::string &line) { std::cout << line << std::endl; };
+  ops.error = [](const std::string &line) { std::cerr << "ERROR: " << line << std::endl; };
+  try {
+    return account_switch::apply(request, ops) == account_switch::outcome::switched ? 0 : 1;
+  } catch (const std::exception &e) {
+    // What is left is the question that comes before any change: whether the
+    // service exists. It needs the service control manager, which answers an
+    // unelevated caller with "access is denied".
+    std::cerr << "ERROR: Could not look up the service '" << request.service_name << "': " << e.what() << std::endl;
+    std::cerr << "ERROR: Run this from an elevated prompt (\"Run as administrator\"); nothing was changed." << std::endl;
+    return 1;
+  }
+#else
+  static_cast<void>(request);
+  return 1;
+#endif
+}
+}  // namespace
+
 int cli_parser::parse_service(int argc, char *argv[]) {
   try {
     po::options_description all("Allowed options (service)");
@@ -443,8 +528,27 @@ int cli_parser::parse_service(int argc, char *argv[]) {
     } else {
       nsclient::client::service_manager service_manager(name);
 
+      // Asked before anything is installed: a refused account must not leave
+      // behind a service that was only wanted with that account.
+      const bool has_account = vm.count("account") > 0;
+      account_switch::request account_request;
+      if (has_account) {
+        if (!read_account_request(core_, name, vm["account"].as<std::string>(), account_request)) return 1;
+        const std::string why_not = account_switch::refusal(account_request);
+        if (!why_not.empty()) {
+          std::cerr << "ERROR: " << why_not << std::endl;
+          return 1;
+        }
+      }
+
       if (vm.count("install")) {
-        service_manager.install(desc);
+        const int installed = service_manager.install(desc);
+        if (has_account) {
+          if (installed != 0) return 1;
+          return switch_service_account(account_request);
+        }
+      } else if (has_account) {
+        return switch_service_account(account_request);
       } else if (vm.count("uninstall")) {
         service_manager.uninstall();
       } else if (vm.count("start")) {
@@ -462,6 +566,13 @@ int cli_parser::parse_service(int argc, char *argv[]) {
         std::cout << "Installed services: " << std::endl;
         ;
         std::cout << name << ": " << service_manager.info() << std::endl;
+#ifdef WIN32
+        try {
+          std::cout << name << " runs as: " << utf8::cvt<std::string>(win_service_control::GetAccount(utf8::cvt<std::wstring>(name))) << std::endl;
+        } catch (const std::exception &) {
+          // Not installed, or not ours to ask about: the line above said so.
+        }
+#endif
         {
           nsclient::client::service_manager lsm("nsclientpp");
           auto cmd = utf8::cvt<std::string>(lsm.info());

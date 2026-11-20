@@ -8,6 +8,7 @@
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/logger/logger_helper.hpp>
+#include <nscp/service_account.hpp>
 #include <settings/settings_core.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
@@ -34,6 +35,7 @@
 
 #ifdef WIN32
 #include <win/com_helpers.hpp>
+#include <win/service_account.hpp>
 #include <win/service_control.hpp>
 com_helper::initialize_com com_helper_;
 #endif
@@ -119,7 +121,16 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   // shared_folder::prepare().
   void prepare_shared_folder() override {
 #ifdef WIN32
-    nsclient::core::shared_folder::prepare(*path_, log_instance_);
+    // Who is supposed to have access is part of the question: an installation
+    // whose service runs as its virtual account has that account's grant on
+    // the folder, and boot.ini is where that is recorded.
+    const nscp::service_account::identity service = nscp::service_account::from_boot_ini_file(path_->expand_path(BOOT_CONF_LOCATION));
+    if (service.account == nscp::service_account::kind::virtual_account && nscp::service_account::acl_principals(service).empty()) {
+      LOG_ERROR_CORE("boot.ini records a virtual service account but no usable [service] name ('" + service.service_name +
+                     "'); treating the shared folder as restricted to SYSTEM and Administrators only.");
+    }
+    nsclient::core::shared_folder::prepare(*path_, log_instance_,
+                                           nsclient::core::shared_folder::acl_functions(nscp::service_account::acl_principals(service)));
 #endif
   }
 
@@ -965,6 +976,11 @@ void NSClientT::handle_startup(std::string service_name) {
 #endif
   load_configuration_1();
   load_configuration_2();
+#ifdef WIN32
+  // Which account the service ended up as, and with which privileges: the
+  // first thing to know about an agent whose checks report "access denied".
+  LOG_INFO_CORE("Running as " + nsclient::windows_service_account::describe_process_identity());
+#endif
   boot_load_active_plugins();
   boot_start_plugins(true);
   LOG_DEBUG_CORE("Starting: DONE");

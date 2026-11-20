@@ -6,6 +6,7 @@
 #include <error/error.hpp>
 #include <iostream>
 #include <str/utf8.hpp>
+#include <vector>
 #include <win/service_control.hpp>
 #include <win/windows.hpp>
 
@@ -363,5 +364,92 @@ void SetDescription(std::wstring name, std::wstring desc) {
   CloseServiceHandle(schService);
   CloseServiceHandle(schSCManager);
   if (!bResult) throw service_control_exception("ChangeServiceConfig2 failed.");
+}
+namespace {
+// The two handles every configuration change needs, closed on the way out.
+struct service_handle {
+  SC_HANDLE manager = nullptr;
+  SC_HANDLE service = nullptr;
+
+  service_handle(const std::wstring &name, const DWORD access) {
+    manager = ::OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (!manager) throw service_control_exception("OpenSCManager failed: " + error::lookup::last_error());
+    service = ::OpenServiceW(manager, name.c_str(), access);
+    if (!service) {
+      const DWORD err = ::GetLastError();
+      ::CloseServiceHandle(manager);
+      throw service_control_exception("OpenService failed: " + error::lookup::last_error(err));
+    }
+  }
+  ~service_handle() {
+    if (service) ::CloseServiceHandle(service);
+    if (manager) ::CloseServiceHandle(manager);
+  }
+  service_handle(const service_handle &) = delete;
+  service_handle &operator=(const service_handle &) = delete;
+};
+
+// Declared here rather than taken from winsvc.h: the SDK only defines these
+// when it targets Vista or later, and this file is also built for Windows XP.
+// There ChangeServiceConfig2 answers ERROR_INVALID_LEVEL, which is reported
+// like any other failure - the feature needs Windows 7 / Server 2008 R2.
+const DWORD config_service_sid_info = 5;
+const DWORD config_required_privileges_info = 6;
+const DWORD sid_type_unrestricted = 1;
+struct service_sid_info {
+  DWORD sid_type;
+};
+struct required_privileges_info {
+  LPWSTR privileges;
+};
+}  // namespace
+
+std::wstring GetAccount(const std::wstring &name) {
+  const service_handle handle(name, SERVICE_QUERY_CONFIG);
+  DWORD needed = 0;
+  if (::QueryServiceConfigW(handle.service, nullptr, 0, &needed) || ::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+    throw service_control_exception("QueryServiceConfig failed: " + error::lookup::last_error());
+  }
+  std::vector<unsigned char> buffer(needed, 0);
+  QUERY_SERVICE_CONFIGW *config = reinterpret_cast<QUERY_SERVICE_CONFIGW *>(buffer.data());
+  if (!::QueryServiceConfigW(handle.service, config, needed, &needed)) {
+    throw service_control_exception("QueryServiceConfig failed: " + error::lookup::last_error());
+  }
+  return config->lpServiceStartName ? std::wstring(config->lpServiceStartName) : std::wstring();
+}
+
+void SetAccount(const std::wstring &name, const std::wstring &account) {
+  const service_handle handle(name, SERVICE_CHANGE_CONFIG);
+  // An empty password, not a null one: null means "leave the password alone",
+  // and a service that was once given a real account would keep presenting
+  // that account's password for one that has none.
+  if (!::ChangeServiceConfigW(handle.service, SERVICE_NO_CHANGE, SERVICE_NO_CHANGE, SERVICE_NO_CHANGE, nullptr, nullptr, nullptr, nullptr, account.c_str(), L"",
+                              nullptr)) {
+    throw service_control_exception("ChangeServiceConfig(account) failed: " + error::lookup::last_error());
+  }
+}
+
+void SetUnrestrictedSid(const std::wstring &name) {
+  const service_handle handle(name, SERVICE_CHANGE_CONFIG);
+  service_sid_info info = {sid_type_unrestricted};
+  if (!::ChangeServiceConfig2W(handle.service, config_service_sid_info, &info)) {
+    throw service_control_exception("ChangeServiceConfig2(service sid) failed: " + error::lookup::last_error());
+  }
+}
+
+void SetRequiredPrivileges(const std::wstring &name, const std::vector<std::wstring> &privileges) {
+  const service_handle handle(name, SERVICE_CHANGE_CONFIG);
+  // A MULTI_SZ: each name terminated, and one more terminator after the last.
+  std::vector<wchar_t> multi;
+  for (const std::wstring &privilege : privileges) {
+    multi.insert(multi.end(), privilege.begin(), privilege.end());
+    multi.push_back(L'\0');
+  }
+  multi.push_back(L'\0');
+  if (privileges.empty()) multi.push_back(L'\0');
+  required_privileges_info info = {multi.data()};
+  if (!::ChangeServiceConfig2W(handle.service, config_required_privileges_info, &info)) {
+    throw service_control_exception("ChangeServiceConfig2(required privileges) failed: " + error::lookup::last_error());
+  }
 }
 }  // namespace win_service_control

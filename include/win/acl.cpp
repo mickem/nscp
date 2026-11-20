@@ -104,6 +104,29 @@ unique_handle open_no_follow(const std::wstring &wide, const DWORD access, std::
   return handle;
 }
 
+// A SID parsed from its string form, freed with LocalFree.
+typedef std::unique_ptr<void, local_free> parsed_sid;
+
+bool parse_sids(const std::vector<std::string> &texts, std::vector<parsed_sid> &out, std::list<std::string> &errors) {
+  for (const std::string &text : texts) {
+    PSID raw_sid = nullptr;
+    if (!::ConvertStringSidToSidA(text.c_str(), &raw_sid)) {
+      errors.emplace_back("'" + text + "' is not a SID: " + last_error("ConvertStringSidToSid"));
+      return false;
+    }
+    out.emplace_back(raw_sid);
+  }
+  return true;
+}
+
+// What a service account is granted on the shared folder: read, write, execute
+// and delete - icacls calls it Modify. No WRITE_DAC and no WRITE_OWNER.
+const DWORD service_access_mask = FILE_GENERIC_READ | FILE_GENERIC_WRITE | FILE_GENERIC_EXECUTE | DELETE;
+
+// The rights that let their holder decide who else has access. A service
+// account holding one of these is no better than an unexpected grant.
+const DWORD permission_changing_rights = WRITE_DAC | WRITE_OWNER | GENERIC_ALL;
+
 }  // namespace
 
 bool is_reparse_point(const std::string &path, std::list<std::string> &errors) {
@@ -119,28 +142,44 @@ bool is_reparse_point(const std::string &path, std::list<std::string> &errors) {
   return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
 }
 
-bool protect_directory(const std::string &path, std::list<std::string> &errors) {
+bool protect_directory(const std::string &path, std::list<std::string> &errors, const std::vector<std::string> &service_sids) {
   std::vector<unsigned char> system_sid_bytes, admin_sid_bytes;
   PSID system_sid = nullptr;
   PSID admin_sid = nullptr;
   if (!build_sid(WinLocalSystemSid, system_sid_bytes, system_sid, errors)) return false;
   if (!build_sid(WinBuiltinAdministratorsSid, admin_sid_bytes, admin_sid, errors)) return false;
 
-  // Full control for both, inherited by everything created underneath - the
-  // subfolders (security\, fleet\, log\) must not need separate treatment.
-  EXPLICIT_ACCESS_W access[2] = {};
-  for (int i = 0; i < 2; i++) {
-    access[i].grfAccessPermissions = GENERIC_ALL;
-    access[i].grfAccessMode = SET_ACCESS;
-    access[i].grfInheritance = CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE;
-    access[i].Trustee.TrusteeForm = TRUSTEE_IS_SID;
-    access[i].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
+  // Parsed up front: a service SID that does not parse fails the whole call
+  // before anything is changed, rather than leaving the service locked out of
+  // a folder that was just rewritten without it.
+  std::vector<parsed_sid> services;
+  if (!parse_sids(service_sids, services, errors)) return false;
+
+  // Full control for SYSTEM and Administrators, inherited by everything
+  // created underneath - the subfolders (security\, fleet\, log\) must not need
+  // separate treatment.
+  std::vector<EXPLICIT_ACCESS_W> access(2 + services.size());
+  for (EXPLICIT_ACCESS_W &entry : access) {
+    entry = EXPLICIT_ACCESS_W();
+    entry.grfAccessPermissions = GENERIC_ALL;
+    entry.grfAccessMode = SET_ACCESS;
+    entry.grfInheritance = CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE;
+    entry.Trustee.TrusteeForm = TRUSTEE_IS_SID;
+    entry.Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
   }
   access[0].Trustee.ptstrName = static_cast<LPWSTR>(system_sid);
   access[1].Trustee.ptstrName = static_cast<LPWSTR>(admin_sid);
+  // The service account gets what it needs to use its state and no way to
+  // decide who else may: spelled as specific rights so the ACE that lands on
+  // the folder is the one inspect_protection() expects to read back.
+  for (std::size_t i = 0; i < services.size(); i++) {
+    access[2 + i].grfAccessPermissions = service_access_mask;
+    access[2 + i].Trustee.TrusteeType = TRUSTEE_IS_UNKNOWN;
+    access[2 + i].Trustee.ptstrName = static_cast<LPWSTR>(services[i].get());
+  }
 
   PACL raw_acl = nullptr;
-  if (::SetEntriesInAclW(2, access, nullptr, &raw_acl) != ERROR_SUCCESS) {
+  if (::SetEntriesInAclW(static_cast<ULONG>(access.size()), access.data(), nullptr, &raw_acl) != ERROR_SUCCESS) {
     errors.emplace_back(last_error("SetEntriesInAcl"));
     return false;
   }
@@ -219,7 +258,7 @@ bool protect_directory(const std::string &path, std::list<std::string> &errors) 
   return true;
 }
 
-protection inspect_protection(const std::string &path, std::list<std::string> &errors) {
+protection inspect_protection(const std::string &path, std::list<std::string> &errors, const std::vector<std::string> &service_sids) {
   PACL dacl = nullptr;
   PSID owner = nullptr;
   PSECURITY_DESCRIPTOR raw_descriptor = nullptr;
@@ -266,6 +305,9 @@ protection inspect_protection(const std::string &path, std::list<std::string> &e
   PSID admin_sid = nullptr;
   if (!build_sid(WinLocalSystemSid, system_sid_bytes, system_sid, errors)) return protection::unknown;
   if (!build_sid(WinBuiltinAdministratorsSid, admin_sid_bytes, admin_sid, errors)) return protection::unknown;
+  std::vector<parsed_sid> services;
+  if (!parse_sids(service_sids, services, errors)) return protection::unknown;
+  std::vector<bool> service_granted(services.size(), false);
 
   bool clean = true;
 
@@ -294,13 +336,35 @@ protection inspect_protection(const std::string &path, std::list<std::string> &e
     const PSID sid = reinterpret_cast<PSID>(&allowed->SidStart);
     if (::EqualSid(sid, system_sid) || ::EqualSid(sid, admin_sid)) continue;
 
+    bool expected = false;
+    for (std::size_t s = 0; s < services.size(); s++) {
+      if (!::EqualSid(sid, services[s].get())) continue;
+      expected = true;
+      if ((allowed->Mask & permission_changing_rights) != 0) {
+        errors.emplace_back("the service account " + describe_sid(sid) + " may change the permissions, so it can grant anyone access");
+        clean = false;
+      } else if ((header->AceFlags & INHERIT_ONLY_ACE) == 0) {
+        // An inherit-only ACE says nothing about the folder itself.
+        service_granted[s] = true;
+      }
+    }
+    if (expected) continue;
+
     errors.emplace_back("unexpected grant to " + describe_sid(sid));
     clean = false;
   }
-  return clean ? protection::restricted : protection::open;
+  if (!clean) return protection::open;
+  for (std::size_t s = 0; s < services.size(); s++) {
+    if (service_granted[s]) continue;
+    errors.emplace_back("the service account " + service_sids[s] + " has no access");
+    return protection::incomplete;
+  }
+  return protection::restricted;
 }
 
-bool is_protected(const std::string &path, std::list<std::string> &errors) { return inspect_protection(path, errors) == protection::restricted; }
+bool is_protected(const std::string &path, std::list<std::string> &errors, const std::vector<std::string> &service_sids) {
+  return inspect_protection(path, errors, service_sids) == protection::restricted;
+}
 
 bool reset_to_inherited(const std::string &path, std::list<std::string> &errors) {
   // An *empty* ACL, not a NULL one: NULL grants everyone everything, while an

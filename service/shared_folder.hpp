@@ -12,6 +12,7 @@
 #include <nsclient/logger/logger.hpp>
 #include <settings/settings_interface.hpp>
 #include <string>
+#include <vector>
 #include <win/acl.hpp>
 
 #include "path_manager.hpp"
@@ -38,11 +39,30 @@ namespace shared_folder {
 // The ACL operations, replaceable so a unit test can put the folder in any
 // state - restricted, unreadable, refusing the lockdown - without the
 // privileges it takes to get a real one there. The defaults are the real ones.
+//
+// `service_sids` is who, beyond SYSTEM and Administrators, is supposed to have
+// access: the service's own account when it does not run as SYSTEM (see
+// nscp/service_account.hpp). Every process has to be told, not just the
+// service - an elevated `nscp` that did not expect the grant would take it for
+// an intruder and remove it, locking the service out of its configuration.
 struct acl_functions {
   std::function<bool(const std::string &, std::list<std::string> &)> is_reparse_point = &windows_acl::is_reparse_point;
-  std::function<windows_acl::protection(const std::string &, std::list<std::string> &)> inspect_protection = &windows_acl::inspect_protection;
-  std::function<bool(const std::string &, std::list<std::string> &)> protect_directory = &windows_acl::protect_directory;
-  std::function<bool(const std::string &, std::list<std::string> &)> is_protected = &windows_acl::is_protected;
+  std::function<windows_acl::protection(const std::string &, std::list<std::string> &)> inspect_protection;
+  std::function<bool(const std::string &, std::list<std::string> &)> protect_directory;
+  std::function<bool(const std::string &, std::list<std::string> &)> is_protected;
+  // Who the folder is restricted to, for the log.
+  std::string audience = "SYSTEM and Administrators";
+
+  explicit acl_functions(const std::vector<std::string> &service_sids = std::vector<std::string>()) {
+    inspect_protection = [service_sids](const std::string &path, std::list<std::string> &errors) {
+      return windows_acl::inspect_protection(path, errors, service_sids);
+    };
+    protect_directory = [service_sids](const std::string &path, std::list<std::string> &errors) {
+      return windows_acl::protect_directory(path, errors, service_sids);
+    };
+    is_protected = [service_sids](const std::string &path, std::list<std::string> &errors) { return windows_acl::is_protected(path, errors, service_sids); };
+    if (!service_sids.empty()) audience = "SYSTEM, Administrators and the service account";
+  }
 };
 
 enum class outcome {
@@ -108,7 +128,7 @@ inline outcome prepare(path_manager &paths, const logging::log_client_accessor &
       std::list<std::string> state_errors;
       switch (acl.inspect_protection(shared, state_errors)) {
         case windows_acl::protection::restricted:
-          LOG_DEBUG_CORE(shared + " is already restricted to SYSTEM and Administrators");
+          LOG_DEBUG_CORE(shared + " is already restricted to " + acl.audience);
           return outcome::already_restricted;
         case windows_acl::protection::unknown:
           // Reading the security descriptor needs READ_CONTROL, which the
@@ -118,6 +138,11 @@ inline outcome prepare(path_manager &paths, const logging::log_client_accessor &
           for (const std::string &e : state_errors) LOG_DEBUG_CORE("acl: " + e);
           LOG_DEBUG_CORE("Cannot inspect the permissions on " + shared + "; leaving that to the service");
           return outcome::cannot_inspect;
+        case windows_acl::protection::incomplete:
+          // Nobody unexpected has access, but the service account lost its
+          // grant. Same remedy as an open folder: apply the lockdown again.
+          for (const std::string &e : state_errors) LOG_DEBUG_CORE("acl: " + e);
+          break;
         case windows_acl::protection::open:
           break;  // genuinely wide open - fix it, and complain if we cannot
       }
@@ -145,10 +170,10 @@ inline outcome prepare(path_manager &paths, const logging::log_client_accessor &
       // Setting the DACL and the DACL actually excluding everyone else are
       // different claims; check the second one rather than assume it.
       for (const std::string &e : errors) LOG_ERROR_CORE("acl: " + e);
-      LOG_ERROR_CORE("Access to " + shared + " is wider than SYSTEM and Administrators after locking it down.");
+      LOG_ERROR_CORE("Access to " + shared + " is wider than " + acl.audience + " after locking it down.");
       return outcome::still_open;
     }
-    LOG_DEBUG_CORE("Restricted " + shared + " to SYSTEM and Administrators");
+    LOG_DEBUG_CORE("Restricted " + shared + " to " + acl.audience);
     return outcome::restricted;
   } catch (const std::exception &e) {
     LOG_ERROR_CORE(std::string("Failed to prepare the shared folder: ") + e.what());

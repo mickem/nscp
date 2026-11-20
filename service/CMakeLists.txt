@@ -68,11 +68,15 @@ if(WIN32)
         windows_ca_store.hpp
         ${NSCP_INCLUDEDIR}/win/acl.cpp
         ${NSCP_INCLUDEDIR}/win/acl.hpp
+        ${NSCP_INCLUDEDIR}/win/service_account.cpp
+        ${NSCP_INCLUDEDIR}/win/service_account.hpp
     )
     set(EXTRA_LIBS
         ${EXTRA_LIBS}
         CRYPT32
         ADVAPI32
+        # NetLocalGroupAddMembers, for the service account's group memberships.
+        NETAPI32
     )
     set(service_SRCS
         ${service_SRCS}
@@ -107,6 +111,8 @@ if(WIN32)
         plugins/zip_plugin.h
         plugins/master_plugin_list.hpp
         service_manager.hpp
+        service_account_switch.hpp
+        ${NSCP_INCLUDEDIR}/nscp/service_account.hpp
         # ${NSCP_INCLUDEDIR}/config.h
         ${NSCP_INCLUDEDIR}/win/com_helpers.hpp
         ${NSCP_INCLUDEDIR}/dll/dll.hpp
@@ -268,6 +274,12 @@ NSCP_CREATE_TEST(
         shared_folder_test.cpp
         shared_folder.hpp
         ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
+        # Which account the Windows service runs as: the rules, and the order
+        # a switch happens in. Both platform-neutral, so they run everywhere.
+        ${NSCP_INCLUDEDIR}/nscp/service_account_test.cpp
+        ${NSCP_INCLUDEDIR}/nscp/service_account.hpp
+        service_account_switch_test.cpp
+        service_account_switch.hpp
         permissions_test.cpp
         permissions.hpp
         tag_repository_test.cpp

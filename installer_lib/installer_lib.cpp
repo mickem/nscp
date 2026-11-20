@@ -37,6 +37,7 @@
 
 #include <list>
 #include <nscp/boot_layout.hpp>
+#include <nscp/service_account.hpp>
 #include <nscp/layout_migration.hpp>
 #include <nscp/password_hash.hpp>
 #include <nscp/path_defaults.hpp>
@@ -1659,8 +1660,13 @@ extern "C" UINT __stdcall ExecPrepareLayout(MSIHANDLE hInstall) {
       // Before anything is written into it: %ProgramData% grants
       // Users: Read & Execute by inheritance, and this folder is about to hold
       // the configuration (passwords) and the fleet identity's private key.
+      // An installation whose service runs as its virtual account has that
+      // account's grant on the folder. The DACL is replaced as a whole, so the
+      // grant has to be asked for again here or an upgrade would lock the
+      // service out of its own configuration.
+      const nscp::service_account::identity service = nscp::service_account::from_boot_ini_file(boot_ini.string());
       std::list<std::string> acl_errors;
-      if (!nsclient::windows_acl::protect_directory(shared_folder, acl_errors)) {
+      if (!nsclient::windows_acl::protect_directory(shared_folder, acl_errors, nscp::service_account::acl_principals(service))) {
         for (const std::string &e : acl_errors) h.logMessage("acl: " + e);
         h.setError(L"ExecPrepareLayout", L"Failed to restrict " + utf8::cvt<std::wstring>(shared_folder) + L" to SYSTEM and administrators");
         return ERROR_INSTALL_FAILURE;

@@ -13,6 +13,7 @@
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <list>
+#include <nscp/service_account.hpp>
 #include <string>
 #include <str/utf8.hpp>
 #include <vector>
@@ -257,6 +258,92 @@ TEST_F(AclTest, ResettingMakesARenamedTreeInheritTheDestination) {
   errors.clear();
   EXPECT_TRUE(nsclient::windows_acl::is_protected(secret.string(), errors))
       << "the file inside the renamed directory still carries its old access: " << (errors.empty() ? "" : errors.front());
+}
+
+// The service running as its own virtual account rather than SYSTEM. The SID
+// is a hash of the service name, so it is well-formed whether or not a service
+// of that name exists on the machine running the test.
+namespace {
+std::vector<std::string> service_account() { return {nscp::service_account::service_sid("nscp-acl-test")}; }
+}  // namespace
+
+TEST_F(AclTest, AServiceAccountIsGrantedAccessAndTheFolderStaysProtected) {
+  std::list<std::string> errors;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors, service_account())) << (errors.empty() ? "" : errors.front());
+  protected_ = true;
+
+  errors.clear();
+  EXPECT_EQ(nsclient::windows_acl::inspect_protection(dir_.string(), errors, service_account()), nsclient::windows_acl::protection::restricted)
+      << (errors.empty() ? "" : errors.front());
+  EXPECT_TRUE(errors.empty());
+}
+
+TEST_F(AclTest, AServiceAccountNobodyExpectedIsAnUnexpectedGrant) {
+  // What an elevated nscp sees when boot.ini does not record the account: the
+  // grant is real, and it must read as one - the record is what makes it
+  // expected, not the shape of the SID.
+  std::list<std::string> errors;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors, service_account())) << (errors.empty() ? "" : errors.front());
+  protected_ = true;
+
+  errors.clear();
+  EXPECT_EQ(nsclient::windows_acl::inspect_protection(dir_.string(), errors), nsclient::windows_acl::protection::open);
+  EXPECT_FALSE(errors.empty());
+}
+
+TEST_F(AclTest, AnExpectedServiceAccountWithoutAGrantIsIncompleteRatherThanOpen) {
+  // The folder is safe, and the service cannot use it. Not `open`: nobody has
+  // access who should not. Not `restricted`: leaving it alone would leave the
+  // service unable to read its configuration.
+  std::list<std::string> errors;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors)) << (errors.empty() ? "" : errors.front());
+  protected_ = true;
+
+  errors.clear();
+  EXPECT_EQ(nsclient::windows_acl::inspect_protection(dir_.string(), errors, service_account()), nsclient::windows_acl::protection::incomplete);
+  EXPECT_FALSE(errors.empty());
+  EXPECT_FALSE(nsclient::windows_acl::is_protected(dir_.string(), errors, service_account()));
+}
+
+TEST_F(AclTest, ProtectingAgainWithoutTheServiceAccountTakesItsGrantAway) {
+  // How switching the service back to LocalSystem removes the access: the
+  // DACL is replaced as a whole, not added to.
+  std::list<std::string> errors;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors, service_account())) << (errors.empty() ? "" : errors.front());
+  protected_ = true;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors)) << (errors.empty() ? "" : errors.front());
+
+  errors.clear();
+  EXPECT_TRUE(nsclient::windows_acl::is_protected(dir_.string(), errors)) << (errors.empty() ? "" : errors.front());
+}
+
+TEST_F(AclTest, AServiceAccountThatMayChangeThePermissionsIsNotProtected) {
+  // The grant is read, write and delete. Full control would let a compromised
+  // service hand the configuration and the fleet private key to anyone, so an
+  // expected account holding it is no better than an unexpected one.
+  std::list<std::string> errors;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors, service_account())) << (errors.empty() ? "" : errors.front());
+  protected_ = true;
+  const std::string grant = "icacls \"" + dir_.string() + "\" /grant *" + service_account().front() + ":(OI)(CI)F /q > nul 2>&1";
+  ASSERT_EQ(std::system(grant.c_str()), 0);
+
+  errors.clear();
+  EXPECT_EQ(nsclient::windows_acl::inspect_protection(dir_.string(), errors, service_account()), nsclient::windows_acl::protection::open);
+  EXPECT_FALSE(errors.empty());
+}
+
+TEST_F(AclTest, AServiceAccountThatIsNotASidChangesNothing) {
+  // Refused before the DACL is touched: rewriting it without the account
+  // would lock out a service that had access a moment ago.
+  std::list<std::string> errors;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors, service_account())) << (errors.empty() ? "" : errors.front());
+  protected_ = true;
+
+  errors.clear();
+  EXPECT_FALSE(nsclient::windows_acl::protect_directory(dir_.string(), errors, {"NT SERVICE\\nscp"}));
+  EXPECT_FALSE(errors.empty());
+  errors.clear();
+  EXPECT_TRUE(nsclient::windows_acl::is_protected(dir_.string(), errors, service_account())) << (errors.empty() ? "" : errors.front());
 }
 
 TEST_F(AclTest, ReportsRatherThanThrowsForAMissingDirectory) {
