@@ -1,31 +1,66 @@
 ---
 icon: "🔒 💥"
-modules: [filters, CheckNet, CheckDisk]
+modules: [filters, CheckDisk, CheckSystem, CheckSystemUnix, CheckNet, CheckHyperV, CheckWindowsApps, CheckTaskSched, CheckLogFile, CheckEventLog]
 action: conditional
 ---
-**An expression that fails on a record now ends the check UNKNOWN.** When a
-`filter`, `warning` or `critical` expression failed while the records were
-evaluated, the error only reached the debug log and the check carried on with
-whatever value came back, so it reported a verdict nobody asked for:
+**An expression that fails while a check runs now ends the check UNKNOWN.**
+When a `filter`, `warning` or `critical` expression, or a function in a
+syntax template, failed while the check was evaluated, the error only reached
+the debug log and the check carried on with whatever value came back, so it
+reported a verdict nobody asked for:
 
 | Expression | Before | Now |
 |---|---|---|
-| `critical=load > 40k` (a unit the keyword does not take) | compared against a bare `40`: CRITICAL for a load of 50 | UNKNOWN: `Filter evaluation failed: Invalid unit: k: …` |
-| `critical=load != 'busy'` (text where a percentage or size keyword wants a number) | the text was read as `0`: `load != 0` | UNKNOWN: `Filter evaluation failed: Not a number: busy: …` |
+| `critical=load > 40k` (a unit the keyword does not take) | compared against a bare `40`: CRITICAL for a load of 50 | UNKNOWN: `Filter evaluation failed: Invalid unit: k (in: load > 40k)` |
+| `critical=load != 'busy'` (text where a percentage or size keyword wants a number) | the text was read as `0`: `load != 0` | UNKNOWN: `Filter evaluation failed: Not a number: busy (in: …)` |
+| `critical=count > 5k` (a summary keyword, evaluated once after the records) | compared against 0: CRITICAL | UNKNOWN |
 | a regular expression refused by the time budget or the 1 MiB subject limit | read as *no match*: OK, or "No entries found" | UNKNOWN (see the [security notice](../security/notices.md#a-refused-regular-expression-match-no-longer-reads-as-a-clean-result)) |
+| `detail-syntax=%(format_bytes(size, 'ZB'))` (a function in a template that fails) | an empty placeholder in an otherwise clean result | UNKNOWN |
 | `check_ping … count=0` | nothing sent, `Packet loss = 0%`: OK | refused: `Invalid count: 0 (expected 1 or more)` |
-| `check_disk_write … warning=size > 8k` | the unit was refused and `size` compared against 0, so it always fired | `size` is a byte count: `8k` is 8192 |
+
+The message names the error and the expression as you wrote it, on one line
+of at most a few hundred characters. It never repeats the values of the
+record that failed: those stay in the debug log.
+
+Real-time filters (`CheckLogFile` and `CheckEventLog` with `real-time` set)
+report the same failures: a filter that submits a status submits UNKNOWN with
+the message, and one that feeds an event channel, which carries no status,
+logs it as an error and counts it on the filter.
+
+Some keywords that hold seconds or bytes could not take a unit at all, so a
+threshold written the way their own descriptions, defaults or the documented
+samples write it was compared against 0. They now take one; a plain number
+keeps meaning seconds or bytes:
+
+| Check | Keywords | Now takes |
+|---|---|---|
+| `check_shadowcopy` | `newest` | durations - its own defaults `newest > 26h` / `newest > 50h` fired on every volume before |
+| `check_shadowcopy` | `used`, `allocated`, `max_size` | byte units |
+| `check_files`, `check_single_file` | `age` | durations (`age > 7d`) |
+| `check_registry_key`, `check_registry_value` | `age` | durations |
+| `check_drivesize` | `trend_span` | durations (`trend_span < 1h`) |
+| `check_service` (Linux, macOS) | `age` / `rss`, `vms` | durations / byte units (`rss > 1G`) |
+| `check_uncpath` | `size`, `free`, `used`, `user_free` | byte units (`free < 100g`) |
+| `check_storagepool` | `capacity`, `used`, `free` | byte units |
+| `check_disk_write` | `size` | byte units |
+| `check_hyperv_vms`, `check_iis_app_pools`, `check_iis_sites`, `check_apache_status` | `uptime` | durations |
+| `check_tasksched` | `last_run_age` | durations (`last_run_age > 1d`) |
+
+On `check_files`, a file without a version resource renders `${version}` as
+empty, as before; it is not an error.
 
 This applies to every check built on the shared filter framework. Errors in
 setting the filter up (an unknown keyword, a syntax error) already failed the
-check and are unchanged, as is the evaluation without any record (`count = 0`
-and similar summary expressions). So is the cross-type rule: text that is not
-a number never matches a numeric comparison (`ival = 'beta'` is false for
-every row, and the `'unknown'` probe of an optional number such as
-`jitter != 'unknown'` works as before) - that is a defined answer, not a
-failure.
+check and are unchanged, as is the evaluation without any record that lets
+`count = 0` and similar mixed expressions reach a verdict. So is the
+cross-type rule: text that is not a number never matches a numeric comparison
+(`ival = 'beta'` is false for every row, and the `'unknown'` probe of an
+optional number such as `jitter != 'unknown'` works as before). That is a
+defined answer, not a failure.
 
 **What to do:** only if a check starts reporting `Filter evaluation failed:`
 after the upgrade. Its result was not computed from the expression as written
-before either; the message names the expression and why it failed - correct
-the unit, the keyword or the regular expression.
+before either: correct the unit, the keyword or the regular expression the
+message names. A threshold that used a unit on one of the keywords above
+compared against 0 before, so it may now stop firing where it always fired:
+check that it says what you meant.

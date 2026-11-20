@@ -25,33 +25,38 @@ std::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned l
                 static_cast<long long>(ft_to_unix(info.ftLastAccessTime)), static_cast<long long>(ft_to_unix(info.ftLastWriteTime)), is_dir, now);
 }
 
+// Most files have no version resource at all (a DLL built without one, a
+// script, a data file): that is an empty version, not a failed evaluation, and
+// raising an error for it would end every check that merely renders
+// ${version} over such a directory UNKNOWN. The reason goes to the debug log.
 std::string file_filter::filter_obj::get_version(parsers::where::evaluation_context context) {
   if (cached_version) return cached_version.value();
+  const auto no_version = [this, &context](const std::string &why) {
+    context->warn(why);
+    cached_version.reset(std::string());
+    return std::string();
+  };
   const std::string fullpath = (path / filename).string();
 
   DWORD dwDummy;
   const DWORD dwFVISize = GetFileVersionInfoSize(utf8::cvt<std::wstring>(fullpath).c_str(), &dwDummy);
   if (dwFVISize == 0) {
-    context->error("Failed to get version for " + fullpath + ": " + error::lookup::last_error());
-    return "";
+    return no_version("No version for " + fullpath + ": " + error::lookup::last_error());
   };
   const auto lpVersionInfo = new BYTE[dwFVISize + 1];
   if (!GetFileVersionInfo(utf8::cvt<std::wstring>(fullpath).c_str(), 0, dwFVISize, lpVersionInfo)) {
     delete[] lpVersionInfo;
-    context->error("Failed to get version for " + fullpath + ": " + error::lookup::last_error());
-    return "";
+    return no_version("No version for " + fullpath + ": " + error::lookup::last_error());
   }
   UINT uLen;
   VS_FIXEDFILEINFO *lpFfi;
   if (!VerQueryValue(lpVersionInfo, L"\\", reinterpret_cast<LPVOID *>(&lpFfi), &uLen)) {
     delete[] lpVersionInfo;
-    context->error("Failed to query version for " + fullpath + ": " + error::lookup::last_error());
-    return "";
+    return no_version("No version for " + fullpath + ": " + error::lookup::last_error());
   }
   if (uLen < sizeof(VS_FIXEDFILEINFO) || lpFfi->dwSignature != 0xFEEF04BD) {
     delete[] lpVersionInfo;
-    context->error("Malformed version resource in " + fullpath);
-    return "";
+    return no_version("Malformed version resource in " + fullpath);
   }
   const DWORD dwFileVersionMS = lpFfi->dwFileVersionMS;
   const DWORD dwFileVersionLS = lpFfi->dwFileVersionLS;

@@ -229,6 +229,22 @@ struct realtime_filter_helper {
       // act on it. This mirrors the cli_helper::post_process flow used by the
       // active check path.
       item->filter.match_post();
+      // A record whose evaluation failed (a regular expression refused by the
+      // budget or the subject limit, a unit the keyword does not take) was
+      // not a non-match: it got no verdict at all. Dropping it as one is how
+      // a real-time filter would miss the very line it exists to alert on.
+      if (item->filter.has_evaluation_errors()) {
+        item->error_count.fetch_add(1, std::memory_order_relaxed);
+        const std::string failure = item->filter.get_evaluation_failure();
+        NSC_LOG_ERROR("Realtime filter '" + item->get_alias() + "': " + failure);
+        if (is_silent || item->is_event() || item->is_events()) return false;
+        nscapi::core_helper ch(core, plugin_id);
+        if (!ch.submit_simple_message(item->get_target(), item->get_source_id(), item->get_target_id(), item->command,
+                                      NSCAPI::query_return_codes::returnUNKNOWN, failure, "", response)) {
+          NSC_LOG_ERROR("Failed to submit '" + failure);
+        }
+        return true;
+      }
       if (!result.matched_filter) {
         return false;
       }

@@ -23,6 +23,16 @@ class NSCP_WHERE_EXPORT error_handler_interface {
   virtual void log_debug(std::string error) = 0;
   virtual bool is_debug() const = 0;
   virtual void set_debug(bool debug) = 0;
+  // An error raised while a filter was evaluated. `expression` is the filter
+  // as the operator wrote it; `evaluated` is the tree rendered with the
+  // record's current values, which is what the debug log wants and what a
+  // check's output must never carry: it holds whatever the record holds - the
+  // 1 MiB subject a regular expression was refused for, keywords the operator
+  // never put in a syntax. The default keeps the historical log line.
+  virtual void log_evaluation_error(const std::string &error, const std::string &expression, const std::string &evaluated) {
+    (void)expression;
+    log_error(error + ": " + evaluated);
+  }
 };
 
 // Result of force-evaluating a filter without the require_object guard. The

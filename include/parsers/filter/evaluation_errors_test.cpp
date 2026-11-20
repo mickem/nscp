@@ -19,6 +19,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/regex_guard.hpp>
 #include <string>
@@ -67,6 +68,7 @@ struct filter_obj_handler : native_context {
         },
         "Percent with no value for a record that sent nothing");
     registry_.add_converter(type_pct, &parse_pct);
+    parsers::where::format_functions::register_format_functions(registry_);
   }
 };
 typedef modern_filter::modern_filters<data_obj, filter_obj_handler> filter_type;
@@ -150,10 +152,61 @@ TEST(EvaluationErrors, AnInvalidUnitIsUnknownNotADifferentThreshold) {
   EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, run({"filter=load > 10k", "warning=none", "critical=none"}).code);
 }
 
-TEST(EvaluationErrors, TheMessageNamesTheFailingExpression) {
+TEST(EvaluationErrors, TheMessageNamesTheExpressionAsWritten) {
+  // The error and the expression the operator wrote - not the tree rendered
+  // with the row's values, which is what the debug log gets.
   const run_result r = run({"warning=none", "critical=load > 40k"});
-  EXPECT_NE(std::string::npos, r.message.find("Invalid unit: k: ")) << r.message;
-  EXPECT_NE(std::string::npos, r.message.find(" > convert(40)")) << r.message;
+  EXPECT_EQ("Filter evaluation failed: Invalid unit: k (in: load > 40k)", r.message);
+}
+
+TEST(EvaluationErrors, TheMessageCarriesNoRowValues) {
+  // The subject a regular expression is refused for is the row's own value,
+  // up to the 1 MiB limit and beyond: it must not reach the check's output
+  // (an NRPE payload, a keyword the operator never put in a syntax).
+  const std::string secret = "s3cr3t-" + std::string(parsers::where::max_regex_subject_bytes(), 'x');
+  const run_result r = run({"warning=none", "critical=text regexp 'needle'"}, {{"big", 1, 4, 0, secret}});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_EQ(std::string::npos, r.message.find("s3cr3t")) << r.message.substr(0, 200);
+  EXPECT_NE(std::string::npos, r.message.find("(in: text regexp 'needle')")) << r.message;
+}
+
+TEST(EvaluationErrors, TheMessageIsOneBoundedLine) {
+  // An error can quote something from the data (a getter's exception, a
+  // path); the line that reaches the check is one line and capped well inside
+  // an NRPE payload, without splitting a UTF-8 sequence.
+  filter_type filter;
+  filter.evaluation_error_count_ = 1;
+  filter.evaluation_error_ = "first line\r\nsecond\tline";
+  EXPECT_EQ("Filter evaluation failed: first line  second line", filter.get_evaluation_failure());
+
+  const std::size_t cap = filter_type::max_failure_detail;
+  filter.evaluation_error_ = std::string(cap - 1, 'a') + "\xC3\xA9" + std::string(500, 'b');  // 'é' straddles the cap
+  const std::string capped = filter.get_evaluation_failure();
+  EXPECT_EQ("Filter evaluation failed: " + std::string(cap - 1, 'a') + "...", capped);
+
+  filter.evaluation_error_ = std::string(cap, 'c');
+  EXPECT_EQ("Filter evaluation failed: " + std::string(cap, 'c'), filter.get_evaluation_failure());
+}
+
+TEST(EvaluationErrors, ASummaryOnlyThresholdThatFailsIsUnknown) {
+  // `count` is evaluated once after the rows, outside any record: `5k` is
+  // not a count, and `count > 5k` used to read as `count > 0` - CRITICAL.
+  const run_result r = run({"warning=none", "critical=count > 5k"});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_TRUE(starts_with(r.message, "Filter evaluation failed: ")) << r.message;
+  // ...while a valid summary threshold keeps its verdict.
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run({"warning=none", "critical=count > 1"}).code);
+  EXPECT_EQ(PB::Common::ResultCode::OK, run({"warning=none", "critical=count > 5"}).code);
+}
+
+TEST(EvaluationErrors, ARenderErrorIsUnknown) {
+  // A function in a syntax template that fails - a byte unit that does not
+  // exist - used to render as an empty placeholder in an otherwise clean
+  // result.
+  const std::vector<std::string> args = {"warning=none", "critical=none", "detail-syntax=%(name) %(format_bytes(load, 'ZB'))"};
+  const run_result r = run(args);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_NE(std::string::npos, r.message.find("Unknown byte unit: ZB")) << r.message;
 }
 
 TEST(EvaluationErrors, PerfDataIsKeptWithTheFailure) {

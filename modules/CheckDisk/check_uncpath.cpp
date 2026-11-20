@@ -109,13 +109,14 @@ filter_obj_handler::filter_obj_handler() {
 
   // Distinct perf suffixes so co-referenced metrics each get their own series
   // ('<path>_free', ...) instead of collapsing onto the shared ${path} alias.
-  registry_.add_int_var("size", &filter_obj::get_size, "Total size of the share in bytes")
+  registry_.add_int_var("size", parsers::where::type_size, &filter_obj::get_size, "Total size of the share in bytes (takes units, e.g. free < 100g)")
       .add_int_perf("B", "", "_size")
-      .add_int_var("free", &filter_obj::get_free, "Free space on the share in bytes")
+      .add_int_var("free", parsers::where::type_size, &filter_obj::get_free, "Free space on the share in bytes (takes units, e.g. free < 100g)")
       .add_int_perf("B", "", "_free")
-      .add_int_var("used", &filter_obj::get_used, "Used space on the share in bytes")
+      .add_int_var("used", parsers::where::type_size, &filter_obj::get_used, "Used space on the share in bytes (takes units, e.g. free < 100g)")
       .add_int_perf("B", "", "_used")
-      .add_int_var("user_free", &filter_obj::get_user_free, "Free space available to the querying user (quota-aware) in bytes")
+      .add_int_var("user_free", parsers::where::type_size, &filter_obj::get_user_free,
+                   "Free space available to the querying user (quota-aware) in bytes (takes units, e.g. free < 100g)")
       .add_int_perf("B", "", "_user_free")
       .add_int_var("free_pct", &filter_obj::get_free_pct, "Percentage of free space")
       .add_int_perf("%", "", "_free_pct")

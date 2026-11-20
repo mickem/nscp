@@ -505,7 +505,7 @@ struct cli_helper : boost::noncopyable {
     // the operator did not ask for.
     const bool evaluation_failed = filter.has_evaluation_errors();
     if (evaluation_failed) {
-      msg = "Filter evaluation failed: " + filter.get_evaluation_error();
+      msg = filter.get_evaluation_failure();
     }
     if (data.escape_html) {
       boost::replace_all(msg, "<", "&lt;");

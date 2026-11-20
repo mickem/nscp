@@ -3,6 +3,7 @@
 
 #include "check_registry.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
 
@@ -42,6 +43,10 @@ node_type parse_type_converter(std::shared_ptr<filter_obj> /*obj*/, evaluation_c
 long long parse_type_name(const std::string &s) { return win_registry::parse_type(s); }
 
 filter_obj_handler::filter_obj_handler() {
+  // Seconds, written as the documented samples do: `age > 7d`. As a plain int
+  // the unit was refused and the threshold compared against 0.
+  static constexpr value_type type_custom_age = type_custom_int_1;
+
   // String attributes
   registry_.add_string_var("path", &filter_obj::get_path, "Full registry key path including hive (e.g. HKLM\\Software\\MyApp)")
       .add_string_var("name", &filter_obj::get_name, "Leaf key name")
@@ -56,7 +61,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("value_count", &filter_obj::get_value_count, "Number of values in this key")
       .add_int_var("subkey_count", &filter_obj::get_subkey_count, "Number of immediate sub-keys")
       .add_int_var("written", type_date, &filter_obj::get_written, "Last-write time (epoch seconds; supports date comparisons)")
-      .add_int_var("age", type_int, &filter_obj::get_age, "Seconds since the key was last written");
+      .add_int_var("age", type_custom_age, &filter_obj::get_age, "Seconds since the key was last written; takes durations, e.g. age > 7d");
+  registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<filter_obj>>);
 }
 
 }  // namespace check_rk_filter
@@ -205,6 +211,8 @@ node_type parse_type_converter(std::shared_ptr<filter_obj> /*obj*/, evaluation_c
 
 filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_reg_type = type_custom_int_1;
+  // Seconds; takes durations (`age > 7d`), as for keys.
+  static constexpr value_type type_custom_age = type_custom_int_2;
 
   // String attributes
   registry_.add_string_var("key", &filter_obj::get_key, "Parent key path (full, including hive)")
@@ -221,13 +229,14 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("size", type_size, &filter_obj::get_size, "Raw byte size of the value data")
       .add_int_var("exists", type_bool, &filter_obj::get_exists, "Whether the value exists (true/false)")
       .add_int_var("written", type_date, &filter_obj::get_written, "Parent key last-write time (epoch seconds; supports date comparisons)")
-      .add_int_var("age", type_int, &filter_obj::get_age, "Seconds since parent key was last written");
+      .add_int_var("age", type_custom_age, &filter_obj::get_age, "Seconds since parent key was last written; takes durations, e.g. age > 7d");
 
   // Human-readable alias for 'type'
   registry_.add_human_string("type", &filter_obj::get_type_s, "Value type as a string (REG_SZ, REG_DWORD, etc.)");
 
   // Converter so that  type = 'REG_SZ'  works
   registry_.add_converter(type_custom_reg_type, &parse_type_converter);
+  registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<filter_obj>>);
 }
 
 }  // namespace check_rv_filter
