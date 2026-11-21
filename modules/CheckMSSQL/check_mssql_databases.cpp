@@ -206,6 +206,8 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   filter_helper.add_options("state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'",
                             "state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING'", "", filter.get_filter_syntax(), "unknown");
   filter_helper.add_short_threshold("log_used_pct", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number);
+  filter_helper.add_short_warning("state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE' or ${log_used_pct}");
+  filter_helper.add_short_critical("state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING' or ${log_used_pct}");
   filter_helper.add_syntax("${status}: ${problem_count}/${count} databases (${problem_list})", "${name}: ${state}", "${name}", "%(status): No databases found",
                            "%(status): All %(count) databases are ONLINE");
   mssql_options::add_connection_options(filter_helper.get_desc(), info);
