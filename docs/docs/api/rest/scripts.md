@@ -92,6 +92,11 @@ curl -s -k -u admin https://localhost:8443/api/v1/scripts |python -m json.tool
 
 The API lists all available commands/scripts for a given runtime.
 
+The listing is read from the runtime's on-demand
+[`scripts.<runtime>` fact set](facts.md#read-an-on-demand-set), which serves
+the same names at `GET /api/v2/facts?path=scripts` under the
+`facts.get.scripts` grant.
+
 Key       | Value
 ----------|----------------------
 Verb      | GET

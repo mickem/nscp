@@ -293,6 +293,38 @@ the helper goes in its `ALLOWED` set with the reason.
   drops it from that consumer. Never move a key to improve a metric name: name
   the family through the builder and let the renderer do the naming.
 
+## Facts
+- A module publishes facts from `fetchFacts(request, response)` through the
+  builder in `nscapi/nscapi_facts_helper.hpp`, with `"facts": true` in
+  `module.json`. A **scheduled** set is opt-in: it is enabled by a bool under
+  the module's own `[/settings/<module>/facts]` section, defaulting to
+  `false`, because it is stored in the document and uploaded to a fleet
+  server. See `CheckTaskSched/task_facts.cpp` for a minimal producer.
+- **An on-demand set** is for a listing too large or too volatile to keep (a
+  counter catalog, a scripts folder). It is collected when its path is read,
+  cached by the core for five seconds, and never stored, hashed or uploaded -
+  so it has no enable switch. Declare it on every call with
+  `response.on_demand("set.key")` (or `("set.key", true)` when it takes the
+  rest of the path as `request.parameter()`), collect only when
+  `request.is_demand() && request.demand() == id`, and set
+  `"facts": "on-demand"` in `module.json` - without that the generated glue
+  answers the core's `declare` probe for the module and the set is never
+  found. See `scripts/script_facts.hpp` and `facts/pdh_facts.hpp`.
+- **A module with both kinds returns before its scheduled sets on a demand or
+  a `declare` probe** (`if (request.declare_only()) return;`), or the probe
+  costs a full collection whose result is thrown away.
+- **A parameter is remote input.** Match it against what the module itself
+  enumerates and act on the enumerated value; never build a command line, a
+  query or a path out of it (`pdh_facts::find_object`).
+- **A fact producer owns what it returns**, the same rule a `filter_obj`
+  follows: copy values out of the enumeration into a struct of `std::string`s
+  and hand that to a platform-neutral `publish()`, which is also what makes
+  the set testable off its platform.
+- An on-demand set is read with `facts.get.<set>`, never with `facts.get`
+  alone, so a new one needs no change in the controller - but it does need a
+  line in `docs/docs/api/rest/facts.md` and `docs/docs/concepts/facts.md`
+  saying which kind it is and why.
+
 ## Documentation for new commands
 Every new check command needs, under `docs/samples/`:
 - `<Module>_<command>_samples.md` — usage examples with real captured output.

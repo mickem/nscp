@@ -12,6 +12,10 @@ document on [`/api/v2/facts`](../api/rest/facts.md), in the web UI and in
 operator did not necessarily agree to ship, so a fresh install reports an empty
 document and does no work for it.
 
+A few sets are of a second kind: [on-demand sets](#on-demand-sets), collected
+when someone reads them and never kept. They are not in the document, need no
+switch, and are covered in their own section below.
+
 ---
 
 ## Facts or tags?
@@ -78,9 +82,10 @@ mysql.databases = true
 mssql = true
 mssql.databases = true
 
-; The one set the core produces itself.
+; The sets the core produces itself.
 [/settings/facts]
 agent = true
+modules = true
 ```
 
 Every switch is a bool defaulting to `false`, so each one is a separate key
@@ -90,6 +95,7 @@ another bundle's choices.
 | Set                  | Produced by | Key, in section                                  | Cost |
 |----------------------|-------------|--------------------------------------------------|------|
 | `agent`              | the core    | `agent`, `[/settings/facts]`                     | none |
+| `modules`            | the core    | `modules`, `[/settings/facts]`                   | none |
 | `os`                 | CheckSystem | `os`, `[/settings/system/windows/facts]` or `[/settings/system/unix/facts]` | none: read once at start |
 | `hardware`           | CheckSystem | `hardware`, same section                         | none: read once at start |
 | `network.interfaces` | CheckSystem | `network.interfaces`, same section               | low: read every round, no WMI, nothing forked |
@@ -125,6 +131,29 @@ string or zero. A consumer reads an absent key as unknown.
 | `version`  | `0.12.6`                        | the NSClient++ version |
 | `modules`  | `["CheckDisk", "CheckSystem"]`  | the loaded modules, sorted, each once |
 | `enrolled` | `true`                          | whether this host is enrolled with a fleet server: yes or no, never which server or with which identity |
+
+### `modules`
+
+One record per module the agent has loaded: `agent.modules` with what a fleet
+server wants beside each name.
+
+| Field     | Example        | Meaning |
+|-----------|----------------|---------|
+| `id`      | `CheckSystem`, `nrpe2` | the alias the module is loaded under, or its name when it has none: what `/api/v2/modules` calls `id` |
+| `name`    | `CheckSystem`  | the module |
+| `alias`   | `nrpe2`        | only when it is loaded under another name |
+| `title`   | `Check System` | the module's title |
+| `version` | `0.12.6`       | the module's version |
+| `enabled` | `true`         | whether `[/modules]` loads it at the next start; a module loaded by hand is loaded without being enabled |
+
+The list is under `loaded`, sorted by id. There is no description and no list
+of commands - `/api/v2/modules` and `/api/v2/queries` serve those - and modules
+that are installed but not loaded are not listed, because finding them means
+opening every module file on disk.
+
+This is a **scheduled** set, stored and uploaded like `agent`: a few dozen
+records that move only when a module is loaded or unloaded is exactly what the
+stored document is for.
 
 ### `os` and `hardware`
 
@@ -525,6 +554,88 @@ rounds, so a consumer can diff two documents record by record.
 
 ---
 
+## On-demand sets
+
+Everything above is collected on a round and kept. Some listings are the wrong
+shape for that: the Windows performance counter catalog is thousands of
+entries and the same on every host of a kind, and a scripts folder changes
+whenever someone uploads a script. Those are **on-demand sets**.
+
+|                         | A scheduled set                        | An on-demand set |
+|-------------------------|----------------------------------------|------------------|
+| Collected               | every round                            | when its path is read |
+| Kept                    | in the document                        | 5 seconds, so a client cannot drive collection in a loop |
+| In `GET /api/v2/facts`  | yes                                    | no - only by path |
+| Counts against `max size`, moves `revision` | yes                | no |
+| Sent to a fleet server  | yes                                    | **never** |
+| Enabled                 | per set, in the producing module       | nothing to enable: available while the module is loaded |
+| Read with               | `facts.get`, or `facts.get.<set>`      | `facts.get.<set>` only |
+
+| Set | Produced by | Kind | Why |
+|-----|-------------|------|-----|
+| `modules`            | the core              | scheduled | small, stable, and what a fleet server wants to know about every host |
+| `scripts.external`   | CheckExternalScripts  | on demand | changes with every upload; what a host can be made to run is not inventory to ship |
+| `scripts.python`     | PythonScript          | on demand | the same |
+| `scripts.lua`        | LUAScript             | on demand | the same |
+| `pdh.objects`        | CheckSystem (Windows) | on demand | thousands of entries, identical across hosts with the same roles |
+| `pdh.instances.<object>` | CheckSystem (Windows) | on demand | instances come and go by the second |
+
+### Why there is no switch
+
+The opt-in exists because an inventory is data that gets *kept and shipped*:
+it sits in the document, and an enrolled host uploads the document. An
+on-demand set is neither kept nor shipped, so there is nothing to opt in to -
+and both listings were already served by the agent over REST
+(`/api/v2/scripts/<runtime>`, `/api/v2/metadata/counters`) to a role that holds
+the grant for them.
+
+What takes the switch's place is the grant. `facts.get` reads the stored
+document and **does not** read an on-demand set; each takes
+`facts.get.<set>` (`facts.get.scripts`, `facts.get.pdh`). A role that could
+read the inventory yesterday reads exactly what it read then. See
+[the REST reference](../api/rest/facts.md#privileges).
+
+### `scripts`
+
+Each script runtime owns one key of the set, so they can be loaded in any
+combination: `scripts.python` asks PythonScript, and `scripts` answers with
+one object holding whichever runtimes are loaded.
+
+| Field      | Runtime       | Meaning |
+|------------|---------------|---------|
+| `files`    | all           | the script files in the runtime's folder, spelled the way the scripts API takes them back (`python/check_thing.py`); helpers in a `lib` folder are left out |
+| `commands` | `external`    | the names the scripts are registered under as commands |
+
+It is **the listing only**. The source of a script is not a fact - it is still
+read through `GET /api/v2/scripts/<runtime>/<script>` under `scripts.get.*` -
+and neither is a command line: `commands` carries names, never what they run.
+A list stops at 5000 entries and says so under `errors`.
+
+### `pdh`
+
+`pdh.objects` is one record per performance object, in the order PDH
+enumerates them:
+
+| Field      | Example                                  | Meaning |
+|------------|------------------------------------------|---------|
+| `id`       | `Processor Information`                  | the object name, as this Windows spells it |
+| `counters` | `["% Processor Time", "% Idle Time"]`    | its counters; `\<id>\<counter>` is a counter path |
+
+`pdh.instances.<object>` is read for one object at a time, with the object
+name as the rest of the path:
+
+| Field    | Example                  | Meaning |
+|----------|--------------------------|---------|
+| `object` | `Processor Information`  | the object that was asked about |
+| `names`  | `["0,0", "0,1", "_Total"]` | its instances right now; empty for an object that has none |
+
+The object name is the only thing a caller passes, and it is matched against
+the names PDH itself enumerates - never parsed as options, a counter path or a
+wildcard. Names are localised: they are whatever this Windows calls them,
+which is also what `check_pdh` takes.
+
+---
+
 ## When facts are collected
 
 | When                     | What happens |
@@ -532,7 +643,7 @@ rounds, so a consumer can diff two documents record by record.
 | Start                    | one round, before the first fleet report |
 | Every `[/settings/facts] interval` (default `1h`) | a round; a set whose values have not changed does not move the document's revision |
 | A settings reload        | a round, because a set may have been switched on or off |
-| On demand                | `facts refresh` in `nscp test`, or `POST /api/v2/facts/commands/refresh` |
+| Manually                 | `facts refresh` in `nscp test`, or `POST /api/v2/facts/commands/refresh` |
 
 Each set a module produces carries a *gathered* time: when its values were
 read off the machine, which for `os` and `hardware` is when the module started.
@@ -581,8 +692,8 @@ Gathered:
           type: fixed
 ```
 
-`facts <path>` shows one subtree (`facts storage.volumes`), and `facts refresh`
-collects now. Over REST the same document is `GET /api/v2/facts` (see
+`facts <path>` shows one subtree (`facts storage.volumes`) or an on-demand set
+(`facts scripts.python`), and `facts refresh` collects now. Over REST the same document is `GET /api/v2/facts` (see
 [Facts](../api/rest/facts.md)), and the web UI shows it on the Facts page.
 
 ---
@@ -702,6 +813,10 @@ breaks a rule is rejected whole, and the previous value of that set is kept.
 * **Size**: depth at most 6, at most 5000 records in a list, and the whole
   document within `[/settings/facts] max size` (1 MiB by default).
 
+An [on-demand set](#on-demand-sets) is held to the same rules before it is
+served, so a consumer needs one parser. It is not in the document, so it does
+not come out of `max size`; one answer may be up to 8 MiB.
+
 ---
 
 ## What facts never contain
@@ -714,5 +829,6 @@ version of it, never the install path or the uninstall command line
 image a container runs, never its command line, its environment or its labels
 at large; and `mysql` and `mssql` say what the server reports about itself,
 never the target, login, driver or connection string the agent connected with. The loaded module list in
-`agent` is the one configuration-adjacent value, and it is opt-in like
-everything else.
+`agent` and `modules` is the one configuration-adjacent value in the document, and it is opt-in like
+everything else. The on-demand `scripts` set lists script names and never
+their contents or what they run, and it is never in the document at all.
