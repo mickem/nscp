@@ -129,10 +129,15 @@ Install NSClient++ on the host while the Icinga agent keeps running. The *Icinga
 the `IcingaAgent` module; it stays idle until it has a `parent host`.
 
 ```batch
-msiexec /qn /i NSCP-<version>-x64.msi
+msiexec /qn /i NSCP-<version>-x64.msi LAYOUT=modern
 ```
 
-Enable the modules behind the queries from step 1:
+`LAYOUT=modern` keeps the configuration and the certificates in `C:\ProgramData\NSClient++`, which only `SYSTEM` and
+`Administrators` can read, instead of in the install folder, which every logged-in user can. The host's Icinga key
+is about to be copied there, so use it for this migration; on a host that already has NSClient++, the same command
+moves the existing configuration and certificates. See [file layout](../concepts/file-layout.md).
+
+Enable the modules behind the queries from step 1, in `C:\ProgramData\NSClient++\nsclient.ini`:
 
 ```ini
 [/modules]
@@ -141,7 +146,8 @@ CheckSystem = enabled
 CheckDisk = enabled
 ```
 
-Now run the queries on the host itself, the way the agent will, before anything depends on them:
+Now run the queries on the host itself, the way the agent will, before anything depends on them (from an elevated
+prompt: the configuration is not readable otherwise):
 
 ```
 nscp client --module CheckDisk --boot --query check_drivesize "filter=type in ('fixed', 'remote')" "w=@~:20%" "c=@~:10%"
@@ -184,21 +190,28 @@ Schedule a downtime for the host in Icinga, then swap the agents. In an elevated
 ```powershell
 $cn  = 'win-host-01.example.com'                       # endpoint name
 $src = 'C:\ProgramData\icinga2\var\lib\icinga2\certs'
-$dst = 'C:\Program Files\NSClient++\security\icinga'   # the `certificate directory`
+$dst = 'C:\ProgramData\NSClient++\security\icinga'    # the `certificate directory`
 
 Stop-Service icinga2
 Set-Service icinga2 -StartupType Disabled
 
 New-Item -ItemType Directory -Force $dst | Out-Null
 Copy-Item "$src\$cn.crt", "$src\$cn.key", "$src\ca.crt" $dst
-# The key: SYSTEM and Administrators only.
-icacls "$dst\$cn.key" /inheritance:r /grant:r '*S-1-5-18:F' '*S-1-5-32-544:F'
 
 Restart-Service nscp
 ```
 
-`certificate directory` defaults to `${certificate-path}/icinga`: `security\icinga` under the install folder, or
-under `%ProgramData%\NSClient++` with the modern [file layout](../concepts/file-layout.md).
+`certificate directory` defaults to `${certificate-path}/icinga`, which is that folder on the modern layout. The copied
+key takes the folder's permissions: `SYSTEM` and `Administrators`, nobody else.
+
+<!-- @formatter:off -->
+!!! danger "On the legacy layout the key lands under Program Files"
+    Without `LAYOUT=modern` the certificate directory is `C:\Program Files\NSClient++\security\icinga`, and a file
+    copied there is readable by every user of the machine. Whoever reads that key can connect to the master as this
+    host. Move the installation first (`msiexec /qn /i NSCP-<version>-x64.msi LAYOUT=modern`), or, if the host has to
+    stay on the legacy layout, restrict the key right after copying it:
+    `icacls "$dst\$cn.key" /inheritance:r /grant:r '*S-1-5-18:F' '*S-1-5-32-544:F'`.
+<!-- @formatter:on -->
 
 The NSClient++ log shows a verified connection straight away, without the bootstrap lines of a new agent:
 

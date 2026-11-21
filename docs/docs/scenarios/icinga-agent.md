@@ -227,6 +227,9 @@ Icinga agent: Disconnected from icinga-master.example.com: Received a signed cer
 Icinga agent: Connected to Icinga endpoint 'icinga-master' at icinga-master.example.com:5665
 ```
 
+On Windows, install with `LAYOUT=modern` so that this directory is under `C:\ProgramData\NSClient++`, readable by
+`SYSTEM` and `Administrators` only, rather than in the install folder: see [file layout](../concepts/file-layout.md).
+
 The key, the signed certificate and the Icinga CA are kept in `certificate directory` (default
 `${certificate-path}/icinga`); the key is readable only by the account NSClient++ runs as. The ticket is only needed
 for this first signing.
