@@ -234,6 +234,8 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
 
   filter f;
   filter_helper.add_options("time > 5000", "code < 200 or code >= 400 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "5", "");
+  filter_helper.add_short_critical("${time} or code < 200 or code >= 400 or result != 'ok'");
   filter_helper.add_syntax("${status}: ${problem_list}", "${url} -> ${code} ${result} (${size}B in ${time}ms)", "${url}", "No URL checked",
                            "%(status): %(list)");
   // clang-format off

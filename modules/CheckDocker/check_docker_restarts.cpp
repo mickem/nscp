@@ -84,6 +84,9 @@ void check_restarts(const settings &defaults, const PB::Commands::QueryRequestMe
   // is recent too - a container that has been up for a month is fine no
   // matter how bumpy its past. OOM kills are always worth a critical.
   filter_helper.add_options("restart_count > 3 and started < 15m and started >= 0", "oom_killed = 1", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("restart_count", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "3", "");
+  filter_helper.add_short_warning("${restart_count} and started < 15m and started >= 0");
+  filter_helper.add_short_critical("${restart_count} and started < 15m and started >= 0 or oom_killed = 1");
   filter_helper.add_syntax("${status}: ${list}", "${names}: ${restart_count} restarts, ${container_state}", "${names}", "No containers found", "");
   // clang-format off
   filter_helper.get_desc().add_options()

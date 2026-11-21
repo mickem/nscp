@@ -335,6 +335,100 @@ describeOnLinux("CheckDisk (Unix)", () => {
     expect(out).not.toMatch(/Invalid file specified/i);
   });
 
+  // --- -w / -c short thresholds ----------------------------------------------
+  //
+  // The client-query path hands the tokens over as they are typed, so these
+  // are the real "-w 80 -c 90" a plugin user writes, mixed with key=value.
+
+  it("check_drivesize -w/-c bound free space as a percentage", async () => {
+    // No drive has less than 0% free, every drive has less than 101% free.
+    const ok = await queryWithCode("check_drivesize", ["drive=/", "-w", "0", "-c", "0"]);
+    expect(ok.code).toBe(0);
+    const warn = await queryWithCode("check_drivesize", ["drive=/", "-w", "101", "-c", "0"]);
+    expect(warn.code).toBe(1);
+    const crit = await queryWithCode("check_drivesize", ["drive=/", "-w", "0", "-c", "101%"]);
+    expect(crit.code).toBe(2);
+  });
+
+  it("check_drivesize accepts the short thresholds in front and attached", async () => {
+    const crit = await queryWithCode("check_drivesize", ["-w0", "-c=101", "drive=/"]);
+    expect(crit.code).toBe(2);
+    // A range says its side itself: "~:0" is "more than 0% free".
+    const range = await queryWithCode("check_drivesize", ["-c", "~:0", "drive=/"]);
+    expect(range.code).toBe(2);
+  });
+
+  it("check_drivesize -c only replaces the critical default", async () => {
+    // The default warning (used > 80%) is still there to be shown.
+    const out = await query("check_drivesize", ["drive=/", "-c", "0", "show-default"]);
+    expect(out).toMatch(/used > 80%/);
+  });
+
+  it("check_drivesize -w takes an expression as it is", async () => {
+    const r = await queryWithCode("check_drivesize", ["drive=/", "-w", "used >= 0", "-c", "0"]);
+    expect(r.code).toBe(1);
+  });
+
+  it("a negative short threshold survives next to dashed arguments", async () => {
+    // "--drive / -c -5:" must not have "-5:" read as an option of its own.
+    const r = await queryWithCode("check_drivesize", ["--drive", "/", "-w", "0", "-c", "-5:"]);
+    expect(r.out).not.toMatch(/unrecognised|unknown option|Invalid command line/i);
+    expect(r.code).toBe(0);
+  });
+
+  it("show-default stays a line that can be edited and passed back", async () => {
+    // With "w=20" in it, editing only warning= would leave the short form
+    // adding the old bound back; the short defaults have a command of their own.
+    const long = await query("check_drivesize", ["show-default"]);
+    expect(long).toMatch(/"warning=used > 80%"/);
+    expect(long).toMatch(/"critical=used > 90%"/);
+    expect(long).not.toMatch(/"w=/);
+    expect(long).not.toMatch(/"c=/);
+  });
+
+  it("show-short-defaults lists the defaults of -w and -c", async () => {
+    const short = await query("check_drivesize", ["show-short-defaults"]);
+    expect(short).toMatch(/"w=20" "c=10"/);
+    expect(short).not.toMatch(/warning=/);
+    // A check that bounds count has none to show.
+    const none = await queryWithCode("check_files", ["show-short-defaults"]);
+    expect(none.code).toBe(0);
+    expect(none.out).not.toMatch(/"w=/);
+  });
+
+  it("an empty or mis-united short threshold is refused, not guessed at", async () => {
+    const empty = await queryWithCode("check_drivesize", ["drive=/", "w="]);
+    expect(empty.code).toBe(3);
+    expect(empty.out).toMatch(/Missing value for -w/);
+    const unit = await queryWithCode("check_drivesize", ["drive=/", "-w", "10ms"]);
+    expect(unit.code).toBe(3);
+    expect(unit.out).toMatch(/Invalid unit for free: 10ms/);
+  });
+
+  it("check_single_file -w/-c bound the age in seconds, with units", async () => {
+    const file = `file=${path.join(scratch, "big.log")}`;
+    // Written moments ago: not older than an hour, but inside 0s..1h.
+    const ok = await queryWithCode("check_single_file", [file, "-w", "30m", "-c", "1h"]);
+    expect(ok.code).toBe(0);
+    const warn = await queryWithCode("check_single_file", [file, "-w", "@0:1h", "-c", "1h"]);
+    expect(warn.code).toBe(1);
+    const bad = await queryWithCode("check_single_file", [file, "-w", "5x"]);
+    expect(bad.code).toBe(3);
+    expect(bad.out).toMatch(/Invalid duration for age: 5x/);
+  });
+
+  it("check_files -w/-c bound the number of matched files", async () => {
+    // Three files in the scratch folder.
+    const dir = `path=${scratch}`;
+    const ok = await queryWithCode("check_files", [dir, "-w", "3", "-c", "5"]);
+    expect(ok.code).toBe(0);
+    const warn = await queryWithCode("check_files", [dir, "-w", "2", "-c", "5"]);
+    expect(warn.code).toBe(1);
+    // "5:" is "fewer than 5".
+    const crit = await queryWithCode("check_files", [dir, "-w", "2", "-c", "5:"]);
+    expect(crit.code).toBe(2);
+  });
+
   // --- check_single_file ---------------------------------------------------
 
   it("inspects a single file", async () => {

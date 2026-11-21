@@ -70,6 +70,7 @@ void checks::check_uptime(const PB::Commands::QueryRequestMessage::Request &requ
   filter_type filter;
   std::string max_unit_str = "w";
   filter_helper.add_options("uptime < 2d", "uptime < 1d", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("uptime", modern_filter::shorthand::below, modern_filter::shorthand::unit_plain, "2d", "1d");
   // The timezone label is rendered via the ${tz} placeholder so the configured
   // value (default "local") is reflected in the output (issue #365).
   filter_helper.add_syntax("${status}: ${list}", "uptime: ${uptime}h, boot: ${boot} (${tz})", "uptime", "", "");

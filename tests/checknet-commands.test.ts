@@ -450,6 +450,36 @@ describe("CheckNet commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  it("check_tcp short thresholds are in seconds", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n");
+    const args = { host: "127.0.0.1", port: String(s.port), expect: "220" };
+    // A loopback connect takes less than 30 seconds...
+    const ok = await executeQuery(key, "check_tcp", { ...args, w: "30", c: "1m" });
+    expect(ok.result).toBe(OK);
+    // ...and so lands inside 0..30s. Were the bound read as milliseconds this
+    // would still hold, so the perfdata thresholds pin the conversion.
+    const warn = await executeQuery(key, "check_tcp", { ...args, w: "@0:30", c: "1m" });
+    expect(warn.result).toBe(WARNING);
+    const perf = Object.values(perfOf(ok)).find((p) => p.unit === "ms");
+    expect(perf?.warning).toBe(30000);
+    expect(perf?.critical).toBe(60000);
+  });
+
+  it("check_ping keeps the default of a value left out of the list", async () => {
+    // "-w ,100%" moves the loss bound only; the perfdata shows the default
+    // round trip bound (60ms) is still there.
+    const q = await executeQuery(key, "check_ping", { host: "127.0.0.1", w: ",100%", c: "5000,100%" });
+    const perf = Object.values(perfOf(q)).find((p) => p.unit === "ms");
+    expect(perf?.warning).toBe(60);
+    expect(perf?.critical).toBe(5000);
+  });
+
+  it("check_tcp -c moves the time bound and keeps a failed connect critical", async () => {
+    const port = await closedPort();
+    const q = await executeQuery(key, "check_tcp", { host: "127.0.0.1", port: String(port), w: "30", c: "60" });
+    expect(q.result).toBe(CRITICAL);
+  });
+
   it("check_tcp reports no_match when the greeting fails expect", async () => {
     const s = await startTcpGreeter("500 nope\r\n");
     const q = await executeQuery(key, "check_tcp", {

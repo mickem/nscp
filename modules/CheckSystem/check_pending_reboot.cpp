@@ -169,6 +169,7 @@ void check_pending_reboot_from(const PB::Commands::QueryRequestMessage::Request 
   // Default: WARNING when any reboot is pending, no critical. There is always
   // exactly one row, so the empty-state never applies.
   filter_helper.add_options("pending = 1", "", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("pending", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "0", "");
   filter_helper.add_syntax("${status}: ${list}", "${message}", "reboot", "", "%(status): No reboot pending");
   filter_helper.set_default_perf_config("extra(pending;signals)");
 

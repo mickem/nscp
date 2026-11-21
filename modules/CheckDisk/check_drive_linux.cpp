@@ -594,6 +594,7 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
   // clang-format off
   filter_type filter;
   filter_helper.add_options("used > 80%", "used > 90%", "mounted = 1", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
   filter_helper.add_syntax("${status} ${problem_list}", "${drive_or_name}: ${used}/${size} used", "${drive_or_id}", "%(status): No drives found", "%(status) All %(count) drive(s) are ok");
   filter_helper.get_desc().add_options()
     ("drive", po::value<std::vector<std::string>>(&drives),

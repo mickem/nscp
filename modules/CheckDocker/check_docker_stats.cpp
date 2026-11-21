@@ -110,6 +110,8 @@ void check_stats(const settings &defaults, const PB::Commands::QueryRequestMessa
 
   stats_filter filter;
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("cpu_pct", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number);
+  filter_helper.add_short_threshold("memory_pct", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number);
   filter_helper.add_syntax("${status}: ${list}", "${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%)", "${names}", "No running containers", "");
   // clang-format off
   filter_helper.get_desc().add_options()

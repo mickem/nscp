@@ -104,6 +104,7 @@ void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB
 
   filter_type filter;
   filter_helper.add_options("percent_disk_time > 80", "percent_disk_time > 95", "name != '_Total'", filter.get_filter_syntax(), "critical");
+  filter_helper.add_short_threshold("percent_disk_time", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "95");
   filter_helper.add_syntax("${status}: ${list}",
                            "${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s q=${queue_length}", "${name}",
                            "", "%(status): All disk I/O seems ok.");

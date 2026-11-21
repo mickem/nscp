@@ -141,6 +141,9 @@ void check_workloads(const settings &defaults, const PB::Commands::QueryRequestM
   // Nothing available where something is wanted is an outage; short of the
   // desired count, or a rollout that has not finished, is worth a look.
   filter_helper.add_options("missing > 0 or updated < desired", "available = 0 and desired > 0", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("missing", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "0", "");
+  filter_helper.add_short_warning("${missing} or updated < desired");
+  filter_helper.add_short_critical("${missing} or available = 0 and desired > 0");
   filter_helper.add_syntax("${status}: ${problem_list}", "${kind} ${namespace}/${name}=${available}/${desired}", "${namespace}/${name}",
                            "%(status): No workloads found", "%(status): All %(count) workloads are available");
   // clang-format off

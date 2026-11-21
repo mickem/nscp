@@ -494,6 +494,7 @@ void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB
 
   filter_type filter;
   filter_helper.add_options("throughput > 10000", "throughput > 100000", "", filter.get_filter_syntax(), "critical");
+  filter_helper.add_short_threshold("throughput", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "10000", "100000");
   // Default top-syntax now uses the human-readable byte-rate strings
   // (issue #329 #3) so operators see ">1.2 MB/s" instead of ">1234567 bps".
   // The raw byte-rate values are still available via `sent` / `received`

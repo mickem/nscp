@@ -30,6 +30,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // Default to UNKNOWN if no thresholds are set, so check_single_file <file>
   // by itself confirms the file exists rather than being a silent OK.
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("age", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds);
   // The top-syntax embeds `%(list)`, which expands to the detail-syntax
   // rendered for each matched item (per-item context). This makes the
   // file's filename, size and age render correctly regardless of whether

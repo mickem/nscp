@@ -191,6 +191,7 @@ void check_hyperv_host(const PB::Commands::QueryRequestMessage::Request &request
 
   filter f;
   filter_helper.add_options("", "health_critical > 0", "", f.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("health_critical", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "", "0");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("vm-timeout", po::value<long long>(&vm_timeout)->default_value(5),
@@ -320,6 +321,7 @@ void check_hyperv_cpu(const PB::Commands::QueryRequestMessage::Request &request,
 
   filter f;
   filter_helper.add_options("total_run_time > 80", "total_run_time > 90", "processor = 'total'", f.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("total_run_time", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "90");
   filter_helper.add_syntax("${status}: ${list}", "${processor}: ${total_run_time}% total (${guest_run_time}% guest, ${hypervisor_run_time}% hypervisor)",
                            "${processor}", "No logical processor counters found", "");
   // clang-format off
