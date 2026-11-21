@@ -112,6 +112,29 @@ export interface Facts {
   gathered: { [set: string]: string };
   /** The document itself, or the subtree at `path`. */
   facts: FactValue;
+  /**
+   * Set when `path` named an on-demand set: `facts` was collected for this
+   * request and is not part of the stored document. Absent otherwise.
+   */
+  on_demand?: boolean;
+}
+
+/** One on-demand fact set, as `/api/v2/facts/sets` lists it. */
+export interface OnDemandFactSet {
+  /** The path it is read at: `scripts.python`, `pdh.objects`. */
+  id: string;
+  /** It takes the rest of the path as a parameter (`pdh.instances.<object>`). */
+  parameterized: boolean;
+  /** The grant that reads it — per set, never the document's `facts.get`. */
+  privilege: string;
+}
+
+/** Which fact sets this agent has, without their contents. */
+export interface FactSets {
+  /** The stored sets the producers are configured to collect. */
+  scheduled: string[];
+  /** The sets collected when their path is read, and never stored. */
+  on_demand: OnDemandFactSet[];
 }
 
 interface Version {
@@ -700,6 +723,27 @@ export const nsclientApi = createApi({
       }),
       providesTags: ["Facts"],
     }),
+    // Which sets exist. Asked with the document's grant, which a role that
+    // holds only a per-set grant lacks: a refusal is an empty card, not a
+    // dead session.
+    getFactSets: builder.query<FactSets, void>({
+      query: () => ({
+        url: "/v2/facts/sets",
+      }),
+      providesTags: ["Facts", "Modules"],
+      extraOptions: { keepSessionOn403: true } satisfies ApiExtraOptions,
+    }),
+    // One path of the facts: a subtree of the stored document, or an
+    // on-demand set, which the agent collects for this request. An on-demand
+    // set takes its own grant (`facts.get.<set>`), so a refusal here is
+    // ordinary and must not end the session.
+    getFactPath: builder.query<Facts, string>({
+      query: (path) => ({
+        url: `/v2/facts?path=${encodeURIComponent(path)}`,
+      }),
+      providesTags: ["Facts"],
+      extraOptions: { keepSessionOn403: true } satisfies ApiExtraOptions,
+    }),
     refreshFacts: builder.mutation<Facts, void>({
       query: () => ({
         url: "/v2/facts/commands/refresh",
@@ -1052,6 +1096,8 @@ export const {
   useGetVersionQuery,
   useGetTagsQuery,
   useGetFactsQuery,
+  useGetFactSetsQuery,
+  useLazyGetFactPathQuery,
   useRefreshFactsMutation,
   useGetLogsQuery,
   useGetModulesQuery,

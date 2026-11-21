@@ -5,6 +5,7 @@ import { Spacing } from "../components/atoms/Spacing.tsx";
 import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import FactTree from "../components/FactTree.tsx";
 import FactSetsWidget from "../components/FactSetsWidget.tsx";
+import OnDemandFactsWidget from "../components/OnDemandFactsWidget.tsx";
 import { FactValue } from "../api/api.ts";
 
 /**
@@ -88,6 +89,13 @@ export default function Facts() {
           collecting something it is how the rest got here. */}
       <Box sx={{ px: 2, pb: 2 }}>
         <FactSetsWidget />
+      </Box>
+
+      {/* What is collected only when asked - script listings, the counter
+          catalog. Kept apart from the document below because it is not in
+          it, and is fetched one set at a time. */}
+      <Box sx={{ px: 2, pb: 2 }}>
+        <OnDemandFactsWidget />
       </Box>
 
       {/* Masonry, not a grid of rows: the sets are as uneven as the host
