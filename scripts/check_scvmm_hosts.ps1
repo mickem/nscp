@@ -11,27 +11,46 @@
 # runs on; this covers the fabric view: every host VMM manages, whether VMM can
 # reach it and whether VMM considers it healthy.
 #
-# Usage (from the bundled `ps1` wrapping):
+# Usage - a plain script entry that calls powershell.exe with -File, so the
+# script's exit code reaches the agent and the arguments stay with the entry:
 #   [/settings/external scripts/scripts]
-#   check_scvmm_hosts = check_scvmm_hosts.ps1 -Server vmm01 -HostGroup "All Hosts\Production"
+#   check_scvmm_hosts = powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File scripts\check_scvmm_hosts.ps1 -Server vmm01 -HostGroup "All Hosts\Production"
+#
+# (An entry under [wrapped scripts] works too, but the bundled ps1 wrapping
+# only forwards the arguments the caller sends, not ones written in the entry.)
 #
 # Parameters:
-#   -Server     VMM server to connect to (default: localhost)
-#   -HostGroup  Only check hosts under this host group path (default: all)
-#   -VMHost     Only check hosts whose name matches this wildcard (default: *)
-#   -Warning    Overall states that warn (default: NeedsAttention, Updating)
+#   -Server    VMM server to connect to (default: localhost)
+#   -HostGroup Only check hosts in this host group path and the groups below
+#              it (default: all)
+#   -VMHost    Only check hosts whose name matches this wildcard (default: *)
+#   -Warning   Overall states that warn (default: NeedsAttention,Updating)
+#   -Ignore    Overall states that are not reported (default: MaintenanceMode)
 #
-# A host is CRITICAL when VMM cannot talk to it (CommunicationState other
-# than Responding) or its OverallState is anything but OK or a -Warning
-# state; WARNING for a -Warning state. No VMM module, no server or no hosts
-# matched is UNKNOWN. Exit codes follow the Nagios plugin convention.
+# -Warning and -Ignore take a comma separated list: powershell.exe -File hands
+# "A,B" over as one string, so the script splits it itself.
+#
+# A host in an -Ignore state is skipped, reachable or not: it is out of
+# service on purpose. Any other host is CRITICAL when VMM cannot talk to it
+# (CommunicationState other than Responding) or its OverallState is anything
+# but OK or a -Warning state; WARNING for a -Warning state. No VMM module, no
+# server or no hosts matched is UNKNOWN. Exit codes follow the Nagios plugin
+# convention.
 
 param(
     [string]$Server = "localhost",
     [string]$HostGroup = "",
     [string]$VMHost = "*",
-    [string[]]$Warning = @("NeedsAttention", "Updating")
+    [string[]]$Warning = @("NeedsAttention", "Updating"),
+    [string[]]$Ignore = @("MaintenanceMode")
 )
+
+# powershell.exe -File does not parse "A,B" as an array.
+function Split-StateList([string[]]$values) {
+    @($values | ForEach-Object { "$_" -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+$Warning = Split-StateList $Warning
+$Ignore = Split-StateList $Ignore
 
 $OK = 0; $WARN = 1; $CRIT = 2; $UNKNOWN = 3
 
@@ -51,12 +70,28 @@ try {
 
 try {
     if ($HostGroup) {
-        $group = Get-SCVMHostGroup -VMMServer $vmm -ErrorAction Stop | Where-Object { $_.Path -eq $HostGroup }
-        if (-not $group) {
+        # The group itself and every group below it. Whether Get-SCVMHost
+        # -VMHostGroup descends on its own is not relied upon: each group is
+        # asked and the hosts are de-duplicated by name.
+        $root = $HostGroup.TrimEnd('\')
+        $groups = @(Get-SCVMHostGroup -VMMServer $vmm -ErrorAction Stop | Where-Object {
+            $path = "$($_.Path)".TrimEnd('\')
+            $path -eq $root -or $path.StartsWith("$root\", [System.StringComparison]::OrdinalIgnoreCase)
+        })
+        if ($groups.Count -eq 0) {
             Write-Output "UNKNOWN: host group '$HostGroup' not found on $Server"
             exit $UNKNOWN
         }
-        $hosts = @(Get-SCVMHost -VMHostGroup $group -ErrorAction Stop)
+        $seen = @{}
+        $hosts = @()
+        foreach ($group in $groups) {
+            foreach ($candidate in @(Get-SCVMHost -VMHostGroup $group -ErrorAction Stop)) {
+                if (-not $seen.ContainsKey("$($candidate.Name)")) {
+                    $seen["$($candidate.Name)"] = $true
+                    $hosts += $candidate
+                }
+            }
+        }
     } else {
         $hosts = @(Get-SCVMHost -VMMServer $vmm -ErrorAction Stop)
     }
@@ -75,17 +110,26 @@ $status = $OK
 $problems = @()
 $responding = 0
 foreach ($h in $hosts) {
+    # The name ends up in the message, where a | would start the perfdata.
+    $name = "$($h.Name)" -replace '\|', '_'
     $overall = "$($h.OverallState)"
     $communication = "$($h.CommunicationState)"
     if ($communication -eq "Responding") { $responding++ }
+    if ($Ignore -contains $overall) {
+        # Deliberately out of service (maintenance mode): not a problem,
+        # reachable or not.
+        continue
+    }
     if ($communication -ne "Responding") {
-        $problems += "$($h.Name): $communication"
+        $problems += "${name}: $communication ($overall)"
         $status = $CRIT
-    } elseif ($overall -ne "OK" -and $Warning -contains $overall) {
-        $problems += "$($h.Name): $overall"
+    } elseif ($overall -eq "OK") {
+        continue
+    } elseif ($Warning -contains $overall) {
+        $problems += "${name}: $overall"
         if ($status -lt $WARN) { $status = $WARN }
-    } elseif ($overall -ne "OK") {
-        $problems += "$($h.Name): $overall"
+    } else {
+        $problems += "${name}: $overall"
         $status = $CRIT
     }
 }
