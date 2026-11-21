@@ -66,6 +66,7 @@ void check_cpu(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryR
 
   filter_type filter;
   filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "90");
   filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
   filter_helper.add_warmup_option();
   // clang-format off

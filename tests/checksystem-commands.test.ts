@@ -110,6 +110,47 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(load).toBeLessThanOrEqual(100);
   });
 
+  // REST has no "-w 80": the short thresholds arrive as the tokens w=80 and
+  // c=90, which is also what the dashed form is rewritten into.
+  it("check_cpu takes the short thresholds w= and c=", async () => {
+    const ok = await executeQuery(key, "check_cpu", { w: "101", c: "101" });
+    expect(ok.result).toBe(OK);
+    // "@0:100" is "inside 0..100", which every sample is; a trailing % is fine.
+    const warn = await executeQuery(key, "check_cpu", { w: "@0:100%", c: "101" });
+    expect(warn.result).toBe(WARNING);
+    const crit = await executeQuery(key, "check_cpu", { w: "101", c: "~:-1" });
+    expect(crit.result).toBe(CRITICAL);
+  });
+
+  it("check_cpu refuses a short threshold with a unit a percentage cannot have", async () => {
+    const q = await executeQuery(key, "check_cpu", { w: "80m" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid unit for load: 80m/);
+  });
+
+  it("check_memory short thresholds bound free memory as a percentage", async () => {
+    const ok = await executeQuery(key, "check_memory", { w: "0", c: "0" });
+    expect(ok.result).toBe(OK);
+    const crit = await executeQuery(key, "check_memory", { w: "0", c: "101" });
+    expect(crit.result).toBe(CRITICAL);
+  });
+
+  it("check_uptime short thresholds bound the uptime from below", async () => {
+    // Up for more than a second, less than ten years.
+    const ok = await executeQuery(key, "check_uptime", { w: "1", c: "1" });
+    expect(ok.result).toBe(OK);
+    const crit = await executeQuery(key, "check_uptime", { w: "1", c: "3650d" });
+    expect(crit.result).toBe(CRITICAL);
+  });
+
+  it("check_process short thresholds bound the number of matches", async () => {
+    // Our own process is running: at least one, never a thousand.
+    const ok = await executeQuery(key, "check_process", { process: SELF_EXE, w: "1:", c: "1:" });
+    expect(ok.result).toBe(OK);
+    const crit = await executeQuery(key, "check_process", { process: SELF_EXE, w: "1:", c: "1000:" });
+    expect(crit.result).toBe(CRITICAL);
+  });
+
   it("check_cpu evaluates thresholds against the record it rendered", async () => {
     // The Windows record used to hold a reference to the loop variable, so the
     // warn/crit evaluation in match_post() read a dead stack slot: a threshold

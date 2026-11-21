@@ -190,6 +190,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // workload's own baseline. work_queue > 0 and runnable_tasks > cores are
   // the documented starting points.
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("signal_wait_pct", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number);
   filter_helper.add_syntax("${status}: ${list}",
                            "${runnable_tasks} runnable tasks on ${schedulers} schedulers, ${work_queue} queued; waits ms/s: cpu ${cpu_waits}, io ${io_waits}, "
                            "log ${log_waits}, lock ${lock_waits}, memory ${memory_waits}, signal ${signal_wait_pct}%",

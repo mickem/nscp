@@ -72,6 +72,7 @@ void check_with(const mysql_client::connection_info &defaults, const PB::Command
   // No default thresholds: being able to connect is the health signal, so a
   // reachable server is OK unless the user thresholds uptime/connections.
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("connections_pct", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number);
   filter_helper.add_syntax("${status}: ${list}",
                            "${flavor} ${version}, uptime ${uptime}s, connections ${threads_connected}/${max_connections} (${connections_pct}%)",
                            "${flavor}", "%(status): No server information returned", "");

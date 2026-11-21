@@ -81,6 +81,9 @@ void check_load_with(const PB::Commands::QueryRequestMessage::Request &request, 
   filter_type filter;
   bool percpu = false;
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("load1", modern_filter::shorthand::above);
+  filter_helper.add_short_threshold("load5", modern_filter::shorthand::above);
+  filter_helper.add_short_threshold("load15", modern_filter::shorthand::above);
   filter_helper.add_syntax("${status}: ${list}", "${type} load average: ${load1}, ${load5}, ${load15}", "${type}", "", "");
   // Always emit the three averages as perf data even without warn/crit set.
   filter_helper.set_default_perf_config("extra(load1;load5;load15)");

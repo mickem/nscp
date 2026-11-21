@@ -29,6 +29,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // several in a row or a day without a successful sync. A never-synced link
   // (last_success = epoch 0) trips the 24h rule by design.
   filter_helper.add_options("consecutive_failures > 0", "consecutive_failures > 4 or last_success < -24h", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("consecutive_failures", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "0", "4");
+  filter_helper.add_short_critical("${consecutive_failures} or last_success < -24h");
   filter_helper.add_syntax("${status}: ${problem_list}", "${source} ${naming_context}: ${consecutive_failures} failures, last success ${last_success}",
                            "${source} ${naming_context}", "No replication partners found (single domain controller?)",
                            "%(status): all %(count) replication links are healthy");

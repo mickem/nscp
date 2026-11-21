@@ -63,6 +63,8 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
 
   ping_filter::filter filter;
   filter_helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "60", "100");
+  filter_helper.add_short_threshold("loss", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent, "5", "10");
   filter_helper.add_syntax("${status}: ${ok_count}/${count} (${problem_list})", "${ip} Packet loss = ${loss}%, RTA = ${time}ms", "${host}", "No hosts found",
                            "%(status): All %(count) hosts are ok");
   // clang-format off

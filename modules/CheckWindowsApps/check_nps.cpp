@@ -105,6 +105,9 @@ void check_nps_auth(const PB::Commands::QueryRequestMessage::Request &request, P
   helper.add_options("decisions >= min_requests and reject_pct > 10",
                      "discarded > 0 or (decisions >= min_requests and reject_pct > 25) or (require_traffic = 1 and requests = 0)", "",
                      filter.get_filter_syntax(), "unknown");
+  helper.add_short_threshold("reject_pct", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "10", "25");
+  helper.add_short_warning("decisions >= min_requests and ${reject_pct}");
+  helper.add_short_critical("discarded > 0 or (decisions >= min_requests and ${reject_pct}) or (require_traffic = 1 and requests = 0)");
   helper.add_syntax("${status}: ${list}",
                     "${group}: ${accepted} accepted, ${rejected} rejected, ${discarded} discarded, reject=${reject_pct}%, top reason=${top_reason}", "${group}",
                     "No NPS groups found in window", "");

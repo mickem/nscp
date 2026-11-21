@@ -200,6 +200,8 @@ void check_printqueue_from(const PB::Commands::QueryRequestMessage::Request &req
   // by default — use the `offline` keyword to opt in. empty_state=ok: a host
   // with no printers is not a problem.
   filter_helper.add_options("jobs > 10", "error = 1", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("jobs", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "10", "");
+  filter_helper.add_short_critical("${jobs} or error = 1");
   filter_helper.add_syntax("${status}: ${list}", "${printer}: ${printer_status}, ${jobs} job(s)", "${printer}", "%(status): No printers found",
                            "%(status): All %(count) printer(s) ok.");
 

@@ -316,6 +316,12 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   filter_helper.add_crit_option("state = 'stopped'", "count = 0");
 
   filter_helper.add_options(filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("count", modern_filter::shorthand::above);
+  filter_helper.add_short_warning("state not in ('started')");
+  filter_helper.add_short_warning("${count}");
+  filter_helper.add_short_critical("state = 'stopped'");
+  filter_helper.add_short_critical("count = 0");
+  filter_helper.add_short_critical("${count}");
   filter_helper.add_syntax("${status}: ${problem_list}", "${exe}=${state}", "${exe}", "UNKNOWN: No processes found", "%(status): all processes are ok.");
   // clang-format off
   filter_helper.get_desc().add_options()

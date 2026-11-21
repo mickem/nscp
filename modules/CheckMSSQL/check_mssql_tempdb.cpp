@@ -96,6 +96,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // autogrowth is on, and pre-sized tempdb capacity is a sizing decision.
   // The docs suggest used_pct and volume_free starting points.
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("used_pct", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number);
   filter_helper.add_syntax("${status}: ${list}",
                            "tempdb ${used_pct}% used of ${size}B (version store ${version_store}B, user ${user_objects}B, internal ${internal_objects}B)",
                            "tempdb", "%(status): No tempdb information returned", "");
