@@ -179,7 +179,11 @@ if (-not (Test-Path $sshDir)) { New-Item -ItemType Directory -Path $sshDir -Forc
 $sshKeyPath = Join-Path $sshDir "az_$($VmName)_rsa"
 if (-not (Test-Path $sshKeyPath)) {
     Write-Host "Generating SSH key pair..."
-    ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N '' -q
+    # No passphrase. Windows PowerShell (and 7 in Legacy argument mode) drops
+    # an empty string argument to a native command, so a plain -N '' made
+    # ssh-keygen take the next switch, "-q", as the passphrase.
+    $noPassphrase = if ($PSNativeCommandArgumentPassing -in 'Standard', 'Windows') { '' } else { '""' }
+    ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N $noPassphrase -q
 }
 $sshPublicKey = Get-Content "$sshKeyPath.pub"
 
