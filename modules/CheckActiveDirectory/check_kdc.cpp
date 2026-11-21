@@ -339,7 +339,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   kdc_filter::filter filter;
   filter_helper.add_options("time > 1000", "responding = 0", "", filter.get_filter_syntax(), "ignored");
-  filter_helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
+  filter_helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "1", "");
+  filter_helper.add_short_critical("${time} or responding = 0");
   filter_helper.add_syntax("${status}: ${list}", "${kdc}: ${response} (${time}ms)", "${kdc}", "", "%(status): all %(count) KDC(s) are responding");
   // The bool threshold keyword is for alerting; time (registered with perf) is
   // the series worth graphing.
