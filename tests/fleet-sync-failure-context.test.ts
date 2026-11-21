@@ -451,4 +451,27 @@ describe("fleet failure-context reports", () => {
     expect(nscp.capturedStdout()).not.toContain("connection restored");
     reportAnswer = { status: 202 };
   });
+
+  // Last, because it turns capture off for the agent.
+  it("sends nothing while capture is off, and says so once", async () => {
+    await nscp.stop();
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
+    await nscp.configure({
+      "/settings/core/failed checks": { "capture metrics": "false", "capture diagnostics": "false" },
+    });
+    reportAnswer = { status: 202 };
+    advertise = true;
+    await startAgent();
+    const before = reports().length;
+    const notice = "Not reporting failed checks to the fleet server";
+    await run("check_critical", "no-snapshot-one");
+    await waitFor("the notice", () => said(notice) > 0);
+    // Past a whole interval, with another failure on top: a failure without a
+    // snapshot is never reported, and the operator is told once.
+    await run("check_critical", "no-snapshot-two");
+    await new Promise((r) => setTimeout(r, (INTERVAL_SECONDS + 3) * 1000));
+    await settle(2);
+    expect(reports().length).toBe(before);
+    expect(said(notice)).toBe(1);
+  });
 });

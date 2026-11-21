@@ -768,14 +768,35 @@ TEST_F(FleetSyncTest, a_failure_without_a_snapshot_does_not_use_up_the_interval)
   EXPECT_EQ(count_to(failure_path), 0u);
   EXPECT_EQ(log->count("info", "Not reporting failed checks"), 0) << "capture is on: nothing for the operator to change";
 
-  // The next failure has one, and goes at once - on its own, since the
-  // earlier one was given up on.
+  // The next failure has one, and goes at once. The earlier one was set
+  // aside, not dropped: it is counted among the others, exactly as it would
+  // have been had both failed before the same turn.
   fail_check("check_memory", "mem high");
   turn();
   ASSERT_EQ(count_to(failure_path), 1u);
   const json::object report = json::parse(calls_to(failure_path)[0].payload).as_object();
   EXPECT_EQ(report.at("failure").as_object().at("command").as_string(), "check_memory");
-  EXPECT_EQ(report.at("suppressed").as_object().at("count").as_int64(), 0);
+  const json::object &suppressed = report.at("suppressed").as_object();
+  EXPECT_EQ(suppressed.at("count").as_int64(), 1);
+  EXPECT_EQ(suppressed.at("by_check").as_array().at(0).as_object().at("command").as_string(), "check_cpu");
+
+  // Reported now, so not counted a second time.
+  fail_check("check_disk", "disk full");
+  advance(700);
+  turn();
+  ASSERT_EQ(count_to(failure_path), 2u);
+  EXPECT_EQ(json::parse(calls_to(failure_path)[1].payload).as_object().at("suppressed").as_object().at("count").as_int64(), 0);
+}
+
+TEST_F(FleetSyncTest, failures_without_a_snapshot_are_listed_once_not_every_turn) {
+  server_takes_failure_reports();
+  start();
+  fail_check("check_cpu", "cpu high", false);
+  turns(5);
+  EXPECT_EQ(count_to(failure_path), 0u);
+  // Set aside on the first turn, and not looked at again until something
+  // newer fails.
+  EXPECT_EQ(log->count("debug", "no snapshot is held for it"), 1) << log->all();
 }
 
 TEST_F(FleetSyncTest, a_failure_with_a_snapshot_is_reported_ahead_of_newer_ones_without) {

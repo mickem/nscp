@@ -261,6 +261,31 @@ TEST(failure_report, has_a_snapshot_only_while_one_is_held) {
   EXPECT_FALSE(failure_report::from(plain, plain.list()).has_snapshot());
 }
 
+TEST(failure_report, passes_over_a_failure_whose_snapshot_went_after_the_listing) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  store.configure(capturing());
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1000, snapshot(snapshots, 995)));
+  ASSERT_TRUE(store.record(result("check_memory", PB::Common::ResultCode::CRITICAL, "y"), nullptr, "s", 0, 1001));
+  // The listing still says the newer one has a snapshot; the store, read a
+  // moment later, holds none for it.
+  failed_check_store::entry_list fresh = store.list();
+  ASSERT_EQ(2u, fresh.size());
+  ASSERT_EQ("check_memory", fresh[0].response().command());
+  fresh[0].mutable_context()->set_state(PB::Failures::MetricsContext::CAPTURED);
+
+  // The older one still holds its snapshot, and is the one sent.
+  const failure_report report = failure_report::from(store, fresh);
+  EXPECT_TRUE(report.has_snapshot());
+  EXPECT_EQ("check_cpu", report.failure.response().command());
+  ASSERT_EQ(1u, report.suppressed.size());
+  EXPECT_EQ("check_memory", report.suppressed[0].response().command());
+
+  // The same when the entry itself is gone from the log.
+  fresh[0].set_index(99);
+  EXPECT_EQ("check_cpu", failure_report::from(store, fresh).failure.response().command());
+}
+
 TEST(failure_report, sends_the_report_id_it_was_given) {
   failed_check_store store;
   ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1000));

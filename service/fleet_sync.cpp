@@ -733,9 +733,11 @@ void fleet_sync::maybe_report_failure_context() {
   if (!report.has_snapshot()) {
     // The report is there to show what the host looked like when a check
     // failed. Without a snapshot it would only repeat what the monitoring
-    // system that ran the check already knows, so nothing is sent, and these
-    // failures are not looked at again.
-    failure_pacer_.dropped(newest);
+    // system that ran the check already knows, so nothing is sent. These
+    // failures are set aside until a newer one arrives rather than dropped:
+    // the report that one leads to counts them among the others, the same
+    // as if they had all been seen in one turn.
+    failure_pacer_.set_aside(newest);
     const bool capture_off = report.failure.context().state() == PB::Failures::MetricsContext::DISABLED &&
                              report.failure.diagnostics().state() == PB::Failures::DiagnosticsContext::DISABLED;
     if (!capture_off) {
@@ -755,11 +757,10 @@ void fleet_sync::maybe_report_failure_context() {
   // One id from the first attempt until the report lands or is dropped, so a
   // server that got a report whose answer was lost can tell the retry from a
   // second report.
-  if (failure_pacer_.report_id().empty()) failure_pacer_.set_report_id(nsclient::core::failure_report::make_report_id());
-  report.report_id = failure_pacer_.report_id();
-
   std::string body;
   try {
+    if (failure_pacer_.report_id().empty()) failure_pacer_.set_report_id(nsclient::core::failure_report::make_report_id());
+    report.report_id = failure_pacer_.report_id();
     body = report.render(now);
   } catch (const std::exception &e) {
     failure_pacer_.dropped(newest);

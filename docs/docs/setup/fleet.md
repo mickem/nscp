@@ -563,10 +563,11 @@ How it works:
   report goes into a `suppressed` summary, grouped by check and status, so a check that flapped
   thirty times in the hour reaches the server as one report and a count.
 - **Only with a snapshot.** When none of the failures since the last report has a snapshot
-  still held, nothing is sent and those failures are not looked at again. That is every
-  failure while both `capture metrics` and `capture diagnostics` are off, which the agent
-  logs once, and otherwise the odd one recorded before the first collection round or whose
-  snapshot was released. Such a failure does not use up the interval.
+  still held, nothing is sent. That is every failure while both `capture metrics` and
+  `capture diagnostics` are off, which the agent logs once, and otherwise the odd one
+  recorded before the first collection round or whose snapshot was released. Such a failure
+  does not use up the interval, and it is not forgotten: the next report that does go counts
+  it in `suppressed` with the others.
 - **Survives a restart.** The time of the last report is kept with the applied fleet state,
   so an agent that restarts inside the interval sends nothing until it has passed.
 - **Backs off like the facts upload.** No report in a turn whose poll or report was turned

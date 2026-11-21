@@ -6,6 +6,7 @@
 #include <boost/json.hpp>
 #include <chrono>
 #include <cstdint>
+#include <exception>
 #include <map>
 #include <metrics/metrics_json.hpp>
 #include <nscapi/protobuf/diagnostics_json.hpp>
@@ -111,10 +112,17 @@ struct failure_report {
     return out;
   }
   static std::string make_report_id() {
-    std::random_device random;
     const std::uint64_t ms = static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
-    return make_report_id(ms, random);
+    try {
+      std::random_device random;
+      return make_report_id(ms, random);
+    } catch (const std::exception &) {
+      // No entropy source on this host. The id only has to tell this agent's
+      // reports apart, which the clock does: a report is not held up for it.
+      std::mt19937_64 random(static_cast<std::mt19937_64::result_type>(std::chrono::steady_clock::now().time_since_epoch().count()) ^ ms);
+      return make_report_id(ms, random);
+    }
   }
 
   std::string render(const std::int64_t now) const {
@@ -224,25 +232,43 @@ struct failure_report {
 
   // Pick what to send from the failures since the last report (`fresh`,
   // newest first, not empty): the newest one with a snapshot still held,
-  // metrics or diagnostics - the freshest picture of the system in trouble -
-  // or, when none has one, the newest. The rest go into `suppressed`.
+  // metrics or diagnostics - the freshest picture of the system in trouble.
+  // The rest go into `suppressed`. When none holds one the newest is picked
+  // so that the caller has something to name, and has_snapshot() is false:
+  // that report is not for sending.
+  //
+  // `fresh` was listed a moment ago, and a snapshot can be released (or the
+  // entry evicted) since. So a candidate only counts once it has been read
+  // back with its snapshot: one that lost it is passed over for the next
+  // one, instead of taking every older failure down with it.
   static failure_report from(const failed_check_store &store, const failed_check_store::entry_list &fresh) {
     failure_report report;
     std::size_t pick = 0;
-    for (std::size_t i = 0; i < fresh.size(); ++i) {
-      if (fresh[i].context().state() == PB::Failures::MetricsContext::CAPTURED ||
-          fresh[i].diagnostics().state() == PB::Failures::DiagnosticsContext::CAPTURED) {
-        pick = i;
-        break;
-      }
+    bool found = false;
+    for (std::size_t i = 0; i < fresh.size() && !found; ++i) {
+      if (fresh[i].context().state() != PB::Failures::MetricsContext::CAPTURED &&
+          fresh[i].diagnostics().state() != PB::Failures::DiagnosticsContext::CAPTURED)
+        continue;
+      failed_check_store::entry_with_context candidate;
+      if (!store.get(fresh[i].index(), candidate)) continue;
+      failure_report read;
+      read.failure = candidate.item;
+      read.context = candidate.context;
+      read.diagnostics = candidate.diagnostics;
+      if (!read.has_snapshot()) continue;
+      report = read;
+      pick = i;
+      found = true;
     }
-    failed_check_store::entry_with_context chosen;
-    if (store.get(fresh[pick].index(), chosen)) {
-      report.failure = chosen.item;
-      report.context = chosen.context;
-      report.diagnostics = chosen.diagnostics;
-    } else {
-      report.failure = fresh[pick];
+    if (!found) {
+      failed_check_store::entry_with_context newest;
+      if (store.get(fresh[pick].index(), newest)) {
+        report.failure = newest.item;
+        report.context = newest.context;
+        report.diagnostics = newest.diagnostics;
+      } else {
+        report.failure = fresh[pick];
+      }
     }
     for (std::size_t i = 0; i < fresh.size(); ++i) {
       if (i != pick) report.suppressed.push_back(fresh[i]);

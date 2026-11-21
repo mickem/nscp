@@ -160,6 +160,30 @@ TEST(failure_context_pacer, a_too_large_report_is_dropped_not_retried) {
   EXPECT_EQ(0, p.last_sent_at());
 }
 
+TEST(failure_context_pacer, failures_set_aside_wait_for_a_newer_one_and_stay_unreported) {
+  pacer p = accepting();
+  ASSERT_TRUE(p.due(2, 1000));
+  p.set_aside(2);
+  // Nothing new: not looked at again, however long it takes.
+  EXPECT_FALSE(p.due(2, 1000));
+  EXPECT_FALSE(p.due(2, 1000 + 7200));
+  // They were not reported, and did not use up the interval.
+  EXPECT_EQ(0ull, p.last_index());
+  EXPECT_EQ(0, p.last_sent_at());
+  // A newer failure is news, at once.
+  EXPECT_TRUE(p.due(3, 1001));
+  p.sent(3, 1001);
+  EXPECT_FALSE(p.due(3, 1001 + 7200));
+}
+
+TEST(failure_context_pacer, setting_failures_aside_keeps_the_id_of_a_report_under_way) {
+  pacer p = accepting();
+  p.set_report_id("first");
+  p.rejected(1000);
+  p.set_aside(1);
+  EXPECT_EQ("first", p.report_id());
+}
+
 TEST(failure_context_pacer, a_report_keeps_its_id_until_it_lands_or_is_dropped) {
   pacer p = accepting();
   EXPECT_TRUE(p.report_id().empty());

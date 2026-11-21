@@ -60,6 +60,9 @@ boost::optional<unsigned long> parse_failure_context_header(const std::string &v
 //  * A report keeps one id from its first attempt until it lands or is
 //    dropped, so a server that received it and whose answer was lost does
 //    not take the retry for a second report.
+//  * Failures with nothing worth sending are set aside, not dropped: no
+//    report goes for them and they are not listed again each turn, but the
+//    next report that does go still counts them.
 class failure_context_pacer {
  public:
   static constexpr unsigned long min_interval_seconds = 5;
@@ -108,7 +111,7 @@ class failure_context_pacer {
   // `newest_index` (0 when the log is empty).
   bool due(const unsigned long long newest_index, const std::int64_t now) const {
     if (skip_this_turn_ || !accepted_) return false;
-    if (newest_index <= last_index_) return false;
+    if (newest_index <= (std::max)(last_index_, set_aside_index_)) return false;
     if (now < hold_until_ || now < retry_at_) return false;
     if (last_sent_at_ > 0 && now < last_sent_at_ + static_cast<std::int64_t>(interval())) return false;
     return true;
@@ -131,12 +134,20 @@ class failure_context_pacer {
   }
 
   // The failures up to `index` are given up on rather than retried: the
-  // report was too large for the server, and will be every time, or there
-  // was nothing in it worth sending.
+  // report was too large for the server, and will be every time, or they are
+  // gone from the log.
   void dropped(const unsigned long long index) {
     last_index_ = (std::max)(last_index_, index);
     report_id_.clear();
   }
+
+  // There is nothing worth sending among the failures up to `index`: do not
+  // look again until a newer one arrives. They are still unreported, so the
+  // report that newer one leads to summarises them like any other failure
+  // since the last report - what it counts does not depend on which turn
+  // happened to see them. A report under way keeps its id: the one that goes
+  // next covers the same failures and more.
+  void set_aside(const unsigned long long index) { set_aside_index_ = (std::max)(set_aside_index_, index); }
 
   // The id of the report being attempted: empty until the caller names one,
   // then the same through every retry, until that report lands or is
@@ -175,6 +186,7 @@ class failure_context_pacer {
   unsigned long server_min_interval_ = 0;
   bool accepted_ = false;
   unsigned long long last_index_ = 0;
+  unsigned long long set_aside_index_ = 0;
   std::int64_t last_sent_at_ = 0;
   std::int64_t hold_until_ = 0;
   std::int64_t retry_at_ = 0;
