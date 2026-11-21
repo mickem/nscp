@@ -176,7 +176,7 @@ describeIf(canRun)("check_mk integration", () => {
       expect(carriers.length).toBeGreaterThan(0);
       expect(
         carriers.filter(
-          (l) => !l.includes('"CM Inject"') && !l.includes("\u00c1cme <<<fake_name>>>"),
+          (l) => !l.includes('"CM Inject"') && !/\u00c1cme[ _]<<<fake_name>>>/.test(l),
         ),
       ).toEqual([]);
       expect(dumpLines().filter((l) => l.startsWith("<<<fake"))).toEqual([]);
@@ -193,8 +193,9 @@ describeIf(canRun)("check_mk integration", () => {
       expect(agentDump).toContain('"\u00c1cme <<<fake_name>>> local"');
     });
 
-    it("keep the UTF-8 in a cached MRPE name and blank only the line break", () => {
-      expect(agentDump).toContain("\u00c1cme <<<fake_name>>> mrpe 0 injected <<<fake_msg>>>");
+    it("keep the UTF-8 in a cached MRPE name and turn the line break into '_'", () => {
+      // The MRPE name is a token column: a space there would shift the state.
+      expect(agentDump).toContain("\u00c1cme_<<<fake_name>>> mrpe 0 injected <<<fake_msg>>>");
     });
   });
 });

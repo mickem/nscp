@@ -114,6 +114,28 @@ TEST(CheckMkSection, AddTextKeepsOneRowPerLineBreak) {
   EXPECT_EQ(s.to_string(), "<<<local>>>\n0 one - first\n0 two - second\n0 three - third\n");
 }
 
+TEST(CheckMkSection, AddTextKeepsEmptyRowsInTheMiddle) {
+  // A blank row between two blocks was sent before and still is; only the
+  // empty piece after the final line break goes.
+  packet::section s("x");
+  s.add_text("a\n\nb\r\n\r\nc\n");
+  EXPECT_EQ(s.to_string(), "<<<x>>>\na\n\nb\n\nc\n");
+  packet::section only_break("y");
+  only_break.add_text("\n");
+  EXPECT_EQ(only_break.to_string(), "<<<y>>>\n\n");
+}
+
+TEST(CheckMkSection, TitleCannotBreakTheHeader) {
+  packet::section s("x>>>\n<<<fake");
+  EXPECT_EQ(s.to_string(), "<<<x>>> <<<fake>>>\n");
+}
+
+TEST(CheckMkPacket, PiggybackHostCannotBreakItsMarker) {
+  packet p;
+  p.piggyback_for("host\n<<<fake>>>").add_section(packet::section("a"));
+  EXPECT_EQ(p.write(), "<<<<host <<<fake>>>>>>>\n<<<a>>>\n<<<<>>>>\n");
+}
+
 TEST(CheckMkSection, AddTextWithoutLineBreakIsOneLine) {
   packet::section s("x");
   s.add_text("a  b");

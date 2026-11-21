@@ -36,6 +36,18 @@ inline std::string sanitize_field(const std::string &value) {
   return out;
 }
 
+// The same for a token column whose spaces are left alone on purpose (a
+// systemd unit name is one word already): every control character becomes
+// '_', so the columns after it cannot shift, and nothing else changes.
+inline std::string sanitize_token(const std::string &value) {
+  std::string out = value;
+  for (char &c : out) {
+    const unsigned char u = static_cast<unsigned char>(c);
+    if (u < 0x20 || u == 0x7f) c = '_';
+  }
+  return out;
+}
+
 // Replaces every character in `bad` and every whitespace character with '_'.
 inline std::string replace_chars(const std::string &value, const char *bad) {
   std::string out = value;

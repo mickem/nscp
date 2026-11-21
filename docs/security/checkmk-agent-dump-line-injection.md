@@ -31,8 +31,20 @@ carriage return, line feed and other control character becomes one space, and
 ordinary spaces are kept exactly as they were (`include/check/check_mk_format.hpp`
 for the native checks; `no_controls()` in the Lua script for the names and
 perfdata of local and MRPE lines, while their message text keeps being folded
-as before). As a backstop, the packet writer itself no longer lets a line
-break inside a line reach the wire.
+as before). A column that has to stay one word (the MRPE service name, the
+device and file system of a `<<<df>>>` row, the name, state and start type of
+a `<<<services>>>` row) gets a `_` instead, so the columns after it cannot
+shift. The host name and OS lines of the `<<<check_mk>>>` header are cleaned
+the same way.
 
-**What to do:** nothing. Upgrade to get the fix. A field that used to contain a
-control character now shows a space in its place; nothing else in it changes.
+As a backstop, the packet writer no longer lets a line break inside a line
+*object*, a section title or a piggyback host name reach the wire. It does not
+cover a string handed to `s:add_line()`: that is sent as one row per line, by
+design, so a custom Checkmk Lua script still has to clean any field it takes
+from outside before it builds a line from it.
+
+**What to do:** nothing on a default install. Upgrade to get the fix. A field
+that used to contain a control character now shows a space (or, in a one-word
+column, a `_`) in its place; nothing else in it changes. If you run a custom
+Checkmk Lua script, check that it does not put text from an untrusted source
+into `s:add_line()` unmodified.

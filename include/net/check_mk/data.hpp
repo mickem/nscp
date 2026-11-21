@@ -21,6 +21,18 @@ class check_mk_exception : public std::exception {
   virtual const char *what() const throw() { return error_.c_str(); }
 };
 
+// A `\r` or `\n` inside anything written on one line of the dump (a line
+// item, a section title, a piggyback host) would end that line on the wire and
+// let the rest pose as a row or a `<<<section>>>` header of its own. Each
+// becomes a space.
+inline std::string no_line_breaks(const std::string &value) {
+  std::string out = value;
+  for (char &c : out) {
+    if (c == '\r' || c == '\n') c = ' ';
+  }
+  return out;
+}
+
 struct packet {
   struct section {
     std::string title;
@@ -43,14 +55,12 @@ struct packet {
       }
 
       // Render with the section's separator (defaults to space). Items are
-      // joined verbatim except for line breaks: a `\r` or `\n` inside an item
-      // would end the line on the wire and let the rest pose as a row or a
-      // `<<<section>>>` header of its own, so both become a space here. This is
-      // the backstop; the producers (check_mk_format.hpp, the Lua script)
-      // already clean their fields, and a Lua script that hands add_line() a
-      // multi-line string gets one line per row through section::add_text()
-      // before it gets here. Any other escaping appropriate to the chosen
-      // separator is up to whoever populated the line.
+      // joined verbatim except for line breaks, see no_line_breaks(). This
+      // only guards a line *object*: a Lua script that hands add_line() a
+      // string gets one row per line break through section::add_text(), by
+      // design, so a string field still has to be cleaned by whoever builds
+      // the line (check_mk_format.hpp, the Lua script). Any other escaping
+      // appropriate to the chosen separator is up to them as well.
       std::string to_string(int sep_char = ' ') const {
         std::string ret;
         bool first = true;
@@ -61,7 +71,7 @@ struct packet {
           } else {
             ret.push_back(sep);
           }
-          for (const char c : item) ret.push_back(c == '\r' || c == '\n' ? ' ' : c);
+          ret += no_line_breaks(item);
         }
         return ret;
       }
@@ -110,7 +120,7 @@ struct packet {
     void push(std::string data) { lines.push_back(line(data)); }
 
     std::string render_header() const {
-      std::string ret = "<<<" + title;
+      std::string ret = "<<<" + no_line_breaks(title);
       if (separator) ret += ":sep(" + str::xtos(separator.value()) + ")";
       if (cached) ret += ":cached(" + str::xtos(cached.value().first) + "," + str::xtos(cached.value().second) + ")";
       if (persist_until) ret += ":persist(" + str::xtos(persist_until.value()) + ")";
@@ -138,24 +148,24 @@ struct packet {
 
     void add_line(check_mk::packet::section::line line) { lines.push_back(line); }
 
-    // Add `text` as one line per line break it contains. This is what a Lua
-    // script's `s:add_line("a\nb")` has always produced on the wire (two
-    // rows), and it has to stay that way now that to_string() blanks line
-    // breaks inside a line. A `\r\n` counts as one break and empty pieces
-    // are dropped, as the default script's split_lines() does; text with no
-    // break at all (the empty string included) is one line, as before.
+    // Add `text` as one row per line it holds. This is what a Lua script's
+    // `s:add_line("a\nb")` has always produced on the wire (two rows), and it
+    // has to stay that way now that to_string() blanks line breaks inside a
+    // line. A `\r\n` counts as one break. Empty lines in the middle are kept
+    // as empty rows, as they were sent before; only the empty piece after a
+    // final line break is dropped, so `"a\n"` is the one row `a`. Text with no
+    // break at all (the empty string included) is one line.
     void add_text(const std::string &text) {
-      if (text.find_first_of("\r\n") == std::string::npos) {
-        lines.push_back(line(text));
-        return;
-      }
       std::size_t start = 0;
-      while (start <= text.size()) {
+      for (;;) {
         const std::size_t end = text.find_first_of("\r\n", start);
-        const std::string piece = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
-        if (!piece.empty()) lines.push_back(line(piece));
-        if (end == std::string::npos) break;
+        if (end == std::string::npos) {
+          if (start < text.size() || start == 0) lines.push_back(line(text.substr(start)));
+          return;
+        }
+        lines.push_back(line(text.substr(start, end - start)));
         start = end + 1;
+        if (text[end] == '\r' && start < text.size() && text[start] == '\n') ++start;
       }
     }
   };
@@ -191,7 +201,7 @@ struct packet {
     std::string ret;
     for (const section &s : section_list) ret += s.to_string();
     for (const piggyback_block &pb : piggybacks) {
-      ret += "<<<<" + pb.host + ">>>>\n";
+      ret += "<<<<" + no_line_breaks(pb.host) + ">>>>\n";
       for (const section &s : pb.section_list) ret += s.to_string();
       ret += "<<<<>>>>\n";
     }

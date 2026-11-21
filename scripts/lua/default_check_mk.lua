@@ -20,6 +20,36 @@ local AGENT_OS = IS_WIN and 'windows' or 'linux'
 
 local function trim(s) return (s:gsub('^%s+', ''):gsub('%s+$', '')) end
 
+-- A control character in a field (above all `\r` / `\n`) would end the line
+-- early and let the rest pose as a row or a `<<<section>>>` header of its own:
+-- s:add_line() sends a string with line breaks as one row per line. So every
+-- field this script takes from somewhere else - the host name, the OS lines,
+-- and on a local/mrpe line the service name (a settings key or a passive
+-- submission), the message and the perfdata - goes through one of these.
+--
+-- no_controls() swaps each control character for one space and touches
+-- nothing else, so a name keeps its exact spacing (it is the service's
+-- identity in Checkmk) and perfdata keeps its exact labels. token() is for a
+-- column that has to stay one word (the MRPE service name): there a control
+-- character becomes '_', as a space would shift every column after it.
+--
+-- The byte classes here are spelled out on purpose: `%c` and `%s` follow the
+-- C locale, and the agent runs under the user's (cli_parser calls
+-- setlocale(LC_ALL, "")). In a single-byte locale bytes in 0x80-0xFF can count
+-- as control or space characters, and those are UTF-8 lead and continuation
+-- bytes - a name like `Ácme` would go out with a space in the middle and turn
+-- into another service. These are exactly the bytes sanitize_field() in
+-- include/check/check_mk_format.hpp replaces: 0x00-0x1F and DEL.
+local CONTROL_BYTE = '[%z\1-\31\127]'
+
+local function no_controls(s)
+  return (tostring(s or ''):gsub(CONTROL_BYTE, ' '))
+end
+
+local function token(s)
+  return (tostring(s or ''):gsub(CONTROL_BYTE, '_'))
+end
+
 local function split_lines(str)
   local t = {}
   for ln in (str or ''):gmatch('[^\r\n]+') do t[#t + 1] = ln end
@@ -96,7 +126,7 @@ local function os_lines(core)
   local lines = { 'OSType: ' .. AGENT_OS }
   if ok and msg and msg ~= '' then
     local fields = {}
-    for field in (msg .. '|'):gmatch('([^|]*)|') do fields[#fields + 1] = trim(field) end
+    for field in (msg .. '|'):gmatch('([^|]*)|') do fields[#fields + 1] = trim(no_controls(field)) end
     local platform, name, version
     if IS_WIN then
       name, version = fields[1], fields[2]
@@ -117,7 +147,7 @@ local function build_check_mk(packet, core)
   local body = {
     'Version: nsclient++',
     'AgentOS: ' .. AGENT_OS,
-    'Hostname: ' .. (hostname() or 'unknown'),
+    'Hostname: ' .. trim(no_controls(hostname() or 'unknown')),
   }
   append_all(body, os_lines(core))
   add_section(packet, 'check_mk', body)
@@ -241,29 +271,6 @@ local function build_df(packet, core)       fetch_section(packet, core, 'check_d
 -- core:simple_query returns lowercase code names (see lua_wrapper::push_code).
 local STATE_TO_INT = { ok = 0, warning = 1, critical = 2, unknown = 3 }
 
--- A control character in a field (above all `\r` / `\n`) would end the line
--- early and let the rest pose as a row or a `<<<section>>>` header of its own.
--- Service names come from settings keys and passive submissions, messages and
--- perfdata from whatever the check (or the submitter) produced, so every field
--- on a local/mrpe line goes through one of these two.
---
--- no_controls() swaps each control character for one space and touches
--- nothing else, so a name keeps its exact spacing (it is the service's
--- identity in Checkmk) and perfdata keeps its exact labels.
---
--- The byte classes here are spelled out on purpose: `%c` and `%s` follow the
--- C locale, and the agent runs under the user's (cli_parser calls
--- setlocale(LC_ALL, "")). In a single-byte locale bytes in 0x80-0xFF can count
--- as control or space characters, and those are UTF-8 lead and continuation
--- bytes - a name like `Ácme` would go out with a space in the middle and turn
--- into another service. These are exactly the bytes sanitize_field() in
--- include/check/check_mk_format.hpp replaces: 0x00-0x1F and DEL.
-local CONTROL_BYTE = '[%z\1-\31\127]'
-
-local function no_controls(s)
-  return (tostring(s or ''):gsub(CONTROL_BYTE, ' '))
-end
-
 -- squash() is for message text, which has always had every run of whitespace
 -- folded into one space. After no_controls() the only whitespace left is the
 -- plain space, so folding spaces is that, without asking the locale.
@@ -333,7 +340,7 @@ local function format_mrpe_line(name, code, message, perf, generated, ttl)
   local text = squash(message)
   perf = no_controls(perf)
   if perf:find('[^ ]') then text = text .. '|' .. perf end
-  return string.format('%s%s %d %s', prefix, no_controls(name), code, text)
+  return string.format('%s%s %d %s', prefix, token(name), code, text)
 end
 
 local function build_local(packet, core, settings, submissions)

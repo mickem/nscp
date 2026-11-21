@@ -133,3 +133,14 @@ TEST(CheckMkFormat, ServiceDisplayNameCannotForgeASection) {
 TEST(CheckMkFormat, ServiceNameStandingInForTheDisplayNameCannotBreakTheLine) {
   EXPECT_EQ("a_b stopped/demand a b", service_line("a\nb", "stopped", "demand", ""));
 }
+
+TEST(CheckMkFormat, SanitizeTokenKeepsTheTokenWhole) {
+  // A control character in a token column must not become a space: the
+  // columns after it would shift.
+  EXPECT_EQ("a_b", sanitize_token("a\nb"));
+  EXPECT_EQ("a__b", sanitize_token("a\r\nb"));
+  EXPECT_EQ("a_b", sanitize_token("a\tb"));
+  EXPECT_EQ("a b", sanitize_token("a b"));
+  const std::string utf8 = "caf\xc3\xa9.service";
+  EXPECT_EQ(utf8, sanitize_token(utf8));
+}
