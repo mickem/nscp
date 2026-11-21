@@ -1414,3 +1414,128 @@ TEST(CliHelperShortThresholds, AWrongUnitIsRefused) {
   EXPECT_FALSE(helper.parse_options());
   EXPECT_NE(std::string::npos, c.message().find("Invalid unit for load: 80m")) << c.message();
 }
+
+// "-w 20:10" would be "load < 20 or load > 10": always true, so the check
+// would alert for good. It is refused like any other bad threshold.
+TEST(CliHelperShortThresholds, AReversedRangeIsRefused) {
+  short_threshold_case c({"-w", "20:10"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("load > 70", "load > 95", "", {});
+  helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "70", "95");
+  EXPECT_FALSE(helper.parse_options());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result());
+  EXPECT_NE(std::string::npos, c.message().find("Invalid threshold: 20:10")) << c.message();
+}
+
+// A duration on a millisecond keyword: the help says what -w N really is.
+TEST(CliHelperShortThresholds, HelpSaysSecondsBecomeMilliseconds) {
+  short_threshold_case c({});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("time > 1000", "time > 5000", "", {});
+  helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "1", "5");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  const std::string text = helper.get_desc().find("w", false).description();
+  EXPECT_NE(std::string::npos, text.find("-w N is the same as warning=\"time > N*1000\"")) << text;
+}
+
+// With a template the other conditions of the default stay, so the help must
+// not say the default is replaced right next to an expansion that shows it is
+// not.
+TEST(CliHelperShortThresholds, HelpDoesNotSayATemplateReplacesTheDefault) {
+  short_threshold_case c({});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", {});
+  helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "1", "5");
+  helper.add_short_critical("${time} or result != 'ok'");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  const std::string warn = helper.get_desc().find("w", false).description();
+  const std::string crit = helper.get_desc().find("c", false).description();
+  // The warning has no template: the bound is all there is, and it replaces.
+  EXPECT_NE(std::string::npos, warn.find("and replaces the default warning.")) << warn;
+  EXPECT_EQ(std::string::npos, crit.find("replaces the default")) << crit;
+  EXPECT_NE(std::string::npos, crit.find("critical=\"time > N*1000 or result != 'ok'\": the default critical with its bound moved, the other conditions stay."))
+      << crit;
+}
+
+// A check with an option "w" of its own keeps it - and its default warning,
+// which reading that option as a threshold used to clear.
+TEST(CliHelperShortThresholds, AnOptionOfTheChecksOwnIsNotAThreshold) {
+  short_threshold_case c({"w=5", "-c", "90"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  std::string width;
+  helper.add_options("load > 70", "load > 95", "", {});
+  helper.get_desc().add_options()("w", boost::program_options::value<std::string>(&width), "Width");
+  helper.add_short_threshold("load", modern_filter::shorthand::above);
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_EQ("5", width);
+  EXPECT_EQ(string_list({"load > 70"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"load > 90"}), c.data.crit_string);
+}
+
+TEST(CliHelperShortThresholds, AnEmptyOptionOfTheChecksOwnIsNotAMissingThreshold) {
+  short_threshold_case c({"w="});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  std::string width = "unset";
+  helper.add_options("load > 70", "load > 95", "", {});
+  helper.get_desc().add_options()("w", boost::program_options::value<std::string>(&width), "Width");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_EQ("", width);
+  EXPECT_EQ(string_list({"load > 70"}), c.data.warn_string);
+}
+
+// REST passes a flag as "x=true" (CLAUDE.md, the bool_switch trap).
+TEST(CliHelperShortThresholds, ShowShortDefaultsAcceptsTheValuedForm) {
+  for (const std::string arg : {"show-short-defaults=true", "--show-short-defaults=true", "show-short-defaults=1"}) {
+    short_threshold_case c({arg});
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "90");
+    EXPECT_FALSE(helper.parse_options()) << arg;
+    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result()) << arg << ": " << c.message();
+    EXPECT_EQ("\"w=80\" \"c=90\" ", c.message()) << arg;
+  }
+  // Switched off it is an ordinary run.
+  for (const std::string arg : {"show-short-defaults=false", "--show-short-defaults=false"}) {
+    short_threshold_case c({arg});
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "90");
+    EXPECT_TRUE(helper.parse_options()) << arg << ": " << c.message();
+    EXPECT_EQ(string_list({"load > 80"}), c.data.warn_string) << arg;
+  }
+}
+
+// It is still left out of show-default, which lists every option with a
+// default: "show-short-defaults=false" has no place in a line to pass back.
+TEST(CliHelperShortThresholds, ShowDefaultDoesNotListShowShortDefaults) {
+  short_threshold_case c({"show-default"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("load > 80", "load > 90", "", {});
+  EXPECT_FALSE(helper.parse_options());
+  EXPECT_EQ(std::string::npos, c.message().find("show-short-defaults")) << c.message();
+}
+
+// "-w -c 90": the -w has no value. It used to take "-c" for one and fail on
+// the stray "90"; now it says what is wrong, in every shape.
+TEST(CliHelperShortThresholds, ABareFlagInFrontOfAnotherIsAMissingValue) {
+  const std::vector<string_list> shapes{{"-w", "-c", "90"}, {"--show-all", "-w", "-c", "90"}, {"show-all=true", "-c", "90", "-w"}, {"--show-all", "-c"}};
+  for (const string_list &shape : shapes) {
+    short_threshold_case c(shape);
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("load > 70", "load > 95", "", {});
+    helper.add_short_threshold("load", modern_filter::shorthand::above);
+    EXPECT_FALSE(helper.parse_options()) << boost::join(shape, " ");
+    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result());
+    const std::string flag = shape.back() == "-c" ? "-c" : "-w";
+    EXPECT_EQ("Missing value for " + flag + " (use none to remove the threshold)", c.message()) << boost::join(shape, " ");
+  }
+}
+
+TEST(CliHelperShortThresholds, AnAttachedNegativeBound) {
+  short_threshold_case c({"--show-all", "-c-5:"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("temperature > 70", "temperature > 90", "", {});
+  helper.add_short_threshold("temperature", modern_filter::shorthand::above);
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_EQ(string_list({"temperature < -5"}), c.data.crit_string);
+}

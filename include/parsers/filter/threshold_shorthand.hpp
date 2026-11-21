@@ -134,17 +134,23 @@ inline std::vector<std::string> split_list(const std::string &s) {
   }
 }
 
+// Never in scientific notation: the result is read back by the filter parser,
+// and "-w 1234.5678" on a millisecond keyword is 1234567.8, not 1.23457e+06.
 inline std::string render_number(const double value) {
   const double rounded = std::floor(value + 0.5);
-  if (std::fabs(value - rounded) < 1e-9) {
+  if (std::fabs(value - rounded) < 1e-9 && std::fabs(rounded) < 1e15) {
     std::ostringstream ss;
     ss << static_cast<long long>(rounded);
     return ss.str();
   }
   std::ostringstream ss;
+  ss.setf(std::ios::fixed, std::ios::floatfield);
   ss.precision(6);
   ss << value;
-  return ss.str();
+  std::string ret = ss.str();
+  const std::string::size_type last = ret.find_last_not_of('0');
+  ret.erase(ret[last] == '.' ? last : last + 1);
+  return ret;
 }
 
 // "5", "5s", "500ms", "5m", "1.5h" -> seconds. False for a suffix that is not a
@@ -186,6 +192,34 @@ inline bool is_size_suffix(const std::string &suffix) {
   const bool scale = first == 'k' || first == 'm' || first == 'g' || first == 't' || first == 'p' || first == 'e';
   if (suffix.size() == 1) return scale || first == 'b';
   return scale && lower(suffix[1]) == 'b';
+}
+
+// The number of a value, without its suffix.
+inline double number_of(const std::string &value) {
+  return std::strtod(value.substr(0, value.size() - suffix_of(value).size()).c_str(), nullptr);
+}
+
+// Two values of one keyword as numbers that can be compared with each other.
+// False when that cannot be told here: a plain keyword gives a suffix its
+// meaning itself ("2d", "1w"), so only values with the same one are compared.
+inline bool comparable(const spec &s, const std::string &a, const std::string &b, double &na, double &nb) {
+  if (s.value_unit == unit_seconds_as_ms || s.value_unit == unit_seconds) return parse_duration(a, na) && parse_duration(b, nb);
+  std::string sa = suffix_of(a), sb = suffix_of(b);
+  for (char &c : sa) c = lower(c);
+  for (char &c : sb) c = lower(c);
+  // A bare number of a percentage keyword is a percentage.
+  if (s.value_unit == unit_percent || s.value_unit == unit_percent_number) {
+    if (sa.empty()) sa = "%";
+    if (sb.empty()) sb = "%";
+  }
+  na = number_of(a);
+  nb = number_of(b);
+  if (sa == sb) return true;
+  if (!is_size_suffix(sa) || !is_size_suffix(sb)) return false;
+  const std::string scales = "bkmgtpe";
+  na *= std::pow(1024.0, static_cast<double>(scales.find(sa[0])));
+  nb *= std::pow(1024.0, static_cast<double>(scales.find(sb[0])));
+  return true;
 }
 
 // The value as the filter wants to read it for this keyword.
@@ -235,6 +269,13 @@ inline bool expand_range(const spec &s, const std::string &text, std::string &ou
   std::string start, end;
   if (!r.end.empty() && !render_value(s, r.end, end, error)) return false;
   if (!r.start.empty() && r.start != "~" && !render_value(s, r.start, start, error)) return false;
+  // "20:10" would be "load < 20 or load > 10", which everything matches: an
+  // alert that never clears. The guidelines require start <= end.
+  double low = 0, high = 0;
+  if (!start.empty() && !end.empty() && comparable(s, r.start, r.end, low, high) && low > high) {
+    error = "Invalid threshold: " + text + " (a range starts at its low end, as in " + r.end + ":" + r.start + ")";
+    return false;
+  }
   const std::string &v = s.variable;
   if (!r.has_colon) {
     if (r.inside) {
@@ -386,6 +427,10 @@ inline std::string default_template(const spec_list &specs) {
 }
 }  // namespace detail
 
+inline std::string missing_value_error(const char flag) {
+  return std::string("Missing value for -") + flag + " (use none to remove the threshold)";
+}
+
 // The expressions a -w / -c value stands for, one per template (a check with
 // none of its own gets a bound on each keyword). `value` holds one threshold
 // per keyword, comma separated; one that is left out ("-w ,20%") falls back to
@@ -397,7 +442,7 @@ inline bool expand(const spec_list &specs, const std::vector<std::string> &templ
   const std::string trimmed = detail::trim(value);
   expressions.clear();
   if (trimmed.empty()) {
-    error = std::string("Missing value for ") + (which == warning ? "-w" : "-c") + " (use none to remove the threshold)";
+    error = missing_value_error(which == warning ? 'w' : 'c');
     return false;
   }
   if (!is_threshold(trimmed)) {
@@ -434,7 +479,8 @@ inline bool expand(const spec_list &specs, const std::vector<std::string> &templ
 
 // What the short form reads as, for the option's help text: the templates with
 // a symbolic bound in each ${keyword} - "load > N" for one keyword,
-// "time > TIME or loss > LOSS%" for a list.
+// "time > TIME or loss > LOSS%" for a list, "time > N*1000" where N is in
+// seconds and the keyword counts milliseconds.
 inline std::string describe(const spec_list &specs, const std::vector<std::string> &templates) {
   std::vector<std::string> bounds;
   for (const spec &s : specs) {
@@ -443,7 +489,10 @@ inline std::string describe(const spec_list &specs, const std::vector<std::strin
       name = s.variable;
       for (char &c : name) c = (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
     }
-    bounds.push_back(s.variable + (s.dir == above ? " > " : " < ") + name + (s.value_unit == unit_percent ? "%" : ""));
+    // What the bound really is: a number of seconds on a keyword that counts
+    // milliseconds is that number times 1000.
+    const std::string scale = s.value_unit == unit_percent ? "%" : s.value_unit == unit_seconds_as_ms ? "*1000" : "";
+    bounds.push_back(s.variable + (s.dir == above ? " > " : " < ") + name + scale);
   }
   std::string ret;
   if (templates.empty()) return detail::fill_template(specs, bounds, detail::default_template(specs));
@@ -486,7 +535,9 @@ inline std::string describe_unit(const spec &s) {
       return "A number without a unit is a percentage; a size (10G) is used as written.";
     case unit_seconds_as_ms:
     case unit_seconds:
-      return "A number without a unit is in seconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).";
+      return s.value_unit == unit_seconds_as_ms
+                 ? "A number without a unit is in seconds, which the keyword counts in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 5m)."
+                 : "A number without a unit is in seconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).";
     case unit_plain:
     case unit_percent_number:
     default:
@@ -512,20 +563,45 @@ inline bool is_short_flag(const std::string &arg, char &flag, std::string &attac
     attached = "";
     return true;
   }
-  // "-w80", "-w=80", "-w10:", "-w@10:20", "-w~:10", "-w.5". Anything else that
-  // merely starts with -w or -c is somebody else's argument.
+  // "-w80", "-w=80", "-w10:", "-w@10:20", "-w~:10", "-w.5", "-c-5:". Anything
+  // else that merely starts with -w or -c is somebody else's argument.
   const char next = arg[2];
   if (next == '=') {
     flag = arg[1];
     attached = arg.substr(3);
     return true;
   }
-  if (detail::is_digit(next) || next == '@' || next == '~' || next == '.') {
+  // A sign only when a number follows it: "-c-5:" but not "-c-foo".
+  const bool sign = next == '-' || next == '+';
+  const char first = sign ? (arg.size() > 3 ? arg[3] : '\0') : next;
+  if (detail::is_digit(first) || first == '.' || (!sign && (first == '@' || first == '~'))) {
     flag = arg[1];
     attached = arg.substr(2);
     return true;
   }
   return false;
+}
+
+// Whether the argument after a bare "-w" is its value. Another short threshold
+// or a dashed option is not: in "-w -c 90" the -w was given no value, and
+// taking "-c" for it would leave a stray "90" behind and an error about that
+// instead. A negative bound ("-c -5:") is a value.
+inline bool is_flag_value(const std::string &arg) {
+  char flag;
+  std::string attached;
+  if (is_short_flag(arg, flag, attached)) return false;
+  return !(arg.size() > 2 && arg[0] == '-' && arg[1] == '-');
+}
+
+// The -w / -c that was given no value, or 0: "w=" and "--w=" in the arguments
+// normalize_arguments() returned. Asked before the option parser runs, as it
+// reports an empty "--w=" in its own words and with the whole option list.
+inline char find_missing_value(const std::vector<std::string> &normalized) {
+  for (const std::string &arg : normalized) {
+    if (arg == "w=" || arg == "--w=") return 'w';
+    if (arg == "c=" || arg == "--c=") return 'c';
+  }
+  return 0;
 }
 
 inline std::vector<std::string> normalize_arguments(const std::vector<std::string> &args) {
@@ -536,7 +612,7 @@ inline std::vector<std::string> normalize_arguments(const std::vector<std::strin
     char flag;
     std::string attached;
     if (is_short_flag(args[i], flag, attached)) {
-      if (args[i].size() == 2) ++i;
+      if (args[i].size() == 2 && i + 1 < args.size() && is_flag_value(args[i + 1])) ++i;
       continue;
     }
     dashed = args[i].size() > 2 && args[i][0] == '-' && args[i][1] == '-';
@@ -550,14 +626,9 @@ inline std::vector<std::string> normalize_arguments(const std::vector<std::strin
       ret.push_back(args[i]);
       continue;
     }
-    if (args[i].size() == 2) {
-      // A trailing "-w" has no value: leave it for the parser to complain about.
-      if (i + 1 >= args.size()) {
-        ret.push_back(args[i]);
-        continue;
-      }
-      value = args[++i];
-    }
+    // A "-w" at the end, or in front of another option, has no value: it is
+    // passed on empty, which is refused as a missing value.
+    if (args[i].size() == 2 && i + 1 < args.size() && is_flag_value(args[i + 1])) value = args[++i];
     if (dashed) {
       // One token: "--c" followed by "-5:" would have the value read as an
       // option.

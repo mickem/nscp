@@ -76,6 +76,55 @@ TEST(ThresholdShorthand, RangesIgnoreTheChecksDirection) {
 // Units.
 // ---------------------------------------------------------------------------
 
+// "20:10" would expand to "load < 20 or load > 10", which every value matches:
+// an alert that never clears. It is refused instead.
+TEST(ThresholdShorthand, AReversedRangeIsAnError) {
+  const spec_list load = one("load", above);
+  EXPECT_NE(std::string::npos, expand_error(load, "20:10").find("Invalid threshold: 20:10 (a range starts at its low end, as in 10:20)"));
+  // Inside the range it would match nothing instead, which is as wrong.
+  EXPECT_NE(std::string::npos, expand_error(load, "@20:10").find("Invalid threshold: @20:10"));
+  EXPECT_NE(std::string::npos, expand_error(load, "5:-5").find("Invalid threshold"));
+  EXPECT_NE(std::string::npos, expand_error(load, "1.5:1.25").find("Invalid threshold"));
+  // Both ends on the same number is a range: everything but that number.
+  EXPECT_EQ("load < 10 or load > 10", expand_ok(load, "10:10"));
+  EXPECT_EQ("load < -5 or load > 5", expand_ok(load, "-5:5"));
+  // In a list it is refused for the keyword it belongs to.
+  spec_list ping;
+  ping.push_back(spec("time", above));
+  ping.push_back(spec("loss", above, unit_percent));
+  EXPECT_NE(std::string::npos, expand_error(ping, "10:20,50:20").find("Invalid threshold: 50:20"));
+}
+
+TEST(ThresholdShorthand, AReversedRangeIsComparedInTheUnitOfTheKeyword) {
+  // Durations by what they amount to, not by their digits.
+  EXPECT_EQ("time < 500 or time > 2000", expand_ok(one("time", above, unit_seconds_as_ms), "500ms:2"));
+  EXPECT_NE(std::string::npos, expand_error(one("time", above, unit_seconds_as_ms), "2:500ms").find("Invalid threshold"));
+  EXPECT_NE(std::string::npos, expand_error(one("age", above, unit_seconds), "1h:30m").find("Invalid threshold"));
+  // A bare number of a percentage keyword is a percentage.
+  EXPECT_NE(std::string::npos, expand_error(one("free", below, unit_percent), "20:10%").find("Invalid threshold"));
+  EXPECT_NE(std::string::npos, expand_error(one("load", above, unit_percent_number), "90%:80").find("Invalid threshold"));
+  // Sizes by their scale.
+  EXPECT_EQ("free < 500M or free > 1G", expand_ok(one("free", below, unit_percent), "500M:1G"));
+  EXPECT_NE(std::string::npos, expand_error(one("free", below, unit_percent), "1G:500M").find("Invalid threshold"));
+  EXPECT_NE(std::string::npos, expand_error(one("size", above), "2gb:1GB").find("Invalid threshold"));
+  // What cannot be compared here is left to the filter: a plain keyword gives
+  // its suffixes their meaning itself, and a percentage is not a size.
+  EXPECT_EQ("age < 8d or age > 1w", expand_ok(one("age", above), "8d:1w"));
+  EXPECT_EQ("free < 20% or free > 10G", expand_ok(one("free", below, unit_percent), "20:10G"));
+}
+
+// The expansion is read back by the filter parser, which takes "1234567.8" and
+// not "1.23457e+06".
+TEST(ThresholdShorthand, DurationsAreNeverRenderedInScientificNotation) {
+  const spec_list ms = one("time", above, unit_seconds_as_ms);
+  EXPECT_EQ("time > 1234567.8", expand_ok(ms, "1234.5678"));
+  EXPECT_EQ("time > 0.5", expand_ok(ms, "0.0005"));
+  EXPECT_EQ("time > 1.5", expand_ok(ms, "1.5ms"));
+  EXPECT_EQ("time > 31536000000", expand_ok(ms, "365d"));
+  EXPECT_EQ("age > 1234567.25", expand_ok(one("age", above, unit_seconds), "1234567.25"));
+  EXPECT_EQ("age > 0.000123", expand_ok(one("age", above, unit_seconds), "0.000123"));
+}
+
 TEST(ThresholdShorthand, PercentUnitMakesABareNumberAPercentage) {
   const spec_list s = one("free", below, unit_percent);
   EXPECT_EQ("free < 10%", expand_ok(s, "10"));
@@ -266,8 +315,13 @@ TEST(ThresholdTemplate, APercentageTakesNoOtherUnit) {
 
 TEST(ThresholdTemplate, DescribeAndDefaults) {
   const spec_list tcp = one("time", above, unit_seconds_as_ms, "1", "5");
-  EXPECT_EQ("time > N or result != 'ok'", describe(tcp, string_list(1, "${time} or result != 'ok'")));
-  EXPECT_EQ("time > N", describe(tcp, string_list()));
+  // N is in seconds and the keyword counts milliseconds: the help must not
+  // claim "-w 2" is "time > 2".
+  EXPECT_EQ("time > N*1000 or result != 'ok'", describe(tcp, string_list(1, "${time} or result != 'ok'")));
+  EXPECT_EQ("time > N*1000", describe(tcp, string_list()));
+  EXPECT_EQ("age > N", describe(one("age", above, unit_seconds), string_list()));
+  EXPECT_NE(std::string::npos, describe_unit(tcp.front()).find("milliseconds"));
+  EXPECT_EQ(std::string::npos, describe_unit(spec("age", above, unit_seconds)).find("milliseconds"));
   EXPECT_EQ("N", describe_usage(tcp));
   EXPECT_EQ("1", default_value(tcp, warning));
   EXPECT_EQ("5", default_value(tcp, critical));
@@ -322,6 +376,34 @@ TEST(ThresholdShorthandArguments, OtherArgumentsAreLeftAlone) {
   EXPECT_EQ(args(), normalize_arguments(args()));
 }
 
-TEST(ThresholdShorthandArguments, ATrailingFlagWithoutValueIsLeftForTheParser) {
-  EXPECT_EQ(args({"drive=c:", "-w"}), normalize_arguments({"drive=c:", "-w"}));
+TEST(ThresholdShorthandArguments, ATrailingFlagHasNoValue) {
+  EXPECT_EQ(args({"drive=c:", "w="}), normalize_arguments({"drive=c:", "-w"}));
+  EXPECT_EQ(args({"--drive", "c:", "--w="}), normalize_arguments({"--drive", "c:", "-w"}));
+}
+
+// "-w -c 90": the -w was given nothing, and must not take "-c" for its value
+// and leave a stray "90" behind.
+TEST(ThresholdShorthandArguments, ABareFlagDoesNotTakeTheNextOptionForItsValue) {
+  EXPECT_EQ(args({"w=", "c=90"}), normalize_arguments({"-w", "-c", "90"}));
+  EXPECT_EQ(args({"w=", "c=90"}), normalize_arguments({"-w", "-c90"}));
+  EXPECT_EQ(args({"--w=", "--show-all"}), normalize_arguments({"-w", "--show-all"}));
+  // The shape is still that of the first real argument.
+  EXPECT_EQ(args({"--w=", "--c=90", "--drive", "c:"}), normalize_arguments({"-w", "-c", "90", "--drive", "c:"}));
+  // A negative bound is a value, not an option.
+  EXPECT_EQ(args({"w=-5:", "c=-1"}), normalize_arguments({"-w", "-5:", "-c", "-1"}));
+}
+
+TEST(ThresholdShorthandArguments, AnAttachedNegativeValue) {
+  EXPECT_EQ(args({"c=-5:", "w=-.5"}), normalize_arguments({"-c-5:", "-w-.5"}));
+  EXPECT_EQ(args({"--show-all", "--c=-5:"}), normalize_arguments({"--show-all", "-c-5:"}));
+  EXPECT_EQ(args({"c=+5"}), normalize_arguments({"-c+5"}));
+  // A sign without a number after it is somebody else's argument.
+  EXPECT_EQ(args({"-c-foo", "-w-"}), normalize_arguments({"-c-foo", "-w-"}));
+}
+
+TEST(ThresholdShorthandArguments, FindMissingValue) {
+  EXPECT_EQ('w', find_missing_value({"drive=c:", "w=", "c=90"}));
+  EXPECT_EQ('c', find_missing_value({"--drive", "c:", "--c="}));
+  EXPECT_EQ(0, find_missing_value({"w=80", "c=90", "warning=", "--crit="}));
+  EXPECT_EQ("Missing value for -w (use none to remove the threshold)", missing_value_error('w'));
 }

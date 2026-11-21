@@ -359,9 +359,43 @@ describeOnLinux("CheckDisk (Unix)", () => {
   });
 
   it("check_drivesize -c only replaces the critical default", async () => {
-    // The default warning (used > 80%) is still there to be shown.
-    const out = await query("check_drivesize", ["drive=/", "-c", "0", "show-default"]);
-    expect(out).toMatch(/used > 80%/);
+    // Read off the thresholds of the performance data, which are those of the
+    // expressions that ran: the default warning (used > 80%) is still there,
+    // and the critical is the "free < 0%" that -c asked for instead of the
+    // default on used. (show-default would not do: it is answered before -c is
+    // applied, and prints the same line whatever -c says.)
+    const r = await queryWithCode("check_drivesize", ["drive=/", "-c", "0"]);
+    expect(r.out).toMatch(/'\/ used %'=\d+%;80;;/);
+    expect(r.out).toMatch(/'\/ free %'=\d+%;;0;/);
+    // And the other way around: -w leaves the default critical (used > 90%).
+    const w = await queryWithCode("check_drivesize", ["drive=/", "-w", "0"]);
+    expect(w.out).toMatch(/'\/ used %'=\d+%;;90;/);
+    expect(w.out).toMatch(/'\/ free %'=\d+%;0;;/);
+  });
+
+  it("check_drivesize refuses a reversed range", async () => {
+    // "20:10" would be "free < 20% or free > 10%": always true.
+    const r = await queryWithCode("check_drivesize", ["drive=/", "-w", "20:10"]);
+    expect(r.code).toBe(3);
+    expect(r.out).toMatch(/Invalid threshold: 20:10/);
+  });
+
+  it("a -w without a value says so instead of taking the next option", async () => {
+    for (const args of [
+      ["drive=/", "-w", "-c", "0"],
+      ["--drive", "/", "-w", "-c", "0"],
+      ["drive=/", "-c", "0", "-w"],
+    ]) {
+      const r = await queryWithCode("check_drivesize", args);
+      expect(r.code).toBe(3);
+      expect(r.out).toMatch(/Missing value for -w \(use none to remove the threshold\)/);
+    }
+  });
+
+  it("an attached negative short threshold is read as one", async () => {
+    const r = await queryWithCode("check_drivesize", ["drive=/", "-w0", "-c-5:"]);
+    expect(r.out).not.toMatch(/unrecognised|unknown option|Invalid command line|Failed to parse/i);
+    expect(r.code).toBe(0);
   });
 
   it("check_drivesize -w takes an expression as it is", async () => {
@@ -390,6 +424,10 @@ describeOnLinux("CheckDisk (Unix)", () => {
     const short = await query("check_drivesize", ["show-short-defaults"]);
     expect(short).toMatch(/"w=20" "c=10"/);
     expect(short).not.toMatch(/warning=/);
+    // REST passes a flag with its value.
+    const valued = await queryWithCode("check_drivesize", ["show-short-defaults=true"]);
+    expect(valued.code).toBe(0);
+    expect(valued.out).toMatch(/"w=20" "c=10"/);
     // A check that bounds count has none to show.
     const none = await queryWithCode("check_files", ["show-short-defaults"]);
     expect(none.code).toBe(0);
