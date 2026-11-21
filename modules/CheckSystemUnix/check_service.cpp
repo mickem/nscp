@@ -14,8 +14,8 @@
 #include <array>
 #include <chrono>
 #include <boost/algorithm/string.hpp>
-#include <check/check_mk_format.hpp>
 #include <boost/program_options.hpp>
+#include <check/check_mk_format.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
