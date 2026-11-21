@@ -287,7 +287,8 @@ check_ping host=192.168.0.1 -w 100,20% -c 500,60%
 bare number bounds and on which side, so `check_cpu -w 80` is exactly `check_cpu "warning=load > 80"`
 and `check_drivesize -w 20%` is `check_drivesize "warning=free < 20%"`. The performance data
 thresholds, `show-all` and the syntaxes behave as they do for the long form, because the long form is
-what the check ends up running. `help` on a command says what its `-w` stands for.
+what the check ends up running. `-w80`, `-w=80` and `w=80` are accepted too, and the short form can
+be mixed with any other argument.
 
 | You write   | Means                                                                 |
 |-------------|-----------------------------------------------------------------------|
@@ -301,49 +302,75 @@ what the check ends up running. `help` on a command says what its `-w` stands fo
 The ranges are the ones from the
 [monitoring plugins guidelines](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT).
 
-A short threshold **takes the place of the default bound** on its side and leaves the other side
-alone: `check_cpu -c 95` keeps the default warning. Whatever else the default says stays, so a
-failing request is still critical when you move the time bound:
+A short threshold **moves the number and nothing else**. Each check states what its `-w` and `-c`
+stand for, so the conditions and guards around the bound stay where they are:
 
 ```shell
 # default critical: time > 5000 or result != 'ok'
 check_tcp host=db01 port=5432 -c 10
-# runs with:        result != 'ok' or time > 10000
+# runs with:        time > 10000 or result != 'ok'     (a refused connection is still critical)
+
+# default warning:  decisions >= min_requests and reject_pct > 10
+check_nps_auth -w 20
+# runs with:        decisions >= min_requests and reject_pct > 20
 ```
 
-`show-default` on a command lists its defaults, and a full `warning=` / `critical=` replaces them
-entirely when that is what you want. `-w80`, `-w=80` and `w=80` are accepted too, and the short form
-can be mixed with any other argument.
+`-w` only touches the warning and `-c` only the critical: `check_cpu -c 95` keeps the default warning.
+A full `warning=` / `critical=` replaces the default entirely when that is what you want, and
+`-w none` removes it.
 
-What a bare number bounds:
+Every command documents both forms side by side. `help` (and the reference page) lists `warning`
+with the default expression and `w` with the same default in the short form and what it expands to;
+`show-default` prints them together:
 
-| Check                                                        | `-w N` means                      | A number without a unit is  |
-|--------------------------------------------------------------|-----------------------------------|-----------------------------|
-| `check_cpu`                                                  | `load > N`                        | percent                     |
-| `check_drivesize`, `check_memory`, `check_pagefile`          | `free < N`                        | percent (`10g` is a size)   |
-| `check_uptime`                                               | `uptime < N`                      | seconds (`2d`, `12h`)       |
-| `check_load`                                                 | `load1 > N`, then `load5`, `load15` | —                         |
-| `check_ping`                                                 | `time > N`, then `loss > N%`      | milliseconds, percent       |
-| `check_http`, `check_tcp`, `check_dns`, `check_radius`, `check_kdc` | `time > N`                 | seconds (`500ms`, `5m`)     |
-| `check_ntp_offset`, `check_w32time`                          | `offset > N`                      | seconds (`500ms`)           |
-| `check_certificate`, `check_domain`                          | `expires_in < N`                  | days                        |
-| `check_temperature`                                          | `temperature > N`                 | degrees                     |
-| `check_battery`                                              | `charge < N`                      | percent                     |
-| `check_network`                                              | `throughput > N`                  | —                           |
-| `check_os_updates`                                           | `updates > N`                     | —                           |
-| `check_single_file`                                          | `age > N`                         | seconds (`5m`, `2h`)        |
-| `check_service`, `check_process`, `check_files`, `check_eventlog`, `check_logfile`, … | `count > N` | matched items        |
+```shell
+check_tcp show-default
+"warning=time > 1000" "critical=time > 5000 or result != 'ok'" "w=1" "c=5" ...
+```
+
+What a bare number bounds, and where the defaults sit:
+
+| Check                                                        | `-w N` means                        | Default `-w` / `-c` | A number without a unit is  |
+|--------------------------------------------------------------|-------------------------------------|---------------------|-----------------------------|
+| `check_cpu`                                                  | `load > N`                          | `80` / `90`         | percent                     |
+| `check_drivesize`, `check_memory`                            | `free < N`                          | `20` / `10`         | percent (`10g` is a size)   |
+| `check_pagefile`                                             | `free < N`                          | `40` / `20`         | percent (`10g` is a size)   |
+| `check_uptime`                                               | `uptime < N`                        | `2d` / `1d`         | seconds (`2d`, `12h`)       |
+| `check_load`                                                 | `load1 > N`, then `load5`, `load15` | none                | —                           |
+| `check_ping`                                                 | `time > N`, then `loss > N%`        | `60,5` / `100,10`   | milliseconds, percent       |
+| `check_tcp`, `check_ssh`                                     | `time > N`                          | `1` / `5`           | seconds (`500ms`, `5m`)     |
+| `check_http`                                                 | `time > N`                          | `5` / none          | seconds (`500ms`, `5m`)     |
+| `check_dns`, `check_kdc`                                     | `time > N`                          | `1` / none          | seconds (`500ms`, `5m`)     |
+| `check_ntp_offset`                                           | `offset > N`                        | `50ms` / `100ms`    | seconds (`500ms`)           |
+| `check_w32time`                                              | `offset > N`                        | `1` / `30`          | seconds (`500ms`)           |
+| `check_certificate`, `check_domain`                          | `expires_in < N`                    | `30` / `10`         | days                        |
+| `check_temperature`                                          | `temperature > N`                   | `70` / `90`         | degrees                     |
+| `check_battery`                                              | `charge < N`                        | `20` / `10`         | percent                     |
+| `check_network`                                              | `throughput > N`                    | `10000` / `100000`  | —                           |
+| `check_os_updates`                                           | `updates > N`                       | `0` / none          | —                           |
+| `check_single_file`                                          | `age > N`                           | none                | seconds (`5m`, `2h`)        |
+| `check_service`, `check_files`, `check_eventlog`, `check_logfile`, … | `count > N`                 | none                | matched items               |
+
+"none" in the default column means the default has no bound on that keyword for that side; giving one
+adds it next to whatever the default checks (`check_http -c 5` is
+`time > 5000 or code < 200 or code >= 400 or result != 'ok'`).
+
+A check that takes a list reads one value per keyword, and a value that is left out keeps its
+default: `check_ping -w ,20%` is `time > 60 or loss > 20%`.
 
 A check that measures no single value bounds `count`, the number of items that matched the filter:
-`check_process process=nginx -c 1:` is critical when fewer than one `nginx` is running, and
 `check_files path=/var/spool/queue -w 100 -c 500` alerts on a growing queue. Such a bound says how
 many matches are a problem, so it replaces the whole default of its side. `check_process` is the
-exception: a process that is not running stays critical next to a bound on how many are. A check that takes a
-list reads one value per keyword and any of them can be left out (`check_ping -w ,20%`).
+exception: `check_process process=nginx -c 1:` keeps a process that is not running critical next
+to the bound on how many are.
 
 Durations follow the standard plugins and are in **seconds** unless you give a unit, also where the
 keyword itself counts milliseconds: `check_http -w 2` and `check_http "warning=time > 2000"` are the
 same thing, and so are `-w 500ms` and `-w 0.5`.
+
+A value that cannot be meant is refused with UNKNOWN rather than guessed at: an empty one (`w=`,
+typically an unset macro), a unit the keyword does not take (`check_cpu -w 80m`), or more values
+than the check has keywords.
 
 !!! note "Through `check_nrpe`"
     `check_nrpe` reads `-c` as its own *command* option, so put the short thresholds after `-a`,

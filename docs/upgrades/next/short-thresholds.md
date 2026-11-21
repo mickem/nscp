@@ -11,9 +11,11 @@ bounds and on which side, so `check_cpu -w 80` is `warning=load > 80` and
 `check_drivesize -w 20%` is `warning=free < 20%`; `help` on a command says what
 its `-w` stands for. Ranges in the monitoring plugins format work too (`10:`,
 `~:10`, `10:20`, `@10:20`), and anything that is not a number or a range is
-used as the expression it is. A short threshold takes the place of the default
-bound and keeps the rest of the default, so `check_http -c 5` is still
-critical on a failed request. Durations are in seconds unless a unit is given
+used as the expression it is. A short threshold moves the number and leaves
+the rest of the check's threshold in place, so `check_http -c 5` is still
+critical on a failed request; every command lists the default of its `-w` and
+`-c` next to the default `warning` and `critical` in `help` and
+`show-default`. Durations are in seconds unless a unit is given
 (`500ms`, `5m`), also for checks whose `time` keyword counts milliseconds. A
 check that measures no single value bounds `count`, the number of matched
 items: `check_process process=nginx -c 1:`. See
