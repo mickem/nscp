@@ -376,11 +376,24 @@ describeOnLinux("CheckDisk (Unix)", () => {
     expect(r.code).toBe(0);
   });
 
-  it("check_drivesize lists the short defaults next to the long ones", async () => {
-    const out = await query("check_drivesize", ["show-default"]);
-    expect(out).toMatch(/"warning=used > 80%"/);
-    expect(out).toMatch(/"w=20"/);
-    expect(out).toMatch(/"c=10"/);
+  it("show-default stays a line that can be edited and passed back", async () => {
+    // With "w=20" in it, editing only warning= would leave the short form
+    // adding the old bound back; the short defaults have a command of their own.
+    const long = await query("check_drivesize", ["show-default"]);
+    expect(long).toMatch(/"warning=used > 80%"/);
+    expect(long).toMatch(/"critical=used > 90%"/);
+    expect(long).not.toMatch(/"w=/);
+    expect(long).not.toMatch(/"c=/);
+  });
+
+  it("show-short-defaults lists the defaults of -w and -c", async () => {
+    const short = await query("check_drivesize", ["show-short-defaults"]);
+    expect(short).toMatch(/"w=20" "c=10"/);
+    expect(short).not.toMatch(/warning=/);
+    // A check that bounds count has none to show.
+    const none = await queryWithCode("check_files", ["show-short-defaults"]);
+    expect(none.code).toBe(0);
+    expect(none.out).not.toMatch(/"w=/);
   });
 
   it("an empty or mis-united short threshold is refused, not guessed at", async () => {

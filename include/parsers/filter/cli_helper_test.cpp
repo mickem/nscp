@@ -1268,15 +1268,86 @@ TEST(CliHelperShortThresholds, TheShortDefaultDoesNotReplaceTheChecksDefault) {
   EXPECT_EQ(string_list({"used > 90%"}), c.data.crit_string);
 }
 
-TEST(CliHelperShortThresholds, TheShortDefaultIsShownByShowDefault) {
-  short_threshold_case c({"show-default"});
+// show-default has to stay a line that can be copied, edited and passed back:
+// with "w=20" in it, editing only warning= would leave the short form adding
+// the old bound back as a second expression.
+TEST(CliHelperShortThresholds, ShowDefaultLeavesTheShortFormOut) {
+  for (const std::string arg : {"show-default", "--show-default"}) {
+    short_threshold_case c({arg});
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("used > 80%", "used > 90%", "", {});
+    helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
+    EXPECT_FALSE(helper.parse_options());
+    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+    EXPECT_NE(std::string::npos, c.message().find("\"warning=used > 80%\"")) << c.message();
+    EXPECT_NE(std::string::npos, c.message().find("\"critical=used > 90%\"")) << c.message();
+    EXPECT_EQ(std::string::npos, c.message().find("\"w=")) << c.message();
+    EXPECT_EQ(std::string::npos, c.message().find("\"c=")) << c.message();
+  }
+}
+
+// The round trip itself: what show-default prints, with only the warning
+// edited, must run with the edited warning and nothing else.
+TEST(CliHelperShortThresholds, ShowDefaultRoundTripsAfterAnEdit) {
+  short_threshold_case c({"warning=load > 95", "critical=load > 98"});
   modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
-  helper.add_options("used > 80%", "used > 90%", "", {});
-  helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
-  EXPECT_FALSE(helper.parse_options());
-  EXPECT_NE(std::string::npos, c.message().find("\"w=20\"")) << c.message();
-  EXPECT_NE(std::string::npos, c.message().find("\"c=10\"")) << c.message();
-  EXPECT_NE(std::string::npos, c.message().find("\"warning=used > 80%\"")) << c.message();
+  helper.add_options("load > 80", "load > 90", "", {});
+  helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "90");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_EQ(string_list({"load > 95"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"load > 98"}), c.data.crit_string);
+}
+
+TEST(CliHelperShortThresholds, ShowShortDefaultsListsOnlyTheShortForm) {
+  for (const std::string arg : {"show-short-defaults", "--show-short-defaults"}) {
+    short_threshold_case c({arg});
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("used > 80%", "used > 90%", "", {});
+    helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
+    EXPECT_FALSE(helper.parse_options());
+    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+    EXPECT_EQ("\"w=20\" \"c=10\" ", c.message());
+  }
+}
+
+TEST(CliHelperShortThresholds, ShowShortDefaultsForAListAndForOneSide) {
+  {
+    short_threshold_case c({"show-short-defaults"});
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", {});
+    helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "60", "100");
+    helper.add_short_threshold("loss", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent, "5", "10");
+    EXPECT_FALSE(helper.parse_options());
+    EXPECT_EQ("\"w=60,5\" \"c=100,10\" ", c.message());
+  }
+  {
+    // No bound on the critical side by default: only -w has one to show.
+    short_threshold_case c({"show-short-defaults"});
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("time > 5000", "result != 'ok'", "", {});
+    helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "5", "");
+    EXPECT_FALSE(helper.parse_options());
+    EXPECT_EQ("\"w=5\" ", c.message());
+  }
+  {
+    // A check that bounds count has no short default at all.
+    short_threshold_case c({"show-short-defaults"});
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("", "", "", {});
+    EXPECT_FALSE(helper.parse_options());
+    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+    EXPECT_EQ("", c.message());
+  }
+}
+
+// The option is listed in help; a value that merely contains the word is not
+// taken for the command.
+TEST(CliHelperShortThresholds, ShowShortDefaultsIsListedAndNotMistaken) {
+  short_threshold_case c({"filter=name = 'show-short-defaults'"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("", "", "", {});
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_NE(nullptr, helper.get_desc().find_nothrow("show-short-defaults", false));
 }
 
 TEST(CliHelperShortThresholds, OneSideLeavesTheOtherDefaultAlone) {

@@ -339,10 +339,54 @@ struct cli_helper : boost::noncopyable {
     // A check that already has an option of that name keeps it.
     if (desc.find_nothrow("w", false) == nullptr) desc.add_options()("w", short_option(short_warn, shorthand::warning), warn_text.c_str());
     if (desc.find_nothrow("c", false) == nullptr) desc.add_options()("c", short_option(short_crit, shorthand::critical), crit_text.c_str());
+    const std::string show_text =
+        "Show the defaults of the short thresholds -w and -c for a given command.\n"
+        "show-default lists the defaults of warning and critical instead, and leaves these out so that its output can be edited and passed back." +
+        common_option_marker;
+    if (desc.find_nothrow("show-short-defaults", false) == nullptr) desc.add_options()("show-short-defaults", show_text.c_str());
+  }
+
+  // Whether the request asks for `name` as a bare argument, in either shape.
+  bool is_requested(const std::string &name) const {
+    for (int i = 0; i < request.arguments_size(); ++i) {
+      const std::string &arg = request.arguments(i);
+      if (arg == name || arg == "--" + name) return true;
+    }
+    return false;
+  }
+
+  // show-default and show-short-defaults, answered here rather than by the
+  // option parser. The two are kept apart on purpose: "w=80" next to
+  // "warning=load > 80" reads as one line to copy, and whoever then edits only
+  // the warning is left with the short form adding the old bound back as a
+  // second expression. So show-default prints what it printed before the
+  // short thresholds existed, and the short defaults have a command of their
+  // own. Returns true when it answered.
+  bool answer_default_queries() {
+    if (short_thresholds_disabled) return false;
+    if (is_requested("show-default")) {
+      // Rendered before -w / -c are registered, which is what leaves them out.
+      const std::string defaults = nscapi::program_options::help_show_default(desc);
+      register_short_thresholds();
+      nscapi::protobuf::functions::set_response_good(*response, defaults);
+      return true;
+    }
+    register_short_thresholds();
+    if (is_requested("show-short-defaults")) {
+      std::string defaults;
+      const std::string warn = shorthand::default_value(short_thresholds, shorthand::warning);
+      const std::string crit = shorthand::default_value(short_thresholds, shorthand::critical);
+      if (!warn.empty()) defaults += "\"w=" + warn + "\" ";
+      if (!crit.empty()) defaults += "\"c=" + crit + "\" ";
+      nscapi::protobuf::functions::set_response_good(*response, defaults);
+      return true;
+    }
+    return false;
   }
   // The option carries the short form of the check's own default as its
-  // default value, so that help, show-default and the reference docs show
-  // "-w 80" next to "warning=load > 80".
+  // default value, so that help and the reference docs show "-w 80" next to
+  // "warning=load > 80". show-default deliberately does not, see
+  // answer_default_queries().
   boost::program_options::typed_value<std::vector<std::string> > *short_option(std::vector<std::string> &store, const shorthand::side which) const {
     boost::program_options::typed_value<std::vector<std::string> > *option = boost::program_options::value<std::vector<std::string> >(&store);
     const std::string value = shorthand::default_value(short_thresholds, which);
@@ -485,21 +529,21 @@ struct cli_helper : boost::noncopyable {
   }
 
   bool parse_options(const boost::program_options::positional_options_description &p) {
-    register_short_thresholds();
+    if (answer_default_queries()) return false;
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized_request(), *response, p)) return false;
     parse_options_post(vm);
     return apply_short_thresholds(vm) && validate_options();
   }
   bool parse_options() {
-    register_short_thresholds();
+    if (answer_default_queries()) return false;
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized_request(), *response)) return false;
     parse_options_post(vm);
     return apply_short_thresholds(vm) && validate_options();
   }
   bool parse_options(std::vector<std::string> &extra) {
-    register_short_thresholds();
+    if (answer_default_queries()) return false;
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized_request(), *response, true, extra)) return false;
     parse_options_post(vm);
