@@ -361,6 +361,8 @@ The host stays UP while the agent is connected (`Zone 'win-host-01' is connected
 
 ## Next steps
 
+- [Migrating from the Icinga 2 Windows Agent](migrating-from-icinga-agent.md) - for a host that runs the Icinga
+  agent or Icinga for Windows today: command mapping, and taking over its certificate.
 - [IcingaAgent reference](../reference/client/IcingaAgent.md) - every setting of the module.
 - [Permissions](../concepts/permissions.md) - grant the master only what it monitors.
 - [Windows Server Health](windows-server-health.md) - which checks to schedule for a baseline.
