@@ -3,9 +3,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <list>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -44,6 +46,12 @@ class MockPdh : public PDH::impl_interface {
   // Counter paths that do not exist (yet): adding one fails as PDH does for
   // an object that is not registered.
   std::set<std::wstring> missing_paths;
+  // What a successful wildcard expansion lists.
+  std::list<std::wstring> expanded_paths;
+  // Per-path override of formatted_value_status, for counters added after
+  // it is set as well as before.
+  std::map<std::wstring, PDH_STATUS> path_status;
+  std::map<PDH::PDH_HCOUNTER, std::wstring> handle_paths;
 
   // Observables
   int listener_count = 0;
@@ -104,6 +112,7 @@ class MockPdh : public PDH::impl_interface {
     }
     ++open_counter_handles;
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x2000 + add_counter_calls));
+    handle_paths[*phCounter] = path;
     return {};
   }
   // Tracked separately from PdhAddCounter so resolution-mode tests can assert
@@ -122,13 +131,15 @@ class MockPdh : public PDH::impl_interface {
     }
     ++open_counter_handles;
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x3000 + add_english_counter_calls));
+    handle_paths[*phCounter] = path;
     return {};
   }
-  PDH::pdh_error PdhRemoveCounter(PDH::PDH_HCOUNTER) override {
+  PDH::pdh_error PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) override {
     ++remove_counter_calls;
     note_call();
     if (remove_counter_status != ERROR_SUCCESS) return {remove_counter_status};
     --open_counter_handles;
+    handle_paths.erase(hCounter);
     return {};
   }
   PDH::pdh_error PdhCollectQueryData(PDH::PDH_HQUERY) override {
@@ -160,28 +171,42 @@ class MockPdh : public PDH::impl_interface {
   PDH::pdh_error PdhExpandCounterPath(LPCTSTR, LPTSTR, LPDWORD) override { return {}; }
   PDH::pdh_error PdhGetCounterInfo(PDH::PDH_HCOUNTER, BOOLEAN, LPDWORD, PDH_COUNTER_INFO *) override { return {}; }
   PDH::pdh_error PdhGetRawCounterValue(PDH::PDH_HCOUNTER, LPDWORD, PPDH_RAW_COUNTER) override { return {}; }
-  PDH::pdh_error PdhGetFormattedCounterValue(PDH::PDH_HCOUNTER, DWORD, LPDWORD, PPDH_FMT_COUNTERVALUE) override {
+  PDH::pdh_error PdhGetFormattedCounterValue(PDH::PDH_HCOUNTER hCounter, DWORD, LPDWORD, PPDH_FMT_COUNTERVALUE) override {
     note_call();
     if (fail_next_formatted_values > 0) {
       --fail_next_formatted_values;
       return {failing_formatted_value_status};
+    }
+    const auto handle = handle_paths.find(hCounter);
+    if (handle != handle_paths.end()) {
+      const auto status = path_status.find(handle->second);
+      if (status != path_status.end()) return {status->second};
     }
     return {formatted_value_status};
   }
   PDH::pdh_error PdhValidatePath(LPCWSTR, bool) override { return {}; }
   PDH::pdh_error PdhEnumObjects(LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, DWORD, BOOL) override { return {}; }
   PDH::pdh_error PdhEnumObjectItems(LPCWSTR, LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, LPWSTR, LPDWORD, DWORD, DWORD) override { return {}; }
-  // Expansion is driven by expand_wild_card_status: on success the list is
-  // left empty (an empty, zero-terminated buffer), which is all the tests
-  // here need.
+  // Expansion is driven by expand_wild_card_status: on success the buffer
+  // gets expanded_paths as a double-zero-terminated multi-string (empty by
+  // default).
   PDH::pdh_error PdhExpandWildCardPath(LPCTSTR, LPCTSTR, LPWSTR mszExpandedPathList, LPDWORD pcchPathListLength, DWORD) override {
     ++expand_wild_card_calls;
     if (expand_wild_card_status != ERROR_SUCCESS) return {expand_wild_card_status};
-    if (mszExpandedPathList != nullptr && pcchPathListLength != nullptr && *pcchPathListLength >= 2) {
-      mszExpandedPathList[0] = L'\0';
-      mszExpandedPathList[1] = L'\0';
-      *pcchPathListLength = 2;
+    std::wstring list;
+    for (const std::wstring &p : expanded_paths) {
+      list += p;
+      list.push_back(L'\0');
     }
+    list.push_back(L'\0');
+    if (list.size() < 2) list.push_back(L'\0');
+    if (pcchPathListLength == nullptr) return {PDH_INVALID_ARGUMENT};
+    if (mszExpandedPathList == nullptr || *pcchPathListLength < list.size()) {
+      *pcchPathListLength = static_cast<DWORD>(list.size());
+      return {PDH_MORE_DATA};
+    }
+    std::copy(list.begin(), list.end(), mszExpandedPathList);
+    *pcchPathListLength = static_cast<DWORD>(list.size());
     return {};
   }
 };
@@ -745,6 +770,238 @@ TEST_F(PdhQueryLifecycleTest, GatherDataTakesOneExtraSampleForAllMissingInstance
   EXPECT_NO_THROW(q.gatherData(true, true));
   EXPECT_EQ(mock->collect_calls, 2);
   q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, NoDataResampleIsTheOnlyExtraSample) {
+  // The PDH_NO_DATA resample already gave every counter its second sample,
+  // so one that then reads INVALID_DATA is not given a third.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\PhysicalDisk(1)\\% Disk Time"));
+  q.addCounter(make_counter("b", "\\PhysicalDisk(2)\\% Disk Time"));
+  q.open();
+  mock->fail_next_collects = 1;
+  mock->fail_next_formatted_values = 1;
+  mock->failing_formatted_value_status = PDH_INVALID_DATA;
+  EXPECT_NO_THROW(q.gatherData(false, true));
+  EXPECT_EQ(mock->collect_calls, 2);
+  q.close();
+}
+
+// ----------------------------------------------------------------------------
+// $INSTANCE$ counters whose instances come and go
+// ----------------------------------------------------------------------------
+
+// An RDS host with User Profile Disks attaches a PhysicalDisk per signed-in
+// user and detaches it at sign-out. The collector expands the default
+// disk_queue_length counter once at setup; a departed disk's counter then
+// returns INVALID_DATA for good, which used to cost a one-second retry on
+// every 1 Hz tick, and a disk attached later was never collected.
+
+namespace {
+const wchar_t *const disk_c = L"\\PhysicalDisk(0 C:)\\% Disk Time";
+const wchar_t *const disk_1 = L"\\PhysicalDisk(1)\\% Disk Time";
+const wchar_t *const disk_2 = L"\\PhysicalDisk(2)\\% Disk Time";
+const wchar_t *const disk_3 = L"\\PhysicalDisk(3)\\% Disk Time";
+
+std::list<std::string> instance_names(const PDH::pdh_instance &parent) {
+  std::list<std::string> ret;
+  for (const PDH::pdh_instance &child : parent->get_instances()) ret.push_back(child->get_name());
+  return ret;
+}
+
+PDH::PDHQuery::instance_changes reexpand(PDH::PDHQuery &q) {
+  std::list<std::string> errors;
+  const PDH::PDHQuery::expansion_list expansions = q.expand_instances(errors);
+  for (const std::string &e : errors) ADD_FAILURE() << "unexpected expansion error: " << e;
+  return q.apply_instances(expansions);
+}
+}  // namespace
+
+TEST_F(PdhQueryLifecycleTest, VanishedInstanceCostsNoSleepAndIsDroppedOnReexpansion) {
+  mock->expanded_paths = {disk_c, disk_1, disk_2};
+  const PDH::pdh_instance disks = PDH::factory::create(wildcard_object("disk", "\\PhysicalDisk($INSTANCE$)\\% Disk Time"));
+  ASSERT_EQ(instance_names(disks), (std::list<std::string>{"disk_0 C:", "disk_1", "disk_2"}));
+  PDH::PDHQuery q;
+  q.addCounter(disks);
+  q.open();
+  EXPECT_TRUE(q.has_instance_counters());
+  q.gatherData(false);
+
+  // Two users sign out.
+  mock->path_status[disk_1] = PDH_INVALID_DATA;
+  mock->path_status[disk_2] = PDH_INVALID_DATA;
+
+  // The first gather gives them a second sample - one, shared by both.
+  int before = mock->collect_calls;
+  EXPECT_NO_THROW(q.gatherData(false));
+  EXPECT_EQ(mock->collect_calls - before, 2) << "one re-collect for every counter without data, not one each";
+
+  // After that they cost nothing: no retry, so no sleep.
+  for (int tick = 0; tick < 3; ++tick) {
+    before = mock->collect_calls;
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_NO_THROW(q.gatherData(false));
+    EXPECT_EQ(mock->collect_calls - before, 1) << "a counter that had no data on the previous gather is not retried";
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+  }
+  EXPECT_TRUE(q.has_stale_counters());
+
+  // The next expansion no longer lists them.
+  mock->expanded_paths = {disk_c};
+  const PDH::PDHQuery::instance_changes changes = reexpand(q);
+  EXPECT_TRUE(changes.added.empty());
+  EXPECT_TRUE(changes.reopened.empty());
+  ASSERT_EQ(changes.removed.size(), 2u);
+  EXPECT_EQ(changes.removed.front(), std::make_pair(std::string("disk"), std::string("disk_1")));
+  EXPECT_EQ(changes.removed.back(), std::make_pair(std::string("disk"), std::string("disk_2")));
+  EXPECT_EQ(instance_names(disks), (std::list<std::string>{"disk_0 C:"}));
+  EXPECT_EQ(q.counters_.size(), 1u);
+  EXPECT_EQ(mock->open_counter_handles, 1) << "the departed instances' counters are removed from the query";
+  EXPECT_FALSE(q.has_stale_counters());
+
+  q.close();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  EXPECT_EQ(mock->open_handles, 0);
+  EXPECT_EQ(mock->unlocked_calls, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, InstanceThatAppearsIsAddedOnReexpansion) {
+  mock->expanded_paths = {disk_c};
+  const PDH::pdh_instance disks = PDH::factory::create(wildcard_object("disk", "\\PhysicalDisk($INSTANCE$)\\% Disk Time"));
+  PDH::PDHQuery q;
+  q.addCounter(disks);
+  q.open();
+  q.gatherData(false);
+  const PDH::pdh_instance kept = disks->get_instances().front();
+
+  // A user signs in.
+  mock->expanded_paths = {disk_c, disk_3};
+  const PDH::PDHQuery::instance_changes changes = reexpand(q);
+  EXPECT_TRUE(changes.removed.empty());
+  ASSERT_EQ(changes.added.size(), 1u);
+  EXPECT_EQ(changes.added.front(), std::make_pair(std::string("disk"), std::string("disk_3")));
+  EXPECT_EQ(instance_names(disks), (std::list<std::string>{"disk_0 C:", "disk_3"}));
+  EXPECT_EQ(disks->get_instances().front(), kept) << "an instance still listed keeps its collector, and an rrd counter its history";
+  EXPECT_EQ(q.counters_.size(), 2u);
+  EXPECT_EQ(mock->open_counter_handles, 2) << "the new instance is added to the open query";
+
+  // Its first gather has no previous sample to compute a rate from; that
+  // must not stall the tick either - the next tick is its second sample.
+  mock->path_status[disk_3] = PDH_INVALID_DATA;
+  int before = mock->collect_calls;
+  EXPECT_NO_THROW(q.gatherData(false));
+  EXPECT_EQ(mock->collect_calls - before, 1);
+  mock->path_status.clear();
+  EXPECT_NO_THROW(q.gatherData(false));
+  EXPECT_FALSE(q.has_stale_counters());
+
+  // Expanding again with nothing changed changes nothing.
+  const PDH::PDHQuery::instance_changes again = reexpand(q);
+  EXPECT_TRUE(again.added.empty());
+  EXPECT_TRUE(again.removed.empty());
+  EXPECT_TRUE(again.reopened.empty());
+  EXPECT_EQ(q.counters_.size(), 2u);
+
+  q.close();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  EXPECT_EQ(mock->unlocked_calls, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, StaleInstanceThatIsStillListedIsReadded) {
+  // Disk numbers are reused: the next user to sign in can get the number of
+  // the one who left, so the instance is listed again under the same path.
+  // Its counter is bound afresh rather than left on the old handle.
+  mock->expanded_paths = {disk_c, disk_1};
+  const PDH::pdh_instance disks = PDH::factory::create(wildcard_object("disk", "\\PhysicalDisk($INSTANCE$)\\% Disk Time"));
+  PDH::PDHQuery q;
+  q.addCounter(disks);
+  q.open();
+  const PDH::pdh_instance reused = disks->get_instances().back();
+  mock->path_status[disk_1] = PDH_INVALID_DATA;
+  for (int tick = 0; tick < PDH::PDHQuery::stale_after_ticks; ++tick) q.gatherData(false);
+  ASSERT_TRUE(q.has_stale_counters());
+
+  const int adds_before = mock->add_counter_calls;
+  const PDH::PDHQuery::instance_changes changes = reexpand(q);
+  EXPECT_TRUE(changes.added.empty());
+  EXPECT_TRUE(changes.removed.empty());
+  ASSERT_EQ(changes.reopened.size(), 1u);
+  EXPECT_EQ(changes.reopened.front().second, "disk_1");
+  EXPECT_EQ(mock->add_counter_calls - adds_before, 1);
+  EXPECT_EQ(disks->get_instances().back(), reused);
+  EXPECT_EQ(q.counters_.size(), 2u);
+  EXPECT_EQ(mock->open_counter_handles, 2);
+  EXPECT_FALSE(q.has_stale_counters());
+  q.close();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, RejectedWildcardAddIsNotKeptForReexpansion) {
+  // The collector retries a predefined counter PDH rejects every minute
+  // (#634). Each rejected attempt must leave nothing behind for re-expansion
+  // to find, and the one that succeeds registers the counter once.
+  mock->expanded_paths = {disk_c, disk_1};
+  const PDH::pdh_object disk_object = wildcard_object("disk", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
+  PDH::PDHQuery q;
+  q.open();
+  mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
+  for (int attempt = 0; attempt < 3; ++attempt) {
+    EXPECT_THROW(q.addCounter(PDH::factory::create(disk_object)), PDH::pdh_exception);
+  }
+  EXPECT_FALSE(q.has_instance_counters());
+  EXPECT_TRUE(q.counters_.empty());
+
+  mock->add_counter_status = ERROR_SUCCESS;
+  const PDH::pdh_instance disks = PDH::factory::create(disk_object);
+  q.addCounter(disks);
+  ASSERT_EQ(q.containers_.size(), 1u);
+  EXPECT_EQ(q.counters_.size(), 2u);
+
+  mock->expanded_paths = {disk_c};
+  EXPECT_EQ(reexpand(q).removed.size(), 1u);
+  EXPECT_EQ(instance_names(disks), (std::list<std::string>{"disk_0 C:"}));
+  q.close();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  EXPECT_EQ(mock->unlocked_calls, 0);
+}
+
+TEST_F(PdhQueryLifecycleTest, FailedReexpansionKeepsTheCurrentInstances) {
+  mock->expanded_paths = {disk_c, disk_1};
+  const PDH::pdh_instance disks = PDH::factory::create(wildcard_object("disk", "\\PhysicalDisk($INSTANCE$)\\% Disk Time"));
+  PDH::PDHQuery q;
+  q.addCounter(disks);
+  q.open();
+
+  // A failed enumeration says nothing about which instances are gone.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_OBJECT;
+  mock->add_counter_status = PDH_CSTATUS_NO_OBJECT;
+  std::list<std::string> errors;
+  const PDH::PDHQuery::expansion_list expansions = q.expand_instances(errors);
+  EXPECT_TRUE(expansions.empty());
+  ASSERT_EQ(errors.size(), 1u);
+  EXPECT_EQ(errors.front().rfind("disk: ", 0), 0u) << errors.front();
+  q.apply_instances(expansions);
+  EXPECT_EQ(instance_names(disks), (std::list<std::string>{"disk_0 C:", "disk_1"}));
+  EXPECT_EQ(q.counters_.size(), 2u);
+
+  // An object that resolves with no instances at all has lost all of them.
+  mock->expand_wild_card_status = PDH_CSTATUS_NO_INSTANCE;
+  mock->add_counter_status = ERROR_SUCCESS;
+  const PDH::PDHQuery::instance_changes changes = reexpand(q);
+  EXPECT_EQ(changes.removed.size(), 2u);
+  EXPECT_TRUE(disks->get_instances().empty());
+  EXPECT_TRUE(q.counters_.empty());
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  EXPECT_NO_THROW(q.gatherData(false)) << "a query whose instances are all gone samples nothing";
+
+  // And picks them up again when they come back.
+  mock->expand_wild_card_status = ERROR_SUCCESS;
+  mock->expanded_paths = {disk_c};
+  EXPECT_EQ(reexpand(q).added.size(), 1u);
+  EXPECT_EQ(mock->open_counter_handles, 1);
+  q.close();
+  EXPECT_EQ(mock->open_counter_handles, 0);
+  EXPECT_EQ(mock->open_handles, 0);
 }
 
 // ----------------------------------------------------------------------------
