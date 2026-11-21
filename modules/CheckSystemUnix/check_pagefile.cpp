@@ -71,8 +71,7 @@ void check_pagefile(std::shared_ptr<pdh_thread> collector, const PB::Commands::Q
 
   filter_type filter;
   filter_helper.add_options("used > 60%", "used > 80%", "", filter.get_filter_syntax(), "ignored");
-  filter_helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent);
-  filter_helper.add_short_threshold_replaces("used");
+  filter_helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "40", "20");
   filter_helper.add_syntax("${status}: ${list}", "${name} ${used} (${size})", "${name}", "", "");
   filter_helper.add_warmup_option();
 
