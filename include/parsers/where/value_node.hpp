@@ -56,6 +56,9 @@ struct string_value : node_value_impl<std::string>, std::enable_shared_from_this
   }
   value_type infer_type(object_converter) override { return type_string; }
   bool find_performance_data(evaluation_context context, performance_collector &collector) override;
+
+ private:
+  value_container not_a_number(const evaluation_context &context) const;
 };
 struct int_value : node_value_impl<long long>, std::enable_shared_from_this<int_value> {
   explicit int_value(const long long &value, const bool is_unsure = false) : node_value_impl<long long>(value, type_int, is_unsure) {}

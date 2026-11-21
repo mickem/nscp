@@ -176,6 +176,11 @@ read_arg_type read_arguments(const evaluation_context &context, const node_type 
   std::list<node_type>::const_iterator cit;
   if (list.size() > 0) {
     cit = list.begin();
+    // A converter turns this into the number a keyword is compared against.
+    // Text that is not a number has none (string_value answers no-value), and
+    // the bare accessors below would quietly read it as 0: `load != 'beta'`
+    // became `load != 0`. Report it, so the check ends UNKNOWN instead.
+    if ((*cit)->get_value(context, type_float).is_no_value) context->error("Not a number: " + (*cit)->to_string(context));
     value_int = (*cit)->get_int_value(context);
     value_float = (*cit)->get_float_value(context);
   }

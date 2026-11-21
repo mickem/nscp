@@ -1900,6 +1900,22 @@ describe("CheckNet commands", () => {
     expect(messageOf(q)).toMatch(/No host specified/);
   });
 
+  it("check_ping refuses a count that sends nothing", async () => {
+    // count=0 used to skip the send loop entirely and report the host as
+    // healthy: nothing sent, "Packet loss = 0%", OK. Like the cases above, the
+    // guard runs before any socket is opened.
+    for (const count of ["0", "-3"]) {
+      const q = await executeQuery(key, "check_ping", {
+        host: "127.0.0.1",
+        count,
+      });
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(
+        new RegExp(`Invalid count: ${count} \\(expected 1 or more\\)`),
+      );
+    }
+  });
+
   // --- real network, real trust store ---------------------------------------
   // Everything else in this file talks to a listener on loopback, and every TLS
   // case passes `verify: none` or an explicit `ca=`. That is deliberate - the

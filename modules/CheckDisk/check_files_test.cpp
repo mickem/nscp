@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
+#include <ctime>
 #include <fstream>
 #include <string>
 
@@ -378,4 +379,40 @@ TEST(CheckFilesCommand, MixedCritWithSummaryDoesNotEmitMutatingWarn) {
   EXPECT_EQ(out.find("Ignoring unsure result"), std::string::npos) << "rendered message should not contain match()'s unsure-result warning "
                                                                       "for summary-only contributions. Got: "
                                                                    << out;
+}
+
+// ============================================================================
+// age takes durations
+// ============================================================================
+
+namespace {
+// check_files over one file last written `seconds_ago`, with the given args.
+PB::Common::ResultCode run_age(const ScratchDir &dir, const std::vector<std::string> &args, std::string &message) {
+  PB::Commands::QueryRequestMessage::Request request;
+  PB::Commands::QueryResponseMessage::Response response;
+  request.set_command("check_files");
+  request.add_arguments("path=" + dir.string());
+  request.add_arguments("pattern=*.log");
+  for (const std::string &a : args) request.add_arguments(a);
+  check_files_command::check(request, &response, check_disk_test_support::unrestricted());
+  message = join_lines(response);
+  return response.result();
+}
+}  // namespace
+
+TEST(CheckFilesCommand, AgeTakesDurations) {
+  // The documented `age > 5m` / `age > 7d`. As a plain int the unit was
+  // refused and the threshold compared against 0: every file fired.
+  const ScratchDir dir;
+  dir.touch("old.log");
+  const fs::path file = fs::path(dir.string()) / "old.log";
+  fs::last_write_time(file, std::time(nullptr) - 2 * 3600);  // written two hours ago
+
+  std::string message;
+  EXPECT_EQ(run_age(dir, {"warning=none", "critical=age > 1h"}, message), PB::Common::ResultCode::CRITICAL) << message;
+  EXPECT_EQ(run_age(dir, {"warning=none", "critical=age > 3h"}, message), PB::Common::ResultCode::OK) << message;
+  EXPECT_EQ(run_age(dir, {"warning=none", "critical=age > 90m"}, message), PB::Common::ResultCode::CRITICAL) << message;
+  EXPECT_EQ(run_age(dir, {"warning=none", "critical=age > 1d"}, message), PB::Common::ResultCode::OK) << message;
+  // A plain number is still seconds.
+  EXPECT_EQ(run_age(dir, {"warning=none", "critical=age > 3600"}, message), PB::Common::ResultCode::CRITICAL) << message;
 }

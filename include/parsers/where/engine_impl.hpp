@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <parsers/where/node.hpp>
 
 namespace parsers {
@@ -105,8 +106,14 @@ struct evaluation_context_impl : object_factory_interface {
     errors_.clear();
     warnings_.clear();
   }
-  void error(const std::string msg) override { errors_.push_back(msg); }
-  void warn(const std::string msg) override { warnings_.push_back(msg); }
+  // One evaluation can hit the same failure more than once (a converter runs
+  // for each side that needs it); the message names it once.
+  void error(const std::string msg) override {
+    if (std::find(errors_.begin(), errors_.end(), msg) == errors_.end()) errors_.push_back(msg);
+  }
+  void warn(const std::string msg) override {
+    if (std::find(warnings_.begin(), warnings_.end(), msg) == warnings_.end()) warnings_.push_back(msg);
+  }
 };
 }  // namespace where
 }  // namespace parsers

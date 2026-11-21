@@ -4,6 +4,7 @@
 #include "check_webserver.h"
 
 #include <boost/program_options.hpp>
+#include <check/duration_keyword.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -103,7 +104,12 @@ struct filter_obj_handler : public native_context {
         .add_int_var("total_workers", parsers::where::type_int, [](auto obj) { return obj->s.busy_workers + obj->s.idle_workers; },
                      "Busy plus idle workers (the currently running worker pool)")
         .add_int_perf("", "", "_total_workers");
-    registry_.add_int_var("uptime", parsers::where::type_int, [](auto obj) { return obj->s.uptime; }, "Server uptime in seconds").add_int_perf("s", "", "_uptime");
+    // Seconds; takes durations (`uptime < 10m`).
+    registry_
+        .add_int_var(
+            "uptime", parsers::where::type_custom_int_1, [](auto obj) { return obj->s.uptime; }, "Server uptime in seconds; takes durations, e.g. uptime < 10m")
+        .add_int_perf("s", "", "_uptime");
+    registry_.add_converter(parsers::where::type_custom_int_1, &duration_keyword::parse_duration<std::shared_ptr<filter_obj> >);
     registry_.add_int_var("total_accesses", parsers::where::type_int, [](auto obj) { return obj->s.total_accesses; }, "Requests served since start")
         .add_int_perf("c", "", "_total_accesses");
     registry_.add_int_var("total_kbytes", parsers::where::type_int, [](auto obj) { return obj->s.total_kbytes; }, "kBytes served since start")

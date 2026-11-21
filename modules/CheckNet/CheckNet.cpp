@@ -93,6 +93,9 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   if (size < 0 || size > kMaxPingPayload)
     return nscapi::protobuf::functions::set_response_bad(
         *response, "Invalid size: " + str::xtos(size) + " (expected 0-" + str::xtos(kMaxPingPayload) + ")");
+  // Zero packets used to sail through: nothing was sent, loss read 0% and the
+  // host came back OK without ever being pinged.
+  if (count < 1) return nscapi::protobuf::functions::set_response_bad(*response, "Invalid count: " + str::xtos(count) + " (expected 1 or more)");
   if (ttl < 0 || ttl > 255)
     return nscapi::protobuf::functions::set_response_bad(*response, "Invalid ttl: " + str::xtos(ttl) + " (expected 0-255)");
 

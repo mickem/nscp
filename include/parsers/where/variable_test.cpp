@@ -1189,16 +1189,22 @@ TEST(VariableCrossType, IntVarVsNumericStringIsNotAStringCompare) {
   EXPECT_EQ("", gt.eval_error);
 }
 
-TEST(VariableCrossType, IntVarVsNonNumericStringIsAnError) {
+TEST(VariableCrossType, IntVarVsNonNumericStringNeverMatches) {
+  // Text that is not a number never matches a numeric comparison, = and !=
+  // alike. That is the rule, not an evaluation error: an error now ends the
+  // check UNKNOWN, and this comparison is well defined.
   const cmp_outcome eq = run_cmp(new_int_var(), op_eq, factory::create_string("abc"), ctx_with(42, 0.0, ""));
   EXPECT_FALSE(eq.truth);
-  EXPECT_NE("", eq.eval_error);
+  EXPECT_EQ("", eq.eval_error);
+  const cmp_outcome ne = run_cmp(new_int_var(), op_ne, factory::create_string("abc"), ctx_with(42, 0.0, ""));
+  EXPECT_FALSE(ne.truth);
+  EXPECT_EQ("", ne.eval_error);
 }
 
 TEST(VariableCrossType, IntVarLikeNonNumericStringDoesNotError) {
   // `like` asks the (int-typed) conversion node for a string, which passes
-  // the literal straight through - so a pattern that is not a number is fine
-  // here even though `=` against the same literal is an error.
+  // the literal straight through - so a pattern that is not a number is
+  // compared as text here, where `=` against the same literal never matches.
   const cmp_outcome like = run_cmp(new_int_var(), op_like, factory::create_string("ab"), ctx_with(42, 0.0, ""));
   EXPECT_FALSE(like.truth);
   EXPECT_EQ("", like.eval_error);

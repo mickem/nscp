@@ -4,6 +4,7 @@
 #include "check_hyperv_vms.hpp"
 
 #include <boost/program_options.hpp>
+#include <check/duration_keyword.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -233,8 +234,14 @@ struct filter_obj_handler : public native_context {
                              "What the guest's heartbeat integration service reports: ok, degraded, error, non_recoverable_error, no_contact, "
                              "lost_communication, dormant; disabled when the service is turned off in the VM settings, none when the VM has no "
                              "heartbeat component");
-    registry_.add_int_var("uptime", type_int, [](auto obj) { return obj->vm.uptime_seconds; }, "Seconds since the VM was last started (0 when it is off)")
+    // Seconds; takes durations (`uptime < 10m`) - as a plain int a unit was
+    // refused and the threshold compared against 0.
+    registry_
+        .add_int_var(
+            "uptime", parsers::where::type_custom_int_1, [](auto obj) { return obj->vm.uptime_seconds; },
+            "Seconds since the VM was last started (0 when it is off); takes durations, e.g. uptime < 10m")
         .add_int_perf("s", "", "_uptime");
+    registry_.add_converter(parsers::where::type_custom_int_1, &duration_keyword::parse_duration<std::shared_ptr<filter_obj> >);
     registry_.add_int_var("last_state_change", type_date, [](auto obj) { return obj->vm.last_state_change_epoch; },
                           "When the VM last changed power state. Comparable to relative times, e.g. last_state_change > -1h.");
     registry_.add_int_var("pid", type_int, [](auto obj) { return obj->vm.process_id; }, "Process id of the VM's worker process (0 when it is off)");
