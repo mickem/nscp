@@ -43,6 +43,12 @@
     for. Without a manifest every enrolled host is required.
 .PARAMETER AllHosts
     Ignore the manifest and require every host enrolled with the fleet server.
+.PARAMETER Mode
+    "passive" (the default) is the flow described above. "agent" gates the
+    agent-mode flow instead: every host must exist and be UP (its agent is
+    connected), and every entry of agent-checks.json must be a Service of it
+    whose last result came from the agent itself (check_source is the agent,
+    not the master answering for an agent that is not connected).
 .PARAMETER WaitMinutes
     How long to keep polling before giving up (default 10). 0 checks once.
 .PARAMETER FleetNoVerify
@@ -57,6 +63,7 @@ param(
     [string[]]$Hosts = @(),
     [string]$ManifestFile = "",
     [switch]$AllHosts,
+    [ValidateSet("passive", "agent")][string]$Mode = "passive",
     [int]$WaitMinutes = 10,
     [switch]$FleetNoVerify
 )
@@ -87,9 +94,11 @@ if (-not $ApiKey) {
     exit 1
 }
 
-$catalog = Read-PassiveCheckCatalog -Path (Join-Path $scriptDir "passive-checks.json")
+$catalog = if ($Mode -eq "agent") { Read-AgentCheckCatalog -Path (Join-Path $scriptDir "agent-checks.json") }
+else { Read-PassiveCheckCatalog -Path (Join-Path $scriptDir "passive-checks.json") }
 # IcingaClient submits the schedule called host_check as the host's own result.
-$expectHostCheck = [bool]($catalog.Services | Where-Object { $_.name -eq "host_check" })
+# In agent mode the host has a check of its own (cluster-zone), required below.
+$expectHostCheck = $Mode -eq "agent" -or [bool]($catalog.Services | Where-Object { $_.name -eq "host_check" })
 $serviceNames = @($catalog.Services | ForEach-Object { $_.name } | Where-Object { $_ -ne "host_check" })
 
 $icingaBase = $icinga.IcingaUrl.TrimEnd('/')
@@ -152,6 +161,25 @@ function Test-PassiveResult {
     return ($null -ne $result -and $result.active -eq $false)
 }
 
+# Agent mode: a result only counts when the agent itself produced it. With
+# `command_endpoint` the result's check_source is the agent's endpoint name;
+# while the agent is not connected Icinga answers in its place (UNKNOWN,
+# check_source = the master), and that must not pass.
+function Test-AgentResult {
+    param($Object, [string]$Endpoint)
+    if (-not $Object) { return $false }
+    $result = $Object.attrs.last_check_result
+    return ($null -ne $result -and "$($result.check_source)" -eq $Endpoint)
+}
+
+# The host is checked by the master (cluster-zone): UP means the agent's zone
+# is connected.
+function Test-AgentHost {
+    param($Object)
+    if (-not $Object) { return $false }
+    return ($null -ne $Object.attrs.last_check_result -and [int]$Object.attrs.state -eq 0)
+}
+
 # Which hosts: -Hosts, else the estate manifest, else (or with -AllHosts)
 # everything enrolled. The fleet server usually holds machines this estate does
 # not own - a developer's own desktop, say - and one of those that is switched
@@ -163,7 +191,23 @@ if ($Hosts.Count -eq 0 -and -not $AllHosts) {
     $hostsFromManifest = $Hosts.Count -gt 0
 }
 
+if ($Mode -eq "agent") {
+    $resultKind = "a result from the agent"
+    $hint = "   A missing host was never registered: the sync timer on the Icinga VM adds a host within a minute of its`n" +
+    "   enrollment (journalctl -u fleet-icinga-agent-sync), and skips one that is already defined elsewhere.`n" +
+    "   A check without a result from the agent means the agent is not connected: check its nsclient.log for`n" +
+    "   'Icinga agent' lines, that the build has the IcingaAgent module and it was loaded when the bundle arrived,`n" +
+    "   and that the machine can reach port 5665 on the Icinga VM."
+}
+else {
+    $resultKind = "a passive result"
+    $hint = "   A missing host never submitted anything: check the agent's nsclient.log for IcingaClient errors,`n" +
+    "   that IcingaClient and Scheduler were loaded when the bundle arrived (they are activated at install`n" +
+    "   time by the setup scripts), and that the machine can reach port 5665 on the Icinga VM."
+}
+
 Write-Host "Fleet server:  $FleetServer"
+Write-Host "Mode:          $Mode"
 Write-Host ("Hosts:         " + $(if ($hostsFromManifest) { "the $($Hosts.Count) machine(s) in $ManifestFile" }
         elseif ($Hosts.Count -gt 0) { $Hosts -join ', ' }
         else { "every host enrolled with the fleet server" }))
@@ -212,11 +256,15 @@ while ($true) {
             $missingHosts += $hostname
             continue
         }
-        if ($expectHostCheck -and -not (Test-PassiveResult $hostObjects[$key])) {
+        $hostOk = if ($Mode -eq "agent") { Test-AgentHost $hostObjects[$key] } else { Test-PassiveResult $hostObjects[$key] }
+        if ($expectHostCheck -and -not $hostOk) {
             $waiting += "$hostname/host_check"
         }
         foreach ($serviceName in $serviceNames) {
-            if (-not (Test-PassiveResult $serviceObjects["$key!$serviceName".ToLowerInvariant()])) {
+            $service = $serviceObjects["$key!$serviceName".ToLowerInvariant()]
+            # $key is also the agent's endpoint name: its lower-cased host name.
+            $serviceOk = if ($Mode -eq "agent") { Test-AgentResult $service $key } else { Test-PassiveResult $service }
+            if (-not $serviceOk) {
                 $waiting += "$hostname/$serviceName"
             }
         }
@@ -246,14 +294,12 @@ while ($true) {
         Write-Host ""
         Write-Error ("❌ The estate did not converge within $WaitMinutes minute(s).`n" +
             "   Hosts missing from Icinga:      " + $(if ($missingHosts) { $missingHosts -join ", " } else { "none" }) + "`n" +
-            "   Checks without a passive result: " + $(if ($waiting) { $waiting -join ", " } else { "none" }) + "`n" +
+            "   Checks without ${resultKind}: " + $(if ($waiting) { $waiting -join ", " } else { "none" }) + "`n" +
             $(if ($notEnrolled) { "   Not enrolled with the fleet server: " + ($notEnrolled -join ", ") + " (in the manifest, but the fleet server has no such host)`n" } else { "" }) +
-            "   A missing host never submitted anything: check the agent's nsclient.log for IcingaClient errors,`n" +
-            "   that IcingaClient and Scheduler were loaded when the bundle arrived (they are activated at install`n" +
-            "   time by the setup scripts), and that the machine can reach port 5665 on the Icinga VM.")
+            $hint)
         exit 1
     }
-    Write-Host ("[{0:HH:mm:ss}] waiting - hosts missing: {1}, checks without a passive result: {2} (until {3:HH:mm:ss})" -f `
-            $now, $missingHosts.Count, $waiting.Count, $deadline)
+    Write-Host ("[{0:HH:mm:ss}] waiting - hosts missing: {1}, checks without {4}: {2} (until {3:HH:mm:ss})" -f `
+            $now, $missingHosts.Count, $waiting.Count, $deadline, $resultKind)
     Start-Sleep -Seconds 30
 }

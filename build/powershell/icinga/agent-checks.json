@@ -1,0 +1,12 @@
+{
+  "interval": "60s",
+  "services": [
+    { "name": "cpu", "command": "check_cpu", "arguments": [ "warning=load > 80", "critical=load > 95" ] },
+    { "name": "memory", "command": "check_memory" },
+    { "name": "drives", "command": "check_drivesize" },
+    { "name": "uptime", "command": "check_uptime" },
+    { "name": "pagefile", "command": "check_pagefile" },
+    { "name": "network", "command": "check_network" },
+    { "name": "os_version", "command": "check_os_version" }
+  ]
+}

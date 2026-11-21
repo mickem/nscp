@@ -314,6 +314,10 @@ sudo nscp settings --activate-module CheckDisk || true
 sudo nscp settings --activate-module NRDPClient || true
 sudo nscp settings --activate-module IcingaClient || true
 sudo nscp settings --activate-module Scheduler || true
+# IcingaAgent for the same reason (the agent-mode Icinga flow), but only where
+# the package ships it: the module is newer than the releases, and enabling a
+# module that is not there is an error in the log of every start.
+if find /usr /opt -name 'libIcingaAgent.so' 2>/dev/null | grep -q .; then sudo nscp settings --activate-module IcingaAgent || true; fi
 # The estate role's own modules (-Modules), activated here for the same reason.
 $(($extraModules | ForEach-Object { "sudo nscp settings --activate-module $_ || true" }) -join "`n")
 # The estate role's localSettings (-LocalSettings): keys the host's own

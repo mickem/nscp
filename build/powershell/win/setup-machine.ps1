@@ -487,6 +487,10 @@ $scriptBlock = @"
 & 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module NRDPClient
 & 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module IcingaClient
 & 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module Scheduler
+# IcingaAgent for the same reason (the agent-mode Icinga flow), but only where
+# the installer ships it: the module is newer than the releases, and enabling a
+# module that is not there is an error in the log of every start.
+if (Test-Path 'C:\Program Files\NSClient++\modules\IcingaAgent.dll') { & 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module IcingaAgent }
 # The estate role's own modules (-Modules), activated here for the same reason.
 $(($extraModules | ForEach-Object { "& 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module $_" }) -join "`n")
 # The estate role's localSettings (-LocalSettings): keys the host's own

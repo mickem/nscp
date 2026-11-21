@@ -457,6 +457,30 @@ function Read-PassiveCheckCatalog {
 
 <#
 .SYNOPSIS
+    Read the agent-mode check catalog (icinga/agent-checks.json).
+.DESCRIPTION
+    Like the passive catalog, with one addition: a service may carry
+    "arguments", a list of NSClient++ tokens ("warning=load > 80") the Icinga
+    master sends along with the query.
+.OUTPUTS
+    An object with Services (name, command, arguments), Interval and
+    IntervalSeconds.
+#>
+function Read-AgentCheckCatalog {
+    param([Parameter(Mandatory)][string]$Path)
+    $catalog = Read-PassiveCheckCatalog -Path $Path
+    foreach ($service in $catalog.Services) {
+        foreach ($argument in @($service.arguments | Where-Object { $null -ne $_ })) {
+            if ($argument -isnot [string] -or $argument -match "[`r`n]") {
+                throw "$Path : service '$($service.name)' has an argument that is not a single-line string."
+            }
+        }
+    }
+    $catalog
+}
+
+<#
+.SYNOPSIS
     Parse the .nagios.pwd file written by setup-nagios-machine.ps1.
 .OUTPUTS
     An object with PublicIp, NagiosUrl, NagiosUser, NagiosPassword, NrdpUrl,
@@ -489,7 +513,8 @@ function Read-NagiosPwdFile {
     Parse the .icinga.pwd file written by setup-icinga-machine.ps1.
 .OUTPUTS
     An object with PublicIp, IcingaUrl, AdminUser, AdminPassword, AgentUser,
-    AgentPassword and FleetServer (missing lines come back empty).
+    AgentPassword, FleetServer, Endpoint and Fingerprint (missing lines come
+    back empty).
 #>
 function Read-IcingaPwdFile {
     param([Parameter(Mandatory)][string]$Path)
@@ -510,6 +535,10 @@ function Read-IcingaPwdFile {
         AgentUser     = "$($values['Icinga Agent User'])"
         AgentPassword = "$($values['Icinga Agent Password'])"
         FleetServer   = "$($values['Fleet Server'])"
+        # Agent mode (setup-icinga-agent-sync.ps1): the master's endpoint
+        # name and the SHA-256 fingerprint of its certificate.
+        Endpoint      = "$($values['Icinga Endpoint'])"
+        Fingerprint   = "$($values['Icinga Fingerprint'])"
     }
 }
 
