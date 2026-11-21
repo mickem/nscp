@@ -25,6 +25,7 @@
 #include <threads/guarded_thread.hpp>
 
 #include "icinga_agent_connection.hpp"
+#include "icinga_agent_json.hpp"
 #include "icinga_agent_pki.hpp"
 #include "icinga_agent_protocol.hpp"
 
@@ -226,8 +227,8 @@ class agent : public std::enable_shared_from_this<agent> {
         NSC_LOG_ERROR("Icinga agent: pki::UpdateCertificate without a certificate");
         return false;
       }
-      store_signed_certificate(paths_, config_.endpoint_name, std::string(cert->value().as_string()),
-                               ca != obj.end() && ca->value().is_string() ? std::string(ca->value().as_string()) : std::string());
+      store_signed_certificate(paths_, config_.endpoint_name, json_util::to_text(cert->value()),
+                               ca != obj.end() && ca->value().is_string() ? json_util::to_text(ca->value()) : std::string());
       NSC_LOG_MESSAGE("Icinga agent: stored the certificate signed by the Icinga CA in " + paths_.certificate);
       return true;
     } catch (const std::exception &e) {
