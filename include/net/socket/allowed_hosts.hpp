@@ -7,6 +7,7 @@
 
 #include <mutex>
 #include <boost/asio/ip/address.hpp>
+#include <boost/optional.hpp>
 #include <list>
 #include <string>
 
@@ -68,6 +69,14 @@ struct allowed_hosts_manager {
   addr_v4 lookup_mask_v4(std::string mask);
   addr_v6 lookup_mask_v6(std::string mask);
   NSCP_NET_EXPORT void refresh(std::list<std::string> &errors);
+  // Adds the entries for one `allowed hosts` record once its address part is
+  // known: parsed, or resolved for a host name. `prefix` is the record's `/N`,
+  // disengaged when it has none. All or nothing: when the prefix is longer
+  // than any one address's family allows, the record is reported and none of
+  // its addresses is added. Called from refresh() with the lock held; public
+  // so a test can hand it a mixed-family resolution without DNS.
+  NSCP_NET_EXPORT void add_record(const std::string &record, const boost::optional<std::size_t> &prefix,
+                                  const std::list<boost::asio::ip::address> &addresses, std::list<std::string> &errors);
 
   template <class T>
   static bool match_host(const T &allowed, const T &mask, const T &remote) {
