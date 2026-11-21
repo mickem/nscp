@@ -20,6 +20,7 @@
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
+#include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <threads/guarded_io_context.hpp>
 #include <threads/guarded_thread.hpp>
@@ -38,6 +39,7 @@ struct agent_config {
   std::string endpoint_name;
   std::string certificate_directory;
   bool allow_arguments = true;
+  translation_config translation;
   std::string tls_version = "1.2+";
   std::string allowed_ciphers;
   std::string parent_fingerprint_setting;
@@ -239,7 +241,7 @@ class agent : public std::enable_shared_from_this<agent> {
   static double now() { return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); }
 
   void execute(const std::shared_ptr<connection> &conn, const boost::json::value &params) {
-    const query_request req = parse_execute_command(params);
+    const query_request req = parse_execute_command(params, config_.translation);
     check_result result;
     result.check_source = config_.endpoint_name;
     result.execution_start = now();
@@ -251,7 +253,7 @@ class agent : public std::enable_shared_from_this<agent> {
     } else if (!req.error.empty()) {
       result.exit_status = 3;
       result.output = "UNKNOWN: " + req.error;
-    } else if (!config_.allow_arguments && !req.arguments.empty()) {
+    } else if (!config_.allow_arguments && !req.arguments.empty() && !req.fixed_arguments) {
       result.exit_status = 3;
       result.output = "UNKNOWN: arguments are not allowed on this agent (see /settings/Icinga/agent/allow arguments)";
     } else {
@@ -319,6 +321,24 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
   // clang-format off
   settings.alias().add_path_to_settings()
     ("Icinga agent", "Native Icinga 2 agent: connect to an Icinga 2 parent over the cluster protocol and run the checks it schedules.")
+    ("commands", sh::fun_values_path([&config](auto key, auto value) {
+        try {
+          icinga_agent::command_alias alias;
+          str::utils::parse_alias_command(value, alias.query, alias.arguments);
+          if (alias.query.empty()) throw std::invalid_argument("no query");
+          config.translation.aliases[key] = alias;
+        } catch (const std::exception &e) {
+          NSC_LOG_ERROR("Icinga agent: refusing the command alias '" + key + "': " + utf8::utf8_from_native(e.what()));
+        }
+      }),
+      "Icinga command aliases",
+      "Icinga check commands this agent answers as an NSClient++ query: `<Icinga command> = <query> <argument>...`. "
+      "An argument may use the macros the master sends with the check, as the command's own arguments do on the master "
+      "(`disk-windows = check_drivesize drive=$disk_win_path$`): an argument whose macro has no value is left out, "
+      "and one that is a single list macro becomes one argument per element. "
+      "An alias here takes precedence over the built-in translation of the same command (see `translate commands`). "
+      "Commands that import `ifw-api` name their own query and are not looked up here.",
+      "ICINGA COMMAND", "The NSClient++ query and arguments to run for this Icinga check command")
   ;
   // clang-format on
   settings.alias()
@@ -355,6 +375,14 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
                 "Whether the parent may pass arguments to the checks it runs. True (the default) because Icinga CheckCommands carry their "
                 "thresholds as arguments; false runs only argument-less queries and aliases defined on the agent. Which queries the parent may "
                 "run at all is the permission policy's job (/settings/permissions).")
+      .add_bool("translate commands", sh::bool_key(&config.translation.builtin, true), "TRANSLATE ICINGA COMMANDS",
+                "Whether the agent answers the Windows check commands of the Icinga Template Library under their Icinga names: "
+                "`disk-windows`, `load-windows`, `memory-windows`, `swap-windows`, `service-windows`, `procs-windows`, `uptime-windows`, "
+                "`users-windows`, `network-windows`, `perfmon-windows`, `update-windows`, `ping-windows` and the `nscp-local` commands. "
+                "The master sends such a command with the variables the service set (`disk_win_warn`, `disk_win_path`, ...); the agent "
+                "turns them into the matching query and its `-w` / `-c`, so a host that ran the Icinga 2 agent keeps its services "
+                "unchanged. True (the default); false runs only `ifw-api` commands, the aliases under `commands` and queries called "
+                "by their own name.")
       .add_string("tls version", sh::string_key(&config.tls_version, "1.2+"), "TLS VERSION",
                   "Which TLS versions the agent negotiates with its parent, in the same vocabulary as the other servers and clients: an exact "
                   "version (1.0, 1.1, 1.2, 1.3), a trailing + for that version or later, or `any`. The default, 1.2+, is what Icinga 2 accepts "

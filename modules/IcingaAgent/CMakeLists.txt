@@ -15,6 +15,8 @@ set(PROTOCOL_SRCS
     icinga_agent_macros.cpp
     icinga_agent_messages.cpp
     icinga_agent_netstring.cpp
+    icinga_agent_thresholds.cpp
+    icinga_agent_translate.cpp
 )
 
 set(SRCS
@@ -43,6 +45,8 @@ if(WIN32)
         icinga_agent_macros.hpp
         icinga_agent_messages.hpp
         icinga_agent_netstring.hpp
+        icinga_agent_thresholds.hpp
+        icinga_agent_translate.hpp
         icinga_agent_connection.hpp
         icinga_agent_pki.hpp
         icinga_agent_openssl.hpp
@@ -77,6 +81,8 @@ NSCP_CREATE_TEST(
         icinga_agent_macros_test.cpp
         icinga_agent_messages_test.cpp
         icinga_agent_netstring_test.cpp
+        icinga_agent_thresholds_test.cpp
+        icinga_agent_translate_test.cpp
         ${PROTOCOL_SRCS}
     LIBRARIES
         GTest::gtest_main
