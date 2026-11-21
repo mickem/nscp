@@ -100,7 +100,7 @@ struct cli_helper : boost::noncopyable {
   // The -w / -c short thresholds (threshold_shorthand.hpp): which keyword a
   // bare "-w 80" bounds, and what was passed.
   shorthand::spec_list short_thresholds;
-  std::vector<std::string> short_threshold_replaces;
+  std::vector<std::string> short_warn_templates, short_crit_templates;
   bool short_thresholds_declared;
   bool short_thresholds_registered;
   bool short_thresholds_disabled;
@@ -286,21 +286,31 @@ struct cli_helper : boost::noncopyable {
 
   // Says what "-w 80" means for this check: `variable` is the keyword a bare
   // number bounds and `dir` the side it alerts on, so ("load", above) reads
-  // "-w 80" as "warning=load > 80". Call it again for a check whose standard
-  // counterpart takes a list ("-w 100,20%" for a ping is time, then loss).
+  // "-w 80" as "warning=load > 80". `warn_default` and `crit_default` are what
+  // the check's own defaults amount to in the short form ("80", "90"): they
+  // are shown as the defaults of -w and -c, and fill in for a value that is
+  // left out of a list. Call it again for a check whose standard counterpart
+  // takes a list ("-w 100,20%" for a ping is time, then loss).
   // A check that never calls it bounds the number of matched items (`count`),
   // which every filter check has. Can be called before or after add_options().
-  void add_short_threshold(const std::string &variable, const shorthand::direction dir, const shorthand::unit value_unit = shorthand::unit_plain) {
-    short_thresholds.push_back(shorthand::spec(variable, dir, value_unit));
-    short_threshold_replaces.push_back(variable);
+  void add_short_threshold(const std::string &variable, const shorthand::direction dir, const shorthand::unit value_unit = shorthand::unit_plain,
+                           const std::string &warn_default = "", const std::string &crit_default = "") {
+    short_thresholds.push_back(shorthand::spec(variable, dir, value_unit, warn_default, crit_default));
     short_thresholds_declared = true;
   }
 
-  // A short threshold takes the place of the default bound on its keyword and
-  // keeps the rest of the default (see shorthand::keep_unbounded). When the
-  // default bounds another keyword for the same thing - "used > 80%" where the
-  // short form bounds "free" - name it here so that it is replaced as well.
-  void add_short_threshold_replaces(const std::string &variable) { short_threshold_replaces.push_back(variable); }
+  // What -w / -c stand for when the threshold is more than a bound: a
+  // template in which ${keyword} is the bound on that keyword, for instance
+  // "${time} or result != 'ok'" or "decisions >= min_requests and
+  // ${reject_pct}" (see threshold_shorthand.hpp). Without one the short form
+  // is the bound alone. This is the whole statement of what the short form
+  // means - nothing is taken from the text of the default expression - so it
+  // has to carry every condition and guard that should survive -w / -c.
+  // Call it more than once for a check with several expressions on a side.
+  // Superseded by the templates; kept until the checks stop calling it.
+  void add_short_threshold_replaces(const std::string &) {}
+  void add_short_warning(const std::string &text) { short_warn_templates.push_back(text); }
+  void add_short_critical(const std::string &text) { short_crit_templates.push_back(text); }
 
   // For the few users of this helper that are not a check of anything (the
   // CheckHelpers commands that reshape another check's result): they get no
@@ -314,24 +324,32 @@ struct cli_helper : boost::noncopyable {
     short_thresholds_registered = true;
     const bool is_default = !short_thresholds_declared;
     if (is_default) short_thresholds.push_back(shorthand::spec("count", shorthand::above));
-    const std::string reads = shorthand::describe(short_thresholds);
+    const std::string usage = shorthand::describe_usage(short_thresholds);
     std::string tail =
         "\nTakes a number or a range in the format of the monitoring plugins (10: is below 10, ~:10 is above 10, 10:20 is outside 10 to 20 and @10:20 is "
         "inside it); anything else is used as an expression as it is.";
-    if (short_thresholds.size() > 1) tail += "\nTakes one value per keyword, separated by commas; a value can be left out.";
+    if (short_thresholds.size() > 1) tail += "\nTakes one value per keyword, separated by commas; one that is left out keeps its default.";
     const std::string unit_text = shorthand::describe_unit(short_thresholds.front());
     if (!unit_text.empty()) tail += "\n" + unit_text;
     // Only the form every check without a keyword of its own shares is a
     // common option; a check-specific one stays on the command's own page.
     if (is_default) tail += common_option_marker;
-    const std::string replaces = is_default ? " and replaces the default " : " and replaces that bound in the default ";
-    const std::string warn_text = "Short form of warning: -w N is the same as warning=\"" + reads + "\"" + replaces + "warning." + tail;
-    const std::string crit_text = "Short form of critical: -c N is the same as critical=\"" + reads + "\"" + replaces + "critical." + tail;
+    const std::string warn_text = "Short form of warning: -w " + usage + " is the same as warning=\"" +
+                                  shorthand::describe(short_thresholds, short_warn_templates) + "\" and replaces the default warning." + tail;
+    const std::string crit_text = "Short form of critical: -c " + usage + " is the same as critical=\"" +
+                                  shorthand::describe(short_thresholds, short_crit_templates) + "\" and replaces the default critical." + tail;
     // A check that already has an option of that name keeps it.
-    if (desc.find_nothrow("w", false) == nullptr)
-      desc.add_options()("w", boost::program_options::value<std::vector<std::string> >(&short_warn), warn_text.c_str());
-    if (desc.find_nothrow("c", false) == nullptr)
-      desc.add_options()("c", boost::program_options::value<std::vector<std::string> >(&short_crit), crit_text.c_str());
+    if (desc.find_nothrow("w", false) == nullptr) desc.add_options()("w", short_option(short_warn, shorthand::warning), warn_text.c_str());
+    if (desc.find_nothrow("c", false) == nullptr) desc.add_options()("c", short_option(short_crit, shorthand::critical), crit_text.c_str());
+  }
+  // The option carries the short form of the check's own default as its
+  // default value, so that help, show-default and the reference docs show
+  // "-w 80" next to "warning=load > 80".
+  boost::program_options::typed_value<std::vector<std::string> > *short_option(std::vector<std::string> &store, const shorthand::side which) const {
+    boost::program_options::typed_value<std::vector<std::string> > *option = boost::program_options::value<std::vector<std::string> >(&store);
+    const std::string value = shorthand::default_value(short_thresholds, which);
+    if (!value.empty()) option->default_value(std::vector<std::string>(1, value), value);
+    return option;
   }
 
   // The request with "-w 80" rewritten into the shape the rest of its
@@ -346,40 +364,31 @@ struct cli_helper : boost::noncopyable {
   }
 
   // Turns what -w / -c were given into expressions. A short threshold takes
-  // the place of the check's default bound; next to an explicit warning= it is
-  // one more expression.
+  // the place of the check's default for its side - the template says what
+  // that is - and next to an explicit warning= it is one more expression.
   bool apply_short_thresholds(const boost::program_options::variables_map &vm) {
-    return apply_short_threshold(vm, "warning", short_warn, data.warn_string) && apply_short_threshold(vm, "critical", short_crit, data.crit_string);
+    return apply_short_threshold(vm, "w", "warning", shorthand::warning, short_warn, short_warn_templates, data.warn_string) &&
+           apply_short_threshold(vm, "c", "critical", shorthand::critical, short_crit, short_crit_templates, data.crit_string);
   }
-  bool apply_short_threshold(const boost::program_options::variables_map &vm, const std::string &option, const std::vector<std::string> &values,
+  bool apply_short_threshold(const boost::program_options::variables_map &vm, const std::string &short_name, const std::string &option,
+                             const shorthand::side which, const std::vector<std::string> &values, const std::vector<std::string> &templates,
                              std::vector<std::string> &target) {
-    if (values.empty()) return true;
+    // The option's default is documentation: the check's own default is what
+    // runs until -w / -c is actually given.
+    if (vm.count(short_name) == 0 || vm[short_name].defaulted()) return true;
     const std::string alias = option == "warning" ? "warn" : "crit";
     const bool defaulted = (vm.count(option) == 0 || vm[option].defaulted()) && vm.count(alias) == 0;
     std::vector<std::string> expressions;
-    bool all_thresholds = true;
     for (const std::string &value : values) {
-      std::string expression, error;
-      if (!shorthand::expand(short_thresholds, value, expression, error)) {
+      std::vector<std::string> expanded;
+      std::string error;
+      if (!shorthand::expand(short_thresholds, templates, which, value, expanded, error)) {
         nscapi::protobuf::functions::set_response_bad(*response, error);
         return false;
       }
-      if (!shorthand::is_threshold(value)) all_thresholds = false;
-      if (!expression.empty()) expressions.push_back(expression);
+      expressions.insert(expressions.end(), expanded.begin(), expanded.end());
     }
-    if (defaulted) {
-      // A threshold on the check's own keyword moves that bound and keeps the
-      // rest of the default ("result != 'ok'"). An expression, or a bound on
-      // the number of matches, is a threshold of its own and replaces it all.
-      std::vector<std::string> kept;
-      if (all_thresholds && short_thresholds_declared) {
-        for (const std::string &expression : target) {
-          const std::string rest = shorthand::keep_unbounded(expression, short_threshold_replaces);
-          if (!rest.empty()) kept.push_back(rest);
-        }
-      }
-      target = kept;
-    }
+    if (defaulted) target.clear();
     target.insert(target.end(), expressions.begin(), expressions.end());
     return true;
   }

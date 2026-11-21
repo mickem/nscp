@@ -1185,7 +1185,7 @@ TEST(CliHelperShortThresholds, DurationsAndLists) {
   helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
   helper.add_short_threshold("loss", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent);
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(string_list({"(time > 500) or (loss > 20%)"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"time > 500 or loss > 20%"}), c.data.warn_string);
   EXPECT_EQ(string_list({"time > 300000"}), c.data.crit_string);
 }
 
@@ -1243,26 +1243,49 @@ TEST(CliHelperShortThresholds, CanBeDisabled) {
   EXPECT_EQ(nullptr, helper.get_desc().find_nothrow("w", false));
 }
 
-// "-c 5" on a check whose default critical also says "result != 'ok'" moves
-// the time bound; a failed request has to stay critical.
-TEST(CliHelperShortThresholds, TheRestOfTheDefaultIsKept) {
+// "-c 5" on a check whose critical also says "result != 'ok'" moves the time
+// bound; the template is what keeps a failed request critical.
+TEST(CliHelperShortThresholds, TheTemplateKeepsTheOtherConditions) {
   short_threshold_case c({"-w", "2", "-c", "5"});
   modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
   helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", {});
-  helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
+  helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "1", "5");
+  helper.add_short_critical("${time} or result != 'ok'");
   ASSERT_TRUE(helper.parse_options()) << c.message();
   EXPECT_EQ(string_list({"time > 2000"}), c.data.warn_string);
-  EXPECT_EQ(string_list({"result != 'ok'", "time > 5000"}), c.data.crit_string);
+  EXPECT_EQ(string_list({"time > 5000 or result != 'ok'"}), c.data.crit_string);
 }
 
-TEST(CliHelperShortThresholds, ADefaultOnAnotherKeywordCanBeNamedAsReplaced) {
-  short_threshold_case c({"-w", "20"});
+// The default of the short form is documentation. Until -w / -c is given the
+// check's own default runs, also where the two are not the same text.
+TEST(CliHelperShortThresholds, TheShortDefaultDoesNotReplaceTheChecksDefault) {
+  short_threshold_case c({});
   modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
   helper.add_options("used > 80%", "used > 90%", "", {});
-  helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent);
-  helper.add_short_threshold_replaces("used");
+  helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_EQ(string_list({"free < 20%"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"used > 80%"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"used > 90%"}), c.data.crit_string);
+}
+
+TEST(CliHelperShortThresholds, TheShortDefaultIsShownByShowDefault) {
+  short_threshold_case c({"show-default"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("used > 80%", "used > 90%", "", {});
+  helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
+  EXPECT_FALSE(helper.parse_options());
+  EXPECT_NE(std::string::npos, c.message().find("\"w=20\"")) << c.message();
+  EXPECT_NE(std::string::npos, c.message().find("\"c=10\"")) << c.message();
+  EXPECT_NE(std::string::npos, c.message().find("\"warning=used > 80%\"")) << c.message();
+}
+
+TEST(CliHelperShortThresholds, OneSideLeavesTheOtherDefaultAlone) {
+  short_threshold_case c({"-w", "25"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("used > 80%", "used > 90%", "", {});
+  helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_EQ(string_list({"free < 25%"}), c.data.warn_string);
   EXPECT_EQ(string_list({"used > 90%"}), c.data.crit_string);
 }
 
@@ -1271,7 +1294,8 @@ TEST(CliHelperShortThresholds, AnExpressionReplacesTheWholeDefault) {
   short_threshold_case c({"-c", "code = 500"});
   modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
   helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", {});
-  helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
+  helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "1", "5");
+  helper.add_short_critical("${time} or result != 'ok'");
   ASSERT_TRUE(helper.parse_options()) << c.message();
   EXPECT_EQ(string_list({"code = 500"}), c.data.crit_string);
 }
@@ -1285,4 +1309,37 @@ TEST(CliHelperShortThresholds, ACountBoundReplacesTheWholeDefault) {
   ASSERT_TRUE(helper.parse_options()) << c.message();
   EXPECT_EQ(string_list({"level = 'warning'"}), c.data.warn_string);
   EXPECT_EQ(string_list({"count > 10"}), c.data.crit_string);
+}
+
+// A negative bound next to dashed arguments must reach the option as its
+// value rather than be read as an option.
+TEST(CliHelperShortThresholds, ANegativeBoundNextToDashedArguments) {
+  short_threshold_case c({"--show-all", "-c", "-5:"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("temperature > 70", "temperature > 90", "", {});
+  helper.add_short_threshold("temperature", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "70", "90");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_EQ(string_list({"temperature < -5"}), c.data.crit_string);
+  EXPECT_TRUE(helper.show_all);
+}
+
+// An unset macro arrives as "w=": that is a broken command, not a request to
+// drop the warning.
+TEST(CliHelperShortThresholds, AnEmptyValueIsRefused) {
+  short_threshold_case c({"w="});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("load > 70", "load > 95", "", {});
+  helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "70", "95");
+  EXPECT_FALSE(helper.parse_options());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result());
+  EXPECT_NE(std::string::npos, c.message().find("Missing value for -w")) << c.message();
+}
+
+TEST(CliHelperShortThresholds, AWrongUnitIsRefused) {
+  short_threshold_case c({"-w", "80m"});
+  modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+  helper.add_options("load > 70", "load > 95", "", {});
+  helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "70", "95");
+  EXPECT_FALSE(helper.parse_options());
+  EXPECT_NE(std::string::npos, c.message().find("Invalid unit for load: 80m")) << c.message();
 }
