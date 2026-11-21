@@ -325,7 +325,7 @@ void check_iis_request_queues(const PB::Commands::QueryRequestMessage::Request &
   // 1000 is HTTP.sys' default per-queue limit; warn as it fills, go critical
   // when it is effectively full (rejections start).
   filter_helper.add_options("queue_length > 800", "queue_length > 1000", "", f.get_filter_syntax(), "ok");
-  filter_helper.add_short_threshold("queue_length", modern_filter::shorthand::above);
+  filter_helper.add_short_threshold("queue_length", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "800", "1000");
   filter_helper.add_syntax("${status}: ${list}", "${queue}: ${queue_length} queued, ${rejected} rejected", "${queue}", "No HTTP.sys request queues found", "");
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;
