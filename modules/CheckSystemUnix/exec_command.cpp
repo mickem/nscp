@@ -7,6 +7,16 @@
 #include <poll.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#if defined(__linux__)
+#include <sys/syscall.h>
+// close_range() landed in 5.9 with the same number on every architecture;
+// spell it out so a build against older headers still tries the fast path.
+#ifdef SYS_close_range
+#define NSCP_SYS_CLOSE_RANGE SYS_close_range
+#else
+#define NSCP_SYS_CLOSE_RANGE 436
+#endif
+#endif
 
 #include <algorithm>
 #include <array>
@@ -44,6 +54,22 @@ struct pipe_pair {
     close_writer();
   }
 };
+
+// Close every descriptor above stderr except `keep`, in the child between
+// fork() and exec(): only async-signal-safe calls. The agent's listener
+// sockets are not this command's business, and one inherited here stays bound
+// for as long as the command runs - a reload that binds the port again in the
+// meantime fails with "Address already in use" and the server stays down.
+// `keep` is the exec-status pipe, which is close-on-exec already.
+void close_inherited(const int keep, const int max_fd) {
+#if defined(__linux__)
+  const bool below = keep <= 3 || syscall(NSCP_SYS_CLOSE_RANGE, 3U, static_cast<unsigned int>(keep - 1), 0U) == 0;
+  if (below && syscall(NSCP_SYS_CLOSE_RANGE, static_cast<unsigned int>(keep + 1), ~0U, 0U) == 0) return;
+#endif
+  for (int fd = 3; fd < max_fd; ++fd) {
+    if (fd != keep) close(fd);
+  }
+}
 }  // namespace
 
 exec_result run(const std::vector<std::string> &argv, const int timeout_ms, const std::size_t max_output, const bool capture_stderr) {
@@ -70,6 +96,10 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms, cons
   std::vector<char *> cargv;
   for (const auto &a : argv) cargv.push_back(const_cast<char *>(a.c_str()));
   cargv.push_back(nullptr);
+  // Read before fork as well: sysconf() is not on the async-signal-safe list.
+  // Capped, since the sweep it bounds is one close() per possible descriptor.
+  const long open_max = sysconf(_SC_OPEN_MAX);
+  const int max_fd = open_max > 0 && open_max < 65536 ? static_cast<int>(open_max) : 65536;
 
   const pid_t pid = fork();
   if (pid == -1) {
@@ -101,6 +131,7 @@ exec_result run(const std::vector<std::string> &argv, const int timeout_ms, cons
     }
     output.close_writer();
     errors.close_writer();
+    close_inherited(exec_status.writer, max_fd);
     execvp(cargv[0], cargv.data());
     fail();
   }

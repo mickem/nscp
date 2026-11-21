@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <net/socket/close_on_exec.hpp>
 #include <net/tls_versions.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <string>
@@ -491,6 +492,7 @@ bool ServerBeastImpl::start(const std::string& bind) {
     acceptor_.reset();
     return false;
   }
+  socket_helpers::set_close_on_exec(acceptor_->native_handle());
   acceptor_->set_option(asio::socket_base::reuse_address(true), ec);
   acceptor_->bind(endpoint, ec);
   if (ec) {
@@ -591,6 +593,9 @@ void ServerBeastImpl::accept_loop(const asio::yield_context& yield) {
       }
       return;
     }
+    // A child holding a client's connection keeps it open after the session
+    // here has closed it: the client waits on a peer that will never answer.
+    socket_helpers::set_close_on_exec(socket.native_handle());
 
     std::string remote;
     boost::system::error_code rec;
