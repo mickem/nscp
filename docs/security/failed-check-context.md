@@ -19,8 +19,10 @@ Two new ways the failed-check log's contents reach a reader:
 * **Failure context sent to the fleet server.** An enrolled agent whose fleet
   server asks for it (`X-Failure-Context: accept` on its desired-state answers) sends it
   one failed check per `failure context interval` (default `1h`): the entry
-  as `/api/v2/failures` renders it, the snapshot when one was captured, and a
-  per-check count of the other failures since the last report. This is new
+  as `/api/v2/failures` renders it, the snapshot it was recorded with, and a
+  per-check count of the other failures since the last report. A failure
+  without a snapshot is not sent, so a host that captures neither metrics nor
+  diagnostics sends nothing. This is new
   data leaving the host: check output lines and performance data, who ran the
   check, the arguments `record arguments` keeps (by default only the
   allow-listed options: thresholds, filter, syntax and what was checked), and
@@ -36,8 +38,8 @@ redactions are the log's: by default only allow-listed arguments are kept
 A secret a check prints under another name is reported as the check printed
 it, exactly as it already reaches the monitoring server.
 
-**What to do:** nothing on a default install: capture is off, so a report
-carries no metrics. Before turning `capture metrics` on, decide whether the
+**What to do:** nothing on a default install: capture is off, so no report
+is sent. Before turning `capture metrics` on, decide whether the
 roles holding `failures.list` may read metrics, and consider `prune pattern`
 for anything the fleet server should not see. To keep failed checks off the
 fleet server altogether, set `failure context = false` under

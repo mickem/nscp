@@ -159,3 +159,19 @@ TEST(failure_context_pacer, a_too_large_report_is_dropped_not_retried) {
   EXPECT_EQ(4ull, p.last_index());
   EXPECT_EQ(0, p.last_sent_at());
 }
+
+TEST(failure_context_pacer, a_report_keeps_its_id_until_it_lands_or_is_dropped) {
+  pacer p = accepting();
+  EXPECT_TRUE(p.report_id().empty());
+  p.set_report_id("first");
+  // Rejected, and retried: the same report.
+  p.rejected(1000);
+  EXPECT_EQ("first", p.report_id());
+  // Landed: the next one is another.
+  p.sent(1, 1100);
+  EXPECT_TRUE(p.report_id().empty());
+
+  p.set_report_id("second");
+  p.dropped(2);
+  EXPECT_TRUE(p.report_id().empty());
+}

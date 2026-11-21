@@ -242,7 +242,7 @@ class fleet_sync {
   // because capture is off, a report too large for the server, a server
   // without the route, a header that cannot be read, and the last failed
   // report.
-  bool failure_no_metrics_logged_ = false;
+  bool failure_no_snapshot_logged_ = false;
   bool failure_route_missing_logged_ = false;
   bool bad_failure_header_logged_ = false;
   unsigned int last_failure_report_error_ = 0;
