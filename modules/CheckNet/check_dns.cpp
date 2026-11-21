@@ -285,7 +285,8 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
 
   filter f;
   filter_helper.add_options("time > 1000", "result != 'ok'", "", f.get_filter_syntax(), "ignored");
-  filter_helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
+  filter_helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "1", "");
+  filter_helper.add_short_critical("${time} or result != 'ok'");
   filter_helper.add_syntax("${status}: ${problem_list}", "${host} -> ${addresses} (${records}) in ${time}ms [${result}]", "${host}", "No DNS lookup performed",
                            "%(status): %(list)");
   // clang-format off

@@ -465,6 +465,15 @@ describe("CheckNet commands", () => {
     expect(perf?.critical).toBe(60000);
   });
 
+  it("check_ping keeps the default of a value left out of the list", async () => {
+    // "-w ,100%" moves the loss bound only; the perfdata shows the default
+    // round trip bound (60ms) is still there.
+    const q = await executeQuery(key, "check_ping", { host: "127.0.0.1", w: ",100%", c: "5000,100%" });
+    const perf = Object.values(perfOf(q)).find((p) => p.unit === "ms");
+    expect(perf?.warning).toBe(60);
+    expect(perf?.critical).toBe(5000);
+  });
+
   it("check_tcp -c moves the time bound and keeps a failed connect critical", async () => {
     const port = await closedPort();
     const q = await executeQuery(key, "check_tcp", { host: "127.0.0.1", port: String(port), w: "30", c: "60" });
