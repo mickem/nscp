@@ -198,6 +198,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
   aliases["nrdp"] = "NRDPClient";
   aliases["nsca-ng"] = "NSCANgClient";
   aliases["icinga"] = "IcingaClient";
+  aliases["icinga-agent"] = "IcingaAgent";
   aliases["gearman"] = "GearmanClient";
   aliases["graphite"] = "GraphiteClient";
   aliases["eventlog"] = "CheckEventLog";
@@ -1168,6 +1169,8 @@ std::string cli_parser::get_description(const std::string &key) {
     return "Execute lua scripts";
   } else if (key == "mk" || key == "check_mk") {
     return "Set up this host's Checkmk agent (`mk install`, `mk show`), or request information from other systems via check_mk.";
+  } else if (key == "icinga-agent") {
+    return "Set up the native Icinga 2 agent (`icinga-agent import` takes over the identity of the Icinga 2 agent on this host).";
   } else if (key == "eventlog") {
     return "Inject event log message into the eventlog (mainly for testing eventlog filtering and setup)";
   } else if (key == "wmi") {

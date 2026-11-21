@@ -166,52 +166,57 @@ signed for this endpoint, and the CA itself. NSClient++ uses the same three file
 them lets it connect as the endpoint the master already knows - no ticket, no `icinga2 ca sign`, and the master is
 verified from the first connection.
 
-Look up three values in the Icinga agent's configuration (`C:\ProgramData\icinga2\etc\icinga2`):
+`nscp icinga-agent import` does the copying. It reads the Icinga agent's own files - the endpoint name from
+`constants.conf`, the parent from `zones.conf`, the three certificate files - checks that they belong together, and
+writes them and the matching settings. Look at what it found first, from an elevated prompt:
 
-| Value                | Where                                                                    | NSClient++ setting |
-|----------------------|--------------------------------------------------------------------------|--------------------|
-| The agent's name     | `NodeName` in `constants.conf`; also the file name in the `certs` folder | `endpoint name`    |
-| The parent's name    | The parent `Endpoint` in `zones.conf`                                    | `parent endpoint`  |
-| The parent's address | `host` of that `Endpoint`                                                | `parent host`      |
-
-Write them to `nsclient.ini`. `endpoint name` must be spelled exactly as the Icinga agent's name, capitals included:
-it selects the certificate files and has to match the `Endpoint` object on the master.
-
-```ini
-[/settings/Icinga/agent]
-parent host = icinga-master.example.com
-parent endpoint = icinga-master.example.com
-endpoint name = win-host-01.example.com
-trust on first use = false                 ; the CA is copied in below, so never connect unverified
+```
+nscp icinga-agent import --dry-run
 ```
 
-Schedule a downtime for the host in Icinga, then swap the agents. In an elevated PowerShell:
+```
+Would import the Icinga 2 agent 'win-host-01.example.com' from C:\ProgramData\icinga2\var\lib\icinga2\certs
+  key:         C:\ProgramData\NSClient++\security\icinga\win-host-01.example.com.key
+  certificate: C:\ProgramData\NSClient++\security\icinga\win-host-01.example.com.crt
+  CA:          C:\ProgramData\NSClient++\security\icinga\ca.crt
+Parent: icinga-master.example.com at icinga-master.example.com:5665
+Nothing was changed (--dry-run).
+```
+
+Then schedule a downtime for the host in Icinga and swap the agents:
 
 ```powershell
-$cn  = 'win-host-01.example.com'                       # endpoint name
-$src = 'C:\ProgramData\icinga2\var\lib\icinga2\certs'
-$dst = 'C:\ProgramData\NSClient++\security\icinga'    # the `certificate directory`
+nscp icinga-agent import
 
 Stop-Service icinga2
 Set-Service icinga2 -StartupType Disabled
-
-New-Item -ItemType Directory -Force $dst | Out-Null
-Copy-Item "$src\$cn.crt", "$src\$cn.key", "$src\ca.crt" $dst
-
 Restart-Service nscp
 ```
 
-`certificate directory` defaults to `${certificate-path}/icinga`, which is that folder on the modern layout. The copied
-key takes the folder's permissions: `SYSTEM` and `Administrators`, nobody else.
+The import leaves the Icinga agent untouched, so it can be run ahead of time; only the last three lines are the
+cut-over. It writes this to `nsclient.ini`:
 
-<!-- @formatter:off -->
-!!! danger "On the legacy layout the key lands under Program Files"
-    Without `LAYOUT=modern` the certificate directory is `C:\Program Files\NSClient++\security\icinga`, and a file
-    copied there is readable by every user of the machine. Whoever reads that key can connect to the master as this
-    host. Move the installation first (`msiexec /qn /i NSCP-<version>-x64.msi LAYOUT=modern`), or, if the host has to
-    stay on the legacy layout, restrict the key right after copying it:
-    `icacls "$dst\$cn.key" /inheritance:r /grant:r '*S-1-5-18:F' '*S-1-5-32-544:F'`.
-<!-- @formatter:on -->
+```ini
+[/modules]
+IcingaAgent = enabled
+
+[/settings/Icinga/agent]
+endpoint name = win-host-01.example.com    ; as the Icinga agent spelled it, capitals included
+parent endpoint = icinga-master.example.com
+parent host = icinga-master.example.com
+parent port = 5665
+trust on first use = false                 ; the CA is in place, so never connect unverified
+```
+
+The key is stored readable by `SYSTEM` and `Administrators` only, on either file layout.
+
+| The import says                                        | What to do                                                                                   |
+|--------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `Cannot tell this agent's name`                        | The Icinga agent is not in `C:\ProgramData\icinga2`: point at it with `--from`, or give `--endpoint-name`. |
+| `The Icinga agent has 2 parents`                       | NSClient++ connects to one: choose it with `--parent-endpoint`. See [does the host fit](#before-you-start-does-the-host-fit). |
+| `has no host in zones.conf`                            | The master connected to the Icinga agent. Give `--parent-host`, and open outbound `5665`.    |
+| `The certificate is self-signed`                       | The Icinga agent was never signed. There is nothing to take over: use a ticket (see the tip below). |
+| `There is already a different key`                     | NSClient++ already has an identity under that name. `--force` replaces it.                   |
 
 The NSClient++ log shows a verified connection straight away, without the bootstrap lines of a new agent:
 
@@ -417,9 +422,9 @@ host for anything else.
 
 ## Rolling out to more hosts
 
-For each further host it is step 2 (install, with the modules and the `/settings/Icinga/agent` section delivered by
-your deployment tool) and the swap in step 3. `endpoint name` defaults to the lower-cased host name, so set it
-explicitly wherever the Icinga agent's name is a fully qualified name or contains capitals. To hand out the same
+For each further host it is step 2 (install, with the check modules enabled by your deployment tool) and the swap
+in step 3, which is the same four lines everywhere: the import reads each host's own name and parent. It exits
+non-zero when it refuses, so a deployment script can stop before it touches the Icinga agent. To hand out the same
 configuration to many hosts, see [Automated installation](../setup/installing.md#automated-installation-windows-msi).
 
 ---
@@ -433,8 +438,7 @@ configuration to many hosts, see [Automated installation](../setup/installing.md
 | Services `UNKNOWN: Permission denied: IcingaAgent:...` naming a query      | The permission policy is on and does not grant the query the command became. Grant the query (`CheckDisk.check_drivesize`), not the Icinga name. |
 | Services `UNKNOWN: arguments are not allowed on this agent`                | `allow arguments = false`: translated thresholds are arguments from the master. Set it to `true`, or use aliases whose arguments are all written on the agent. |
 | A service is `OK` where it used to alert, or the other way round           | Compare the executed command in Icinga with the old plugin's arguments, and see [what differs](#what-differs-from-the-icinga-plugins). |
-| `connecting with a self-signed certificate ... to request a signed one`    | NSClient++ found no `<endpoint name>.crt` / `.key` and made its own. `endpoint name` does not match the copied file names; fix it, delete the generated pair and restart. |
-| `could not be used together and were replaced`                             | The copied certificate and key do not belong together (a stale file from an earlier agent install). Copy both again from the Icinga agent, or sign the new pair with `icinga2 ca sign`. |
+| `connecting with a self-signed certificate ... to request a signed one`    | NSClient++ found no certificate for its `endpoint name` and made its own: the name was changed after the import, or the files were copied by hand under another name. Run `nscp icinga-agent import` again. |
 | `Parent presented the certificate of 'x', expected 'y'`                    | `parent endpoint` is not the parent's endpoint name. Take it from the Icinga agent's `zones.conf`.         |
 | `` `trust on first use` is off: not connecting ``                          | `ca.crt` is not in the certificate directory. Copy it; it is picked up within seconds.                     |
 | Host DOWN, master logs connection attempts to the host                     | The `Endpoint` on the master still has `host` set and the agent is not connecting out: check outbound `5665` and the NSClient++ log. |

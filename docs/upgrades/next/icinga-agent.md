@@ -16,7 +16,8 @@ query name and argument definitions. The Windows check commands of the Icinga
 Template Library (`disk-windows`, `load-windows`, `service-windows`, ..., and
 the `nscp-local` commands) are answered under their Icinga names, with the
 service's own thresholds, so a host that ran the Icinga 2 agent keeps its
-services unchanged: see
+services unchanged, and `nscp icinga-agent import` copies that agent's
+certificate and parent so NSClient++ connects as the same endpoint: see
 [Migrating from the Icinga 2 Windows Agent](../scenarios/migrating-from-icinga-agent.md).
 Checks run as
 `IcingaAgent:<parent endpoint>`, so the permission policy decides which ones
