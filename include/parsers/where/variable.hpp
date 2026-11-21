@@ -156,9 +156,9 @@ struct percentage_int_performance_generator : number_performance_generator_inter
     performance_data data;
     performance_data::perf_value double_data;
     if (maximum > 0) {
-      double_data.value = round(static_cast<double>(current_value * 100) / maximum);
-      if (warn) double_data.warn = round(static_cast<double>(warn.value() * 100) / maximum);
-      if (crit) double_data.crit = round(static_cast<double>(crit.value() * 100) / maximum);
+      double_data.value = round(static_cast<double>(current_value) * 100.0 / static_cast<double>(maximum));
+      if (warn) double_data.warn = round(static_cast<double>(warn.value()) * 100.0 / static_cast<double>(maximum));
+      if (crit) double_data.crit = round(static_cast<double>(crit.value()) * 100.0 / static_cast<double>(maximum));
       double_data.maximum = 100;
       double_data.minimum = 0;
       data.set(double_data);
