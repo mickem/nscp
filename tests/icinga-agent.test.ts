@@ -580,7 +580,12 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       const pki = generateCertChain({
         outDir: fs.mkdtempSync(path.join(os.tmpdir(), "icinga-master-pki-")),
         caCommonName: "Icinga CA",
-        signed: { master: { commonName: PARENT, isServer: true } },
+        signed: {
+          master: { commonName: PARENT, isServer: true },
+          // What the Icinga 2 agent on the host holds: a certificate this CA
+          // signed for the endpoint, and its key.
+          agent: { commonName: AGENT },
+        },
       });
       master = new FakeIcingaMaster(pki);
       port = await master.listen("master");
@@ -733,6 +738,49 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       const cr = await session.execute("preinstalled", "check_ok", { ifw_api_command: "check_ok" });
       expect(cr.exit_status).toBe(0);
       expect(agent.capturedStdout()).not.toContain("NOT verified");
+    });
+
+    it("connects as the Icinga 2 agent it imported, with no ticket and nothing to sign", async () => {
+      // An Icinga 2 agent's data directory: its identity, and a zones.conf
+      // that names this master.
+      const agent = new NscpInstance();
+      const root = agent.scratch("icinga2");
+      const certs = path.join(root, "var", "lib", "icinga2", "certs");
+      const etc = path.join(root, "etc", "icinga2");
+      fs.mkdirSync(certs, { recursive: true });
+      fs.mkdirSync(etc, { recursive: true });
+      fs.writeFileSync(path.join(certs, `${AGENT}.crt`), master.pki.signed.agent.certPem);
+      fs.writeFileSync(path.join(certs, `${AGENT}.key`), master.pki.signed.agent.keyPem);
+      fs.writeFileSync(path.join(certs, "ca.crt"), master.pki.ca.certPem);
+      fs.writeFileSync(path.join(etc, "constants.conf"), `const NodeName = "${AGENT}"\n`);
+      fs.writeFileSync(
+        path.join(etc, "zones.conf"),
+        `object Endpoint "${PARENT}" {\n  host = "127.0.0.1"\n  port = "${port}"\n}\n` +
+          `object Endpoint NodeName {\n}\n`,
+      );
+      await agent.configure({
+        "/modules": { CheckHelpers: "enabled" },
+        "/settings/log": { level: "debug" },
+      });
+      const imported = await agent.run(["icinga-agent", "import", "--from", root]);
+      expect(imported.all).toContain(`Imported the Icinga 2 agent '${AGENT}'`);
+
+      const before = master.sessions.length;
+      nscp = agent;
+      agent.start();
+      // The very first connection is the verified one: the master sees the
+      // imported certificate, and the agent runs checks on it.
+      const session = await master.waitForSession((s) => master.sessions.indexOf(s) >= before);
+      expect(session.authorized).toBe(true);
+      expect(session.peerCn).toBe(AGENT);
+      const hello = await session.waitFor("icinga::Hello");
+      expect(hello).toBeDefined();
+      const request = await session.waitFor("pki::RequestCertificate");
+      expect(request.ticket ?? "").toBe("");
+      const cr = await session.execute("imported", "check_ok", { ifw_api_command: "check_ok" });
+      expect(cr.exit_status).toBe(0);
+      expect(agent.capturedStdout()).not.toContain("NOT verified");
+      expect(agent.capturedStdout()).not.toContain("self-signed");
     });
 
     it("does not connect at all with trust on first use off and nothing to verify against", async () => {

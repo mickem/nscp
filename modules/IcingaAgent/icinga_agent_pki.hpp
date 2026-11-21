@@ -35,6 +35,13 @@ bool ensure_bootstrap_certificate(const pki_paths &paths, const std::string &cn)
 // into place, so a failure part-way never leaves a truncated certificate.
 void store_signed_certificate(const pki_paths &paths, const std::string &cn, const std::string &cert_pem, const std::string &ca_pem);
 
+// Install an identity made elsewhere - the key, certificate and CA of an
+// Icinga 2 agent - as this agent's, after checking that it can be used: the
+// certificate is for `cn` and for that key, and the CA issued it. Throws
+// std::runtime_error with nothing written when it cannot. The key is written
+// private to the account NSClient++ runs as, whatever the directory allows.
+void import_identity(const pki_paths &paths, const std::string &cn, const std::string &cert_pem, const std::string &key_pem, const std::string &ca_pem);
+
 // True when `certificate` exists and is not self-signed (issuer != subject).
 bool is_signed(const std::string &certificate);
 

@@ -193,6 +193,41 @@ void store_signed_certificate(const pki_paths &paths, const std::string &cn, con
   certificate.commit();
 }
 
+void import_identity(const pki_paths &paths, const std::string &cn, const std::string &cert_pem, const std::string &key_pem, const std::string &ca_pem) {
+  const std::vector<ossl::x509_ptr> certs = parse_certificates(cert_pem, "The certificate");
+  X509 *cert = certs.front().get();
+  if (key_pem.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) throw std::runtime_error("The key is too large");
+  const ossl::bio_ptr key_bio(BIO_new_mem_buf(key_pem.data(), static_cast<int>(key_pem.size())));
+  const ossl::evp_pkey_ptr key(key_bio ? PEM_read_bio_PrivateKey(key_bio.get(), nullptr, nullptr, nullptr) : nullptr);
+  if (!key) {
+    ERR_clear_error();
+    throw std::runtime_error("The key is not a readable, unencrypted PEM private key");
+  }
+  if (!matches_key(cert, key.get())) throw std::runtime_error("The certificate and the key do not belong together");
+  const std::string subject = socket_helpers::format_subject_cn_only(cert);
+  if (subject != cn) {
+    throw std::runtime_error("The certificate is for '" + socket_helpers::escape_for_log(subject) + "', not for the endpoint '" + cn + "'");
+  }
+  if (X509_NAME_cmp(X509_get_subject_name(cert), X509_get_issuer_name(cert)) == 0) {
+    throw std::runtime_error("The certificate is self-signed: the Icinga CA has not signed this agent yet");
+  }
+  const std::vector<ossl::x509_ptr> authorities = parse_certificates(ca_pem, "The CA");
+  try {
+    verify_issuer(cert, authorities);
+  } catch (const std::exception &) {
+    throw std::runtime_error("The certificate was not issued by the CA beside it");
+  }
+
+  ensure_directory(paths.key);
+  // The CA and the certificate are staged first, so a failure writing either
+  // leaves whatever was there untouched; the key goes in before they do.
+  staged_file ca(paths.ca, ca_pem);
+  staged_file certificate(paths.certificate, cert_pem);
+  socket_helpers::write_private_file(paths.key, key_pem);
+  ca.commit();
+  certificate.commit();
+}
+
 bool is_signed(const std::string &certificate) {
   const ossl::x509_ptr cert = load_certificate(certificate);
   if (!cert) return false;

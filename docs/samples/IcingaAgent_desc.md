@@ -41,6 +41,35 @@ scenario.
 `parent endpoint` is required, and must be the CN of the master's certificate: a parent presenting any other name is
 refused, even one the same CA signed. `endpoint name` must match the agent's `Endpoint` object on the master.
 
+#### Taking over from the Icinga 2 agent
+
+On a host that runs the Icinga 2 agent, `nscp icinga-agent import` does the setup above from that agent's own files:
+
+```
+nscp icinga-agent import --dry-run
+nscp icinga-agent import
+```
+
+It reads the endpoint name from the agent's `constants.conf` and the parent from its `zones.conf`, copies
+`<name>.crt`, `<name>.key` and `ca.crt` into the certificate directory, and writes `endpoint name`, `parent endpoint`,
+`parent host`, `parent port` and `trust on first use = false`. NSClient++ then connects as the endpoint the master
+already knows: no ticket, nothing to sign, and the first connection is verified. Stop the Icinga 2 agent before
+NSClient++ is restarted, since both cannot be connected under one name.
+
+| Option                                    | Default                                                                  |
+|-------------------------------------------|--------------------------------------------------------------------------|
+| `--from <directory>`                      | The Icinga 2 data directory: `%ProgramData%\icinga2` on Windows, `/` elsewhere |
+| `--certificates`, `--config`              | `<from>/var/lib/icinga2/certs` and `<from>/etc/icinga2`                  |
+| `--endpoint-name`                         | `NodeName` in `constants.conf`, else the name of the only key            |
+| `--parent-endpoint`, `--parent-host`, `--parent-port` | The one other `Endpoint` in `zones.conf`                     |
+| `--force`                                 | Off: a different key already stored under that name is not replaced      |
+| `--dry-run`                               | Off                                                                      |
+
+Nothing is copied unless it would work: the certificate has to be for that endpoint name and that key, and issued by
+the CA beside it. An agent with two parents, or one its parent connected to, is refused with the option that settles
+it. The key is written readable only by the account NSClient++ runs as. The
+[migration scenario](../../scenarios/migrating-from-icinga-agent.md) walks through the whole move.
+
 #### How the parent is trusted
 
 Icinga has no public CA: every installation has its own, created on the master. Once the agent holds it (`ca.crt` in

@@ -11,6 +11,7 @@ set(PROTOCOL_SRCS
     icinga_agent_arguments.cpp
     icinga_agent_execute.cpp
     icinga_agent_fingerprint.cpp
+    icinga_agent_import.cpp
     icinga_agent_json.cpp
     icinga_agent_macros.cpp
     icinga_agent_messages.cpp
@@ -41,6 +42,7 @@ if(WIN32)
         icinga_agent_arguments.hpp
         icinga_agent_execute.hpp
         icinga_agent_fingerprint.hpp
+        icinga_agent_import.hpp
         icinga_agent_json.hpp
         icinga_agent_macros.hpp
         icinga_agent_messages.hpp
@@ -64,6 +66,7 @@ target_link_libraries(
     ${Boost_JSON_LIBRARY}
     nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${OPENSSL_LIBRARIES}
@@ -77,6 +80,7 @@ NSCP_CREATE_TEST(
         icinga_agent_arguments_test.cpp
         icinga_agent_execute_test.cpp
         icinga_agent_fingerprint_test.cpp
+        icinga_agent_import_test.cpp
         icinga_agent_json_test.cpp
         icinga_agent_macros_test.cpp
         icinga_agent_messages_test.cpp
