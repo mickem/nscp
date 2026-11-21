@@ -4,6 +4,7 @@
 #include <boost/program_options.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <bytes/char_buffer.hpp>
+#include <check/check_mk_format.hpp>
 #include <ctime>
 #include <error/error.hpp>
 #include <memory>
@@ -900,7 +901,8 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
         const std::string fs = drive.fs.empty() ? "unknown" : drive.fs;
         const std::string mp = drive.letter.empty() ? drive.id : drive.letter;
         if (!body.empty()) body += "\n";
-        body += mp + " " + fs + " " + str::xtos(total_kb) + " " + str::xtos(used_kb) + " " + str::xtos(free_kb) + " " + str::xtos(pct) + "% " + mp;
+        const std::string clean_mp = check_mk_format::sanitize_field(mp);
+        body += clean_mp + " " + fs + " " + str::xtos(total_kb) + " " + str::xtos(used_kb) + " " + str::xtos(free_kb) + " " + str::xtos(pct) + "% " + clean_mp;
       }
       nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_drivesize", NSCAPI::query_return_codes::returnOK, body, "");
       return;
