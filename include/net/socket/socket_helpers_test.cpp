@@ -1516,7 +1516,47 @@ TEST_F(WriteCertsFixture, PrivateKeyFilesAreOwnerOnly) {
   ASSERT_EQ(::stat(socket_helpers::ca_key_path(ca).c_str(), &st), 0);
   EXPECT_EQ(st.st_mode & 0777, 0600);
 }
+
+TEST_F(WriteCertsFixture, WritePrivateFileIsOwnerOnlyAndWritePublicFileIsNot) {
+  const std::string key = path_of("agent.key");
+  const std::string crt = path_of("agent.crt");
+  ASSERT_NO_THROW(socket_helpers::write_private_file(key, "secret"));
+  ASSERT_NO_THROW(socket_helpers::write_public_file(crt, "public"));
+  EXPECT_EQ(read_file(key), "secret");
+  EXPECT_EQ(read_file(crt), "public");
+  EXPECT_FALSE(boost::filesystem::exists(key + ".new"));
+  struct stat st = {};
+  ASSERT_EQ(::stat(key.c_str(), &st), 0);
+  EXPECT_EQ(st.st_mode & 0777, 0600);
+}
 #endif
+
+#include <openssl/pem.h>
+
+// generate_self_signed() is write_certs() without the files: the IcingaAgent
+// module stores the key and the certificate apart, under names Icinga uses,
+// and needs its endpoint name as the CN.
+TEST(GenerateSelfSigned, CarriesTheRequestedCommonNameAndAMatchingKey) {
+  const socket_helpers::generated_certificate generated = socket_helpers::generate_self_signed("agent-under-test", 2048, 30, false);
+  ASSERT_NE(generated.key_pem.find("PRIVATE KEY"), std::string::npos);
+
+  BIO* cert_bio = BIO_new_mem_buf(generated.cert_pem.data(), static_cast<int>(generated.cert_pem.size()));
+  X509* cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr);
+  BIO_free(cert_bio);
+  ASSERT_NE(cert, nullptr);
+  BIO* key_bio = BIO_new_mem_buf(generated.key_pem.data(), static_cast<int>(generated.key_pem.size()));
+  EVP_PKEY* key = PEM_read_bio_PrivateKey(key_bio, nullptr, nullptr, nullptr);
+  BIO_free(key_bio);
+  ASSERT_NE(key, nullptr);
+
+  EXPECT_EQ(socket_helpers::format_subject_cn_only(cert), "agent-under-test");
+  EXPECT_EQ(X509_check_private_key(cert, key), 1);
+  EXPECT_EQ(EVP_PKEY_get_bits(key), 2048);
+  EXPECT_EQ(X509_get_extension_flags(cert) & EXFLAG_CA, 0u) << "ca=false must not produce a CA certificate";
+
+  EVP_PKEY_free(key);
+  X509_free(cert);
+}
 
 // =============================================================================
 // adopt_file_owner - a generated private key must end up readable by the

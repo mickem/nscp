@@ -64,6 +64,7 @@ modules that have one supply it; modules that don't leave it empty.
 |--------------------------------------|------------------------|---------------------------------------------------------------------|
 | **WEBServer**                        | `WEBServer`            | The authenticated web user from the session cookie (`uid`)          |
 | **NRPEServer**                       | `NRPEServer`           | Verified client cert CN value when `client identity source = cn`    |
+| **IcingaAgent** (experimental)       | `IcingaAgent`          | The verified Icinga parent's endpoint name (`parent endpoint`)      |
 | **NSClientServer** (legacy check_nt) | `NSClientServer`       | None today                                                          |
 | **NSCAServer**                       | `NSCAServer`           | None today — sender id from the NSCA header is a natural future fit |
 | **Scheduler**                        | `Scheduler`            | None today — schedule alias is a natural future fit                 |
@@ -120,6 +121,23 @@ as the agent process. Practical mitigations:
 This warning is not a bug — it's the inevitable consequence of "host an extension language inside a privileged
 process." Sandboxing a script bridge to where the policy could enforce identity claims is a research-grade
 problem; the agent's stance is that operators who load scripts have decided they trust those scripts.
+
+---
+
+## IcingaAgent: the Icinga parent as principal
+
+`IcingaAgent` always stamps a principal: the endpoint name of the Icinga parent it is connected to. That name is
+verified, not chosen by the parent: the agent checks the parent's certificate against the Icinga CA and refuses any CN
+other than the configured `parent endpoint`, and it runs no checks on the one connection where it cannot verify yet
+(the first one, before the CA has been received). So per-parent rules need no extra setting:
+
+```ini
+[/settings/permissions/policies]
+IcingaAgent:icinga-master = CheckSystem.*, CheckDisk.check_drivesize
+```
+
+The module has no allow-list of its own. Its only command-related switch is `allow arguments` (default `true`, since
+Icinga passes thresholds as arguments).
 
 ---
 

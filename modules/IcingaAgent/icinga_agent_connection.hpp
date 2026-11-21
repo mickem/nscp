@@ -1,0 +1,107 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
+#pragma once
+
+// One outbound connection to an Icinga 2 parent (master or satellite).
+//
+// Everything runs on the io_context the connection was created on, which is
+// driven by a single thread: reads, the write queue and the heartbeat timer
+// never race. Check execution happens elsewhere and comes back through
+// send(), which posts onto that io_context.
+
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+#include <boost/json.hpp>
+#include <deque>
+#include <functional>
+#include <memory>
+#include <string>
+
+#include "icinga_agent_protocol.hpp"
+
+namespace icinga_agent {
+
+struct connection_config {
+  std::string host;
+  std::string port = "5665";
+  std::string parent_endpoint;  // expected CN of the parent (required)
+  // Whether the TLS context verifies the parent against the Icinga CA. False
+  // only on the first connection, before the CA has been received.
+  bool verify_parent = false;
+  // SHA-256 of the parent's certificate (64 lower-case hex digits), or empty.
+  // Used only while verify_parent is false: a parent presenting exactly this
+  // certificate is verified on the first connection too, the way
+  // `icinga2 node setup --trustedcert` pins the parent.
+  std::string parent_fingerprint;
+  std::string ticket;
+  std::string agent_version;
+  int heartbeat_interval = 20;  // seconds
+  int idle_timeout = 120;       // seconds without anything from the parent
+  // How often to ask the parent for a renewed certificate on an open
+  // connection, as the Icinga agent does (RENEW_INTERVAL): the parent only
+  // issues one within 30 days of expiry, and a long-lived connection would
+  // otherwise only ask when it reconnects.
+  int certificate_request_interval = 24 * 60 * 60;
+};
+
+class connection : public std::enable_shared_from_this<connection> {
+ public:
+  struct callbacks {
+    std::function<void(const std::string &)> log_info;
+    std::function<void(const std::string &)> log_error;
+    std::function<void(const std::string &)> log_debug;
+    // An event::ExecuteCommand. The handler runs it and calls send() with the
+    // event::CheckResult.
+    std::function<void(std::shared_ptr<connection>, const boost::json::value &params)> execute;
+    // Store what pki::UpdateCertificate carried; true when it was stored, so
+    // the connection reconnects with it. A rejected one keeps the connection.
+    std::function<bool(const boost::json::value &params)> update_certificate;
+    std::function<void()> closed;
+  };
+
+  connection(boost::asio::io_context &io, boost::asio::ssl::context &ctx, connection_config config, callbacks cb);
+
+  void start();
+  void close(const std::string &reason);
+  // Thread-safe: queue a framed message.
+  void send(std::string framed);
+
+  // True once the handshake verified the parent - against the Icinga CA, or
+  // against the pinned fingerprint before the CA is known - and its CN
+  // matched `parent_endpoint`. Only then may it run checks: on an unverified
+  // connection the CN is whatever the peer chose.
+  bool parent_verified() const { return (config_.verify_parent || pinned_) && established_; }
+  const std::string &parent_name() const { return parent_cn_; }
+
+ private:
+  void on_resolve(const boost::system::error_code &ec, const boost::asio::ip::tcp::resolver::results_type &results);
+  void on_connect(const boost::system::error_code &ec);
+  void on_handshake(const boost::system::error_code &ec);
+  void read();
+  void on_read(const boost::system::error_code &ec, std::size_t bytes);
+  void dispatch(const std::string &payload);
+  void write_next();
+  void schedule_heartbeat();
+  void schedule_certificate_request();
+  void arm_idle_timer();
+
+  boost::asio::io_context &io_;
+  boost::asio::ip::tcp::resolver resolver_;
+  boost::asio::ssl::stream<boost::asio::ip::tcp::socket> stream_;
+  boost::asio::steady_timer heartbeat_timer_;
+  boost::asio::steady_timer certificate_timer_;
+  boost::asio::steady_timer idle_timer_;
+  connection_config config_;
+  callbacks cb_;
+  netstring_reader reader_;
+  std::array<char, 16 * 1024> buffer_{};
+  std::deque<std::string> outbox_;
+  bool writing_ = false;
+  bool closed_ = false;
+  bool established_ = false;
+  bool pinned_ = false;
+  std::string parent_cn_;
+};
+
+}  // namespace icinga_agent

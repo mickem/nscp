@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <algorithm>
-#include <cerrno>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <iomanip>
@@ -596,13 +596,10 @@ std::string socket_helpers::format_subject_dn_rfc2253(void *x509) {
 std::string socket_helpers::extract_peer_subject_dn(void *ssl) {
   if (!ssl) return {};
   const SSL *ssl_instance = static_cast<SSL *>(ssl);
-  // SSL_get_peer_certificate bumps the refcount; we own this pointer and
-  // must free it on every return path.
-  X509 *cert = SSL_get_peer_certificate(ssl_instance);
+  // SSL_get_peer_certificate bumps the refcount: the handle releases it.
+  const std::unique_ptr<X509, decltype(&::X509_free)> cert(SSL_get_peer_certificate(ssl_instance), X509_free);
   if (!cert) return {};
-  const std::string result = format_subject_dn_rfc2253(cert);
-  X509_free(cert);
-  return result;
+  return format_subject_dn_rfc2253(cert.get());
 }
 
 std::string socket_helpers::escape_for_log(const std::string &value) {
@@ -670,11 +667,9 @@ std::string socket_helpers::format_subject_cn_only(void *x509) {
 std::string socket_helpers::extract_peer_subject_cn(void *ssl) {
   if (!ssl) return {};
   const SSL *ssl_instance = static_cast<SSL *>(ssl);
-  X509 *cert = SSL_get_peer_certificate(ssl_instance);
+  const std::unique_ptr<X509, decltype(&::X509_free)> cert(SSL_get_peer_certificate(ssl_instance), X509_free);
   if (!cert) return {};
-  const std::string result = format_subject_cn_only(cert);
-  X509_free(cert);
-  return result;
+  return format_subject_cn_only(cert.get());
 }
 #endif
 
@@ -743,7 +738,7 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code> *
 }
 #ifdef USE_SSL
 void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors,
-                                                                     std::list<std::string> *caller_safe_errors) const {
+                                                                      std::list<std::string> *caller_safe_errors) const {
   boost::system::error_code er;
   // `detail` names the path and the OpenSSL reason and is for the log; `safe`
   // says only which part of the TLS configuration failed and is what a caller
@@ -1021,7 +1016,7 @@ std::string build_subject_alt_name() {
   return boost::algorithm::join(names, ",");
 }
 
-void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, const int days, bool ca) {
+void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const std::string &common_name, const int bits, const int days, bool ca) {
   EVP_PKEY_CTX_ptr pctx(EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr), EVP_PKEY_CTX_free);
   if (!pctx) {
     throw socket_helpers::socket_exception("Failed to create EVP_PKEY_CTX: " + get_open_ssl_error());
@@ -1078,7 +1073,7 @@ void make_certificate(const X509_ptr &cert, EVP_PKEY_ptr &pkey, const int bits, 
   if (X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("NSClient++"), -1, -1, 0) == 0) {
     throw socket_helpers::socket_exception("Failed to add O: " + get_open_ssl_error());
   }
-  if (X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("generated-certificate"), -1, -1, 0) == 0) {
+  if (X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_UTF8, reinterpret_cast<const unsigned char *>(common_name.c_str()), -1, -1, 0) == 0) {
     throw socket_helpers::socket_exception("Failed to add CN: " + get_open_ssl_error());
   }
 
@@ -1265,7 +1260,9 @@ void write_secured(const std::string &path, const std::string &content) {
   write_and_close(file, content, "Failed to write " + path);
 }
 
-void write_private_file(const std::string &path, const std::string &content) {
+}  // namespace
+
+void socket_helpers::write_private_file(const std::string &path, const std::string &content) {
   const boost::filesystem::path target(path);
   const boost::filesystem::path temporary = target.parent_path() / (target.filename().string() + ".new");
   boost::system::error_code ignored;
@@ -1295,7 +1292,7 @@ void write_private_file(const std::string &path, const std::string &content) {
   }
 }
 
-void write_public_file(const std::string &path, const std::string &content) {
+void socket_helpers::write_public_file(const std::string &path, const std::string &content) {
   FILE *file = nullptr;
 #ifdef _MSC_VER
   if (fopen_s(&file, path.c_str(), "wb") != 0) file = nullptr;
@@ -1305,7 +1302,6 @@ void write_public_file(const std::string &path, const std::string &content) {
   if (file == nullptr) throw socket_helpers::socket_exception("Failed to write certificate to " + path + ": " + errno_text(errno));
   write_and_close(file, content, "Failed to write certificate to " + path);
 }
-}  // namespace
 
 std::string socket_helpers::ca_key_path(const std::string &ca_certificate) {
   boost::filesystem::path path(ca_certificate);
@@ -1314,7 +1310,7 @@ std::string socket_helpers::ca_key_path(const std::string &ca_certificate) {
   return (path.parent_path() / (stem + "-key" + extension)).string();
 }
 
-void socket_helpers::write_certs(const std::string &cert, const bool ca) {
+socket_helpers::generated_certificate socket_helpers::generate_self_signed(const std::string &common_name, const int bits, const int days, const bool ca) {
   const X509_ptr certificate_instance(X509_new(), X509_free);
   if (!certificate_instance) {
     throw socket_exception("Failed to create X509 object: " + get_open_ssl_error());
@@ -1324,18 +1320,23 @@ void socket_helpers::write_certs(const std::string &cert, const bool ca) {
     throw socket_exception("Failed to create private key: " + get_open_ssl_error());
   }
 
-  make_certificate(certificate_instance, private_key_instance, 2048, 365, ca);
+  make_certificate(certificate_instance, private_key_instance, common_name, bits, days, ca);
 
   const BIO_ptr key_bio(BIO_new(BIO_s_mem()), BIO_free);
-  if (!PEM_write_bio_PKCS8PrivateKey(key_bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr)) {
-    throw socket_exception("Failed to serialize key to " + cert);
+  if (!key_bio || !PEM_write_bio_PKCS8PrivateKey(key_bio.get(), private_key_instance.get(), nullptr, nullptr, 0, nullptr, nullptr)) {
+    throw socket_exception("Failed to serialize the key: " + get_open_ssl_error());
   }
   const BIO_ptr cert_bio(BIO_new(BIO_s_mem()), BIO_free);
-  if (!PEM_write_bio_X509(cert_bio.get(), certificate_instance.get())) {
-    throw socket_exception("Failed to serialize certificate to " + cert);
+  if (!cert_bio || !PEM_write_bio_X509(cert_bio.get(), certificate_instance.get())) {
+    throw socket_exception("Failed to serialize the certificate: " + get_open_ssl_error());
   }
-  const std::string key_pem = drain_bio(key_bio.get(), "key");
-  const std::string cert_pem = drain_bio(cert_bio.get(), "certificate");
+  return generated_certificate{drain_bio(key_bio.get(), "key"), drain_bio(cert_bio.get(), "certificate")};
+}
+
+void socket_helpers::write_certs(const std::string &cert, const bool ca) {
+  const generated_certificate generated = generate_self_signed("generated-certificate", 2048, 365, ca);
+  const std::string &key_pem = generated.key_pem;
+  const std::string &cert_pem = generated.cert_pem;
 
   if (ca) {
     // The CA file is the one `nscp nrpe install` tells the operator to hand
@@ -1608,8 +1609,7 @@ void socket_helpers::load_verify_location(boost::asio::ssl::context &ctx, const 
     // "Permission denied" or "no start line" back to the caller turns a
     // submission into a file-existence oracle over the whole filesystem, with
     // the agent's privileges.
-    throw socket_exception("Failed to load the CA bundle for this connection (see the agent log for the reason)",
-                           "Failed to load CA " + ca + ": " + e.what());
+    throw socket_exception("Failed to load the CA bundle for this connection (see the agent log for the reason)", "Failed to load CA " + ca + ": " + e.what());
   }
 }
 

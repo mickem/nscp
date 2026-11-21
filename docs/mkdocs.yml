@@ -64,6 +64,7 @@ nav:
       - Active Monitoring with NRPE: scenarios/nrpe.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
       - Passive Monitoring (NSCA-NG): scenarios/passive-monitoring-nsca-ng.md
+      - Native Icinga 2 Agent: scenarios/icinga-agent.md
       - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
       - Passive Monitoring (Graphite): scenarios/passive-monitoring-graphite.md
       - Polled Passive Checks (Nagios Core): scenarios/nagios-result-cache.md
@@ -104,6 +105,7 @@ nav:
         - NSCANgClient: reference/client/NSCANgClient.md
         - NSCPClient: reference/client/NSCPClient.md
         - NRDPClient: reference/client/NRDPClient.md
+        - IcingaAgent: reference/client/IcingaAgent.md
         - IcingaClient: reference/client/IcingaClient.md
         - GearmanClient: reference/client/GearmanClient.md
         - SMTPClient: reference/client/SMTPClient.md

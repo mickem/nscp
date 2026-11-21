@@ -3,12 +3,11 @@
 
 #pragma once
 
-#include <net/dll_defines.hpp>
-
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
 #include <chrono>
 #include <memory>
+#include <net/dll_defines.hpp>
 #include <net/socket/allowed_hosts.hpp>
 #include <str/xtos.hpp>
 #ifdef USE_SSL
@@ -71,6 +70,32 @@ NSCP_NET_EXPORT void write_certs(const std::string& cert, bool ca);
 // the same directory and extension with a "-key" suffix on the stem, so
 // `.../ca.pem` becomes `.../ca-key.pem`.
 NSCP_NET_EXPORT std::string ca_key_path(const std::string& ca_certificate);
+
+// A generated key and its self-signed certificate, both PEM (the key as
+// unencrypted PKCS#8).
+struct generated_certificate {
+  std::string key_pem;
+  std::string cert_pem;
+};
+
+// Generate an RSA key of `bits` and a self-signed certificate for it, valid
+// for `days`, with subject `C=SE, O=NSClient++, CN=<common_name>` and the
+// host's names and addresses as subjectAltName. `ca` adds the CA:TRUE basic
+// constraint and CA key usage. Nothing is written to disk: write_certs() is
+// the variant that stores the result the way the TLS listeners expect it.
+// Throws socket_exception.
+NSCP_NET_EXPORT generated_certificate generate_self_signed(const std::string& common_name, int bits, int days, bool ca);
+
+// Write `content` - a private key - so that only the account running the
+// agent (and the local administrators) can read it: mode 0600 on POSIX, an
+// owner-only DACL on Windows, applied before a byte of the key is written.
+// Goes through a temporary file renamed into place, so a failure part-way
+// never leaves a truncated file behind. Throws socket_exception.
+NSCP_NET_EXPORT void write_private_file(const std::string& path, const std::string& content);
+
+// Write `content` - a certificate, nothing secret - with the default mode.
+// Throws socket_exception.
+NSCP_NET_EXPORT void write_public_file(const std::string& path, const std::string& content);
 
 #ifdef WIN32
 // Lock a file down to LOCAL SYSTEM and the local Administrators group,

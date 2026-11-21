@@ -68,6 +68,8 @@ std::string installer_feature_hint(const std::string &module) {
       {"WEBServer", "WEB Server"},
       // NCPA support
       {"NCPAServer", "NCPA support"},
+      // Icinga 2 agent
+      {"IcingaAgent", "Icinga 2 agent"},
       // NSCA plugin
       {"NSCAClient", "NSCA plugin"},
       {"NSCAServer", "NSCA plugin"},

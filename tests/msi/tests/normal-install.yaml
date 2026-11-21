@@ -122,6 +122,8 @@ required_files:
     - modules/WEBServer.dll
     # NCPA support (NCPAPlugins)
     - modules/NCPAServer.dll
+    # Icinga 2 agent (IcingaAgentPlugin)
+    - modules/IcingaAgent.dll
     # NSCA plugin (NSCAPlugin)
     - modules/NSCAClient.dll
     - modules/NSCAServer.dll
