@@ -583,6 +583,9 @@ cat > /etc/icinga2/features-available/api.conf <<'EOF'
 object ApiListener "api" {
   bind_host = "0.0.0.0"
   bind_port = 5665
+  // Without this the listener cannot check a ticket and leaves every
+  // certificate request pending, however valid its ticket.
+  ticket_salt = TicketSalt
 }
 EOF
 icinga2 feature enable api
