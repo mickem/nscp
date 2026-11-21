@@ -48,13 +48,20 @@ function serviceAndTaskFacts(taskAlias: string) {
     let lastEnabled: string[] = [];
     while (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 250));
+      failIfAgentDied("while waiting for the reload to apply");
       const response = await request(REST_URL)
         .get("/api/v2/facts")
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .catch((error: NodeJS.ErrnoException) => {
-          // A reload briefly recreates the listener. HTTP errors and failed
-          // assertions must propagate instead of becoming reload timeouts.
+          // The web server keeps its listener through a reload (it is built
+          // under normalStart only); the listener is recreated when the
+          // reload purges WEBServer as broken and loads it afresh, which is a
+          // window of refused connections, then the 503 and the invalidated
+          // session below. A dead agent refuses connections too, and the
+          // check at the top of the next pass is what tells the two apart.
+          // HTTP errors and failed assertions must propagate instead of
+          // becoming reload timeouts.
           if (["ECONNREFUSED", "ECONNRESET", "EPIPE"].includes(error.code || "")) return undefined;
           throw error;
         });
@@ -83,8 +90,21 @@ function serviceAndTaskFacts(taskAlias: string) {
       )
         return body;
     }
+    failIfAgentDied("while waiting for the reload to apply");
     throw new Error(`Facts did not reflect the settings reload: enabled=${lastEnabled.join(",")}`);
   }
+
+  // The agent dying is the one failure a wait must not absorb. A reload that
+  // took `nscp test` down used to surface as this suite's 60 s wait running
+  // out with `enabled=` empty, then ECONNREFUSED from every test after it, and
+  // nothing naming the exit. The fixture records the exit the moment it
+  // happens; the failure dump carries the agent's log.
+  function failIfAgentDied(when: string) {
+    const died = nscp.exitedEarly();
+    if (died) throw new Error(`${died} ${when}`);
+  }
+
+  beforeEach(() => failIfAgentDied("before this test started"));
 
   beforeAll(async () => {
     // Use a private port so a developer's running agent is never contacted.
