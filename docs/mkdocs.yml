@@ -65,6 +65,7 @@ nav:
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
       - Passive Monitoring (NSCA-NG): scenarios/passive-monitoring-nsca-ng.md
       - Native Icinga 2 Agent: scenarios/icinga-agent.md
+      - Migrating from the Icinga 2 Windows Agent: scenarios/migrating-from-icinga-agent.md
       - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
       - Passive Monitoring (Graphite): scenarios/passive-monitoring-graphite.md
       - Polled Passive Checks (Nagios Core): scenarios/nagios-result-cache.md
