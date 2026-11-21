@@ -120,8 +120,68 @@ object CheckCommand "nscp-query" {
 }
 ```
 
-A `CheckCommand` that does not import `ifw-api` arrives with its name only, and runs the query of that name without
-arguments.
+A `CheckCommand` that does not import `ifw-api` arrives with its name and the macros its own arguments use. The agent
+looks the name up among the Icinga commands it knows (next section); one it does not know runs the query of that name
+without arguments.
+
+#### Icinga commands under their own names
+
+A host that ran the Icinga 2 agent has services on the Windows commands of the Icinga Template Library. The agent
+answers those under their Icinga names, from the variables the service already sets, so the services keep working
+unchanged when NSClient++ takes the Icinga agent's place:
+
+| Icinga command                             | Runs                                      | Thresholds from                                                   |
+|--------------------------------------------|-------------------------------------------|-------------------------------------------------------------------|
+| `disk-windows`                             | `check_drivesize`                         | `disk_win_warn` / `_crit`, in `disk_win_unit`; free, or used with `disk_win_show_used` |
+| `memory-windows`                           | `check_memory type=physical`              | `memory_win_warn` / `_crit`, likewise                             |
+| `swap-windows`                             | `check_pagefile`, the total               | `swap_win_warn` / `_crit`, likewise                               |
+| `load-windows`                             | `check_cpu`                               | `load_win_warn` / `_crit`                                         |
+| `procs-windows`                            | `check_process process=*`                 | `procs_win_warn` / `_crit` on the count; `procs_win_user`         |
+| `users-windows`                            | `check_users`                             | `users_win_warn` / `_crit`                                        |
+| `uptime-windows`                           | `check_uptime`                            | `uptime_win_warn` / `_crit`, in `uptime_win_unit` (`s`, `m`, `h`) |
+| `network-windows`                          | `check_network`                           | `network_win_warn` / `_crit`, bytes per second                    |
+| `perfmon-windows`                          | `check_pdh counter=...`                   | `perfmon_win_warn` / `_crit`                                      |
+| `ping-windows`, `ping4-`, `ping6-windows`  | `check_ping host=...`                     | `ping_win_wrta` / `_wpl`, `ping_win_crta` / `_cpl`                |
+| `service-windows`                          | `check_service service=...`               | critical unless running; warning with `service_win_warn`          |
+| `update-windows`                           | `check_os_updates`                        | `update_win_warn` / `_crit`; a pending reboot unless `ignore_reboot` |
+| `nscp-local`, `nscp-local-*`               | the query in `nscp_query`                 | the command's own `nscp_*` arguments, as they are                 |
+
+The plugins' thresholds are converted into the `-w` / `-c` of the query, with every comparison the way the plugin made
+it:
+
+| Icinga threshold | Alerts when the value is | For free space (disk, memory, swap) | Passed as                |
+|------------------|--------------------------|-------------------------------------|--------------------------|
+| `20`             | above 20                 | 20 or less                          | `~:20` / `@~:20`         |
+| `!20`            | 20 or less               | above 20                            | `@~:20` / `~:20`         |
+| `[10-20]`        | inside 10 to 20          | outside                             | `@10:20` / `10:20`       |
+| `![10-20]`       | outside 10 to 20         | inside                              | `10:20` / `@10:20`       |
+
+A percentage stays one (`20%`); any other number takes the command's unit (`500` with `disk_win_unit = "mb"` is
+`500m`). A side the service gives no threshold for is passed as `none`: the plugin did not alert on it, so the
+query's own default does not apply either. A use the agent cannot translate - a threshold the plugin would have
+refused, `service_win_description` - is reported as `UNKNOWN` on the service rather than run as something else.
+
+The result is the query's, not the plugin's: the output text and the performance data labels are NSClient++'s. The
+master shows the query that ran as the executed command.
+
+Set `translate commands = false` to turn the built-in translations off. Your own go under `commands`, as
+`<Icinga command> = <query> <argument>...`, where an argument may use the macros the master sends:
+
+```ini
+[/settings/Icinga/agent/commands]
+; an in-house Icinga command, answered by a query
+app-queue = check_pdh "counter=\MSMQ Queue($queue$)\Messages in Queue" w=$queue_warn$ c=$queue_crit$
+; replace the built-in translation of an ITL command
+load-windows = check_cpu time=5m w=$load_win_warn$ c=$load_win_crit$
+```
+
+An argument whose macro has no value is left out, and an argument that is one list macro becomes one argument per
+element. An alias takes precedence over the built-in translation of the same name. Values are passed as they are
+here: the threshold conversion above applies to the built-in translations only.
+
+Translated or aliased, the query is what the permission policy sees (`CheckDisk.check_drivesize`, not
+`disk-windows`), and the thresholds count as arguments from the parent: with `allow arguments = false` only an alias
+whose arguments are all its own still runs.
 
 #### Which checks the parent may run
 

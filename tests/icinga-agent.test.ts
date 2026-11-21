@@ -29,8 +29,11 @@ import * as forge from "node-forge";
 import {
   describeWithModules,
   generateCertChain,
+  itIf,
   itOnUnix,
+  moduleBuiltHere,
   NscpInstance,
+  onWindows,
   type CertBundle,
 } from "@fixtures/index";
 
@@ -252,6 +255,10 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
           "certificate directory": certDir,
           ...overrides,
         },
+        "/settings/Icinga/agent/commands": {
+          "legacy-ok": 'check_ok "message=alias for $who$" $dropped$',
+          "fixed-ok": "check_ok message=fixed",
+        },
         "/settings/permissions": { enabled: "true" },
         "/settings/permissions/policies": {
           [`IcingaAgent:${PARENT}`]: "CheckHelpers.check_ok, CheckHelpers.check_warning",
@@ -386,6 +393,46 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(cr.exit_status).toBe(1);
     });
 
+    it("answers an ITL command under its Icinga name", async () => {
+      // nscp-local as the Icinga Template Library defines it: the master sends
+      // the command's name and the macros its arguments use, nothing else.
+      const cr = await session.execute("itl", "nscp-local", {
+        nscp_query: "check_ok",
+        nscp_arguments: ["message=from the itl"],
+        nscp_modules: ["CheckHelpers"],
+        nscp_boot: true,
+        nscp_showall: false,
+        nscp_log_level: "critical",
+      });
+      expect(cr.exit_status).toBe(0);
+      expect(cr.output).toBe("from the itl");
+      // The master sees the query that ran, not the name it asked for.
+      expect(String(cr.command)).toContain("check_ok");
+    });
+
+    it("reports an ITL command it cannot translate instead of guessing", async () => {
+      const cr = await session.execute("itl-bad", "disk-windows", { disk_win_warn: "lots" });
+      expect(cr.exit_status).toBe(3);
+      expect(String(cr.output)).toContain("Cannot translate the Icinga command 'disk-windows'");
+    });
+
+    it("runs the translated query under the permission policy, by its own name", async () => {
+      // The policy grants check_ok and check_warning; what it is asked about
+      // is the query the command became, not "nscp-local".
+      const cr = await session.execute("itl-denied", "nscp-local", {
+        nscp_query: "check_critical",
+      });
+      expect(cr.exit_status).toBe(3);
+      expect(String(cr.output)).toMatch(/not allowed/i);
+      expect(String(cr.output)).toContain("check_critical");
+    });
+
+    it("answers a configured command alias with the master's macros", async () => {
+      const cr = await session.execute("alias", "legacy-ok", { who: "icinga" });
+      expect(cr.exit_status).toBe(0);
+      expect(cr.output).toBe("alias for icinga");
+    });
+
     it("runs checks as IcingaAgent:<parent endpoint> under the permission policy", async () => {
       const cr = await session.execute("denied", "check_critical", {
         ifw_api_command: "check_critical",
@@ -420,6 +467,19 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(String(withArgs.output)).toContain("arguments are not allowed");
       const without = await session.execute("no-args", "check_ok", { ifw_api_command: "check_ok" });
       expect(without.exit_status).toBe(0);
+      // A translated command carries the master's values, so it is refused
+      // too; an alias whose arguments are all its own is not.
+      const translated = await session.execute("itl-args", "nscp-local", {
+        nscp_query: "check_ok",
+        nscp_arguments: ["message=x"],
+      });
+      expect(translated.exit_status).toBe(3);
+      expect(String(translated.output)).toContain("arguments are not allowed");
+      const aliased = await session.execute("alias-args", "legacy-ok", { who: "icinga" });
+      expect(aliased.exit_status).toBe(3);
+      const fixed = await session.execute("alias-fixed", "fixed-ok", {});
+      expect(fixed.exit_status).toBe(0);
+      expect(fixed.output).toBe("fixed");
     });
 
     it("negotiates the configured tls version and cipher", async () => {
@@ -541,6 +601,7 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
     async function freshAgent(
       settings: Record<string, string>,
       preinstallCa = false,
+      modules: Record<string, string> = {},
     ): Promise<{ agent: NscpInstance; certDir: string }> {
       const agent = new NscpInstance();
       const certDir = path.join(agent.workDir, "icinga-certs");
@@ -549,7 +610,7 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
         fs.writeFileSync(path.join(certDir, "ca.crt"), master.pki.ca.certPem);
       }
       await agent.configure({
-        "/modules": { IcingaAgent: "enabled", CheckHelpers: "enabled" },
+        "/modules": { IcingaAgent: "enabled", CheckHelpers: "enabled", ...modules },
         "/settings/log": { level: "debug" },
         "/settings/Icinga/agent": {
           "parent host": "127.0.0.1",
@@ -573,6 +634,87 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       await session.waitFor("icinga::Hello");
       const cr = await session.execute("pinned", "check_ok", { ifw_api_command: "check_ok" });
       expect(cr.exit_status).toBe(0);
+    });
+
+    // The translations are unit tested as text. This is the other half: that
+    // the queries they name take the arguments they are given, on whatever
+    // platform this runs. The macros are the ones the ITL command sends with
+    // its defaults; the states depend on the machine, so the test only holds
+    // that each one is a real result and not a refused argument.
+    itIf(
+      moduleBuiltHere("CheckSystem") && moduleBuiltHere("CheckDisk") && moduleBuiltHere("CheckNet"),
+    )("runs the ITL's Windows commands against the real checks", async () => {
+      const before = master.sessions.length;
+      await freshAgent({ "parent fingerprint": masterFingerprint }, false, {
+        CheckSystem: "enabled",
+        CheckDisk: "enabled",
+        CheckNet: "enabled",
+      });
+      const session = await master.waitForSession((s) => master.sessions.indexOf(s) >= before);
+      await session.waitFor("icinga::Hello");
+
+      const commands: Array<[string, string, Json]> = [
+        [
+          "disk-windows",
+          "check_drivesize",
+          {
+            disk_win_unit: "mb",
+            disk_win_warn: "20%",
+            disk_win_crit: "100",
+            disk_win_path: onWindows ? "C:" : "/",
+          },
+        ],
+        [
+          "disk-windows",
+          "check_drivesize",
+          {
+            disk_win_unit: "gb",
+            disk_win_warn: "![0-100000]",
+            disk_win_show_used: true,
+            disk_win_path: onWindows ? "C:" : "/",
+          },
+        ],
+        ["load-windows", "check_cpu", { load_win_warn: 80, load_win_crit: "95%" }],
+        [
+          "memory-windows",
+          "check_memory",
+          { memory_win_unit: "mb", memory_win_warn: "10%", memory_win_crit: "64" },
+        ],
+        [
+          "uptime-windows",
+          "check_uptime",
+          { uptime_win_unit: "h", uptime_win_warn: "[100000-200000]", uptime_win_crit: 200000 },
+        ],
+        ["procs-windows", "check_process", { procs_win_warn: 100000, procs_win_crit: "!0" }],
+        [
+          "ping4-windows",
+          "check_ping",
+          {
+            ping_win_address: "127.0.0.1",
+            ping_win_packets: "2",
+            ping_win_timeout: "1000",
+            ping_win_wrta: 500,
+            ping_win_wpl: 50,
+            ping_win_crta: 900,
+            ping_win_cpl: 90,
+          },
+        ],
+        ["network-windows", "check_network", { network_no_isatap: true, network_win_crit: "!-1" }],
+      ];
+      for (const [command, query, macros] of commands) {
+        let cr: Json = {};
+        // The collector-backed checks have nothing to report for the first
+        // seconds after start.
+        for (let attempt = 0; attempt < 30; attempt++) {
+          cr = await session.execute(`itl-${command}-${attempt}`, command, macros);
+          if (!/collector still initializing/.test(String(cr.output))) break;
+          await sleep(1000);
+        }
+        const what = `${command} -> ${String(cr.command)}: ${String(cr.output)}`;
+        expect(String(cr.command)).toContain(query);
+        expect([0, 1, 2]).toContain(cr.exit_status);
+        expect(what).not.toMatch(/Cannot translate|Invalid|not valid|Failed to/i);
+      }
     });
 
     it("refuses a parent whose certificate does not match the pin", async () => {
