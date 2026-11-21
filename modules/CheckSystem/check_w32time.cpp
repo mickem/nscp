@@ -205,7 +205,8 @@ void check_w32time_from(const PB::Commands::QueryRequestMessage::Request &reques
   // to be heading that way; WARNING once the offset leaves the range a healthy
   // domain hierarchy keeps. An unknown offset is -1 and never trips either.
   filter_helper.add_options("offset > 1000", "synchronized = 0 or offset > 30000", "", filter.get_filter_syntax(), "ignored");
-  filter_helper.add_short_threshold("offset", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
+  filter_helper.add_short_threshold("offset", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "1", "30");
+  filter_helper.add_short_critical("synchronized = 0 or ${offset}");
   filter_helper.add_syntax("${status}: ${list}", "${state}", "w32time", "", "");
 
   if (!filter_helper.parse_options()) return;

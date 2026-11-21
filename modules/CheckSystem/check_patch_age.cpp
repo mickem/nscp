@@ -152,6 +152,7 @@ void check_patch_age_from(const PB::Commands::QueryRequestMessage::Request &requ
   // opt-in via warn=/crit=. There is always exactly one row.
   filter_helper.add_options("", "missing > 0", "", filter.get_filter_syntax(), "ignored");
   filter_helper.add_short_threshold("age", modern_filter::shorthand::above);
+  filter_helper.add_short_critical("${age} or missing > 0");
   filter_helper.add_syntax("${status}: ${list}", "${message}", "patch", "", "");
   filter_helper.set_default_perf_config("extra(age;patches;missing)");
 
