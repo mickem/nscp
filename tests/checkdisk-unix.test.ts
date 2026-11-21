@@ -369,6 +369,29 @@ describeOnLinux("CheckDisk (Unix)", () => {
     expect(r.code).toBe(1);
   });
 
+  it("a negative short threshold survives next to dashed arguments", async () => {
+    // "--drive / -c -5:" must not have "-5:" read as an option of its own.
+    const r = await queryWithCode("check_drivesize", ["--drive", "/", "-w", "0", "-c", "-5:"]);
+    expect(r.out).not.toMatch(/unrecognised|unknown option|Invalid command line/i);
+    expect(r.code).toBe(0);
+  });
+
+  it("check_drivesize lists the short defaults next to the long ones", async () => {
+    const out = await query("check_drivesize", ["show-default"]);
+    expect(out).toMatch(/"warning=used > 80%"/);
+    expect(out).toMatch(/"w=20"/);
+    expect(out).toMatch(/"c=10"/);
+  });
+
+  it("an empty or mis-united short threshold is refused, not guessed at", async () => {
+    const empty = await queryWithCode("check_drivesize", ["drive=/", "w="]);
+    expect(empty.code).toBe(3);
+    expect(empty.out).toMatch(/Missing value for -w/);
+    const unit = await queryWithCode("check_drivesize", ["drive=/", "-w", "10ms"]);
+    expect(unit.code).toBe(3);
+    expect(unit.out).toMatch(/Invalid unit for free: 10ms/);
+  });
+
   it("check_single_file -w/-c bound the age in seconds, with units", async () => {
     const file = `file=${path.join(scratch, "big.log")}`;
     // Written moments ago: not older than an hour, but inside 0s..1h.
