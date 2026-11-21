@@ -271,6 +271,16 @@ describe("fleet failure-context reports", () => {
     expect(reports()).toHaveLength(1);
     const first = reports()[0];
     expect(typeof first.body.sent_at).toBe("string");
+    // The format is versioned, the report is named (a ULID), and every time
+    // is also there as unix seconds, which is what a server joins on.
+    expect(first.body.version).toBe(1);
+    expect(first.body.report_id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(Math.abs(first.body.sent_at_unix * 1000 - first.at)).toBeLessThan(10_000);
+    expect(first.body.sent_at_unix * 1000).toBe(Date.parse(first.body.sent_at));
+    expect(first.body.context.captured_at_unix * 1000).toBe(
+      Date.parse(first.body.context.captured_at),
+    );
+    expect(first.body.suppressed.since_unix * 1000).toBe(Date.parse(first.body.suppressed.since));
     // `record arguments` is left at its default.
     expect(first.body.arguments_mode).toEqual("safe");
     // The newest failure with a snapshot is the one sent ...
@@ -316,6 +326,9 @@ describe("fleet failure-context reports", () => {
     expect(second.body.failure.message).toEqual("four");
     expect(second.body.suppressed.count).toBe(0);
     expect(second.body.suppressed.since).toEqual(first.body.sent_at);
+    expect(second.body.suppressed.since_unix).toBe(first.body.sent_at_unix);
+    // Another report, so another id.
+    expect(second.body.report_id).not.toEqual(first.body.report_id);
   });
 
   it("keeps the last report time across a restart", async () => {

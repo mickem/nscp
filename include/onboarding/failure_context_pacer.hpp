@@ -57,6 +57,9 @@ boost::optional<unsigned long> parse_failure_context_header(const std::string &v
 //    sooner than the interval would allow anyway. A report it refused as too
 //    large (413) is not retried: that failure is dropped, and the next one is
 //    the next candidate.
+//  * A report keeps one id from its first attempt until it lands or is
+//    dropped, so a server that received it and whose answer was lost does
+//    not take the retry for a second report.
 class failure_context_pacer {
  public:
   static constexpr unsigned long min_interval_seconds = 5;
@@ -117,6 +120,7 @@ class failure_context_pacer {
     last_sent_at_ = now;
     rejections_ = 0;
     retry_at_ = 0;
+    report_id_.clear();
   }
 
   // The report did not land (an error status, a dropped connection): try the
@@ -126,9 +130,20 @@ class failure_context_pacer {
     ++rejections_;
   }
 
-  // The report was too large for the server, and will be every time: the
-  // failures up to `index` are given up on rather than retried.
-  void dropped(const unsigned long long index) { last_index_ = (std::max)(last_index_, index); }
+  // The failures up to `index` are given up on rather than retried: the
+  // report was too large for the server, and will be every time, or there
+  // was nothing in it worth sending.
+  void dropped(const unsigned long long index) {
+    last_index_ = (std::max)(last_index_, index);
+    report_id_.clear();
+  }
+
+  // The id of the report being attempted: empty until the caller names one,
+  // then the same through every retry, until that report lands or is
+  // dropped. The pacer keeps it because it is the one that knows when a
+  // report stops being the same report.
+  const std::string &report_id() const { return report_id_; }
+  void set_report_id(const std::string &id) { report_id_ = id; }
 
   // A Retry-After: no report before `seconds` have passed. A shorter hold
   // never cuts a longer one short.
@@ -166,6 +181,7 @@ class failure_context_pacer {
   unsigned int rejections_ = 0;
   bool skip_this_turn_ = false;
   bool skip_next_turn_ = false;
+  std::string report_id_;
 };
 
 }  // namespace onboarding

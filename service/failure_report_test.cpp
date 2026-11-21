@@ -59,7 +59,12 @@ TEST(failure_report, sends_the_newest_failure_with_a_snapshot_and_summarises_the
   report.evicted = 2;
   const json::object root = render(report, 1100);
 
+  EXPECT_EQ(1, root.at("version").as_int64());
+  // No id was given, so none is sent.
+  EXPECT_EQ(nullptr, root.if_contains("report_id"));
+  // Every time twice: a string to show, seconds to sort and join on.
   EXPECT_EQ("1970-01-01T00:18:20Z", root.at("sent_at").as_string());
+  EXPECT_EQ(1100, root.at("sent_at_unix").as_int64());
   // Entry 1 is the only one with a snapshot, so it is the one sent, although
   // two newer failures exist.
   const json::object &failure = root.at("failure").as_object();
@@ -81,11 +86,13 @@ TEST(failure_report, sends_the_newest_failure_with_a_snapshot_and_summarises_the
   EXPECT_EQ("captured", context.at("state").as_string());
   EXPECT_EQ(5, context.at("age_seconds").as_int64());
   EXPECT_EQ("1970-01-01T00:16:35Z", context.at("captured_at").as_string());
+  EXPECT_EQ(995, context.at("captured_at_unix").as_int64());
   EXPECT_EQ(3, context.at("metrics").as_object().at("system.cpu.idle").as_int64());
   EXPECT_EQ("percent", context.at("metadata").as_object().at("system.cpu.idle").as_object().at("unit").as_string());
 
   const json::object &suppressed = root.at("suppressed").as_object();
   EXPECT_EQ("1970-01-01T00:15:00Z", suppressed.at("since").as_string());
+  EXPECT_EQ(900, suppressed.at("since_unix").as_int64());
   EXPECT_EQ(2, suppressed.at("count").as_int64());
   EXPECT_EQ(2, suppressed.at("evicted").as_int64());
   const json::array &by_check = suppressed.at("by_check").as_array();
@@ -112,7 +119,9 @@ TEST(failure_report, groups_repeats_of_one_check_and_status) {
   EXPECT_EQ(4, group.at("count").as_int64());
   EXPECT_EQ(2, group.at("status").as_int64());
   EXPECT_EQ("1970-01-01T00:16:40Z", group.at("first").as_string());
+  EXPECT_EQ(1000, group.at("first_unix").as_int64());
   EXPECT_EQ("1970-01-01T00:16:43Z", group.at("last").as_string());
+  EXPECT_EQ(1003, group.at("last_unix").as_int64());
 }
 
 TEST(failure_report, says_disabled_and_carries_no_metrics_when_capture_is_off) {
@@ -234,4 +243,42 @@ TEST(failure_report, says_disabled_for_diagnostics_when_capture_is_off_and_evict
   root = render(report, 1100);
   EXPECT_EQ("evicted", root.at("diagnostics").as_object().at("state").as_string());
   EXPECT_EQ(nullptr, root.at("diagnostics").as_object().if_contains("sections"));
+}
+TEST(failure_report, has_a_snapshot_only_while_one_is_held) {
+  nsclient::core::metrics_snapshot_store snapshots;
+  failed_check_store store;
+  store.configure(capturing());
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1000, snapshot(snapshots, 995)));
+  failure_report report = failure_report::from(store, store.list());
+  EXPECT_TRUE(report.has_snapshot());
+  // Released between the listing and the read.
+  report.context.reset();
+  EXPECT_FALSE(report.has_snapshot());
+
+  // Capture off: there never was one.
+  failed_check_store plain;
+  ASSERT_TRUE(plain.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1000));
+  EXPECT_FALSE(failure_report::from(plain, plain.list()).has_snapshot());
+}
+
+TEST(failure_report, sends_the_report_id_it_was_given) {
+  failed_check_store store;
+  ASSERT_TRUE(store.record(result("check_cpu", PB::Common::ResultCode::CRITICAL, "x"), nullptr, "s", 0, 1000));
+  failure_report report = failure_report::from(store, store.list());
+  report.report_id = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+  EXPECT_EQ("01ARZ3NDEKTSV4RRFFQ69G5FAV", render(report, 1100).at("report_id").as_string());
+}
+
+TEST(failure_report, a_report_id_is_a_ulid_that_sorts_by_time) {
+  std::mt19937 random(7);
+  const std::string early = failure_report::make_report_id(1469918176385ull, random);
+  const std::string late = failure_report::make_report_id(1469918176386ull, random);
+  ASSERT_EQ(26u, early.size());
+  // The canonical encoding of that millisecond.
+  EXPECT_EQ("01ARYZ6S41", early.substr(0, 10));
+  EXPECT_EQ(std::string::npos, early.find_first_not_of("0123456789ABCDEFGHJKMNPQRSTVWXYZ"));
+  EXPECT_LT(early, late);
+  // Two made in the same millisecond still differ.
+  EXPECT_NE(failure_report::make_report_id(1469918176385ull, random).substr(10), early.substr(10));
+  EXPECT_EQ(26u, failure_report::make_report_id().size());
 }

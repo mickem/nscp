@@ -21,9 +21,10 @@ key contains one of a list of text (`VirtualBox, Hyper-V Virtual`). An
 enrolled agent also sends *failure context* to a fleet server that asks for
 it: at most one report per `[/settings/fleet] failure context interval`
 (default `1h`), carrying the newest failure with its snapshot and a count of
-the others. It is not a feed of every failed check. Capture is off by
-default, so nothing changes until you turn it on. Without it a fleet report
-carries the failure and no metrics. Set `failure context = false` under
+the others. It is there to enrich an alert your monitoring system already
+holds, not to be a feed of every failed check, and nothing is sent for a
+failure that has no snapshot. Capture is off by default, so nothing changes
+and nothing is sent until you turn it on. Set `failure context = false` under
 `[/settings/fleet]` to send no reports. See the
 [REST reference](../api/rest/failures.md#metrics-at-the-time-of-the-failure),
 [the fleet guide](fleet.md#send-failure-context) and the
