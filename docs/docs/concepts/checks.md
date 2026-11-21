@@ -310,6 +310,9 @@ be mixed with any other argument.
 
 The ranges are the ones from the
 [monitoring plugins guidelines](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT).
+A range goes from its low end to its high end: `-w 20:10` is refused (`Invalid threshold: 20:10`)
+rather than run as a threshold that everything matches. So is a `-w` that was given no value, as in
+`-w -c 90`.
 
 A short threshold **moves the number and nothing else**. Each check states what its `-w` and `-c`
 stand for, so the conditions and guards around the bound stay where they are:

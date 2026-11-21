@@ -104,10 +104,13 @@ struct cli_helper : boost::noncopyable {
   bool short_thresholds_declared;
   bool short_thresholds_registered;
   bool short_thresholds_disabled;
+  // Whether "w" / "c" are the short thresholds, rather than an option of that
+  // name the check declared for itself.
+  bool short_warn_owned, short_crit_owned;
   std::vector<std::string> short_warn, short_crit;
 
   cli_helper(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, data_container &data)
-      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false), has_warmup_option(false), short_thresholds_declared(false), short_thresholds_registered(false), short_thresholds_disabled(false) {}
+      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false), has_warmup_option(false), short_thresholds_declared(false), short_thresholds_registered(false), short_thresholds_disabled(false), short_warn_owned(false), short_crit_owned(false) {}
 
   ~cli_helper() {}
 
@@ -333,26 +336,54 @@ struct cli_helper : boost::noncopyable {
     // common option; a check-specific one stays on the command's own page.
     if (is_default) tail += common_option_marker;
     const std::string warn_text = "Short form of warning: -w " + usage + " is the same as warning=\"" +
-                                  shorthand::describe(short_thresholds, short_warn_templates) + "\" and replaces the default warning." + tail;
+                                  shorthand::describe(short_thresholds, short_warn_templates) + "\"" + short_effect("warning", short_warn_templates) + tail;
     const std::string crit_text = "Short form of critical: -c " + usage + " is the same as critical=\"" +
-                                  shorthand::describe(short_thresholds, short_crit_templates) + "\" and replaces the default critical." + tail;
-    // A check that already has an option of that name keeps it.
-    if (desc.find_nothrow("w", false) == nullptr) desc.add_options()("w", short_option(short_warn, shorthand::warning), warn_text.c_str());
-    if (desc.find_nothrow("c", false) == nullptr) desc.add_options()("c", short_option(short_crit, shorthand::critical), crit_text.c_str());
+                                  shorthand::describe(short_thresholds, short_crit_templates) + "\"" + short_effect("critical", short_crit_templates) + tail;
+    // A check that already has an option of that name keeps it, and its value
+    // is then not ours to read (apply_short_threshold).
+    if (desc.find_nothrow("w", false) == nullptr) {
+      desc.add_options()("w", short_option(short_warn, shorthand::warning), warn_text.c_str());
+      short_warn_owned = true;
+    }
+    if (desc.find_nothrow("c", false) == nullptr) {
+      desc.add_options()("c", short_option(short_crit, shorthand::critical), crit_text.c_str());
+      short_crit_owned = true;
+    }
     const std::string show_text =
         "Show the defaults of the short thresholds -w and -c for a given command.\n"
         "show-default lists the defaults of warning and critical instead, and leaves these out so that its output can be edited and passed back." +
         common_option_marker;
-    if (desc.find_nothrow("show-short-defaults", false) == nullptr) desc.add_options()("show-short-defaults", show_text.c_str());
+    // Takes a value like every other boolean here, as REST passes a flag as
+    // "show-short-defaults=true". It is answered before the parser runs
+    // (answer_default_queries), so this is what help lists and what accepts
+    // an explicit "=false".
+    if (desc.find_nothrow("show-short-defaults", false) == nullptr)
+      desc.add_options()("show-short-defaults", boost::program_options::value<bool>()->implicit_value(true)->default_value(false), show_text.c_str());
   }
 
-  // Whether the request asks for `name` as a bare argument, in either shape.
+  // How the help ends its "is the same as ..." sentence. With a template the
+  // expression is the default with another number in it, and saying that it
+  // replaces the default would contradict the conditions printed right there.
+  static std::string short_effect(const std::string &option, const std::vector<std::string> &templates) {
+    if (templates.empty()) return " and replaces the default " + option + ".";
+    return ": the default " + option + " with its bound moved, the other conditions stay.";
+  }
+
+  // Whether the request asks for the flag `name`: bare, or with a value as
+  // REST passes it ("name=true"), in either shape.
   bool is_requested(const std::string &name) const {
+    bool requested = false;
     for (int i = 0; i < request.arguments_size(); ++i) {
-      const std::string &arg = request.arguments(i);
-      if (arg == name || arg == "--" + name) return true;
+      std::string arg = request.arguments(i);
+      if (boost::starts_with(arg, "--")) arg = arg.substr(2);
+      if (arg == name) {
+        requested = true;
+      } else if (boost::starts_with(arg, name + "=")) {
+        const std::string value = boost::to_lower_copy(arg.substr(name.size() + 1));
+        requested = value == "true" || value == "1" || value == "yes" || value == "on";
+      }
     }
-    return false;
+    return requested;
   }
 
   // show-default and show-short-defaults, answered here rather than by the
@@ -405,12 +436,26 @@ struct cli_helper : boost::noncopyable {
     return copy;
   }
 
+  // Refuses a -w / -c that was given no value ("-w -c 90", a trailing "-w",
+  // "w="), in the same words whatever shape the arguments have. Returns false
+  // when it answered.
+  bool check_short_values(const PB::Commands::QueryRequestMessage::Request &normalized) {
+    if (short_thresholds_disabled) return true;
+    const std::vector<std::string> args(normalized.arguments().begin(), normalized.arguments().end());
+    const char flag = shorthand::find_missing_value(args);
+    if (flag == 0 || !(flag == 'w' ? short_warn_owned : short_crit_owned)) return true;
+    nscapi::protobuf::functions::set_response_bad(*response, shorthand::missing_value_error(flag));
+    return false;
+  }
+
   // Turns what -w / -c were given into expressions. A short threshold takes
   // the place of the check's default for its side - the template says what
   // that is - and next to an explicit warning= it is one more expression.
   bool apply_short_thresholds(const boost::program_options::variables_map &vm) {
-    return apply_short_threshold(vm, "w", "warning", shorthand::warning, short_warn, short_warn_templates, data.warn_string) &&
-           apply_short_threshold(vm, "c", "critical", shorthand::critical, short_crit, short_crit_templates, data.crit_string);
+    // An option of that name the check declared itself is not a threshold:
+    // reading it as one would find no values and clear the default.
+    return (!short_warn_owned || apply_short_threshold(vm, "w", "warning", shorthand::warning, short_warn, short_warn_templates, data.warn_string)) &&
+           (!short_crit_owned || apply_short_threshold(vm, "c", "critical", shorthand::critical, short_crit, short_crit_templates, data.crit_string));
   }
   bool apply_short_threshold(const boost::program_options::variables_map &vm, const std::string &short_name, const std::string &option,
                              const shorthand::side which, const std::vector<std::string> &values, const std::vector<std::string> &templates,
@@ -530,22 +575,28 @@ struct cli_helper : boost::noncopyable {
 
   bool parse_options(const boost::program_options::positional_options_description &p) {
     if (answer_default_queries()) return false;
+    const PB::Commands::QueryRequestMessage::Request normalized = normalized_request();
+    if (!check_short_values(normalized)) return false;
     boost::program_options::variables_map vm;
-    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized_request(), *response, p)) return false;
+    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response, p)) return false;
     parse_options_post(vm);
     return apply_short_thresholds(vm) && validate_options();
   }
   bool parse_options() {
     if (answer_default_queries()) return false;
+    const PB::Commands::QueryRequestMessage::Request normalized = normalized_request();
+    if (!check_short_values(normalized)) return false;
     boost::program_options::variables_map vm;
-    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized_request(), *response)) return false;
+    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response)) return false;
     parse_options_post(vm);
     return apply_short_thresholds(vm) && validate_options();
   }
   bool parse_options(std::vector<std::string> &extra) {
     if (answer_default_queries()) return false;
+    const PB::Commands::QueryRequestMessage::Request normalized = normalized_request();
+    if (!check_short_values(normalized)) return false;
     boost::program_options::variables_map vm;
-    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized_request(), *response, true, extra)) return false;
+    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response, true, extra)) return false;
     parse_options_post(vm);
     return apply_short_thresholds(vm) && validate_options();
   }
