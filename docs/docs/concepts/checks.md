@@ -328,14 +328,21 @@ check_nps_auth -w 20
 A full `warning=` / `critical=` replaces the default entirely when that is what you want, and
 `-w none` removes it.
 
-Every command documents both forms side by side. `help` (and the reference page) lists `warning`
-with the default expression and `w` with the same default in the short form and what it expands to;
-`show-default` prints them together:
+Every command documents both forms. `help` (and the reference page) lists `warning` with the default
+expression, and `w` with the same default in the short form and what it expands to. On the command
+line each form has its own listing:
 
 ```shell
 check_tcp show-default
-"warning=time > 1000" "critical=time > 5000 or result != 'ok'" "w=1" "c=5" ...
+"warning=time > 1000" "critical=time > 5000 or result != 'ok'" ...
+
+check_tcp show-short-defaults
+"w=1" "c=5"
 ```
+
+They are separate on purpose. `show-default` prints a line you can copy, edit and pass back, and a
+`w=1` left in it would be added to an edited `warning=` as a second expression — the check would go
+on warning at the old bound. Use one form or the other for a side, not both.
 
 What a bare number bounds, and where the defaults sit:
 
