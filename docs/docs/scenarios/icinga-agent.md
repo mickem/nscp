@@ -118,6 +118,10 @@ object CheckCommand "nscp-disk" {
 }
 ```
 
+Services on the ITL's own Windows commands (`disk-windows`, `load-windows`, `nscp-local-cpu`, ...) need no new
+command: the agent answers those under their Icinga names, see
+[Migrating from the Icinga 2 Windows Agent](migrating-from-icinga-agent.md).
+
 The argument values are NSClient++ filter expressions, as on any other transport. A list value repeats its key
 (`time=5s time=1m`); `set_if` turns a boolean into a flag; an argument whose variable is not set is left out.
 
