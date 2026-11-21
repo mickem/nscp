@@ -48,7 +48,16 @@ struct spec {
   std::string variable;
   direction dir;
   unit value_unit;
-  spec(const std::string &variable, const direction dir, const unit value_unit = unit_plain) : variable(variable), dir(dir), value_unit(value_unit) {}
+  // What -w and -c stand at when they are not given, written the way they
+  // would be typed ("80", "20%", "5m"); empty when the default has no bound on
+  // this keyword. They fill in for a value left out of a list ("-w ,20%"
+  // keeps the default time) and are what the documentation shows as the
+  // default of the short form.
+  std::string warn_default;
+  std::string crit_default;
+  spec(const std::string &variable, const direction dir, const unit value_unit = unit_plain, const std::string &warn_default = "",
+       const std::string &crit_default = "")
+      : variable(variable), dir(dir), value_unit(value_unit), warn_default(warn_default), crit_default(crit_default) {}
 };
 typedef std::vector<spec> spec_list;
 
@@ -61,6 +70,7 @@ inline std::string trim(const std::string &s) {
   return s.substr(b, e - b + 1);
 }
 
+inline char lower(const char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c; }
 inline bool is_digit(const char c) { return c >= '0' && c <= '9'; }
 inline bool is_alpha(const char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
 
@@ -163,16 +173,41 @@ inline bool parse_duration(const std::string &value, double &seconds) {
   return true;
 }
 
-inline bool has_suffix(const std::string &value) { return !value.empty() && !is_digit(value[value.size() - 1]) && value[value.size() - 1] != '.'; }
+inline std::string suffix_of(const std::string &value) {
+  std::string::size_type i = 0;
+  while (i < value.size() && !is_alpha(value[i]) && value[i] != '%') ++i;
+  return value.substr(i);
+}
+
+// k, m, g, t, p, e with an optional b, or a b alone: the size suffixes.
+inline bool is_size_suffix(const std::string &suffix) {
+  if (suffix.empty() || suffix.size() > 2) return false;
+  const char first = lower(suffix[0]);
+  const bool scale = first == 'k' || first == 'm' || first == 'g' || first == 't' || first == 'p' || first == 'e';
+  if (suffix.size() == 1) return scale || first == 'b';
+  return scale && lower(suffix[1]) == 'b';
+}
 
 // The value as the filter wants to read it for this keyword.
 inline bool render_value(const spec &s, const std::string &value, std::string &out, std::string &error) {
+  const std::string suffix = suffix_of(value);
   switch (s.value_unit) {
     case unit_percent:
-      out = has_suffix(value) ? value : value + "%";
+      if (suffix.empty()) {
+        out = value + "%";
+      } else if (suffix == "%" || is_size_suffix(suffix)) {
+        out = value;
+      } else {
+        error = "Invalid unit for " + s.variable + ": " + value + " (expected a percentage, or a size such as 10G)";
+        return false;
+      }
       return true;
     case unit_percent_number:
-      out = value[value.size() - 1] == '%' ? value.substr(0, value.size() - 1) : value;
+      if (!suffix.empty() && suffix != "%") {
+        error = "Invalid unit for " + s.variable + ": " + value + " (expected a percentage)";
+        return false;
+      }
+      out = suffix.empty() ? value : value.substr(0, value.size() - 1);
       return true;
     case unit_seconds_as_ms:
     case unit_seconds: {
@@ -247,54 +282,31 @@ inline bool is_threshold(const std::string &value) {
   return any;
 }
 
-// The filter expression a -w / -c value stands for. One value per spec, comma
-// separated, any of which may be left out ("-w ,20%"): the values are joined
-// with "or", as the standard plugins do. Returns false and sets `error` when
-// the value is a threshold that does not fit the check.
-inline bool expand(const spec_list &specs, const std::string &value, std::string &expression, std::string &error) {
-  const std::string trimmed = detail::trim(value);
-  if (!is_threshold(trimmed)) {
-    expression = trimmed;
-    return true;
-  }
-  const std::vector<std::string> parts = detail::split_list(trimmed);
-  if (parts.size() > specs.size()) {
-    std::string names;
-    for (const spec &s : specs) names += (names.empty() ? "" : ",") + s.variable;
-    std::ostringstream ss;
-    ss << "Too many values in threshold " << trimmed << ": expected at most " << specs.size() << " (" << names << ")";
-    error = ss.str();
-    return false;
-  }
-  std::vector<std::string> expanded;
-  for (std::string::size_type i = 0; i < parts.size(); ++i) {
-    if (parts[i].empty()) continue;
-    std::string one;
-    if (!detail::expand_range(specs[i], parts[i], one, error)) return false;
-    expanded.push_back(one);
-  }
-  if (expanded.size() == 1) {
-    expression = expanded[0];
-    return true;
-  }
-  expression = "";
-  for (const std::string &e : expanded) expression += (expression.empty() ? "(" : " or (") + e + ")";
-  return true;
-}
-
 // ---------------------------------------------------------------------------
-// What a short threshold replaces.
+// Templates: what the short form stands for.
 //
-// A default is often more than a bound: check_http's critical is
-// "code < 200 or code >= 400 or result != 'ok'", check_tcp's is
-// "time > 5000 or result != 'ok'". Somebody writing "-c 5" is moving the time
-// bound, not asking for a failed request to stop being critical. So of a
-// default only the alternatives that bound the keyword are dropped, and the
-// rest is kept next to the new threshold.
+// A check's threshold is often more than a bound. check_tcp is critical on
+// "time > 5000 or result != 'ok'", check_nps_auth warns on
+// "decisions >= min_requests and reject_pct > 10". Somebody writing "-c 10" or
+// "-w 20" is moving the number, not asking for a refused connection to stop
+// being critical or for the guard to go away.
+//
+// So a check says what its short form stands for with a template per side, in
+// which ${keyword} is the bound on that keyword:
+//
+//   "${time} or result != 'ok'"
+//   "decisions >= min_requests and ${reject_pct}"
+//
+// The value for a keyword is what the user passed, or else the keyword's
+// default for that side, or else nothing - and an alternative (the parts
+// between top level "or"s) whose keyword has no value is left out, guard and
+// all. Nothing is ever derived from the text of the check's default
+// expression: the template is the single statement of what -w and -c mean.
 // ---------------------------------------------------------------------------
+enum side { warning, critical };
+
 namespace detail {
 
-inline char lower(const char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c; }
 inline bool is_word(const char c) { return is_alpha(c) || is_digit(c) || c == '_'; }
 
 // The alternatives of an expression: split on "or" outside quotes and
@@ -327,64 +339,156 @@ inline std::vector<std::string> split_alternatives(const std::string &expression
   return ret;
 }
 
-// Whether the text compares the keyword with < or > (<=, >= included):
-// "time > 5000" does, "result != 'ok'" and "checkdb_age = -1" do not.
-inline bool bounds_variable(const std::string &text, const std::string &variable) {
+// One alternative with its ${keyword}s filled in from `bounds` (indexed like
+// the specs, empty where the keyword has no value). False when a keyword it
+// names has none, or is not one of the check's.
+inline bool fill_alternative(const spec_list &specs, const std::vector<std::string> &bounds, const std::string &alternative, std::string &out) {
+  out = "";
   std::string::size_type pos = 0;
-  while ((pos = text.find(variable, pos)) != std::string::npos) {
-    const std::string::size_type end = pos + variable.size();
-    const bool whole = (pos == 0 || !is_word(text[pos - 1])) && (end >= text.size() || !is_word(text[end]));
-    if (whole) {
-      std::string::size_type i = end;
-      while (i < text.size() && (text[i] == ' ' || text[i] == '\t')) ++i;
-      if (i < text.size() && (text[i] == '<' || text[i] == '>')) return true;
+  while (true) {
+    const std::string::size_type open = alternative.find("${", pos);
+    if (open == std::string::npos) break;
+    const std::string::size_type close = alternative.find('}', open);
+    if (close == std::string::npos) break;
+    const std::string name = alternative.substr(open + 2, close - open - 2);
+    std::string bound;
+    for (std::string::size_type i = 0; i < specs.size(); ++i) {
+      if (specs[i].variable == name) bound = bounds[i];
     }
-    pos = end;
+    if (bound.empty()) return false;
+    out += alternative.substr(pos, open - pos);
+    // A range is two comparisons; next to anything else it needs parentheses.
+    const bool alone = open == 0 && close + 1 == alternative.size();
+    const bool compound = bound.find(" or ") != std::string::npos || bound.find(" and ") != std::string::npos;
+    out += (compound && !alone) ? "(" + bound + ")" : bound;
+    pos = close + 1;
   }
-  return false;
+  out += alternative.substr(pos);
+  return true;
+}
+
+inline std::string fill_template(const spec_list &specs, const std::vector<std::string> &bounds, const std::string &text) {
+  std::string ret;
+  for (const std::string &alternative : split_alternatives(text)) {
+    if (alternative.empty()) continue;
+    std::string filled;
+    if (!fill_alternative(specs, bounds, alternative, filled)) continue;
+    ret += (ret.empty() ? "" : " or ") + filled;
+  }
+  return ret;
+}
+
+// The template of a check that set none: a bound on each keyword.
+inline std::string default_template(const spec_list &specs) {
+  std::string ret;
+  for (const spec &s : specs) ret += (ret.empty() ? "${" : " or ${") + s.variable + "}";
+  return ret;
 }
 }  // namespace detail
 
-// The default with every alternative that bounds one of the keywords removed;
-// empty when nothing is left of it.
-inline std::string keep_unbounded(const std::string &expression, const std::vector<std::string> &variables) {
-  std::string ret;
-  for (const std::string &alternative : detail::split_alternatives(expression)) {
-    if (alternative.empty()) continue;
-    bool bounds = false;
-    for (const std::string &variable : variables) {
-      if (detail::bounds_variable(alternative, variable)) {
-        bounds = true;
-        break;
-      }
+// The expressions a -w / -c value stands for, one per template (a check with
+// none of its own gets a bound on each keyword). `value` holds one threshold
+// per keyword, comma separated; one that is left out ("-w ,20%") falls back to
+// the keyword's default for that side. When the value is not a threshold at
+// all it is an expression and is returned as it is. False, with `error` set,
+// when the value is a threshold that does not fit the check.
+inline bool expand(const spec_list &specs, const std::vector<std::string> &templates, const side which, const std::string &value,
+                   std::vector<std::string> &expressions, std::string &error) {
+  const std::string trimmed = detail::trim(value);
+  expressions.clear();
+  if (trimmed.empty()) {
+    error = std::string("Missing value for ") + (which == warning ? "-w" : "-c") + " (use none to remove the threshold)";
+    return false;
+  }
+  if (!is_threshold(trimmed)) {
+    expressions.push_back(trimmed);
+    return true;
+  }
+  const std::vector<std::string> parts = detail::split_list(trimmed);
+  if (parts.size() > specs.size()) {
+    std::string names;
+    for (const spec &s : specs) names += (names.empty() ? "" : ",") + s.variable;
+    std::ostringstream ss;
+    ss << "Too many values in threshold " << trimmed << ": expected at most " << specs.size() << " (" << names << ")";
+    error = ss.str();
+    return false;
+  }
+  std::vector<std::string> bounds(specs.size());
+  for (std::string::size_type i = 0; i < specs.size(); ++i) {
+    std::string text = i < parts.size() ? parts[i] : "";
+    if (text.empty()) text = which == warning ? specs[i].warn_default : specs[i].crit_default;
+    if (text.empty()) continue;
+    if (!detail::expand_range(specs[i], text, bounds[i], error)) return false;
+  }
+  if (templates.empty()) {
+    const std::string filled = detail::fill_template(specs, bounds, detail::default_template(specs));
+    if (!filled.empty()) expressions.push_back(filled);
+    return true;
+  }
+  for (const std::string &text : templates) {
+    const std::string filled = detail::fill_template(specs, bounds, text);
+    if (!filled.empty()) expressions.push_back(filled);
+  }
+  return true;
+}
+
+// What the short form reads as, for the option's help text: the templates with
+// a symbolic bound in each ${keyword} - "load > N" for one keyword,
+// "time > TIME or loss > LOSS%" for a list.
+inline std::string describe(const spec_list &specs, const std::vector<std::string> &templates) {
+  std::vector<std::string> bounds;
+  for (const spec &s : specs) {
+    std::string name = "N";
+    if (specs.size() > 1) {
+      name = s.variable;
+      for (char &c : name) c = (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
     }
-    if (bounds) continue;
-    ret += (ret.empty() ? "" : " or ") + alternative;
+    bounds.push_back(s.variable + (s.dir == above ? " > " : " < ") + name + (s.value_unit == unit_percent ? "%" : ""));
+  }
+  std::string ret;
+  if (templates.empty()) return detail::fill_template(specs, bounds, detail::default_template(specs));
+  for (const std::string &text : templates) {
+    const std::string filled = detail::fill_template(specs, bounds, text);
+    if (!filled.empty()) ret += (ret.empty() ? "" : "\" and \"") + filled;
   }
   return ret;
 }
 
-// How a bare number reads for the check, for the option's help text:
-// "load > N", or "time > N or loss > N%" for a list.
-inline std::string describe(const spec_list &specs) {
+// How the short form is typed, for the help text: "-w N" or "-w TIME,LOSS".
+inline std::string describe_usage(const spec_list &specs) {
+  if (specs.size() == 1) return "N";
   std::string ret;
   for (const spec &s : specs) {
-    if (!ret.empty()) ret += " or ";
-    ret += s.variable + (s.dir == above ? " > N" : " < N");
-    if (s.value_unit == unit_percent) ret += "%";
+    std::string name = s.variable;
+    for (char &c : name) c = (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
+    ret += (ret.empty() ? "" : ",") + name;
   }
   return ret;
+}
+
+// The defaults of the short form as they would be typed ("80", "60,5%"), or
+// empty when no keyword has one for that side.
+inline std::string default_value(const spec_list &specs, const side which) {
+  std::string ret;
+  bool any = false;
+  for (std::string::size_type i = 0; i < specs.size(); ++i) {
+    const std::string &value = which == warning ? specs[i].warn_default : specs[i].crit_default;
+    if (!value.empty()) any = true;
+    ret += (i == 0 ? "" : ",") + value;
+  }
+  return any ? ret : "";
 }
 
 // The unit a bare number is read in, for the help text.
 inline std::string describe_unit(const spec &s) {
   switch (s.value_unit) {
     case unit_percent:
-      return "A number without a unit is a percentage; a value with a unit (10G) is used as written.";
+      return "A number without a unit is a percentage; a size (10G) is used as written.";
     case unit_seconds_as_ms:
     case unit_seconds:
       return "A number without a unit is in seconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).";
     case unit_plain:
+    case unit_percent_number:
     default:
       return "";
   }
@@ -398,7 +502,7 @@ inline std::string describe_unit(const spec &s) {
 // tokens, or "--key value" pairs. Neither reads "-w 80", and a "-w" in front
 // would even pick the wrong shape for everything after it. So the short form
 // is rewritten into the shape the rest of the line uses before any of that
-// runs: "w=80" among key=value arguments, "--w 80" among dashed ones.
+// runs: "w=80" among key=value arguments, "--w=80" among dashed ones.
 // ---------------------------------------------------------------------------
 
 inline bool is_short_flag(const std::string &arg, char &flag, std::string &attached) {
@@ -455,8 +559,9 @@ inline std::vector<std::string> normalize_arguments(const std::vector<std::strin
       value = args[++i];
     }
     if (dashed) {
-      ret.push_back(std::string("--") + flag);
-      ret.push_back(value);
+      // One token: "--c" followed by "-5:" would have the value read as an
+      // option.
+      ret.push_back(std::string("--") + flag + "=" + value);
     } else {
       ret.push_back(std::string(1, flag) + "=" + value);
     }
