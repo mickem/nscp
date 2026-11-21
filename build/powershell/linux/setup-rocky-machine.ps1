@@ -307,14 +307,16 @@ sudo nscp web install --https --allowed-hosts '0.0.0.0/0,::/0' --password '$WebP
 sudo nscp settings --activate-module CheckHelpers || true
 sudo nscp settings --activate-module CheckSystem || true
 sudo nscp settings --activate-module CheckDisk || true
-# NRDPClient and Scheduler are activated here even though nothing uses them
-# yet: a fleet bundle that *enables* a module only writes it into fleet.ini, and
-# the delayed reload that follows re-reads settings for the plugins already
-# loaded - it does not load a newly enabled one. Without this the Nagios bundle
-# applies, the host reports "in sync", and nothing is ever submitted until the
-# service happens to restart. Loading them up front costs nothing (neither does
-# anything without configuration) and keeps the monitoring flow turn-key.
+# NRDPClient, IcingaClient and Scheduler are activated here even though nothing
+# uses them yet: a fleet bundle that *enables* a module only writes it into
+# fleet.ini, and the delayed reload that follows re-reads settings for the
+# plugins already loaded - it does not load a newly enabled one. Without this
+# the Nagios or Icinga bundle applies, the host reports "in sync", and nothing
+# is ever submitted until the service happens to restart. Loading them up front
+# costs nothing (none of them does anything without configuration) and keeps
+# the monitoring flows turn-key.
 sudo nscp settings --activate-module NRDPClient || true
+sudo nscp settings --activate-module IcingaClient || true
 sudo nscp settings --activate-module Scheduler || true
 # The estate role's own modules (-Modules), activated here for the same reason.
 $(($extraModules | ForEach-Object { "sudo nscp settings --activate-module $_ || true" }) -join "`n")

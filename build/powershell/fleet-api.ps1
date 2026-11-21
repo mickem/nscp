@@ -426,12 +426,12 @@ function Get-FleetHosts {
 
 <#
 .SYNOPSIS
-    Read and validate nagios/passive-checks.json, the service catalog shared by
-    every stage of the Nagios turn-key flow.
+    Read and validate a passive-checks.json (nagios/ or icinga/), the service
+    catalog shared by every stage of a turn-key monitoring flow.
 .OUTPUTS
     An object with Services (name/command objects), Interval ("300s") and
     IntervalSeconds. Throws on anything the carriers could not represent: the
-    names become scheduler section names, NRDP service names, Nagios
+    names become scheduler section names, NRDP or Icinga service names, Nagios
     service_descriptions and lines in a plain text list.
 #>
 function Read-PassiveCheckCatalog {
@@ -481,6 +481,35 @@ function Read-NagiosPwdFile {
         NrdpUrl        = "$($values['NRDP URL'])"
         NrdpToken      = "$($values['NRDP Token'])"
         FleetServer    = "$($values['Fleet Server'])"
+    }
+}
+
+<#
+.SYNOPSIS
+    Parse the .icinga.pwd file written by setup-icinga-machine.ps1.
+.OUTPUTS
+    An object with PublicIp, IcingaUrl, AdminUser, AdminPassword, AgentUser,
+    AgentPassword and FleetServer (missing lines come back empty).
+#>
+function Read-IcingaPwdFile {
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path $Path)) {
+        throw "Icinga credentials file '$Path' does not exist - run setup-icinga-machine.ps1 first, or pass the values explicitly."
+    }
+    $values = @{}
+    foreach ($line in Get-Content -Path $Path) {
+        if ($line -match '^([^:]+):\s*(.*)$') {
+            $values[$Matches[1].Trim()] = $Matches[2].Trim()
+        }
+    }
+    [pscustomobject]@{
+        PublicIp      = "$($values['Public IP'])"
+        IcingaUrl     = "$($values['Icinga URL'])"
+        AdminUser     = "$($values['Icinga Admin User'])"
+        AdminPassword = "$($values['Icinga Admin Password'])"
+        AgentUser     = "$($values['Icinga Agent User'])"
+        AgentPassword = "$($values['Icinga Agent Password'])"
+        FleetServer   = "$($values['Fleet Server'])"
     }
 }
 
