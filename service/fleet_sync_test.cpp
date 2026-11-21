@@ -150,7 +150,8 @@ class FleetSyncTest : public ::testing::Test {
   std::shared_ptr<recording_logger> log = std::make_shared<recording_logger>();
   nsclient::core::tag_repository_instance tags = std::make_shared<nsclient::core::tag_repository>();
   nsclient::core::fact_repository_instance facts = std::make_shared<nsclient::core::fact_repository>();
-  nsclient::core::failed_check_store_instance failures = std::make_shared<nsclient::core::failed_check_store>();
+  nsclient::core::failed_check_store_instance failures = capturing_store();
+  nsclient::core::metrics_snapshot_store snapshots;
   std::unique_ptr<fleet_sync> sync;
   fleet_config config;
   onboarding::enrolled_identity identity;
@@ -235,12 +236,34 @@ class FleetSyncTest : public ::testing::Test {
   }
   std::size_t count_to(const std::string &path) const { return calls_to(path).size(); }
 
-  void fail_check(const std::string &command, const std::string &message) {
+  // A failure log that keeps the metrics snapshot with each failure: a report
+  // only goes for a failure that has one.
+  static nsclient::core::failed_check_store_instance capturing_store() {
+    nsclient::core::failed_check_store_instance store = std::make_shared<nsclient::core::failed_check_store>();
+    nsclient::core::failed_check_store::options options;
+    options.capture_metrics = true;
+    store->configure(options);
+    return store;
+  }
+
+  // A check fails, and is recorded with a snapshot of the host - or, with
+  // `with_snapshot` off, as it is before the first collection round.
+  void fail_check(const std::string &command, const std::string &message, const bool with_snapshot = true) {
     PB::Commands::QueryResponseMessage::Response response;
     response.set_command(command);
     response.set_result(PB::Common::ResultCode::CRITICAL);
     response.add_lines()->set_message(message);
-    ASSERT_TRUE(failures->record(response, nullptr, "test", 0, wall));
+    nsclient::core::metrics_snapshot_ptr snapshot;
+    if (with_snapshot) {
+      PB::Metrics::MetricsMessage metrics;
+      PB::Metrics::MetricsBundle *system = metrics.add_payload()->add_bundles();
+      system->set_key("system");
+      PB::Metrics::Metric *idle = system->add_value();
+      idle->set_key("cpu.idle");
+      idle->mutable_gauge_value()->set_value(3);
+      snapshot = snapshots.store(metrics, wall);
+    }
+    ASSERT_TRUE(failures->record(response, nullptr, "test", 0, wall, snapshot));
   }
 
   // The server takes failure reports, and says so on every poll.
@@ -699,9 +722,11 @@ TEST_F(FleetSyncTest, reports_a_failed_check_only_to_a_server_that_asks) {
   ASSERT_EQ(count_to(failure_path), 1u);
   const json::object report = json::parse(calls_to(failure_path)[0].payload).as_object();
   EXPECT_EQ(report.at("failure").as_object().at("command").as_string(), "check_cpu");
-  // The store here does not capture metrics, and the operator is told what
-  // that costs - once.
-  EXPECT_EQ(log->count("info", "without metrics"), 1) << log->all();
+  EXPECT_EQ(report.at("version").as_int64(), 1);
+  EXPECT_EQ(report.at("report_id").as_string().size(), 26u);
+  EXPECT_EQ(report.at("sent_at_unix").as_int64(), wall);
+  EXPECT_EQ(report.at("context").as_object().at("state").as_string(), "captured");
+  EXPECT_EQ(report.at("context").as_object().at("captured_at_unix").as_int64(), wall);
 
   // One per interval (ten minutes here), whatever fails in between.
   fail_check("check_memory", "mem high");
@@ -710,8 +735,80 @@ TEST_F(FleetSyncTest, reports_a_failed_check_only_to_a_server_that_asks) {
   EXPECT_EQ(count_to(failure_path), 1u);
   advance(2);
   turn();
-  EXPECT_EQ(count_to(failure_path), 2u);
-  EXPECT_EQ(log->count("info", "without metrics"), 1) << "still once";
+  ASSERT_EQ(count_to(failure_path), 2u);
+  // A new report, so a new id.
+  EXPECT_NE(json::parse(calls_to(failure_path)[1].payload).as_object().at("report_id").as_string(), report.at("report_id").as_string());
+}
+
+TEST_F(FleetSyncTest, sends_no_failure_report_when_capture_is_off_and_says_so_once) {
+  failures = std::make_shared<nsclient::core::failed_check_store>();
+  server_takes_failure_reports();
+  start();
+  fail_check("check_cpu", "cpu high", false);
+  turns(3);
+  // Without a snapshot a report says nothing the monitoring system that ran
+  // the check does not already know.
+  EXPECT_EQ(count_to(failure_path), 0u);
+  EXPECT_EQ(log->count("info", "Not reporting failed checks to the fleet server"), 1) << log->all();
+
+  fail_check("check_memory", "mem high", false);
+  advance(700);
+  turns(3);
+  EXPECT_EQ(count_to(failure_path), 0u);
+  EXPECT_EQ(log->count("info", "Not reporting failed checks to the fleet server"), 1) << "still once";
+}
+
+TEST_F(FleetSyncTest, a_failure_without_a_snapshot_does_not_use_up_the_interval) {
+  server_takes_failure_reports();
+  start();
+  // Recorded before the first collection round: capture is on, and there was
+  // nothing to keep yet.
+  fail_check("check_cpu", "cpu high", false);
+  turns(2);
+  EXPECT_EQ(count_to(failure_path), 0u);
+  EXPECT_EQ(log->count("info", "Not reporting failed checks"), 0) << "capture is on: nothing for the operator to change";
+
+  // The next failure has one, and goes at once. The earlier one was set
+  // aside, not dropped: it is counted among the others, exactly as it would
+  // have been had both failed before the same turn.
+  fail_check("check_memory", "mem high");
+  turn();
+  ASSERT_EQ(count_to(failure_path), 1u);
+  const json::object report = json::parse(calls_to(failure_path)[0].payload).as_object();
+  EXPECT_EQ(report.at("failure").as_object().at("command").as_string(), "check_memory");
+  const json::object &suppressed = report.at("suppressed").as_object();
+  EXPECT_EQ(suppressed.at("count").as_int64(), 1);
+  EXPECT_EQ(suppressed.at("by_check").as_array().at(0).as_object().at("command").as_string(), "check_cpu");
+
+  // Reported now, so not counted a second time.
+  fail_check("check_disk", "disk full");
+  advance(700);
+  turn();
+  ASSERT_EQ(count_to(failure_path), 2u);
+  EXPECT_EQ(json::parse(calls_to(failure_path)[1].payload).as_object().at("suppressed").as_object().at("count").as_int64(), 0);
+}
+
+TEST_F(FleetSyncTest, failures_without_a_snapshot_are_listed_once_not_every_turn) {
+  server_takes_failure_reports();
+  start();
+  fail_check("check_cpu", "cpu high", false);
+  turns(5);
+  EXPECT_EQ(count_to(failure_path), 0u);
+  // Set aside on the first turn, and not looked at again until something
+  // newer fails.
+  EXPECT_EQ(log->count("debug", "no snapshot is held for it"), 1) << log->all();
+}
+
+TEST_F(FleetSyncTest, a_failure_with_a_snapshot_is_reported_ahead_of_newer_ones_without) {
+  server_takes_failure_reports();
+  start();
+  fail_check("check_cpu", "cpu high");
+  fail_check("check_memory", "mem high", false);
+  turn();
+  ASSERT_EQ(count_to(failure_path), 1u);
+  const json::object report = json::parse(calls_to(failure_path)[0].payload).as_object();
+  EXPECT_EQ(report.at("failure").as_object().at("command").as_string(), "check_cpu");
+  EXPECT_EQ(report.at("suppressed").as_object().at("count").as_int64(), 1);
 }
 
 TEST_F(FleetSyncTest, sends_no_failure_reports_when_they_are_switched_off) {
@@ -740,7 +837,7 @@ TEST_F(FleetSyncTest, keeps_the_last_report_time_across_a_restart) {
   ASSERT_EQ(count_to(failure_path), 1u);
 
   // A restart: a new sync and a failure log that starts over.
-  failures = std::make_shared<nsclient::core::failed_check_store>();
+  failures = capturing_store();
   start();
   fail_check("check_cpu", "cpu high again");
   advance(300);
@@ -789,7 +886,11 @@ TEST_F(FleetSyncTest, retries_a_rejected_failure_report_a_minute_later_and_logs_
   EXPECT_EQ(count_to(failure_path), 1u);
   advance(2);
   turn();
-  EXPECT_EQ(count_to(failure_path), 2u);
+  ASSERT_EQ(count_to(failure_path), 2u);
+  // The same report again, under the same id: had the first one landed and
+  // only its answer been lost, the server can tell.
+  const auto id_of = [this](const std::size_t i) { return std::string(json::parse(calls_to(failure_path)[i].payload).as_object().at("report_id").as_string()); };
+  EXPECT_EQ(id_of(0), id_of(1));
   EXPECT_EQ(log->count("error", "Failure report to the fleet server failed: 500 boom"), 1) << "the same status again is not news";
   EXPECT_EQ(log->count("debug", "Failure report to the fleet server failed: 500 boom"), 1);
 
@@ -804,10 +905,17 @@ TEST_F(FleetSyncTest, retries_a_rejected_failure_report_a_minute_later_and_logs_
   status = 202;
   advance(241);
   turn();
-  EXPECT_EQ(count_to(failure_path), 4u);
+  ASSERT_EQ(count_to(failure_path), 4u);
+  EXPECT_EQ(id_of(0), id_of(3));
   advance(7200);
   turns(3);
   EXPECT_EQ(count_to(failure_path), 4u);
+
+  // What fails after it landed is another report.
+  fail_check("check_memory", "mem high");
+  turn();
+  ASSERT_EQ(count_to(failure_path), 5u);
+  EXPECT_NE(id_of(0), id_of(4));
 }
 
 TEST_F(FleetSyncTest, treats_a_missing_failure_route_as_a_server_that_does_not_ask) {

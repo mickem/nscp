@@ -238,11 +238,11 @@ class fleet_sync {
   // When to report a failure: one per interval, only to a server that asks.
   // See onboarding::failure_context_pacer for the rules.
   onboarding::failure_context_pacer failure_pacer_;
-  // Said once until the condition clears: reports that carry no metrics
-  // because capture is off, a report too large for the server, a server
+  // Said once until the condition clears: nothing reported because capture
+  // is off, a report too large for the server, a server
   // without the route, a header that cannot be read, and the last failed
   // report.
-  bool failure_no_metrics_logged_ = false;
+  bool failure_no_snapshot_logged_ = false;
   bool failure_route_missing_logged_ = false;
   bool bad_failure_header_logged_ = false;
   unsigned int last_failure_report_error_ = 0;

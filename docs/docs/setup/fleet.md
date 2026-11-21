@@ -508,13 +508,19 @@ never sends it the document.
 
 ### Send failure context
 
-When checks fail, the agent can send the server *failure context*: one failed check from its
-[log of failed checks](../api/rest/failures.md), what it said and, when the agent captures
-them, the host's metrics and [diagnostics](../api/rest/diagnostics.md) (the top processes,
-the services in trouble, the last log errors, the failures before it) at that moment, plus a count of the other failures since the last
-report. It is an example of the host in trouble, not a feed of failures: at most one report
-goes per interval, whatever fails, and alerting on each failed check stays with your
-monitoring system.
+When checks fail, the agent can send the server *failure context*: what the host looked like
+at that moment. That is the host's metrics and [diagnostics](../api/rest/diagnostics.md) (the
+top processes, the services in trouble, the last log errors, the failures before it), with
+one failed check from its [log of failed checks](../api/rest/failures.md) and a count of the
+other failures since the last report to say what the host was in trouble over.
+
+It is there to enrich an alert your monitoring system already holds, not to replace it. At
+most one report goes per interval, whatever fails, and every check that failed in that
+interval shares its snapshot. Alerting on each failed check, telling one problem from
+another and counting how often each occurs all stay with the monitoring system. A server
+files the snapshots by host and time, and looks one up for the alert it wants to explain.
+Nothing is sent for a failure that has no snapshot, so the agent has to capture at least one
+of the two:
 
 ```ini
 [/settings/core/failed checks]
@@ -553,21 +559,33 @@ How it works:
   that has reported within it waits until it has passed. The report is
   `POST /agent/v1/failure-context`. It carries the
   newest failure that still has a snapshot, metrics or diagnostics (the freshest picture of
-  the system in trouble), or the newest failure when none has one. Every other failure since the last
+  the system in trouble). Every other failure since the last
   report goes into a `suppressed` summary, grouped by check and status, so a check that flapped
   thirty times in the hour reaches the server as one report and a count.
+- **Only with a snapshot.** When none of the failures since the last report has a snapshot
+  still held, nothing is sent. That is every failure while both `capture metrics` and
+  `capture diagnostics` are off, which the agent logs once, and otherwise the odd one
+  recorded before the first collection round or whose snapshot was released. Such a failure
+  does not use up the interval, and it is not forgotten: the next report that does go counts
+  it in `suppressed` with the others.
 - **Survives a restart.** The time of the last report is kept with the applied fleet state,
   so an agent that restarts inside the interval sends nothing until it has passed.
 - **Backs off like the facts upload.** No report in a turn whose poll or report was turned
   away, a `Retry-After` holds every report, a rejected report is retried after 1 minute,
   doubling to an hour, and a report refused as too large (`413`) is dropped rather than
   retried.
+- **A retry is the same report.** `report_id` is chosen when a report is first attempted and
+  kept until it lands or is dropped. A server that received a report whose answer was lost
+  sees the retry under the same id and replaces what it stored. Replaces, because the retry
+  covers every failure since the last acknowledged report and can have grown.
 
 The report:
 
 ```json
 {
-  "sent_at": "2026-10-31T09:12:44Z",
+  "version": 1,
+  "report_id": "01KA0V8K9RZ3M6T2QH5XJ7W4NE",
+  "sent_at": "2026-10-31T09:12:44Z", "sent_at_unix": 1793437964,
   "arguments_mode": "safe",
   "failure": {
     "index": 42, "timestamp": 1793437964, "date": "2026-10-31T09:12:44Z",
@@ -577,12 +595,14 @@ The report:
     "arguments": ["time=5m", "critical=load > 90"]
   },
   "context": {
-    "state": "captured", "snapshot_id": 310, "captured_at": "2026-10-31T09:12:39Z", "age_seconds": 5,
+    "state": "captured", "snapshot_id": 310, "captured_at": "2026-10-31T09:12:39Z",
+    "captured_at_unix": 1793437959, "age_seconds": 5,
     "metrics": { "system.cpu.total.idle": 3, "system.mem.physical.used": 15032385536 },
     "metadata": { "system.cpu.total.idle": { "type": "gauge", "unit": "percent" } }
   },
   "diagnostics": {
-    "state": "captured", "snapshot_id": 310, "captured_at": "2026-10-31T09:12:39Z", "age_seconds": 5,
+    "state": "captured", "snapshot_id": 310, "captured_at": "2026-10-31T09:12:39Z",
+    "captured_at_unix": 1793437959, "age_seconds": 5,
     "sections": {
       "processes.top_cpu": {
         "source": "CheckSystem", "captured_at": "2026-10-31T09:12:38Z", "truncated": true,
@@ -593,14 +613,26 @@ The report:
     }
   },
   "suppressed": {
-    "since": "2026-10-31T08:12:40Z", "count": 37, "evicted": 0,
+    "since": "2026-10-31T08:12:40Z", "since_unix": 1793434360, "count": 37, "evicted": 0,
     "by_check": [
-      { "command": "check_cpu", "status": 2, "count": 30, "first": "2026-10-31T08:13:02Z", "last": "2026-10-31T09:11:40Z" },
-      { "command": "check_drivesize", "status": 1, "count": 7, "first": "2026-10-31T08:40:00Z", "last": "2026-10-31T09:10:00Z" }
+      { "command": "check_cpu", "status": 2, "count": 30,
+        "first": "2026-10-31T08:13:02Z", "first_unix": 1793434382,
+        "last": "2026-10-31T09:11:40Z", "last_unix": 1793437900 },
+      { "command": "check_drivesize", "status": 1, "count": 7,
+        "first": "2026-10-31T08:40:00Z", "first_unix": 1793436000,
+        "last": "2026-10-31T09:10:00Z", "last_unix": 1793437800 }
     ]
   }
 }
 ```
+
+`version` is the format of the body: it is raised when a field changes meaning or goes away,
+not when one is added. Every time is there twice, as an ISO string to show and as unix
+seconds (`*_unix`, and `failure.timestamp`) to sort and join on. `captured_at_unix` is the
+one a server matches an alert to a snapshot by.
+
+`suppressed.by_check` groups by check name and status only. Two targets of one check, such
+as two full drives, are one group there; the monitoring system is where they are two alerts.
 
 `failure` is the entry as [`/api/v2/failures`](../api/rest/failures.md#list-failed-checks)
 renders it, with `arguments` only when the agent records them; `arguments_mode` is the
@@ -609,8 +641,7 @@ so a server can tell a list cut down to the allow-listed options from a complete
 `context.metadata` are only there when `context.state` is `captured`, in the shape
 `/api/v2/metrics?meta=1` serves. With [`prune metrics` or `prune pattern`](../api/rest/failures.md#pruning-the-snapshot)
 set, the snapshot is trimmed before it is kept and `context.pruned` says what was taken out,
-including which instance each collapsed one duplicated. Without `capture metrics` the state is `disabled`, and the
-agent logs once that its reports carry no metrics. `suppressed.evicted` counts the
+including which instance each collapsed one duplicated. Without `capture metrics` the state is `disabled`. `suppressed.evicted` counts the
 failures the log's `max entries` cap dropped before they could be reported. `diagnostics`
 is built the same way: the state and, when `captured`, every table of the snapshot the
 failure was recorded with, each in the shape

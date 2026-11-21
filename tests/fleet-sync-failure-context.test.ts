@@ -271,6 +271,16 @@ describe("fleet failure-context reports", () => {
     expect(reports()).toHaveLength(1);
     const first = reports()[0];
     expect(typeof first.body.sent_at).toBe("string");
+    // The format is versioned, the report is named (a ULID), and every time
+    // is also there as unix seconds, which is what a server joins on.
+    expect(first.body.version).toBe(1);
+    expect(first.body.report_id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(Math.abs(first.body.sent_at_unix * 1000 - first.at)).toBeLessThan(10_000);
+    expect(first.body.sent_at_unix * 1000).toBe(Date.parse(first.body.sent_at));
+    expect(first.body.context.captured_at_unix * 1000).toBe(
+      Date.parse(first.body.context.captured_at),
+    );
+    expect(first.body.suppressed.since_unix * 1000).toBe(Date.parse(first.body.suppressed.since));
     // `record arguments` is left at its default.
     expect(first.body.arguments_mode).toEqual("safe");
     // The newest failure with a snapshot is the one sent ...
@@ -316,6 +326,9 @@ describe("fleet failure-context reports", () => {
     expect(second.body.failure.message).toEqual("four");
     expect(second.body.suppressed.count).toBe(0);
     expect(second.body.suppressed.since).toEqual(first.body.sent_at);
+    expect(second.body.suppressed.since_unix).toBe(first.body.sent_at_unix);
+    // Another report, so another id.
+    expect(second.body.report_id).not.toEqual(first.body.report_id);
   });
 
   it("keeps the last report time across a restart", async () => {
@@ -437,5 +450,28 @@ describe("fleet failure-context reports", () => {
     // The sync itself is untouched by the report's trouble.
     expect(nscp.capturedStdout()).not.toContain("connection restored");
     reportAnswer = { status: 202 };
+  });
+
+  // Last, because it turns capture off for the agent.
+  it("sends nothing while capture is off, and says so once", async () => {
+    await nscp.stop();
+    await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
+    await nscp.configure({
+      "/settings/core/failed checks": { "capture metrics": "false", "capture diagnostics": "false" },
+    });
+    reportAnswer = { status: 202 };
+    advertise = true;
+    await startAgent();
+    const before = reports().length;
+    const notice = "Not reporting failed checks to the fleet server";
+    await run("check_critical", "no-snapshot-one");
+    await waitFor("the notice", () => said(notice) > 0);
+    // Past a whole interval, with another failure on top: a failure without a
+    // snapshot is never reported, and the operator is told once.
+    await run("check_critical", "no-snapshot-two");
+    await new Promise((r) => setTimeout(r, (INTERVAL_SECONDS + 3) * 1000));
+    await settle(2);
+    expect(reports().length).toBe(before);
+    expect(said(notice)).toBe(1);
   });
 });

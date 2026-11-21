@@ -4,11 +4,14 @@
 #pragma once
 
 #include <boost/json.hpp>
+#include <chrono>
 #include <cstdint>
+#include <exception>
 #include <map>
 #include <metrics/metrics_json.hpp>
 #include <nscapi/protobuf/diagnostics_json.hpp>
 #include <nscapi/protobuf/failures_json.hpp>
+#include <random>
 #include <str/rfc3339.hpp>
 #include <string>
 #include <utility>
@@ -19,26 +22,41 @@
 namespace nsclient {
 namespace core {
 
-// The body of a failure-context report (POST /agent/v1/failure-context): one
-// failed check with the metrics snapshot it was recorded with, plus a summary
-// of every other failure since the previous report that was not sent on its
-// own. The fleet sync sends at most one of these per interval (see
-// onboarding::failure_context_pacer), so `suppressed` is what lets the server
-// show a check that flapped thirty times in the hour without receiving thirty
-// snapshots.
+// The body of a failure-context report (POST /agent/v1/failure-context): what
+// the host looked like when a check failed. It is there to enrich an alert a
+// monitoring system already holds, not to be one: the snapshots are the
+// payload, and a server files them by host and time. The failed check they
+// were recorded with, and the summary of every other failure since the
+// previous report, say what the host was in trouble over - a label for the
+// reader, not a feed of events to track. The fleet sync sends at most one of
+// these per interval (see onboarding::failure_context_pacer), and none for
+// failures that have no snapshot to send.
 //
 //   {
-//     "sent_at": "<iso>",
+//     "version": 1,
+//     "report_id": "<ulid>",
+//     "sent_at": "<iso>", "sent_at_unix": <seconds>,
 //     "arguments_mode": "none" | "safe" | "all",
 //     "failure": { <the entry as /api/v2/failures renders it>, "date": "<iso>" },
-//     "context": { "state", "snapshot_id", "captured_at": "<iso>", "age_seconds",
+//     "context": { "state", "snapshot_id", "captured_at": "<iso>", "captured_at_unix", "age_seconds",
 //                  "metrics": {...flat, as /api/v2/metrics...}, "metadata": {...},
 //                  "pruned": { "rules", "zeros", "empty", "duplicates", "collapsed": {...} } },
-//     "diagnostics": { "state", "snapshot_id", "captured_at": "<iso>", "age_seconds",
+//     "diagnostics": { "state", "snapshot_id", "captured_at": "<iso>", "captured_at_unix", "age_seconds",
 //                      "sections": { "<name>": {...as /api/v2/diagnostics/<name>...} } },
-//     "suppressed": { "since": "<iso>", "count", "evicted",
-//                     "by_check": [ {"command", "status", "count", "first", "last"} ] }
+//     "suppressed": { "since": "<iso>", "since_unix", "count", "evicted",
+//                     "by_check": [ {"command", "status", "count",
+//                                    "first", "first_unix", "last", "last_unix"} ] }
 //   }
+//
+// Every time is there twice: as an ISO string to show, and as unix seconds
+// (`*_unix`, and `failure.timestamp`) to sort and join on - the time is what
+// a server matches an alert to a snapshot by.
+//
+// `report_id` names the report, not the attempt: a report whose answer was
+// lost is sent again under the same id, so a server that did receive it does
+// not file the same snapshot twice. The repeat can have grown - it covers
+// every failure since the last report that was acknowledged - so it replaces
+// the earlier one.
 //
 // `metrics` and `metadata` are only there when the state is `captured`, and
 // `pruned` only when `prune metrics` trimmed the snapshot; the same goes for
@@ -64,10 +82,55 @@ struct failure_report {
   // `record arguments` as it is spelled ("none", "safe", "all"), so the
   // server can tell a list cut down to the allow-list from a complete one.
   std::string arguments_mode = "none";
+  // Names this report across its retries; see above.
+  std::string report_id;
+
+  // The format of the body. Raised when a field changes meaning or goes
+  // away; a field that is only added does not raise it.
+  static constexpr int wire_version = 1;
+
+  // Whether there is a snapshot to send, metrics or diagnostics. A report
+  // without one tells the server nothing a monitoring system has not already
+  // said, so it is not sent.
+  bool has_snapshot() const {
+    return (context && failure.context().state() == PB::Failures::MetricsContext::CAPTURED) ||
+           (diagnostics && failure.diagnostics().state() == PB::Failures::DiagnosticsContext::CAPTURED);
+  }
+
+  // A ULID: 48 bits of milliseconds since the epoch and 80 random bits, as
+  // 26 characters of Crockford base32. Sorts by the time it was made.
+  template <class Random>
+  static std::string make_report_id(std::uint64_t milliseconds, Random &random) {
+    static const char alphabet[] = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    std::string out(26, '0');
+    for (int i = 9; i >= 0; --i) {
+      out[static_cast<std::size_t>(i)] = alphabet[milliseconds & 31];
+      milliseconds >>= 5;
+    }
+    std::uniform_int_distribution<int> digit(0, 31);
+    for (std::size_t i = 10; i < 26; ++i) out[i] = alphabet[digit(random)];
+    return out;
+  }
+  static std::string make_report_id() {
+    const std::uint64_t ms = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    try {
+      std::random_device random;
+      return make_report_id(ms, random);
+    } catch (const std::exception &) {
+      // No entropy source on this host. The id only has to tell this agent's
+      // reports apart, which the clock does: a report is not held up for it.
+      std::mt19937_64 random(static_cast<std::mt19937_64::result_type>(std::chrono::steady_clock::now().time_since_epoch().count()) ^ ms);
+      return make_report_id(ms, random);
+    }
+  }
 
   std::string render(const std::int64_t now) const {
     boost::json::object root;
+    root["version"] = wire_version;
+    if (!report_id.empty()) root["report_id"] = report_id;
     root["sent_at"] = str::format_rfc3339(now);
+    root["sent_at_unix"] = now;
     root["arguments_mode"] = arguments_mode;
 
     boost::json::object entry = failures_json::entry(failure, arguments_recorded);
@@ -88,6 +151,7 @@ struct failure_report {
     if (reference.snapshot_id() > 0) {
       context_node["snapshot_id"] = static_cast<std::int64_t>(reference.snapshot_id());
       context_node["captured_at"] = str::format_rfc3339(reference.captured_at());
+      context_node["captured_at_unix"] = reference.captured_at();
       context_node["age_seconds"] = failure.timestamp() > reference.captured_at() ? failure.timestamp() - reference.captured_at() : 0;
     }
     if (state == PB::Failures::MetricsContext::CAPTURED) {
@@ -108,6 +172,7 @@ struct failure_report {
     if (diagnostics_ref.snapshot_id() > 0) {
       diagnostics_node["snapshot_id"] = static_cast<std::int64_t>(diagnostics_ref.snapshot_id());
       diagnostics_node["captured_at"] = str::format_rfc3339(diagnostics_ref.captured_at());
+      diagnostics_node["captured_at_unix"] = diagnostics_ref.captured_at();
       diagnostics_node["age_seconds"] = failure.timestamp() > diagnostics_ref.captured_at() ? failure.timestamp() - diagnostics_ref.captured_at() : 0;
     }
     if (diagnostics_state == PB::Failures::DiagnosticsContext::CAPTURED) {
@@ -150,11 +215,14 @@ struct failure_report {
       node["status"] = g.status;
       node["count"] = static_cast<std::int64_t>(g.count);
       node["first"] = str::format_rfc3339(g.first);
+      node["first_unix"] = g.first;
       node["last"] = str::format_rfc3339(g.last);
+      node["last_unix"] = g.last;
       by_check.push_back(node);
     }
     boost::json::object summary;
     summary["since"] = str::format_rfc3339(since);
+    summary["since_unix"] = since;
     summary["count"] = static_cast<std::int64_t>(suppressed.size());
     summary["evicted"] = static_cast<std::int64_t>(evicted);
     summary["by_check"] = by_check;
@@ -164,25 +232,43 @@ struct failure_report {
 
   // Pick what to send from the failures since the last report (`fresh`,
   // newest first, not empty): the newest one with a snapshot still held,
-  // metrics or diagnostics - the freshest picture of the system in trouble -
-  // or, when none has one, the newest. The rest go into `suppressed`.
+  // metrics or diagnostics - the freshest picture of the system in trouble.
+  // The rest go into `suppressed`. When none holds one the newest is picked
+  // so that the caller has something to name, and has_snapshot() is false:
+  // that report is not for sending.
+  //
+  // `fresh` was listed a moment ago, and a snapshot can be released (or the
+  // entry evicted) since. So a candidate only counts once it has been read
+  // back with its snapshot: one that lost it is passed over for the next
+  // one, instead of taking every older failure down with it.
   static failure_report from(const failed_check_store &store, const failed_check_store::entry_list &fresh) {
     failure_report report;
     std::size_t pick = 0;
-    for (std::size_t i = 0; i < fresh.size(); ++i) {
-      if (fresh[i].context().state() == PB::Failures::MetricsContext::CAPTURED ||
-          fresh[i].diagnostics().state() == PB::Failures::DiagnosticsContext::CAPTURED) {
-        pick = i;
-        break;
-      }
+    bool found = false;
+    for (std::size_t i = 0; i < fresh.size() && !found; ++i) {
+      if (fresh[i].context().state() != PB::Failures::MetricsContext::CAPTURED &&
+          fresh[i].diagnostics().state() != PB::Failures::DiagnosticsContext::CAPTURED)
+        continue;
+      failed_check_store::entry_with_context candidate;
+      if (!store.get(fresh[i].index(), candidate)) continue;
+      failure_report read;
+      read.failure = candidate.item;
+      read.context = candidate.context;
+      read.diagnostics = candidate.diagnostics;
+      if (!read.has_snapshot()) continue;
+      report = read;
+      pick = i;
+      found = true;
     }
-    failed_check_store::entry_with_context chosen;
-    if (store.get(fresh[pick].index(), chosen)) {
-      report.failure = chosen.item;
-      report.context = chosen.context;
-      report.diagnostics = chosen.diagnostics;
-    } else {
-      report.failure = fresh[pick];
+    if (!found) {
+      failed_check_store::entry_with_context newest;
+      if (store.get(fresh[pick].index(), newest)) {
+        report.failure = newest.item;
+        report.context = newest.context;
+        report.diagnostics = newest.diagnostics;
+      } else {
+        report.failure = fresh[pick];
+      }
     }
     for (std::size_t i = 0; i < fresh.size(); ++i) {
       if (i != pick) report.suppressed.push_back(fresh[i]);
