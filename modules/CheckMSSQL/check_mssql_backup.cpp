@@ -90,7 +90,8 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // (warn at 3 days). Log ages are not thresholded by default since they only
   // apply to FULL/BULK_LOGGED databases; see the docs for a recipe.
   filter_helper.add_options("full_age > 3d", "full_age < 0 or full_age > 7d", "", filter.get_filter_syntax(), "unknown");
-  filter_helper.add_short_threshold("full_age", modern_filter::shorthand::above);
+  filter_helper.add_short_threshold("full_age", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "3d", "7d");
+  filter_helper.add_short_critical("full_age < 0 or ${full_age}");
   filter_helper.add_syntax("${status}: ${problem_count}/${count} databases (${problem_list})", "${name}: last full backup ${full_age}s ago", "${name}",
                            "%(status): No databases found", "%(status): All %(count) databases have recent backups");
   // clang-format off

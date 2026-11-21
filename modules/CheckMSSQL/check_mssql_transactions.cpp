@@ -115,7 +115,8 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // commit it); a working one gets half an hour before it warns. Both block
   // log truncation and version-store cleanup for as long as they live.
   filter_helper.add_options("transaction_age > 1800 or is_idle = 1 and transaction_age > 300", "transaction_age > 7200", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_short_threshold("transaction_age", modern_filter::shorthand::above);
+  filter_helper.add_short_threshold("transaction_age", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "30m", "2h");
+  filter_helper.add_short_warning("${transaction_age} or is_idle = 1 and transaction_age > 300");
   filter_helper.add_syntax("${status}: ${problem_count}/${count} open transactions (${problem_list})",
                            "session ${session_id} (${database}/${login}) open for ${transaction_age}s (idle: ${is_idle})", "${session_id}",
                            "%(status): No open transactions", "%(status): %(count) open transactions, none over the thresholds");
