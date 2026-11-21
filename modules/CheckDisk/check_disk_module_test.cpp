@@ -422,5 +422,7 @@ TEST_F(CheckDiskModule, FetchFactsNamesEveryVolumeTheWayCheckDrivesizeDoes) {
     if (!expected.empty()) expected += ", ";
     expected += id;
   }
-  EXPECT_EQ(join_lines(check), expected);
+  // A container build may see only overlay and pseudo filesystems, which both
+  // sides skip; check_drivesize then answers with its empty-state message.
+  EXPECT_EQ(join_lines(check), ids.empty() ? std::string("OK: No drives found") : expected);
 }
