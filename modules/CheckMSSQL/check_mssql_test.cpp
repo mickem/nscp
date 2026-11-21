@@ -591,6 +591,54 @@ TEST(BuildCounters, HitRatioFallsBackToLifetimeWhenTheBaseDidNotMove) {
   EXPECT_DOUBLE_EQ(out.hit_ratio, 99.9);
 }
 
+TEST(BuildCounters, LatchWaitIsTheAverageOverTheWindow) {
+  // 30 ms waited across 12 waiting requests in the window is 2.5 ms each,
+  // rounded to whole milliseconds, whatever the lifetime totals say.
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Average Latch Wait Time (ms)", 900030, 900000));
+  rows.push_back(make_counter("Average Latch Wait Time Base", 1012, 1000));
+
+  const auto out = check_mssql_counters_command::build_counters(rows);
+  ASSERT_TRUE(out.latch_wait_ms.has_value());
+  EXPECT_EQ(out.latch_wait_ms.value(), 3);
+}
+
+TEST(BuildCounters, LatchWaitIsZeroWhenNothingWaitedInTheWindow) {
+  // No lifetime fallback: 900 ms per wait since start is an old incident.
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Average Latch Wait Time (ms)", 900000, 900000));
+  rows.push_back(make_counter("Average Latch Wait Time Base", 1000, 1000));
+
+  const auto out = check_mssql_counters_command::build_counters(rows);
+  ASSERT_TRUE(out.latch_wait_ms.has_value());
+  EXPECT_EQ(out.latch_wait_ms.value(), 0);
+}
+
+TEST(BuildCounters, LatchWaitHasNoValueWithoutBothSnapshotsOrAfterAReset) {
+  // Only one of the pair.
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Average Latch Wait Time (ms)", 900030, 900000));
+  EXPECT_FALSE(check_mssql_counters_command::build_counters(rows).latch_wait_ms.has_value());
+
+  // The counters went backwards between the snapshots.
+  rows.clear();
+  rows.push_back(make_counter("Average Latch Wait Time (ms)", 10, 900000));
+  rows.push_back(make_counter("Average Latch Wait Time Base", 2, 1000));
+  EXPECT_FALSE(check_mssql_counters_command::build_counters(rows).latch_wait_ms.has_value());
+
+  // No first snapshot to take a delta from.
+  rows.clear();
+  check_mssql_counters_command::counter_row row;
+  row.name = "Average Latch Wait Time (ms)";
+  row.value = 900030;
+  row.elapsed_ms = 1000;
+  rows.push_back(row);
+  row.name = "Average Latch Wait Time Base";
+  row.value = 1012;
+  rows.push_back(row);
+  EXPECT_FALSE(check_mssql_counters_command::build_counters(rows).latch_wait_ms.has_value());
+}
+
 TEST(BuildCounters, MissingCountersReportMinusOne) {
   const auto out = check_mssql_counters_command::build_counters({});
   EXPECT_DOUBLE_EQ(out.hit_ratio, -1);
@@ -598,6 +646,7 @@ TEST(BuildCounters, MissingCountersReportMinusOne) {
   EXPECT_DOUBLE_EQ(out.batch_requests, -1);
   EXPECT_DOUBLE_EQ(out.deadlocks, -1);
   EXPECT_DOUBLE_EQ(out.lock_waits, -1);
+  EXPECT_FALSE(out.latch_wait_ms.has_value());
 }
 
 TEST(BuildCounters, MissingFirstSnapshotYieldsMinusOneRate) {

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <string>
 #include <vector>
@@ -22,7 +23,8 @@ struct counter_row {
 };
 
 // The engine counters as exposed to the filter engine (one row per instance).
-// All rates are per second over the sampling window; -1 = counter unavailable.
+// All rates are per second over the sampling window; -1 = counter unavailable
+// (latch_wait_ms, the newest, is an optional instead).
 struct counters_info {
   double hit_ratio = -1;             // buffer cache hit ratio, percent
   long long page_life_expectancy = -1;  // seconds
@@ -32,6 +34,11 @@ struct counters_info {
   double lazy_writes = -1;
   double deadlocks = -1;
   double lock_waits = -1;
+  // Average wait per waiting latch request over the window, in whole
+  // milliseconds. Disengaged when it cannot be computed: there is then no
+  // number to compare, and a sentinel such as -1 would sail under every
+  // `latch_wait_ms > N` threshold.
+  boost::optional<long long> latch_wait_ms;
 
   double get_hit_ratio() const { return hit_ratio; }
   long long get_page_life_expectancy() const { return page_life_expectancy; }
@@ -41,6 +48,7 @@ struct counters_info {
   double get_lazy_writes() const { return lazy_writes; }
   double get_deadlocks() const { return deadlocks; }
   double get_lock_waits() const { return lock_waits; }
+  boost::optional<long long> get_latch_wait_ms() const { return latch_wait_ms; }
 
   std::string show() const { return "mssql"; }
 };
@@ -49,7 +57,9 @@ struct counters_info {
 // rates use (value - prev) / elapsed; the hit ratio prefers the delta of
 // value/base over the sampling window (the lifetime ratio converges to ~100%
 // and hides regressions) and falls back to the lifetime ratio when the base
-// did not move.
+// did not move. The average latch wait is the same kind of value/base pair
+// but has no lifetime fallback: no waits in the window is 0, and it has no
+// value at all, rather than -1, when a counter or a snapshot is missing.
 counters_info build_counters(const std::vector<counter_row> &rows);
 
 void check(const mssql_odbc::connection_info &defaults, const PB::Commands::QueryRequestMessage::Request &request,
