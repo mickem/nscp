@@ -307,8 +307,6 @@ struct cli_helper : boost::noncopyable {
   // means - nothing is taken from the text of the default expression - so it
   // has to carry every condition and guard that should survive -w / -c.
   // Call it more than once for a check with several expressions on a side.
-  // Superseded by the templates; kept until the checks stop calling it.
-  void add_short_threshold_replaces(const std::string &) {}
   void add_short_warning(const std::string &text) { short_warn_templates.push_back(text); }
   void add_short_critical(const std::string &text) { short_crit_templates.push_back(text); }
 
