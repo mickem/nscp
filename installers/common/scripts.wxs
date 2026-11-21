@@ -37,6 +37,9 @@
             <Component Id="cmp4270C1CDBEB9E8560DF47AE8E1546D51" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{C5EA7E25-F8CA-4084-85F5-EBF65BA901DD}">
                 <File Id="filB88A15D872FA433B41D87681D3B23EF6" KeyPath="yes" Source="$(var.ScriptSource)\powershell.ps1" />
             </Component>
+            <Component Id="cmp70F33F62383F4404B9F82DDC2076B9ED" Directory="dirC722990CDCB916A6A44099040A99483A" Guid="{27CC3BFD-8C8B-4B8D-B6F1-D1778D268FC4}">
+                <File Id="fil2A97BFDA00E143FA9A08081273994643" KeyPath="yes" Source="$(var.ScriptSource)\check_scvmm_hosts.ps1" />
+            </Component>
             <Component Id="cmpED0695794ED2441265BC9F979D959617" Directory="dir7E9C001792A99FF4CF9F68CADB7B09CA" Guid="{89281C7F-12A0-48DB-93C8-96B74259AA02}">
                 <File Id="filEF1424FC53E410BD9334DBDAA99F5212" KeyPath="yes" Source="$(var.ScriptSource)\lib\NagiosPlugins.vbs" />
             </Component>

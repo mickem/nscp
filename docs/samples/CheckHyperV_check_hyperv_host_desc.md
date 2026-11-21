@@ -50,3 +50,28 @@ Make a threshold on over-commitment catch that case too:
 ```
 check_hyperv_host "warning=cpu_overcommit > 300 or guests_known = 0" "critical=health_critical > 0 or memory_overcommit > 95"
 ```
+
+#### Hosts as SCVMM sees them
+
+For the fabric view - every host System Center Virtual Machine Manager
+manages, whether VMM can reach it and whether it considers it healthy - the
+agent ships a sample script, `scripts\check_scvmm_hosts.ps1`, rather than a
+native check: VMM is only reachable through its PowerShell module, so the
+script runs where the VMM console is installed (usually the VMM server).
+Call `powershell.exe` with `-File`, so the script's exit code reaches the
+agent and the arguments stay with the entry:
+
+```ini
+[/modules]
+CheckExternalScripts = enabled
+
+[/settings/external scripts/scripts]
+check_scvmm_hosts = powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File scripts\check_scvmm_hosts.ps1 -Server vmm01 -HostGroup "All Hosts\Production"
+```
+
+`-HostGroup` covers the group and every group below it. A host is CRITICAL
+when VMM cannot communicate with it or its overall state is not OK;
+`-Warning` lists the states that only warn (by default
+`NeedsAttention,Updating`) and `-Ignore` the states that are not reported, reachable
+or not (by default `MaintenanceMode`). Both take a comma separated list. A
+missing VMM module or server is UNKNOWN.
