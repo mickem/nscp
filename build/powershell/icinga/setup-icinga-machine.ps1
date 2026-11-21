@@ -523,7 +523,7 @@ $payload = @'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y icinga2 jq curl
+apt-get install -y icinga2 jq curl openssl
 # The package starts the daemon on its stock configuration; it comes back
 # below, on ours.
 systemctl stop icinga2 || true
@@ -553,12 +553,21 @@ as_icinga cp /var/lib/icinga2/ca/ca.crt "$CERT_DIR/ca.crt"
 # --- node identity + API listener --------------------------------------------
 # NodeName must be the certificate's common name: the listener loads
 # certs/<NodeName>.crt. Drop whatever the stock file sets, then pin both.
-sed -i -e '/^const NodeName/d' -e '/^const ZoneName/d' /etc/icinga2/constants.conf
+#
+# TicketSalt is not needed by the passive flow, but ships empty, and with an
+# empty salt `icinga2 pki ticket` refuses - so an agent (docs: scenarios/
+# icinga-agent.md) could not be enrolled against this box without it. The
+# zones.d folder is where that agent's host and services go; it must carry the
+# zone's name, which here is the node's, not "master".
+sed -i -e '/^const NodeName/d' -e '/^const ZoneName/d' -e '/^const TicketSalt/d' /etc/icinga2/constants.conf
 cat >> /etc/icinga2/constants.conf <<EOF
 
 const NodeName = "$NODE_NAME"
 const ZoneName = "$NODE_NAME"
+const TicketSalt = "$(openssl rand -hex 16)"
 EOF
+mkdir -p "/etc/icinga2/zones.d/$NODE_NAME"
+chown "$icinga_user:$icinga_user" "/etc/icinga2/zones.d/$NODE_NAME"
 
 # The listener refuses to start without an Endpoint for the local node that is
 # a member of a Zone. Single node: one of each.
