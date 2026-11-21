@@ -117,6 +117,42 @@ describe("nscp settings --validate", () => {
       "warning: Section [/settings/no such module] is not used by any installed module.",
     );
   });
+
+  // The sections the core reads itself are declared whether or not the agent
+  // is booted, so the report is the one the running agent logs: a typo gets
+  // its suggestion, and with --load-all - where anything unclaimed is a
+  // warning - the correct spelling is not reported as read by nothing.
+  it("knows the core's own sections without a running agent", async () => {
+    const core =
+      "\n[/settings/core]\n" +
+      "settings maintenance interval = 7m\n" +
+      "metrics interval = 20s\n" +
+      "diagnostics interval = 30s\n" +
+      "settings maintenance threads = 1\n" +
+      "\n[/settings/core/failed checks]\nmax entries = 10\n" +
+      "\n[/settings/facts]\ninterval = 2h\n";
+
+    const clean = withConfig(CLEAN + core);
+    const ok = await clean.run(["settings", "--validate", "--load-all"], { allowFailure: true });
+    expect(ok.stdout).not.toContain("/settings/core");
+    expect(ok.stdout).not.toContain("/settings/facts");
+    expect(ok.exitCode).toBe(0);
+
+    const typo = withConfig(
+      CLEAN +
+        "\n[/settings/core]\nmetric interval = 20s\n" +
+        "\n[/settings/core/failed checks]\nmax entires = 10\n",
+    );
+    const r = await typo.run(["settings", "--validate"], { allowFailure: true });
+    expect(r.exitCode).toBe(1);
+    expect(r.stdout).toContain(
+      "warning: Key 'metric interval' in [/settings/core] is not a known key. Did you mean 'metrics interval'?",
+    );
+    expect(r.stdout).toContain(
+      "warning: Key 'max entires' in [/settings/core/failed checks] is not a known key. Did you mean 'max entries'?",
+    );
+    expect(r.stdout).toMatch(/2 warning\(s\)/);
+  });
 });
 
 describe("nscp test", () => {
@@ -127,6 +163,41 @@ describe("nscp test", () => {
       await waitForOutput(nscp, /2 entries are ignored because nothing reads them/, 60_000);
       expect(nscp.capturedStdout()).toContain("Did you mean [/settings/external scripts/scripts]?");
       expect(nscp.capturedStdout()).toContain("Did you mean 'allow arguments'?");
+    } finally {
+      await nscp.stop();
+    }
+  });
+
+  // The core's own keys are registered at boot, so only a running agent knows
+  // them. They were once registered with the key and its type swapped - as
+  // keys named "string" and "int" - which left the real ones unknown: a typo
+  // in one was passed over, and the correct spelling was itself listed as
+  // read by nothing.
+  it("knows the core's own keys in [/settings/core]", async () => {
+    const nscp = withConfig(
+      CLEAN +
+        "\n[/settings/core]\n" +
+        "settings maintenance interval = 7m\n" +
+        "metrics interval = 20s\n" +
+        "metric interval = 20s\n" +
+        "diagnostics interval = 30s\n" +
+        "settings maintenance threads = 1\n",
+    );
+    nscp.start();
+    try {
+      await waitForOutput(nscp, /1 entry is ignored because nothing reads it/, 60_000);
+      const out = nscp.capturedStdout();
+      expect(out).toContain(
+        "Key 'metric interval' in [/settings/core] is not a known key. Did you mean 'metrics interval'?",
+      );
+      for (const key of [
+        "settings maintenance interval",
+        "metrics interval",
+        "diagnostics interval",
+        "settings maintenance threads",
+      ]) {
+        expect(out).not.toContain(`Key '${key}' in [/settings/core]`);
+      }
     } finally {
       await nscp.stop();
     }

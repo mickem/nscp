@@ -167,10 +167,14 @@ class NSClientT : public nsclient::core::core_interface {
   void unloadPlugins();
   // Start the fleet sync thread when the enrollment manifest exists (no-op
   // otherwise, and in builds without OpenSSL).
-  // Register [/settings/facts] and, when a fact set is enabled, schedule the
+  // Declare [/settings/core], [/settings/facts] and [/settings/core/failed
+  // checks]. Reads nothing, so it also runs when the agent is not booted
+  // (`nscp settings --validate`, `--generate`).
+  void register_core_settings();
+  // Apply [/settings/facts] and, when a fact set is enabled, schedule the
   // refresh round. Done at boot, before the first round runs.
   void boot_facts();
-  // [/settings/core/failed checks]: register the keys and apply them.
+  // Apply [/settings/core/failed checks].
   void boot_failed_checks();
   // Re-read [/settings/core/failed checks] and apply it to the store. Called at
   // boot and on every settings reload.

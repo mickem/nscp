@@ -392,6 +392,22 @@ $ nscp settings --show
 INI settings: (ini://${shared-path}/nsclient.ini, C:\source\build\x64\dev/nsclient.ini)
 ```
 
+## The core's own settings
+
+Most sections belong to a module and are described on that module's page in
+the [reference](../reference/index.md). A few keys are read by the agent
+itself, under `[/settings/core]`:
+
+| Key                             | Default | What it does |
+|---------------------------------|---------|--------------|
+| `settings maintenance interval` | `5m`    | How often the settings store is checked for changes, and reloaded if it has changed. |
+| `metrics interval`              | `10s`   | How often metrics are fetched from the modules. |
+| `diagnostics interval`          | (empty) | How often diagnostics are collected, see [Diagnostics](../api/rest/diagnostics.md). Empty collects them at the end of every metrics round. Only used while `capture diagnostics` is on under `[/settings/core/failed checks]`. |
+| `settings maintenance threads`  | `1`     | How many background threads run the core's periodic tasks. |
+
+All four are read when the service starts. An interval that cannot be read as
+one is reported in the log, and the default is used instead.
+
 ## Checking the configuration
 
 Every section name is an absolute path: `[/settings/external scripts]`, never

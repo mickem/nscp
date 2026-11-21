@@ -446,25 +446,16 @@ bool NSClientT::boot_start_plugins(bool boot) {
     LOG_ERROR_CORE("Unknown exception loading plugins");
     return false;
   }
+  register_core_settings();
   if (boot) {
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "settings maintenance interval", "Maintenance interval",
-                                               "How often settings shall reload config if it has changed", "5m", true, false);
     std::vector<std::string> interval_errors;
     nsclient::core::core_settings::schedule_or_fallback(
         [this](const std::string &interval) { scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, interval); }, "'settings maintenance interval'",
         settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m"), "5m", interval_errors);
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "metrics interval", "Maintenance interval",
-                                               "How often to fetch metrics from modules", "10s", true, false);
     nsclient::core::core_settings::schedule_or_fallback(
         [this](const std::string &interval) { scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, interval); }, "'metrics interval'",
         settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "10s"), "10s", interval_errors);
     log_setting_errors(log_instance_, interval_errors);
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "string", "diagnostics interval", "Diagnostics interval",
-                                               "How often to collect diagnostics (the tables kept with a failed check and served on "
-                                               "/api/v2/diagnostics) from the modules that produce them. Empty, the default, collects them at the "
-                                               "end of every metrics round, on the same thread. Only used while [/settings/core/failed checks] "
-                                               "capture diagnostics is on. Read when the service starts.",
-                                               "", true, false);
     const std::string di = settings_manager::get_settings()->get_string("/settings/core", "diagnostics interval", "");
     diagnostics_with_metrics_ = di.empty();
     if (!diagnostics_with_metrics_) {
@@ -475,8 +466,6 @@ bool NSClientT::boot_start_plugins(bool boot) {
         diagnostics_with_metrics_ = true;
       }
     }
-    settings_manager::get_core()->register_key(0xffff, "/settings/core", "int", "settings maintenance threads", "Maintenance thread count",
-                                               "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
     int count = str::stox<int>(settings_manager::get_settings()->get_string("/settings/core", "settings maintenance threads", "1"));
     scheduler_.set_threads(count);
     boot_facts();
@@ -501,6 +490,133 @@ bool NSClientT::boot_start_plugins(bool boot) {
   }
   LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
   return true;
+}
+
+// Declare the sections the core reads itself. Nothing here reads a value or
+// starts anything, so it runs for every way the agent is brought up: `nscp
+// settings --validate` and `--generate` load the modules without booting, and
+// they have to know these keys as well as a running agent does - otherwise a
+// typo the agent warns about is passed over by the command its warning names,
+// and with --load-all a correct [/settings/core] is reported as read by
+// nothing.
+void NSClientT::register_core_settings() {
+  try {
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance interval", "string", "Maintenance interval",
+                                               "How often settings shall reload config if it has changed", "5m", true, false);
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "metrics interval", "string", "Metrics interval",
+                                               "How often to fetch metrics from modules", "10s", true, false);
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "diagnostics interval", "string", "Diagnostics interval",
+                                               "How often to collect diagnostics (the tables kept with a failed check and served on "
+                                               "/api/v2/diagnostics) from the modules that produce them. Empty, the default, collects them at the "
+                                               "end of every metrics round, on the same thread. Only used while [/settings/core/failed checks] "
+                                               "capture diagnostics is on. Read when the service starts.",
+                                               "", true, false);
+    settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance threads", "int", "Maintenance thread count",
+                                               "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
+    {
+      const std::string path = "/settings/facts";
+      settings_manager::get_core()->register_path(0xffff, path, "Host inventory (facts)",
+                                                  "How often the host inventory is refreshed and how large it may get. Which fact sets are collected is "
+                                                  "configured in the module that produces them; nothing is collected until one is enabled there.",
+                                                  true, false);
+      settings_manager::get_core()->register_key(0xffff, path, "interval", "string", "Refresh interval",
+                                                 "How often the core asks every module to refresh the fact sets it is configured to produce.", "1h", true,
+                                                 false);
+      settings_manager::get_core()->register_key(0xffff, path, "max size", "int", "Maximum document size",
+                                                 "Size budget for the whole facts document, counted on its encoded form. A fact set that would take the "
+                                                 "document past it is rejected, and the previous value of that set is kept.",
+                                                 str::xtos(nsclient::core::fact_repository::default_max_size), true, false);
+      settings_manager::get_core()->register_key(0xffff, path, "agent", "bool", "AGENT FACTS",
+                                                 "Collect the `agent` fact set: the NSClient++ version, the modules it has loaded and whether it is enrolled "
+                                                 "with a fleet server (yes or no - never which server or with which identity). The one set the core produces "
+                                                 "itself; it is re-read at start and on every settings reload, which is when any of it can change.",
+                                                 "false", false, false);
+    }
+    {
+      const std::string path = "/settings/core/failed checks";
+      settings_manager::get_core()->register_path(0xffff, path, "Failed-check log",
+                                                  "The last few check results that did not come back OK, whatever asked for them (NRPE, REST, the scheduler, "
+                                                  "a check that runs other checks), kept in memory and served on /api/v2/failures and the web UI. Every key "
+                                                  "here is re-read on a settings reload.",
+                                                  true, false);
+      settings_manager::get_core()->register_key(0xffff, path, "enabled", "bool", "Record failed checks",
+                                                 "Keep the last `max entries` non-OK check results. Turning it off empties the log.", "true", true, false);
+      settings_manager::get_core()->register_key(0xffff, path, "max entries", "int", "How many to keep",
+                                                 "The newest results are kept and the oldest dropped once the log is full. Each entry holds one check's "
+                                                 "output and performance data, so a few hundred is cheap; the cap is " +
+                                                     str::xtos(nsclient::core::failed_check_store::max_max_entries) + ".",
+                                                 str::xtos(nsclient::core::failed_check_store::default_max_entries), true, false);
+      settings_manager::get_core()->register_key(
+          0xffff, path, "record arguments", "string", "Which of the check's arguments to record",
+          "Store the options each failed check was called with, so the log shows what was asked and not only what came back. none keeps "
+          "nothing; safe (the default) keeps only the options that describe the check - the thresholds, the filter and the syntax options, and "
+          "what was checked (time, type, drive, service, process, file, path, counter, ...) - and drops everything else, including anything "
+          "that names a host, a URL, a command or a query; all keeps every option. An argument can carry a credential (a database password, a "
+          "token for a forwarded check): under all, any argument whose name mentions a password or a token is stored as `***`, but a secret "
+          "passed under another name is not. true and false are read as all and none.",
+          nsclient::core::failed_check_store::format_argument_mode(nsclient::core::failed_check_store::argument_mode::safe), true, false);
+      settings_manager::get_core()->register_key(0xffff, path, "statuses", "string", "Which results count as failed",
+                                                 "A comma-separated list of warning, critical and unknown. Drop warning to log only the results that need "
+                                                 "someone to act. OK is never recorded.",
+                                                 nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses),
+                                                 true, false);
+      settings_manager::get_core()->register_key(
+          0xffff, path, "capture metrics", "bool", "Record the system's metrics with each failure",
+          "Keep the agent's latest metrics snapshot (what /api/v2/metrics serves: CPU, memory, disks, network, whatever the loaded modules publish) "
+          "with every failed check, so the log shows what the system looked like when it failed. The snapshot is at most one `metrics interval` "
+          "older than the failure, and failures within the same interval share one. Off by default: a snapshot can hold host details (names, "
+          "versions, addresses) that the check output alone does not, and it is reported to an enrolled fleet server along with the failure.",
+          "false", true, false);
+      settings_manager::get_core()->register_key(0xffff, path, "metrics context budget", "int", "Memory for metrics snapshots (bytes)",
+                                                 "The most the log spends on snapshots, counting each distinct snapshot once however many failures refer "
+                                                 "to it. Once it is used up the oldest snapshots are released and their failures stay in the log, "
+                                                 "marked as evicted. Clamped to " +
+                                                     str::xtos(nsclient::core::failed_check_store::min_context_budget) + "-" +
+                                                     str::xtos(nsclient::core::failed_check_store::max_context_budget) + ".",
+                                                 str::xtos(nsclient::core::failed_check_store::default_context_budget), true, false);
+      settings_manager::get_core()->register_key(0xffff, path, "max context size", "int", "Largest snapshot kept (bytes)",
+                                                 "A snapshot larger than this is not kept, and the failure is marked as too large. Never more than the "
+                                                 "budget.",
+                                                 str::xtos(nsclient::core::failed_check_store::default_max_context_size), true, false);
+      settings_manager::get_core()->register_key(
+          0xffff, path, "prune metrics", "string", "Trim the metrics kept with a failure",
+          "A comma-separated list of rules applied to a snapshot before it is kept with a failure, and so before it is reported to a fleet "
+          "server: zeros drops every numeric value that is 0 (except the pressure metrics - system.pressure, disk queue lengths, memory pages/sec - "
+          "and the hour and day change in a volume's used space, where 0 is the reading that matters), empty every empty string, and duplicates every metric "
+          "that only restates others "
+          "(memory avail and %, a disk's free and percentages, CPU idle - used and total are kept) and every instance (a disk, an adapter, a "
+          "core) whose values are all identical to an earlier one in the same section - `_Total` and the only disk, a row of idle adapters. "
+          "The first instance is kept and the ones it stands for are listed with the context, so nothing is silently lost. Empty keeps the "
+          "snapshot whole; /api/v2/metrics is never pruned.",
+          "", true, false);
+      settings_manager::get_core()->register_key(
+          0xffff, path, "prune pattern", "string", "Leave out metrics matching",
+          "A comma-separated list of text: every metric whose key (as /api/v2/metrics shows it) contains one of them is left out of the "
+          "snapshot kept with a failure, ignoring the case of A-Z. Use it for the instances that are noise on your hosts, for example "
+          "`HarddiskVolume8,Hyper-V Virtual,VirtualBox`. Applied before `prune metrics`, so an excluded instance is never the one a "
+          "duplicate is collapsed into.",
+          "", true, false);
+      settings_manager::get_core()->register_key(
+          0xffff, path, "capture diagnostics", "bool", "Collect diagnostics and record them with each failure",
+          "Collect diagnostics - small tables of what is going on right now, such as the processes using the most CPU and memory and the "
+          "last failed checks - every `diagnostics interval` (by default with the metrics round), keep the latest with every failed check, "
+          "and serve it on /api/v2/diagnostics. Which tables a module produces is switched on in that module's own diagnostics section "
+          "(for example [/settings/system/windows/diagnostics] processes); with none on, a failure carries only the last failed checks. "
+          "Off by default: the tables hold process names and other host details, and they are reported to an enrolled fleet server along with "
+          "the failure. Snapshots share `metrics context budget` and `max context size` with the metrics snapshots, and `prune pattern` "
+          "leaves out a table whose name matches.",
+          "false", true, false);
+      settings_manager::get_core()->register_key(0xffff, path, "diagnostics rows", "int", "Rows per diagnostics table",
+                                                 "The most rows kept per table (the top processes, the last failed checks). A table cut by it is "
+                                                 "marked as truncated. 1-" +
+                                                     str::xtos(nscapi::diagnostics::max_rows) + ".",
+                                                 str::xtos(nsclient::core::diagnostics_round::default_max_rows), true, false);
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to register the core's settings: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to register the core's settings");
+  }
 }
 
 void NSClientT::report_settings_problems() {
@@ -538,22 +654,6 @@ void NSClientT::report_settings_problems() {
 void NSClientT::boot_facts() {
   try {
     const std::string path = "/settings/facts";
-    settings_manager::get_core()->register_path(0xffff, path, "Host inventory (facts)",
-                                                "How often the host inventory is refreshed and how large it may get. Which fact sets are collected is "
-                                                "configured in the module that produces them; nothing is collected until one is enabled there.",
-                                                true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "interval", "string", "Refresh interval",
-                                               "How often the core asks every module to refresh the fact sets it is configured to produce.", "1h", true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "max size", "int", "Maximum document size",
-                                               "Size budget for the whole facts document, counted on its encoded form. A fact set that would take the "
-                                               "document past it is rejected, and the previous value of that set is kept.",
-                                               str::xtos(nsclient::core::fact_repository::default_max_size), true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "agent", "bool", "AGENT FACTS",
-                                               "Collect the `agent` fact set: the NSClient++ version, the modules it has loaded and whether it is enrolled "
-                                               "with a fleet server (yes or no - never which server or with which identity). The one set the core produces "
-                                               "itself; it is re-read at start and on every settings reload, which is when any of it can change.",
-                                               "false", false, false);
-
     read_facts_max_size();
 
     if (!plugins_->has_facts_fetchers()) {
@@ -577,83 +677,6 @@ void NSClientT::boot_facts() {
 // to debug a failing check and off again without restarting the service.
 void NSClientT::boot_failed_checks() {
   try {
-    const std::string path = "/settings/core/failed checks";
-    settings_manager::get_core()->register_path(0xffff, path, "Failed-check log",
-                                                "The last few check results that did not come back OK, whatever asked for them (NRPE, REST, the scheduler, "
-                                                "a check that runs other checks), kept in memory and served on /api/v2/failures and the web UI. Every key "
-                                                "here is re-read on a settings reload.",
-                                                true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "enabled", "bool", "Record failed checks",
-                                               "Keep the last `max entries` non-OK check results. Turning it off empties the log.", "true", true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "max entries", "int", "How many to keep",
-                                               "The newest results are kept and the oldest dropped once the log is full. Each entry holds one check's "
-                                               "output and performance data, so a few hundred is cheap; the cap is " +
-                                                   str::xtos(nsclient::core::failed_check_store::max_max_entries) + ".",
-                                               str::xtos(nsclient::core::failed_check_store::default_max_entries), true, false);
-    settings_manager::get_core()->register_key(
-        0xffff, path, "record arguments", "string", "Which of the check's arguments to record",
-        "Store the options each failed check was called with, so the log shows what was asked and not only what came back. none keeps "
-        "nothing; safe (the default) keeps only the options that describe the check - the thresholds, the filter and the syntax options, and "
-        "what was checked (time, type, drive, service, process, file, path, counter, ...) - and drops everything else, including anything "
-        "that names a host, a URL, a command or a query; all keeps every option. An argument can carry a credential (a database password, a "
-        "token for a forwarded check): under all, any argument whose name mentions a password or a token is stored as `***`, but a secret "
-        "passed under another name is not. true and false are read as all and none.",
-        nsclient::core::failed_check_store::format_argument_mode(nsclient::core::failed_check_store::argument_mode::safe), true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "statuses", "string", "Which results count as failed",
-                                               "A comma-separated list of warning, critical and unknown. Drop warning to log only the results that need "
-                                               "someone to act. OK is never recorded.",
-                                               nsclient::core::failed_check_store::format_statuses(nsclient::core::failed_check_store::default_statuses), true,
-                                               false);
-    settings_manager::get_core()->register_key(
-        0xffff, path, "capture metrics", "bool", "Record the system's metrics with each failure",
-        "Keep the agent's latest metrics snapshot (what /api/v2/metrics serves: CPU, memory, disks, network, whatever the loaded modules publish) "
-        "with every failed check, so the log shows what the system looked like when it failed. The snapshot is at most one `metrics interval` "
-        "older than the failure, and failures within the same interval share one. Off by default: a snapshot can hold host details (names, "
-        "versions, addresses) that the check output alone does not, and it is reported to an enrolled fleet server along with the failure.",
-        "false", true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "metrics context budget", "int", "Memory for metrics snapshots (bytes)",
-                                               "The most the log spends on snapshots, counting each distinct snapshot once however many failures refer "
-                                               "to it. Once it is used up the oldest snapshots are released and their failures stay in the log, "
-                                               "marked as evicted. Clamped to " +
-                                                   str::xtos(nsclient::core::failed_check_store::min_context_budget) + "-" +
-                                                   str::xtos(nsclient::core::failed_check_store::max_context_budget) + ".",
-                                               str::xtos(nsclient::core::failed_check_store::default_context_budget), true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "max context size", "int", "Largest snapshot kept (bytes)",
-                                               "A snapshot larger than this is not kept, and the failure is marked as too large. Never more than the "
-                                               "budget.",
-                                               str::xtos(nsclient::core::failed_check_store::default_max_context_size), true, false);
-    settings_manager::get_core()->register_key(
-        0xffff, path, "prune metrics", "string", "Trim the metrics kept with a failure",
-        "A comma-separated list of rules applied to a snapshot before it is kept with a failure, and so before it is reported to a fleet "
-        "server: zeros drops every numeric value that is 0 (except the pressure metrics - system.pressure, disk queue lengths, memory pages/sec - "
-        "and the hour and day change in a volume's used space, where 0 is the reading that matters), empty every empty string, and duplicates every metric that only restates others "
-        "(memory avail and %, a disk's free and percentages, CPU idle - used and total are kept) and every instance (a disk, an adapter, a "
-        "core) whose values are all identical to an earlier one in the same section - `_Total` and the only disk, a row of idle adapters. "
-        "The first instance is kept and the ones it stands for are listed with the context, so nothing is silently lost. Empty keeps the "
-        "snapshot whole; /api/v2/metrics is never pruned.",
-        "", true, false);
-    settings_manager::get_core()->register_key(
-        0xffff, path, "prune pattern", "string", "Leave out metrics matching",
-        "A comma-separated list of text: every metric whose key (as /api/v2/metrics shows it) contains one of them is left out of the "
-        "snapshot kept with a failure, ignoring the case of A-Z. Use it for the instances that are noise on your hosts, for example "
-        "`HarddiskVolume8,Hyper-V Virtual,VirtualBox`. Applied before `prune metrics`, so an excluded instance is never the one a "
-        "duplicate is collapsed into.",
-        "", true, false);
-    settings_manager::get_core()->register_key(
-        0xffff, path, "capture diagnostics", "bool", "Collect diagnostics and record them with each failure",
-        "Collect diagnostics - small tables of what is going on right now, such as the processes using the most CPU and memory and the "
-        "last failed checks - every `diagnostics interval` (by default with the metrics round), keep the latest with every failed check, "
-        "and serve it on /api/v2/diagnostics. Which tables a module produces is switched on in that module's own diagnostics section "
-        "(for example [/settings/system/windows/diagnostics] processes); with none on, a failure carries only the last failed checks. "
-        "Off by default: the tables hold process names and other host details, and they are reported to an enrolled fleet server along with "
-        "the failure. Snapshots share `metrics context budget` and `max context size` with the metrics snapshots, and `prune pattern` "
-        "leaves out a table whose name matches.",
-        "false", true, false);
-    settings_manager::get_core()->register_key(0xffff, path, "diagnostics rows", "int", "Rows per diagnostics table",
-                                               "The most rows kept per table (the top processes, the last failed checks). A table cut by it is "
-                                               "marked as truncated. 1-" +
-                                                   str::xtos(nscapi::diagnostics::max_rows) + ".",
-                                               str::xtos(nsclient::core::diagnostics_round::default_max_rows), true, false);
     read_failed_check_settings();
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Failed to configure the failed-check log: " + utf8::utf8_from_native(e.what()));
