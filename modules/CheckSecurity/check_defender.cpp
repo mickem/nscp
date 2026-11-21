@@ -45,7 +45,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // these. empty_state = "unknown": when Defender is not the active AV the query
   // returns no rows and the check reports UNKNOWN rather than a hard error.
   filter_helper.add_options("signature_age > 3", "enabled = 0 or realtime_enabled = 0 or signature_age > 7", "", filter.get_filter_syntax(), "unknown");
-  filter_helper.add_short_threshold("signature_age", modern_filter::shorthand::above);
+  filter_helper.add_short_threshold("signature_age", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "3", "7");
+  filter_helper.add_short_critical("enabled = 0 or realtime_enabled = 0 or ${signature_age}");
   filter_helper.add_syntax("${status}: ${list}",
                            "Defender enabled=${enabled} realtime=${realtime_enabled} tamper=${tamper_protection} sig_age=${signature_age}d "
                            "sig=${signature_version} engine=${engine_version}",
