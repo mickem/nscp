@@ -171,7 +171,8 @@ int check_mk::check_mk_section_wrapper::add_line(lua_State *L) {
   if (lua_instance.is_string()) {
     try {
       std::string l = lua_instance.pop_string();
-      data->section.add_line(check_mk::packet::section::line(l));
+      // A string with line breaks is several rows, see section::add_text().
+      data->section.add_text(l);
       return 0;
     } catch (const std::exception &e) {
       return lua_instance.error(std::string("Failed to add line: ") + e.what());

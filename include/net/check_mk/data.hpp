@@ -47,8 +47,10 @@ struct packet {
       // would end the line on the wire and let the rest pose as a row or a
       // `<<<section>>>` header of its own, so both become a space here. This is
       // the backstop; the producers (check_mk_format.hpp, the Lua script)
-      // already clean their fields. Any other escaping appropriate to the
-      // chosen separator is up to whoever populated the line.
+      // already clean their fields, and a Lua script that hands add_line() a
+      // multi-line string gets one line per row through section::add_text()
+      // before it gets here. Any other escaping appropriate to the chosen
+      // separator is up to whoever populated the line.
       std::string to_string(int sep_char = ' ') const {
         std::string ret;
         bool first = true;
@@ -135,6 +137,27 @@ struct packet {
     }
 
     void add_line(check_mk::packet::section::line line) { lines.push_back(line); }
+
+    // Add `text` as one line per line break it contains. This is what a Lua
+    // script's `s:add_line("a\nb")` has always produced on the wire (two
+    // rows), and it has to stay that way now that to_string() blanks line
+    // breaks inside a line. A `\r\n` counts as one break and empty pieces
+    // are dropped, as the default script's split_lines() does; text with no
+    // break at all (the empty string included) is one line, as before.
+    void add_text(const std::string &text) {
+      if (text.find_first_of("\r\n") == std::string::npos) {
+        lines.push_back(line(text));
+        return;
+      }
+      std::size_t start = 0;
+      while (start <= text.size()) {
+        const std::size_t end = text.find_first_of("\r\n", start);
+        const std::string piece = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        if (!piece.empty()) lines.push_back(line(piece));
+        if (end == std::string::npos) break;
+        start = end + 1;
+      }
+    }
   };
 
   // Piggyback block: a list of sections that should be relayed to a different

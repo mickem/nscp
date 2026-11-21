@@ -105,6 +105,22 @@ TEST(CheckMkSection, ToStringNeverLetsAnItemBreakTheLine) {
   EXPECT_EQ(s.to_string(), "<<<ps>>>\n(,1,2,3,4) evil <<<fake>>>  forged\n");
 }
 
+TEST(CheckMkSection, AddTextKeepsOneRowPerLineBreak) {
+  // A Lua script's s:add_line("a\nb") has always sent two rows; the
+  // to_string() backstop must not merge them.
+  packet::section s("local");
+  s.add_text("0 one - first\n0 two - second\r\n0 three - third\n");
+  EXPECT_EQ(3u, s.lines.size());
+  EXPECT_EQ(s.to_string(), "<<<local>>>\n0 one - first\n0 two - second\n0 three - third\n");
+}
+
+TEST(CheckMkSection, AddTextWithoutLineBreakIsOneLine) {
+  packet::section s("x");
+  s.add_text("a  b");
+  s.add_text("");
+  EXPECT_EQ(s.to_string(), "<<<x>>>\na  b\n\n");
+}
+
 TEST(CheckMkSection, EmptyReflectsTitleAndLines) {
   packet::section s;
   EXPECT_TRUE(s.empty());
