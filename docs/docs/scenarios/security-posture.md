@@ -1,13 +1,13 @@
 # Host Security Posture Monitoring
 
 **Goal:** Monitor a host's security posture — certificate expiry and TLS hygiene,
-interactive logon sessions, and (on Windows) the firewall, antivirus, disk
-encryption, Secure Boot and network-profile state — using the `CheckSecurity`
-module.
+interactive logon sessions, file ownership and permissions, and (on Windows) the
+firewall, antivirus, disk encryption, Secure Boot and network-profile state —
+using the `CheckSecurity` module.
 
-`check_certificate` and `check_users` work on **Windows and Linux**; the
-remaining checks (`check_firewall`, `check_antivirus`, `check_bitlocker`,
-`check_secureboot`, `check_nla`, `check_activation`, `check_file_security`) are
+`check_certificate`, `check_users` and `check_file_security` work on **Windows
+and Linux**; the remaining checks (`check_firewall`, `check_antivirus`,
+`check_bitlocker`, `check_secureboot`, `check_nla`, `check_activation`) are
 **Windows-only** and report a clear
 "not supported" on other platforms rather than a false OK.
 
@@ -161,6 +161,28 @@ check_file_security service=MyAgent "expected-owner=BUILTIN\Administrators" "exp
 OK: C:\Program Files\MyAgent\agent.exe: owner BUILTIN\Administrators, no unexpected write access
 ```
 
+On Linux the same check reads the owner, the group, the mode bits and any POSIX
+ACL. `root` and the `root` group may always write; so may an owner you name
+with `expected-owner`:
+
+```
+check_file_security path=/etc/shadow expected-owner=root expected-group=shadow
+OK: /etc/shadow: owner root:shadow mode 0640, no unexpected write access
+```
+
+`max-depth` looks inside a directory as well, and `mode` pins the exact
+permission bits where "nobody unexpected can write" is not strict enough:
+
+```
+check_file_security path=/etc/myapp max-depth=2 expected-owner=root "top-syntax=${status}: ${problem_count} of ${count} path(s) have a problem: ${problem_list}"
+CRITICAL: 1 of 5 path(s) have a problem: /etc/myapp/conf.d/extra.conf: world writable by other
+```
+
+```
+check_file_security path=/etc/myapp/app.conf "critical=mode != '0600'" "detail-syntax=${path}: mode ${mode}"
+CRITICAL: /etc/myapp/app.conf: mode 0644
+```
+
 ---
 
 ## Putting It All Together
@@ -195,8 +217,10 @@ On a **Linux** host the cross-platform subset applies:
 
 ```ini
 [/settings/check helpers/alias]
-alias_cert  = check_certificate file=/etc/ssl/certs recursive=true "crit=expired = 1 or expires_in < 10"
-alias_users = check_users "crit=count > 10"
+alias_cert   = check_certificate file=/etc/ssl/certs recursive=true "crit=expired = 1 or expires_in < 10"
+alias_users  = check_users "crit=count > 10"
+alias_shadow = check_file_security path=/etc/shadow expected-owner=root expected-group=shadow
+alias_sshd   = check_file_security service=ssh path=/etc/ssh/sshd_config expected-owner=root
 ```
 
 Each alias is then callable by name over NRPE

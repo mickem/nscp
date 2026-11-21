@@ -3,14 +3,13 @@
 
 // Unix stubs for the Windows-only posture checks. Each models a Windows-specific
 // facility (network profiles, Security Center, BitLocker, UEFI Secure Boot,
-// Software Licensing, NT security descriptors) with no Linux equivalent, so they
+// Software Licensing) with no Linux equivalent, so they
 // report "not supported" rather than pretend.
 
 #include "check_activation.hpp"
 #include "check_antivirus.hpp"
 #include "check_bitlocker.hpp"
 #include "check_defender.hpp"
-#include "check_file_security.hpp"
 #include "check_firewall_rules.hpp"
 #include "check_group_members.hpp"
 #include "check_local_accounts.hpp"
@@ -70,14 +69,3 @@ void gather(bool /*all_products*/, bool /*with_genuine*/, std::vector<activation
   error = "check_activation is not supported on this platform (Windows Software Licensing only)";
 }
 }  // namespace activation_source
-
-namespace file_security_source {
-bool supported() { return false; }
-std::string service_binary(const std::string & /*service*/, std::string &error) {
-  error = "check_file_security is not supported on this platform (Windows security descriptors only)";
-  return {};
-}
-void inspect(file_security_filter::filter_obj &obj, std::vector<file_security_filter::ace> & /*aces*/) {
-  obj.error = "check_file_security is not supported on this platform (Windows security descriptors only)";
-}
-}  // namespace file_security_source

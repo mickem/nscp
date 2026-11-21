@@ -7,9 +7,11 @@
  * REST-based suites, no login), so it runs anywhere the binary builds.
  *
  * check_certificate is cross-platform (OpenSSL file parsing); the certificate
- * fixtures are generated with controlled validity windows. check_firewall and
- * the Windows certificate store are Windows-only, so here we assert the
- * "not supported on this platform" behaviour.
+ * fixtures are generated with controlled validity windows. check_file_security
+ * reads POSIX owner/group/mode here and security descriptors on Windows, so it
+ * has a block of cases on each side. check_firewall and the Windows certificate
+ * store are Windows-only, so here we assert the "not supported on this
+ * platform" behaviour.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -145,11 +147,114 @@ describeOnUnix("CheckSecurity", () => {
     ["check_local_accounts"],
     ["check_group_members"],
     ["check_activation"],
-    ["check_file_security"],
     ["check_firewall_rules"],
   ])("%s reports not-supported on this platform", async (cmd) => {
     const out = await query(cmd, []);
     expect(out).toMatch(/not supported on this platform/i);
+  });
+
+  // --- check_file_security (POSIX owner, group, mode bits) -------------------
+  //
+  // Scratch files are created by this process, so "the expected owner" is
+  // whoever runs the suite: a uid always matches, named account or not, and it
+  // keeps the result the same for root (CI containers) and an ordinary user.
+
+  const me = String(process.getuid?.() ?? 0);
+
+  /** Create a file with exactly `mode` (chmod, so the umask has no say). */
+  function fileWithMode(name: string, mode: number): string {
+    const file = path.join(nscp.scratch("file_security"), name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, "x");
+    fs.chmodSync(file, mode);
+    return file;
+  }
+
+  it("check_file_security reports owner, group and mode of a private file", async () => {
+    const file = fileWithMode("private.conf", 0o600);
+    const out = await query("check_file_security", [`path=${file}`, `expected-owner=${me}`]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/owner \S+:\S+ mode 0600, no unexpected write access/);
+  });
+
+  it("check_file_security goes CRITICAL for a world-writable file", async () => {
+    const file = fileWithMode("open.conf", 0o666);
+    const out = await query("check_file_security", [`path=${file}`, `expected-owner=${me}`]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/world writable by other/);
+
+    // Naming the class in allow-write accepts it again, as a SID does on Windows.
+    const allowed = await query("check_file_security", [`path=${file}`, `expected-owner=${me}`, "allow-write=other", `allow-write=gid:${process.getgid?.() ?? 0}`]);
+    expect(allowed).toMatch(/^OK/m);
+  });
+
+  it("check_file_security alerts on an unexpected owner and on an unexpected group", async () => {
+    const file = fileWithMode("owned.conf", 0o600);
+    const owner = await query("check_file_security", [`path=${file}`, "expected-owner=nscp-no-such-user-zzz"]);
+    expect(owner).toMatch(/^CRITICAL/m);
+    expect(owner).toMatch(/unexpected owner/);
+
+    const group = await query("check_file_security", [`path=${file}`, `expected-owner=${me}`, "expected-group=nscp-no-such-group-zzz"]);
+    expect(group).toMatch(/^CRITICAL/m);
+    expect(group).toMatch(/unexpected group/);
+  });
+
+  it("check_file_security exposes the mode, the special bits and the file metadata", async () => {
+    const file = fileWithMode("tool", 0o4750);
+    const out = await query("check_file_security", [
+      `path=${file}`,
+      "warning=none",
+      "critical=none",
+      "top-syntax=${list}",
+      "detail-syntax=mode=${mode} suid=${setuid} sgid=${setgid} size=${size} written=${written} uid=${owner_sid} [${dacl}]",
+    ]);
+    expect(out).toMatch(/mode=4750 suid=1 sgid=0 size=1 written=\d{4}-\d\d-\d\d /);
+    expect(out).toContain(`uid=${me} [user:`);
+    expect(out).toMatch(/\(rwx\), group:\S+\(r-x\), other\(---\)\]/);
+  });
+
+  it("check_file_security can pin the exact mode", async () => {
+    const file = fileWithMode("key.pem", 0o644);
+    const bad = await query("check_file_security", [`path=${file}`, "warning=none", "critical=mode != '0600'"]);
+    expect(bad).toMatch(/^CRITICAL/m);
+    const good = await query("check_file_security", [`path=${file}`, "warning=none", "critical=mode != '0644'"]);
+    expect(good).toMatch(/^OK/m);
+  });
+
+  it("check_file_security walks a directory with max-depth", async () => {
+    const dir = path.join(nscp.scratch("file_security"), "tree");
+    fileWithMode("tree/a.conf", 0o600);
+    fileWithMode("tree/sub/b.conf", 0o602);
+    fs.chmodSync(dir, 0o700);
+    fs.chmodSync(path.join(dir, "sub"), 0o700);
+    const args = [`path=${dir}`, `expected-owner=${me}`, "top-syntax=${status}: ${count} checked, ${problem_list}"];
+
+    // On its own a path is only looked at itself.
+    expect(await query("check_file_security", args)).toMatch(/^OK/m);
+
+    const out = await query("check_file_security", [...args, "max-depth=2"]);
+    expect(out).toMatch(/^CRITICAL: 4 checked/m);
+    expect(out).toMatch(/b\.conf: world writable by other/);
+    expect(out).not.toMatch(/a\.conf/);
+  });
+
+  it("check_file_security goes CRITICAL for a path that is gone", async () => {
+    const out = await query("check_file_security", ["path=/nscp-no-such-dir-zzz/file"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/does not exist/);
+  });
+
+  it("check_file_security reports a service that does not exist", async () => {
+    // No systemd in a build container, a full one on a real host: either way a
+    // unit of this name is not there, and that has to be a finding.
+    const out = await query("check_file_security", ["service=nscp-no-such-unit-zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/Service not found/i);
+  });
+
+  it("check_file_security requires something to inspect", async () => {
+    const out = await query("check_file_security", []);
+    expect(out).toMatch(/No path specified/i);
   });
 });
 
@@ -509,6 +614,34 @@ describeOnWindows("CheckSecurity (Windows posture)", () => {
     const out = await query("check_file_security", ["service=NSCP_NoSuchService_zzz"]);
     expect(out).toMatch(/^CRITICAL/m);
     expect(out).toMatch(/Service not found/i);
+  });
+
+  it("check_file_security exposes the raw descriptor and the file metadata", async () => {
+    // SDDL is the raw form: owner, group and every access mask of the DACL.
+    const out = await query("check_file_security", [
+      "path=C:\\Windows\\System32\\kernel32.dll",
+      "warning=none",
+      "critical=none",
+      "top-syntax=${list}",
+      "detail-syntax=sddl=${sddl} group=${group_sid} size=${size} written=${written} mode=[${mode}]",
+    ]);
+    expect(out).toMatch(/sddl=O:\S+G:\S+D:\S*\(A;/);
+    expect(out).toMatch(/group=S-1-/);
+    expect(out).toMatch(/size=\d+(\.\d+)?\S* written=\d{4}-\d\d-\d\d /);
+    expect(out).toMatch(/mode=\[\]/); // Unix only
+  });
+
+  it("check_file_security walks a directory with max-depth", async () => {
+    const dir = nscp.scratch("walked");
+    fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "sub", "leaf.txt"), "x");
+    const args = [`path=${dir}`, "warning=none", "critical=none", "top-syntax=${count} checked: ${list}", "detail-syntax=${path}"];
+
+    expect(await query("check_file_security", args)).toMatch(/1 checked/);
+    expect(await query("check_file_security", [...args, "max-depth=1"])).toMatch(/2 checked/);
+    const deep = await query("check_file_security", [...args, "max-depth=5"]);
+    expect(deep).toMatch(/3 checked/);
+    expect(deep).toMatch(/leaf\.txt/);
   });
 
   it("check_file_security alerts on an unexpected owner", async () => {

@@ -66,10 +66,18 @@ if(WIN32)
 else()
     set(SRCS
         ${SRCS}
+        check_file_security_unix.cpp
         check_firewall_unix.cpp
         check_users_unix.cpp
         posture_unix.cpp
     )
+    # POSIX ACLs are read from the extended attribute Linux keeps them in;
+    # other Unix kernels have no reader yet and report the mode bits alone.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(SRCS ${SRCS} check_file_security_linux.cpp)
+    else()
+        set(SRCS ${SRCS} check_file_security_noacl.cpp)
+    endif()
 endif()
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -142,9 +150,23 @@ NSCP_CREATE_TEST(
 # acquisition is Windows), so these unit tests build everywhere. The command
 # tests stand in for the platform sources, which is what lets the *matched* half
 # of these checks - thresholds, rendering, perf data - run off Windows at all.
+# check_file_security has a real data source off Windows, so there the tests
+# run against it (scratch files, made-up ACLs and unit directories); on Windows
+# the test file stands in for the security-descriptor reader instead.
+set(FILE_SECURITY_TEST_SOURCES)
+if(NOT WIN32)
+    set(FILE_SECURITY_TEST_SOURCES check_file_security_unix_test.cpp check_file_security_unix.cpp)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        list(APPEND FILE_SECURITY_TEST_SOURCES check_file_security_linux.cpp)
+    else()
+        list(APPEND FILE_SECURITY_TEST_SOURCES check_file_security_noacl.cpp)
+    endif()
+endif()
+
 NSCP_CREATE_TEST(
     check_posture_test
     SOURCES
+        ${FILE_SECURITY_TEST_SOURCES}
         check_activation_test.cpp
         check_file_security_test.cpp
         check_firewall_rules_test.cpp

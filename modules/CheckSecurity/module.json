@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "Security checker",
-		"description"	: "CheckSecurity checks host security posture: certificate expiry and (on Windows) the firewall profile state.",
+		"description"	: "CheckSecurity checks host security posture: certificate expiry, logged-on sessions, file ownership and permissions and (on Windows) the firewall profile state.",
 		"name"			: "CheckSecurity",
 		"alias"			: "security",
 		"version"		: "auto",
@@ -20,6 +20,6 @@
 		"check_local_accounts"	: "Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.",
 		"check_group_members"	: "Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.",
 		"check_activation"	: "Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.",
-		"check_file_security"	: "Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only."
+		"check_file_security"	: "Check owner, group and permissions of files, folders or service binaries (Windows DACLs; Unix mode bits and POSIX ACLs); alerts on world-writable paths and unexpected owners."
 	}
 }
