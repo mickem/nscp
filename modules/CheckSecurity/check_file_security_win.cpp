@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// Windows implementation of check_file_security: owner and DACL of a path via
-// GetNamedSecurityInfo + GetAce + LookupAccountSid, plus resolution of a
-// service's image path through the service control manager.
+// Windows implementation of check_file_security: owner, group and DACL of a
+// path via GetNamedSecurityInfo + GetAce + LookupAccountSid, size and
+// timestamps via GetFileAttributesEx, plus resolution of a service's image
+// path through the service control manager.
 
 #include <Windows.h>
 #include <aclapi.h>
@@ -11,6 +12,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <error/error.hpp>
+#include <str/format.hpp>
 #include <str/utf8.hpp>
 
 #include "check_file_security.hpp"
@@ -40,6 +42,27 @@ std::string lookup_account(PSID sid) {
   const std::string account = utf8::cvt<std::string>(name);
   const std::string scope = utf8::cvt<std::string>(domain);
   return scope.empty() ? account : scope + "\\" + account;
+}
+
+// The whole descriptor as Windows itself writes it down. This is the raw form:
+// every access mask is there bit for bit, where `dacl` only summarises them.
+std::string descriptor_to_sddl(PSECURITY_DESCRIPTOR descriptor) {
+  LPWSTR text = nullptr;
+  if (descriptor == nullptr ||
+      !ConvertSecurityDescriptorToStringSecurityDescriptorW(
+          descriptor, SDDL_REVISION_1, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &text, nullptr) ||
+      text == nullptr)
+    return {};
+  const std::string result = utf8::cvt<std::string>(text);
+  LocalFree(text);
+  return result;
+}
+
+// Seconds since the Unix epoch; 0 for a timestamp the file system does not keep.
+long long filetime_seconds(const FILETIME &time) {
+  const unsigned long long ticks = (static_cast<unsigned long long>(time.dwHighDateTime) << 32) | time.dwLowDateTime;
+  if (ticks < 116444736000000000ull) return 0;  // before 1970, which is how "not recorded" shows up
+  return static_cast<long long>(str::format::filetime_to_time(ticks));
 }
 
 bool is_file(const std::wstring &path) { return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES; }
@@ -89,8 +112,6 @@ std::string image_path_from_command_line(const std::string &command_line) {
 
 }  // namespace
 
-bool supported() { return true; }
-
 std::string service_binary(const std::string &service, std::string &error) {
   const SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
   if (scm == nullptr) {
@@ -132,8 +153,8 @@ std::string service_binary(const std::string &service, std::string &error) {
 
 void inspect(filter_obj &obj, std::vector<ace> &aces) {
   const std::wstring wpath = utf8::cvt<std::wstring>(obj.path);
-  const DWORD attributes = GetFileAttributesW(wpath.c_str());
-  if (attributes == INVALID_FILE_ATTRIBUTES) {
+  WIN32_FILE_ATTRIBUTE_DATA info = {0};
+  if (!GetFileAttributesExW(wpath.c_str(), GetFileExInfoStandard, &info)) {
     const DWORD code = GetLastError();
     obj.exists = 0;
     obj.readable = 0;
@@ -143,13 +164,19 @@ void inspect(filter_obj &obj, std::vector<ace> &aces) {
     return;
   }
   obj.exists = 1;
-  obj.is_dir = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ? 1 : 0;
+  obj.is_dir = (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ? 1 : 0;
+  obj.size = static_cast<long long>((static_cast<unsigned long long>(info.nFileSizeHigh) << 32) | info.nFileSizeLow);
+  obj.written = filetime_seconds(info.ftLastWriteTime);
+  obj.access = filetime_seconds(info.ftLastAccessTime);
+  obj.creation = filetime_seconds(info.ftCreationTime);
 
   PSID owner = nullptr;
+  PSID group = nullptr;
   PACL dacl = nullptr;
   PSECURITY_DESCRIPTOR descriptor = nullptr;
-  const DWORD rc = GetNamedSecurityInfoW(wpath.c_str(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner, nullptr, &dacl,
-                                         nullptr, &descriptor);
+  const DWORD rc =
+      GetNamedSecurityInfoW(wpath.c_str(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner,
+                            &group, &dacl, nullptr, &descriptor);
   if (rc != ERROR_SUCCESS) {
     obj.readable = 0;
     obj.error = error::format::from_system(rc);
@@ -161,6 +188,10 @@ void inspect(filter_obj &obj, std::vector<ace> &aces) {
   obj.owner_sid = sid_to_string(owner);
   obj.owner = lookup_account(owner);
   if (obj.owner.empty()) obj.owner = obj.owner_sid;
+  obj.group_sid = sid_to_string(group);
+  obj.group = lookup_account(group);
+  if (obj.group.empty()) obj.group = obj.group_sid;
+  obj.sddl = descriptor_to_sddl(descriptor);
 
   if (dacl == nullptr) {
     // A NULL DACL is not "no access" but "unrestricted access" - the worst case

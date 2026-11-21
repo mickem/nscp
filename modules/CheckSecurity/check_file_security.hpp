@@ -43,26 +43,53 @@ enum access_bits : unsigned long {
 const unsigned long write_bits = mask_write_data | mask_append | mask_delete | mask_delete_child | mask_write_dac | mask_write_owner | mask_generic_write |
                                  mask_generic_all;
 
-// One DACL entry, inherited ones included.
+// One access entry: a Windows DACL entry (inherited ones included) or one
+// POSIX permission class / ACL entry. POSIX permissions are mapped onto the
+// same mask bits (r = mask_read_data, w = mask_write_data | mask_append,
+// x = mask_execute) so one classification judges both.
 struct ace {
-  ace() : mask(0), allow(true), inherited(false) {}
+  ace() : mask(0), allow(true), inherited(false), world(false), trusted(false), owner(false) {}
   ace(std::string trustee, std::string sid, const unsigned long mask, const bool allow, const bool inherited = false)
-      : trustee(std::move(trustee)), sid(std::move(sid)), mask(mask), allow(allow), inherited(inherited) {}
-  std::string trustee;  // resolved name, "DOMAIN\\name" (falls back to the SID)
-  std::string sid;      // SID in string form, e.g. S-1-5-32-544
+      : trustee(std::move(trustee)), sid(std::move(sid)), mask(mask), allow(allow), inherited(inherited), world(false), trusted(false), owner(false) {}
+  std::string trustee;  // resolved name: "DOMAIN\\name" (falls back to the SID); "user:name", "group:name" or "other" on Unix
+  std::string sid;      // SID in string form, e.g. S-1-5-32-544; "uid:N" / "gid:N" on Unix
+  std::string rights;   // pre-rendered rights ("rw-" on Unix); empty to render them from the mask
   unsigned long mask;   // access mask
   bool allow;           // true for GRANT/SET, false for DENY
   bool inherited;       // true when the entry comes from a parent folder
+  bool world;           // the source knows this entry stands for everybody (POSIX "other")
+  bool trusted;         // the source knows this trustee is the system itself (uid 0 / gid 0)
+  bool owner;           // the POSIX owner class: acceptable as a writer when the owner is an expected one
 };
 
 // One inspected path.
 struct filter_obj {
-  filter_obj() : exists(0), readable(0), is_dir(0), owner_expected(1), unexpected_write(0), world_writable(0), ace_count(0) {}
+  filter_obj()
+      : exists(0),
+        readable(0),
+        is_dir(0),
+        owner_expected(1),
+        unexpected_write(0),
+        world_writable(0),
+        group_expected(1),
+        ace_count(0),
+        has_acl(0),
+        setuid(0),
+        setgid(0),
+        sticky(0),
+        size(0),
+        written(0),
+        access(0),
+        creation(0) {}
 
   std::string get_path() const { return path; }
   std::string get_service() const { return service; }
   std::string get_owner() const { return owner; }
   std::string get_owner_sid() const { return owner_sid; }
+  std::string get_group() const { return group; }
+  std::string get_group_sid() const { return group_sid; }
+  std::string get_mode() const { return mode; }
+  std::string get_sddl() const { return sddl; }
   std::string get_writable() const { return writable; }
   std::string get_unexpected() const { return unexpected; }
   std::string get_dacl() const { return dacl; }
@@ -74,16 +101,33 @@ struct filter_obj {
   long long get_owner_expected() const { return owner_expected; }
   long long get_unexpected_write() const { return unexpected_write; }
   long long get_world_writable() const { return world_writable; }
+  long long get_group_expected() const { return group_expected; }
   long long get_ace_count() const { return ace_count; }
+  long long get_has_acl() const { return has_acl; }
+  long long get_setuid() const { return setuid; }
+  long long get_setgid() const { return setgid; }
+  long long get_sticky() const { return sticky; }
+  long long get_size() const { return size; }
+  long long get_written() const { return written; }
+  long long get_access() const { return access; }
+  long long get_creation() const { return creation; }
+  long long get_age() const;
+  std::string get_written_s() const;
+  std::string get_access_s() const;
+  std::string get_creation_s() const;
   std::string show() const { return path; }
 
   std::string path;        // the inspected file or directory
   std::string service;     // service the path was resolved from (service= option), else empty
-  std::string owner;       // owner as "DOMAIN\\name" (falls back to the SID)
-  std::string owner_sid;   // owner SID in string form
+  std::string owner;       // owner as "DOMAIN\\name" (falls back to the SID); the user name (falls back to the uid) on Unix
+  std::string owner_sid;   // owner SID in string form; the numeric uid on Unix
+  std::string group;       // primary group of the security descriptor; the owning group (falls back to the gid) on Unix
+  std::string group_sid;   // group SID in string form; the numeric gid on Unix
+  std::string mode;        // Unix: permission bits as four octal digits ("0644"); empty on Windows
+  std::string sddl;        // Windows: owner, group and DACL in SDDL form; empty on Unix
   std::string writable;    // comma separated trustees holding write access
   std::string unexpected;  // the subset of `writable` that is not allow-listed
-  std::string dacl;        // rendered DACL: "trustee(RWX)", '!' prefixes deny, '~' inherited
+  std::string dacl;        // rendered access list: "trustee(RWX)", '!' prefixes deny, '~' inherited; "user:root(rw-)" on Unix
   std::string error;       // why the security descriptor could not be read (if it could not)
 
   long long exists;            // 1 when the path exists
@@ -92,7 +136,16 @@ struct filter_obj {
   long long owner_expected;    // 1 when the owner is on the expected-owner list (or no list was given)
   long long unexpected_write;  // 1 when a trustee outside the allow-list holds write access
   long long world_writable;    // 1 when an untrusted group (Everyone, Users, ...) holds write access
-  long long ace_count;         // number of explicit DACL entries
+  long long group_expected;    // 1 when the group is on the expected-group list (or no list was given)
+  long long ace_count;         // number of access entries (DACL entries; permission classes plus ACL entries on Unix)
+  long long has_acl;           // Unix: 1 when the path carries a POSIX ACL beyond its mode bits
+  long long setuid;            // Unix: 1 when the set-user-ID bit is set
+  long long setgid;            // Unix: 1 when the set-group-ID bit is set
+  long long sticky;            // Unix: 1 when the sticky bit is set
+  long long size;              // size in bytes
+  long long written;           // last modification, seconds since the epoch
+  long long access;            // last access, seconds since the epoch
+  long long creation;          // Windows: creation time; Unix: last inode change (as in check_files)
 };
 
 // True when `trustee`/`sid` denotes a broad, untrusted group: Everyone,
@@ -107,9 +160,20 @@ bool is_allowed_trustee(const ace &entry, const std::vector<std::string> &allowe
 std::string rights_summary(unsigned long mask);
 // Classify the explicit DACL entries onto the object: who can write, which of
 // those are unexpected, and whether an untrusted group is among them.
-void apply_aces(filter_obj &obj, const std::vector<ace> &aces, const std::vector<std::string> &allow_write);
+// An entry flagged as the POSIX owner class is accepted as a writer when the
+// owner is one of `expected_owners`: a file's owner can always change its mode,
+// so an owner the caller asked for cannot also be an unexpected writer.
+void apply_aces(filter_obj &obj, const std::vector<ace> &aces, const std::vector<std::string> &allow_write,
+                const std::vector<std::string> &expected_owners = std::vector<std::string>());
 // Set owner_expected from the expected-owner allow-list (empty list = anything goes).
 void apply_owner(filter_obj &obj, const std::vector<std::string> &expected_owners);
+// Set group_expected from the expected-group allow-list (empty list = anything goes).
+void apply_group(filter_obj &obj, const std::vector<std::string> &expected_groups);
+// The paths below `root` down to `max_depth` levels (1 = the direct children),
+// symbolic links left out: what a link points at is either outside the tree or
+// visited in its own right. A directory that cannot be listed is reported
+// through `failed` (path, reason) instead of being skipped silently.
+void walk(const std::string &root, int max_depth, std::vector<std::string> &found, std::vector<std::pair<std::string, std::string>> &failed);
 
 typedef std::shared_ptr<filter_obj> filter_obj_ptr;
 typedef parsers::where::filter_handler_impl<filter_obj_ptr> native_context;
@@ -121,14 +185,14 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }  // namespace file_security_filter
 
 namespace file_security_source {
-// Resolve the binary a Windows service runs, so its ownership/ACL can be checked.
+// Resolve the binary a service runs, so its ownership/ACL can be checked: the
+// image path of a Windows service, the ExecStart= program of a systemd unit.
 // Returns an empty string and sets `error` when the service cannot be read.
 std::string service_binary(const std::string &service, std::string &error);
-// Read owner and DACL of one path into `obj` (obj.path must be set). Never fails
-// hard: a missing path or an unreadable descriptor is reported on the object.
+// Read owner, group, metadata and access entries of one path into `obj`
+// (obj.path must be set). Never fails hard: a missing path or an unreadable
+// descriptor is reported on the object.
 void inspect(file_security_filter::filter_obj &obj, std::vector<file_security_filter::ace> &aces);
-// True when this platform implements the two functions above.
-bool supported();
 }  // namespace file_security_source
 
 namespace check_file_security_command {
