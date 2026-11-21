@@ -186,15 +186,14 @@ Nothing was changed (--dry-run).
 Then schedule a downtime for the host in Icinga and swap the agents:
 
 ```powershell
-nscp icinga-agent import
-
-Stop-Service icinga2
-Set-Service icinga2 -StartupType Disabled
+nscp icinga-agent import --stop-icinga
 Restart-Service nscp
 ```
 
-The import leaves the Icinga agent untouched, so it can be run ahead of time; only the last three lines are the
-cut-over. It writes this to `nsclient.ini`:
+`--stop-icinga` stops the `icinga2` service and disables it, as the last thing and only once everything else has
+worked: a refused import leaves the Icinga agent running and the host monitored. Without the option the import
+leaves the Icinga agent untouched, so it can be run ahead of time and the service stopped later
+(`Stop-Service icinga2; Set-Service icinga2 -StartupType Disabled`). It writes this to `nsclient.ini`:
 
 ```ini
 [/modules]
@@ -217,6 +216,7 @@ The key is stored readable by `SYSTEM` and `Administrators` only, on either file
 | `has no host in zones.conf`                            | The master connected to the Icinga agent. Give `--parent-host`, and open outbound `5665`.    |
 | `The certificate is self-signed`                       | The Icinga agent was never signed. There is nothing to take over: use a ticket (see the tip below). |
 | `There is already a different key`                     | NSClient++ already has an identity under that name. `--force` replaces it.                   |
+| `The import is complete, but the Icinga 2 agent was not stopped` | The service could not be stopped or disabled (the reason follows). Stop it yourself, then restart NSClient++. |
 
 The NSClient++ log shows a verified connection straight away, without the bootstrap lines of a new agent:
 
@@ -410,7 +410,7 @@ Until the old agent is uninstalled, a host goes back in a minute:
 
 ```powershell
 Stop-Service nscp
-Set-Service icinga2 -StartupType Automatic
+Set-Service icinga2 -StartupType Automatic   # --stop-icinga disabled it
 Start-Service icinga2
 ```
 
@@ -423,7 +423,7 @@ host for anything else.
 ## Rolling out to more hosts
 
 For each further host it is step 2 (install, with the check modules enabled by your deployment tool) and the swap
-in step 3, which is the same four lines everywhere: the import reads each host's own name and parent. It exits
+in step 3, which is the same two lines everywhere: the import reads each host's own name and parent. It exits
 non-zero when it refuses, so a deployment script can stop before it touches the Icinga agent. To hand out the same
 configuration to many hosts, see [Automated installation](../setup/installing.md#automated-installation-windows-msi).
 

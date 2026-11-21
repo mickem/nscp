@@ -54,7 +54,8 @@ It reads the endpoint name from the agent's `constants.conf` and the parent from
 `<name>.crt`, `<name>.key` and `ca.crt` into the certificate directory, and writes `endpoint name`, `parent endpoint`,
 `parent host`, `parent port` and `trust on first use = false`. NSClient++ then connects as the endpoint the master
 already knows: no ticket, nothing to sign, and the first connection is verified. Stop the Icinga 2 agent before
-NSClient++ is restarted, since both cannot be connected under one name.
+NSClient++ is restarted, since both cannot be connected under one name; `--stop-icinga` does it as part of the
+import.
 
 | Option                                    | Default                                                                  |
 |-------------------------------------------|--------------------------------------------------------------------------|
@@ -63,6 +64,7 @@ NSClient++ is restarted, since both cannot be connected under one name.
 | `--endpoint-name`                         | `NodeName` in `constants.conf`, else the name of the only key            |
 | `--parent-endpoint`, `--parent-host`, `--parent-port` | The one other `Endpoint` in `zones.conf`                     |
 | `--force`                                 | Off: a different key already stored under that name is not replaced      |
+| `--stop-icinga`                           | Off: when set, the `icinga2` service is stopped and disabled once the import has succeeded |
 | `--dry-run`                               | Off                                                                      |
 
 Nothing is copied unless it would work: the certificate has to be for that endpoint name and that key, and issued by

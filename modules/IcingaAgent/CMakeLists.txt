@@ -26,6 +26,7 @@ set(SRCS
     ${PROTOCOL_SRCS}
     icinga_agent_connection.cpp
     icinga_agent_pki.cpp
+    icinga_agent_service.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -51,6 +52,7 @@ if(WIN32)
         icinga_agent_translate.hpp
         icinga_agent_connection.hpp
         icinga_agent_pki.hpp
+        icinga_agent_service.hpp
         icinga_agent_openssl.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )

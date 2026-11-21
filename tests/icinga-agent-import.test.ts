@@ -177,6 +177,29 @@ describe("nscp icinga-agent import", () => {
     expect(setting("parent host")).toBe("master.example.com");
   });
 
+  it("stops the Icinga agent last, and says so when it cannot", async () => {
+    const plan = await nscp.run([
+      "icinga-agent",
+      "import",
+      "--from",
+      icinga,
+      "--stop-icinga",
+      "--dry-run",
+    ]);
+    expect(plan.all).toContain("Would stop and disable the icinga2 service");
+
+    // No machine these tests run on has an icinga2 service: the import still
+    // completes, and the command reports the half that is left to do.
+    const r = await nscp.run(["icinga-agent", "import", "--from", icinga, "--stop-icinga"], {
+      allowFailure: true,
+    });
+    expect(r.exitCode).not.toBe(0);
+    expect(r.all).toContain(`Imported the Icinga 2 agent '${AGENT}'`);
+    expect(r.all).toContain("the Icinga 2 agent was not stopped");
+    expect(r.all).toMatch(/icinga2/);
+    expect(setting("endpoint name")).toBe(AGENT);
+  });
+
   it("does not replace a different identity unless told to", async () => {
     // A second agent's files under the same name: another key.
     const again = generateCertChain({

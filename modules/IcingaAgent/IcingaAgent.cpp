@@ -35,6 +35,7 @@
 #include "icinga_agent_json.hpp"
 #include "icinga_agent_pki.hpp"
 #include "icinga_agent_protocol.hpp"
+#include "icinga_agent_service.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace asio = boost::asio;
@@ -528,7 +529,7 @@ bool IcingaAgent::import_agent(const PB::Commands::ExecuteRequestMessage::Reques
   namespace pf = nscapi::protobuf::functions;
 
   std::string from = default_icinga_root(), certificates, config, endpoint_name, parent_endpoint, parent_host, parent_port;
-  bool dry_run = false, force = false;
+  bool dry_run = false, force = false, stop_icinga = false;
   po::options_description desc("nscp icinga-agent import: take over the identity of the Icinga 2 agent on this host");
   // clang-format off
   desc.add_options()
@@ -549,6 +550,8 @@ bool IcingaAgent::import_agent(const PB::Commands::ExecuteRequestMessage::Reques
       "The parent's port. Default: `port` of that Endpoint, else 5665.")
     ("force", po::value<bool>(&force)->implicit_value(true)->default_value(false),
       "Replace a different key that is already in the certificate directory.")
+    ("stop-icinga", po::value<bool>(&stop_icinga)->implicit_value(true)->default_value(false),
+      "After a successful import, stop the icinga2 service and disable it, so it does not connect as the same endpoint again.")
     ("dry-run", po::value<bool>(&dry_run)->implicit_value(true)->default_value(false),
       "Show what would be imported and written, and change nothing.")
     ;
@@ -566,10 +569,11 @@ bool IcingaAgent::import_agent(const PB::Commands::ExecuteRequestMessage::Reques
           *response,
           nscapi::program_options::help(
               desc,
-              "Usage: nscp icinga-agent import [--from <icinga2 data directory>] [--parent-host <address>] [--dry-run]\n"
+              "Usage: nscp icinga-agent import [--from <icinga2 data directory>] [--parent-host <address>] [--stop-icinga] [--dry-run]\n"
               "Copies the Icinga 2 agent's key, certificate and CA into this agent's certificate directory and points\n"
               "/settings/Icinga/agent at the same parent, so NSClient++ connects as the endpoint the master already knows.\n"
-              "Stop the Icinga 2 agent before NSClient++ is restarted: both cannot be connected as the same endpoint.\n"));
+              "Stop the Icinga 2 agent before NSClient++ is restarted (--stop-icinga does it): both cannot be connected as\n"
+              "the same endpoint.\n"));
       return true;
     }
 
@@ -635,6 +639,7 @@ bool IcingaAgent::import_agent(const PB::Commands::ExecuteRequestMessage::Reques
     result << "  CA:          " << paths.ca << std::endl;
     result << "Parent: " << parent.name << " at " << parent.host << ":" << (parent.port.empty() ? "5665" : parent.port) << std::endl;
     if (dry_run) {
+      if (stop_icinga) result << "Would stop and disable the icinga2 service." << std::endl;
       result << "Nothing was changed (--dry-run)." << std::endl;
       pf::set_response_good(*response, result.str());
       return true;
@@ -657,7 +662,21 @@ bool IcingaAgent::import_agent(const PB::Commands::ExecuteRequestMessage::Reques
       return true;
     }
     result << "Settings written to " << agent_settings_path << "; the IcingaAgent module is enabled." << std::endl;
-    result << "Next: stop the Icinga 2 agent, then restart NSClient++. Both cannot be connected as '" << endpoint_name << "' at once." << std::endl;
+    if (stop_icinga) {
+      // Last, and only after everything else worked: until here the host is
+      // still monitored by the Icinga agent.
+      try {
+        result << icinga_agent::stop_icinga_service() << std::endl;
+      } catch (const std::exception &e) {
+        result << "The import is complete, but the Icinga 2 agent was not stopped: " << utf8::utf8_from_native(e.what()) << std::endl;
+        result << "Stop it yourself before NSClient++ is restarted: both cannot be connected as '" << endpoint_name << "' at once." << std::endl;
+        pf::set_response_bad(*response, result.str());
+        return true;
+      }
+      result << "Next: restart NSClient++." << std::endl;
+    } else {
+      result << "Next: stop the Icinga 2 agent, then restart NSClient++. Both cannot be connected as '" << endpoint_name << "' at once." << std::endl;
+    }
     result << "The Icinga 2 agent's copy of the key is still at " << (certificate_source / (endpoint_name + ".key")).string()
            << ": delete it once that agent is uninstalled." << std::endl;
     pf::set_response_good(*response, result.str());
