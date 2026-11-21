@@ -7,6 +7,7 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include <net/socket/close_on_exec.hpp>
 #include <net/socket/connection.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <str/xtos.hpp>
@@ -231,6 +232,9 @@ class server : boost::noncopyable {
       logger_->log_error(__FILE__, __LINE__, "Failed to open " + address + ": " + er.message());
       return false;
     }
+    // Not for a child to inherit: one still running when a reload binds the
+    // port again would make that bind fail (see close_on_exec.hpp).
+    socket_helpers::set_close_on_exec(acceptor.native_handle());
     // Linux defaults to net.ipv6.bindv6only=0, so binding the v4
     // acceptor to 0.0.0.0 also reserves the port for IPv6 and the
     // subsequent [::] bind fails with EADDRINUSE — aborting the
