@@ -34,6 +34,7 @@
 
 #include "check_battery.hpp"
 #include "check_cpu_frequency.hpp"
+#include "check_gpu.hpp"
 #include "check_hardware.hpp"
 #include "check_hostname.hpp"
 #include "check_installed_software.hpp"
@@ -1414,6 +1415,14 @@ void CheckSystem::check_printjobs(const PB::Commands::QueryRequestMessage::Reque
 
 void CheckSystem::check_w32time(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   w32time_check::check_w32time(request, response);
+}
+
+void CheckSystem::check_gpu(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    gpu_check::check_gpu(request, response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to check GPU adapters: " + std::string(e.what()));
+  }
 }
 
 void CheckSystem::add_counter(std::string key, std::string query) { pdh_checker.add_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query); }

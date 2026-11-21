@@ -39,6 +39,9 @@ set(SRCS
     check_printqueue.cpp
     check_printjobs.cpp
     check_w32time.cpp
+    check_gpu.cpp
+    gpu_counters.cpp
+    gpu_source_win.cpp
     system_facts.cpp
     network_facts_win.cpp
     software_facts_win.cpp
@@ -54,6 +57,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_object_gather.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.cpp
@@ -106,6 +110,8 @@ if(WIN32)
         check_printqueue.hpp
         check_printjobs.hpp
         check_w32time.hpp
+        check_gpu.hpp
+        gpu_counters.hpp
         system_facts.hpp
         ${NSCP_INCLUDEDIR}/facts/host_facts.hpp
         ${NSCP_INCLUDEDIR}/facts/network_facts.hpp
@@ -116,6 +122,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_object_gather.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.hpp
@@ -184,6 +191,7 @@ NSCP_CREATE_TEST(
         check_printqueue_test.cpp
         check_printjobs_test.cpp
         check_w32time_test.cpp
+        check_gpu_test.cpp
         check_os_version_test.cpp
         check_pdh_test.cpp
         pdh_query_test.cpp
@@ -221,6 +229,8 @@ NSCP_CREATE_TEST(
         check_printqueue.cpp
         check_printjobs.cpp
         check_w32time.cpp
+        check_gpu.cpp
+        gpu_counters.cpp
         pdh_thread.cpp
         pdh_counter_set.cpp
         filter_config_object.cpp
