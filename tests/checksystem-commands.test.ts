@@ -122,6 +122,12 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(crit.result).toBe(CRITICAL);
   });
 
+  it("check_cpu refuses a short threshold with a unit a percentage cannot have", async () => {
+    const q = await executeQuery(key, "check_cpu", { w: "80m" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid unit for load: 80m/);
+  });
+
   it("check_memory short thresholds bound free memory as a percentage", async () => {
     const ok = await executeQuery(key, "check_memory", { w: "0", c: "0" });
     expect(ok.result).toBe(OK);

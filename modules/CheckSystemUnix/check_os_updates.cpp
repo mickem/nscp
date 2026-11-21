@@ -348,7 +348,8 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
   filter_type filter;
   bool live = false;
   filter_helper.add_options("updates > 0", "security > 0", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_short_threshold("updates", modern_filter::shorthand::above);
+  filter_helper.add_short_threshold("updates", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "0", "");
+  filter_helper.add_short_critical("${updates} or security > 0");
   // Top-syntax renders after the record is detached, so record variables like
   // ${updates} read as 0 there (and the generic ${count} is the matched-row
   // count) -- the real numbers render through the detail line via ${list}.
