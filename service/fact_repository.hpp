@@ -423,6 +423,23 @@ class fact_repository {
     return max_size_;
   }
 
+  // Whether the document holds a set of this name right now.
+  bool has_set(const std::string &fact_set) const {
+    boost::unique_lock<boost::mutex> lock(mutex_);
+    return sets_.find(fact_set) != sets_.end();
+  }
+
+  // The document rules, applied to one set that is not being stored: an
+  // on-demand set is served without ever entering the document, and has to be
+  // the same shape a stored one is, or a consumer needs two parsers.
+  static bool validate_set(const std::string &fact_set, const PB::Facts::Object &value, std::string &error) {
+    if (!is_valid_key(fact_set)) {
+      error = "'" + clip(fact_set) + "' is not a valid fact set name (snake_case, at most " + std::to_string(max_key_length) + " characters)";
+      return false;
+    }
+    return validate_object(fact_set, value, 1, error);
+  }
+
   // A fact set name, an object key and the first segment of a settings id all
   // follow the same rule.
   static bool is_valid_key(const std::string &key) {

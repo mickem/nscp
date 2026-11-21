@@ -5,6 +5,7 @@
 
 #include <boost/filesystem.hpp>
 #include <memory>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
@@ -42,6 +43,9 @@ class PythonScript : public nscapi::impl::simple_plugin {
   void submitMetrics(const PB::Metrics::MetricsMessage &response);
   void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
   void onEvent(const PB::Commands::EventMessage &request, const std::string &buffer);
+  // The on-demand `scripts.python` fact set: the files in the Python scripts
+  // folder. See scripts/script_facts.hpp.
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 
   void execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 

@@ -169,6 +169,7 @@ NSCP_CREATE_TEST(
         static_controller_test.cpp
         upload_staging.cpp
         upload_staging_test.cpp
+        facts_listing_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp

@@ -25,6 +25,7 @@
 #include "../fact_repository.hpp"
 #include "../failed_check_store.hpp"
 #include "../metrics_snapshot.hpp"
+#include "../on_demand_facts.hpp"
 #include "../path_manager.hpp"
 #include "../permissions.hpp"
 #include "../routers.hpp"
@@ -83,6 +84,9 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // at boot; null in the tests and in any build path that never boots facts,
   // where a facts round is simply a no-op.
   fact_repository_instance facts_;
+  // The on-demand fact sets: who declared what, and the short cache of their
+  // answers. Never part of facts_ - see on_demand_facts.hpp.
+  on_demand_facts on_demand_;
   // Where every non-OK check result is recorded on its way back to the caller
   // (see execute_query). Handed over by the core at boot, like facts_; null in
   // the tests and in any path that never boots it, where recording is a no-op.
@@ -236,6 +240,10 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // sorts and folds them.
   std::vector<std::string> get_loaded_modules();
 
+  // The loaded modules as the plugin cache describes them (name, alias,
+  // title, version), copied out: what the `modules` fact set is built from.
+  std::vector<plugin_cache_item> get_loaded_plugin_items();
+
   // The repository facts rounds write to. Also what lets unloading a module
   // take its fact sets with it.
   void set_fact_repository(const fact_repository_instance &facts) { facts_ = facts; }
@@ -259,8 +267,32 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   //
   // Static, so the protobuf contract between a module and the core can be
   // tested directly.
+  //
+  // An on-demand declaration (FactSet.on_demand) is neither stored nor a
+  // claim to produce a stored set: it lands in `on_demand` (id -> takes a
+  // parameter) when the caller wants them, and is skipped either way, so the
+  // document and its `enabled` list are what they were before on-demand sets
+  // existed.
   static std::string apply_facts_response(const std::string &response, unsigned int plugin_id, fact_repository &facts,
-                                          std::map<std::string, std::string> &errors, std::set<std::string> &produced);
+                                          std::map<std::string, std::string> &errors, std::set<std::string> &produced,
+                                          std::map<std::string, bool> *on_demand = nullptr);
+
+  // What a path into an on-demand set resolved to.
+  struct on_demand_result {
+    // The path names an on-demand set; false means it is the document's.
+    bool on_demand = false;
+    bool found = false;
+    PB::Facts::Value value;
+    // Keyed by declared id (`scripts.python`), like the document's own maps.
+    std::map<std::string, std::string> errors;
+    std::map<std::string, std::string> gathered;
+  };
+  // Answer a path from the on-demand sets: from the short cache, or by asking
+  // the producer that declared it. `collect` false only says whether the path
+  // is on demand, and asks nobody. `fresh` skips the cache.
+  on_demand_result read_on_demand(const std::string &path, bool collect, bool fresh);
+  // The on-demand sets the loaded producers declare: id, takes a parameter.
+  std::vector<std::pair<std::string, bool>> get_on_demand_sets();
 
   bool enable_plugin(std::string name);
   bool disable_plugin(std::string name);
@@ -287,6 +319,11 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   // Forget the problems that are gone, so the same failure coming back later
   // is logged again rather than swallowed by the memo.
   void forget_fixed_fact_problems(const std::set<std::string> &failing);
+  // Take one producer's on-demand declarations, logging the ones refused.
+  void declare_on_demand(const plugin_type &plugin, const std::map<std::string, bool> &declared);
+  // Ask the producers loaded since the last round what they declare, so a
+  // module loaded at runtime answers for its on-demand sets at once.
+  void probe_undeclared_producers();
 
   plugin_alias_list_type find_all_plugins();
   plugin_alias_list_type find_all_active_plugins();

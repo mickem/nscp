@@ -17,5 +17,6 @@
 	},
 	"command line exec" : "true",
     "channels" : true,
-    "on_start" : true
+    "on_start" : true,
+	"facts" : "on-demand"
 }

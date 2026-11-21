@@ -101,7 +101,26 @@ class NSCAPI_EXPORT core_wrapper {
   // Handed back as bytes rather than a parsed message so the wrapper - which
   // is linked into every module - stays a thin shim over the ABI, exactly as
   // the registry, settings and metrics calls beside it do.
-  std::string get_facts(const std::string &path = "") const;
+  //
+  // A path may also name an on-demand set (`scripts.python`, `pdh.objects`):
+  // one a producer collects when it is asked for rather than on a round, and
+  // which is never part of the stored document. `read` says what to do then:
+  // answer from the core's short cache or collect (the default), always
+  // collect, or do not collect at all and only say that the set is on demand.
+  enum class facts_read {
+    cached,       // the document, or an on-demand set from the short cache
+    fresh,        // collect an on-demand set now
+    stored_only,  // never collect: an on-demand path answers found=false
+  };
+  std::string get_facts(const std::string &path = "", facts_read read = facts_read::cached) const;
+  // Which sets exist: the envelope without the document, carrying `enabled`
+  // and the on-demand sets the loaded producers have declared.
+  std::string get_fact_sets() const;
+
+ private:
+  std::string facts_query(const std::string &request) const;
+
+ public:
   // Run a facts round now (the `manual` reason). False on a core without the
   // API, or when the round could not be run.
   bool refresh_facts() const;

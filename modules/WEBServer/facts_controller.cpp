@@ -7,12 +7,15 @@
 #include <nscapi/protobuf/facts.hpp>
 #include <utility>
 
+#include "facts_listing.hpp"
+
 namespace json = boost::json;
 
 facts_controller::facts_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
                                    const unsigned int plugin_id)
     : RegexpController(version == 1 ? "/api/v1/facts" : "/api/v2/facts"), session(std::move(session)), core(core), plugin_id(plugin_id) {
   addRoute("GET", "/?$", this, &facts_controller::get_facts);
+  addRoute("GET", "/sets/?$", this, &facts_controller::get_sets);
   addRoute("POST", "/commands/refresh/?$", this, &facts_controller::refresh_facts);
 }
 
@@ -67,13 +70,75 @@ std::string render(const std::string &envelope) {
   json::value parsed = json::parse(document, ec);
   out["facts"] = ec ? json::value(json::object()) : parsed;
 
+  // Only on an answer that was collected on demand, so every answer read out
+  // of the stored document is the bytes it was before on-demand sets existed.
+  if (payload.on_demand()) out["on_demand"] = true;
+
+  return json::serialize(out);
+}
+
+// The catalog: which sets this agent has, without their contents.
+std::string render_sets(const std::string &envelope) {
+  PB::Facts::FactsResponseMessage message;
+  json::object out;
+  json::array scheduled;
+  json::array on_demand;
+  if (!envelope.empty() && message.ParseFromString(envelope) && message.payload_size() > 0) {
+    const PB::Facts::FactsResponseMessage::Response &payload = message.payload(0);
+    for (const std::string &id : payload.enabled()) scheduled.emplace_back(id);
+    for (const PB::Facts::FactsResponseMessage::Response::OnDemandSet &set : payload.on_demand_sets()) {
+      json::object entry;
+      entry["id"] = set.id();
+      entry["parameterized"] = set.parameterized();
+      // The grant that reads it: per set, never the document's `facts.get`.
+      entry["privilege"] = "facts.get." + facts_listing::set_of(set.id());
+      on_demand.push_back(entry);
+    }
+  }
+  out["scheduled"] = scheduled;
+  out["on_demand"] = on_demand;
   return json::serialize(out);
 }
 }  // namespace
 
 void facts_controller::get_facts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+  const std::string path = request.get("path", "");
+  // The grant that reads one set and nothing else. Empty for the whole
+  // document, and for a path whose first segment could not name a set.
+  const std::string set = facts_listing::set_of(path);
+  if (set.empty()) {
+    if (!session->is_logged_in("facts.get", request, response)) return;
+    response.append(render(core->get_facts(path)));
+    return;
+  }
+
+  // `facts.get` reads the stored document, as it always has. `facts.get.<set>`
+  // reads one set - which is how a role is given `os` without the software
+  // list, and the only grant that reads an on-demand set: a script listing or
+  // a counter catalog is not something a role was handed along with the
+  // inventory, so `facts.get` alone does not reach it.
+  const std::string per_set = "facts.get." + set;
+  std::string granted;
+  if (!session->is_logged_in(session_manager_interface::grant_options{per_set, "facts.get"}, request, response, &granted)) return;
+  if (granted == per_set) {
+    response.append(render(core->get_facts(path)));
+    return;
+  }
+  // The document's grant: read without collecting anything, so a caller who
+  // may not read an on-demand set cannot make the agent enumerate it either.
+  const std::string envelope = core->get_facts(path, nscapi::core_wrapper::facts_read::stored_only);
+  if (facts_listing::parse(envelope, set).on_demand) {
+    response.setCodeForbidden("403 The on-demand fact set '" + set + "' requires the " + per_set + " privilege");
+    return;
+  }
+  response.append(render(envelope));
+}
+
+void facts_controller::get_sets(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+  // Names only, so the document's grant covers it: it says no more than
+  // `enabled` already does.
   if (!session->is_logged_in("facts.get", request, response)) return;
-  response.append(render(core->get_facts(request.get("path", ""))));
+  response.append(render_sets(core->get_fact_sets()));
 }
 
 void facts_controller::refresh_facts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {

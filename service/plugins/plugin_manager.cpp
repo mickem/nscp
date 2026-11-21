@@ -549,6 +549,7 @@ void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plu
   // Whatever this module contributed to the inventory goes with it: a frozen
   // fact set from a module that is no longer running is worse than none.
   if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
+  on_demand_.forget(static_cast<unsigned int>(plugin_id));
   if (plugin && !parked) {
     try {
       plugin->unload_plugin();
@@ -968,6 +969,7 @@ bool nsclient::core::plugin_manager::remove_plugin(const std::string &name) {
   // Whatever this module contributed to the inventory goes with it: a frozen
   // fact set from a module that is no longer running is worse than none.
   if (facts_) facts_->remove_owned_by(static_cast<unsigned int>(plugin_id));
+  on_demand_.forget(static_cast<unsigned int>(plugin_id));
   plugin_cache_.remove_plugin(plugin_id);
   return true;
 }
@@ -1819,7 +1821,8 @@ void nsclient::core::plugin_manager::forget_fixed_fact_problems(const std::set<s
 }
 
 std::string nsclient::core::plugin_manager::apply_facts_response(const std::string &response, const unsigned int plugin_id, fact_repository &facts,
-                                                                 std::map<std::string, std::string> &errors, std::set<std::string> &produced) {
+                                                                 std::map<std::string, std::string> &errors, std::set<std::string> &produced,
+                                                                 std::map<std::string, bool> *on_demand) {
   // An empty buffer is not an empty inventory: a module that answered with
   // nothing at all has not told us it stopped producing anything, so this
   // reads as a failed round and prunes nothing.
@@ -1840,6 +1843,13 @@ std::string nsclient::core::plugin_manager::apply_facts_response(const std::stri
   for (const PB::Facts::FactSet &set : payload.sets()) {
     const std::string &id = set.id();
     if (id.empty()) continue;
+    // "I can produce this when asked" is not a value and not a claim on the
+    // document: nothing is stored, and the id stays out of `produced`, which
+    // is what `enabled` is built from.
+    if (set.on_demand()) {
+      if (on_demand != nullptr) (*on_demand)[id] = set.parameterized();
+      continue;
+    }
     // Removed drops the set (the docker socket went away), and is
     // deliberately not a claim to produce it.
     if (set.removed()) {
@@ -1891,11 +1901,13 @@ void nsclient::core::plugin_manager::collect_facts_from(const plugin_type &plugi
 
   std::map<std::string, std::string> reported;
   std::set<std::string> produced;
-  const std::string failure = apply_facts_response(response, plugin->get_id(), *facts_, reported, produced);
+  std::map<std::string, bool> declared;
+  const std::string failure = apply_facts_response(response, plugin->get_id(), *facts_, reported, produced, &declared);
   if (!failure.empty()) {
     log_fact_problem_once("module " + module, failure, failing);
     return;
   }
+  declare_on_demand(plugin, declared);
   // The round completed, so what this module did not mention it no longer
   // produces: that is how a fact set turned off in a module's configuration
   // leaves the document.
@@ -1914,8 +1926,111 @@ std::vector<std::string> nsclient::core::plugin_manager::get_loaded_modules() {
   return modules;
 }
 
+std::vector<nsclient::core::plugin_cache_item> nsclient::core::plugin_manager::get_loaded_plugin_items() {
+  std::vector<plugin_cache_item> items;
+  for (const plugin_type &plugin : plugin_list_.get_plugins()) {
+    if (plugin) items.emplace_back(plugin);
+  }
+  return items;
+}
+
+void nsclient::core::plugin_manager::declare_on_demand(const plugin_type &plugin, const std::map<std::string, bool> &declared) {
+  for (const std::string &refused : on_demand_.declare(plugin->get_id(), declared)) {
+    LOG_WARN_CORE_STD("facts: module " + plugin->get_alias_or_name() + ": " + refused);
+  }
+}
+
+void nsclient::core::plugin_manager::probe_undeclared_producers() {
+  std::vector<unsigned long> unseen;
+  for (const unsigned long id : facts_fetchers_.get_ids()) {
+    if (!on_demand_.has_seen(static_cast<unsigned int>(id))) unseen.push_back(id);
+  }
+  if (unseen.empty()) return;
+  // Not a round: nothing the module answers here is stored, and nothing it
+  // leaves out is pruned. The reason tells a producer to declare and return.
+  PB::Facts::FactsQueryMessage request;
+  request.add_payload()->set_reason("declare");
+  const std::string request_string = request.SerializeAsString();
+  for (const unsigned long id : unseen) {
+    facts_fetchers_.do_one(id, [this, &request_string](const plugin_type &plugin) {
+      std::map<std::string, bool> declared;
+      try {
+        std::string response;
+        plugin->fetchFacts(request_string, response);
+        PB::Facts::FactsMessage message;
+        if (message.ParseFromString(response) && message.payload_size() > 0) {
+          for (const PB::Facts::FactSet &set : message.payload(0).sets()) {
+            if (set.on_demand() && !set.id().empty()) declared[set.id()] = set.parameterized();
+          }
+        }
+      } catch (const std::exception &e) {
+        LOG_WARN_CORE_STD("facts: module " + plugin->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
+      }
+      // Declared even when empty or failed, so a module with nothing to
+      // declare is asked once rather than on every read.
+      declare_on_demand(plugin, declared);
+    });
+  }
+}
+
+std::vector<std::pair<std::string, bool>> nsclient::core::plugin_manager::get_on_demand_sets() {
+  probe_undeclared_producers();
+  return on_demand_.get_declared();
+}
+
+nsclient::core::plugin_manager::on_demand_result nsclient::core::plugin_manager::read_on_demand(const std::string &path, const bool collect, const bool fresh) {
+  on_demand_result result;
+  probe_undeclared_producers();
+  const on_demand_facts::plan plan = on_demand_.resolve(path);
+  result.on_demand = plan.on_demand;
+  if (!plan.on_demand || !collect) return result;
+  if (!plan.error.empty()) {
+    result.errors[plan.error_id] = plan.error;
+    return result;
+  }
+
+  // One collection at a time: a second reader of the same set waits here and
+  // then finds the first one's answer in the cache, instead of making the
+  // producer enumerate twice.
+  const boost::mutex::scoped_lock collecting(on_demand_.collect_mutex());
+  std::vector<on_demand_facts::answer> answers;
+  for (const on_demand_facts::target &target : plan.targets) {
+    on_demand_facts::answer answer;
+    if (fresh || !on_demand_.get_cached(target.id, target.parameter, on_demand_facts::clock::now(), answer)) {
+      PB::Facts::FactsQueryMessage request;
+      PB::Facts::FactsQueryMessage::Request *payload = request.add_payload();
+      payload->set_reason("demand");
+      payload->set_demand(target.id);
+      if (!target.parameter.empty()) payload->set_parameter(target.parameter);
+      const std::string request_string = request.SerializeAsString();
+      const bool asked = facts_fetchers_.do_one(target.plugin_id, [&request_string, &target, &answer](const plugin_type &plugin) {
+        try {
+          std::string response;
+          plugin->fetchFacts(request_string, response);
+          answer = on_demand_facts::extract(response, target.id);
+        } catch (const plugin_exception &e) {
+          answer.error = e.reason();
+        } catch (const std::exception &e) {
+          answer.error = utf8::utf8_from_native(e.what());
+        }
+      });
+      if (!asked) answer.error = "the module that produces this set is not available";
+      // No producer said when it read the values, and it read them just now.
+      if (answer.found && answer.gathered.empty()) answer.gathered = utc_now();
+      on_demand_.store(target.id, target.parameter, answer, on_demand_facts::clock::now());
+    }
+    if (!answer.error.empty()) result.errors[target.id] = answer.error;
+    if (!answer.gathered.empty()) result.gathered[target.id] = answer.gathered;
+    answers.push_back(answer);
+  }
+  result.found = on_demand_facts::assemble(plan, answers, result.value);
+  return result;
+}
+
 void nsclient::core::plugin_manager::process_facts(const std::string &reason) {
   if (!facts_) return;
+  // Asked to collect now: that goes for what is cached on demand too.
+  if (reason == "manual") on_demand_.clear_cache();
   // Every producer is asked; what it returns is what its own configuration
   // says it may produce. `reason` (startup, scheduled, reload, manual) is all
   // the core has to say, and lets an expensive collector hand back its last

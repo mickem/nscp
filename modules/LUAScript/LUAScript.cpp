@@ -3,9 +3,9 @@
 
 #include "LUAScript.h"
 
-#include <boost/thread/locks.hpp>
 #include <boost/program_options.hpp>
 #include <boost/smart_ptr/make_shared_object.hpp>
+#include <boost/thread/locks.hpp>
 #include <file_helpers.hpp>
 #include <memory>
 #include <nscapi/macros.hpp>
@@ -15,6 +15,8 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <scripts/script_facts.hpp>
+#include <scripts/script_files.hpp>
 #include <scripts/script_root_setting.hpp>
 
 #include "extscr_cli.h"
@@ -349,4 +351,17 @@ void LUAScript::handleNotification(const std::string &channel, const PB::Command
   if (cmd) {
     runtime->on_submit(channel, cmd.value().information, cmd.value().function, true, request, response);
   }
+}
+void LUAScript::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  const std::string id = scripts::facts::id_of(scripts::facts::key_lua);
+  // Declared on every round and on the probe; collected only when asked for.
+  response.on_demand(id);
+  if (!request.is_demand() || request.demand() != id) return;
+
+  // The published folder, as `lua list` reads it: a reload replaces it while
+  // a web worker may be in here.
+  const boost::filesystem::path root = script_provider(get_id(), get_core(), scripts_folder()).get_root();
+  scripts::facts::listing listing;
+  for (const std::string &file : scripts::files::list_files(root, root.parent_path(), false)) listing.files.push_back(file);
+  scripts::facts::publish(scripts::facts::key_lua, listing, std::time(nullptr), response);
 }

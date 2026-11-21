@@ -18,11 +18,13 @@
 #include <nscapi/protobuf/nagios.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <process/execute_process.hpp>
+#include <scripts/script_facts.hpp>
 #include <scripts/script_root_setting.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
 
 #include "extscr_cli.h"
+#include "script_listing.hpp"
 #include "script_provider.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -705,4 +707,28 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
     return;
   }
   response->CopyFrom(tmp.payload(0));
+}
+
+void CheckExternalScripts::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  const std::string id = scripts::facts::id_of(scripts::facts::key_external);
+  // Declared on every round and on the probe; collected only when asked for.
+  response.on_demand(id);
+  if (!request.is_demand() || request.demand() != id) return;
+
+  // A reference of our own: a reload replaces the provider.
+  const std::shared_ptr<script_provider_interface> provider = provider_;
+  if (!provider) {
+    response.error(id, "The external scripts module is not configured");
+    return;
+  }
+  scripts::facts::listing listing;
+  std::string error;
+  // Without the helpers in `lib` folders, as the scripts API lists them.
+  if (!script_listing::list_files(provider->get_root(), provider->get_layout().base, false, listing.files, error)) {
+    response.error(id, error);
+    return;
+  }
+  for (const std::string &command : provider->get_commands()) listing.commands.push_back(command);
+  listing.has_commands = true;
+  scripts::facts::publish(scripts::facts::key_external, listing, std::time(nullptr), response);
 }

@@ -621,6 +621,15 @@ int {{module.name}}Module::fetchMetrics(std::string &reply) {
 int {{module.name}}Module::fetchFacts(const std::string &request_buffer, std::string &response_buffer) {
 	const nscapi::facts::request request(request_buffer);
 	nscapi::facts::response response;
+{% if not module.facts_on_demand %}
+	// The core asking which on-demand sets this module has. It has none
+	// (module.json does not say "facts": "on-demand"), and answering here
+	// keeps the probe from costing a collection.
+	if (request.declare_only() || request.is_demand()) {
+		response_buffer = response.serialize();
+		return NSCAPI::api_return_codes::isSuccess;
+	}
+{% endif %}
 	try {
 		impl_->fetchFacts(request, response);
 	} catch (const std::exception &e) {
@@ -1281,6 +1290,9 @@ module.cli = cli
 module.channels = channels
 module.metrics = metrics
 module.facts = facts
+# "facts": "on-demand" marks a module that declares on-demand fact sets, and
+# so wants to see the core's `declare` probe and its demands.
+module.facts_on_demand = (facts == "on-demand")
 module.diagnostics = diagnostics
 module.log_handler = log_handler
 module.command_fallback = command_fallback

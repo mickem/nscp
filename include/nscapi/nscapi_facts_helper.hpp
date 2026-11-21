@@ -294,11 +294,31 @@ class request {
   // scheduled round.
   NSCAPI_EXPORT explicit request(const std::string &buffer);
 
-  // startup, scheduled, reload or manual.
+  // startup, scheduled, reload or manual for a round; `declare` when the core
+  // only wants to know which on-demand sets this module has; `demand` when it
+  // is asking for one of them.
   const std::string &reason() const { return reason_; }
+
+  // The core is not running a round: it wants the on-demand set `demand()`
+  // and nothing else. Whatever else the answer carries is ignored.
+  bool is_demand() const { return !demand_.empty(); }
+  // The id this module declared with response::on_demand().
+  const std::string &demand() const { return demand_; }
+  // The parameter of a parameterized on-demand set: the rest of the path the
+  // consumer asked for, verbatim. It is remote input - validate it against
+  // what the module itself enumerates, and never build a command line or a
+  // query string out of it.
+  const std::string &parameter() const { return parameter_; }
+  // The core only wants the on-demand declarations (a module loaded after the
+  // last round). A producer declares, then returns without collecting. The
+  // generated glue answers this for a module whose module.json does not say
+  // it has on-demand sets, so only those modules ever see it.
+  bool declare_only() const { return reason_ == "declare"; }
 
  private:
   std::string reason_;
+  std::string demand_;
+  std::string parameter_;
 };
 
 // What the module produces this round.
@@ -345,6 +365,25 @@ class response {
     if (when > 0) (*gathered_)[id] = format_time(when);
   }
 
+  // Declare a set this module collects on demand rather than on a round.
+  //
+  // An on-demand set is for a listing that is too large or too volatile to
+  // keep (a performance counter catalog, the scripts in a folder): the core
+  // asks for it when a consumer reads its path, keeps the answer for a few
+  // seconds, and never stores it in the document, hashes it or uploads it. So
+  // it costs nothing until someone asks, and it needs no enable switch: there
+  // is nothing shipped anywhere to opt in to.
+  //
+  // `id` is a set (`counters`) or one key below a set (`scripts.python`) -
+  // the second form lets several modules each own one key of a shared set.
+  // Call this on every round and on the `declare` probe; when the core then
+  // asks (request::is_demand(), with request::demand() == id), build the set
+  // the usual way: `out.set("scripts").object("python")...`.
+  //
+  // A `parameterized` set takes the rest of the consumer's path as
+  // request::parameter().
+  void on_demand(const std::string &id, const bool parameterized = false) { on_demand_[id] = parameterized; }
+
   // This round failed outright: the producer threw, or could not run at all.
   // Reported as the response's result rather than per set, because the core
   // must not read "I failed" as "I no longer produce any of this" and drop
@@ -366,6 +405,8 @@ class response {
   // stores it; that is where canonical order belongs.
   std::vector<std::string> order_;
   std::set<std::string> removed_;
+  // On-demand declarations: id -> takes a parameter.
+  std::map<std::string, bool> on_demand_;
   std::string failure_;
   std::shared_ptr<std::map<std::string, std::string>> problems_;
   std::shared_ptr<std::map<std::string, std::string>> gathered_ = std::make_shared<std::map<std::string, std::string>>();

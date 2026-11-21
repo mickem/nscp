@@ -288,18 +288,20 @@ std::string nscapi::core_wrapper::get_tags_json() const {
 }
 
 namespace {
-std::string facts_request(const PB::Facts::FactsRequestMessage::Request::Command command, const std::string &path) {
+std::string facts_request(const PB::Facts::FactsRequestMessage::Request::Command command, const std::string &path,
+                          const nscapi::core_wrapper::facts_read read = nscapi::core_wrapper::facts_read::cached) {
   PB::Facts::FactsRequestMessage message;
   PB::Facts::FactsRequestMessage::Request *payload = message.add_payload();
   payload->set_command(command);
   if (!path.empty()) payload->set_path(path);
+  if (read == nscapi::core_wrapper::facts_read::fresh) payload->set_fresh(true);
+  if (read == nscapi::core_wrapper::facts_read::stored_only) payload->set_stored_only(true);
   return message.SerializeAsString();
 }
 }  // namespace
 
-std::string nscapi::core_wrapper::get_facts(const std::string &path) const {
+std::string nscapi::core_wrapper::facts_query(const std::string &request) const {
   if (!fNSAPIFactsQuery) return "";
-  const std::string request = facts_request(PB::Facts::FactsRequestMessage::Request::GET, path);
   char *buffer = nullptr;
   unsigned int buffer_size = 0;
   const bool retC = NSCAPI::api_ok(fNSAPIFactsQuery(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
@@ -311,6 +313,12 @@ std::string nscapi::core_wrapper::get_facts(const std::string &path) const {
   if (!retC) return "";
   return response;
 }
+
+std::string nscapi::core_wrapper::get_facts(const std::string &path, const facts_read read) const {
+  return facts_query(facts_request(PB::Facts::FactsRequestMessage::Request::GET, path, read));
+}
+
+std::string nscapi::core_wrapper::get_fact_sets() const { return facts_query(facts_request(PB::Facts::FactsRequestMessage::Request::SETS, "")); }
 
 bool nscapi::core_wrapper::refresh_facts() const {
   if (!fNSAPIFactsQuery) return false;

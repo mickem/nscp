@@ -4,6 +4,7 @@
 #include <atomic>
 #include <memory>
 #include <nscapi/command_alias.hpp>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <string>
@@ -41,6 +42,9 @@ class CheckExternalScripts : public nscapi::impl::simple_plugin {
                       const PB::Commands::QueryRequestMessage &request_message);
   bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage_Request &request,
                        PB::Commands::ExecuteResponseMessage_Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+  // The on-demand `scripts.external` fact set: the scripts folder and the
+  // names the scripts are registered under. See scripts/script_facts.hpp.
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
 
  private:
   void handle_command(const commands::command_object &cd, const std::list<std::string> &args, PB::Commands::QueryResponseMessage_Response *response);

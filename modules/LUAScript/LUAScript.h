@@ -8,6 +8,7 @@
 #include <lua/lua_core.hpp>
 #include <lua/lua_script.hpp>
 #include <memory>
+#include <nscapi/nscapi_facts_helper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <scripts/script_interface.hpp>
@@ -43,6 +44,9 @@ class LUAScript : public nscapi::impl::simple_plugin {
                       const PB::Commands::QueryRequestMessage &request_message);
   bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
                        PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+  // The on-demand `scripts.lua` fact set: the files in the Lua scripts
+  // folder. See scripts/script_facts.hpp.
+  void fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response);
   void execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   bool exec_script_command(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
                            const PB::Commands::ExecuteRequestMessage &request_message);

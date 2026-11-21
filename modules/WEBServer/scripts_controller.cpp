@@ -9,9 +9,11 @@
 #include <boost/json.hpp>
 #include <boost/regex.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <nscapi/protobuf/registry.hpp>
+#include <nscp/name_safety.hpp>
 #include <utility>
 
-#include <nscp/name_safety.hpp>
+#include "facts_listing.hpp"
 #include "upload_staging.hpp"
 
 #define EXT_SCR "CheckExternalScripts"
@@ -47,6 +49,14 @@ std::string get_runtime(const std::string &runtime) {
     return LUA_SCR;
   }
   return "";
+}
+
+// The key each runtime's module declares under the on-demand `scripts` fact
+// set (script_facts.hpp), which is where the listings are read from.
+std::string get_fact_key(const std::string &runtime) {
+  if (runtime == EXT_SCR) return "external";
+  if (runtime == PY_SCR) return "python";
+  return "lua";
 }
 
 // Answer 400 for an unknown runtime. Called before the permission check so an
@@ -136,24 +146,51 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
 
   if (!session->can("scripts.lists." + runtime, response)) return;
 
-  PB::Commands::ExecuteRequestMessage rm;
-  PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
-
-  payload->set_command("list");
-  payload->add_arguments("--json");
-  if (fetch_all != "true") {
-    payload->add_arguments("--query");
-  }
-
-  std::string pb_response;
-  core->exec_command(runtime, rm.SerializeAsString(), pb_response);
-  PB::Commands::ExecuteResponseMessage resp;
-  resp.ParseFromString(pb_response);
-  if (!validate_response(resp, response)) {
+  // The listing is the module's on-demand `scripts.<runtime>` fact set. It
+  // used to be the stdout of the module's `list --json` command line, which
+  // made a read-only listing one more caller of exec; the answer is the same
+  // JSON array, in the same order.
+  //
+  // Always collected rather than served from the core's short cache: this
+  // endpoint is what a caller reads right after adding or deleting a script.
+  const std::string set = "scripts." + get_fact_key(runtime);
+  if (fetch_all != "true" && runtime != EXT_SCR) {
+    // For the Python and Lua runtimes "the queries" has always meant every
+    // registered query, which is the registry's to answer - not a fact about
+    // the scripts, and not something the module needs to be asked for.
+    if (!facts_listing::declares(core->get_fact_sets(), set)) {
+      response.setCodeServerError("No response from module, is the module loaded?");
+      return;
+    }
+    PB::Registry::RegistryRequestMessage rrm;
+    PB::Registry::RegistryRequestMessage::Request *payload = rrm.add_payload();
+    // Names only: for a QUERY inventory fetch_all makes the core run every
+    // registered command with `help-pb`.
+    payload->mutable_inventory()->set_fetch_all(false);
+    payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY);
+    std::string pb_response;
+    core->registry_query(rrm.SerializeAsString(), pb_response);
+    PB::Registry::RegistryResponseMessage registry;
+    registry.ParseFromString(pb_response);
+    json::array data;
+    for (const PB::Registry::RegistryResponseMessage::Response &r : registry.payload()) {
+      for (const PB::Registry::RegistryResponseMessage::Response::Inventory &i : r.inventory()) data.push_back(json::value(i.name()));
+    }
+    response.append(json::serialize(data));
     return;
   }
 
-  response.append(resp.payload(0).message());
+  const std::string list = fetch_all == "true" ? "files" : "commands";
+  const facts_listing::reading reading = facts_listing::parse(core->get_facts(set + "." + list, nscapi::core_wrapper::facts_read::fresh), set);
+  if (!reading.found) {
+    if (!reading.error.empty()) {
+      response.setCodeServerError("Command returned errors: " + reading.error);
+    } else {
+      response.setCodeServerError("No response from module, is the module loaded?");
+    }
+    return;
+  }
+  response.append(facts_listing::render_names(reading.value));
 }
 
 void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
