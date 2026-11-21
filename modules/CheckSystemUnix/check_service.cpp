@@ -15,6 +15,7 @@
 #include <chrono>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <check/check_mk_format.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -301,7 +302,8 @@ void check_service(const PB::Commands::QueryRequestMessage::Request &request, PB
       const std::vector<check_svc_filter::filter_obj> svcs = check_svc_filter::enumerate_services("all");
       for (const check_svc_filter::filter_obj &s : svcs) {
         if (!body.empty()) body += "\n";
-        body += s.name + " " + s.state + "/" + s.start_type + " " + (s.desc.empty() ? s.name : s.desc);
+        body += check_mk_format::sanitize_field(s.name) + " " + check_mk_format::sanitize_field(s.state) + "/" + check_mk_format::sanitize_field(s.start_type) +
+                " " + check_mk_format::sanitize_field(s.desc.empty() ? s.name : s.desc);
       }
       nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_service", NSCAPI::query_return_codes::returnOK, body, "");
       return;
