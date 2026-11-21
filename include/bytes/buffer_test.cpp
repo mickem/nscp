@@ -84,8 +84,6 @@ TEST(buffer, copy_assignment_self_is_a_noop) {
 
 // --- Element access ---
 
-// Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()
-#if !defined(_WIN32) || defined(_WIN64)
 TEST(buffer, subscript_operator) {
   hlp::buffer<char> buf(4);
   buf[0] = 'A';
@@ -97,19 +95,15 @@ TEST(buffer, subscript_operator) {
   EXPECT_EQ(buf[1], 'B');
   EXPECT_EQ(buf[2], 'C');
 }
-#endif
 
 // --- Implicit conversion ---
 
-// Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()
-#if !defined(_WIN32) || defined(_WIN64)
 TEST(buffer, implicit_conversion_to_pointer) {
   hlp::buffer<char> buf(4);
   buf[0] = 'X';
   const char *ptr = buf.get();
   EXPECT_EQ(ptr[0], 'X');
 }
-#endif
 
 // --- size_in_bytes ---
 
@@ -138,8 +132,6 @@ TEST(buffer, get_with_offset) {
 
 // --- get_t ---
 
-// Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()
-#if !defined(_WIN32) || defined(_WIN64)
 TEST(buffer, get_t_reinterpret) {
   hlp::buffer<char> buf(8);
   std::memset(buf.get(), 0, 8);
@@ -148,7 +140,6 @@ TEST(buffer, get_t_reinterpret) {
   const unsigned char *uc = buf.get_t<const unsigned char *>(0);
   EXPECT_EQ(uc[0], 1);
 }
-#endif
 
 // --- resize ---
 
@@ -168,8 +159,6 @@ TEST(buffer, resize_to_smaller) {
 
 // --- Integer type ---
 
-// Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()
-#if !defined(_WIN32) || defined(_WIN64)
 TEST(buffer, integer_buffer) {
   hlp::buffer<int> buf(3);
   buf[0] = 42;
@@ -190,4 +179,3 @@ TEST(buffer, integer_buffer_from_data) {
   EXPECT_EQ(buf[1], 20);
   EXPECT_EQ(buf[2], 30);
 }
-#endif
