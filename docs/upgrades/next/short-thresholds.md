@@ -16,7 +16,11 @@ the rest of the check's threshold in place, so `check_http -c 5` is still
 critical on a failed request. `help` lists the default of `-w` and `-c` for
 every command and the new `show-short-defaults` prints them; `show-default`
 is unchanged and lists `warning` and `critical` only. Durations are in seconds unless a unit is given
-(`500ms`, `5m`), also for checks whose `time` keyword counts milliseconds. A
+(`500ms`, `5m`), also for checks whose `time` keyword counts milliseconds;
+`check_ping` keeps the standard plugin's milliseconds (`-w 100,20%`, or
+`-w 1s`), and keywords that count days take `d` and `w`. A range whose start
+is above its end is refused, compared in the keyword's unit
+(`check_uptime -w 2d:12h`). A
 check that measures no single value bounds `count`, the number of matched
 items: `check_process process=nginx -c 1:`. See
 [Short thresholds](../concepts/checks.md#short-thresholds-w-and-c) for the

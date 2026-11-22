@@ -358,13 +358,13 @@ What a bare number bounds, and where the defaults sit:
 | `check_pagefile`                                             | `free < N`                          | `40` / `20`         | percent (`10g` is a size)   |
 | `check_uptime`                                               | `uptime < N`                        | `2d` / `1d`         | seconds (`2d`, `12h`)       |
 | `check_load`                                                 | `load1 > N`, then `load5`, `load15` | none                | —                           |
-| `check_ping`                                                 | `time > N`, then `loss > N%`        | `60,5` / `100,10`   | milliseconds, percent       |
+| `check_ping`                                                 | `time > N`, then `loss > N%`        | `60,5` / `100,10`   | milliseconds (`1s`), percent |
 | `check_tcp`, `check_ssh`                                     | `time > N`                          | `1` / `5`           | seconds (`500ms`, `5m`)     |
 | `check_http`                                                 | `time > N`                          | `5` / none          | seconds (`500ms`, `5m`)     |
 | `check_dns`, `check_kdc`                                     | `time > N`                          | `1` / none          | seconds (`500ms`, `5m`)     |
 | `check_ntp_offset`                                           | `offset > N`                        | `50ms` / `100ms`    | seconds (`500ms`)           |
 | `check_w32time`                                              | `offset > N`                        | `1` / `30`          | seconds (`500ms`)           |
-| `check_certificate`, `check_domain`                          | `expires_in < N`                    | `30` / `10`         | days                        |
+| `check_certificate`, `check_domain`                          | `expires_in < N`                    | `30` / `10`         | days (`2w`)                 |
 | `check_temperature`                                          | `temperature > N`                   | `70` / `90`         | degrees                     |
 | `check_battery`                                              | `charge < N`                        | `20` / `10`         | percent                     |
 | `check_network`                                              | `throughput > N`                    | `10000` / `100000`  | —                           |
@@ -387,7 +387,13 @@ to the bound on how many are.
 
 Durations follow the standard plugins and are in **seconds** unless you give a unit, also where the
 keyword itself counts milliseconds: `check_http -w 2` and `check_http "warning=time > 2000"` are the
-same thing, and so are `-w 500ms` and `-w 0.5`.
+same thing, and so are `-w 500ms` and `-w 0.5`. `check_ping` is the exception, as it is in the
+standard plugins: a bare number is milliseconds (`-w 100,20%`), and `-w 1s` is `time > 1000`. Keywords
+that count days (`expires_in`, `signature_age`, `check_patch_age`'s `age`) take a bare number of days,
+or `d` and `w`.
+
+A range is compared in the unit of its keyword, whatever units its ends are written in, and one that
+starts above its end is refused: `check_uptime -w 2d:12h` would alert at every uptime.
 
 A value that cannot be meant is refused with UNKNOWN rather than guessed at: an empty one (`w=`,
 typically an unset macro), a unit the keyword does not take (`check_cpu -w 80m`), or more values

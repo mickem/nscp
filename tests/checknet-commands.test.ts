@@ -474,6 +474,22 @@ describe("CheckNet commands", () => {
     expect(perf?.critical).toBe(5000);
   });
 
+  it("check_ping short thresholds take a duration unit and keep a bare number in milliseconds", async () => {
+    // "-w 1s" used to reach the filter as "time > 1s", which the millisecond
+    // keyword read as "time > 0": a loopback ping came back WARNING.
+    const q = await executeQuery(key, "check_ping", { host: "127.0.0.1", w: "1s,100%", c: "1500,100%" });
+    expect(q.result).toBe(OK);
+    const perf = Object.values(perfOf(q)).find((p) => p.unit === "ms");
+    expect(perf?.warning).toBe(1000);
+    expect(perf?.critical).toBe(1500);
+  });
+
+  it("check_ping refuses a short threshold range written high to low", async () => {
+    const q = await executeQuery(key, "check_ping", { host: "127.0.0.1", w: "2s:500,100%" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toContain("Invalid threshold");
+  });
+
   it("check_tcp -c moves the time bound and keeps a failed connect critical", async () => {
     const port = await closedPort();
     const q = await executeQuery(key, "check_tcp", { host: "127.0.0.1", port: String(port), w: "30", c: "60" });

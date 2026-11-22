@@ -35,7 +35,7 @@ void check_domain(const std::string &default_ca_file, const PB::Commands::QueryR
   options.ca_file = default_ca_file;
   std::string name;
   helper.add_options("expires_in < 30", "expires_in < 10", "", filter.get_filter_syntax(), "unknown");
-  helper.add_short_threshold("expires_in", modern_filter::shorthand::below, modern_filter::shorthand::unit_plain, "30", "10");
+  helper.add_short_threshold("expires_in", modern_filter::shorthand::below, modern_filter::shorthand::unit_days, "30", "10");
   helper.add_syntax("${status}: ${problem_list}", "${domain} expires in ${expires_in}d (${expiration}, ${expiration_type}, ${source})", "${domain}",
                     "No domain checked", "%(status): %(list)");
   // clang-format off

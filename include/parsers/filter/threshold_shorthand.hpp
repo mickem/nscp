@@ -41,7 +41,15 @@ enum unit {
   // seconds, as in the standard plugins; ms, s, m, h, d and w are accepted.
   unit_seconds_as_ms,
   // The same durations for a keyword that counts seconds.
-  unit_seconds
+  unit_seconds,
+  // A duration for a keyword that counts milliseconds, where a bare number is
+  // milliseconds too - check_ping's "-w 100,20%", as in the standard plugin.
+  // ms, s, m, h, d and w are accepted.
+  unit_milliseconds,
+  // A keyword that counts whole days (expires_in, signature_age): a bare
+  // number is days, and d and w are accepted. A unit below a day is refused
+  // rather than rounded.
+  unit_days
 };
 
 struct spec {
@@ -153,15 +161,20 @@ inline std::string render_number(const double value) {
   return ret;
 }
 
-// "5", "5s", "500ms", "5m", "1.5h" -> seconds. False for a suffix that is not a
-// duration.
-inline bool parse_duration(const std::string &value, double &seconds) {
+// Whether the keyword holds a duration, in whatever unit.
+inline bool is_duration(const unit u) { return u == unit_seconds_as_ms || u == unit_seconds || u == unit_milliseconds || u == unit_days; }
+
+// "5", "5s", "500ms", "5m", "1.5h" -> seconds, a bare number being
+// `bare_seconds` seconds. False for a suffix that is not a duration.
+inline bool parse_duration(const std::string &value, double &seconds, const double bare_seconds = 1.0) {
   std::string::size_type i = 0;
   while (i < value.size() && !is_alpha(value[i]) && value[i] != '%') ++i;
   const std::string number = value.substr(0, i);
   const std::string suffix = value.substr(i);
   const double n = std::strtod(number.c_str(), nullptr);
-  if (suffix.empty() || suffix == "s") {
+  if (suffix.empty()) {
+    seconds = n * bare_seconds;
+  } else if (suffix == "s") {
     seconds = n;
   } else if (suffix == "ms") {
     seconds = n / 1000.0;
@@ -177,6 +190,13 @@ inline bool parse_duration(const std::string &value, double &seconds) {
     return false;
   }
   return true;
+}
+
+// What a bare number of the keyword amounts to, in seconds.
+inline double bare_seconds_of(const unit u) {
+  if (u == unit_milliseconds) return 0.001;
+  if (u == unit_days) return 86400.0;
+  return 1.0;
 }
 
 inline std::string suffix_of(const std::string &value) {
@@ -203,7 +223,7 @@ inline double number_of(const std::string &value) {
 // False when that cannot be told here: a plain keyword gives a suffix its
 // meaning itself ("2d", "1w"), so only values with the same one are compared.
 inline bool comparable(const spec &s, const std::string &a, const std::string &b, double &na, double &nb) {
-  if (s.value_unit == unit_seconds_as_ms || s.value_unit == unit_seconds) return parse_duration(a, na) && parse_duration(b, nb);
+  if (is_duration(s.value_unit)) return parse_duration(a, na, bare_seconds_of(s.value_unit)) && parse_duration(b, nb, bare_seconds_of(s.value_unit));
   std::string sa = suffix_of(a), sb = suffix_of(b);
   for (char &c : sa) c = lower(c);
   for (char &c : sb) c = lower(c);
@@ -215,6 +235,9 @@ inline bool comparable(const spec &s, const std::string &a, const std::string &b
   na = number_of(a);
   nb = number_of(b);
   if (sa == sb) return true;
+  // A bare number next to a size is a number of bytes ("-w 2000:1k").
+  if (sa.empty() && is_size_suffix(sb)) sa = "b";
+  if (sb.empty() && is_size_suffix(sa)) sb = "b";
   if (!is_size_suffix(sa) || !is_size_suffix(sb)) return false;
   const std::string scales = "bkmgtpe";
   na *= std::pow(1024.0, static_cast<double>(scales.find(sa[0])));
@@ -251,6 +274,24 @@ inline bool render_value(const spec &s, const std::string &value, std::string &o
         return false;
       }
       out = render_number(s.value_unit == unit_seconds_as_ms ? seconds * 1000.0 : seconds);
+      return true;
+    }
+    case unit_milliseconds: {
+      double seconds = 0;
+      if (!parse_duration(value, seconds, 0.001)) {
+        error = "Invalid duration for " + s.variable + ": " + value + " (expected a number of milliseconds, or a number with one of ms, s, m, h, d, w)";
+        return false;
+      }
+      out = render_number(seconds * 1000.0);
+      return true;
+    }
+    case unit_days: {
+      double seconds = 0;
+      if (suffix == "ms" || suffix == "s" || suffix == "m" || suffix == "h" || !parse_duration(value, seconds, 86400.0)) {
+        error = "Invalid duration for " + s.variable + ": " + value + " (the keyword counts days: expected a number of days, or a number with d or w)";
+        return false;
+      }
+      out = render_number(seconds / 86400.0);
       return true;
     }
     case unit_plain:
@@ -534,6 +575,10 @@ inline std::string describe_unit(const spec &s) {
     case unit_percent:
       return "A number without a unit is a percentage; a size (10G) is used as written.";
     case unit_seconds_as_ms:
+    case unit_milliseconds:
+      return "A number without a unit is in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 2s).";
+    case unit_days:
+      return "A number without a unit is in days; d and w are accepted as units (14d, 2w).";
     case unit_seconds:
       return s.value_unit == unit_seconds_as_ms
                  ? "A number without a unit is in seconds, which the keyword counts in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 5m)."

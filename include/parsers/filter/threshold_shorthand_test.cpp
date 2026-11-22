@@ -164,6 +164,56 @@ TEST(ThresholdShorthand, SecondsUnitConvertsTheSuffixes) {
 TEST(ThresholdShorthand, AnUnknownDurationUnitIsAnError) {
   EXPECT_NE(std::string::npos, expand_error(one("time", above, unit_seconds_as_ms), "5x").find("Invalid duration for time: 5x"));
   EXPECT_NE(std::string::npos, expand_error(one("time", above, unit_seconds), "5%").find("Invalid duration"));
+  EXPECT_NE(std::string::npos, expand_error(one("time", above, unit_milliseconds), "5x").find("Invalid duration for time: 5x"));
+  EXPECT_NE(std::string::npos, expand_error(one("expires_in", below, unit_days), "5x").find("Invalid duration for expires_in: 5x"));
+}
+
+// check_ping: a bare number is milliseconds, as in the standard plugin, and
+// "-w 1s" used to reach the filter as "time > 1s", which a millisecond keyword
+// read as "time > 0".
+TEST(ThresholdShorthand, MillisecondsUnitKeepsABareNumber) {
+  const spec_list s = one("time", above, unit_milliseconds);
+  EXPECT_EQ("time > 100", expand_ok(s, "100"));
+  EXPECT_EQ("time > 100", expand_ok(s, "100ms"));
+  EXPECT_EQ("time > 1000", expand_ok(s, "1s"));
+  EXPECT_EQ("time > 1500", expand_ok(s, "1.5s"));
+  EXPECT_EQ("time > 120000", expand_ok(s, "2m"));
+  EXPECT_EQ("time > 0.5", expand_ok(s, "0.5"));
+  EXPECT_EQ("time < 500 or time > 2000", expand_ok(s, "500:2s"));
+  EXPECT_NE(std::string::npos, expand_error(s, "2s:500").find("Invalid threshold"));
+}
+
+// expires_in, signature_age: whole days.
+TEST(ThresholdShorthand, DaysUnitTakesDaysAndWeeks) {
+  const spec_list s = one("expires_in", below, unit_days);
+  EXPECT_EQ("expires_in < 30", expand_ok(s, "30"));
+  EXPECT_EQ("expires_in < 30", expand_ok(s, "30d"));
+  EXPECT_EQ("expires_in < 14", expand_ok(s, "2w"));
+  EXPECT_EQ("expires_in < 7 or expires_in > 60", expand_ok(s, "1w:60"));
+  EXPECT_NE(std::string::npos, expand_error(s, "3w:10").find("Invalid threshold"));
+  // A unit below a day would be a fraction the keyword never holds.
+  EXPECT_NE(std::string::npos, expand_error(s, "12h").find("the keyword counts days"));
+  EXPECT_NE(std::string::npos, expand_error(s, "30m").find("the keyword counts days"));
+}
+
+// check_uptime and the MSSQL ages count seconds and are declared so: a range
+// written high to low in two different units is compared as durations and
+// refused, where a plain keyword let "2d:12h" through as
+// "uptime < 2d or uptime > 12h", which every uptime matches.
+TEST(ThresholdShorthand, AReversedRangeInMixedDurationUnitsIsAnError) {
+  const spec_list uptime = one("uptime", below, unit_seconds, "2d", "1d");
+  EXPECT_NE(std::string::npos, expand_error(uptime, "2d:12h").find("Invalid threshold: 2d:12h"));
+  EXPECT_EQ("uptime < 43200 or uptime > 172800", expand_ok(uptime, "12h:2d"));
+  EXPECT_EQ("uptime < 172800", expand_ok(uptime, "2d"));
+  const spec_list age = one("full_age", above, unit_seconds, "3d", "7d");
+  EXPECT_NE(std::string::npos, expand_error(age, "1w:3d").find("Invalid threshold"));
+  EXPECT_NE(std::string::npos, expand_error(age, "1h:1800").find("Invalid threshold"));
+}
+
+// A bare number next to a size is bytes, so the reversed range is seen.
+TEST(ThresholdShorthand, ABareNumberNextToASizeIsBytes) {
+  EXPECT_NE(std::string::npos, expand_error(one("size", above), "2000:1k").find("Invalid threshold"));
+  EXPECT_EQ("size < 1000 or size > 1k", expand_ok(one("size", above), "1000:1k"));
 }
 
 // ---------------------------------------------------------------------------
