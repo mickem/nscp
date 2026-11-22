@@ -135,7 +135,10 @@ void connection::dispatch(const std::string &payload) {
     cb_.log_debug("Ignoring message without method: " + payload.substr(0, 200));
     return;
   }
-  const std::string method(m->value().as_string());
+  // Not std::string(json::string): before Boost 1.81 json::string_view is
+  // boost::string_view, which std::string cannot be constructed from.
+  const json::string &method_s = m->value().get_string();
+  const std::string method(method_s.data(), method_s.size());
   const auto p = obj.find("params");
   const json::value params = p == obj.end() ? json::value() : p->value();
   cb_.log_debug("<- " + method + " " + payload.substr(0, 2000));
