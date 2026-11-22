@@ -582,14 +582,27 @@ inline bool is_short_flag(const std::string &arg, char &flag, std::string &attac
   return false;
 }
 
-// Whether the argument after a bare "-w" is its value. Another short threshold
-// or a dashed option is not: in "-w -c 90" the -w was given no value, and
-// taking "-c" for it would leave a stray "90" behind and an error about that
-// instead. A negative bound ("-c -5:") is a value.
+// Whether the argument is a "key=value" pair: an option name with the "="
+// right behind it. An expression has its operator set off by spaces
+// ("state = 'ok'") or is not an "=" at all ("used>80%").
+inline bool is_key_value(const std::string &arg) {
+  if (arg.empty() || !detail::is_alpha(arg[0])) return false;
+  std::string::size_type i = 1;
+  while (i < arg.size() && (detail::is_word(arg[i]) || arg[i] == '-')) ++i;
+  return i < arg.size() && arg[i] == '=';
+}
+
+// Whether the argument after a bare "-w" is its value. Another short
+// threshold, a dashed option or a key=value argument is not: in "-w -c 90" and
+// "-w drive=/" the -w was given no value. That is what an unset macro leaves
+// behind ("-w $ARG1$ drive=C:"), and taking the next argument for it would run
+// the check without its drive and with "drive=/" for a warning. A negative
+// bound ("-c -5:") is a value, and so is an expression ("-w "load = 5"").
 inline bool is_flag_value(const std::string &arg) {
   char flag;
   std::string attached;
   if (is_short_flag(arg, flag, attached)) return false;
+  if (is_key_value(arg)) return false;
   return !(arg.size() > 2 && arg[0] == '-' && arg[1] == '-');
 }
 
