@@ -8,7 +8,9 @@ namespace service_facts {
 std::vector<service> gather() {
   std::vector<service> result;
   // Strict configuration reads: a failed query must not masquerade as a
-  // boot-start service or replace the last complete inventory.
+  // boot-start service or replace the last complete inventory. A service this
+  // account may not open at all is the exception: it is listed with start
+  // type "unknown", since refusing it would leave no inventory, ever.
   for (const auto &s : win_list_services::enum_services("", SERVICE_WIN32, SERVICE_STATE_ALL, {}, true)) {
     result.push_back({s.name, s.displayname, s.get_start_type_s()});
   }

@@ -236,7 +236,10 @@ the canonical unit's startup mode.
 | `start_type` | `auto`, `disabled` | the platform's native startup mode, as used by `check_service` |
 
 Windows startup modes include `auto`, `delayed`, `auto_trigger`,
-`delayed_trigger`, `demand`, `disabled`, `boot` and `system`. Linux retains
+`delayed_trigger`, `demand`, `disabled`, `boot` and `system`, plus `unknown`
+for a service whose configuration the agent's account may not read (common
+when NSClient++ does not run as LocalSystem): it is still listed, rather than
+failing the whole inventory. Linux retains
 systemd's `UnitFileState`, such as `enabled`, `disabled`, `static` or `masked`;
 these are not interchangeable with Windows startup types. A template such as
 `worker@.service` has id `worker@` and a startup mode, without a description.
