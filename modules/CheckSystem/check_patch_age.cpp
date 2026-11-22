@@ -3,6 +3,7 @@
 
 #include "check_patch_age.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <Windows.h>
 #include <comdef.h>
 
@@ -136,9 +137,10 @@ filter_obj_handler::filter_obj_handler() {
   // age has no value when no hotfix carries a parseable install date: it renders
   // as 'unknown', compares false against every number and emits no perfdata.
   // age_known is the flag to threshold on for that case.
-  registry_.add_optional_int_var("age", [](auto obj) { return obj->get_age(); }, "unknown",
+  registry_.add_optional_int_var("age", duration_keyword::type_days, [](auto obj) { return obj->get_age(); }, "unknown",
                                  "Days since the newest hotfix was installed. 'unknown' when no hotfix has a parseable install date; "
                                  "every numeric comparison is then false, so test `age_known = 0` for it");
+  registry_.add_converter(duration_keyword::type_days, &duration_keyword::parse_duration_days<std::shared_ptr<patch_obj> >);
   registry_.add_string_var("newest_id", &patch_obj::get_newest_id, "HotFixID of the most recently installed hotfix")
       .add_string_var("newest_installed", &patch_obj::get_newest_installed, "Install date of the newest hotfix (as reported by Windows)")
       .add_string_var("ids", &patch_obj::get_ids, "Semicolon-separated list of all installed HotFixIDs (use 'ids like KBxxxxxxx' to test presence)")

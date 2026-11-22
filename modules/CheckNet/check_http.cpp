@@ -45,11 +45,12 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
   registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes").add_int_perf("B", "", "_size");
   registry_
-      .add_optional_int_var("ssl_expiry_days", [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",
+      .add_optional_int_var("ssl_expiry_days", duration_keyword::type_days, [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",
                             "Days until the server's TLS certificate expires; negative if already expired. Renders as 'no certificate' (and compares false "
                             "against every number) for plain http, and for a certificate whose notAfter could not be read, so `ssl_expiry_days < 30` cannot "
                             "fire on either; `ssl_expiry_days = 'no certificate'` tests for that state.")
       .add_int_perf("", "", "_ssl_expiry_days");
+  registry_.add_converter(duration_keyword::type_days, &duration_keyword::parse_duration_days<std::shared_ptr<filter_obj>>);
   cert::register_keywords<filter_obj>(registry_, &filter_obj::cert);
 }
 

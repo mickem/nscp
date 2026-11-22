@@ -175,11 +175,11 @@ filter_obj_handler::filter_obj_handler() {
   // optional: they render as 'unknown', compare false against every number and
   // emit no perfdata until the service has actually measured something.
   registry_
-      .add_optional_int_var("offset", [](auto obj) { return obj->get_offset(); }, "unknown",
+      .add_optional_int_var("offset", duration_keyword::type_milliseconds, [](auto obj) { return obj->get_offset(); }, "unknown",
                             "Absolute clock offset against the time source in milliseconds, as last computed by the service; 'unknown' until it has measured "
                             "one (`offset = 'unknown'` tests for it)")
       .add_int_perf("ms", "", "_offset")
-      .add_optional_int_var("delay", [](auto obj) { return obj->get_delay(); }, "unknown", "NTP round trip delay to the time source in milliseconds")
+      .add_optional_int_var("delay", duration_keyword::type_milliseconds, [](auto obj) { return obj->get_delay(); }, "unknown", "NTP round trip delay to the time source in milliseconds")
       .add_int_perf("ms", "", "_delay")
       .add_optional_int_var("frequency_adjustment", [](auto obj) { return obj->get_frequency_adjustment(); }, "unknown",
                             "Correction the service applies to the clock frequency, in parts per billion (negative slows the clock down)")
@@ -191,6 +191,7 @@ filter_obj_handler::filter_obj_handler() {
                             "Seconds since the last synchronization W32Time recorded as good; threshold with durations, e.g. last_sync_age > 24h")
       .add_int_perf("s", "", "_last_sync");
   registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<w32time_obj> >);
+  registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<w32time_obj> >);
   // clang-format on
 }
 

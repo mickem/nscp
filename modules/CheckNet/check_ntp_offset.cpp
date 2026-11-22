@@ -39,7 +39,7 @@ filter_obj_handler::filter_obj_handler() {
   // can answer promptly with an accurate-looking offset and still be unusable
   // because that offset will not hold still.
   registry_
-      .add_optional_int_var("jitter", [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
+      .add_optional_int_var("jitter", duration_keyword::type_milliseconds, [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
                             "RMS variation between the sampled offsets, in milliseconds; 'unknown' when fewer than 2 samples were taken (raise samples= to "
                             "measure it). Renders as 'unknown', compares false against every number until measured, and emits no perfdata until real; "
                             "`jitter = 'unknown'` tests for it.")

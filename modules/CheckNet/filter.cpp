@@ -41,7 +41,7 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
   // compare false against every number while unknown, and emit no perfdata
   // until real. `jitter = 'unknown'` / `ttl != 'unknown'` test presence.
   registry_
-      .add_optional_int_var("jitter", [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
+      .add_optional_int_var("jitter", duration_keyword::type_milliseconds, [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
                             "Mean variation between the round trip times, in ms; 'unknown' when fewer than 2 packets came back (raise count= to measure it)")
       .add_int_perf("ms", "", "_jitter");
   registry_

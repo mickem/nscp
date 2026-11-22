@@ -3,6 +3,7 @@
 
 #include "check_tcp.h"
 
+#include <check/duration_keyword.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #ifdef USE_SSL
@@ -37,12 +38,13 @@ filter_obj_handler::filter_obj_handler() {
   // common set because check_ssh is never TLS and would only advertise a
   // keyword that can never be populated.
   registry_
-      .add_optional_int_var("ssl_expiry_days", [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",
+      .add_optional_int_var("ssl_expiry_days", duration_keyword::type_days, [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",
                             "Whole days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares "
                             "false against every number) when the connection is not TLS, the peer presented none, or the certificate's notAfter could not "
                             "be read - so `ssl_expiry_days < 30` cannot fire on any of them; `ssl_expiry_days = 'no certificate'` tests for that state, and "
                             "has_certificate tells a served-but-unreadable certificate apart from no certificate at all.")
       .add_int_perf("", "", "_ssl_expiry_days");
+  registry_.add_converter(duration_keyword::type_days, &duration_keyword::parse_duration_days<std::shared_ptr<filter_obj>>);
   registry_
       .add_int_var("has_certificate", parsers::where::type_int, &filter_obj::get_has_certificate,
                    "1 when the peer presented a TLS certificate, 0 otherwise")

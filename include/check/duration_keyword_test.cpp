@@ -52,6 +52,7 @@ struct filter_obj_handler : native_context {
     registry_.add_int_var("days", duration_keyword::type_days, [](data_ptr o) { return o->days; }, "Days").add_int_perf("d");
     registry_.add_int_var("bytes", parsers::where::type_size, [](data_ptr o) { return o->bytes; }, "Bytes").add_int_perf("B");
     registry_.add_int_var("written", parsers::where::type_date, [](data_ptr o) { return o->age; }, "Epoch seconds").no_perf();
+    registry_.add_optional_int_var("plain", [](data_ptr o) { return o->last; }, "unknown", "Plain optional").no_perf();
     registry_.add_optional_int_var("last", type_age, [](data_ptr o) { return o->last; }, "unknown", "Seconds, or unknown").no_perf();
     registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<data_ptr>);
     registry_.add_converter(type_age, &duration_keyword::parse_duration<data_ptr>);
@@ -66,6 +67,7 @@ struct run_result {
   // An error raised while the record was evaluated. Until evaluation errors
   // end the check UNKNOWN on their own, this is where a refused unit shows.
   bool evaluation_failed;
+  std::string errors;
 };
 
 run_result run(const std::string &critical, const data_obj &row) {
@@ -79,7 +81,7 @@ run_result run(const std::string &critical, const data_obj &row) {
   filter_type filter;
   helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
   helper.add_syntax("%(status): %(list)", "%(name)", "%(name)", "EMPTY", "");
-  run_result out{PB::Common::ResultCode::UNKNOWN, "<not built>", false};
+  run_result out{PB::Common::ResultCode::UNKNOWN, "<not built>", false, ""};
   if (!helper.parse_options() || !helper.build_filter(filter)) {
     out.message = response.lines_size() > 0 ? response.lines(0).message() : out.message;
     out.code = response.result();
@@ -89,6 +91,7 @@ run_result run(const std::string &critical, const data_obj &row) {
   // warning and critical are evaluated in match_post(), inside post_process.
   helper.post_process(filter);
   out.evaluation_failed = filter.has_errors();
+  out.errors = filter.get_errors();
   out.code = response.result();
   out.message = response.lines(0).message();
   return out;
@@ -106,7 +109,7 @@ data_obj last(const boost::optional<long long> s) { return data_obj{"sync", 0, 0
 // The verdict of a run that must have evaluated cleanly.
 PB::Common::ResultCode verdict(const std::string &critical, const data_obj &row) {
   const run_result r = run(critical, row);
-  EXPECT_FALSE(r.evaluation_failed) << critical << ": " << r.message;
+  EXPECT_FALSE(r.evaluation_failed) << critical << ": " << r.message << " / " << r.errors;
   return r.code;
 }
 
@@ -168,11 +171,25 @@ TEST(DurationKeyword, AUnitThatIsNotADurationIsReported) {
   EXPECT_TRUE(mo.evaluation_failed) << mo.message;
 }
 
-// The 'unknown' probe of an optional duration keyword is text, not a duration.
+// The 'unknown' probe of an optional keyword is a string comparison when the
+// keyword has no value. With one, the literal is asked for a number, which
+// logs an error until evaluation errors are reworked (a plain optional
+// keyword does the same) - but the verdict is right either way, and the
+// converter changes nothing about it.
 TEST(DurationKeyword, TheUnknownProbeOfAnOptionalKeywordStillWorks) {
-  EXPECT_EQ(CRITICAL, run("last = 'unknown'", last(boost::none)).code);
+  EXPECT_EQ(CRITICAL, verdict("last = 'unknown'", last(boost::none)));
+  EXPECT_EQ(OK, verdict("last != 'unknown'", last(boost::none)));
+  EXPECT_EQ(OK, verdict("last > 1h", last(boost::none)));
   EXPECT_EQ(CRITICAL, verdict("last > 1h", last(7200)));
   EXPECT_EQ(OK, verdict("last > 1h", last(60)));
+  for (const std::string &op : {"=", "!="}) {
+    const run_result with_converter = run("last " + op + " 'unknown'", last(60));
+    const run_result plain = run("plain " + op + " 'unknown'", last(60));
+    EXPECT_EQ(plain.code, with_converter.code) << op;
+    EXPECT_EQ(plain.evaluation_failed, with_converter.evaluation_failed) << op << ": " << with_converter.errors;
+  }
+  EXPECT_EQ(OK, run("last = 'unknown'", last(60)).code);
+  EXPECT_EQ(CRITICAL, run("last != 'unknown'", last(60)).code);
 }
 
 // The engine's own conversions: sizes and dates.
