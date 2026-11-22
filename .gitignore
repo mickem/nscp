@@ -84,6 +84,8 @@ _build
 *.pwd
 # Local inventory written by build/powershell/provision-fleet-machines.ps1
 .fleet-machines.json
+# The Icinga VM's CA, saved by build/powershell/icinga/setup-icinga-explained-alerts.ps1
+.icinga-ca.crt
 # Fleet server url and API keys for the build/powershell scripts
 # (copy build/powershell/fleet-config.example.json)
 .fleet-config.json
