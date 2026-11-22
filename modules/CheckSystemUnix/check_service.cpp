@@ -3,19 +3,20 @@
 
 #include "check_service.h"
 
-#include <poll.h>
-#include <csignal>
-#include <cerrno>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
 #include <array>
-#include <chrono>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <cerrno>
 #include <check/check_mk_format.hpp>
+#include <check/duration_keyword.hpp>
+#include <chrono>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -189,8 +190,10 @@ node_type parse_start_type(std::shared_ptr<filter_obj> object, evaluation_contex
 node_type state_is_ok(const value_type, evaluation_context context, const node_type subject) {
   auto *native = reinterpret_cast<native_context *>(context.get());
   if (!native->has_object()) {
-    context->error("No object available");
-    return factory::create_false();
+    // Expected on the no-object pass (as on Windows): an unsure false, a
+    // warning - not an evaluation error, which would end the check UNKNOWN.
+    context->warn("No object available");
+    return factory::create_num(value_container::create_bool(false, true));
   }
   return native->get_object()->state_is_ok() ? factory::create_true() : factory::create_false();
 }
@@ -198,8 +201,10 @@ node_type state_is_ok(const value_type, evaluation_context context, const node_t
 node_type state_is_perfect(const value_type, evaluation_context context, const node_type subject) {
   auto *native = reinterpret_cast<native_context *>(context.get());
   if (!native->has_object()) {
-    context->error("No object available");
-    return factory::create_false();
+    // Expected on the no-object pass (as on Windows): an unsure false, a
+    // warning - not an evaluation error, which would end the check UNKNOWN.
+    context->warn("No object available");
+    return factory::create_num(value_container::create_bool(false, true));
   }
   return native->get_object()->state_is_perfect() ? factory::create_true() : factory::create_false();
 }
@@ -207,6 +212,9 @@ node_type state_is_perfect(const value_type, evaluation_context context, const n
 filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_state = type_custom_int_1;
   static constexpr value_type type_custom_start_type = type_custom_int_2;
+  // Seconds, so `age < 5m` reads as written (as a plain int the unit was
+  // refused and the threshold compared against 0).
+  static constexpr value_type type_custom_age = type_custom_int_3;
 
   registry_.add_string_var("name", &filter_obj::get_name, "Unit (service) name; the launchd label on macOS")
       .add_string_var("service", &filter_obj::get_name, "Alias for name")
@@ -224,14 +232,14 @@ filter_obj_handler::filter_obj_handler() {
                    "The configured start type (enabled, disabled, static, masked; on macOS enabled, disabled or on-demand)")
       .add_int_var("started", type_bool, &filter_obj::get_started, "Service is started/active")
       .add_int_var("stopped", type_bool, &filter_obj::get_stopped, "Service is stopped/inactive")
-      .add_int_var("rss", &filter_obj::get_rss, "Resident memory of the main process in bytes")
+      .add_int_var("rss", type_size, &filter_obj::get_rss, "Resident memory of the main process in bytes (takes units, e.g. rss > 1G)")
       .add_int_perf("B", "", "_rss")
-      .add_int_var("vms", &filter_obj::get_vms, "Virtual memory of the main process in bytes")
+      .add_int_var("vms", type_size, &filter_obj::get_vms, "Virtual memory of the main process in bytes (takes units, e.g. vms > 4G)")
       .add_int_perf("B", "", "_vms")
       .add_int_var("tasks", &filter_obj::get_tasks, "Number of tasks (cgroup) for this service; the main process's thread count on macOS")
       .add_int_perf("", "", "_tasks")
       .add_int_var("created", type_date, &filter_obj::get_created, "Unix timestamp when the main process started")
-      .add_int_var("age", &filter_obj::get_age, "Seconds since the main process started")
+      .add_int_var("age", type_custom_age, &filter_obj::get_age, "Seconds since the main process started; takes durations, e.g. age < 5m")
       .add_int_var("has_metrics", type_bool, &filter_obj::get_has_metrics,
                    "Whether rss, vms, cpu and tasks were measured: false for a service that is not running, and on macOS for a job the agent may not "
                    "inspect (another user's process when not running as root), where they read 0");
@@ -248,6 +256,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_human_string("start_type", &filter_obj::get_start_type_s, "The configured start type");
 
   registry_.add_converter(type_custom_state, &parse_state).add_converter(type_custom_start_type, &parse_start_type);
+  registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<filter_obj>>);
 }
 
 }  // namespace check_svc_filter

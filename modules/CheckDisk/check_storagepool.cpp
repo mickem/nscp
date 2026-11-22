@@ -74,11 +74,11 @@ filter_obj_handler::filter_obj_handler() {
 
   // Distinct perf suffixes so co-referenced metrics each get their own series
   // ('<pool>_capacity', ...) instead of collapsing onto the shared ${name} alias.
-  registry_.add_int_var("capacity", &filter_obj::get_capacity, "Total pool capacity in bytes")
+  registry_.add_int_var("capacity", parsers::where::type_size, &filter_obj::get_capacity, "Total pool capacity in bytes (takes units, e.g. free < 500G)")
       .add_int_perf("B", "", "_capacity")
-      .add_int_var("used", &filter_obj::get_used, "Allocated (used) pool space in bytes")
+      .add_int_var("used", parsers::where::type_size, &filter_obj::get_used, "Allocated (used) pool space in bytes (takes units, e.g. free < 500G)")
       .add_int_perf("B", "", "_used")
-      .add_int_var("free", &filter_obj::get_free, "Unallocated (free) pool space in bytes")
+      .add_int_var("free", parsers::where::type_size, &filter_obj::get_free, "Unallocated (free) pool space in bytes (takes units, e.g. free < 500G)")
       .add_int_perf("B", "", "_free")
       .add_int_var("free_pct", &filter_obj::get_free_pct, "Percentage of free pool space")
       .add_int_perf("%", "", "_free_pct")

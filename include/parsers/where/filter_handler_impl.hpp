@@ -701,7 +701,10 @@ node_type filter_converter<T>::evaluate(value_type, evaluation_context context, 
     typedef filter_handler_impl<T>* native_context_type;
     native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
     if (!native_context->has_object()) {
-      context->error("No object attached");
+      // Only the no-row force-evaluation gets here - a record always has its
+      // object - and a missing object is what that path is for: a warning,
+      // as every variable node gives it, not an evaluation failure.
+      context->warn("No object attached");
       return factory::create_false();
     }
     if (!function) {

@@ -279,6 +279,17 @@ TEST_F(CheckDiskModule, CheckDrivesizeDelegatesWithoutTrends) {
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
 }
 
+TEST_F(CheckDiskModule, TrendSpanTakesDurations) {
+  // The documented `trend_span < 1h` "is there enough history yet". Without a
+  // collector the span is 0, so it fires; as a plain int the unit was refused,
+  // the threshold compared against 0 and `0 < 0` never fired.
+  PB::Commands::QueryResponseMessage::Response short_history, long_threshold;
+  module_.check_drivesize(make_request("check_drivesize", {"drive=/", "warning=none", "critical=trend_span < 1h", "empty-state=ok"}), &short_history);
+  EXPECT_EQ(short_history.result(), PB::Common::ResultCode::CRITICAL) << join_lines(short_history);
+  module_.check_drivesize(make_request("check_drivesize", {"drive=/", "warning=none", "critical=trend_span > 1h", "empty-state=ok"}), &long_threshold);
+  EXPECT_EQ(long_threshold.result(), PB::Common::ResultCode::OK) << join_lines(long_threshold);
+}
+
 // ============================================================================
 // The Windows-only checks: off Windows their data acquisition is compiled out,
 // so what the module contributes is the wrapper. Each must return a response

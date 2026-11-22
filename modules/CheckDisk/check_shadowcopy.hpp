@@ -75,6 +75,9 @@ void query(std::vector<raw_shadow> &shadows, std::vector<raw_storage> &storages)
 
 namespace check {
 void check_shadowcopy(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+// The check over volumes already read: what check_shadowcopy runs after
+// query(). Exposed so the defaults can be driven without WMI.
+void evaluate(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const volumes_type &volumes);
 }  // namespace check
 
 }  // namespace shadowcopy_check

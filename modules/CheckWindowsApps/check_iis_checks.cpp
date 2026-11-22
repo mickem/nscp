@@ -5,6 +5,7 @@
 
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/program_options.hpp>
+#include <check/duration_keyword.hpp>
 #include <map>
 #include <memory>
 #include <nscapi/macros.hpp>
@@ -80,8 +81,13 @@ struct filter_obj_handler : public native_context {
     registry_.add_string_var("state", [](auto obj) { return pool_state_name(obj->rec.state); },
                              "Pool state: running, disabled, disabling, shutdown_pending, delete_pending, initialized, uninitialized or unknown");
     registry_.add_int_var("state_id", parsers::where::type_int, [](auto obj) { return obj->rec.state; }, "Raw APP_POOL_WAS state value (3 = running)");
-    registry_.add_int_var("uptime", parsers::where::type_int, [](auto obj) { return obj->rec.uptime; }, "Seconds since the pool last started")
+    // Seconds; takes durations (`uptime < 10m`).
+    registry_
+        .add_int_var(
+            "uptime", parsers::where::type_custom_int_1, [](auto obj) { return obj->rec.uptime; },
+            "Seconds since the pool last started; takes durations, e.g. uptime < 10m")
         .add_int_perf("s", "", "_uptime");
+    registry_.add_converter(parsers::where::type_custom_int_1, &duration_keyword::parse_duration<std::shared_ptr<filter_obj> >);
     registry_.add_int_var("recycles", parsers::where::type_int, [](auto obj) { return obj->rec.recycles; }, "Pool recycles since WAS started")
         .add_int_perf("c", "", "_recycles");
     registry_.add_int_var("auto_start", parsers::where::type_int, [](auto obj) { return obj->rec.auto_start; },
@@ -152,8 +158,13 @@ struct filter_obj_handler : public native_context {
     registry_.add_string_var("state", [](auto obj) { return obj->state(); }, "running or stopped (stopped = the site has no Web Service counter instance)");
     registry_.add_int_var("connections", parsers::where::type_int, [](auto obj) { return obj->rec.connections; }, "Current connections to the site")
         .add_int_perf("", "", "_connections");
-    registry_.add_int_var("uptime", parsers::where::type_int, [](auto obj) { return obj->rec.uptime; }, "Seconds the site has been up (0 when stopped)")
+    // Seconds; takes durations (`uptime < 10m`).
+    registry_
+        .add_int_var(
+            "uptime", parsers::where::type_custom_int_1, [](auto obj) { return obj->rec.uptime; },
+            "Seconds the site has been up (0 when stopped); takes durations, e.g. uptime < 10m")
         .add_int_perf("s", "", "_uptime");
+    registry_.add_converter(parsers::where::type_custom_int_1, &duration_keyword::parse_duration<std::shared_ptr<filter_obj> >);
     registry_.add_float("requests_per_sec", [](auto obj) { return obj->rec.requests_per_sec; },
                         "Requests per second (needs averages=true, otherwise 0)")
         .add_float_perf("", "", "_requests_per_sec");

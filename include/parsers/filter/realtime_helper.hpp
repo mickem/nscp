@@ -58,6 +58,10 @@ struct realtime_filter_helper {
    private:
     boost::posix_time::ptime next_ok_;
     boost::posix_time::ptime next_alert_;
+    // The evaluation failure last reported, and when the same one may be
+    // reported again (see should_report_failure).
+    std::string last_failure_;
+    boost::posix_time::ptime next_failure_report_;
 
    public:
     bool debug;
@@ -159,6 +163,40 @@ struct realtime_filter_helper {
 
     bool has_timedout(const boost::posix_time::ptime &now) const { return max_age && next_ok_ <= now; }
 
+    // A filter that fails on every record - a regular expression that every
+    // line is too long for, a unit the keyword does not take - fails on every
+    // batch, which for the CheckSystem filters is every second. The failure is
+    // counted every time, but reported (logged, and submitted as UNKNOWN when
+    // the batch has nothing else to say) only when it is new, or once per
+    // interval while it lasts: the silent period when one is set, else
+    // failure_report_interval. A batch with records that matched is always
+    // submitted; only its log line follows this.
+    static boost::posix_time::time_duration failure_report_interval() { return boost::posix_time::minutes(5); }
+    // What makes two failures the same one: the text with every run of digits
+    // folded, since a failure can carry a number that differs from record to
+    // record - the regular-expression refusal names the size of the line it
+    // refused, and oversized lines of differing length are still one failure.
+    static std::string failure_key(const std::string &failure) {
+      std::string key;
+      bool in_digits = false;
+      for (const char c : failure) {
+        const bool digit = c >= '0' && c <= '9';
+        if (digit && !in_digits) key += '#';
+        if (!digit) key += c;
+        in_digits = digit;
+      }
+      return key;
+    }
+    bool should_report_failure(const std::string &failure, const boost::posix_time::ptime &now) {
+      const std::string key = failure_key(failure);
+      if (key == last_failure_ && now < next_failure_report_) return false;
+      last_failure_ = key;
+      next_failure_report_ = now + (silent_period ? silent_period.value() : failure_report_interval());
+      return true;
+    }
+    // A batch that evaluated cleanly: the next failure is new again.
+    void clear_failure() { last_failure_.clear(); }
+
     bool find_minimum_timeout(boost::optional<boost::posix_time::ptime> &minNext) const {
       if (!max_age) return false;
       if (!minNext)  // No value yes, lest assign ours.
@@ -214,7 +252,13 @@ struct realtime_filter_helper {
     }
   }
 
-  bool process_item(container_type item, transient_data_type data, const bool is_silent) {
+  // Runs one batch through the item's filter and sends what it amounts to.
+  // True when an alert went out for records that matched - which is what
+  // starts the silent period. A failure on its own may still be submitted
+  // (as UNKNOWN) but is no alert: a silent period it started would suppress
+  // the matching line that arrives right after the one that failed.
+  bool process_item(container_type item, transient_data_type data, const bool is_silent,
+                    const boost::posix_time::ptime &now = boost::posix_time::second_clock::local_time()) {
     std::string response;
     try {
       if (item->is_events() || item->is_event()) {
@@ -229,18 +273,47 @@ struct realtime_filter_helper {
       // act on it. This mirrors the cli_helper::post_process flow used by the
       // active check path.
       item->filter.match_post();
-      if (!result.matched_filter) {
+      // A record whose evaluation failed (a regular expression refused by the
+      // budget or the subject limit, a unit the keyword does not take) got no
+      // verdict at all: modern_filters neither matched it nor dropped it as a
+      // non-match. The rest of the batch - for a log file, every line written
+      // since the last read - is still judged, so an oversized line written
+      // beside a matching one cannot hide it.
+      bool failed = item->filter.has_evaluation_errors();
+      if (!result.matched_filter && !failed) {
+        item->clear_failure();
         return false;
       }
-      item->match_count.fetch_add(1, std::memory_order_relaxed);
+      if (result.matched_filter) item->match_count.fetch_add(1, std::memory_order_relaxed);
+
+      // A status is rendered before it is judged: the top syntax can fail too
+      // (a template function), and that failure belongs in this verdict.
+      const bool is_status = !item->is_event() && !item->is_events();
+      std::string rendered;
+      if (is_status && result.matched_filter && !is_silent) {
+        rendered = item->filter.get_message();
+        failed = item->filter.has_evaluation_errors();
+      }
+      bool report_failure = false;
+      if (failed) {
+        item->error_count.fetch_add(1, std::memory_order_relaxed);
+        report_failure = item->should_report_failure(item->filter.get_evaluation_failure(), now);
+        if (report_failure) NSC_LOG_ERROR("Realtime filter '" + item->get_alias() + "': " + item->filter.get_evaluation_failure());
+      } else {
+        item->clear_failure();
+      }
 
       if (is_silent) {
         NSC_TRACE_MSG("Eventlog filter is silenced " + item->get_alias());
-        return true;
+        // Only what matched counts as an alert: a failure alone sent nothing.
+        return result.matched_filter;
       }
 
       nscapi::core_helper ch(core, plugin_id);
+      // An event channel carries records, not a status: it gets the records
+      // that matched, and the failure stays in the log and the error count.
       if (item->is_event()) {
+        if (!result.matched_filter) return false;
         typedef std::list<std::map<std::string, std::string> > list_type;
         typedef std::map<std::string, std::string> hash_type;
 
@@ -254,6 +327,7 @@ struct realtime_filter_helper {
         return true;
       }
       if (item->is_events()) {
+        if (!result.matched_filter) return false;
         const std::list<std::map<std::string, std::string> > keys = item->filter.records_;
         if (!ch.emit_event(item->get_event_name(), item->get_alias(), keys, response)) {
           item->error_count.fetch_add(1, std::memory_order_relaxed);
@@ -262,14 +336,35 @@ struct realtime_filter_helper {
         return true;
       }
 
-      std::string message = item->filter.get_message();
-      if (message.empty()) message = "Nothing matched";
-      if (!ch.submit_simple_message(item->get_target(), item->get_source_id(), item->get_target_id(), item->command, item->filter.summary.returnCode, message,
-                                    "", response)) {
+      // A status: the verdict the matched records reached, as for an active
+      // check - a WARNING or CRITICAL stands with the failure beside it, and
+      // anything else (including a batch where nothing matched) is UNKNOWN.
+      int code = item->filter.summary.returnCode;
+      const bool alert = result.matched_filter && (code == NSCAPI::query_return_codes::returnWARN || code == NSCAPI::query_return_codes::returnCRIT);
+      std::string message;
+      if (failed && !alert) {
+        // UNKNOWN - and not an alert, so no silent period. When records
+        // matched it is submitted every time with what they rendered, the
+        // failure beside it: throttling it would drop them. When nothing
+        // matched the failure is all there is to say: said once, then once
+        // per interval while it lasts.
+        code = NSCAPI::query_return_codes::returnUNKNOWN;
+        if (result.matched_filter) {
+          message = item->filter.with_evaluation_failure(rendered.empty() ? "Nothing matched" : rendered);
+        } else {
+          if (!report_failure) return false;
+          message = item->filter.get_evaluation_failure();
+        }
+      } else {
+        message = rendered;
+        if (message.empty()) message = "Nothing matched";
+        if (failed) message = item->filter.with_evaluation_failure(message);
+      }
+      if (!ch.submit_simple_message(item->get_target(), item->get_source_id(), item->get_target_id(), item->command, code, message, "", response)) {
         item->error_count.fetch_add(1, std::memory_order_relaxed);
         NSC_LOG_ERROR("Failed to submit '" + message);
       }
-      return true;
+      return result.matched_filter && !(failed && !alert);
     } catch (const nsclient::nsclient_exception &e) {
       item->error_count.fetch_add(1, std::memory_order_relaxed);
       NSC_DEBUG_MSG("Realtime filter '" + item->get_alias() + "' failed: " + e.reason());
@@ -353,7 +448,7 @@ struct realtime_filter_helper {
         if (item->broken) continue;
         if (item->data.has_changed(data)) {
           has_changed = true;
-          if (process_item(item, data, item->is_silent(current_time))) {
+          if (process_item(item, data, item->is_silent(current_time), current_time)) {
             has_matched = true;
             item->touch(current_time, true);
           }

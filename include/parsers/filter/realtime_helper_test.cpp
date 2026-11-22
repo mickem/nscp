@@ -10,6 +10,7 @@
 #include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/filter.hpp>
+#include <nscapi/test_helpers.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include <string>
 
@@ -49,7 +50,20 @@ struct stub_filter_type {
   // touches them in the matched/event branches; the tests in this file stay
   // on the empty-result path so these do not need to be functional.
   std::list<std::map<std::string, std::string>> records_;
-  std::string get_message() { return ""; }
+  std::string message;
+  // A failure the top syntax raises when it is rendered (a template function).
+  std::string render_failure;
+  std::string get_message() {
+    if (!render_failure.empty()) evaluation_failure = render_failure;
+    return message;
+  }
+
+  // An evaluation that failed on a record (a refused regular expression, a
+  // unit the keyword does not take), as modern_filters reports it.
+  std::string evaluation_failure;
+  bool has_evaluation_errors() const { return !evaluation_failure.empty(); }
+  std::string get_evaluation_failure() const { return "Filter evaluation failed: " + evaluation_failure; }
+  std::string with_evaluation_failure(const std::string &m) const { return m + " (" + get_evaluation_failure() + ")"; }
 };
 
 struct stub_runtime_data {
@@ -479,4 +493,273 @@ TEST(RealtimeFilterHelperProcessItem, SeverityIsAppliedAfterStartMatch) {
   helper.process_item(item, 0, false);
 
   EXPECT_EQ(item->filter.summary.returnCode, 2);
+}
+
+// ============================================================================
+// process_item - a record whose evaluation failed is reported, not dropped
+// ============================================================================
+//
+// A refused regular expression is a non-match as far as the engine's verdict
+// goes, so the batch used to be dropped as "nothing matched" and the line the
+// filter exists to alert on never raised anything. It is now submitted as
+// UNKNOWN naming the failure, unless the filter is silenced or feeds an event
+// channel (which carries no status).
+
+namespace {
+nscapi::test_helpers::stub_core &stub() { return nscapi::test_helpers::stub_core::instance(); }
+
+std::shared_ptr<container_type> failing_item(stub_runtime_data &rd, const std::string &target) {
+  rd.next_result = modern_filter::match_result(false, false);  // the refused record did not match
+  std::shared_ptr<container_type> item(new container_type("logwatch", "logwatch", rd));
+  item->set_target(target, "", "");
+  item->filter.evaluation_failure = "Refusing to match a regular expression against 2000000 bytes (in: line regexp 'x')";
+  return item;
+}
+}  // namespace
+
+TEST(RealtimeFilterHelperProcessItem, AnEvaluationFailureIsSubmittedAsUnknown) {
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+
+  // Submitted, but no alert: the return value is what starts the silent
+  // period, and a failure on its own must not.
+  EXPECT_FALSE(helper.process_item(item, 0, /*is_silent=*/false));
+  EXPECT_EQ(1, item->error_count.load());
+  ASSERT_EQ(1u, stub().submissions().size());
+  const PB::Commands::SubmitRequestMessage &sent = stub().submissions().front();
+  EXPECT_EQ("NSCA", sent.channel());
+  ASSERT_EQ(1, sent.payload_size());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, sent.payload(0).result());
+  EXPECT_EQ("logwatch", sent.payload(0).command());
+  EXPECT_EQ("Filter evaluation failed: Refusing to match a regular expression against 2000000 bytes (in: line regexp 'x')", sent.payload(0).lines(0).message());
+}
+
+TEST(RealtimeFilterHelperProcessItem, ASilencedFilterOnlyCountsTheFailure) {
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+
+  EXPECT_FALSE(helper.process_item(item, 0, /*is_silent=*/true));
+  EXPECT_EQ(1, item->error_count.load());
+  EXPECT_TRUE(stub().submissions().empty());
+}
+
+TEST(RealtimeFilterHelperProcessItem, AnEventFilterHasNoStatusToCarryTheFailure) {
+  // Nothing matched, so there is nothing to emit: the failure is logged and
+  // counted on the filter.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "event");
+
+  EXPECT_FALSE(helper.process_item(item, 0, false));
+  EXPECT_EQ(1, item->error_count.load());
+  EXPECT_TRUE(stub().submissions().empty());
+  EXPECT_TRUE(stub().events().empty());
+}
+
+namespace {
+// A batch where one record failed (the oversized line) and another matched.
+std::shared_ptr<container_type> mixed_item(stub_runtime_data &rd, const std::string &target) {
+  const auto item = failing_item(rd, target);
+  item->data.next_result = modern_filter::match_result(true, false);
+  item->filter.records_.push_back({{"line", "ERROR: disk on fire"}});
+  item->filter.message = "logwatch: ERROR: disk on fire";
+  return item;
+}
+}  // namespace
+
+TEST(RealtimeFilterHelperProcessItem, AnEventFilterStillEmitsWhatMatchedBesideAFailure) {
+  // A log batch is every line written since the last read: a line over the
+  // regular-expression subject limit, written in the same burst as a matching
+  // one, used to drop the whole batch - and with it the event for the line the
+  // filter exists to catch.
+  for (const std::string target : {"event", "events"}) {
+    stub().reset();
+    helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+    stub_runtime_data rd;
+    const auto item = mixed_item(rd, target);
+
+    EXPECT_TRUE(helper.process_item(item, 0, false)) << target;
+    EXPECT_EQ(1, item->error_count.load()) << target;
+    EXPECT_TRUE(stub().submissions().empty()) << target;
+    ASSERT_EQ(1u, stub().events().size()) << target;
+    ASSERT_EQ(1, stub().events().front().payload_size()) << target;
+    const auto &data = stub().events().front().payload(0).data();
+    bool found = false;
+    for (const auto &kv : data) found = found || (kv.key() == "line" && kv.value() == "ERROR: disk on fire");
+    EXPECT_TRUE(found) << target << ": " << stub().events().front().DebugString();
+  }
+}
+
+TEST(RealtimeFilterHelperProcessItem, AStatusFilterKeepsTheVerdictTheMatchedRecordsReached) {
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = mixed_item(rd, "NSCA");
+  item->severity = NSCAPI::query_return_codes::returnCRIT;
+
+  EXPECT_TRUE(helper.process_item(item, 0, false));
+  ASSERT_EQ(1u, stub().submissions().size());
+  const auto &payload = stub().submissions().front().payload(0);
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, payload.result());
+  EXPECT_EQ("logwatch: ERROR: disk on fire (Filter evaluation failed: Refusing to match a regular expression against 2000000 bytes (in: line regexp 'x'))",
+            payload.lines(0).message());
+}
+
+TEST(RealtimeFilterHelperProcessItem, AFailureAloneDoesNotStartTheSilentPeriod) {
+  // An oversized line followed shortly by a matching one: the failure must not
+  // silence the filter, or the matching line is suppressed.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+  item->silent_period = boost::posix_time::seconds(60);
+  // A container is silent until its first touch, as the module's init does.
+  item->touch(make_time(11, 59, 0), false);
+  const boost::posix_time::ptime t0 = make_time(12, 0, 0);
+
+  if (helper.process_item(item, 0, item->is_silent(t0), t0)) item->touch(t0, true);
+  EXPECT_FALSE(item->is_silent(make_time(12, 0, 5)));
+
+  item->filter.evaluation_failure.clear();
+  item->data.next_result = modern_filter::match_result(true, false);
+  item->filter.message = "logwatch: ERROR: disk on fire";
+  item->severity = NSCAPI::query_return_codes::returnCRIT;
+  const boost::posix_time::ptime t1 = make_time(12, 0, 5);
+  EXPECT_TRUE(helper.process_item(item, 0, item->is_silent(t1), t1));
+  ASSERT_EQ(2u, stub().submissions().size());
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, stub().submissions().back().payload(0).result());
+}
+
+TEST(RealtimeFilterHelperProcessItem, APersistentFailureIsReportedOncePerInterval) {
+  // A filter that fails on every batch - every second for the CheckSystem
+  // filters - is counted every time, but reported when it is new and then
+  // once per interval while it lasts.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+
+  for (int s = 0; s < 10; ++s) helper.process_item(item, 0, false, make_time(12, 0, s));
+  EXPECT_EQ(10, item->error_count.load());
+  EXPECT_EQ(1u, stub().submissions().size());
+
+  // The interval has passed: reported again.
+  helper.process_item(item, 0, false, make_time(12, 5, 0));
+  EXPECT_EQ(2u, stub().submissions().size());
+
+  // A different failure is new, and reported at once.
+  item->filter.evaluation_failure = "Invalid unit: x (in: load > 5x)";
+  helper.process_item(item, 0, false, make_time(12, 5, 1));
+  EXPECT_EQ(3u, stub().submissions().size());
+
+  // A clean batch ends it: the same failure after it is new again.
+  item->filter.evaluation_failure.clear();
+  helper.process_item(item, 0, false, make_time(12, 5, 2));
+  item->filter.evaluation_failure = "Invalid unit: x (in: load > 5x)";
+  helper.process_item(item, 0, false, make_time(12, 5, 3));
+  EXPECT_EQ(4u, stub().submissions().size());
+}
+
+TEST(RealtimeFilterHelperProcessItem, AThrottledFailureNeverDropsRecordsThatMatched) {
+  // A filter with no thresholds and no severity: what matched reaches OK at
+  // most, which cannot stand beside a failure, so the batch is UNKNOWN. A
+  // repeat of the failure is throttled - but the batch is still submitted,
+  // with what matched, or those lines would be lost until the interval ends.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = mixed_item(rd, "NSCA");
+  item->severity = NSCAPI::query_return_codes::returnOK;
+
+  for (int s = 0; s < 3; ++s) EXPECT_FALSE(helper.process_item(item, 0, false, make_time(12, 0, s)));
+  EXPECT_EQ(3, item->error_count.load());
+  ASSERT_EQ(3u, stub().submissions().size());
+  for (const auto &sent : stub().submissions()) {
+    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, sent.payload(0).result());
+    EXPECT_EQ("logwatch: ERROR: disk on fire (Filter evaluation failed: Refusing to match a regular expression against 2000000 bytes (in: line regexp 'x'))",
+              sent.payload(0).lines(0).message());
+  }
+}
+
+TEST(RealtimeFilterHelperProcessItem, AFailureThatOnlyDiffersInANumberIsTheSameFailure) {
+  // The refusal names the size of the line it refused: oversized lines of
+  // differing length are one failure, not a new one each batch.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+  for (int s = 0; s < 5; ++s) {
+    item->filter.evaluation_failure = "Refusing to match a regular expression against " + std::to_string(2000000 + s * 1234) + " bytes (in: line regexp 'x')";
+    helper.process_item(item, 0, false, make_time(12, 0, s));
+  }
+  EXPECT_EQ(5, item->error_count.load());
+  ASSERT_EQ(1u, stub().submissions().size());
+  // The report itself keeps the number.
+  EXPECT_EQ("Filter evaluation failed: Refusing to match a regular expression against 2000000 bytes (in: line regexp 'x')",
+            stub().submissions().front().payload(0).lines(0).message());
+
+  EXPECT_EQ(container_type::failure_key("against 2000000 bytes (in: x > 5)"), container_type::failure_key("against 17 bytes (in: x > 10)"));
+  EXPECT_NE(container_type::failure_key("Invalid unit: k (in: load > 5k)"), container_type::failure_key("Invalid unit: x (in: load > 5x)"));
+}
+
+TEST(RealtimeFilterHelperProcessItem, APersistentFailureFollowsTheSilentPeriod) {
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+  item->silent_period = boost::posix_time::seconds(30);
+
+  helper.process_item(item, 0, false, make_time(12, 0, 0));
+  helper.process_item(item, 0, false, make_time(12, 0, 29));
+  EXPECT_EQ(1u, stub().submissions().size());
+  helper.process_item(item, 0, false, make_time(12, 0, 30));
+  EXPECT_EQ(2u, stub().submissions().size());
+}
+
+TEST(RealtimeFilterHelperProcessItem, AFailureInTheTopSyntaxIsPartOfTheVerdict) {
+  // The top syntax is rendered before the verdict is decided: a template
+  // function that fails there does not go out as a clean result.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  rd.next_result = modern_filter::match_result(true, false);
+  std::shared_ptr<container_type> item(new container_type("logwatch", "logwatch", rd));
+  item->set_target("NSCA", "", "");
+  item->filter.message = "logwatch: 3 lines";
+  item->filter.render_failure = "Unknown byte unit: ZB (in: %(format_bytes(size, 'ZB')))";
+  item->severity = NSCAPI::query_return_codes::returnOK;
+
+  EXPECT_FALSE(helper.process_item(item, 0, false));
+  EXPECT_EQ(1, item->error_count.load());
+  ASSERT_EQ(1u, stub().submissions().size());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, stub().submissions().front().payload(0).result());
+
+  // Beside a CRITICAL the matched records reached, it rides along.
+  stub().reset();
+  item->filter.evaluation_failure.clear();
+  item->clear_failure();
+  item->severity = NSCAPI::query_return_codes::returnCRIT;
+  EXPECT_TRUE(helper.process_item(item, 0, false));
+  ASSERT_EQ(1u, stub().submissions().size());
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, stub().submissions().front().payload(0).result());
+  EXPECT_NE(std::string::npos, stub().submissions().front().payload(0).lines(0).message().find("Unknown byte unit: ZB"));
+}
+
+TEST(RealtimeFilterHelperProcessItem, AStatusFilterThatMatchedOnlyOkIsUnknownBesideAFailure) {
+  // OK is not a verdict a failure can stand beside: the failed record might
+  // have been the problem.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = mixed_item(rd, "NSCA");
+  item->severity = NSCAPI::query_return_codes::returnOK;
+
+  EXPECT_FALSE(helper.process_item(item, 0, false));
+  ASSERT_EQ(1u, stub().submissions().size());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, stub().submissions().front().payload(0).result());
 }

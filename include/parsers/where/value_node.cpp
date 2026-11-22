@@ -7,21 +7,33 @@
 
 namespace parsers {
 namespace where {
+// Text that is not a number, asked for as one: `ival = 'beta'`, or the
+// `'unknown'` sentinel compared against an optional number that has a value.
+// The cross-type rule is that it never matches a numeric comparison, which is
+// what a no-value operand gives (sure-false, = and != alike). It is not an
+// evaluation error: a failed conversion used to be logged as one, and
+// cli_helper now ends a check UNKNOWN on those. A warning keeps it in the
+// debug log.
+value_container string_value::not_a_number(const evaluation_context &context) const {
+  context->warn("Failed to convert string to number: " + value_);
+  value_container ret = value_container::create_no_value();
+  ret.is_unsure = is_unsure_;
+  return ret;
+}
+
 value_container string_value::get_value(const evaluation_context context, value_type new_type) const {
   if (new_type == type_float) {
     try {
       return value_container::create_float(str::stox<double>(value_), is_unsure_);
     } catch (const std::exception &) {
-      context->error("Failed to convert string to number: " + value_);
-      return value_container::create_nil();
+      return not_a_number(context);
     }
   }
   if (new_type == type_int) {
     try {
       return value_container::create_int(str::stox<long long>(value_), is_unsure_);
     } catch (const std::exception &) {
-      context->error("Failed to convert string to number: " + value_);
-      return value_container::create_nil();
+      return not_a_number(context);
     }
   }
   if (new_type == type_string) {

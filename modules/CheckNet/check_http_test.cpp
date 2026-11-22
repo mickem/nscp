@@ -318,6 +318,18 @@ TEST(CheckApacheStatus, ParsesModStatusAndAppendsAuto) {
   EXPECT_TRUE(contains(r.perf, "_busy_workers")) << r.perf;
 }
 
+TEST(CheckApacheStatus, UptimeTakesDurations) {
+  // kApacheAuto reports 7254 s (just over two hours). As a plain int keyword a
+  // unit was refused and `uptime < 3h` compared against 0, so it never fired.
+  for (const auto &c : std::vector<std::pair<std::string, PB::Common::ResultCode>>{{"critical=uptime < 3h", PB::Common::ResultCode::CRITICAL},
+                                                                                     {"critical=uptime < 1h", PB::Common::ResultCode::OK},
+                                                                                     {"critical=uptime < 7255", PB::Common::ResultCode::CRITICAL}}) {
+    scripted_server server(http_reply(http_response(200, kApacheAuto)));
+    const outcome r = run(&check_net::check_apache_status, {"url=" + base(server) + "/server-status", "warning=none", c.first});
+    EXPECT_EQ(c.second, r.code) << c.first << ": " << r.message;
+  }
+}
+
 TEST(CheckApacheStatus, HtmlPageIsAParseError) {
   scripted_server server(http_reply(http_response(200, "<html><body>Apache Status</body></html>")));
   const outcome r = run(&check_net::check_apache_status, {"url=" + base(server) + "/server-status", "detail-syntax=${result}"});

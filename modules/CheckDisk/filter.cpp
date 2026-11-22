@@ -3,8 +3,9 @@
 
 #include "filter.hpp"
 
-#include <ctime>
+#include <check/duration_keyword.hpp>
 #include <cstdio>
+#include <ctime>
 #include <memory>
 #include <str/xtos.hpp>
 
@@ -200,6 +201,9 @@ node_type fun_convert_type(std::shared_ptr<file_filter::filter_obj>, evaluation_
 
 file_filter::filter_obj_handler::filter_obj_handler() {
   constexpr value_type type_custom_type = type_custom_int_2;
+  // Seconds, written the way an operator thinks of them: `age > 7d`. As a
+  // plain int the unit was refused and the threshold compared against 0.
+  constexpr value_type type_custom_age = type_custom_int_3;
 
   registry_.add_string_var("path", &filter_obj::get_path, "Path of file")
       .add_string_var_w_context("version", &filter_obj::get_version, "Windows exe/dll file version (empty on Unix)")
@@ -224,7 +228,7 @@ file_filter::filter_obj_handler::filter_obj_handler() {
       .add_int_var("creation", type_date, &filter_obj::get_creation, "When file was created")
       .add_int_var("written", type_date, &filter_obj::get_write, "When file was last written to")
       .add_int_var("write", type_date, &filter_obj::get_write, "Alias for written")
-      .add_int_var("age", type_int, &filter_obj::get_age, "Seconds since file was last written")
+      .add_int_var("age", type_custom_age, &filter_obj::get_age, "Seconds since file was last written; takes durations, e.g. age > 7d")
       .add_int_var("type", type_custom_type, &filter_obj::get_type, "Type of item (file or dir)");
 
   // clang-format off
@@ -239,6 +243,7 @@ file_filter::filter_obj_handler::filter_obj_handler() {
   // clang-format on
 
   registry_.add_converter(type_custom_type, &fun_convert_type);
+  registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<filter_obj> >);
 
   registry_.add_human_string("access", &filter_obj::get_access_su, "")
       .add_human_string("creation", &filter_obj::get_creation_su, "")

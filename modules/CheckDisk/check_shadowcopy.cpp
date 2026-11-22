@@ -4,6 +4,7 @@
 #include "check_shadowcopy.hpp"
 
 #include <algorithm>
+#include <check/duration_keyword.hpp>
 #include <ctime>
 #include <map>
 #include <memory>
@@ -131,20 +132,23 @@ struct filter_obj_handler : native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  using parsers::where::type_int;
+  using parsers::where::type_size;
+  // The default thresholds are durations (`newest > 26h`): as a plain int the
+  // unit was refused and they compared against 0, firing on every volume.
+  static constexpr parsers::where::value_type type_custom_newest = parsers::where::type_custom_int_1;
   registry_.add_string_var("volume", &filter_obj::get_volume, "Volume the shadow copies belong to (VolumeName device path)")
       .add_string_var("newest_date", &filter_obj::get_newest_date, "Timestamp of the newest shadow copy on this volume (UTC)");
   // Distinct perf suffixes so co-referenced metrics each get their own series.
   registry_.add_int_var("copies", &filter_obj::get_count, "Number of shadow copies on this volume")
       .add_int_perf("", "", "_count")
-      .add_int_var("newest", type_int, &filter_obj::get_newest,
+      .add_int_var("newest", type_custom_newest, &filter_obj::get_newest,
                    "Seconds since the newest shadow copy (-1 if unknown); threshold with durations, e.g. newest > 26h")
       .add_int_perf("s", "", "_newest")
-      .add_int_var("used", &filter_obj::get_used, "Shadow storage used on this volume in bytes")
+      .add_int_var("used", type_size, &filter_obj::get_used, "Shadow storage used on this volume in bytes (takes units, e.g. used > 10G)")
       .add_int_perf("B", "", "_used")
-      .add_int_var("allocated", &filter_obj::get_allocated, "Shadow storage currently allocated in bytes")
+      .add_int_var("allocated", type_size, &filter_obj::get_allocated, "Shadow storage currently allocated in bytes")
       .no_perf()
-      .add_int_var("max_size", &filter_obj::get_max_size, "Shadow storage maximum in bytes (0 if unbounded/unresolved)")
+      .add_int_var("max_size", type_size, &filter_obj::get_max_size, "Shadow storage maximum in bytes (0 if unbounded/unresolved)")
       .no_perf()
       .add_int_var("used_pct", &filter_obj::get_used_pct, "Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)")
       .add_int_perf("%", "", "_used_pct");
@@ -159,9 +163,17 @@ filter_obj_handler::filter_obj_handler() {
   // Shadow storage is reported in raw bytes and the filter grammar has no
   // arithmetic, so without these a template can only print the raw count.
   parsers::where::format_functions::register_format_functions(registry_);
+  registry_.add_converter(type_custom_newest, &duration_keyword::parse_duration<std::shared_ptr<filter_obj>>);
 }
 
 void check_shadowcopy(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  std::vector<raw_shadow> shadows;
+  std::vector<raw_storage> storages;
+  query(shadows, storages);
+  evaluate(request, response, build_volumes(shadows, storages, static_cast<long long>(std::time(nullptr))));
+}
+
+void evaluate(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const volumes_type &volumes) {
   modern_filter::data_container mdata;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, mdata);
 
@@ -177,11 +189,7 @@ void check_shadowcopy(const PB::Commands::QueryRequestMessage::Request &request,
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
 
-  std::vector<raw_shadow> shadows;
-  std::vector<raw_storage> storages;
-  query(shadows, storages);
-
-  for (const shadowcopy &v : build_volumes(shadows, storages, static_cast<long long>(std::time(nullptr)))) {
+  for (const shadowcopy &v : volumes) {
     std::shared_ptr<filter_obj> record(new filter_obj(v));
     filter.match(record);
   }

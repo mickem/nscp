@@ -162,6 +162,41 @@ TEST(CheckService, RunningServiceIsOk) {
   EXPECT_EQ(run(svcs, {}, response), PB::Common::ResultCode::OK) << join_lines(response);
 }
 
+TEST(CheckService, ObjectFunctionsInThresholdsAreNotEvaluationErrors) {
+  // state_is_ok() takes no arguments, so the engine does not know it needs an
+  // object and also evaluates it once without one after the rows (the summary
+  // pass). That is a no-object probe, not a failure of the check.
+  PB::Commands::QueryResponseMessage::Response ok;
+  const auto running = std::vector<filter_obj>{make_svc("docker", "active", "running", "enabled", "enabled")};
+  EXPECT_EQ(run(running, {"critical=not state_is_ok()", "warning=not state_is_perfect()"}, ok), PB::Common::ResultCode::OK) << join_lines(ok);
+  PB::Commands::QueryResponseMessage::Response crit;
+  const auto failed = std::vector<filter_obj>{make_svc("nginx", "failed", "failed", "enabled", "enabled")};
+  EXPECT_EQ(run(failed, {"critical=not state_is_ok()"}, crit), PB::Common::ResultCode::CRITICAL) << join_lines(crit);
+}
+
+TEST(CheckService, MemoryKeywordsTakeByteUnits) {
+  // The documented `rss > 1G`: as a plain int the unit was refused and the
+  // threshold compared against 0, so every service with a process fired.
+  filter_obj s = make_svc("mysql", "active", "running", "enabled", "enabled");
+  s.has_metrics = true;
+  s.rss = 2LL * 1024 * 1024 * 1024;
+  s.vms = 3LL * 1024 * 1024 * 1024;
+  PB::Commands::QueryResponseMessage::Response above, below, vms;
+  EXPECT_EQ(run({s}, {"warning=none", "critical=rss > 1G"}, above), PB::Common::ResultCode::CRITICAL) << join_lines(above);
+  EXPECT_EQ(run({s}, {"warning=none", "critical=rss > 4G"}, below), PB::Common::ResultCode::OK) << join_lines(below);
+  EXPECT_EQ(run({s}, {"warning=none", "critical=vms > 2048M"}, vms), PB::Common::ResultCode::CRITICAL) << join_lines(vms);
+}
+
+TEST(CheckService, AgeTakesDurations) {
+  filter_obj s = make_svc("mysql", "active", "running", "enabled", "enabled");
+  s.has_metrics = true;
+  s.age = 120;  // restarted two minutes ago
+  PB::Commands::QueryResponseMessage::Response recent, settled, seconds;
+  EXPECT_EQ(run({s}, {"warning=none", "critical=age < 5m"}, recent), PB::Common::ResultCode::CRITICAL) << join_lines(recent);
+  EXPECT_EQ(run({s}, {"warning=none", "critical=age < 1m"}, settled), PB::Common::ResultCode::OK) << join_lines(settled);
+  EXPECT_EQ(run({s}, {"warning=none", "critical=age < 121"}, seconds), PB::Common::ResultCode::CRITICAL) << join_lines(seconds);
+}
+
 TEST(CheckService, StaticAndOneshotAreOk) {
   PB::Commands::QueryResponseMessage::Response response;
   const auto svcs = std::vector<filter_obj>{
