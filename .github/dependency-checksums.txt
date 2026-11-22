@@ -81,10 +81,10 @@ mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 # binary, the SBOM of each, and the SHA256SUMS itself from its release
 # workflow. The digests below are the ones in that SHA256SUMS, and the
 # attestations were verified before recording them: all name
-# .github/workflows/release.yml of mickem/check_nsclient at commit 4a3a09d
-# (the 1.1.3 tag). To check again:
+# .github/workflows/release.yml of mickem/check_nsclient at commit 0870385
+# (the 1.2.0 tag). To check again:
 #
-#   gh attestation verify check_nsclient-1.1.3-windows-x64.exe \
+#   gh attestation verify check_nsclient-1.2.0-windows-x64.exe \
 #     --repo mickem/check_nsclient \
 #     --signer-workflow mickem/check_nsclient/.github/workflows/release.yml
 #
@@ -93,17 +93,17 @@ mariadb         3.4.9     64e9fe09fea6a017bab92e19a08d2301e3da5b56
 # silently skip verification.
 
 # The Windows binaries, shipped inside the signed MSI and the zip.
-check_nsclient-x64      1.1.3   98eb249e6944a7658bff2b7fefeadfb3c327ad227108e08471aea589d75bf8e8
-check_nsclient-x86      1.1.3   3542589f50a120850a84996daba422824a5204ee83aa287caf465658986815cf
-check_nsclient-arm64    1.1.3   43063b98ff851906d8a2f7433a61029c156e14ba6899ecc37d59ad96ea2b873f
+check_nsclient-x64      1.2.0   7315de5db5870ed9a6897e012aadc668d84e5924368cb87aeb5fc27872da3ac5
+check_nsclient-x86      1.2.0   a8aeed95663b858bc4db3e79140ea4deb9ce5809f3d7e4734f2aff660ee69aca
+check_nsclient-arm64    1.2.0   daa7be7174fcebd1b15c7ab78726b303c9c841147ee6b7735d1636126b710987
 
 # The Linux binaries, shipped inside the .deb and .rpm packages and fetched by
 # build-debian.yml and build-redhat.yml. Keyed by the `arch` of those
 # workflows' matrices.
-check_nsclient-linux-x64    1.1.3   61b81ceb0c586ffd717dcb412bd921001af1ef489f4134bdd31b7176d56cf741
-check_nsclient-linux-arm64  1.1.3   8f978a593402e5607cb530ae7f0da8ebc84cc24560277d02740bd31905bdd17e
+check_nsclient-linux-x64    1.2.0   c53c70fe35b39940e60db44fe30cf1c7b78972db2e99cd5f2db101e72682f54f
+check_nsclient-linux-arm64  1.2.0   ea44ac1dca16befa4207d6b0351b5ce5e0876e5579904d4d7e09fc076ac66cc6
 
 # The release's SHA256SUMS itself. The Windows build fetches the release's
 # SBOM for the binary it bundles, checks it against this list, and nests it
 # into the NSClient++ SBOM, so the check_nsclient Rust crates are listed too.
-check_nsclient-sha256sums   1.1.3   0f1eaa34f1618fe37827da5d7b087193dd5472f474b73fdccf34004a11d4f48d
+check_nsclient-sha256sums   1.2.0   61c6feaa11a07af70a487109a83cc9e03ac68443aa1a764198f5c6de9c5d569f
