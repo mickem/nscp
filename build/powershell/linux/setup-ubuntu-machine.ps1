@@ -317,7 +317,18 @@ sudo nscp settings --activate-module Scheduler || true
 # IcingaAgent for the same reason (the agent-mode Icinga flow), but only where
 # the package ships it: the module is newer than the releases, and enabling a
 # module that is not there is an error in the log of every start.
-if find /usr /opt -name 'libIcingaAgent.so' 2>/dev/null | grep -q .; then sudo nscp settings --activate-module IcingaAgent || true; fi
+if find /usr /opt -name 'libIcingaAgent.so' 2>/dev/null | grep -q .; then
+    sudo nscp settings --activate-module IcingaAgent || true
+    # The agent keeps its key and certificates in <certificate-path>/icinga, and
+    # the package leaves that security folder to root: the unprivileged service
+    # user cannot create the subfolder, and the agent then fails to start with
+    # "create_directories: Permission denied" when the bundle configures it.
+    # The shipped DH parameters mark where the security folder is.
+    icinga_user=`$(systemctl show nsclient -p User --value 2>/dev/null)
+    for dh in `$(find /usr /opt -name 'nrpe_dh_*.pem' 2>/dev/null); do
+        sudo install -d -m 700 -o "`${icinga_user:-nsclient}" "`$(dirname "`$dh")/icinga" || true
+    done
+fi
 # The estate role's own modules (-Modules), activated here for the same reason.
 $(($extraModules | ForEach-Object { "sudo nscp settings --activate-module $_ || true" }) -join "`n")
 # The estate role's localSettings (-LocalSettings): keys the host's own
