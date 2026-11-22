@@ -17,8 +17,14 @@ updates:
       frontend:
         patterns:
           - "*"
+    ignore:
+      # typescript-eslint 8 peers on typescript <6.1.0, so a grouped update that
+      # carries TypeScript 7 fails `npm ci` and takes every other bump in the
+      # group down with it. Drop this once typescript-eslint supports 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
-    directory: "/test/rest"
+    directory: "/tests"
     schedule:
       interval: "weekly"
     groups:
