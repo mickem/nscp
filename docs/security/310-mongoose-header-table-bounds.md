@@ -1,6 +1,6 @@
 ---
 title: "Mongoose web backend: headers past the 30th were silently ignored"
-fixed_in: next
+fixed_in: 0.27.0
 fixed_in_note: "bundles Mongoose 7.24"
 severity: "Medium behind a reverse proxy or WAF, Low for direct connections (our assessment; upstream lists the fix without a rating)"
 modules: [WEBServer, NCPAServer]

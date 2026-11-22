@@ -1,7 +1,5 @@
 # IcingaAgent
 
-*Available on Linux only.*
-
 !!! warning "Experimental"
 
     This module is experimental: it works, but its options, filter keywords
@@ -190,7 +188,7 @@ Native Icinga 2 agent: connect to an Icinga 2 parent over the cluster protocol a
 | [allowed ciphers](#allowed-ciphers)                           |                            | ALLOWED CIPHERS              |
 | [certificate directory](#certificate-directory)               | ${certificate-path}/icinga | CERTIFICATE DIRECTORY        |
 | [certificate request interval](#certificate-request-interval) | 86400                      | CERTIFICATE REQUEST INTERVAL |
-| [endpoint name](#endpoint-name)                               | vm                         | ENDPOINT NAME                |
+| [endpoint name](#endpoint-name)                               | mime-desktop               | ENDPOINT NAME                |
 | [parent endpoint](#parent-endpoint)                           |                            | PARENT ENDPOINT              |
 | [parent fingerprint](#parent-fingerprint)                     |                            | PARENT FINGERPRINT           |
 | [parent host](#parent-host)                                   |                            | PARENT HOST                  |
@@ -207,7 +205,7 @@ Native Icinga 2 agent: connect to an Icinga 2 parent over the cluster protocol a
 allow arguments=true
 certificate directory=${certificate-path}/icinga
 certificate request interval=86400
-endpoint name=vm
+endpoint name=mime-desktop
 parent port=5665
 threads=4
 tls version=1.2+
@@ -303,7 +301,7 @@ This agent's endpoint name, the CN of its certificate. Must match the Endpoint o
 |----------------|---------------------------------------------------|
 | Path:          | [/settings/Icinga/agent](#/settings/Icinga/agent) |
 | Key:           | endpoint name                                     |
-| Default value: | `vm`                                              |
+| Default value: | `mime-desktop`                                    |
 
 
 **Sample:**
@@ -311,7 +309,7 @@ This agent's endpoint name, the CN of its certificate. Must match the Endpoint o
 ```
 [/settings/Icinga/agent]
 # ENDPOINT NAME
-endpoint name=vm
+endpoint name=mime-desktop
 ```
 
 #### PARENT ENDPOINT <a id="/settings/Icinga/agent/parent endpoint"></a>

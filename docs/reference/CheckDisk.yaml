@@ -78,6 +78,37 @@ common:
             Duration, e.g. 7d.
           sample: false
           title: Trend history retention
+    /settings/disk/diagnostics:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        growth spots:
+          advanced: false
+          default_value: 'false'
+          description: 'Produce the disk.growth_spots diagnostics table: the size of the places that usually
+            fill a disk - the temp directories (TEMP, the Windows Temp directory; TMPDIR, /tmp and /var/tmp),
+            the log directories (the agent''s own, the Windows Logs and event log directories; /var/log),
+            the page and swap files and, on Windows, the shadow-copy storage in use per volume (which
+            needs an elevated agent). Directories are walked by a thread of their own, the first time
+            shortly after this is switched on and then every ''growth spots interval'' (a settings reload
+            keeps that schedule): one directory at a time with a pause between them, at background I/O
+            priority, for at most 30 seconds per directory and 2 minutes per round; a walk that hits a
+            limit reports the size so far and marks the table truncated. Links, junctions and mount points
+            are not followed and entries that cannot be read are skipped and counted. Kept with a failed
+            check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics
+            is on. Paths and sizes leave the host with it.'
+          sample: false
+          title: GROWTH SPOTS
+        growth spots interval:
+          advanced: false
+          default_value: 10m
+          description: How often the growth spots are measured while 'growth spots' is on. Duration, at
+            least 10s, e.g. 10m.
+          sample: false
+          title: GROWTH SPOTS INTERVAL
     /settings/disk/facts:
       info:
         advanced: false
@@ -311,7 +342,6 @@ common:
         short_description: ''
       info:
         description: Combined per-drive health check (free space + I/O metrics).
-        experimental: true
     check_disk_io:
       common_fields:
       - count
@@ -448,7 +478,6 @@ common:
         short_description: ''
       info:
         description: Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
-        experimental: true
     check_disk_write:
       common_fields:
       - count
@@ -1320,7 +1349,6 @@ common:
       info:
         description: Check various aspects of a single file (size, age, line count, version, ...). Simpler
           alternative to check_files when you only need to inspect one specific file.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -1819,6 +1847,22 @@ unix:
         name: used
         short_description: ''
       - generic: false
+        long_description: 'Change in used bytes over the last hour, signed (negative = space was freed),
+          as of the collector''s last sample: the latest reading minus the newest one at least an hour
+          old (so it covers 60 to 70 minutes). Renders auto-scaled with a sign (''+1.5GB''), or ''unknown''
+          - and no threshold fires - until the collector has a sample an hour old (an hour after the agent
+          started, or the drive appeared or changed size); always unknown without the collector. Thresholds
+          take size units: used_change_1h > 1G'
+        name: used_change_1h
+        short_description: ''
+      - generic: false
+        long_description: 'Change in used bytes over the last 24 hours, signed (negative = space was freed):
+          the latest reading minus the newest one at least a day old (so it covers 24 to 26 hours). ''unknown''
+          - and no threshold fires - until the collector has a sample a day old. Thresholds take size
+          units: used_change_24h > 10G'
+        name: used_change_24h
+        short_description: ''
+      - generic: false
         long_description: Shorthand for total_used_pct (% used space)
         name: used_pct
         short_description: ''
@@ -2185,6 +2229,22 @@ windows:
       - generic: false
         long_description: Number of used bytes
         name: used
+        short_description: ''
+      - generic: false
+        long_description: 'Change in used bytes over the last hour, signed (negative = space was freed),
+          as of the collector''s last sample: the latest reading minus the newest one at least an hour
+          old (so it covers 60 to 70 minutes). Renders auto-scaled with a sign (''+1.5GB''), or ''unknown''
+          - and no threshold fires - until the collector has a sample an hour old (an hour after the agent
+          started, or the drive appeared or changed size); always unknown without the collector. Thresholds
+          take size units: used_change_1h > 1G'
+        name: used_change_1h
+        short_description: ''
+      - generic: false
+        long_description: 'Change in used bytes over the last 24 hours, signed (negative = space was freed):
+          the latest reading minus the newest one at least a day old (so it covers 24 to 26 hours). ''unknown''
+          - and no threshold fires - until the collector has a sample a day old. Thresholds take size
+          units: used_change_24h > 10G'
+        name: used_change_24h
         short_description: ''
       - generic: false
         long_description: Shorthand for total_used_pct (% used space)

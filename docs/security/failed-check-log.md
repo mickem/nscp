@@ -1,6 +1,6 @@
 ---
 title: "The failed-check log exposes recent check output to failures.list"
-fixed_in: next
+fixed_in: 0.27.0
 severity: "Low"
 modules: [core, WEBServer]
 action: conditional

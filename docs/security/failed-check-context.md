@@ -1,6 +1,6 @@
 ---
 title: "Failed checks can carry a metrics snapshot, sent as failure context to an enrolled fleet server"
-fixed_in: next
+fixed_in: 0.27.0
 severity: "Low"
 modules: [core, WEBServer]
 action: conditional

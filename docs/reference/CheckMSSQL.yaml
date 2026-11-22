@@ -848,6 +848,12 @@ windows:
         name: hit_ratio
         short_description: ''
       - generic: false
+        long_description: Average time in whole milliseconds a latch request that had to wait spent waiting,
+          over the sampling window; 0 when no latch request waited. 'unknown' when the counters are unavailable;
+          every numeric comparison is then false, so test `latch_wait_ms = 'unknown'` for it
+        name: latch_wait_ms
+        short_description: ''
+      - generic: false
         long_description: Lazy writer pages flushed per second, sustained values mean memory pressure
           (-1 if unavailable)
         name: lazy_writes

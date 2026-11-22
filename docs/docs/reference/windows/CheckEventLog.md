@@ -461,6 +461,7 @@ This command also supports the [common filter keywords](../common-options.md#com
 | Path / Section                                                      | Description                   |
 |---------------------------------------------------------------------|-------------------------------|
 | [/settings/eventlog](#eventlog)                                     | Eventlog                      |
+| [/settings/eventlog/diagnostics](#/settings/eventlog/diagnostics)   |                               |
 | [/settings/eventlog/logs](#predefined-event-logs)                   | PREDEFINED EVENT LOGS         |
 | [/settings/eventlog/real-time](#real-time-eventlog-monitoring)      | Real-time eventlog monitoring |
 | [/settings/eventlog/real-time/filters](#real-time-eventlog-filters) | Real-time eventlog filters    |
@@ -609,6 +610,63 @@ Set this to use a specific syntax string for all commands (that don't specify on
 [/settings/eventlog]
 # Default syntax
 syntax=
+```
+
+### /settings/eventlog/diagnostics <a id="/settings/eventlog/diagnostics"></a>
+
+
+
+| Key                         | Default Value | Description      |
+|-----------------------------|---------------|------------------|
+| [errors](#event-log-errors) | false         | EVENT LOG ERRORS |
+| [services](#service-events) | false         | SERVICE EVENTS   |
+
+
+```ini
+# 
+[/settings/eventlog/diagnostics]
+errors=false
+services=false
+```
+
+#### EVENT LOG ERRORS <a id="/settings/eventlog/diagnostics/errors"></a>
+
+Produce the eventlog.errors diagnostics table: the last critical and error events written to the Application and System logs, with when, which log, the source, the event id, the level and the message - the message is event text, which applications fill with whatever they like. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Turns on what it needs: a subscription of its own to both logs, separate from the real-time filters (it works whether or not those are enabled). Each event is rendered once, as it is written, and the last 50 are kept; at start the table is filled from the last ten minutes of the logs.
+
+
+| Key            | Description                                                       |
+|----------------|-------------------------------------------------------------------|
+| Path:          | [/settings/eventlog/diagnostics](#/settings/eventlog/diagnostics) |
+| Key:           | errors                                                            |
+| Default value: | `false`                                                           |
+
+
+**Sample:**
+
+```
+[/settings/eventlog/diagnostics]
+# EVENT LOG ERRORS
+errors=false
+```
+
+#### SERVICE EVENTS <a id="/settings/eventlog/diagnostics/services"></a>
+
+Produce the services.events diagnostics table: the service control manager's events for a service that terminated unexpectedly or with an error (System log, ids 7031, 7034 and 7024), with when, the service's name, the event id and the message. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Turns on a subscription of its own to the System log; the last 50 events are kept, and at start the table is filled from the last ten minutes. The services that are in trouble right now (services.problems) come from CheckSystem: [/settings/system/windows/diagnostics] services.
+
+
+| Key            | Description                                                       |
+|----------------|-------------------------------------------------------------------|
+| Path:          | [/settings/eventlog/diagnostics](#/settings/eventlog/diagnostics) |
+| Key:           | services                                                          |
+| Default value: | `false`                                                           |
+
+
+**Sample:**
+
+```
+[/settings/eventlog/diagnostics]
+# SERVICE EVENTS
+services=false
 ```
 
 ### PREDEFINED EVENT LOGS <a id="/settings/eventlog/logs"></a>

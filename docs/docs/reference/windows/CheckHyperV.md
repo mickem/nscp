@@ -8,7 +8,7 @@
     and output may change in a future release. Please try it and report
     anything that does not behave the way you expect.
 
-Checks for a Hyper-V host: hypervisor health and capacity, logical processor load and the state, heartbeat, memory and snapshots of every virtual machine.
+Checks for a Hyper-V host: hypervisor health, capacity and over-commitment, logical processor load, the state, heartbeat, memory and snapshots of every virtual machine, and the virtual switches.
 
 ## Enable module
 
@@ -27,11 +27,12 @@ A quick reference for all available queries (check commands) in the CheckHyperV 
 
 A list of all available queries (check commands)
 
-| Command                                                  | Description                                                                                                              |
-|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| [check_hyperv_cpu](#check_hyperv_cpu) *(experimental)*   | Check hypervisor logical processor load (guest, hypervisor and total run time) on the host.                              |
-| [check_hyperv_host](#check_hyperv_host) *(experimental)* | Check the Hyper-V host: virtual machine health summary and hypervisor capacity (logical/virtual processors, partitions). |
-| [check_hyperv_vms](#check_hyperv_vms) *(experimental)*   | Check virtual machines (state, health, heartbeat, uptime, memory, processors, snapshots, replication).                   |
+| Command                                                          | Description                                                                                                                                          |
+|------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [check_hyperv_cpu](#check_hyperv_cpu) *(experimental)*           | Check hypervisor logical processor load (guest, hypervisor and total run time) on the host.                                                          |
+| [check_hyperv_host](#check_hyperv_host) *(experimental)*         | Check the Hyper-V host: virtual machine health summary, hypervisor capacity (logical/virtual processors, partitions) and CPU/memory over-commitment. |
+| [check_hyperv_switches](#check_hyperv_switches) *(experimental)* | Check virtual switches (type, state, health, ports).                                                                                                 |
+| [check_hyperv_vms](#check_hyperv_vms) *(experimental)*           | Check virtual machines (state, health, heartbeat, uptime, memory, processors, snapshots, replication, duplicate names).                              |
 
 ### check_hyperv_cpu
 
@@ -171,7 +172,7 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_hyperv_host
 
-Check the Hyper-V host: virtual machine health summary and hypervisor capacity (logical/virtual processors, partitions).
+Check the Hyper-V host: virtual machine health summary, hypervisor capacity (logical/virtual processors, partitions) and CPU/memory over-commitment.
 
 #### About `check_hyperv_host`
 
@@ -183,8 +184,7 @@ virtual processors handed to running partitions, running partitions).
 
 The counters only exist when the Hyper-V role is installed **and** the
 hypervisor is running; on any other host the check reports UNKNOWN with a
-message saying so. It needs no special privileges beyond reading performance
-counters.
+message saying so.
 
 A VM is *critical* in the health summary when the host cannot keep it running
 as configured (a missing virtual disk, a lost virtual switch, a failed
@@ -193,6 +193,64 @@ save/restore), which is why `critical=health_critical > 0` is the default.
 running VMs plus one. All the capacity values are emitted as perfdata so the
 ratio of virtual to logical processors can be graphed over time. For per-VM
 detail see `check_hyperv_vms`, for the actual CPU load `check_hyperv_cpu`.
+
+#### Over-commitment
+
+How much of the host the running virtual machines have been handed is read
+from the VMs themselves (the same `root\virtualization\v2` walk
+`check_hyperv_vms` does), because `virtual_processors` counts the root
+partition's processors too and no counter sums the guests' memory:
+
+| Keyword             | Meaning |
+|---------------------|---------|
+| `running_vms`       | Virtual machines that are running. |
+| `vm_vcpus`          | Virtual processors configured on the running VMs. |
+| `cpu_overcommit`    | `vm_vcpus` as % of `logical_processors`. Above 100 the guests are promised more processors than the host has; how far that is safe depends on the workload, 200–400 % is common for general-purpose VMs. |
+| `memory_assigned`   | Bytes currently backing the running VMs (with dynamic memory, what they have right now, not their maximum). |
+| `physical_memory`   | Bytes of physical memory in the host. |
+| `memory_overcommit` | `memory_assigned` as % of `physical_memory`. Hyper-V never hands out more memory than it has, so this stays below 100; the rest is what the host itself and dynamic memory have to work with. |
+
+`cpu_overcommit` and `memory_overcommit` are emitted as perfdata. Because of
+the VM walk the check needs the same rights as `check_hyperv_vms`: local
+administrator or *Hyper-V Administrators* membership (the default LocalSystem
+account has it).
+
+When the health counters count no active virtual machines there is nothing to
+sum, so the walk is skipped and any account gets an over-commitment of zero.
+Otherwise a walk that cannot be trusted - WMI fails, it runs past
+`vm-timeout` (5 seconds by default), or this account sees fewer active VMs
+than the counters count - does not take the health summary down with it: the
+guest keywords stay 0, `guests_known` is false and `guests_error` says why.
+Make a threshold on over-commitment catch that case too:
+
+```
+check_hyperv_host "warning=cpu_overcommit > 300 or guests_known = 0" "critical=health_critical > 0 or memory_overcommit > 95"
+```
+
+#### Hosts as SCVMM sees them
+
+For the fabric view - every host System Center Virtual Machine Manager
+manages, whether VMM can reach it and whether it considers it healthy - the
+agent ships a sample script, `scripts\check_scvmm_hosts.ps1`, rather than a
+native check: VMM is only reachable through its PowerShell module, so the
+script runs where the VMM console is installed (usually the VMM server).
+Call `powershell.exe` with `-File`, so the script's exit code reaches the
+agent and the arguments stay with the entry:
+
+```ini
+[/modules]
+CheckExternalScripts = enabled
+
+[/settings/external scripts/scripts]
+check_scvmm_hosts = powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File scripts\check_scvmm_hosts.ps1 -Server vmm01 -HostGroup "All Hosts\Production"
+```
+
+`-HostGroup` covers the group and every group below it. A host is CRITICAL
+when VMM cannot communicate with it or its overall state is not OK;
+`-Warning` lists the states that only warn (by default
+`NeedsAttention,Updating`) and `-Ignore` the states that are not reported, reachable
+or not (by default `MaintenanceMode`). Both take a comma separated list. A
+missing VMM module or server is UNKNOWN.
 
 **Jump to section:**
 
@@ -208,21 +266,42 @@ detail see `check_hyperv_vms`, for the actual CPU load `check_hyperv_cpu`.
 
 ```
 check_hyperv_host
-OK: 12 VMs ok, 0 critical, 13 partitions on 32 logical processors (48 virtual)|'vms_health_ok'=12;0;0 'vms_health_critical'=0;0;0 'vms_logical_processors'=32;0;0 'vms_virtual_processors'=48;0;0 'vms_partitions'=13;0;0
+OK: 1 VMs ok, 0 critical, 3 partitions on 16 logical processors (40 virtual)|'vms_cpu_overcommit'=50% 'vms_health_critical'=0;;0 'vms_health_ok'=1 'vms_logical_processors'=16 'vms_memory_overcommit'=10.9% 'vms_partitions'=3 'vms_virtual_processors'=40
 ```
 
-**Warn when the host is over-committed on processors:**
+**Warn when the running VMs have more virtual processors than the host has logical ones, critical at four times:**
 
 ```
-check_hyperv_host "warning=virtual_processors > 64" "critical=health_critical > 0"
-OK: 12 VMs ok, 0 critical, 13 partitions on 32 logical processors (48 virtual)|'vms_virtual_processors'=48;64;0 'vms_health_critical'=0;0;0 'vms_health_ok'=12;0;0 'vms_logical_processors'=32;0;0 'vms_partitions'=13;0;0
+check_hyperv_host "warning=cpu_overcommit > 100" "critical=cpu_overcommit > 400 or health_critical > 0" "detail-syntax=${vm_vcpus} vCPUs on ${logical_processors} logical processors (${cpu_overcommit}%)"
+OK: 8 vCPUs on 16 logical processors (50%)|'vms_cpu_overcommit'=50%;100;400 'vms_health_critical'=0;;0 'vms_health_ok'=1 'vms_logical_processors'=16 'vms_memory_overcommit'=10.9% 'vms_partitions'=3 'vms_virtual_processors'=40
 ```
 
-**A VM the host cannot keep running trips the default critical threshold:**
+**Warn when the VMs hold more than 90 % of the host's memory:**
+
+```
+check_hyperv_host "warning=memory_overcommit > 90" "detail-syntax=${memory_assigned} of ${physical_memory} assigned to ${running_vms} VMs (${memory_overcommit}%)"
+OK: 3686793216 of 33777467392 assigned to 1 VMs (10.9%)|'vms_cpu_overcommit'=50% 'vms_health_critical'=0;;0 'vms_health_ok'=1 'vms_logical_processors'=16 'vms_memory_overcommit'=10.9%;90 'vms_partitions'=3 'vms_virtual_processors'=40
+```
+
+**Alert on over-commitment, and also when the virtual machines could not be read (`guests_known`):**
+
+```
+check_hyperv_host "warning=cpu_overcommit > 300 or guests_known = 0" "critical=health_critical > 0 or memory_overcommit > 95"
+OK: 1 VMs ok, 0 critical, 3 partitions on 16 logical processors (40 virtual)|'vms_cpu_overcommit'=50%;300 'vms_guests_known'=1;0 'vms_health_critical'=0;;0 'vms_health_ok'=1 'vms_logical_processors'=16 'vms_memory_overcommit'=10.9%;;95 'vms_partitions'=3 'vms_virtual_processors'=40
+```
+
+**Show why the guests could not be read, here for an account without Hyper-V rights while a VM runs:**
+
+```
+check_hyperv_host "detail-syntax=${health_ok} VMs ok, guests known: ${guests_known} ${guests_error}"
+OK: 1 VMs ok, guests known: 0 Hyper-V reports 1 virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member of Hyper-V Administrators|'vms_cpu_overcommit'=0% 'vms_health_critical'=0;;0 'vms_health_ok'=1 'vms_logical_processors'=16 'vms_memory_overcommit'=0% 'vms_partitions'=3 'vms_virtual_processors'=40
+```
+
+**A VM the host cannot keep running trips the default critical threshold (illustrative output):**
 
 ```
 check_hyperv_host
-CRITICAL: 11 VMs ok, 1 critical, 13 partitions on 32 logical processors (48 virtual)|'vms_health_critical'=1;0;0 'vms_health_ok'=11;0;0 'vms_logical_processors'=32;0;0 'vms_virtual_processors'=48;0;0 'vms_partitions'=13;0;0
+CRITICAL: 0 VMs ok, 1 critical, 2 partitions on 16 logical processors (40 virtual)|'vms_cpu_overcommit'=50% 'vms_health_critical'=1;;0 'vms_health_ok'=0 'vms_logical_processors'=16 'vms_memory_overcommit'=10.9% 'vms_partitions'=2 'vms_virtual_processors'=40
 ```
 
 **On a host without the role the check reports UNKNOWN with a clear message:**
@@ -236,6 +315,20 @@ Hyper-V counters (Hyper-V Virtual Machine Health Summary, Hyper-V Hypervisor) no
 
 <a id="check_hyperv_host_options"></a>
 #### Command-line Arguments
+
+        
+| Option                                      | Default Value | Description                                                                                                                                                                    |
+|---------------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [vm-timeout](#check_hyperv_host_vm-timeout) | 5             | Seconds to wait for the virtual machine list (WMI) behind the over-commitment keywords. When it runs out the check still reports the health counters, with guests_known false. |
+
+
+
+<h5 id="check_hyperv_host_vm-timeout">vm-timeout:</h5>
+
+Seconds to wait for the virtual machine list (WMI) behind the over-commitment keywords. When it runs out the check still reports the health counters, with guests_known false.
+
+*Default Value:* `5`
+
 
 **Common options:**
 
@@ -273,20 +366,167 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_hyperv_host_filter_keys"></a>
 #### Filter keywords
 
-| Option             | Description                                                                                              |
-|--------------------|----------------------------------------------------------------------------------------------------------|
-| health_critical    | Virtual machines whose health is critical (the host could not keep them running as configured)           |
-| health_ok          | Virtual machines whose health is ok                                                                      |
-| logical_processors | Logical processors the hypervisor manages on this host                                                   |
-| partitions         | Running partitions, including the root (host) partition: the number of running virtual machines plus one |
-| total_pages        | Memory pages the hypervisor has allocated for its own use                                                |
-| virtual_processors | Virtual processors currently allocated to running partitions (root and guests)                           |
+| Option             | Description                                                                                                                                                                                                            |
+|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| cpu_overcommit     | Virtual processors of the running virtual machines as % of the host's logical processors (vm_vcpus / logical_processors); above 100 the guests are promised more processors than the host has                          |
+| guests_error       | Why the virtual machines could not be read (empty when they were)                                                                                                                                                      |
+| guests_known       | False when the virtual machines could not be read (WMI failed or timed out, or this account cannot see all of them), so running_vms, vm_vcpus, memory_assigned and the over-commitment keywords are 0 and mean nothing |
+| health_critical    | Virtual machines whose health is critical (the host could not keep them running as configured)                                                                                                                         |
+| health_ok          | Virtual machines whose health is ok                                                                                                                                                                                    |
+| logical_processors | Logical processors the hypervisor manages on this host                                                                                                                                                                 |
+| memory_assigned    | Memory currently assigned to the running virtual machines in bytes                                                                                                                                                     |
+| memory_overcommit  | Memory assigned to the running virtual machines as % of the host's physical memory (memory_assigned / physical_memory); what is left is all the host itself and dynamic memory have to work with                       |
+| partitions         | Running partitions, including the root (host) partition: the number of running virtual machines plus one                                                                                                               |
+| physical_memory    | Physical memory of the host in bytes                                                                                                                                                                                   |
+| running_vms        | Virtual machines that are running                                                                                                                                                                                      |
+| total_pages        | Memory pages the hypervisor has allocated for its own use                                                                                                                                                              |
+| virtual_processors | Virtual processors currently allocated to running partitions (root and guests)                                                                                                                                         |
+| vm_vcpus           | Virtual processors configured on the running virtual machines (the root partition's are not counted)                                                                                                                   |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_hyperv_switches
+
+Check virtual switches (type, state, health, ports).
+
+#### About `check_hyperv_switches`
+
+`check_hyperv_switches` lists every Hyper-V virtual switch on the host as one
+record, read from the `root\virtualization\v2` WMI namespace
+(`Msvm_VirtualEthernetSwitch` and its ports). It is the native equivalent of
+`Get-VMSwitch`.
+
+`type` is worked out the way `Get-VMSwitch` reports `SwitchType`, from what
+the switch's own ports connect to:
+
+| `type`     | Meaning |
+|------------|---------|
+| `external` | Bound to a physical network adapter (wired or Wi-Fi). `management_os` says whether the host shares that adapter. |
+| `internal` | No physical adapter, but the host has a virtual adapter on it: host and virtual machines can talk. |
+| `private`  | Neither: only the virtual machines on this host can talk over it. |
+
+The defaults warn on a switch whose `state` is anything but `enabled` or
+`not_applicable` and go critical on one whose `health` is not `ok`. A switch
+has no power state of its own, and Hyper-V reports most switches as
+`not_applicable`, so a threshold written as `state != 'enabled'` would warn on
+a healthy host. `ports` counts every port on the switch (each
+connected virtual machine network adapter, plus the external and host ports)
+and is emitted as perfdata.
+
+A typical use is pinning the switches a host must have, so a switch deleted
+or recreated by hand (which drops every VM connected to it) is noticed:
+filter on the names, set `empty-state=critical`, and the check fails when
+the switch disappears.
+
+Without the Hyper-V role the namespace does not exist and the check reports
+UNKNOWN with a message saying so; with the role installed but the *Hyper-V
+Virtual Machine Management* service (vmms) stopped, the message points at
+the service instead. A host with the role and no switches reports
+`No virtual switches found` in the `empty-state` (UNKNOWN by default).
+
+**Jump to section:**
+
+* [Sample Commands](#check_hyperv_switches_samples)
+* [Command-line Arguments](#check_hyperv_switches_options)
+* [Filter keywords](#check_hyperv_switches_filter_keys)
+
+
+<a id="check_hyperv_switches_samples"></a>
+#### Sample Commands
+
+**Check all virtual switches with the default thresholds:**
+
+```
+check_hyperv_switches
+OK: all 2 virtual switch(es) ok|'Default Switch_ports'=2 'FSE Switch_ports'=6
+```
+
+**List every switch with its type and state, whether problems or not:**
+
+```
+check_hyperv_switches "top-syntax=${status}: ${list}" "ok-syntax=${status}: ${list}"
+OK: Default Switch: internal, not_applicable, health ok, FSE Switch: internal, not_applicable, health ok|'Default Switch_ports'=2 'FSE Switch_ports'=6
+```
+
+**A switch the host must have; critical when it is missing:**
+
+```
+check_hyperv_switches "filter=switch = 'LAN'" "critical=type != 'external' or health != 'ok'" empty-state=critical "empty-syntax=CRITICAL: switch LAN is missing"
+CRITICAL: switch LAN is missing
+```
+
+**Ports per switch, and whether the host has an adapter on it:**
+
+```
+check_hyperv_switches "warning=ports > 100" "ok-syntax=${status}: ${list}" "detail-syntax=${switch}: ${type}, ${ports} ports, host adapter ${management_os}"
+OK: Default Switch: internal, 2 ports, host adapter 1, FSE Switch: internal, 6 ports, host adapter 1|'Default Switch_ports'=2;100 'FSE Switch_ports'=6;100
+```
+
+**On a host without the role the check reports UNKNOWN with a clear message:**
+
+```
+check_hyperv_switches
+Hyper-V virtual switch information not available: the Hyper-V role is not installed on this host (root\virtualization\v2 missing)
+```
+
+
+
+<a id="check_hyperv_switches_options"></a>
+#### Command-line Arguments
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                                | Default Value                                  |
+|-----------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| <a id="check_hyperv_switches_filter"></a>[filter](../common-options.md#filter)                                        |                                                |
+| <a id="check_hyperv_switches_warning"></a>[warning](../common-options.md#warning)                                     | state not in ('enabled', 'not_applicable')     |
+| <a id="check_hyperv_switches_warn"></a>[warn](../common-options.md#warn)                                              |                                                |
+| <a id="check_hyperv_switches_critical"></a>[critical](../common-options.md#critical)                                  | health != 'ok'                                 |
+| <a id="check_hyperv_switches_crit"></a>[crit](../common-options.md#crit)                                              |                                                |
+| <a id="check_hyperv_switches_ok"></a>[ok](../common-options.md#ok)                                                    |                                                |
+| <a id="check_hyperv_switches_debug"></a>[debug](../common-options.md#debug)                                           | false                                          |
+| <a id="check_hyperv_switches_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                          |
+| <a id="check_hyperv_switches_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                        |
+| <a id="check_hyperv_switches_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                |
+| <a id="check_hyperv_switches_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                          |
+| <a id="check_hyperv_switches_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                              |
+| <a id="check_hyperv_switches_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                     |
+| <a id="check_hyperv_switches_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): all %(count) virtual switch(es) ok  |
+| <a id="check_hyperv_switches_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No virtual switches found                      |
+| <a id="check_hyperv_switches_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${switch}: ${type}, ${state}, health ${health} |
+| <a id="check_hyperv_switches_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${switch}                                      |
+| <a id="check_hyperv_switches_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                |
+| <a id="check_hyperv_switches_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                |
+| <a id="check_hyperv_switches_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                             |
+| <a id="check_hyperv_switches_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_hyperv_switches_filter_keys"></a>
+#### Filter keywords
+
+| Option             | Description                                                                                                                                                                                          |
+|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| health             | Health as the host sees it: ok, degraded, minor_failure, major_failure, critical_failure, non_recoverable_error or unknown                                                                           |
+| id                 | GUID of the virtual switch                                                                                                                                                                           |
+| management_os      | True when the host itself has a virtual network adapter on the switch (always for internal, optional for external)                                                                                   |
+| operational_status | Operational status: ok, degraded, predictive_failure, stopped, in_service or dormant                                                                                                                 |
+| ports              | Ports on the switch: one per connected virtual machine network adapter plus the external and host ports                                                                                              |
+| state              | Switch state: enabled or not_applicable (both normal; Hyper-V reports most switches as not_applicable), disabled, enabled_but_offline, starting, shutting_down, ... or state_<n> for an unknown code |
+| state_code         | Raw EnabledState value behind `state`                                                                                                                                                                |
+| switch             | Name of the virtual switch                                                                                                                                                                           |
+| type               | Switch type: external (bound to a physical network adapter), internal (host and virtual machines only) or private (virtual machines only)                                                            |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_hyperv_vms
 
-Check virtual machines (state, health, heartbeat, uptime, memory, processors, snapshots, replication).
+Check virtual machines (state, health, heartbeat, uptime, memory, processors, snapshots, replication, duplicate names).
 
 #### About `check_hyperv_vms`
 
@@ -340,6 +580,14 @@ Without the Hyper-V role the namespace does not exist and the check reports
 UNKNOWN with a message saying so. With the role installed but the *Hyper-V
 Virtual Machine Management* service (vmms) stopped, the namespace is there
 but its classes are not, and the message points at the service instead.
+
+`name_count` is the number of VMs on this host that share the VM's name,
+itself included (compared case-insensitively, the way `Get-VM -Name` matches).
+Hyper-V keys virtual machines by GUID and lets two of them carry the same
+name - typically after an import that kept the original or a failed
+migration - which breaks every script and tool that addresses VMs by name.
+`critical=name_count > 1` catches it. The count is per host: two VMs with the
+same name on different cluster nodes are not seen.
 
 `snapshots` and `oldest_snapshot` count the checkpoints someone took. The
 recovery points Hyper-V Replica keeps for a replicated VM are not
@@ -404,6 +652,13 @@ check_hyperv_vms
 Hyper-V reports 1 virtual machine(s) on this host but none are visible to this account: run as an elevated administrator or a member of Hyper-V Administrators
 ```
 
+**Two virtual machines with the same name (an import that kept the original):**
+
+```
+check_hyperv_vms "critical=name_count > 1" "detail-syntax=${vm} (${id}): ${name_count} VMs share the name"
+CRITICAL: web-01 (1e4f6e3b-0f7c-4a51-9c2e-6f8a0b1c2d3e): 2 VMs share the name, web-01 (9a8b7c6d-5e4f-4321-8765-0fedcba98765): 2 VMs share the name|...
+```
+
 
 
 <a id="check_hyperv_vms_options"></a>
@@ -450,7 +705,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | cpu_load           | Average load of the VM's virtual processors in % (0 when it is off)                                                                                                                                                                                  |
 | dynamic_memory     | True when dynamic memory is enabled for the VM                                                                                                                                                                                                       |
 | generation         | VM generation (1 or 2)                                                                                                                                                                                                                               |
-| health             | Health as the host sees it: ok, major_failure or critical_failure                                                                                                                                                                                    |
+| health             | Health as the host sees it: ok, degraded, minor_failure, major_failure, critical_failure, non_recoverable_error or unknown                                                                                                                           |
 | heartbeat          | What the guest's heartbeat integration service reports: ok, degraded, error, non_recoverable_error, no_contact, lost_communication, dormant; disabled when the service is turned off in the VM settings, none when the VM has no heartbeat component |
 | id                 | GUID of the virtual machine                                                                                                                                                                                                                          |
 | last_state_change  | When the VM last changed power state. Comparable to relative times, e.g. last_state_change > -1h.                                                                                                                                                    |
@@ -458,6 +713,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | memory_maximum     | Configured maximum memory in bytes (dynamic memory only; 0 with static memory)                                                                                                                                                                       |
 | memory_minimum     | Configured minimum memory in bytes (dynamic memory only; 0 with static memory)                                                                                                                                                                       |
 | memory_startup     | Configured startup memory in bytes                                                                                                                                                                                                                   |
+| name_count         | Virtual machines on this host with the same name as this one, itself included (compared case-insensitively), so name_count > 1 finds duplicate names                                                                                                 |
 | oldest_snapshot    | Creation time of the oldest checkpoint (0 / 'none' without checkpoints). Comparable to relative times, e.g. oldest_snapshot < -7d.                                                                                                                   |
 | operation          | Long-running operation in progress (creating_snapshot, merging_disks, migrating, backing_up, ...) or none                                                                                                                                            |
 | operational_status | Operational status: ok, degraded, predictive_failure, stopped, in_service or dormant                                                                                                                                                                 |

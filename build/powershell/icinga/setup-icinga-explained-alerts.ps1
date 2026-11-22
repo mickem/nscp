@@ -66,8 +66,8 @@
 .PARAMETER CheckNsclientUrl
     Download check_nsclient (linux x64) from this url. Default: the latest
     release on GitHub - unless the VM already has a check_nsclient with
-    `fleet explain`, which is then kept. `fleet explain` is newer than
-    check_nsclient 1.1.3.
+    `fleet explain`, which is then kept. `fleet explain` needs
+    check_nsclient 1.2.0 or later.
 .PARAMETER ExplainSettle
     vars.explain_settle on every host: the seconds the handler waits before
     asking, so the agent's failure report is there first (the tutorial's
@@ -366,7 +366,7 @@ if [ -n "$url" ] || ! { [ -x "$bin" ] && explains "$bin"; }; then
     if ! explains "$bin.new"; then
         version=$("$bin.new" --version 2>&1 | head -n 1) || true
         rm -f "$bin.new"
-        fail "that check_nsclient ($version) has no 'fleet explain' - it is newer than 1.1.3; pass -CheckNsclientUrl with a build that has it"
+        fail "that check_nsclient ($version) has no 'fleet explain' - it needs 1.2.0 or later; pass -CheckNsclientUrl with a build that has it"
     fi
     mv -f "$bin.new" "$bin"
 fi

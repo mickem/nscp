@@ -194,6 +194,54 @@ unix:
             or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
           sample: false
           title: Timezone
+    /settings/system/unix/diagnostics:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        errors:
+          advanced: false
+          default_value: 'false'
+          description: 'Produce the eventlog.errors diagnostics table: the last journal entries at priority
+            err or worse, with when, the unit that wrote them (or kernel), the syslog identifier, the
+            level and the message - which programs fill with whatever they like. Kept with a failed check
+            and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics
+            is on. Read with journalctl every 10 seconds on a thread of its own, the last 50 kept; at
+            start it is filled from the last ten minutes. The agent must be able to read the system journal
+            (root, or the adm or systemd-journal group). Needs systemd: a host without it produces no
+            table.'
+          sample: false
+          title: JOURNAL ERRORS
+        processes:
+          advanced: false
+          default_value: 'false'
+          description: 'Produce the processes.top_cpu and processes.top_memory diagnostics tables: the
+            processes using the most CPU over the last second and the ones with the largest resident memory,
+            with their name, pid, CPU share, working set and private (unshared) memory - never their command
+            line. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed
+            checks] capture diagnostics is on. Turns on the sampling it needs: the collector reads /proc/<pid>/stat
+            and statm of every process once a second while this is on, and nothing while it is off. Linux
+            only; on macOS the tables report that they are not supported.'
+          sample: false
+          title: PROCESS TABLES
+        services:
+          advanced: false
+          default_value: 'false'
+          description: 'Produce the services.problems and services.events diagnostics tables. services.problems
+            lists the systemd services that failed, are waiting to be restarted, were restarted automatically
+            (NRestarts) or whose last run did not succeed, with their state, exit status, executable (ExecStart''s
+            path, never its arguments), user, start time and restart count; it is re-read every 30 seconds
+            with two bounded systemctl calls, which read the services that look troubled every time and
+            every running one (for its restart count) every five minutes. services.events holds the service
+            manager''s journal messages for a unit that failed, exited or is being restarted, with when,
+            the service, and the message. Kept with a failed check and served on /api/v2/diagnostics while
+            [/settings/core/failed checks] capture diagnostics is on. Run on a thread of its own, the
+            journal read every 10 seconds from where the last read stopped; at start the events are filled
+            from the last ten minutes. Needs systemd: a host without it produces neither table.'
+          sample: false
+          title: SERVICES IN TROUBLE
     /settings/system/unix/facts:
       info:
         advanced: false
@@ -3000,6 +3048,38 @@ windows:
               a rate.'
             sample: true
             title: COUNTER UNIT
+    /settings/system/windows/diagnostics:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        processes:
+          advanced: false
+          default_value: 'false'
+          description: 'Produce the processes.top_cpu and processes.top_memory diagnostics tables: the
+            processes using the most CPU over the last second and the ones with the largest working set,
+            with their name, pid, CPU share, working set and private bytes - never their command line.
+            Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks]
+            capture diagnostics is on. Turns on the collector''s per-process CPU sampling (''process cpu''),
+            which it needs: one extra process-table query a second.'
+          sample: false
+          title: PROCESS TABLES
+        services:
+          advanced: false
+          default_value: 'false'
+          description: 'Produce the services.problems diagnostics table: the services that are not where
+            they should be - what check_service flags by default (an automatic service that is not running,
+            unless it is delayed, trigger-started, still starting or stopped cleanly), and any service
+            that stopped with an error - with their state, exit code, executable (never its arguments),
+            account and when their process started. Read from the service control manager every 30 seconds
+            by the collector, opening only the services whose status already looks wrong. Kept with a
+            failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture
+            diagnostics is on. The service events (services.events) come from CheckEventLog: [/settings/eventlog/diagnostics]
+            services.'
+          sample: false
+          title: SERVICES IN TROUBLE
     /settings/system/windows/facts:
       info:
         advanced: false
@@ -5336,8 +5416,15 @@ windows:
         warning: ''
       fields:
       - generic: false
-        long_description: Days since the newest hotfix was installed (-1 if the install date is unknown)
+        long_description: Days since the newest hotfix was installed. 'unknown' when no hotfix has a parseable
+          install date; every numeric comparison is then false, so test `age_known = 0` for it
         name: age
+        short_description: ''
+      - generic: false
+        long_description: 1 if at least one hotfix has a parseable install date, 0 if `age` is unknown.
+          An age threshold never fires on an unknown age, so add `or age_known = 0` to alert on a host
+          that reports no install dates
+        name: age_known
         short_description: ''
       - generic: false
         long_description: Semicolon-separated list of all installed HotFixIDs (use 'ids like KBxxxxxxx'

@@ -1,8 +1,4 @@
-module: IcingaAgent
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: 'A native Icinga 2 agent: connects to an Icinga 2 master or satellite over the cluster
       protocol (JSON-RPC over TLS, port 5665) and runs the checks it schedules, without an icinga2 binary.'
@@ -52,7 +48,7 @@ unix:
           title: CERTIFICATE REQUEST INTERVAL
         endpoint name:
           advanced: false
-          default_value: vm
+          default_value: mime-desktop
           description: This agent's endpoint name, the CN of its certificate. Must match the Endpoint
             object on the master. Defaults to the lower-cased host name.
           sample: false
@@ -101,8 +97,8 @@ unix:
             the master signs the agent''s certificate right away; without it the request waits for `icinga2
             ca sign` on the master. Treat it as a password: it does not expire, and whoever holds it can
             have the master sign a certificate for this endpoint name. The agent sends it to the parent
-            on every connect, so on a first connection that is not verified (no `ca.crt`, no `parent
-            fingerprint`) it goes to whoever answers at `parent host`.'
+            on every connect, so on a first connection that is not verified (no `ca.crt`, no `parent fingerprint`)
+            it goes to whoever answers at `parent host`.'
           sample: false
           title: TICKET
         tls version:
@@ -119,8 +115,13 @@ unix:
           description: 'Whether the agent may make its first connection without being able to verify the
             parent: no `ca.crt` in the certificate directory yet and no `parent fingerprint`. Only the
             certificate exchange happens on such a connection, never a check - but the exchange includes
-            the `ticket`, and the CA the agent trusts from then on is the one that peer sends. True (the default) is how
-            `icinga2 node setup` behaves without `--trustedcert`; set it to false to require the CA or
-            the pin up front.'
+            the `ticket`, and the CA the agent trusts from then on is the one that peer sends. True (the
+            default) is how `icinga2 node setup` behaves without `--trustedcert`; set it to false to require
+            the CA or the pin up front.'
           sample: false
           title: TRUST ON FIRST USE
+module: IcingaAgent
+namespace: client
+platforms:
+- unix
+- windows

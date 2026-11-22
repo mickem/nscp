@@ -942,7 +942,7 @@ Things worth knowing:
   ```powershell
   ./icinga/configure-explained-agents.ps1 -BreakDisk      # and -RestoreDisk afterwards
   ```
-- **`fleet explain` needs check_nsclient newer than 1.1.3.** The setup takes
+- **`fleet explain` needs check_nsclient 1.2.0 or later.** The setup takes
   the latest release from GitHub and refuses a build without the command;
   `-CheckNsclientUrl` names another build.
 - **The key is stored on the VM.** Use a view_only key

@@ -1,6 +1,6 @@
 ---
 title: "check_process fetch-only and the Checkmk ps section now name each process's owner"
-fixed_in: next
+fixed_in: 0.27.0
 severity: "Low"
 modules: [CheckSystem, CheckSystemUnix, CheckMKServer]
 action: conditional

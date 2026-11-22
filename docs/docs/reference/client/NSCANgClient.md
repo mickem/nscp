@@ -1,11 +1,5 @@
 # NSCANgClient
 
-!!! warning "Experimental"
-
-    This module is experimental: it works, but its options, filter keywords
-    and output may change in a future release. Please try it and report
-    anything that does not behave the way you expect.
-
 NSCA-NG client can be used both from command line and from queries to submit passive checks via NSCA-NG (TLS-based NSCA next generation)
 
 <!-- @formatter:off -->
@@ -66,9 +60,9 @@ A quick reference for all available queries (check commands) in the NSCANgClient
 
 A list of all available queries (check commands)
 
-| Command                                            | Description                                                                                                                                                                                              |
-|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [submit_nsca_ng](#submit_nsca_ng) *(experimental)* | Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention. |
+| Command                           | Description                                                                                                                                                                                              |
+|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [submit_nsca_ng](#submit_nsca_ng) | Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention. |
 
 ### submit_nsca_ng
 
