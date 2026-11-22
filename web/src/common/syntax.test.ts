@@ -106,6 +106,15 @@ describe("classify", () => {
     expect(kindOf(input, "10%")).toBe("number");
   });
 
+  it("paints a number with a unit of several letters as one number", () => {
+    // The grammar takes a run of letters as the unit, so `GB` and `ms` are
+    // not names, let alone missing keywords.
+    expect(kindOf('filter="free < 100GB"', "100GB")).toBe("number");
+    expect(kindOf('warning="used > 500ms"', "500ms")).toBe("number");
+    expect(kindOf('warning="used > 1.5min"', "1.5min")).toBe("number");
+    expect(kindOf('warning="used > 2w"', "2w")).toBe("number");
+  });
+
   it("still sees an unquoted expression as several arguments", () => {
     // Arguments split on unquoted whitespace, so `filter=free < 10%` is three
     // of them and only the first is a filter - which is exactly the shape the

@@ -277,9 +277,13 @@ void paint_expression(std::vector<token_kind> &colors, const std::vector<std::si
     if (is_digit(c)) {
       std::size_t j = i;
       while (j < n && (is_digit(text[j]) || text[j] == '.')) j++;
-      // One trailing letter or '%' is the unit of the number+unit lexeme
-      // (10%, 1G, 5m); a longer run is a separate token.
-      if (j < n && (std::isalpha(static_cast<unsigned char>(text[j])) != 0 || text[j] == '%') && (j + 1 >= n || !is_word_char(text[j + 1]))) j++;
+      // The unit of the number+unit lexeme is a run of letters or a '%'
+      // (10%, 1G, 5m, 500ms, 100GB), as in the grammar's unit_suffix.
+      if (j < n && text[j] == '%') {
+        j++;
+      } else {
+        while (j < n && std::isalpha(static_cast<unsigned char>(text[j])) != 0) j++;
+      }
       paint(colors, index, from + i, from + j, token_kind::number);
       i = j;
       continue;

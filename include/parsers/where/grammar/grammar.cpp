@@ -42,9 +42,9 @@ struct build_function_convert_int {
     typedef node_type type;
   };
 #endif
-  node_type operator()(const long long value, const char unit) const {
+  node_type operator()(const long long value, const std::string &unit) const {
     list_node_type args = factory::create_list();
-    std::string unit_s(1, unit);
+    const std::string &unit_s = unit;
     args->push_back(factory::create_int(value));
     args->push_back(factory::create_string(unit_s));
     return factory::create_conversion(args);
@@ -62,9 +62,9 @@ struct build_function_convert_float {
     typedef node_type type;
   };
 #endif
-  node_type operator()(const double value, const char unit) const {
+  node_type operator()(const double value, const std::string &unit) const {
     list_node_type args = factory::create_list();
-    std::string unit_s(1, unit);
+    const std::string &unit_s = unit;
     args->push_back(factory::create_float(value));
     args->push_back(factory::create_string(unit_s));
     return factory::create_conversion(args);
@@ -144,10 +144,10 @@ where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_t
 				| variable_name[qi::_val = phoenix::bind(&factory::create_variable, obj_factory, qi::_1)]
 				| string_literal[qi::_val = phoenix::bind(&factory::create_string, qi::_1)]
 				| qi::lexeme[
-					(real >> (charset::alpha | charset::char_('%')))[qi::_val = build_ic_float(qi::_1, qi::_2)]
+					(real >> unit_suffix)[qi::_val = build_ic_float(qi::_1, qi::_2)]
 				]
 				| qi::lexeme[
-					(long_long >> (charset::alpha | charset::char_('%')))[qi::_val = build_ic_int(qi::_1, qi::_2)]
+					(long_long >> unit_suffix)[qi::_val = build_ic_int(qi::_1, qi::_2)]
 				]
 				| real[qi::_val = phoenix::bind(&factory::create_float, qi::_1)]
 				| long_long[qi::_val = phoenix::bind(&factory::create_int, qi::_1)]
@@ -188,6 +188,13 @@ where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_t
 					(charset::alpha)[qi::_val += qi::_1]
 						>> *(charset::alnum | charset::char_('_'))[qi::_val += qi::_1]
 				]
+				;
+			// A whole run of letters, so "500ms" and "10GB" are one unit. It used
+			// to be a single letter: "500ms" did not parse, and a converter that
+			// had only ever seen one letter read the unit by its first.
+			unit_suffix
+				= +(charset::alpha[qi::_val += qi::_1])
+				| charset::char_('%')[qi::_val += qi::_1]
 				;
 			// Zero-or-more: '' is a valid (empty) literal, so the documented
 			// format_bytes(value, '') form - render the raw byte count - can be

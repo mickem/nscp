@@ -106,8 +106,8 @@ nscp> check_drive "warning=fre < 20%"
 This is the error that otherwise costs the most time, because nothing goes
 wrong: an expression naming a keyword that does not exist parses, matches
 nothing, and the check comes back a confident `OK`. The same colouring catches
-`size > 100GB`, where the unit has to be a single letter (`100G`), and a
-misspelt placeholder in `detail-syntax=${fre}`.
+a misspelt placeholder in `detail-syntax=${fre}`. A number and its unit are
+painted as one token, whatever the unit's length (`100GB`, `500ms`).
 
 The keywords come from the check itself — the list `keywords <query>` prints —
 so they are always the ones that query actually offers, an alias's target

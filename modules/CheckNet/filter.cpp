@@ -3,6 +3,7 @@
 
 #include "filter.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <str/saturate.hpp>
 #include <boost/assign.hpp>
 #include <memory>
@@ -30,16 +31,17 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
   // share the record alias (the host); suffix loss so the labels stay unique.
   registry_.add_int_var_w_context("loss", type_custom_pct, &filter_obj::get_loss, "Packet loss")
       .add_int_perf("%", "", "_loss")
-      .add_int_var("time", type_int, &filter_obj::get_time, "Round trip time in ms")
+      .add_int_var("time", duration_keyword::type_milliseconds, &filter_obj::get_time, "Round trip time in ms; takes durations, e.g. time > 1s")
       .add_int_perf("ms")
       .add_int_var("sent", type_int, &filter_obj::get_sent, "Number of packets sent to the host")
       .add_int_var("recv", type_int, &filter_obj::get_recv, "Number of packets received from the host")
       .add_int_var("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host");
+  registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
   // Optional numbers: no value until measurable. They render as 'unknown',
   // compare false against every number while unknown, and emit no perfdata
   // until real. `jitter = 'unknown'` / `ttl != 'unknown'` test presence.
   registry_
-      .add_optional_int_var("jitter", [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
+      .add_optional_int_var("jitter", duration_keyword::type_milliseconds, [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
                             "Mean variation between the round trip times, in ms; 'unknown' when fewer than 2 packets came back (raise count= to measure it)")
       .add_int_perf("ms", "", "_jitter");
   registry_

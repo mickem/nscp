@@ -3,6 +3,8 @@
 
 #include "cert_filter.hpp"
 
+#include <check/duration_keyword.hpp>
+
 namespace cert_filter {
 
 using parsers::where::type_bool;
@@ -21,10 +23,13 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("signature_algorithm", &filter_obj::get_signature_algorithm, "Signature algorithm (e.g. sha256WithRSAEncryption)")
       .add_string_var("key_type", &filter_obj::get_key_type, "Public key type (RSA, EC, DSA, ...)");
 
-  registry_.add_int_var("expires_in", type_int, &filter_obj::get_expires_in_days, "Whole days until the certificate expires (negative if already expired)")
+  static const parsers::where::value_type type_custom_seconds = parsers::where::type_custom_int_8;
+  registry_.add_int_var("expires_in", duration_keyword::type_days, &filter_obj::get_expires_in_days, "Whole days until the certificate expires (negative if already expired); takes d and w, e.g. expires_in < 2w")
       .add_int_perf("d");
-  registry_.add_int_var("expires_in_days", type_int, &filter_obj::get_expires_in_days, "Alias for expires_in");
-  registry_.add_int_var("expires_in_sec", type_int, &filter_obj::get_expires_in_sec, "Seconds until the certificate expires (negative if already expired)");
+  registry_.add_int_var("expires_in_days", duration_keyword::type_days, &filter_obj::get_expires_in_days, "Alias for expires_in");
+  registry_.add_int_var("expires_in_sec", type_custom_seconds, &filter_obj::get_expires_in_sec, "Seconds until the certificate expires (negative if already expired); takes durations, e.g. expires_in_sec < 12h");
+  registry_.add_converter(duration_keyword::type_days, &duration_keyword::parse_duration_days<std::shared_ptr<filter_obj>>);
+  registry_.add_converter(type_custom_seconds, &duration_keyword::parse_duration<std::shared_ptr<filter_obj>>);
   registry_.add_int_var("not_after", type_date, &filter_obj::get_not_after, "The not-after / expiry date");
   registry_.add_int_var("not_before", type_date, &filter_obj::get_not_before, "The not-before date");
   registry_.add_int_var("expired", type_bool, &filter_obj::get_expired, "True if the certificate has already expired");

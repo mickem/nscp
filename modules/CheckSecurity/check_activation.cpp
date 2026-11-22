@@ -3,6 +3,7 @@
 
 #include "check_activation.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <boost/algorithm/string.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -85,11 +86,12 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf()
       .add_int_var("license_status_reason", type_int, &filter_obj::get_license_status_reason, "Raw LicenseStatusReason code explaining the status")
       .no_perf()
-      .add_int_var("grace_days", type_int, &filter_obj::get_grace_days, "Remaining grace/renewal period in whole days (0 when no grace period applies)")
+      .add_int_var("grace_days", duration_keyword::type_days, &filter_obj::get_grace_days, "Remaining grace/renewal period in whole days (0 when no grace period applies); takes d and w")
       .add_int_perf("d", "", "_grace")
       .add_int_var("grace_minutes", type_int, &filter_obj::get_grace_minutes, "Remaining grace/renewal period in minutes, as Windows reports it (0 when no grace period applies)")
       .no_perf();
   // clang-format on
+  registry_.add_converter(duration_keyword::type_days, &duration_keyword::parse_duration_days<std::shared_ptr<filter_obj>>);
 }
 }  // namespace activation_filter
 

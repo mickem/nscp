@@ -62,7 +62,7 @@ parsers::where::node_type calculate_free(std::shared_ptr<filter_obj> object, par
   if (unit == "%") {
     number = (static_cast<double>(object->get_total()) * number) / 100.0;
   } else {
-    number = str::format::decode_byte_units(number, unit);
+    number = parsers::where::helpers::apply_byte_unit(context, number, unit);
   }
   return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }

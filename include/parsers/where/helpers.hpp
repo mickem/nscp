@@ -25,6 +25,10 @@ NSCP_WHERE_EXPORT bool is_lower(operators op);
 
 typedef boost::tuple<long long, double, std::string> read_arg_type;
 NSCP_WHERE_EXPORT read_arg_type read_arguments(const evaluation_context &context, const node_type &subject, const std::string &default_unit);
+// `number` scaled by a byte unit (b, k, kb, kib, m, ... e), for a converter that
+// takes a size next to a percentage. A unit that is not a size is reported on
+// the context and `number` is left as it is.
+NSCP_WHERE_EXPORT double apply_byte_unit(const evaluation_context &context, double number, const std::string &unit);
 NSCP_WHERE_EXPORT node_type add_convert_node(node_type subject, value_type new_type);
 }  // namespace helpers
 }  // namespace where

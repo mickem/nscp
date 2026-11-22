@@ -4,6 +4,7 @@
 #include "check_uptime.h"
 
 #include <boost/assign.hpp>
+#include <check/duration_keyword.hpp>
 #include <cmath>
 #include <list>
 #include <map>
@@ -17,31 +18,10 @@ using namespace parsers::where;
 namespace checks {
 namespace check_uptime_filter {
 
+// "2d", "12h", "500ms" to seconds: the shared converter, as the Windows
+// handler uses.
 parsers::where::node_type parse_time(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-  // The where-parser may hand us either a single string literal ("30m") or a
-  // two-element list [number, unit] for tokenized inputs like "2d". For the
-  // list form, list_node::get_value joins with ", " and produces "2, d",
-  // which fails validate_time_spec under #589. Reassemble the list manually
-  // (no separator) so both forms round-trip cleanly through stox_as_time_sec
-  // (issue #452 + #589 follow-up).
-  std::list<parsers::where::node_type> tokens = subject->get_list_value(context);
-  std::string expr;
-  if (tokens.size() == 2) {
-    auto cit = tokens.begin();
-    const long long n = (*cit)->get_int_value(context);
-    const double n_f = (*cit)->get_float_value(context);
-    ++cit;
-    const std::string unit = (*cit)->get_value(context, parsers::where::type_string).get_string("");
-    // A fractional count ("2.5h") cannot survive the string round-trip: the
-    // int accessor already truncated it to 2. Scale it numerically instead.
-    if (n_f != static_cast<double>(n)) {
-      return parsers::where::factory::create_int(llround(n_f * str::format::time_unit_multiplier(unit)));
-    }
-    expr = str::xtos(n) + unit;
-  } else {
-    expr = subject->get_string_value(context);
-  }
-  return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
+  return duration_keyword::parse_duration<std::shared_ptr<filter_obj> >(object, context, subject);
 }
 
 static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;

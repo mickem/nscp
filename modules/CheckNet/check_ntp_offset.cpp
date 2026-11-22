@@ -3,6 +3,7 @@
 
 #include "check_ntp_offset.h"
 
+#include <check/duration_keyword.hpp>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
@@ -27,31 +28,33 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("server", &filter_obj::get_server, "NTP server that was queried");
   registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the query (ok, timeout, error, ...)");
   registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "UDP port the query was sent to");
-  registry_.add_int_var("offset", parsers::where::type_int, &filter_obj::get_offset, "Absolute clock offset between local host and server, in milliseconds")
+  registry_.add_int_var("offset", duration_keyword::type_milliseconds, &filter_obj::get_offset, "Absolute clock offset between local host and server, in milliseconds")
       .add_int_perf("ms");
-  registry_.add_int_var("offset_signed", parsers::where::type_int, &filter_obj::get_offset_signed,
+  registry_.add_int_var("offset_signed", duration_keyword::type_milliseconds, &filter_obj::get_offset_signed,
                         "Signed clock offset (positive = local clock is ahead of server), in milliseconds");
   registry_.add_int_var("stratum", parsers::where::type_int, &filter_obj::get_stratum, "Stratum reported by the server (0..16)").add_int_perf("", "", "_stratum");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Round trip time of the NTP query in milliseconds").add_int_perf("ms", "", "_time");
+  registry_.add_int_var("time", duration_keyword::type_milliseconds, &filter_obj::get_time, "Round trip time of the NTP query in milliseconds").add_int_perf("ms", "", "_time");
 
   // How steady the server's time is, rather than how far off it is: a source
   // can answer promptly with an accurate-looking offset and still be unusable
   // because that offset will not hold still.
   registry_
-      .add_optional_int_var("jitter", [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
+      .add_optional_int_var("jitter", duration_keyword::type_milliseconds, [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
                             "RMS variation between the sampled offsets, in milliseconds; 'unknown' when fewer than 2 samples were taken (raise samples= to "
                             "measure it). Renders as 'unknown', compares false against every number until measured, and emits no perfdata until real; "
                             "`jitter = 'unknown'` tests for it.")
       .add_int_perf("ms", "", "_jitter");
   registry_.add_int_var("samples", parsers::where::type_int, &filter_obj::get_samples, "Number of samples that answered").no_perf();
   registry_
-      .add_int_var("root_delay", parsers::where::type_int, &filter_obj::get_root_delay,
+      .add_int_var("root_delay", duration_keyword::type_milliseconds, &filter_obj::get_root_delay,
                    "Round trip delay the server reports to its own reference clock, in milliseconds")
       .add_int_perf("ms", "", "_root_delay");
   registry_
-      .add_int_var("root_dispersion", parsers::where::type_int, &filter_obj::get_root_dispersion,
+      .add_int_var("root_dispersion", duration_keyword::type_milliseconds, &filter_obj::get_root_dispersion,
                    "Maximum error the server claims for the time it is serving, in milliseconds")
       .add_int_perf("ms", "", "_root_dispersion");
+  // All of them count milliseconds: offset > 50ms, time > 1s.
+  registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
 }
 
 }  // namespace check_ntp_filter

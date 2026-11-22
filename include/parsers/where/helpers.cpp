@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <parsers/where/helpers.hpp>
+#include <str/format.hpp>
 #include <str/xtos.hpp>
 
 namespace parsers {
@@ -184,6 +185,15 @@ read_arg_type read_arguments(const evaluation_context &context, const node_type 
     unit = (*cit)->get_value(context, type_string).get_string(unit);
   }
   return boost::make_tuple(value_int, value_float, unit);
+}
+
+double apply_byte_unit(const evaluation_context &context, const double number, const std::string &unit) {
+  long long factor = 1;
+  if (!str::format::byte_unit_factor(unit, factor)) {
+    context->error("Invalid unit: " + unit + " (expected a percentage or a size: b, k, m, g, t, p or e, optionally followed by b)");
+    return number;
+  }
+  return number * static_cast<double>(factor);
 }
 }  // namespace helpers
 }  // namespace where

@@ -531,6 +531,30 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# The duration converters: units on keywords that count seconds or milliseconds.
+NSCP_CREATE_TEST(
+    duration_keyword_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/check/duration_keyword_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${PLUGIN_API_TARGET}
+        nscp_protobuf
+        nscp_where_filter
+        perfconfig_parser
+        expression_parser
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     filter_rendering_test
     SOURCES

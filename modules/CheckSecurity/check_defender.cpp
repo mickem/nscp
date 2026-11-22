@@ -3,6 +3,7 @@
 
 #include "check_defender.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -20,12 +21,13 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf()
       .add_int_var("tamper_protection", type_bool, &filter_obj::get_tamper_protection, "True if tamper protection is on")
       .no_perf()
-      .add_int_var("signature_age", type_int, &filter_obj::get_signature_age, "Antivirus signature age in days (-1 if unknown)")
+      .add_int_var("signature_age", duration_keyword::type_days, &filter_obj::get_signature_age, "Antivirus signature age in days (-1 if unknown)")
       .add_int_perf("", "", "_signature_age")
-      .add_int_var("quick_scan_age", type_int, &filter_obj::get_quick_scan_age, "Days since the last quick scan (-1 if never/unknown)")
+      .add_int_var("quick_scan_age", duration_keyword::type_days, &filter_obj::get_quick_scan_age, "Days since the last quick scan (-1 if never/unknown)")
       .add_int_perf("", "", "_quick_scan_age")
-      .add_int_var("full_scan_age", type_int, &filter_obj::get_full_scan_age, "Days since the last full scan (-1 if never/unknown)")
+      .add_int_var("full_scan_age", duration_keyword::type_days, &filter_obj::get_full_scan_age, "Days since the last full scan (-1 if never/unknown)")
       .add_int_perf("", "", "_full_scan_age");
+  registry_.add_converter(duration_keyword::type_days, &duration_keyword::parse_duration_days<std::shared_ptr<filter_obj>>);
   registry_.add_string_var("engine_version", &filter_obj::get_engine_version, "Defender anti-malware engine version")
       .add_string_var("signature_version", &filter_obj::get_signature_version, "Antivirus signature (definition) version")
       .add_string_var("product_version", &filter_obj::get_product_version, "Defender platform/product version");

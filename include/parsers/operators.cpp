@@ -672,10 +672,10 @@ struct function_convert : binary_function_impl {
       const node_type u = unit.value();
       if (type == type_date || type == type_size) {
         const std::string unit_s = u->get_string_value(context);
-        // Both spellings share the unit helpers (first character decides, so
-        // 'min' is minutes and 'kb' is KiB either way) and are range checked:
-        // a value supplied by the filter must not overflow. The message is
-        // only built on the throw path.
+        // Both spellings share the unit helpers, which match the unit whole
+        // ('ms' is milliseconds, 'kb' KiB) and report one they do not take,
+        // and are range checked: a value supplied by the filter must not
+        // overflow. The message is only built on the throw path.
         try {
           return convert_with_unit(type, context, v, unit_s);
         } catch (const std::out_of_range &) {
@@ -704,29 +704,42 @@ struct function_convert : binary_function_impl {
     return v;
   }
 
+  // The unit is matched whole ("ms" is milliseconds, "mb" megabytes) and one
+  // the type does not take is reported: a first-letter reading made "5ms" five
+  // minutes and passed "5x" through as a bare 5.
   static node_type convert_with_unit(const value_type type, const evaluation_context &context, const node_type &v, const std::string &unit_s) {
     static const std::string what = "convert()";
     if (type == type_date) {
+      const double seconds = str::format::duration_unit_seconds(unit_s);
+      if (seconds == 0.0) {
+        context->error("Invalid unit: " + unit_s + " (expected one of ms, s, m, h, d, w)");
+        return std::make_shared<int_value>(0, /*is_unsure=*/true);
+      }
       const long long now = constants::get_now();
-      if (v->is_float()) {
-        // Scale fractional counts in double before rounding — going through
+      if (v->is_float() || seconds < 1.0) {
+        // Scale fractional counts in double before rounding - going through
         // the int accessor truncated `2.5h` to 2 hours. Whole-number values
         // keep the pure-int path below, bit-identical for large offsets.
         const value_container vc = v->get_value(context, type_float);
-        const long long offset = str::format::llround_checked(vc.get_float(0.0) * str::format::time_unit_multiplier(unit_s), what);
+        const long long offset = str::format::llround_checked(vc.get_float(0.0) * seconds, what);
         return std::make_shared<int_value>(str::format::add_checked(now, offset, what), vc.is_unsure);
       }
       const value_container vc = v->get_value(context, type_int);
-      const long long offset = str::format::mul_checked(vc.get_int(0), str::format::time_unit_multiplier(unit_s), what);
+      const long long offset = str::format::mul_checked(vc.get_int(0), static_cast<long long>(seconds), what);
       return std::make_shared<int_value>(str::format::add_checked(now, offset, what), vc.is_unsure);
+    }
+    long long factor = 1;
+    if (!str::format::byte_unit_factor(unit_s, factor)) {
+      context->error("Invalid unit: " + unit_s + " (expected a size: b, k, m, g, t, p or e, optionally followed by b)");
+      return std::make_shared<int_value>(0, /*is_unsure=*/true);
     }
     if (v->is_float() && !v->is_int()) {
       // Same as above: `1.5g` used to truncate to 1g before scaling.
       const value_container vc = v->get_value(context, type_float);
-      return std::make_shared<int_value>(str::format::llround_checked(str::format::decode_byte_units<double>(vc.get_float(0.0), unit_s), what), vc.is_unsure);
+      return std::make_shared<int_value>(str::format::llround_checked(vc.get_float(0.0) * static_cast<double>(factor), what), vc.is_unsure);
     }
     const value_container vc = v->get_value(context, type_int);
-    return std::make_shared<int_value>(str::format::decode_byte_units<long long>(vc.get_int(0), unit_s), vc.is_unsure);
+    return std::make_shared<int_value>(str::format::mul_checked(vc.get_int(0), factor, what), vc.is_unsure);
   }
 };
 

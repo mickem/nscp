@@ -4,6 +4,7 @@
 #include "check_kdc.hpp"
 
 // boost/asio must precede Windows.h so winsock2.h is included first.
+#include <check/duration_keyword.hpp>
 #include <boost/asio.hpp>
 
 // Windows.h must precede dsgetdc.h/lm.h; the capital W keeps clang-format's
@@ -80,9 +81,10 @@ struct filter_obj_handler : native_context {
         .add_string_var("principal", &filter_obj::get_principal, "The client principal the probe named (this machine's account unless principal= was given)")
         .add_string_var("response", &filter_obj::get_response, "What the KDC answered (or the transport error)");
     registry_
-        .add_optional_int_var("time", type_int, &filter_obj::get_time, "?",
-                              "Probe round-trip time in milliseconds (none when the host never resolved)")
+        .add_optional_int_var("time", duration_keyword::type_milliseconds, &filter_obj::get_time, "?",
+                              "Probe round-trip time in milliseconds (none when the host never resolved); takes durations, e.g. time > 1s")
         .add_int_perf("ms");
+    registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
     registry_.add_int_var("port", type_int, &filter_obj::get_port, "TCP port probed");
     registry_.add_int_var("responding", type_bool, &filter_obj::get_responding, "True when the KDC answered the AS-REQ with a well-formed Kerberos message");
     registry_.add_int_var("error_code", type_int, &filter_obj::get_error_code, "KRB-ERROR code from the response (-1 when none)");

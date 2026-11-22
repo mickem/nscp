@@ -3,6 +3,7 @@
 
 #include "check_mssql_counters.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <cmath>
 #include <memory>
 #include <parsers/filter/cli_helper.hpp>
@@ -81,11 +82,12 @@ filter_obj_handler::filter_obj_handler() {
   // or the counters were reset inside the window: it renders as 'unknown',
   // compares false against every number and emits no perfdata.
   registry_
-      .add_optional_int_var("latch_wait_ms", [](auto obj) { return obj->get_latch_wait_ms(); }, "unknown",
+      .add_optional_int_var("latch_wait_ms", duration_keyword::type_milliseconds, [](auto obj) { return obj->get_latch_wait_ms(); }, "unknown",
                             "Average time in whole milliseconds a latch request that had to wait spent waiting, over the sampling window; 0 when no "
                             "latch request waited. 'unknown' when the counters are unavailable; every numeric comparison is then false, so test "
                             "`latch_wait_ms = 'unknown'` for it")
       .add_int_perf("ms", "", "_latch_wait_ms");
+  registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
   registry_
       .add_int_var("page_life_expectancy", &filter_obj::get_page_life_expectancy,
                    "Seconds a page stays in the buffer pool without being referenced (-1 if unavailable)")

@@ -3,6 +3,7 @@
 
 #include "check_domain.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <boost/program_options.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -18,8 +19,9 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("expiration_type", &filter_obj::get_expiration_type, "Date source: registrar, registry or whois.");
   registry_.add_string_var("source", &filter_obj::get_source, "RDAP URL or WHOIS server that supplied the selected date.");
   registry_
-      .add_int_var("expires_in", parsers::where::type_int, &filter_obj::get_expires_in, "Whole days until expiration, rounded down; negative once expired.")
+      .add_int_var("expires_in", duration_keyword::type_days, &filter_obj::get_expires_in, "Whole days until expiration, rounded down; negative once expired. Takes d and w, e.g. expires_in < 2w")
       .add_int_perf("d");
+  registry_.add_converter(duration_keyword::type_days, &duration_keyword::parse_duration_days<std::shared_ptr<filter_obj>>);
 }
 }  // namespace domain
 

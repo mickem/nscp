@@ -437,6 +437,22 @@ inline long long time_unit_multiplier(const std::string &unit) {
   return 1;
 }
 
+// Seconds in one duration unit, matched whole and in any case: ms, s (sec),
+// m (min), h, d, w. 0 for anything else, so a caller can report it rather
+// than guess. Unlike time_unit_multiplier, "ms" is milliseconds: the filter
+// expressions take a unit of more than one letter, and a first-letter reading
+// would make it minutes.
+inline double duration_unit_seconds(std::string unit) {
+  for (char &c : unit) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  if (unit == "ms") return 0.001;
+  if (unit == "s" || unit == "sec") return 1.0;
+  if (unit == "m" || unit == "min") return 60.0;
+  if (unit == "h") return 3600.0;
+  if (unit == "d") return 86400.0;
+  if (unit == "w") return 604800.0;
+  return 0.0;
+}
+
 template <class T>
 T stox_as_time_sec(const std::string &time, const std::string &default_unit) {
   validate_time_spec(time);
@@ -462,6 +478,26 @@ T decode_byte_units(const T value, const std::string &unit) {
   if (unit[0] == 'G' || unit[0] == 'g') return mul_checked(value, 1024LL * 1024 * 1024, "size");
   if (unit[0] == 'T' || unit[0] == 't') return mul_checked(value, 1024LL * 1024 * 1024 * 1024, "size");
   return value;
+}
+// The factor of one byte unit, matched whole and in any case: b, then k, m, g,
+// t, p and e on their own or followed by b or ib (10g, 10GB, 10GiB - all
+// powers of 1024, as everywhere else here). False for anything else, so a
+// caller can report it: decode_byte_units reads the first letter and passes a
+// unit it does not know through as bytes.
+inline bool byte_unit_factor(const std::string &unit, long long &factor) {
+  std::string u;
+  for (const char c : unit) u += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  if (u == "b") {
+    factor = 1;
+    return true;
+  }
+  static const std::string scales = "kmgtpe";
+  if (u.empty() || scales.find(u[0]) == std::string::npos) return false;
+  const std::string rest = u.substr(1);
+  if (!rest.empty() && rest != "b" && rest != "ib") return false;
+  factor = 1;
+  for (std::string::size_type i = 0; i <= scales.find(u[0]); ++i) factor *= 1024;
+  return true;
 }
 inline long long decode_byte_units(const std::string &s) {
   std::string::size_type p = s.find_first_not_of("0123456789");

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <check/duration_keyword.hpp>
 #include <boost/optional.hpp>
 #include <cctype>
 #include <nscapi/protobuf/command.hpp>
@@ -100,7 +101,8 @@ void register_common_keywords(Registry &registry) {
                           "default critical filter is result != 'ok', so every one of them alerts without a threshold being written.");
   registry.add_string_var("response", &filter_obj::get_response, "The data received from the peer (use with 'like'/'regexp' for custom matching)");
   registry.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
-  registry.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds").add_int_perf("ms");
+  registry.add_int_var("time", duration_keyword::type_milliseconds, &filter_obj::get_time, "Connection time in milliseconds; takes durations, e.g. time > 2s").add_int_perf("ms");
+  registry.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj> >);
   registry.add_int_var("connected", parsers::where::type_int, &filter_obj::get_connected, "1 when the connection succeeded, 0 otherwise");
 }
 

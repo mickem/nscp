@@ -3,6 +3,7 @@
 
 #include "check_disk_write.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <chrono>
 #include <cerrno>
@@ -59,12 +60,13 @@ struct filter_obj_handler : public native_context {
     // produce distinct perf-data labels ("<file> write_time", "<file> size", ...).
     registry_.add_int_var("size", &filter_obj::get_size, "Number of bytes written to (and read back from) the test file")
         .add_int_perf("B", "", " size")
-        .add_int_var("write_time", &filter_obj::get_write_time, "Time spent creating, writing and flushing the file to disk (ms)")
+        .add_int_var("write_time", duration_keyword::type_milliseconds, &filter_obj::get_write_time, "Time spent creating, writing and flushing the file to disk (ms)")
         .add_int_perf("ms", "", " write_time")
-        .add_int_var("read_time", &filter_obj::get_read_time, "Time spent reading back and verifying the file (ms)")
+        .add_int_var("read_time", duration_keyword::type_milliseconds, &filter_obj::get_read_time, "Time spent reading back and verifying the file (ms)")
         .add_int_perf("ms", "", " read_time")
-        .add_int_var("total_time", &filter_obj::get_total_time, "Total time for the create/write/read/delete cycle (ms)")
+        .add_int_var("total_time", duration_keyword::type_milliseconds, &filter_obj::get_total_time, "Total time for the create/write/read/delete cycle (ms)")
         .add_int_perf("ms", "", " total_time");
+    registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
     registry_.add_int_var("has_issues", &filter_obj::get_has_issues, "1 when the write test failed, else 0").no_perf();
   }
 };
