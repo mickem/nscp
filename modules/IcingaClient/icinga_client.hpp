@@ -288,7 +288,17 @@ struct icinga_client_handler : client::handler_interface {
     }
     const std::string body = icinga::build_host_create_body(host, con.host_template);
     const http_response created = do_http(con, "PUT", get_path, body);
-    return created.status >= 200 && created.status < 300;
+    if (created.status >= 200 && created.status < 300) return true;
+    // Every schedule of a host that is not in Icinga yet gets here at once:
+    // they all saw the 404, one PUT wins and the rest are told the object
+    // exists. That is the state this function is asked for, so look again
+    // before reporting a failure that would drop the result.
+    return exists(con, get_path);
+  }
+
+  static bool exists(const connection_data &con, const std::string &get_path) {
+    const http_response probe = do_http(con, "GET", get_path, std::string());
+    return probe.status >= 200 && probe.status < 300;
   }
 
   static bool ensure_service(const connection_data &con, const std::string &host, const std::string &service) {
@@ -302,7 +312,10 @@ struct icinga_client_handler : client::handler_interface {
     }
     const std::string body = icinga::build_service_create_body(con.service_template, con.check_command);
     const http_response created = do_http(con, "PUT", get_path, body);
-    return created.status >= 200 && created.status < 300;
+    if (created.status >= 200 && created.status < 300) return true;
+    // Two agents reporting under one host name race here as the schedules of
+    // one agent do in ensure_host().
+    return exists(con, get_path);
   }
 };
 

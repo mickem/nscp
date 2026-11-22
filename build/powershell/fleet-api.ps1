@@ -426,12 +426,12 @@ function Get-FleetHosts {
 
 <#
 .SYNOPSIS
-    Read and validate nagios/passive-checks.json, the service catalog shared by
-    every stage of the Nagios turn-key flow.
+    Read and validate a passive-checks.json (nagios/ or icinga/), the service
+    catalog shared by every stage of a turn-key monitoring flow.
 .OUTPUTS
     An object with Services (name/command objects), Interval ("300s") and
     IntervalSeconds. Throws on anything the carriers could not represent: the
-    names become scheduler section names, NRDP service names, Nagios
+    names become scheduler section names, NRDP or Icinga service names, Nagios
     service_descriptions and lines in a plain text list.
 #>
 function Read-PassiveCheckCatalog {
@@ -453,6 +453,30 @@ function Read-PassiveCheckCatalog {
         Interval        = "$($catalog.interval)"
         IntervalSeconds = [int]$Matches[1]
     }
+}
+
+<#
+.SYNOPSIS
+    Read the agent-mode check catalog (icinga/agent-checks.json).
+.DESCRIPTION
+    Like the passive catalog, with one addition: a service may carry
+    "arguments", a list of NSClient++ tokens ("warning=load > 80") the Icinga
+    master sends along with the query.
+.OUTPUTS
+    An object with Services (name, command, arguments), Interval and
+    IntervalSeconds.
+#>
+function Read-AgentCheckCatalog {
+    param([Parameter(Mandatory)][string]$Path)
+    $catalog = Read-PassiveCheckCatalog -Path $Path
+    foreach ($service in $catalog.Services) {
+        foreach ($argument in @($service.arguments | Where-Object { $null -ne $_ })) {
+            if ($argument -isnot [string] -or $argument -match "[`r`n]") {
+                throw "$Path : service '$($service.name)' has an argument that is not a single-line string."
+            }
+        }
+    }
+    $catalog
 }
 
 <#
@@ -481,6 +505,40 @@ function Read-NagiosPwdFile {
         NrdpUrl        = "$($values['NRDP URL'])"
         NrdpToken      = "$($values['NRDP Token'])"
         FleetServer    = "$($values['Fleet Server'])"
+    }
+}
+
+<#
+.SYNOPSIS
+    Parse the .icinga.pwd file written by setup-icinga-machine.ps1.
+.OUTPUTS
+    An object with PublicIp, IcingaUrl, AdminUser, AdminPassword, AgentUser,
+    AgentPassword, FleetServer, Endpoint and Fingerprint (missing lines come
+    back empty).
+#>
+function Read-IcingaPwdFile {
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path $Path)) {
+        throw "Icinga credentials file '$Path' does not exist - run setup-icinga-machine.ps1 first, or pass the values explicitly."
+    }
+    $values = @{}
+    foreach ($line in Get-Content -Path $Path) {
+        if ($line -match '^([^:]+):\s*(.*)$') {
+            $values[$Matches[1].Trim()] = $Matches[2].Trim()
+        }
+    }
+    [pscustomobject]@{
+        PublicIp      = "$($values['Public IP'])"
+        IcingaUrl     = "$($values['Icinga URL'])"
+        AdminUser     = "$($values['Icinga Admin User'])"
+        AdminPassword = "$($values['Icinga Admin Password'])"
+        AgentUser     = "$($values['Icinga Agent User'])"
+        AgentPassword = "$($values['Icinga Agent Password'])"
+        FleetServer   = "$($values['Fleet Server'])"
+        # Agent mode (setup-icinga-agent-sync.ps1): the master's endpoint
+        # name and the SHA-256 fingerprint of its certificate.
+        Endpoint      = "$($values['Icinga Endpoint'])"
+        Fingerprint   = "$($values['Icinga Fingerprint'])"
     }
 }
 

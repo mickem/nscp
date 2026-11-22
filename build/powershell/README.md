@@ -643,8 +643,9 @@ How the pieces fit:
 > settings for the plugins already loaded — it does **not** load a newly enabled
 > one. The host reports *in sync*, `fleet.ini` looks perfect, and nothing is ever
 > submitted until the service restarts. The fleet setup scripts therefore
-> activate `NRDPClient` and `Scheduler` at install time, so a machine they
-> provision is ready for the Nagios bundle whenever it arrives. **A host enrolled
+> activate `NRDPClient`, `IcingaClient` and `Scheduler` at install time, so a
+> machine they provision is ready for the Nagios (or Icinga) bundle whenever it
+> arrives. **A host enrolled
 > some other way needs `NRDPClient` and `Scheduler` enabled locally, or one
 > restart after the bundle lands** (`systemctl restart nsclient` /
 > `Restart-Service nscp`). Symptom to recognise: `verify-nagios-estate.ps1`
@@ -680,9 +681,205 @@ fleet UI (unassign, then delete) if you no longer want agents submitting.
 > for anything else.
 
 > **Nagios versions.** Ubuntu's `nagios4` package (4.4.x) plus the latest NRDP
-> release is deliberately the boring choice; an Icinga 2 variant of the same
-> flow (its REST API replacing the cfg-file rendering) is the planned next
-> step.
+> release is deliberately the boring choice. The Icinga 2 variant of the same
+> flow is [below](#turn-key-icinga-2-monitoring-for-the-fleet).
+
+## Turn-key Icinga 2 monitoring for the fleet
+
+The [`icinga/`](icinga/) scripts are the same flow against an Icinga 2 server:
+the fleet machines submit passive check results to its REST API
+(`/v1/actions/process-check-result`) with the `IcingaClient` module, driven by
+`Scheduler`, and all of it is configured through a fleet bundle. Four stages,
+each one command:
+
+```powershell
+# (NSCLIENT_FLEET_SERVER and NSCLIENT_FLEET_API_KEY are set - see above)
+
+# 1. Icinga 2 server VM (icinga2 + API listener + the templates agents create objects from + Icinga Web 2)
+./icinga/setup-icinga-machine.ps1
+
+# 2. the estate (existing tooling, nothing new)
+./provision-fleet-machines.ps1 -Windows 2 -Ubuntu 2
+
+# 3. the bundle: every agent starts submitting passive results to Icinga
+./icinga/add-icinga-bundle.ps1
+
+# 4. watch it converge (hosts in Icinga, every check reporting)
+./icinga/verify-icinga-estate.ps1 -WaitMinutes 10
+```
+
+How the pieces fit:
+
+- **`setup-icinga-machine.ps1`** provisions an Ubuntu VM (ports 22 + 5665,
+  and 80 for Icinga Web 2),
+  installs Ubuntu's `icinga2`, builds the Icinga CA and node certificate and
+  enables the API listener. It defines two `ApiUser`s — `nscp` for the agents
+  (process check results, query and create `Host`/`Service`, nothing else) and
+  `admin` for you and the verify script — and two templates, `fleet-host` and
+  `fleet-passive-service`. It then walks the agent's own path as the `nscp`
+  user (create a host and a service from the templates, submit a result, read
+  it back as a passive one, fail to delete it) and writes everything the later
+  stages need to `.icinga.pwd`.
+- **Nothing registers hosts on the Icinga VM.** The bundle sets
+  `ensure objects = true`, so each agent creates its own `Host` and `Service`
+  objects from those templates the first time it submits. That is the part of
+  `IcingaClient` this flow is there to exercise, and it is why this stage
+  needs no fleet API key and no sync timer.
+- **`add-icinga-bundle.ps1`** composes a signed bundle on the fleet server that
+  enables `IcingaClient` + `Scheduler`, points `[/settings/icinga/client/targets/default]`
+  at the Icinga VM (from `.icinga.pwd`) and adds one schedule per entry in
+  [`icinga/passive-checks.json`](icinga/passive-checks.json) on the `ICINGA`
+  channel. The schedule name is the Icinga service name; `host_check` is
+  submitted as the result of the host itself, so it is what holds the host UP.
+  The bundle is assigned to a group matching **every** host (created as
+  `icinga-monitoring` if missing); re-running composes a new version and moves
+  the assignment over. `-DryRun` prints the configuration, password masked.
+- **`verify-icinga-estate.ps1`** is the end-to-end gate: it polls until every
+  enrolled fleet host exists in Icinga, the host has a passive `host_check`
+  result and every catalog service has a passive result, and exits non-zero
+  otherwise. It requires the machines in `.fleet-machines.json` when that
+  manifest exists, so other hosts enrolled with the same fleet server (your
+  own desktop, say) do not fail it; `-Hosts a,b` names them instead and
+  `-AllHosts` requires every enrolled host.
+- **Freshness** is done the Icinga 2 way, since it has no
+  `freshness_threshold`: the templates use the `dummy` check command with a
+  check interval of three submission intervals. A passive result pushes the
+  next check out by that long; when nothing arrives Icinga runs the dummy
+  itself and the object goes DOWN/CRITICAL ("stale"). Both the self-test and
+  the gate therefore only count a result with `last_check_result.active ==
+  false` — the dummy leaves a result too.
+
+Things worth knowing:
+
+- **One monitoring server per host.** The Nagios and the Icinga bundle name
+  their schedules after the service (`cpu`, `memory`, ...) and a schedule has
+  one channel, so a host given both reports each shared schedule to one server
+  only. Unassign the `nagios-nrdp` bundle before an Icinga run (and the other
+  way round); `add-icinga-bundle.ps1` warns when `nagios-monitoring` still has
+  one.
+- **The modules must already be loaded.** As with Nagios, a bundle cannot load
+  a module into a running agent, so the setup scripts activate `IcingaClient`
+  (next to `NRDPClient` and `Scheduler`) at install time. A machine
+  provisioned before that was added needs one service restart after the bundle
+  lands.
+- **Host names must line up**, exactly as in the Nagios flow: the agent creates
+  and reports under its OS host name (`hostname = auto`), and the gate looks
+  for the hostname the fleet server recorded.
+- **Hosts are never removed from Icinga.** An agent can create its objects but
+  not delete them, and nothing mirrors the fleet's host list here. A machine
+  that is torn down stays behind as a stale host; the VM is a throwaway, or
+  remove one with
+  `curl -k -u admin:<pw> -H 'Accept: application/json' -X DELETE 'https://<ip>:5665/v1/objects/hosts/<name>?cascade=1'`.
+- **The freshness window is frozen on the Icinga VM.** It is three times the
+  catalog's `interval` at provisioning time; after changing the interval,
+  re-run the setup script or edit `/etc/icinga2/conf.d/fleet-templates.conf`.
+  Adding or removing catalog entries needs only a new bundle.
+
+Teardown: `./teardown-machine.ps1 -ResourceGroupName NSCP-Icinga-RG` for the
+VM; the `icinga-passive` bundle and `icinga-monitoring` group are removed in
+the fleet UI (unassign, then delete).
+
+> **Unverified TLS.** The API serves a certificate from the VM's own Icinga CA,
+> issued for the VM's name rather than its address, so the bundle sets
+> `verify mode = none`: the agents send the `nscp` API password to whoever
+> answers at that address (each agent logs that once). Same stance as
+> `-FleetInsecure` - fine for a throwaway test estate, not for anything else.
+> Against a real Icinga server pass `-VerifyMode peer-cert` and give the
+> machines its CA.
+
+> **Icinga Web 2 is on plain http.** The setup script also installs Icinga
+> Web 2 with Icinga DB (MariaDB, Redis, the `icingadb` daemon, Apache - all
+> Ubuntu 24.04 packages) and opens port 80: browse to
+> `http://<ip>/icingaweb2/` and log in with the `Icinga Web User` /
+> `Icinga Web Password` lines of `.icinga.pwd` (a different password from the
+> API's `admin`). The login travels unencrypted, like everything else about
+> this throwaway box. `-NoWeb` leaves the UI, the database and port 80 out;
+> `-AddWeb` installs it on the VM an earlier run left in `.icinga.pwd`,
+> without recreating the VM or changing its address. There is no Director
+> either way.
+
+### Agent mode: the master schedules the checks
+
+The same Icinga VM can run the estate the other way round, with NSClient++
+acting as a native Icinga agent (the experimental `IcingaAgent` module, see
+[the scenario](../../docs/docs/scenarios/icinga-agent.md)): the agent connects
+to the master on 5665, the master sends each check down that connection
+(`command_endpoint`) and gets the result back within seconds.
+
+```powershell
+# (NSCLIENT_FLEET_SERVER and NSCLIENT_FLEET_API_KEY are set - see above)
+$env:NSCLIENT_FLEET_SYNC_API_KEY = "nsk_..."   # a view_only key, for the Icinga VM
+
+# 1. Icinga 2 server VM - the same one as for the passive flow
+./icinga/setup-icinga-machine.ps1
+
+# 2. the estate, from a build that has the IcingaAgent module
+./provision-fleet-machines.ps1 -Windows 2 -Ubuntu 2 -WindowsPackageUrl <msi> -UbuntuPackageUrl <deb>
+
+# 3a. the master's side: check command, templates, services and the timer
+#     that registers every enrolled fleet host and signs its certificate
+./icinga/setup-icinga-agent-sync.ps1
+
+# 3b. the agents' side: a bundle that points IcingaAgent at the master
+./icinga/add-icinga-agent-bundle.ps1
+
+# 4. watch it converge (hosts UP, every check answered by the agent)
+./icinga/verify-icinga-estate.ps1 -Mode agent -WaitMinutes 10
+```
+
+How it differs from the passive flow:
+
+- **The master holds everything.** An agent cannot register itself here: the
+  master needs an `Endpoint`, a `Zone` and a `Host` for it before it will talk
+  to it. `setup-icinga-agent-sync.ps1` installs `fleet-icinga-agent-sync`, a
+  one-minute timer on the VM (the counterpart of the Nagios flow's sync) that
+  reads the fleet server's host list and renders those three objects per
+  enrolled host into `/etc/icinga2/conf.d/fleet-agents/`, validating before it
+  reloads and rolling back when the result does not validate.
+- **The checks are in [`icinga/agent-checks.json`](icinga/agent-checks.json)**,
+  not in the bundle. Each entry becomes an `apply Service` rule on the master;
+  `arguments` are NSClient++ tokens (`warning=load > 80`) sent along with the
+  query. After editing the file re-run `setup-icinga-agent-sync.ps1` - no new
+  bundle is needed.
+- **No tickets.** A ticket is issued per host name and a bundle is the same
+  for every host, so the agents ask for a certificate without one and the
+  timer signs the pending request of every host it registered (`icinga2 ca
+  sign`), usually within a minute.
+- **The agents verify the master from the first connection.** The bundle pins
+  the SHA-256 fingerprint of the master's certificate (`parent fingerprint`)
+  and sets `trust on first use = false`; once an agent holds the CA the pin no
+  longer matters.
+- **The gate asks for more than a result.** `-Mode agent` requires every host
+  UP (`cluster-zone`: its agent is connected) and every service's last result
+  to carry the agent as `check_source` - while an agent is away Icinga answers
+  in its place, and that must not pass.
+
+Things worth knowing:
+
+- **`IcingaAgent` is not in a release yet.** The machines need a build of
+  `main`. The setup scripts activate the module at install time when the
+  package ships it; as with the other flows, a bundle cannot load a module
+  into a running agent.
+- **One mode per host.** The passive flow creates a host of the same name
+  through the API, and Icinga cannot hold both. The timer skips a host that
+  exists that way and logs it; `setup-icinga-agent-sync.ps1 -ReplacePassive`
+  lets it delete the passive one instead. Unassign the `icinga-passive` bundle
+  first, or its agents create the host again (`add-icinga-agent-bundle.ps1`
+  warns).
+- **Hand-written hosts are left alone.** A fleet host whose `Endpoint`, `Zone`
+  or `Host` is already defined in another file under `/etc/icinga2` is
+  skipped, since a second definition fails validation for everything.
+- **Endpoint names are the lower-cased host name**, which is what the agent
+  calls itself by default and what its certificate is issued for.
+- **Removed hosts go away here.** Unlike the passive flow, a host that leaves
+  the fleet server loses its objects on the next timer run.
+- **Anyone enrolled is signed.** The timer signs whatever asks in the name of
+  an enrolled fleet host. Fine for a throwaway estate; a real master hands out
+  tickets or signs by hand.
+- **Look at the timer** with `journalctl -u fleet-icinga-agent-sync` on the VM.
+
+Teardown: unassign and delete the `icinga-agent` bundle and the
+`icinga-agents` group in the fleet UI; the VM goes with its resource group.
 
 ## Connect to a running VM
 

@@ -179,7 +179,11 @@ if (-not (Test-Path $sshDir)) { New-Item -ItemType Directory -Path $sshDir -Forc
 $sshKeyPath = Join-Path $sshDir "az_$($VmName)_rsa"
 if (-not (Test-Path $sshKeyPath)) {
     Write-Host "Generating SSH key pair..."
-    ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N '' -q
+    # No passphrase. Windows PowerShell (and 7 in Legacy argument mode) drops
+    # an empty string argument to a native command, so a plain -N '' made
+    # ssh-keygen take the next switch, "-q", as the passphrase.
+    $noPassphrase = if ($PSNativeCommandArgumentPassing -in 'Standard', 'Windows') { '' } else { '""' }
+    ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N $noPassphrase -q
 }
 $sshPublicKey = Get-Content "$sshKeyPath.pub"
 
@@ -299,15 +303,21 @@ sudo nscp web install --https --allowed-hosts '0.0.0.0/0,::/0' --password '$WebP
 sudo nscp settings --activate-module CheckHelpers || true
 sudo nscp settings --activate-module CheckSystem || true
 sudo nscp settings --activate-module CheckDisk || true
-# NRDPClient and Scheduler are activated here even though nothing uses them
-# yet: a fleet bundle that *enables* a module only writes it into fleet.ini, and
-# the delayed reload that follows re-reads settings for the plugins already
-# loaded - it does not load a newly enabled one. Without this the Nagios bundle
-# applies, the host reports "in sync", and nothing is ever submitted until the
-# service happens to restart. Loading them up front costs nothing (neither does
-# anything without configuration) and keeps the monitoring flow turn-key.
+# NRDPClient, IcingaClient and Scheduler are activated here even though nothing
+# uses them yet: a fleet bundle that *enables* a module only writes it into
+# fleet.ini, and the delayed reload that follows re-reads settings for the
+# plugins already loaded - it does not load a newly enabled one. Without this
+# the Nagios or Icinga bundle applies, the host reports "in sync", and nothing
+# is ever submitted until the service happens to restart. Loading them up front
+# costs nothing (none of them does anything without configuration) and keeps
+# the monitoring flows turn-key.
 sudo nscp settings --activate-module NRDPClient || true
+sudo nscp settings --activate-module IcingaClient || true
 sudo nscp settings --activate-module Scheduler || true
+# IcingaAgent for the same reason (the agent-mode Icinga flow), but only where
+# the package ships it: the module is newer than the releases, and enabling a
+# module that is not there is an error in the log of every start.
+if find /usr /opt -name 'libIcingaAgent.so' 2>/dev/null | grep -q .; then sudo nscp settings --activate-module IcingaAgent || true; fi
 # The estate role's own modules (-Modules), activated here for the same reason.
 $(($extraModules | ForEach-Object { "sudo nscp settings --activate-module $_ || true" }) -join "`n")
 # The estate role's localSettings (-LocalSettings): keys the host's own
