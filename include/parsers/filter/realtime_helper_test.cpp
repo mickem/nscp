@@ -51,7 +51,12 @@ struct stub_filter_type {
   // on the empty-result path so these do not need to be functional.
   std::list<std::map<std::string, std::string>> records_;
   std::string message;
-  std::string get_message() { return message; }
+  // A failure the top syntax raises when it is rendered (a template function).
+  std::string render_failure;
+  std::string get_message() {
+    if (!render_failure.empty()) evaluation_failure = render_failure;
+    return message;
+  }
 
   // An evaluation that failed on a record (a refused regular expression, a
   // unit the keyword does not take), as modern_filters reports it.
@@ -518,7 +523,9 @@ TEST(RealtimeFilterHelperProcessItem, AnEvaluationFailureIsSubmittedAsUnknown) {
   stub_runtime_data rd;
   const auto item = failing_item(rd, "NSCA");
 
-  EXPECT_TRUE(helper.process_item(item, 0, /*is_silent=*/false));
+  // Submitted, but no alert: the return value is what starts the silent
+  // period, and a failure on its own must not.
+  EXPECT_FALSE(helper.process_item(item, 0, /*is_silent=*/false));
   EXPECT_EQ(1, item->error_count.load());
   ASSERT_EQ(1u, stub().submissions().size());
   const PB::Commands::SubmitRequestMessage &sent = stub().submissions().front();
@@ -603,6 +610,104 @@ TEST(RealtimeFilterHelperProcessItem, AStatusFilterKeepsTheVerdictTheMatchedReco
             payload.lines(0).message());
 }
 
+TEST(RealtimeFilterHelperProcessItem, AFailureAloneDoesNotStartTheSilentPeriod) {
+  // An oversized line followed shortly by a matching one: the failure must not
+  // silence the filter, or the matching line is suppressed.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+  item->silent_period = boost::posix_time::seconds(60);
+  // A container is silent until its first touch, as the module's init does.
+  item->touch(make_time(11, 59, 0), false);
+  const boost::posix_time::ptime t0 = make_time(12, 0, 0);
+
+  if (helper.process_item(item, 0, item->is_silent(t0), t0)) item->touch(t0, true);
+  EXPECT_FALSE(item->is_silent(make_time(12, 0, 5)));
+
+  item->filter.evaluation_failure.clear();
+  item->data.next_result = modern_filter::match_result(true, false);
+  item->filter.message = "logwatch: ERROR: disk on fire";
+  item->severity = NSCAPI::query_return_codes::returnCRIT;
+  const boost::posix_time::ptime t1 = make_time(12, 0, 5);
+  EXPECT_TRUE(helper.process_item(item, 0, item->is_silent(t1), t1));
+  ASSERT_EQ(2u, stub().submissions().size());
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, stub().submissions().back().payload(0).result());
+}
+
+TEST(RealtimeFilterHelperProcessItem, APersistentFailureIsReportedOncePerInterval) {
+  // A filter that fails on every batch - every second for the CheckSystem
+  // filters - is counted every time, but reported when it is new and then
+  // once per interval while it lasts.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+
+  for (int s = 0; s < 10; ++s) helper.process_item(item, 0, false, make_time(12, 0, s));
+  EXPECT_EQ(10, item->error_count.load());
+  EXPECT_EQ(1u, stub().submissions().size());
+
+  // The interval has passed: reported again.
+  helper.process_item(item, 0, false, make_time(12, 5, 0));
+  EXPECT_EQ(2u, stub().submissions().size());
+
+  // A different failure is new, and reported at once.
+  item->filter.evaluation_failure = "Invalid unit: x (in: load > 5x)";
+  helper.process_item(item, 0, false, make_time(12, 5, 1));
+  EXPECT_EQ(3u, stub().submissions().size());
+
+  // A clean batch ends it: the same failure after it is new again.
+  item->filter.evaluation_failure.clear();
+  helper.process_item(item, 0, false, make_time(12, 5, 2));
+  item->filter.evaluation_failure = "Invalid unit: x (in: load > 5x)";
+  helper.process_item(item, 0, false, make_time(12, 5, 3));
+  EXPECT_EQ(4u, stub().submissions().size());
+}
+
+TEST(RealtimeFilterHelperProcessItem, APersistentFailureFollowsTheSilentPeriod) {
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+  item->silent_period = boost::posix_time::seconds(30);
+
+  helper.process_item(item, 0, false, make_time(12, 0, 0));
+  helper.process_item(item, 0, false, make_time(12, 0, 29));
+  EXPECT_EQ(1u, stub().submissions().size());
+  helper.process_item(item, 0, false, make_time(12, 0, 30));
+  EXPECT_EQ(2u, stub().submissions().size());
+}
+
+TEST(RealtimeFilterHelperProcessItem, AFailureInTheTopSyntaxIsPartOfTheVerdict) {
+  // The top syntax is rendered before the verdict is decided: a template
+  // function that fails there does not go out as a clean result.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  rd.next_result = modern_filter::match_result(true, false);
+  std::shared_ptr<container_type> item(new container_type("logwatch", "logwatch", rd));
+  item->set_target("NSCA", "", "");
+  item->filter.message = "logwatch: 3 lines";
+  item->filter.render_failure = "Unknown byte unit: ZB (in: %(format_bytes(size, 'ZB')))";
+  item->severity = NSCAPI::query_return_codes::returnOK;
+
+  EXPECT_FALSE(helper.process_item(item, 0, false));
+  EXPECT_EQ(1, item->error_count.load());
+  ASSERT_EQ(1u, stub().submissions().size());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, stub().submissions().front().payload(0).result());
+
+  // Beside a CRITICAL the matched records reached, it rides along.
+  stub().reset();
+  item->filter.evaluation_failure.clear();
+  item->clear_failure();
+  item->severity = NSCAPI::query_return_codes::returnCRIT;
+  EXPECT_TRUE(helper.process_item(item, 0, false));
+  ASSERT_EQ(1u, stub().submissions().size());
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, stub().submissions().front().payload(0).result());
+  EXPECT_NE(std::string::npos, stub().submissions().front().payload(0).lines(0).message().find("Unknown byte unit: ZB"));
+}
+
 TEST(RealtimeFilterHelperProcessItem, AStatusFilterThatMatchedOnlyOkIsUnknownBesideAFailure) {
   // OK is not a verdict a failure can stand beside: the failed record might
   // have been the problem.
@@ -612,7 +717,7 @@ TEST(RealtimeFilterHelperProcessItem, AStatusFilterThatMatchedOnlyOkIsUnknownBes
   const auto item = mixed_item(rd, "NSCA");
   item->severity = NSCAPI::query_return_codes::returnOK;
 
-  EXPECT_TRUE(helper.process_item(item, 0, false));
+  EXPECT_FALSE(helper.process_item(item, 0, false));
   ASSERT_EQ(1u, stub().submissions().size());
   EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, stub().submissions().front().payload(0).result());
 }

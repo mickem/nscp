@@ -32,7 +32,9 @@ log file is every line written since the last read, so an oversized line
 written in the same burst as a matching one cannot hide it. A filter that
 submits a status submits the kept verdict or UNKNOWN, and one that feeds an
 event channel still emits every record that matched and logs the failure
-(an event has no status to carry it) as an error, counted on the filter. The
+(an event has no status to carry it) as an error, counted on the filter. A
+failure on its own does not start a filter's `silent period`, which would
+otherwise suppress the matching line that follows the oversized one. The
 same change covers the other ways an expression used to fail silently; see
 the [upgrade note](../setup/upgrading.md).
 

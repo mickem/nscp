@@ -23,8 +23,10 @@ flagged - and the check says so:
 Where the records that did evaluate reached WARNING or CRITICAL, that state
 stands and the failure is appended to the message
 (`CRITICAL: b=20 (Filter evaluation failed: …)`), so a real alert is not
-downgraded. Anything else - OK, or nothing matched - could be the failure
-hiding a problem, and the check is UNKNOWN.
+downgraded. That includes the record that failed: one whose `critical`
+failed but whose `warning` holds is a WARNING. Anything else - OK, or
+nothing matched - could be the failure hiding a problem, and the check is
+UNKNOWN.
 
 The message names the error and the expression as you wrote it, on one line
 of at most a few hundred characters. It never repeats the values of the
@@ -36,7 +38,12 @@ the last read). A filter that submits a status keeps the WARNING or CRITICAL
 its matched records reached, with the failure beside it, and submits UNKNOWN
 otherwise. One that feeds an event channel still emits every record that
 matched; the failure, which an event cannot carry, is logged as an error and
-counted on the filter.
+counted on the filter. A failure on its own does not start the `silent
+period`, so a matching line right after a failing one still alerts. A filter
+that keeps failing - every batch, which for the CheckSystem filters is every
+second - is counted every time but reported (logged, and submitted as
+UNKNOWN) when the failure is new and then once per silent period, or every
+five minutes when none is set.
 
 Some keywords that hold seconds or bytes could not take a unit at all, so a
 threshold written the way their own descriptions, defaults or the documented

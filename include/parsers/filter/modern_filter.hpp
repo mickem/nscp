@@ -295,11 +295,16 @@ struct modern_filters {
   // (`loss` with nothing sent), a regular expression refused by the budget or
   // the subject limit. Each of them hands back *some* value and the engine
   // carries on, so the verdict that follows is not one the operator asked for.
-  // Setup errors (parsing, binding, perf registration) and the errors that the
-  // no-row force-evaluation logs by design are not counted - see
-  // evaluation_scope. cli_helper::post_process turns these into UNKNOWN.
+  // Setup errors (parsing, binding, perf registration) are not counted, nor
+  // the missing object the no-row force-evaluation runs without (a warning,
+  // by design) - see evaluation_scope. cli_helper::post_process turns these
+  // into UNKNOWN.
   std::size_t evaluation_error_count_ = 0;
   std::string evaluation_error_;
+  // The first error a threshold raised, preferred over evaluation_error_ (the
+  // last one logged), which can come from rendering the record's performance
+  // data before its deferred thresholds ran.
+  std::string threshold_error_;
 
   std::size_t logged_error_count() const { return error_handler_ ? error_handler_->error_count() : 0; }
 
@@ -329,19 +334,25 @@ struct modern_filters {
     if (!engine) return verdict::no;
     const std::size_t before = logged_error_count();
     const bool matched = engine->match(context, expect_object);
-    if (logged_error_count() > before) return verdict::failed;
+    if (logged_error_count() > before) {
+      // The first threshold that failed is the one the check reports:
+      // critical is tried before warning on a record. Kept as it happens, as
+      // a scope only sees the last error logged in it.
+      if (threshold_error_.empty()) threshold_error_ = error_handler_->get_errors();
+      return verdict::failed;
+    }
     return matched ? verdict::yes : verdict::no;
   }
   // The last evaluation error: the error and the expression as written,
   // never the record's values.
-  std::string get_evaluation_error() const { return evaluation_error_; }
+  std::string get_evaluation_error() const { return threshold_error_.empty() ? evaluation_error_ : threshold_error_; }
 
   // What a check reports when its evaluation failed: one line, bounded. The
   // error text can still quote something from the data - a getter's
   // exception, a path - so it is capped well inside an NRPE payload.
   static constexpr std::size_t max_failure_detail = 400;
   std::string get_evaluation_failure() const {
-    std::string detail = evaluation_error_;
+    std::string detail = get_evaluation_error();
     for (char &c : detail) {
       if (c == '\r' || c == '\n' || c == '\t') c = ' ';
     }
@@ -621,6 +632,7 @@ struct modern_filters {
     deferred_records_.clear();
     evaluation_error_count_ = 0;
     evaluation_error_.clear();
+    threshold_error_.clear();
   }
   match_result match(object_type record) {
     const evaluation_scope scope(*this);
@@ -693,10 +705,12 @@ struct modern_filters {
       if (debug) {
         context->debug(parsers::where::object_match::match);
       }
-      // A threshold that failed on this record leaves it without a verdict:
-      // not escalated on a substituted value, and not listed as ok either.
+      // A threshold that failed on this record decides nothing: it is not
+      // escalated on a substituted value. The record is still tested against
+      // the thresholds below it - a failed critical leaves a warning that
+      // holds standing, with the failure beside it - but it is never listed
+      // as ok, since the failed threshold might have caught it.
       const verdict crit = evaluate(engine_crit, true);
-      if (crit == verdict::failed) continue;
       if (crit == verdict::yes) {
         if (debug) {
           context->debug(parsers::where::object_match::critical);
@@ -710,7 +724,6 @@ struct modern_filters {
         continue;
       }
       const verdict warn = evaluate(engine_warn, true);
-      if (warn == verdict::failed) continue;
       if (warn == verdict::yes) {
         if (debug) {
           context->debug(parsers::where::object_match::warning);
@@ -723,6 +736,7 @@ struct modern_filters {
         any_bound = true;
         continue;
       }
+      if (crit == verdict::failed || warn == verdict::failed) continue;
       const verdict ok = evaluate(engine_ok, true);
       if (ok == verdict::failed) continue;
       if (ok == verdict::yes) {
@@ -778,22 +792,41 @@ struct modern_filters {
     bool force_unsure_seen = false;
     auto force_sure_true = [&](filter_engine &engine) -> bool {
       if (!engine || !no_rows) return false;
+      // The lack of an object is what this path is for, and it only warns.
+      // An error is something else - a unit the keyword does not take on a
+      // summary keyword (`count < 5k`) - and the value it compared was a
+      // substitute: counted like any other evaluation failure, no verdict.
+      const evaluation_scope scope(*this);
+      const std::size_t before = logged_error_count();
       const parsers::where::force_match_result r = engine->match_force(context);
+      if (logged_error_count() > before) {
+        if (threshold_error_.empty()) threshold_error_ = error_handler_->get_errors();
+        return false;
+      }
       if (r.is_unsure) force_unsure_seen = true;
       return r.matched && !r.is_unsure;
     };
     // A summary-only expression (`count > 5k`) is evaluated right here, once,
-    // and fails the same way a per-record one does. The force-evaluation
-    // above is the one path whose errors are expected and not counted.
-    auto summary_match = [&](filter_engine &engine) -> bool {
+    // and fails the same way a per-record one does. One that failed here is
+    // not handed to the force-evaluation as well: it would only come back
+    // with a verdict on the very substitute that failed (`count < 5k` read as
+    // `count < 5`, CRITICAL with no rows).
+    auto summary_verdict = [&](filter_engine &engine) -> verdict {
       const evaluation_scope scope(*this);
-      return evaluate(engine, false) == verdict::yes;
+      return evaluate(engine, false);
     };
-    if (engine_crit && (summary_match(engine_crit) || force_sure_true(engine_crit))) {
+    auto summary_match = [&](filter_engine &engine) -> bool { return summary_verdict(engine) == verdict::yes; };
+    auto summary_or_force = [&](filter_engine &engine) -> bool {
+      const verdict v = summary_verdict(engine);
+      if (v == verdict::yes) return true;
+      if (v == verdict::failed) return false;
+      return force_sure_true(engine);
+    };
+    if (engine_crit && summary_or_force(engine_crit)) {
       nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
       summary.move_hits_crit();
       matched = true;
-    } else if (engine_warn && (summary_match(engine_warn) || force_sure_true(engine_warn))) {
+    } else if (engine_warn && summary_or_force(engine_warn)) {
       nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
       summary.move_hits_warn();
       matched = true;

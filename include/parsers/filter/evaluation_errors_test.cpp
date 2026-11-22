@@ -287,6 +287,33 @@ TEST(EvaluationErrors, AWarningIsKeptAndAnEmptyCriticalStateToo) {
   EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, summary.code) << summary.message;
 }
 
+TEST(EvaluationErrors, AFailedSummaryThresholdIsNotForceEvaluatedWithNoRows) {
+  // With no rows the engines are also force-evaluated, a path whose errors are
+  // not counted. A summary expression that already failed must not get a
+  // second, uncounted try there: `count < 5k` read as `count < 5` is CRITICAL.
+  const std::vector<data_obj> none;
+  const run_result crit = run({"warning=none", "critical=count < 5k"}, none);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, crit.code) << crit.message;
+  EXPECT_TRUE(starts_with(crit.message, "Filter evaluation failed: ")) << crit.message;
+  const run_result warn = run({"warning=count < 5k", "critical=none"}, none);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, warn.code) << warn.message;
+}
+
+TEST(EvaluationErrors, AFailedCriticalStillLetsAWarningHold) {
+  // c's loss has no value, so `loss > 50%` fails on it; `name = 'c'` holds.
+  // The warning stands with the failure beside it, rather than c getting no
+  // verdict and the check going UNKNOWN.
+  std::vector<data_obj> rows = default_rows();
+  rows.push_back({"c", 10, 0, 0, "gamma"});
+  const run_result r = run({"warning=name = 'c'", "critical=loss > 50%"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, r.code) << r.message;
+  EXPECT_NE(std::string::npos, r.message.find("c=10")) << r.message;
+  EXPECT_NE(std::string::npos, r.message.find("(Filter evaluation failed: No packages were sent")) << r.message;
+  // A record whose warning does not hold either stays without a verdict.
+  const run_result none = run({"warning=name = 'x'", "critical=loss > 50%"}, rows);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, none.code) << none.message;
+}
+
 TEST(EvaluationErrors, ARegexRefusedInTheFilterIsNotAnEmptyOk) {
   // An empty state of ok is what the log checks use: the refused record used
   // to be dropped and the check read "nothing found".
