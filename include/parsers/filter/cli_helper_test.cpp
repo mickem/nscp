@@ -1539,3 +1539,19 @@ TEST(CliHelperShortThresholds, AnAttachedNegativeBound) {
   ASSERT_TRUE(helper.parse_options()) << c.message();
   EXPECT_EQ(string_list({"temperature < -5"}), c.data.crit_string);
 }
+
+// An unset macro: "-w $ARG1$ drive=C:" arrives as "-w drive=C:". The -w must
+// not eat the drive and run the check on everything with "drive=C:" for a
+// warning.
+TEST(CliHelperShortThresholds, ABareFlagInFrontOfAKeyValueArgumentIsAMissingValue) {
+  const std::vector<string_list> shapes{{"-w", "show-all=true"}, {"-w", "show-all=true", "-c", "90"}, {"show-all=true", "-c", "90", "-w", "debug=true"}};
+  for (const string_list &shape : shapes) {
+    short_threshold_case c(shape);
+    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
+    helper.add_options("load > 70", "load > 95", "", {});
+    helper.add_short_threshold("load", modern_filter::shorthand::above);
+    EXPECT_FALSE(helper.parse_options()) << boost::join(shape, " ");
+    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result());
+    EXPECT_EQ("Missing value for -w (use none to remove the threshold)", c.message()) << boost::join(shape, " ");
+  }
+}

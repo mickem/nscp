@@ -393,6 +393,24 @@ TEST(ThresholdShorthandArguments, ABareFlagDoesNotTakeTheNextOptionForItsValue) 
   EXPECT_EQ(args({"w=-5:", "c=-1"}), normalize_arguments({"-w", "-5:", "-c", "-1"}));
 }
 
+// "-w $ARG1$ drive=C:" with the macro unset: the drive must stay the drive.
+TEST(ThresholdShorthandArguments, ABareFlagDoesNotTakeAKeyValueArgumentForItsValue) {
+  EXPECT_EQ(args({"w=", "drive=/"}), normalize_arguments({"-w", "drive=/"}));
+  EXPECT_EQ(args({"w=", "drive=C:", "c=90"}), normalize_arguments({"-w", "drive=C:", "-c", "90"}));
+  EXPECT_EQ(args({"show-all=true", "c=", "max-depth=2", "w=", "empty_state=ok"}),
+            normalize_arguments({"show-all=true", "-c", "max-depth=2", "-w", "empty_state=ok"}));
+  // An expression is still a value: its "=" is set off, or is another operator.
+  EXPECT_EQ(args({"w=state = 'ok'"}), normalize_arguments({"-w", "state = 'ok'"}));
+  EXPECT_EQ(args({"w=used>80%", "c=load>=5"}), normalize_arguments({"-w", "used>80%", "-c", "load>=5"}));
+  EXPECT_EQ(args({"w=load!=5"}), normalize_arguments({"-w", "load!=5"}));
+  EXPECT_TRUE(is_key_value("drive=/"));
+  EXPECT_TRUE(is_key_value("top-syntax=%(list)"));
+  EXPECT_TRUE(is_key_value("w="));
+  EXPECT_FALSE(is_key_value("=5"));
+  EXPECT_FALSE(is_key_value("10:20"));
+  EXPECT_FALSE(is_key_value("none"));
+}
+
 TEST(ThresholdShorthandArguments, AnAttachedNegativeValue) {
   EXPECT_EQ(args({"c=-5:", "w=-.5"}), normalize_arguments({"-c-5:", "-w-.5"}));
   EXPECT_EQ(args({"--show-all", "--c=-5:"}), normalize_arguments({"--show-all", "-c-5:"}));

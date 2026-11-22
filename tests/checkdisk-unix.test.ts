@@ -385,6 +385,9 @@ describeOnLinux("CheckDisk (Unix)", () => {
       ["drive=/", "-w", "-c", "0"],
       ["--drive", "/", "-w", "-c", "0"],
       ["drive=/", "-c", "0", "-w"],
+      // An unset macro, "-w $ARG1$ drive=/": the drive is not the threshold.
+      ["-w", "drive=/"],
+      ["-w", "drive=/", "-c", "0"],
     ]) {
       const r = await queryWithCode("check_drivesize", args);
       expect(r.code).toBe(3);
