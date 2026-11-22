@@ -31,6 +31,24 @@ updates:
       testing:
         patterns:
           - "*"
+    ignore:
+      # ts-jest 29 peers on typescript <7; one unresolvable bump fails `npm
+      # install` for the whole group.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # These majors need Node 22. The regular suites still run on the
+      # distro's Node 18 and the stress harness on Node 20 (see
+      # integration-tests-linux.yml), and execa 6+ is ESM-only while the
+      # harness is CommonJS. Lift together with the Node version.
+      - dependency-name: "execa"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "undici"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "testcontainers"
+        update-types: ["version-update:semver-major"]
+      # Types follow the Node the suites run on, not the newest release.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: pip
     directory: "/build/python"
     schedule:
@@ -39,6 +57,13 @@ updates:
       build:
         patterns:
           - "*"
+    ignore:
+      # mk_pyzip.py packs this runtime into the Python zip the agent ships, so
+      # a protobuf major changes the API users' scripts see (7 removes
+      # FieldDescriptor.label and the float_format options). Take it as a
+      # change of its own, with an upgrade note, not inside a grouped bump.
+      - dependency-name: "protobuf"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: pip
     directory: "tests/msi"
     schedule:
