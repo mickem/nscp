@@ -323,9 +323,13 @@ function paintExpression(kinds: TokenKind[], from: number, text: string, kv: Key
     if (isDigit(c)) {
       let j = i;
       while (j < n && (isDigit(text[j]) || text[j] === ".")) j++;
-      // One trailing letter or '%' is the unit of the number+unit lexeme
-      // (10%, 1G, 5m); a longer run is a separate token.
-      if (j < n && (isAlpha(text[j]) || text[j] === "%") && (j + 1 >= n || !isWordChar(text[j + 1]))) j++;
+      // The unit of the number+unit lexeme is a run of letters or a '%'
+      // (10%, 1G, 5m, 500ms, 100GB), as in the grammar's unit_suffix.
+      if (j < n && text[j] === "%") {
+        j++;
+      } else {
+        while (j < n && isAlpha(text[j])) j++;
+      }
       paint(kinds, from + i, from + j, "number");
       i = j;
       continue;

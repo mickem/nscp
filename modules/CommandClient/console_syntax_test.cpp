@@ -304,14 +304,15 @@ TEST(ConsoleSyntaxExpression, TwoCharacterOperatorsAreOneToken) {
   EXPECT_EQ(kind_of_run(input, input.find(">="), 2, keyword_vocabulary_for_check_drive()), token_kind::expression_op);
 }
 
-TEST(ConsoleSyntaxExpression, MultiLetterUnitIsFlagged) {
-  // `size > 100GB` does not parse - the grammar's unit is a single letter - so
-  // the `GB` lands as a name, and a name that is not a keyword is wrong. A
-  // documented foot-gun that until now only surfaced at run time.
-  const std::string input = "check_drive \"filter=size > 100GB\"";
+TEST(ConsoleSyntaxExpression, AMultiLetterUnitIsPartOfTheNumber) {
+  // The grammar takes a run of letters as the unit (`100GB`, `500ms`), so the
+  // whole lexeme is a number and the unit is not painted as a missing keyword.
   const vocabulary vocab = keyword_vocabulary_for_check_drive();
-  EXPECT_EQ(kind_of(input, "100", vocab), token_kind::number);
-  EXPECT_EQ(kind_of(input, "GB", vocab), token_kind::unknown_keyword);
+  const std::string size = "check_drive \"filter=size > 100GB\"";
+  EXPECT_EQ(kind_of(size, "100GB", vocab), token_kind::number);
+  const std::string time = "check_drive \"filter=size > 1G and free > 500ms\"";
+  EXPECT_EQ(kind_of(time, "500ms", vocab), token_kind::number);
+  EXPECT_EQ(kind_of(time, "1G", vocab), token_kind::number);
 }
 
 TEST(ConsoleSyntaxExpression, FunctionCallIsAFunction) {
