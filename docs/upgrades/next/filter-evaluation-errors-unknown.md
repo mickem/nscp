@@ -42,8 +42,10 @@ counted on the filter. A failure on its own does not start the `silent
 period`, so a matching line right after a failing one still alerts. A filter
 that keeps failing - every batch, which for the CheckSystem filters is every
 second - is counted every time but reported (logged, and submitted as
-UNKNOWN) when the failure is new and then once per silent period, or every
-five minutes when none is set.
+UNKNOWN when nothing matched) when the failure is new and then once per silent
+period, or every five minutes when none is set. A batch with records that
+matched is always submitted, with the failure beside them; failures that only
+differ in a number (the size of each refused line) count as one.
 
 Some keywords that hold seconds or bytes could not take a unit at all, so a
 threshold written the way their own descriptions, defaults or the documented

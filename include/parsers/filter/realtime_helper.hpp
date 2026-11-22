@@ -167,12 +167,30 @@ struct realtime_filter_helper {
     // line is too long for, a unit the keyword does not take - fails on every
     // batch, which for the CheckSystem filters is every second. The failure is
     // counted every time, but reported (logged, and submitted as UNKNOWN when
-    // nothing else is) only when it is new, or once per interval while it
-    // lasts: the silent period when one is set, else failure_report_interval.
+    // the batch has nothing else to say) only when it is new, or once per
+    // interval while it lasts: the silent period when one is set, else
+    // failure_report_interval. A batch with records that matched is always
+    // submitted; only its log line follows this.
     static boost::posix_time::time_duration failure_report_interval() { return boost::posix_time::minutes(5); }
+    // What makes two failures the same one: the text with every run of digits
+    // folded, since a failure can carry a number that differs from record to
+    // record - the regular-expression refusal names the size of the line it
+    // refused, and oversized lines of differing length are still one failure.
+    static std::string failure_key(const std::string &failure) {
+      std::string key;
+      bool in_digits = false;
+      for (const char c : failure) {
+        const bool digit = c >= '0' && c <= '9';
+        if (digit && !in_digits) key += '#';
+        if (!digit) key += c;
+        in_digits = digit;
+      }
+      return key;
+    }
     bool should_report_failure(const std::string &failure, const boost::posix_time::ptime &now) {
-      if (failure == last_failure_ && now < next_failure_report_) return false;
-      last_failure_ = failure;
+      const std::string key = failure_key(failure);
+      if (key == last_failure_ && now < next_failure_report_) return false;
+      last_failure_ = key;
       next_failure_report_ = now + (silent_period ? silent_period.value() : failure_report_interval());
       return true;
     }
@@ -325,11 +343,18 @@ struct realtime_filter_helper {
       const bool alert = result.matched_filter && (code == NSCAPI::query_return_codes::returnWARN || code == NSCAPI::query_return_codes::returnCRIT);
       std::string message;
       if (failed && !alert) {
-        // The failure is all there is to say: said once, then once per
-        // interval while it lasts. Not an alert, so no silent period.
-        if (!report_failure) return false;
+        // UNKNOWN - and not an alert, so no silent period. When records
+        // matched it is submitted every time with what they rendered, the
+        // failure beside it: throttling it would drop them. When nothing
+        // matched the failure is all there is to say: said once, then once
+        // per interval while it lasts.
         code = NSCAPI::query_return_codes::returnUNKNOWN;
-        message = item->filter.get_evaluation_failure();
+        if (result.matched_filter) {
+          message = item->filter.with_evaluation_failure(rendered.empty() ? "Nothing matched" : rendered);
+        } else {
+          if (!report_failure) return false;
+          message = item->filter.get_evaluation_failure();
+        }
       } else {
         message = rendered;
         if (message.empty()) message = "Nothing matched";

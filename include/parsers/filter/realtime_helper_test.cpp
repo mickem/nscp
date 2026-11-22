@@ -665,6 +665,48 @@ TEST(RealtimeFilterHelperProcessItem, APersistentFailureIsReportedOncePerInterva
   EXPECT_EQ(4u, stub().submissions().size());
 }
 
+TEST(RealtimeFilterHelperProcessItem, AThrottledFailureNeverDropsRecordsThatMatched) {
+  // A filter with no thresholds and no severity: what matched reaches OK at
+  // most, which cannot stand beside a failure, so the batch is UNKNOWN. A
+  // repeat of the failure is throttled - but the batch is still submitted,
+  // with what matched, or those lines would be lost until the interval ends.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = mixed_item(rd, "NSCA");
+  item->severity = NSCAPI::query_return_codes::returnOK;
+
+  for (int s = 0; s < 3; ++s) EXPECT_FALSE(helper.process_item(item, 0, false, make_time(12, 0, s)));
+  EXPECT_EQ(3, item->error_count.load());
+  ASSERT_EQ(3u, stub().submissions().size());
+  for (const auto &sent : stub().submissions()) {
+    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, sent.payload(0).result());
+    EXPECT_EQ("logwatch: ERROR: disk on fire (Filter evaluation failed: Refusing to match a regular expression against 2000000 bytes (in: line regexp 'x'))",
+              sent.payload(0).lines(0).message());
+  }
+}
+
+TEST(RealtimeFilterHelperProcessItem, AFailureThatOnlyDiffersInANumberIsTheSameFailure) {
+  // The refusal names the size of the line it refused: oversized lines of
+  // differing length are one failure, not a new one each batch.
+  stub().reset();
+  helper_type helper(nscapi::plugin_singleton->get_core(), 0);
+  stub_runtime_data rd;
+  const auto item = failing_item(rd, "NSCA");
+  for (int s = 0; s < 5; ++s) {
+    item->filter.evaluation_failure = "Refusing to match a regular expression against " + std::to_string(2000000 + s * 1234) + " bytes (in: line regexp 'x')";
+    helper.process_item(item, 0, false, make_time(12, 0, s));
+  }
+  EXPECT_EQ(5, item->error_count.load());
+  ASSERT_EQ(1u, stub().submissions().size());
+  // The report itself keeps the number.
+  EXPECT_EQ("Filter evaluation failed: Refusing to match a regular expression against 2000000 bytes (in: line regexp 'x')",
+            stub().submissions().front().payload(0).lines(0).message());
+
+  EXPECT_EQ(container_type::failure_key("against 2000000 bytes (in: x > 5)"), container_type::failure_key("against 17 bytes (in: x > 10)"));
+  EXPECT_NE(container_type::failure_key("Invalid unit: k (in: load > 5k)"), container_type::failure_key("Invalid unit: x (in: load > 5x)"));
+}
+
 TEST(RealtimeFilterHelperProcessItem, APersistentFailureFollowsTheSilentPeriod) {
   stub().reset();
   helper_type helper(nscapi::plugin_singleton->get_core(), 0);
