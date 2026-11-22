@@ -11,6 +11,7 @@
 #include <str/format.hpp>
 #include <str/xtos.hpp>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 namespace duration_keyword {
@@ -30,11 +31,49 @@ inline bool is_plain_integer(const std::string &expr) {
 inline double seconds_per_unit(const std::string &unit) { return str::format::duration_unit_seconds(unit); }
 
 namespace detail {
+// The number at the front of `text` and the unit after it: an optional sign,
+// digits and an optional fraction ("2", "-1", "2.5", ".5"). False when there
+// is no number. Only that prefix is handed to the stream, in the classic
+// locale: a stream reading a double greedily can take a unit letter for part
+// of the number (libc++ does with "2d", "2e" and "2b"), and a threshold is
+// written with a '.' whatever the host's decimal separator is.
+inline bool split_number(const std::string &text, double &number, std::string &unit) {
+  std::string::size_type i = 0;
+  if (i < text.size() && (text[i] == '-' || text[i] == '+')) ++i;
+  std::string::size_type digits = 0;
+  while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i]))) ++i, ++digits;
+  if (i < text.size() && text[i] == '.') {
+    ++i;
+    while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i]))) ++i, ++digits;
+  }
+  if (digits == 0) return false;
+  std::istringstream in(text.substr(0, i));
+  in.imbue(std::locale::classic());
+  if (!(in >> number)) return false;
+  unit = text.substr(i);
+  return true;
+}
+
+// `value` as the keyword's integer, or an error when it does not fit one: a
+// threshold such as `age > 99999999999999999w` must not wrap round to the
+// smallest number there is and fire on every run.
+inline parsers::where::node_type to_int(parsers::where::evaluation_context context, const double value, const std::string &text) {
+  try {
+    return parsers::where::factory::create_int(str::format::llround_checked(value, "Duration " + text));
+  } catch (const std::out_of_range &e) {
+    context->error(e.what());
+    return parsers::where::factory::create_int(0);
+  }
+}
+
 // The value a duration literal amounts to in the keyword's own unit, which is
-// `per_second` of them to the second; a bare number is already in it. A plain
-// integer is passed straight through, so the sentinels keywords document
-// ("age = -1") keep working. A unit that is not a duration is reported on the
-// context, which ends the check UNKNOWN, rather than read as something else.
+// `per_second` of them to the second; a bare number is already in it. The
+// keyword holds an integer, so a fraction is rounded to the nearest whole
+// ("1.5ms" is 2). A bare fraction in an expression never gets here: it is
+// compared as written. A plain integer is passed straight through, so the sentinels
+// keywords document ("age = -1") keep working. A unit that is not a duration,
+// or a value too large to hold, is reported on the context, which ends the
+// check UNKNOWN, rather than read as something else.
 inline parsers::where::node_type parse(parsers::where::evaluation_context context, parsers::where::node_type subject, const double per_second,
                                       const double smallest_unit = 0.0) {
   // The parser hands over either one literal ("30m", "-1") or a two element
@@ -43,25 +82,29 @@ inline parsers::where::node_type parse(parsers::where::evaluation_context contex
   const std::list<parsers::where::node_type> tokens = subject->get_list_value(context);
   double count = 0;
   std::string unit;
+  std::string text;
   if (tokens.size() == 2) {
     auto token = tokens.begin();
     count = (*token)->get_float_value(context);
     ++token;
     unit = (*token)->get_value(context, parsers::where::type_string).get_string("");
+    text = str::xtos(count) + unit;
   } else {
-    const std::string expression = subject->get_string_value(context);
-    if (is_plain_integer(expression)) return parsers::where::factory::create_int(str::stox<long long>(expression, 0));
-    // The classic locale: a threshold is written with a '.', whatever the
-    // host's decimal separator is.
-    std::istringstream in(expression);
-    in.imbue(std::locale::classic());
-    if (!(in >> count)) {
-      context->error("Not a duration: " + expression);
+    text = subject->get_string_value(context);
+    if (is_plain_integer(text)) {
+      try {
+        return parsers::where::factory::create_int(std::stoll(text));
+      } catch (const std::out_of_range &) {
+        context->error("Duration " + text + " is too large");
+        return parsers::where::factory::create_int(0);
+      }
+    }
+    if (!split_number(text, count, unit)) {
+      context->error("Not a duration: " + text);
       return parsers::where::factory::create_int(0);
     }
-    std::getline(in, unit);
   }
-  if (unit.empty()) return parsers::where::factory::create_int(llround(count));
+  if (unit.empty()) return to_int(context, count, text);
   const double seconds = seconds_per_unit(unit);
   if (seconds == 0.0) {
     context->error("Invalid unit: " + unit + " (expected one of ms, s, m, h, d, w)");
@@ -71,7 +114,7 @@ inline parsers::where::node_type parse(parsers::where::evaluation_context contex
     context->error("Invalid unit: " + unit + " (the keyword counts days: expected d or w)");
     return parsers::where::factory::create_int(0);
   }
-  return parsers::where::factory::create_int(llround(count * seconds * per_second));
+  return to_int(context, count * seconds * per_second, text);
 }
 }  // namespace detail
 

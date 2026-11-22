@@ -672,10 +672,10 @@ struct function_convert : binary_function_impl {
       const node_type u = unit.value();
       if (type == type_date || type == type_size) {
         const std::string unit_s = u->get_string_value(context);
-        // Both spellings share the unit helpers (first character decides, so
-        // 'min' is minutes and 'kb' is KiB either way) and are range checked:
-        // a value supplied by the filter must not overflow. The message is
-        // only built on the throw path.
+        // Both spellings share the unit helpers, which match the unit whole
+        // ('ms' is milliseconds, 'kb' KiB) and report one they do not take,
+        // and are range checked: a value supplied by the filter must not
+        // overflow. The message is only built on the throw path.
         try {
           return convert_with_unit(type, context, v, unit_s);
         } catch (const std::out_of_range &) {

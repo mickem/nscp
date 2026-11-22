@@ -9,6 +9,7 @@
 #include <cmath>
 #include <list>
 #include <parsers/where/helpers.hpp>
+#include <str/saturate.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 
@@ -63,7 +64,9 @@ node_type calculate_free(std::shared_ptr<filter_obj> object, evaluation_context 
   } else {
     number = parsers::where::helpers::apply_byte_unit(context, number, unit);
   }
-  return factory::create_int(llround(number));
+  // Capped, as check_drive does: llround of a value past a long long is
+  // unspecified, and an exabyte unit gets there quickly.
+  return factory::create_int(str::to_int64_saturating(number));
 }
 
 long long get_zero() { return 0; }

@@ -22,17 +22,19 @@ namespace check_page_filter {
 
 node_type calculate_free(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
   helpers::read_arg_type value = helpers::read_arguments(context, subject, "%");
-  long long number = value.get<1>();
+  double number = value.get<1>();
   std::string unit = value.get<2>();
 
+  // In double, capped into a long long at the end, as check_drive does: a
+  // large percentage or a size in the upper units (an exabyte is 2^60) does
+  // not fit, and converting the double straight into a long long would be
+  // undefined behaviour.
   if (unit == "%") {
-    // total * number overflows long long (UB) for a large caller-supplied
-    // percentage; compute in double and saturate, as check_drive does.
-    number = str::to_int64_saturating(static_cast<double>(object->get_total()) * static_cast<double>(number) / 100.0);
+    number = static_cast<double>(object->get_total()) * number / 100.0;
   } else {
     number = parsers::where::helpers::apply_byte_unit(context, number, unit);
   }
-  return factory::create_int(number);
+  return factory::create_int(str::to_int64_saturating(number));
 }
 
 long long get_zero() { return 0; }

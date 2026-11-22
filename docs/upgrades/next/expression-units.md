@@ -32,6 +32,10 @@ itself, so a unit nothing knew passed through as a bare number. Now:
   (`check_defender`), `grace_days` (`check_activation`), `ssl_expiry_days`
   (`check_http`, `check_tcp`) and `age` (`check_patch_age`). A unit below a day
   is refused. `check_certificate`'s `expires_in_sec` takes durations.
+- **A fraction with a unit is rounded to the keyword's whole unit:** these
+  keywords hold whole numbers, so on a millisecond keyword `time > 1.5ms` is
+  `time > 2`, and on a days keyword `expires_in < 1.5w` is `expires_in < 11`.
+  A bare fraction is compared as written (`time > 1.5`).
 - **A keyword that can be unknown keeps its probe:** `jitter = 'unknown'` and
   `ssl_expiry_days = 'no certificate'` work as before, next to `jitter > 1s`.
 - **A unit a keyword does not take is an error**, not a bare number:

@@ -162,6 +162,47 @@ TEST(DurationKeyword, APlainIntegerSentinelPassesThrough) {
   EXPECT_EQ(OK, verdict("age = -1", aged(0)));
 }
 
+// A value too large for the keyword's integer is reported, not wrapped round
+// to the smallest number there is. (The verdict is still reached on the
+// substitute until evaluation errors end the check UNKNOWN.)
+TEST(DurationKeyword, AValueTooLargeIsReported) {
+  const run_result unit = run("age > 99999999999999999w", aged(3));
+  EXPECT_TRUE(unit.evaluation_failed) << unit.message;
+  EXPECT_NE(std::string::npos, unit.errors.find("too large")) << unit.errors;
+  const run_result ms = run("time > 99999999999999.5w", ping(3));
+  EXPECT_TRUE(ms.evaluation_failed) << ms.message;
+  EXPECT_NE(std::string::npos, ms.errors.find("too large")) << ms.errors;
+  const run_result plain = run("age > '99999999999999999999'", aged(3));
+  EXPECT_TRUE(plain.evaluation_failed) << plain.message;
+  EXPECT_NE(std::string::npos, plain.errors.find("too large")) << plain.errors;
+  // A number past a long long in the expression itself does not parse at
+  // all: the filter is refused up front.
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, run("time > 9999999999999999999h", ping(3)).code);
+}
+
+// A quoted duration is read as text, not tokenized. Only the number at its
+// front is handed to the stream: libc++ reads a double greedily enough to
+// take the d of "2d" (or the e of "2e") for part of the number.
+TEST(DurationKeyword, AQuotedDurationParses) {
+  EXPECT_EQ(CRITICAL, verdict("age < '2d'", aged(3600)));
+  EXPECT_EQ(OK, verdict("age < '2d'", aged(3 * 86400)));
+  EXPECT_EQ(CRITICAL, verdict("age > '1.5h'", aged(5401)));
+  EXPECT_EQ(CRITICAL, verdict("time > '500ms'", ping(600)));
+  EXPECT_EQ(CRITICAL, verdict("days < '2w'", days(13)));
+  EXPECT_TRUE(run("age < '2e'", aged(3)).evaluation_failed);
+  EXPECT_TRUE(run("age < 'soon'", aged(3)).evaluation_failed);
+}
+
+// A bare fraction is compared as written; one with a unit goes through the
+// converter, and the keyword holds whole numbers, so it is rounded.
+TEST(DurationKeyword, AFractionIsKeptBareAndRoundedWithAUnit) {
+  EXPECT_EQ(CRITICAL, verdict("time > 1.5", ping(2)));
+  EXPECT_EQ(OK, verdict("time > 1.5", ping(1)));
+  EXPECT_EQ(OK, verdict("time > 1.5ms", ping(2)));  // time > 2
+  EXPECT_EQ(CRITICAL, verdict("time > 1.5s", ping(1501)));
+  EXPECT_EQ(OK, verdict("time > 1.5s", ping(1500)));
+}
+
 TEST(DurationKeyword, AUnitThatIsNotADurationIsReported) {
   const run_result ms = run("time > 1x", ping(3));
   EXPECT_TRUE(ms.evaluation_failed) << ms.message;
