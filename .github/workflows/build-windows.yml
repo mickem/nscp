@@ -177,7 +177,7 @@ jobs:
         mkdir tmp\installer_lib
       shell: cmd
 
-    - uses: shogo82148/actions-setup-perl@b61fd6db748050f91bedd4d72ad5e404b5177cc0 # v1
+    - uses: shogo82148/actions-setup-perl@eebc5c886de14ebbfcd2493d49a12007d2c30477 # v1
       with:
         perl-version: '5.40'
         distribution: strawberry
