@@ -7,6 +7,7 @@
 
 #include <dll/dll.hpp>
 #include <list>
+#include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <set>
 #include <string>
@@ -40,7 +41,10 @@ struct script_def {
 class zip_plugin : public boost::noncopyable, public plugin_interface {
   boost::filesystem::path file_;
   path_instance paths_;
-  plugin_mgr_instance plugins_;
+  // Weak: the manager owns this plugin through its plugin list, so a strong
+  // pointer back is a cycle that keeps both alive unless stop_plugins() gets
+  // to clear the list first.
+  std::weak_ptr<plugin_manager> plugins_;
   logging::logger_instance logger_;
   std::string name_;
   std::string description_;

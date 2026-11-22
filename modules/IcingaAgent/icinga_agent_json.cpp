@@ -31,8 +31,13 @@ const json::value *find(const json::object &obj, const char *key) {
 
 std::string to_text(const json::value &v) {
   switch (v.kind()) {
-    case json::kind::string:
-      return std::string(v.get_string());
+    case json::kind::string: {
+      // Spelled out rather than std::string(json::string): that conversion
+      // goes through json::string_view, which is only a std::string_view from
+      // Boost 1.81 on. Rocky 9 ships 1.75.
+      const json::string &s = v.get_string();
+      return std::string(s.data(), s.size());
+    }
     case json::kind::bool_:
       return v.get_bool() ? "true" : "false";
     case json::kind::int64:
@@ -92,7 +97,7 @@ long to_long(const json::value &v, const long fallback) {
   if (v.is_uint64()) return static_cast<long>(v.get_uint64());
   if (v.is_double()) return static_cast<long>(v.get_double());
   if (!v.is_string()) return fallback;
-  const std::string s(v.get_string());
+  const std::string s = to_text(v);
   char *end = nullptr;
   errno = 0;
   const long parsed = std::strtol(s.c_str(), &end, 10);

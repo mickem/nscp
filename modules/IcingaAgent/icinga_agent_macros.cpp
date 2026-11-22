@@ -57,7 +57,7 @@ boost::optional<json::value> expand_macros(const std::string &text, const json::
 }
 
 boost::optional<json::value> expand_value(const json::value &value, const json::object &macros) {
-  if (value.is_string()) return expand_macros(std::string(value.get_string()), macros);
+  if (value.is_string()) return expand_macros(json_util::to_text(value), macros);
   if (!value.is_array()) return value;
   json::array out;
   for (const json::value &element : value.get_array()) {

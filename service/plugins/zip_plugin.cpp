@@ -136,8 +136,10 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
   const boost::filesystem::path target_path = scripts_folder / getModule();
   boost::filesystem::create_directory(scripts_folder);
   boost::filesystem::create_directory(target_path);
+  const plugin_mgr_instance plugins = plugins_.lock();
+  if (!plugins) throw plugin_exception(get_alias_or_name(), "The plugin manager is gone, cannot load " + file_.string());
   for (const std::string &plugin : modules_) {
-    plugins_->load_single_plugin(plugin, "", true);
+    plugins->load_single_plugin(plugin, "", true);
   }
   const bytes::unzip::reader archive(file_.string());
 
@@ -154,7 +156,7 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
     args.emplace_back("--alias");
     args.push_back(script.alias);
     args.emplace_back("--no-config");
-    plugins_->simple_exec(script.provider + ".add", args, ret);
+    plugins->simple_exec(script.provider + ".add", args, ret);
     debug_log_list(get_logger(), __FILE__, __LINE__, ret, " : ");
   }
   for (const std::string &cmd : on_start_) {
@@ -173,7 +175,7 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
     }
     const std::string command = args.front();
     args.erase(args.begin());
-    plugins_->simple_exec(command, args, ret);
+    plugins->simple_exec(command, args, ret);
     debug_log_list(get_logger(), __FILE__, __LINE__, ret, " : ");
   }
 

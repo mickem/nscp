@@ -252,7 +252,9 @@ describe("fleet bundle with scripts of every kind", () => {
   /**
    * The check's result once the reload has registered the command: UNKNOWN
    * until then, and a 401/403 while the restarted web server has forgotten
-   * the session, which is answered by logging in again.
+   * the session, which is answered by logging in again. A request that lands
+   * while the old server is still going down is answered 503 ("Server is
+   * stopping") by the mongoose backend, and is simply asked again.
    */
   async function ran(command: string, timeoutMs = 90_000): Promise<QueryResult> {
     const deadline = Date.now() + timeoutMs;
@@ -262,7 +264,7 @@ describe("fleet bundle with scripts of every kind", () => {
         last = await executeQuery(key, command);
         if (last.result === OK) return last;
       } catch (e) {
-        if (!/got 40[13]|ECONNRESET|ECONNREFUSED|socket hang up/.test(String(e))) throw e;
+        if (!/got 40[13]|got 503|ECONNRESET|ECONNREFUSED|socket hang up/.test(String(e))) throw e;
         await login().catch(() => undefined);
       }
       if (Date.now() >= deadline) {
