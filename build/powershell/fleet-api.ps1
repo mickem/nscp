@@ -481,6 +481,139 @@ function Read-AgentCheckCatalog {
 
 <#
 .SYNOPSIS
+    Read the catalog of the "explained Icinga alerts" flow
+    (icinga/explained-checks.json).
+.OUTPUTS
+    An object with Interval ("60s"), IntervalSeconds, Fault (the schedule the
+    gate breaks), ServiceNames (every schedule but host_check) and Schedules:
+    Name, Windows and Linux (the command per OS), BrokenWindows and BrokenLinux
+    (the command that makes the check fail; empty unless the entry has one).
+    Throws on a command that would not survive the trip to nsclient.ini - it
+    passes through a single-quoted shell variable and an unquoted native
+    argument, so quotes, backticks and line breaks are refused.
+#>
+function Read-ExplainedCheckCatalog {
+    param([Parameter(Mandatory)][string]$Path)
+    $catalog = Get-Content -Path $Path -Raw | ConvertFrom-Json
+    if ("$($catalog.interval)" -notmatch '^(\d+)s$') {
+        throw "$Path : interval '$($catalog.interval)' must be a number of seconds like '60s'."
+    }
+    $seconds = [int]$Matches[1]
+    $perOs = {
+        param($value, [string]$os)
+        if ($null -eq $value) { return "" }
+        if ($value -is [string]) { return $value }
+        return "$($value.$os)"
+    }
+    $schedules = @(foreach ($entry in @($catalog.schedules)) {
+            if ("$($entry.name)" -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+                throw "$Path : schedule name '$($entry.name)' is not a plain identifier (letters, digits, '.', '_', '-')."
+            }
+            $row = [pscustomobject]@{
+                Name          = "$($entry.name)"
+                Windows       = (& $perOs $entry.command "windows")
+                Linux         = (& $perOs $entry.command "linux")
+                BrokenWindows = (& $perOs $entry.broken "windows")
+                BrokenLinux   = (& $perOs $entry.broken "linux")
+            }
+            if (-not $row.Windows -or -not $row.Linux) { throw "$Path : schedule '$($row.Name)' needs a command for windows and for linux." }
+            foreach ($command in $row.Windows, $row.Linux, $row.BrokenWindows, $row.BrokenLinux) {
+                if ($command -match "['`"``\r\n]") { throw "$Path : a command of schedule '$($row.Name)' contains a quote, backtick or line break." }
+            }
+            $row
+        })
+    if ($schedules.Count -eq 0) { throw "$Path has no schedules." }
+    $fault = "$($catalog.fault)"
+    $faulty = $schedules | Where-Object { $_.Name -eq $fault } | Select-Object -First 1
+    if (-not $faulty -or -not $faulty.BrokenWindows -or -not $faulty.BrokenLinux) {
+        throw "$Path : 'fault' must name a schedule that has a 'broken' command for windows and for linux."
+    }
+    [pscustomobject]@{
+        Schedules       = $schedules
+        ServiceNames    = @($schedules | ForEach-Object { $_.Name } | Where-Object { $_ -ne "host_check" })
+        Fault           = $fault
+        Interval        = "$($catalog.interval)"
+        IntervalSeconds = $seconds
+    }
+}
+
+<#
+.SYNOPSIS
+    Let this process talk to one Icinga 2 API whose certificate cannot be
+    verified from here, and return a function-free handle for Invoke-IcingaApi.
+.DESCRIPTION
+    The Icinga VM's certificate is issued by its own CA, for its node name.
+    PowerShell 7 skips the check per call. On 5.1 the only lever is the
+    process-wide validation callback, and a blanket "accept everything" there
+    would also stop the script verifying the fleet server it sends an API key
+    to - so the callback accepts a failed validation for that one host only.
+.OUTPUTS
+    An object with Base (the url without a trailing slash) and Auth (the
+    Authorization header value).
+#>
+function New-IcingaApi {
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [Parameter(Mandatory)][string]$User,
+        [Parameter(Mandatory)][string]$Password
+    )
+    $base = $Url.TrimEnd('/')
+    if ($base -notmatch '/v1$') { $base = "$base/v1" }
+    if ($PSVersionTable.PSVersion.Major -lt 6) {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+        if (-not ("IcingaTrustOneHost" -as [type])) {
+            # Compiled, not a scriptblock: .NET may run the validation on a
+            # thread with no runspace (see Set-FleetCertificateCheck).
+            Add-Type -TypeDefinition @"
+using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+public static class IcingaTrustOneHost {
+    public static string Host = "";
+    public static bool Accept(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors) {
+        if (errors == SslPolicyErrors.None) { return true; }
+        HttpWebRequest request = sender as HttpWebRequest;
+        return request != null && Host.Length > 0 &&
+            string.Equals(request.RequestUri.Host, Host, System.StringComparison.OrdinalIgnoreCase);
+    }
+}
+"@
+        }
+        [IcingaTrustOneHost]::Host = ([uri]$base).Host
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback =
+        [System.Delegate]::CreateDelegate([System.Net.Security.RemoteCertificateValidationCallback], [IcingaTrustOneHost], "Accept")
+    }
+    [pscustomobject]@{
+        Base = $base
+        Auth = "Basic " + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("${User}:$Password"))
+    }
+}
+
+# GET from the Icinga 2 API of New-IcingaApi; returns the `results` array.
+# Icinga answers a request without an Accept header with a 400. A 404 (no such
+# object) comes back as an empty array, since "not there yet" is what every
+# caller polls for.
+function Invoke-IcingaApi {
+    param([Parameter(Mandatory)]$Api, [Parameter(Mandatory)][string]$Path)
+    $params = @{
+        Uri         = "$($Api.Base)$Path"
+        Headers     = @{ Authorization = $Api.Auth; Accept = "application/json" }
+        TimeoutSec  = 30
+        ErrorAction = "Stop"
+    }
+    if ($PSVersionTable.PSVersion.Major -ge 6) { $params.SkipCertificateCheck = $true }
+    try { $response = Invoke-RestMethod @params }
+    catch {
+        $status = 0
+        if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+        if ($status -eq 404) { return @() }
+        throw "GET $($Api.Base)$Path failed: $($_.Exception.Message)"
+    }
+    return @($response.results | ForEach-Object { $_ })
+}
+
+<#
+.SYNOPSIS
     Parse the .nagios.pwd file written by setup-nagios-machine.ps1.
 .OUTPUTS
     An object with PublicIp, NagiosUrl, NagiosUser, NagiosPassword, NrdpUrl,
@@ -539,6 +672,13 @@ function Read-IcingaPwdFile {
         # name and the SHA-256 fingerprint of its certificate.
         Endpoint      = "$($values['Icinga Endpoint'])"
         Fingerprint   = "$($values['Icinga Fingerprint'])"
+        # The explained-alerts flow (setup-icinga-explained-alerts.ps1): the
+        # API user its agents submit with, and the VM itself for RunCommand.
+        ExplainUser     = "$($values['Explained Agent User'])"
+        ExplainPassword = "$($values['Explained Agent Password'])"
+        NodeName        = "$($values['Icinga Node Name'])"
+        VmName          = "$($values['VM Name'])"
+        ResourceGroup   = "$($values['Resource Group'])"
     }
 }
 

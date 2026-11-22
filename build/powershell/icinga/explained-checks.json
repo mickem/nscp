@@ -1,0 +1,21 @@
+{
+  "_comment": "The schedules of the 'explained Icinga alerts' tutorial flow. configure-explained-agents.ps1 writes each entry as a scheduler schedule (the name is the Icinga service name and the alias the agent records a failure under), setup-icinga-explained-alerts.ps1 defines a passive service per entry and derives the freshness window (2 x interval), and verify-icinga-explained.ps1 breaks the entry named by 'fault' and waits for its explained notification. host_check is the result of the host itself, not a service. A command is one string, or one per OS. Commands are written without quotes and spaces inside an argument: they pass through a PowerShell and a bash command line on the way to nsclient.ini.",
+  "interval": "60s",
+  "fault": "disk_c",
+  "schedules": [
+    { "name": "host_check", "command": "check_ok" },
+    { "name": "cpu", "command": "check_cpu" },
+    { "name": "memory", "command": "check_memory" },
+    {
+      "name": "disk_c",
+      "command": {
+        "windows": "check_drivesize drive=C: warn=free<20% crit=free<10%",
+        "linux": "check_drivesize drive=/ warn=free<20% crit=free<10%"
+      },
+      "broken": {
+        "windows": "check_drivesize drive=C: crit=free<99%",
+        "linux": "check_drivesize drive=/ crit=free<99%"
+      }
+    }
+  ]
+}

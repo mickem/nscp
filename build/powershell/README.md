@@ -881,6 +881,91 @@ Things worth knowing:
 Teardown: unassign and delete the `icinga-agent` bundle and the
 `icinga-agents` group in the fleet UI; the VM goes with its resource group.
 
+### Explained alerts: the tutorial, as a test
+
+The tutorial *Icinga alert emails that explain themselves* has an agent submit
+passive results to Icinga 2 and report every failed check to the fleet server.
+When Icinga notifies, the handler first asks the fleet server why
+(`check_nsclient fleet explain`) and mails the answer with the alert. These
+three scripts set that up on the same VM and estate, and run its last step as
+a gate.
+
+```powershell
+./icinga/setup-icinga-machine.ps1                     # the same VM as the other flows
+./provision-fleet-machines.ps1 -Windows 1 -Ubuntu 1 -WindowsPackageUrl <msi> -UbuntuPackageUrl <deb>
+./icinga/setup-icinga-explained-alerts.ps1            # Icinga side: tutorial Steps 4-6, and mail
+./icinga/configure-explained-agents.ps1               # agent side: tutorial Step 3
+./icinga/verify-icinga-explained.ps1                  # Step 7: break a check, read the mail
+```
+
+What the tutorial's steps map to:
+
+| Tutorial | Here |
+|---|---|
+| 1-2. A model and a fleet server | Taken as given: the fleet server the estate is enrolled with. Explanations must be switched on for the tenant (*Settings* in the fleet console), with any provider. |
+| 3. Agent: passive checks, evidence, enrollment | `configure-explained-agents.ps1` writes the tutorial's `nsclient.ini` keys into each machine's own `nsclient.ini` over RunCommand and restarts the service, as the tutorial does by hand. Enrollment is the provisioning. |
+| 4. Passive services in Icinga | `icinga/explained/nscp-passive.conf`, with one `Host` per machine of the manifest. |
+| 5. `check_nsclient` and a key | Installed to `/usr/local/bin`; the key goes into `/etc/icinga2/fleet-explain.env`. The setup asks about a host that does not exist, as the daemon user, to prove the key and the trust store work without spending a model call. |
+| 6. The notification handler | `icinga/explained/mail-service-explained.sh` and `notify-explained.conf`, both as the tutorial has them. |
+| 7. Trigger a failure, read the mail | `verify-icinga-explained.ps1`. |
+
+The gate breaks `disk_c` on every machine (`crit=free<99%`), waits for Icinga
+to hold it as a hard CRITICAL and to have notified, and then reads the mail.
+It passes when the mail has the *Why* section with a *Based on* block that
+rests on the agent's own report of `disk_c`, and the check recovers with a
+recovery mail once the threshold is back. It prints every explanation. A run
+costs one model call per machine. `-BaselineOnly` stops before anything is
+broken.
+
+Things worth knowing:
+
+- **Mail works on the VM without an account.** The setup installs postfix and
+  `bsd-mailx`. By default `icingaadmin` is `alerts@localhost`, a mailbox on
+  the VM (`/var/mail/alerts`), and a blind copy of *every* mail goes there
+  too. That copy is what the gate reads, so the gate never depends on a mail
+  server. Read it yourself with `./connect-machine.ps1 -PwdFile .icinga.pwd`
+  and `sudo cat /var/mail/alerts`.
+- **Real mail needs a relay.** Azure blocks outbound port 25, so mail to an
+  address elsewhere goes through a submission server:
+
+  ```powershell
+  $env:NSCLIENT_SMTP_PASSWORD = "..."
+  ./icinga/setup-icinga-explained-alerts.ps1 -MailTo you@example.com -MailFrom alerts@example.com `
+      -SmtpHost smtp.example.com -SmtpUser alerts@example.com
+  ```
+
+  Port 587 with STARTTLS is the default; `-SmtpPort 465` switches to implicit
+  TLS. `-MailFrom` rewrites the sender, which most relays insist on. The setup
+  sends a test mail and prints whether the relay accepted it. Then break the
+  check by hand and wait for the mail:
+
+  ```powershell
+  ./icinga/configure-explained-agents.ps1 -BreakDisk      # and -RestoreDisk afterwards
+  ```
+- **`fleet explain` needs check_nsclient newer than 1.1.3.** The setup takes
+  the latest release from GitHub and refuses a build without the command;
+  `-CheckNsclientUrl` names another build.
+- **The key is stored on the VM.** Use a view_only key
+  (`NSCLIENT_FLEET_SYNC_API_KEY`); the script falls back to the main key with
+  a warning. `./icinga/setup-icinga-explained-alerts.ps1 -RemoveKey` takes it
+  off again, after which notifications are mailed with *No explanation
+  available*.
+- **One flow per host.** The hosts are named like the ones the other two
+  flows create. `-ReplaceHosts` takes them over; unassign the `icinga-passive`
+  and `icinga-agent` bundles first, or the agents keep serving two masters.
+  The stale `nagios-nrdp` bundle matters too: its schedules have the same
+  names on another channel.
+- **Where the configuration differs from the tutorial** is listed at the top
+  of `icinga/explained/nscp-passive.conf` and of
+  `configure-explained-agents.ps1`. The one that matters: Icinga 2 has no
+  `check_freshness` / `freshness_threshold`, and refuses a service that sets
+  them.
+- **The settle time decides how good the explanation is.** Icinga notifies on
+  the first failed result, while the agent's report of it reaches the fleet
+  server on its next poll. `-ExplainSettle` (75 s by default) is how long the
+  handler waits before it asks; the gate fails with "does not rest on the
+  agent's report" when that was not enough.
+
 ## Connect to a running VM
 
 `connect-machine.ps1` opens an interactive session to whatever the last setup
