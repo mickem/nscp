@@ -1,6 +1,6 @@
 ---
 title: "IcingaAgent: what a connected Icinga parent may run"
-fixed_in: next
+fixed_in: 0.27.0
 severity: "Informational (new module, not loaded by default)"
 modules: [IcingaAgent]
 action: conditional

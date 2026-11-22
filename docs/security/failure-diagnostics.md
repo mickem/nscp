@@ -1,6 +1,6 @@
 ---
 title: "Diagnostics tables expose processes, services and log messages over REST and with failure context"
-fixed_in: next
+fixed_in: 0.27.0
 severity: "Low"
 modules: [core, WEBServer, CheckSystem, CheckSystemUnix, CheckEventLog, CheckDisk]
 action: conditional

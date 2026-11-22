@@ -1,6 +1,6 @@
 ---
 title: "OpenSSL 3.5.10 — the November 2026 upstream CVEs and the bundled OpenSSL 3.5.9"
-fixed_in: next
+fixed_in: 0.27.0
 fixed_in_note: "moves to OpenSSL 3.5.10 once upstream publishes it; until then the builds bundle 3.5.9"
 severity: "None reachable through NSClient++ (scanners report up to Critical against the bundled library)"
 modules: [packaging]

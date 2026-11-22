@@ -1,6 +1,6 @@
 ---
 title: "Checkmk agent dump: a field taken from the OS could forge rows and sections"
-fixed_in: next
+fixed_in: 0.27.0
 severity: "Medium"
 modules: [CheckMKServer, CheckSystem, CheckSystemUnix, CheckDisk]
 action: none
