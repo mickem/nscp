@@ -110,18 +110,18 @@ A list of all available queries (check commands)
 | Command                                                                  | Description                                                                                 |
 |--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | [check_apache_status](#check_apache_status) *(experimental)*             | Check an Apache httpd server via its mod_status page (server-status?auto).                  |
-| [check_connections](#check_connections) *(experimental)*                 | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
-| [check_dns](#check_dns) *(experimental)*                                 | Resolve a host name and check the response time and resulting addresses.                    |
+| [check_connections](#check_connections)                                  | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
+| [check_dns](#check_dns)                                                  | Resolve a host name and check the response time and resulting addresses.                    |
 | [check_domain](#check_domain) *(experimental)*                           | Check registered domain expiration over RDAP with optional WHOIS fallback.                  |
-| [check_http](#check_http) *(experimental)*                               | Send an HTTP/HTTPS request and check the response status, time, size and body.              |
+| [check_http](#check_http)                                                | Send an HTTP/HTTPS request and check the response status, time, size and body.              |
 | [check_nginx_status](#check_nginx_status) *(experimental)*               | Check an NGINX server via its stub_status page.                                             |
 | [check_nsclient_web_online](#check_nsclient_web_online) *(experimental)* | Query the REST API of a remote NSClient++ agent (reachability or a remote check).           |
-| [check_ntp_offset](#check_ntp_offset) *(experimental)*                   | Query an NTP server and check the offset between the local clock and the server.            |
+| [check_ntp_offset](#check_ntp_offset)                                    | Query an NTP server and check the offset between the local clock and the server.            |
 | [check_phpfpm_status](#check_phpfpm_status) *(experimental)*             | Check a PHP-FPM pool via its status page.                                                   |
 | [check_ping](#check_ping)                                                | Ping another host and check the result.                                                     |
 | [check_radius](#check_radius) *(experimental)*                           | Probe RADIUS authentication or responsiveness with authenticated UDP replies.               |
 | [check_ssh](#check_ssh) *(experimental)*                                 | Connect to an SSH port and verify the server presents a valid SSH banner.                   |
-| [check_tcp](#check_tcp) *(experimental)*                                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
+| [check_tcp](#check_tcp)                                                  | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
 | [check_tomcat_status](#check_tomcat_status) *(experimental)*             | Check an Apache Tomcat server via the manager status page (XML).                            |
 
 ### check_apache_status
@@ -308,12 +308,6 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_connections
 
-!!! warning "Experimental"
-
-    This check command is experimental: it works, but its options, filter keywords
-    and output may change in a future release. Please try it and report
-    anything that does not behave the way you expect.
-
 Count active TCP/UDP connections and report counts per protocol and TCP state.
 
 #### About `check_connections`
@@ -474,12 +468,6 @@ This command also accepts the standard [help options](../common-options.md#stand
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_dns
-
-!!! warning "Experimental"
-
-    This check command is experimental: it works, but its options, filter keywords
-    and output may change in a future release. Please try it and report
-    anything that does not behave the way you expect.
 
 Resolve a host name and check the response time and resulting addresses.
 
@@ -971,12 +959,6 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_http
 
-!!! warning "Experimental"
-
-    This check command is experimental: it works, but its options, filter keywords
-    and output may change in a future release. Please try it and report
-    anything that does not behave the way you expect.
-
 Send an HTTP/HTTPS request and check the response status, time, size and body.
 
 #### About `check_http`
@@ -1311,7 +1293,7 @@ OK: https://internal.example.com ok verify=unable to get local issuer certificat
 | [path](#check_http_path)                 | /                                 | Path component of the URL.                                                                                                                                                                                                                                           |
 | [protocol](#check_http_protocol)         | http                              | Protocol to use: http or https.                                                                                                                                                                                                                                      |
 | [ssl](#check_http_ssl)                   | false                             | Force https, alias for --protocol https (ssl=true).                                                                                                                                                                                                                  |
-| [timeout](#check_http_timeout)           | 30000                             | Timeout in milliseconds.                                                                                                                                                                                                                                             |
+| [timeout](#check_http_timeout)           | 30000                             | Timeout in milliseconds for connecting and for each read and write. Applied in whole seconds, rounded up.                                                                                                                                                            |
 | [method](#check_http_method)             | GET                               | HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).                                                                                                                                                                                                              |
 | post-data                                |                                   | Request body to send; implies POST unless --method is given.                                                                                                                                                                                                         |
 | [content-type](#check_http_content-type) | application/x-www-form-urlencoded | Content-Type header for the request body.                                                                                                                                                                                                                            |
@@ -1352,7 +1334,7 @@ Force https, alias for --protocol https (ssl=true).
 
 <h5 id="check_http_timeout">timeout:</h5>
 
-Timeout in milliseconds.
+Timeout in milliseconds for connecting and for each read and write. Applied in whole seconds, rounded up.
 
 *Default Value:* `30000`
 
@@ -1688,7 +1670,7 @@ Arguments:
 | `user`              | Optional username → switches to HTTP Basic authentication         |
 | `command`           | Remote check to run (omit for a plain reachability probe)         |
 | `argument`          | Argument for the remote check; repeat for multiple                |
-| `timeout`           | Request timeout in milliseconds                                   |
+| `timeout`           | Timeout in milliseconds for the connect (TLS handshake included) and each read and write; default `30000`, applied in whole seconds, rounded up |
 | `tls-version`       | TLS version (default `tlsv1.2+`)                                  |
 | `verify`            | Certificate verify mode (default `peer`)                          |
 | `ca`                | CA bundle to verify the remote certificate (default `${ca-path}`) |
@@ -1764,12 +1746,6 @@ CRITICAL: Failed to reach https://192.168.56.10:9999: Connection refused
 
 
 ### check_ntp_offset
-
-!!! warning "Experimental"
-
-    This check command is experimental: it works, but its options, filter keywords
-    and output may change in a future release. Please try it and report
-    anything that does not behave the way you expect.
 
 Query an NTP server and check the offset between the local clock and the server.
 
@@ -3007,12 +2983,6 @@ This command also accepts the standard [help options](../common-options.md#stand
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_tcp
-
-!!! warning "Experimental"
-
-    This check command is experimental: it works, but its options, filter keywords
-    and output may change in a future release. Please try it and report
-    anything that does not behave the way you expect.
 
 Connect to a TCP port and optionally send/expect data to check that a service is reachable.
 

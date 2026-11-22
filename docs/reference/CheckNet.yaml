@@ -271,7 +271,6 @@ common:
         short_description: ''
       info:
         description: Count active TCP/UDP connections and report counts per protocol and TCP state.
-        experimental: true
     check_dns:
       common_fields:
       - count
@@ -345,7 +344,6 @@ common:
         short_description: ''
       info:
         description: Resolve a host name and check the response time and resulting addresses.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -705,7 +703,6 @@ common:
         short_description: ''
       info:
         description: Send an HTTP/HTTPS request and check the response status, time, size and body.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -760,11 +757,13 @@ common:
       - content_type: 2
         default_value: '30000'
         is_simple: false
-        long_description: Timeout in milliseconds.
+        long_description: Timeout in milliseconds for connecting and for each read and write. Applied
+          in whole seconds, rounded up.
         name: timeout
         repeatable: false
         required: false
-        short_description: Timeout in milliseconds.
+        short_description: Timeout in milliseconds for connecting and for each read and write. Applied
+          in whole seconds, rounded up.
       - content_type: 2
         default_value: GET
         is_simple: false
@@ -1171,7 +1170,6 @@ common:
         short_description: ''
       info:
         description: Query an NTP server and check the offset between the local clock and the server.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''
@@ -2096,7 +2094,6 @@ common:
       info:
         description: Connect to a TCP port and optionally send/expect data to check that a service is
           reachable.
-        experimental: true
       params:
       - content_type: 2
         default_value: ''

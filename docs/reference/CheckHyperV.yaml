@@ -4,8 +4,9 @@ platforms:
 - windows
 windows:
   info:
-    description: 'Checks for a Hyper-V host: hypervisor health and capacity, logical processor load and
-      the state, heartbeat, memory and snapshots of every virtual machine.'
+    description: 'Checks for a Hyper-V host: hypervisor health, capacity and over-commitment, logical
+      processor load, the state, heartbeat, memory and snapshots of every virtual machine, and the virtual
+      switches.'
     experimental: true
     title: CheckHyperV
   paths:
@@ -161,6 +162,22 @@ windows:
         warning: ''
       fields:
       - generic: false
+        long_description: Virtual processors of the running virtual machines as % of the host's logical
+          processors (vm_vcpus / logical_processors); above 100 the guests are promised more processors
+          than the host has
+        name: cpu_overcommit
+        short_description: ''
+      - generic: false
+        long_description: Why the virtual machines could not be read (empty when they were)
+        name: guests_error
+        short_description: ''
+      - generic: false
+        long_description: False when the virtual machines could not be read (WMI failed or timed out,
+          or this account cannot see all of them), so running_vms, vm_vcpus, memory_assigned and the over-commitment
+          keywords are 0 and mean nothing
+        name: guests_known
+        short_description: ''
+      - generic: false
         long_description: Virtual machines whose health is critical (the host could not keep them running
           as configured)
         name: health_critical
@@ -174,9 +191,27 @@ windows:
         name: logical_processors
         short_description: ''
       - generic: false
+        long_description: Memory currently assigned to the running virtual machines in bytes
+        name: memory_assigned
+        short_description: ''
+      - generic: false
+        long_description: Memory assigned to the running virtual machines as % of the host's physical
+          memory (memory_assigned / physical_memory); what is left is all the host itself and dynamic
+          memory have to work with
+        name: memory_overcommit
+        short_description: ''
+      - generic: false
         long_description: 'Running partitions, including the root (host) partition: the number of running
           virtual machines plus one'
         name: partitions
+        short_description: ''
+      - generic: false
+        long_description: Physical memory of the host in bytes
+        name: physical_memory
+        short_description: ''
+      - generic: false
+        long_description: Virtual machines that are running
+        name: running_vms
         short_description: ''
       - generic: false
         long_description: Memory pages the hypervisor has allocated for its own use
@@ -186,9 +221,114 @@ windows:
         long_description: Virtual processors currently allocated to running partitions (root and guests)
         name: virtual_processors
         short_description: ''
+      - generic: false
+        long_description: Virtual processors configured on the running virtual machines (the root partition's
+          are not counted)
+        name: vm_vcpus
+        short_description: ''
       info:
-        description: 'Check the Hyper-V host: virtual machine health summary and hypervisor capacity (logical/virtual
-          processors, partitions).'
+        description: 'Check the Hyper-V host: virtual machine health summary, hypervisor capacity (logical/virtual
+          processors, partitions) and CPU/memory over-commitment.'
+        experimental: true
+      params:
+      - content_type: 2
+        default_value: '5'
+        is_simple: false
+        long_description: Seconds to wait for the virtual machine list (WMI) behind the over-commitment
+          keywords. When it runs out the check still reports the health counters, with guests_known false.
+        name: vm-timeout
+        repeatable: false
+        required: false
+        short_description: Seconds to wait for the virtual machine list (WMI) behind the over-commitment
+          keywords. When it runs out the check still reports the health counters, with guests_known false.
+    check_hyperv_switches:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: health != 'ok'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${switch}: ${type}, ${state}, health ${health}'
+        empty-state: unknown
+        empty-syntax: No virtual switches found
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): all %(count) virtual switch(es) ok'
+        perf-config: ''
+        perf-syntax: ${switch}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${problem_list}'
+        warn: ''
+        warning: state not in ('enabled', 'not_applicable')
+      fields:
+      - generic: false
+        long_description: 'Health as the host sees it: ok, degraded, minor_failure, major_failure, critical_failure,
+          non_recoverable_error or unknown'
+        name: health
+        short_description: ''
+      - generic: false
+        long_description: GUID of the virtual switch
+        name: id
+        short_description: ''
+      - generic: false
+        long_description: True when the host itself has a virtual network adapter on the switch (always
+          for internal, optional for external)
+        name: management_os
+        short_description: ''
+      - generic: false
+        long_description: 'Operational status: ok, degraded, predictive_failure, stopped, in_service or
+          dormant'
+        name: operational_status
+        short_description: ''
+      - generic: false
+        long_description: 'Ports on the switch: one per connected virtual machine network adapter plus
+          the external and host ports'
+        name: ports
+        short_description: ''
+      - generic: false
+        long_description: 'Switch state: enabled or not_applicable (both normal; Hyper-V reports most
+          switches as not_applicable), disabled, enabled_but_offline, starting, shutting_down, ... or
+          state_<n> for an unknown code'
+        name: state
+        short_description: ''
+      - generic: false
+        long_description: Raw EnabledState value behind `state`
+        name: state_code
+        short_description: ''
+      - generic: false
+        long_description: Name of the virtual switch
+        name: switch
+        short_description: ''
+      - generic: false
+        long_description: 'Switch type: external (bound to a physical network adapter), internal (host
+          and virtual machines only) or private (virtual machines only)'
+        name: type
+        short_description: ''
+      info:
+        description: Check virtual switches (type, state, health, ports).
         experimental: true
     check_hyperv_vms:
       common_fields:
@@ -247,7 +387,8 @@ windows:
         name: generation
         short_description: ''
       - generic: false
-        long_description: 'Health as the host sees it: ok, major_failure or critical_failure'
+        long_description: 'Health as the host sees it: ok, degraded, minor_failure, major_failure, critical_failure,
+          non_recoverable_error or unknown'
         name: health
         short_description: ''
       - generic: false
@@ -280,6 +421,11 @@ windows:
       - generic: false
         long_description: Configured startup memory in bytes
         name: memory_startup
+        short_description: ''
+      - generic: false
+        long_description: Virtual machines on this host with the same name as this one, itself included
+          (compared case-insensitively), so name_count > 1 finds duplicate names
+        name: name_count
         short_description: ''
       - generic: false
         long_description: Creation time of the oldest checkpoint (0 / 'none' without checkpoints). Comparable
@@ -344,5 +490,5 @@ windows:
         short_description: ''
       info:
         description: Check virtual machines (state, health, heartbeat, uptime, memory, processors, snapshots,
-          replication).
+          replication, duplicate names).
         experimental: true

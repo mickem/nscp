@@ -4761,9 +4761,17 @@ prefix, so `hotfix=5034441` == `hotfix=KB5034441`). Age alerting is opt-in via
 Component-Based-Servicing hotfixes (the `KB` list), not every cumulative-update
 component, and its `InstalledOn` field is frequently blank or locale-formatted.
 The check parses the common `M/D/YYYY` and `YYYYMMDD` forms; hotfixes whose date
-cannot be parsed are excluded from the `age` calculation (and `age` is `-1` only
-when *no* hotfix has a parseable date). Treat `age` as "days since the newest
-*dated* hotfix", not an exact patch SLA clock.
+cannot be parsed are excluded from the `age` calculation. Treat `age` as "days
+since the newest *dated* hotfix", not an exact patch SLA clock.
+
+When *no* hotfix has a parseable date, `age` has no value: it renders as
+`unknown`, emits no perfdata, and every numeric comparison on it is false. An
+age threshold on its own therefore stays quiet on such a host. The `age_known`
+flag (`1` when the age is known, `0` when it is not) is how you alert on it:
+
+```
+check_patch_age "warn=age > 40" "crit=age > 90 or age_known = 0"
+```
 
 **Jump to section:**
 
@@ -4787,6 +4795,13 @@ OK: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (18d ago)
 ```
 check_patch_age "warn=age > 40" "crit=age > 90"
 WARNING: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (57d ago)
+```
+
+**Also alert when Windows reports no install dates (the age is then unknown):**
+
+```
+check_patch_age "warn=age > 40" "crit=age > 90 or age_known = 0"
+CRITICAL: 42 hotfixes installed, newest install date unknown
 ```
 
 **Verify a specific hotfix is installed (vulnerability response) — CRITICAL if missing:**
@@ -4875,17 +4890,18 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_patch_age_filter_keys"></a>
 #### Filter keywords
 
-| Option           | Description                                                                                     |
-|------------------|-------------------------------------------------------------------------------------------------|
-| age              | Days since the newest hotfix was installed (-1 if the install date is unknown)                  |
-| ids              | Semicolon-separated list of all installed HotFixIDs (use 'ids like KBxxxxxxx' to test presence) |
-| message          | Full status sentence used as the default detail line                                            |
-| missing          | Number of requested hotfixes that are not installed                                             |
-| missing_ids      | Semicolon-separated list of the requested hotfixes that are missing                             |
-| newest_id        | HotFixID of the most recently installed hotfix                                                  |
-| newest_installed | Install date of the newest hotfix (as reported by Windows)                                      |
-| patches          | Total number of installed hotfixes                                                              |
-| required         | Number of hotfixes requested via the hotfix= option                                             |
+| Option           | Description                                                                                                                                                                                              |
+|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| age              | Days since the newest hotfix was installed. 'unknown' when no hotfix has a parseable install date; every numeric comparison is then false, so test `age_known = 0` for it                                |
+| age_known        | 1 if at least one hotfix has a parseable install date, 0 if `age` is unknown. An age threshold never fires on an unknown age, so add `or age_known = 0` to alert on a host that reports no install dates |
+| ids              | Semicolon-separated list of all installed HotFixIDs (use 'ids like KBxxxxxxx' to test presence)                                                                                                          |
+| message          | Full status sentence used as the default detail line                                                                                                                                                     |
+| missing          | Number of requested hotfixes that are not installed                                                                                                                                                      |
+| missing_ids      | Semicolon-separated list of the requested hotfixes that are missing                                                                                                                                      |
+| newest_id        | HotFixID of the most recently installed hotfix                                                                                                                                                           |
+| newest_installed | Install date of the newest hotfix (as reported by Windows)                                                                                                                                               |
+| patches          | Total number of installed hotfixes                                                                                                                                                                       |
+| required         | Number of hotfixes requested via the hotfix= option                                                                                                                                                      |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -5726,7 +5742,7 @@ the agent's privileges (`SYSTEM` or `root`). Command lines routinely carry
 passwords, API tokens and connection strings, and none of it is redacted. The
 default syntax does not render it, but a caller who may pass arguments can ask
 for it with `detail-syntax=${command_line}`, and `fetch-only` (the check_mk
-`<<<ps>>>` feed) lists every process's command line unconditionally. Use them
+`<<<ps>>>` feed) lists every process's command line and owner unconditionally. Use them
 in your own aliases rather than exposing them to callers; see
 [Data disclosure](../../setup/securing.md#data-disclosure-restricting-what-a-check-may-read).
 
@@ -8650,24 +8666,26 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ## Configuration
 
-| Path / Section                                                          | Description              |
-|-------------------------------------------------------------------------|--------------------------|
-| [/settings/default](#default-values)                                    | Default values           |
-| [/settings/system/unix](#unix-system)                                   | Unix system              |
-| [/settings/system/unix/facts](#/settings/system/unix/facts)             |                          |
-| [/settings/system/unix/real-time/cpu](#realtime-cpu-filters)            | Realtime cpu filters     |
-| [/settings/system/unix/real-time/memory](#realtime-memory-filters)      | Realtime memory filters  |
-| [/settings/system/unix/real-time/process](#realtime-process-filters)    | Realtime process filters |
-| [/settings/system/unix/service-tags](#service-tags)                     | Service tags             |
-| [/settings/system/windows](#windows-system)                             | Windows system           |
-| [/settings/system/windows/counters](#pdh-counters)                      | PDH Counters             |
-| [/settings/system/windows/facts](#/settings/system/windows/facts)       |                          |
-| [/settings/system/windows/real-time/checks](#legacy-generic-filters)    | Legacy generic filters   |
-| [/settings/system/windows/real-time/cpu](#realtime-cpu-filters)         | Realtime cpu filters     |
-| [/settings/system/windows/real-time/memory](#realtime-memory-filters)   | Realtime memory filters  |
-| [/settings/system/windows/real-time/process](#realtime-process-filters) | Realtime process filters |
-| [/settings/system/windows/registry](#predefined-registry-keys)          | PREDEFINED REGISTRY KEYS |
-| [/settings/system/windows/service-tags](#service-tags)                  | Service tags             |
+| Path / Section                                                                | Description              |
+|-------------------------------------------------------------------------------|--------------------------|
+| [/settings/default](#default-values)                                          | Default values           |
+| [/settings/system/unix](#unix-system)                                         | Unix system              |
+| [/settings/system/unix/diagnostics](#/settings/system/unix/diagnostics)       |                          |
+| [/settings/system/unix/facts](#/settings/system/unix/facts)                   |                          |
+| [/settings/system/unix/real-time/cpu](#realtime-cpu-filters)                  | Realtime cpu filters     |
+| [/settings/system/unix/real-time/memory](#realtime-memory-filters)            | Realtime memory filters  |
+| [/settings/system/unix/real-time/process](#realtime-process-filters)          | Realtime process filters |
+| [/settings/system/unix/service-tags](#service-tags)                           | Service tags             |
+| [/settings/system/windows](#windows-system)                                   | Windows system           |
+| [/settings/system/windows/counters](#pdh-counters)                            | PDH Counters             |
+| [/settings/system/windows/diagnostics](#/settings/system/windows/diagnostics) |                          |
+| [/settings/system/windows/facts](#/settings/system/windows/facts)             |                          |
+| [/settings/system/windows/real-time/checks](#legacy-generic-filters)          | Legacy generic filters   |
+| [/settings/system/windows/real-time/cpu](#realtime-cpu-filters)               | Realtime cpu filters     |
+| [/settings/system/windows/real-time/memory](#realtime-memory-filters)         | Realtime memory filters  |
+| [/settings/system/windows/real-time/process](#realtime-process-filters)       | Realtime process filters |
+| [/settings/system/windows/registry](#predefined-registry-keys)                | PREDEFINED REGISTRY KEYS |
+| [/settings/system/windows/service-tags](#service-tags)                        | Service tags             |
 
 
 ### Default values <a id="/settings/default"></a>
@@ -9030,6 +9048,88 @@ Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc
 [/settings/system/unix]
 # Timezone
 timezone=local
+```
+
+### /settings/system/unix/diagnostics <a id="/settings/system/unix/diagnostics"></a>
+
+*Available on Linux only.*
+
+
+
+
+| Key                              | Default Value | Description         |
+|----------------------------------|---------------|---------------------|
+| [errors](#journal-errors)        | false         | JOURNAL ERRORS      |
+| [processes](#process-tables)     | false         | PROCESS TABLES      |
+| [services](#services-in-trouble) | false         | SERVICES IN TROUBLE |
+
+
+```ini
+# 
+[/settings/system/unix/diagnostics]
+errors=false
+processes=false
+services=false
+```
+
+#### JOURNAL ERRORS <a id="/settings/system/unix/diagnostics/errors"></a>
+
+Produce the eventlog.errors diagnostics table: the last journal entries at priority err or worse, with when, the unit that wrote them (or kernel), the syslog identifier, the level and the message - which programs fill with whatever they like. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Read with journalctl every 10 seconds on a thread of its own, the last 50 kept; at start it is filled from the last ten minutes. The agent must be able to read the system journal (root, or the adm or systemd-journal group). Needs systemd: a host without it produces no table.
+
+
+| Key            | Description                                                             |
+|----------------|-------------------------------------------------------------------------|
+| Path:          | [/settings/system/unix/diagnostics](#/settings/system/unix/diagnostics) |
+| Key:           | errors                                                                  |
+| Default value: | `false`                                                                 |
+
+
+**Sample:**
+
+```
+[/settings/system/unix/diagnostics]
+# JOURNAL ERRORS
+errors=false
+```
+
+#### PROCESS TABLES <a id="/settings/system/unix/diagnostics/processes"></a>
+
+Produce the processes.top_cpu and processes.top_memory diagnostics tables: the processes using the most CPU over the last second and the ones with the largest resident memory, with their name, pid, CPU share, working set and private (unshared) memory - never their command line. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Turns on the sampling it needs: the collector reads /proc/<pid>/stat and statm of every process once a second while this is on, and nothing while it is off. Linux only; on macOS the tables report that they are not supported.
+
+
+| Key            | Description                                                             |
+|----------------|-------------------------------------------------------------------------|
+| Path:          | [/settings/system/unix/diagnostics](#/settings/system/unix/diagnostics) |
+| Key:           | processes                                                               |
+| Default value: | `false`                                                                 |
+
+
+**Sample:**
+
+```
+[/settings/system/unix/diagnostics]
+# PROCESS TABLES
+processes=false
+```
+
+#### SERVICES IN TROUBLE <a id="/settings/system/unix/diagnostics/services"></a>
+
+Produce the services.problems and services.events diagnostics tables. services.problems lists the systemd services that failed, are waiting to be restarted, were restarted automatically (NRestarts) or whose last run did not succeed, with their state, exit status, executable (ExecStart's path, never its arguments), user, start time and restart count; it is re-read every 30 seconds with two bounded systemctl calls, which read the services that look troubled every time and every running one (for its restart count) every five minutes. services.events holds the service manager's journal messages for a unit that failed, exited or is being restarted, with when, the service, and the message. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Run on a thread of its own, the journal read every 10 seconds from where the last read stopped; at start the events are filled from the last ten minutes. Needs systemd: a host without it produces neither table.
+
+
+| Key            | Description                                                             |
+|----------------|-------------------------------------------------------------------------|
+| Path:          | [/settings/system/unix/diagnostics](#/settings/system/unix/diagnostics) |
+| Key:           | services                                                                |
+| Default value: | `false`                                                                 |
+
+
+**Sample:**
+
+```
+[/settings/system/unix/diagnostics]
+# SERVICES IN TROUBLE
+services=false
 ```
 
 ### /settings/system/unix/facts <a id="/settings/system/unix/facts"></a>
@@ -9777,6 +9877,66 @@ parent=default
 
 
 
+
+### /settings/system/windows/diagnostics <a id="/settings/system/windows/diagnostics"></a>
+
+*Available on Windows only.*
+
+
+
+
+| Key                              | Default Value | Description         |
+|----------------------------------|---------------|---------------------|
+| [processes](#process-tables)     | false         | PROCESS TABLES      |
+| [services](#services-in-trouble) | false         | SERVICES IN TROUBLE |
+
+
+```ini
+# 
+[/settings/system/windows/diagnostics]
+processes=false
+services=false
+```
+
+#### PROCESS TABLES <a id="/settings/system/windows/diagnostics/processes"></a>
+
+Produce the processes.top_cpu and processes.top_memory diagnostics tables: the processes using the most CPU over the last second and the ones with the largest working set, with their name, pid, CPU share, working set and private bytes - never their command line. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. Turns on the collector's per-process CPU sampling ('process cpu'), which it needs: one extra process-table query a second.
+
+
+| Key            | Description                                                                   |
+|----------------|-------------------------------------------------------------------------------|
+| Path:          | [/settings/system/windows/diagnostics](#/settings/system/windows/diagnostics) |
+| Key:           | processes                                                                     |
+| Default value: | `false`                                                                       |
+
+
+**Sample:**
+
+```
+[/settings/system/windows/diagnostics]
+# PROCESS TABLES
+processes=false
+```
+
+#### SERVICES IN TROUBLE <a id="/settings/system/windows/diagnostics/services"></a>
+
+Produce the services.problems diagnostics table: the services that are not where they should be - what check_service flags by default (an automatic service that is not running, unless it is delayed, trigger-started, still starting or stopped cleanly), and any service that stopped with an error - with their state, exit code, executable (never its arguments), account and when their process started. Read from the service control manager every 30 seconds by the collector, opening only the services whose status already looks wrong. Kept with a failed check and served on /api/v2/diagnostics while [/settings/core/failed checks] capture diagnostics is on. The service events (services.events) come from CheckEventLog: [/settings/eventlog/diagnostics] services.
+
+
+| Key            | Description                                                                   |
+|----------------|-------------------------------------------------------------------------------|
+| Path:          | [/settings/system/windows/diagnostics](#/settings/system/windows/diagnostics) |
+| Key:           | services                                                                      |
+| Default value: | `false`                                                                       |
+
+
+**Sample:**
+
+```
+[/settings/system/windows/diagnostics]
+# SERVICES IN TROUBLE
+services=false
+```
 
 ### /settings/system/windows/facts <a id="/settings/system/windows/facts"></a>
 
