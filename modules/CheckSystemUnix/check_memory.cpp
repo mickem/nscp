@@ -30,7 +30,7 @@ node_type calculate_free(std::shared_ptr<filter_obj> object, evaluation_context 
     // percentage; compute in double and saturate, as check_drive does.
     number = str::to_int64_saturating(static_cast<double>(object->get_total()) * static_cast<double>(number) / 100.0);
   } else {
-    number = str::format::decode_byte_units(number, unit);
+    number = parsers::where::helpers::apply_byte_unit(context, number, unit);
   }
   return factory::create_int(number);
 }

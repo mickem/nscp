@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 #include "check_radius.hpp"
 
+#include <check/duration_keyword.hpp>
 #include <boost/asio.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
@@ -32,8 +33,9 @@ struct radius_handler : parsers::where::filter_handler_impl<std::shared_ptr<radi
     registry_.add_string_var("reply", [](auto o) { return o->reply; }, "Authenticated reply type; none until the reply passes both authenticators");
     registry_.add_int_var("port", parsers::where::type_int, [](auto o) { return o->port; }, "Remote UDP port");
     registry_.add_int_var(
-                 "time", parsers::where::type_int, [](auto o) { return o->elapsed; }, "Elapsed query time including resolution, in milliseconds")
+                 "time", duration_keyword::type_milliseconds, [](auto o) { return o->elapsed; }, "Elapsed query time including resolution, in milliseconds")
         .add_int_perf("ms", "", "_time");
+    registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<radius_result>>);
   }
 };
 using radius_filter = modern_filter::modern_filters<radius_result, radius_handler>;

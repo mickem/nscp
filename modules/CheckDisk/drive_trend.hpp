@@ -9,6 +9,7 @@
 // human renderings. The platform files own the filter_obj and keyword
 // registration; everything here is pure and unit-testable.
 
+#include <check/duration_keyword.hpp>
 #include <limits>
 #include <str/saturate.hpp>
 #include <algorithm>
@@ -115,21 +116,9 @@ inline std::string format_rate(const boost::optional<long long> &v, const str::n
 }
 
 // Duration literal ("12h", or the tokenized [12, h] list form) to seconds, as
-// a node for the full_in threshold converter. Same reassembly dance as
-// check_uptime's parse_time (issues #452/#589).
+// a node for the full_in threshold converter: the shared converter.
 inline parsers::where::node_type parse_time_node(parsers::where::evaluation_context context, parsers::where::node_type subject) {
-  std::list<parsers::where::node_type> tokens = subject->get_list_value(context);
-  std::string expr;
-  if (tokens.size() == 2) {
-    std::list<parsers::where::node_type>::const_iterator cit = tokens.begin();
-    const long long n = (*cit)->get_int_value(context);
-    ++cit;
-    const std::string unit = (*cit)->get_value(context, parsers::where::type_string).get_string("");
-    expr = str::xtos(n) + unit;
-  } else {
-    expr = subject->get_string_value(context);
-  }
-  return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
+  return duration_keyword::detail::parse(context, subject, 1.0);
 }
 
 }  // namespace drive_trend

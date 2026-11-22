@@ -26,6 +26,8 @@ struct where_grammar : qi::grammar<std::string::const_iterator, node_type(), cha
 
   qi::rule<iterator_type, node_type(), charset::space_type> expression, and_expr, not_expr, cond_expr, identifier_expr, identifier, list_expr;
   qi::rule<iterator_type, std::string(), charset::space_type> string_literal, variable_name, string_literal_ex;
+  // The unit after a number: a run of letters ("5m", "500ms", "10GB") or "%".
+  qi::rule<iterator_type, std::string()> unit_suffix;
   qi::rule<iterator_type, operators(), charset::space_type> op, bitop;
 };
 }  // namespace where

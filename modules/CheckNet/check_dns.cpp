@@ -3,6 +3,7 @@
 
 #include "check_dns.h"
 
+#include <check/duration_keyword.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
@@ -34,7 +35,8 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("records", parsers::where::type_int, &filter_obj::get_count, "Number of records returned by the resolver");
   registry_.add_int_var("count", parsers::where::type_int, &filter_obj::get_count,
                         "Deprecated alias for records (the name clashes with the generic count summary keyword).");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the lookup in milliseconds");
+  registry_.add_int_var("time", duration_keyword::type_milliseconds, &filter_obj::get_time, "Time taken by the lookup in milliseconds; takes durations, e.g. time > 1s");
+  registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
 }
 
 }  // namespace check_dns_filter

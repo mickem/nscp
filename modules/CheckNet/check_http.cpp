@@ -3,6 +3,7 @@
 
 #include "check_http.h"
 
+#include <check/duration_keyword.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
@@ -40,7 +41,8 @@ filter_obj_handler::filter_obj_handler() {
   // metric) keeps the bare alias and the others get a distinguishing suffix —
   // without one they would all collide on the same label.
   registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code").add_int_perf("", "", "_code");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the request in milliseconds").add_int_perf("ms");
+  registry_.add_int_var("time", duration_keyword::type_milliseconds, &filter_obj::get_time, "Time taken by the request in milliseconds; takes durations, e.g. time > 2s").add_int_perf("ms");
+  registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
   registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes").add_int_perf("B", "", "_size");
   registry_
       .add_optional_int_var("ssl_expiry_days", [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",

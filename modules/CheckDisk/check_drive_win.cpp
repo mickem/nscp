@@ -350,7 +350,7 @@ parsers::where::node_type calculate_total_used(std::shared_ptr<filter_obj> objec
   if (unit == "%") {
     number = (static_cast<double>(object->get_drive_size(context)) * number) / 100.0;
   } else {
-    number = str::format::decode_byte_units(number, unit);
+    number = parsers::where::helpers::apply_byte_unit(context, number, unit);
   }
   return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }
@@ -364,7 +364,7 @@ parsers::where::node_type calculate_user_used(std::shared_ptr<filter_obj> object
   if (unit == "%") {
     number = (static_cast<double>(object->get_user_free(context)) * number) / 100.0;
   } else {
-    number = str::format::decode_byte_units(number, unit);
+    number = parsers::where::helpers::apply_byte_unit(context, number, unit);
   }
   return parsers::where::factory::create_int(str::to_int64_saturating(number));
 }

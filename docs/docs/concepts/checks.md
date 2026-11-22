@@ -230,15 +230,24 @@ check_drivesize drive=* "filter=type in ('fixed', 'remote')"
 
 ### Size and time units
 
-| Suffix                      | Size              | Time                                     |
-|-----------------------------|-------------------|------------------------------------------|
-| `k` / `m` / `g` / `t`       | KB / MB / GB / TB | —                                        |
-| `s` / `m` / `h` / `d` / `w` | —                 | seconds / minutes / hours / days / weeks |
+| Suffix                                      | Size                           | Time                                                    |
+|---------------------------------------------|--------------------------------|---------------------------------------------------------|
+| `b`                                         | bytes                          | —                                                       |
+| `k` / `m` / `g` / `t` (also `kb`, `gib`, …) | KB / MB / GB / TB (1024-based) | —                                                       |
+| `ms` / `s` / `m` (`min`) / `h` / `d` / `w`  | —                              | milliseconds / seconds / minutes / hours / days / weeks |
 
 ```
-check_memory "warn=free < 4g"
+check_memory "warn=free < 4GB"
 check_uptime "warn=uptime < 1d"
+check_ping host=example.com "warn=time > 500ms"
+check_certificate "warn=expires_in < 2w"
 ```
+
+What `m` means depends on the keyword: megabytes on a size, minutes on a time. A unit is read in
+the keyword's own terms, so a bare number keeps meaning what the keyword counts - milliseconds for
+`check_ping`'s `time`, seconds for `uptime`, days for `expires_in` - and a keyword that counts
+whole days takes only `d` and `w`. A unit the keyword does not take (`time > 5x`, `free < 5mo`) is
+an error, never read as something else.
 
 Past times use **negative** values — `-1h` means "less than an hour ago":
 

@@ -3,6 +3,7 @@
 
 #include "check_webserver.h"
 
+#include <check/duration_keyword.hpp>
 #include <boost/program_options.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -339,10 +340,11 @@ struct filter_obj_handler : public native_context {
         .add_int_perf("c", "", "_request_count");
     registry_.add_int_var("error_count", parsers::where::type_int, [](auto obj) { return obj->c.error_count; }, "Requests that ended in an error since start")
         .add_int_perf("c", "", "_error_count");
-    registry_.add_int_var("processing_time", parsers::where::type_int, [](auto obj) { return obj->c.processing_time; }, "Total request processing time in ms since start")
+    registry_.add_int_var("processing_time", duration_keyword::type_milliseconds, [](auto obj) { return obj->c.processing_time; }, "Total request processing time in ms since start")
         .add_int_perf("ms", "", "_processing_time");
-    registry_.add_int_var("max_time", parsers::where::type_int, [](auto obj) { return obj->c.max_time; }, "Slowest request in ms since start")
+    registry_.add_int_var("max_time", duration_keyword::type_milliseconds, [](auto obj) { return obj->c.max_time; }, "Slowest request in ms since start")
         .add_int_perf("ms", "", "_max_time");
+    registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj>>);
     registry_.add_int_var("bytes_received", parsers::where::type_int, [](auto obj) { return obj->c.bytes_received; }, "Bytes received since start")
         .add_int_perf("B", "", "_bytes_received");
     registry_.add_int_var("bytes_sent", parsers::where::type_int, [](auto obj) { return obj->c.bytes_sent; }, "Bytes sent since start")
