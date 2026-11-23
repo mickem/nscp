@@ -459,6 +459,17 @@ export class NscpInstance {
     return this.proc?.pid;
   }
 
+  /**
+   * Why the background `nscp test` is gone, when it exited on its own (a crash,
+   * a failed boot) rather than through `stop()`; "" while it is running or was
+   * stopped by the test. A test that waits on the agent polls this so a dead
+   * agent fails at once, with the exit code, instead of running its wait out
+   * against a port nothing listens on.
+   */
+  exitedEarly(): string {
+    return this.earlyExit;
+  }
+
   /** Collected stdout from the running `nscp test` process so far. */
   capturedStdout(): string {
     return this.stdoutBuf;
