@@ -11,6 +11,7 @@
 
 #include <boost/json.hpp>
 #include <string>
+#include <vector>
 
 namespace icinga_agent {
 namespace json_util {
@@ -34,6 +35,20 @@ bool is_empty(const boost::json::value &v);
 // Icinga's truthiness for `set_if` and the boolean attributes: false, 0,
 // "", "0", "false" and empty containers are false, everything else true.
 bool is_truthy(const boost::json::value &v);
+
+// The three readers a translation needs of the macros a master sends. The
+// master sends a macro only when something gave it a value, so "not there"
+// and "empty" are one case: Icinga leaves the argument out for both.
+
+// There is a non-empty value under `key`.
+bool has_value(const boost::json::object &obj, const char *key);
+
+// is_truthy() of the value under `key`; false when there is none.
+bool truthy_field(const boost::json::object &obj, const char *key);
+
+// The value under `key` as a list of texts: the elements of an array, a
+// scalar as a list of one, nothing when it is missing or empty.
+std::vector<std::string> text_list(const boost::json::object &obj, const char *key);
 
 // An integer attribute such as `order`, sent as a number or a string.
 // `fallback` when it is neither.

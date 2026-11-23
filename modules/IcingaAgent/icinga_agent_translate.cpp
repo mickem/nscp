@@ -16,41 +16,16 @@ namespace icinga_agent {
 
 namespace {
 
-// ---------------------------------------------------------------------------
-// Reading the macros. The master sends a macro only when the service (or the
-// command's own defaults) gave it a value, so "not there" and "empty" are the
-// same thing: the Icinga agent left the argument out for both.
-// ---------------------------------------------------------------------------
-bool has(const json::object &macros, const char *name) {
-  const json::value *value = json_util::find(macros, name);
-  return value && !json_util::is_empty(*value);
-}
-
-std::string text(const json::object &macros, const char *name) {
-  const json::value *value = json_util::find(macros, name);
-  return value ? macro_value_text(*value) : std::string();
-}
-
-bool truthy(const json::object &macros, const char *name) {
-  const json::value *value = json_util::find(macros, name);
-  return value && json_util::is_truthy(*value);
-}
-
-std::vector<std::string> list(const json::object &macros, const char *name) {
-  std::vector<std::string> out;
-  const json::value *value = json_util::find(macros, name);
-  if (!value || json_util::is_empty(*value)) return out;
-  if (value->is_array()) {
-    for (const json::value &element : value->get_array()) out.push_back(json_util::to_text(element));
-  } else {
-    out.push_back(json_util::to_text(*value));
-  }
-  return out;
-}
+// Reading the macros goes through json_util and macro_text(): the master
+// sends a macro only when the service (or the command's own defaults) gave it
+// a value, so "not there" and "empty" are the same thing.
+using json_util::has_value;
+using json_util::text_list;
+using json_util::truthy_field;
 
 plugin_threshold threshold_of(const json::object &macros, const char *name) {
   try {
-    return parse_plugin_threshold(text(macros, name));
+    return parse_plugin_threshold(macro_text(macros, name));
   } catch (const threshold_error &e) {
     throw translation_error(std::string(name) + ": " + e.what());
   }
@@ -78,7 +53,7 @@ struct bound {
 // query's own default must not apply either.
 void add_side(std::list<std::string> &arguments, const char *short_key, const char *long_key, const json::object &macros, const char *macro,
               const bound &b) {
-  if (!has(macros, macro)) {
+  if (!has_value(macros, macro)) {
     arguments.push_back(std::string(short_key) + "=none");
     return;
   }
@@ -99,7 +74,7 @@ void add_sides(std::list<std::string> &arguments, const json::object &macros, co
 // B, kB, MB, GB, TB (any case) as the size suffix of a filter value. The
 // plugins count in 1024s, as the filters do.
 std::string size_suffix(const json::object &macros, const char *name, const char *fallback) {
-  std::string unit = has(macros, name) ? text(macros, name) : fallback;
+  std::string unit = has_value(macros, name) ? macro_text(macros, name) : fallback;
   for (char &c : unit) c = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
   if (unit == "b") return "b";
   if (unit == "kb") return "k";
@@ -115,7 +90,7 @@ bound space_bound(const json::object &macros, const char *unit_macro, const char
   bound b;
   b.suffix = size_suffix(macros, unit_macro, unit_fallback);
   b.keep_percent = true;
-  if (truthy(macros, used_macro)) {
+  if (truthy_field(macros, used_macro)) {
     b.keyword = "used";
   } else {
     b.inverted = true;
@@ -132,11 +107,11 @@ bound space_bound(const json::object &macros, const char *unit_macro, const char
 translated_command disk_windows(const json::object &macros) {
   translated_command out;
   out.query = "check_drivesize";
-  const std::vector<std::string> paths = list(macros, "disk_win_path");
+  const std::vector<std::string> paths = text_list(macros, "disk_win_path");
   for (const std::string &path : paths) out.arguments.push_back("drive=" + path);
   // No path: every fixed and remote volume, which is what the plugin walks.
   if (paths.empty()) out.arguments.push_back("filter=type in ('fixed', 'remote')");
-  for (const std::string &drive : list(macros, "disk_win_exclude")) out.arguments.push_back("exclude=" + drive);
+  for (const std::string &drive : text_list(macros, "disk_win_exclude")) out.arguments.push_back("exclude=" + drive);
   add_sides(out.arguments, macros, "disk_win_warn", "disk_win_crit", space_bound(macros, "disk_win_unit", "b", "disk_win_show_used"));
   return out;
 }
@@ -171,8 +146,8 @@ translated_command load_windows(const json::object &macros) {
   out.query = "check_cpu";
   json::object first;
   for (const char *name : {"load_win_warn", "load_win_crit"}) {
-    if (!has(macros, name)) continue;
-    const std::string value = text(macros, name);
+    if (!has_value(macros, name)) continue;
+    const std::string value = macro_text(macros, name);
     first[name] = value.substr(0, value.find(','));
   }
   add_sides(out.arguments, first, "load_win_warn", "load_win_crit", bound());
@@ -186,9 +161,9 @@ translated_command procs_windows(const json::object &macros) {
   translated_command out;
   out.query = "check_process";
   out.arguments.push_back("process=*");
-  if (has(macros, "procs_win_user")) {
+  if (has_value(macros, "procs_win_user")) {
     out.arguments.push_back("resolve-owner=true");
-    out.arguments.push_back("filter=username = " + quoted(text(macros, "procs_win_user"), "procs_win_user"));
+    out.arguments.push_back("filter=username = " + quoted(macro_text(macros, "procs_win_user"), "procs_win_user"));
   }
   bound b;
   b.keyword = "count";
@@ -209,7 +184,7 @@ translated_command users_windows(const json::object &macros) {
 translated_command uptime_windows(const json::object &macros) {
   translated_command out;
   out.query = "check_uptime";
-  std::string unit = has(macros, "uptime_win_unit") ? text(macros, "uptime_win_unit") : "s";
+  std::string unit = has_value(macros, "uptime_win_unit") ? macro_text(macros, "uptime_win_unit") : "s";
   for (char &c : unit) c = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
   if (unit != "s" && unit != "m" && unit != "h") {
     throw translation_error(unit == "ms" ? "uptime_win_unit: milliseconds are not supported, use s, m or h"
@@ -233,10 +208,10 @@ translated_command network_windows(const json::object &macros) {
 translated_command perfmon_windows(const json::object &macros) {
   translated_command out;
   out.query = "check_pdh";
-  if (!has(macros, "perfmon_win_counter")) throw translation_error("perfmon_win_counter is required");
-  out.arguments.push_back("counter=" + text(macros, "perfmon_win_counter"));
-  if (has(macros, "perfmon_win_type")) {
-    const std::string type = text(macros, "perfmon_win_type");
+  if (!has_value(macros, "perfmon_win_counter")) throw translation_error("perfmon_win_counter is required");
+  out.arguments.push_back("counter=" + macro_text(macros, "perfmon_win_counter"));
+  if (has_value(macros, "perfmon_win_type")) {
+    const std::string type = macro_text(macros, "perfmon_win_type");
     out.arguments.push_back(std::string("type=") + (type == "int64" ? "large" : type));
   }
   add_sides(out.arguments, macros, "perfmon_win_warn", "perfmon_win_crit", bound());
@@ -246,9 +221,9 @@ translated_command perfmon_windows(const json::object &macros) {
 // check_ping.exe: "-w rta,loss%". The ITL builds each side from two macros
 // and Icinga drops the argument unless both are set.
 std::string ping_side(const json::object &macros, const char *rta, const char *loss) {
-  if (!has(macros, rta) || !has(macros, loss)) return "none";
+  if (!has_value(macros, rta) || !has_value(macros, loss)) return "none";
   json::object as_percent;
-  as_percent[loss] = text(macros, loss) + "%";
+  as_percent[loss] = macro_text(macros, loss) + "%";
   const plugin_threshold l = threshold_of(as_percent, loss);
   return to_range(threshold_of(macros, rta), false, "", false) + "," + to_range(l, false, "", true);
 }
@@ -256,10 +231,10 @@ std::string ping_side(const json::object &macros, const char *rta, const char *l
 translated_command ping_windows(const json::object &macros) {
   translated_command out;
   out.query = "check_ping";
-  if (!has(macros, "ping_win_address")) throw translation_error("ping_win_address is required");
-  out.arguments.push_back("host=" + text(macros, "ping_win_address"));
-  if (has(macros, "ping_win_packets")) out.arguments.push_back("count=" + text(macros, "ping_win_packets"));
-  if (has(macros, "ping_win_timeout")) out.arguments.push_back("timeout=" + text(macros, "ping_win_timeout"));
+  if (!has_value(macros, "ping_win_address")) throw translation_error("ping_win_address is required");
+  out.arguments.push_back("host=" + macro_text(macros, "ping_win_address"));
+  if (has_value(macros, "ping_win_packets")) out.arguments.push_back("count=" + macro_text(macros, "ping_win_packets"));
+  if (has_value(macros, "ping_win_timeout")) out.arguments.push_back("timeout=" + macro_text(macros, "ping_win_timeout"));
   out.arguments.push_back("w=" + ping_side(macros, "ping_win_wrta", "ping_win_wpl"));
   out.arguments.push_back("c=" + ping_side(macros, "ping_win_crta", "ping_win_cpl"));
   return out;
@@ -270,19 +245,19 @@ translated_command ping_windows(const json::object &macros) {
 translated_command service_windows(const json::object &macros) {
   translated_command out;
   out.query = "check_service";
-  if (!has(macros, "service_win_service")) throw translation_error("service_win_service is required");
-  if (truthy(macros, "service_win_description")) {
+  if (!has_value(macros, "service_win_service")) throw translation_error("service_win_service is required");
+  if (truthy_field(macros, "service_win_description")) {
     throw translation_error("service_win_description (matching a service by its description) has no counterpart; name the service");
   }
-  out.arguments.push_back("service=" + text(macros, "service_win_service"));
-  const bool warn = truthy(macros, "service_win_warn");
+  out.arguments.push_back("service=" + macro_text(macros, "service_win_service"));
+  const bool warn = truthy_field(macros, "service_win_warn");
   out.arguments.push_back(std::string("warning=") + (warn ? "state != 'running'" : "none"));
   out.arguments.push_back(std::string("critical=") + (warn ? "none" : "state != 'running'"));
   return out;
 }
 
 long update_count(const json::object &macros, const char *name) {
-  const std::string value = text(macros, name);
+  const std::string value = macro_text(macros, name);
   char *end = nullptr;
   const long n = std::strtol(value.c_str(), &end, 10);
   if (value.empty() || *end != '\0') throw translation_error(std::string(name) + ": '" + value + "' is not a number of updates");
@@ -295,11 +270,11 @@ long update_count(const json::object &macros, const char *name) {
 translated_command update_windows(const json::object &macros) {
   translated_command out;
   out.query = "check_os_updates";
-  const long warn = has(macros, "update_win_warn") ? update_count(macros, "update_win_warn") : 0;
-  const long crit = has(macros, "update_win_crit") ? update_count(macros, "update_win_crit") : (has(macros, "update_win_warn") ? warn + 1 : 0);
+  const long warn = has_value(macros, "update_win_warn") ? update_count(macros, "update_win_warn") : 0;
+  const long crit = has_value(macros, "update_win_crit") ? update_count(macros, "update_win_crit") : (has_value(macros, "update_win_warn") ? warn + 1 : 0);
   out.arguments.push_back(warn != 0 ? "warning=updates >= " + std::to_string(warn) : "warning=none");
   std::string critical;
-  if (!truthy(macros, "ignore_reboot")) critical = "reboot_required > 0";
+  if (!truthy_field(macros, "ignore_reboot")) critical = "reboot_required > 0";
   if (crit != 0) critical += (critical.empty() ? "" : " or ") + ("updates >= " + std::to_string(crit));
   out.arguments.push_back("critical=" + (critical.empty() ? "none" : critical));
   return out;
@@ -319,7 +294,7 @@ const char *const nscp_local_common = R"json({
 
 translated_command nscp_local(const json::object &macros, const char *fallback_query, const char *specific) {
   translated_command out;
-  out.query = has(macros, "nscp_query") ? text(macros, "nscp_query") : fallback_query;
+  out.query = has_value(macros, "nscp_query") ? macro_text(macros, "nscp_query") : fallback_query;
   if (out.query.empty()) throw translation_error("nscp_query is required");
   json::object definitions = json::parse(nscp_local_common).as_object();
   if (specific != nullptr) {

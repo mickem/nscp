@@ -30,6 +30,9 @@ boost::optional<std::string> sole_macro_name(const std::string &text);
 // A macro value as it reads inside a longer string: arrays joined with ",".
 std::string macro_value_text(const boost::json::value &value);
 
+// macro_value_text() of the macro `name`; empty when the master did not send it.
+std::string macro_text(const boost::json::object &macros, const char *name);
+
 // Expand every macro in `text`. None when a macro is not in `macros`: Icinga
 // drops an argument whose macro is missing, and the callers do the same.
 // Throws macro_syntax_error on an unterminated macro.

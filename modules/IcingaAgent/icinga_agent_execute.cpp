@@ -3,6 +3,8 @@
 
 #include "icinga_agent_execute.hpp"
 
+#include <json/accessors.hpp>
+
 #include "icinga_agent_arguments.hpp"
 #include "icinga_agent_json.hpp"
 
@@ -12,8 +14,8 @@ namespace icinga_agent {
 
 namespace {
 json::object macros_of(const json::object &params) {
-  const json::value *macros = json_util::find(params, "macros");
-  return macros && macros->is_object() ? macros->get_object() : json::object();
+  const json::object *macros = json_accessors::get_obj(params, "macros");
+  return macros ? *macros : json::object();
 }
 
 double deadline_of(const json::object &params) {
@@ -29,17 +31,15 @@ std::string query_name(const std::string &icinga_command, const json::object &ma
 }
 
 std::list<std::string> query_arguments(const json::object &macros) {
-  const json::value *arguments = json_util::find(macros, "ifw_api_arguments");
-  if (!arguments || !arguments->is_object()) return {};
-  return build_arguments(arguments->get_object(), macros);
+  const json::object *arguments = json_accessors::get_obj(macros, "ifw_api_arguments");
+  if (!arguments) return {};
+  return build_arguments(*arguments, macros);
 }
 
 namespace {
 // The command names its own query: it imports `ifw-api`.
 bool follows_ifw_api(const json::object &macros) {
-  const json::value *command = json_util::find(macros, "ifw_api_command");
-  const json::value *arguments = json_util::find(macros, "ifw_api_arguments");
-  return (command && !json_util::is_empty(*command)) || (arguments && arguments->is_object());
+  return json_util::has_value(macros, "ifw_api_command") || json_accessors::get_obj(macros, "ifw_api_arguments") != nullptr;
 }
 }  // namespace
 

@@ -25,6 +25,7 @@ set(SRCS
     "${TARGET}.cpp"
     ${PROTOCOL_SRCS}
     icinga_agent_connection.cpp
+    icinga_agent_import_command.cpp
     icinga_agent_pki.cpp
     icinga_agent_service.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -44,6 +45,7 @@ if(WIN32)
         icinga_agent_execute.hpp
         icinga_agent_fingerprint.hpp
         icinga_agent_import.hpp
+        icinga_agent_import_command.hpp
         icinga_agent_json.hpp
         icinga_agent_macros.hpp
         icinga_agent_messages.hpp

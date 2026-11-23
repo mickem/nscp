@@ -26,6 +26,11 @@ std::string macro_value_text(const json::value &value) {
   return joined;
 }
 
+std::string macro_text(const json::object &macros, const char *name) {
+  const json::value *value = json_util::find(macros, name);
+  return value ? macro_value_text(*value) : std::string();
+}
+
 boost::optional<json::value> expand_macros(const std::string &text, const json::object &macros) {
   if (const boost::optional<std::string> name = sole_macro_name(text)) {
     const json::value *value = json_util::find(macros, name.value().c_str());

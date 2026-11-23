@@ -30,8 +30,6 @@ class IcingaAgent : public nscapi::impl::simple_plugin {
 
  private:
   void stop();
-  // `nscp icinga-agent import`: take over the identity of an Icinga 2 agent.
-  bool import_agent(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) const;
   // Where the certificates go, as configured: set on every load, so the
   // command line sees it too.
   std::string certificate_directory_;

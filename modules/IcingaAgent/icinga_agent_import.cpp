@@ -77,4 +77,46 @@ std::vector<icinga_endpoint> parent_endpoints(const std::vector<icinga_endpoint>
   return parents;
 }
 
+std::string resolve_endpoint_name(const import_options &options, const std::string &constants_conf, const std::vector<std::string> &key_names) {
+  if (!options.endpoint_name.empty()) return options.endpoint_name;
+  const std::string node_name = parse_node_name(constants_conf);
+  if (!node_name.empty()) return node_name;
+  if (key_names.size() == 1 && !key_names.front().empty()) return key_names.front();
+  throw import_error("Cannot tell this agent's name: no NodeName in constants.conf and not exactly one .key among the certificates. "
+                     "Give --endpoint-name (and --from, if the Icinga 2 agent is installed elsewhere).");
+}
+
+import_plan plan_import(const import_options &options, const std::string &endpoint_name, const std::string &zones_conf) {
+  const std::vector<icinga_endpoint> parents = parent_endpoints(parse_endpoints(zones_conf), endpoint_name);
+  icinga_endpoint parent;
+  if (!options.parent_endpoint.empty()) {
+    parent.name = options.parent_endpoint;
+    for (const icinga_endpoint &candidate : parents) {
+      if (candidate.name == options.parent_endpoint) parent = candidate;
+    }
+  } else if (parents.size() == 1) {
+    parent = parents.front();
+  } else if (parents.empty()) {
+    throw import_error("No parent Endpoint in zones.conf. Give --parent-endpoint and --parent-host.");
+  } else {
+    std::string names;
+    for (const icinga_endpoint &candidate : parents) names += (names.empty() ? "" : ", ") + candidate.name;
+    throw import_error("The Icinga agent has " + std::to_string(parents.size()) + " parents (" + names +
+                       "). NSClient++ connects to one: choose it with --parent-endpoint.");
+  }
+  if (!options.parent_host.empty()) parent.host = options.parent_host;
+  if (!options.parent_port.empty()) parent.port = options.parent_port;
+  if (parent.host.empty()) {
+    throw import_error("The Endpoint '" + parent.name +
+                       "' has no host in zones.conf: the parent connected to the Icinga agent. NSClient++ connects out, so give "
+                       "--parent-host, and make sure this host can reach it on port 5665.");
+  }
+  import_plan plan;
+  plan.endpoint_name = endpoint_name;
+  plan.parent_endpoint = parent.name;
+  plan.parent_host = parent.host;
+  plan.parent_port = parent.port;
+  return plan;
+}
+
 }  // namespace icinga_agent
