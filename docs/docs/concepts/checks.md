@@ -396,7 +396,7 @@ A range is compared in the unit of its keyword, whatever units its ends are writ
 starts above its end is refused: `check_uptime -w 2d:12h` would alert at every uptime.
 
 A value that cannot be meant is refused with UNKNOWN rather than guessed at: an empty one (`w=`,
-typically an unset macro), a unit the keyword does not take (`check_cpu -w 80m`), or more values
+typically an unset macro, or a list with nothing in it such as `-w ,`), a unit the keyword does not take (`check_cpu -w 80m`), or more values
 than the check has keywords.
 
 !!! note "Through `check_nrpe`"

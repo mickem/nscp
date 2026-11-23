@@ -370,20 +370,38 @@ struct cli_helper : boost::noncopyable {
   }
 
   // Whether the request asks for the flag `name`: bare, or with a value as
-  // REST passes it ("name=true"), in either shape.
+  // REST passes it ("name=true"), in either shape. An abbreviation counts when
+  // it can only mean this option ("--show-def"): the option parser guesses
+  // those too, and one that got past us would be answered by it instead -
+  // after -w / -c are registered, which is the listing show-default must not
+  // print.
   bool is_requested(const std::string &name) const {
     bool requested = false;
     for (int i = 0; i < request.arguments_size(); ++i) {
       std::string arg = request.arguments(i);
       if (boost::starts_with(arg, "--")) arg = arg.substr(2);
-      if (arg == name) {
+      const std::string::size_type eq = arg.find('=');
+      const std::string key = arg.substr(0, eq);
+      if (key != name && !is_abbreviation_of(key, name)) continue;
+      if (eq == std::string::npos) {
         requested = true;
-      } else if (boost::starts_with(arg, name + "=")) {
-        const std::string value = boost::to_lower_copy(arg.substr(name.size() + 1));
+      } else {
+        const std::string value = boost::to_lower_copy(arg.substr(eq + 1));
         requested = value == "true" || value == "1" || value == "yes" || value == "on";
       }
     }
     return requested;
+  }
+
+  // Whether `key` is a prefix of `name` that no other option shares, nor is
+  // itself the name of one.
+  bool is_abbreviation_of(const std::string &key, const std::string &name) const {
+    if (key.empty() || key.size() >= name.size() || !boost::starts_with(name, key)) return false;
+    for (const auto &op : desc.options()) {
+      const std::string &other = op->long_name();
+      if (other != name && boost::starts_with(other, key)) return false;
+    }
+    return true;
   }
 
   // show-default and show-short-defaults, answered here rather than by the

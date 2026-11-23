@@ -30,8 +30,11 @@ bool takes_module_filter(const std::string &verb) { return verb == "plugins" || 
 // Check options whose value is a filter expression in the where language -
 // the set modern_filter::cli_helper registers (add_filter_option,
 // add_warn_option, add_crit_option, add_ok_option), short aliases included.
+// `w` and `c` are the short thresholds: usually a bare bound or a range, but
+// anything else they are given is used as an expression as it is.
 bool takes_expression(const std::string &option) {
-  return option == "filter" || option == "warning" || option == "warn" || option == "critical" || option == "crit" || option == "ok";
+  return option == "filter" || option == "warning" || option == "warn" || option == "critical" || option == "crit" || option == "ok" || option == "w" ||
+         option == "c";
 }
 
 // ... and those whose value is a syntax template: literal text carrying

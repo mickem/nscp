@@ -1272,7 +1272,9 @@ TEST(CliHelperShortThresholds, TheShortDefaultDoesNotReplaceTheChecksDefault) {
 // with "w=20" in it, editing only warning= would leave the short form adding
 // the old bound back as a second expression.
 TEST(CliHelperShortThresholds, ShowDefaultLeavesTheShortFormOut) {
-  for (const std::string arg : {"show-default", "--show-default"}) {
+  // The abbreviations are what the option parser would guess: answered there
+  // they would list the short form too.
+  for (const std::string arg : {"show-default", "--show-default", "--show-def", "show-d"}) {
     short_threshold_case c({arg});
     modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
     helper.add_options("used > 80%", "used > 90%", "", {});

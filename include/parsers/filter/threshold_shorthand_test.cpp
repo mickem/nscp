@@ -370,7 +370,10 @@ TEST(ThresholdTemplate, DescribeAndDefaults) {
   EXPECT_EQ("time > N*1000 or result != 'ok'", describe(tcp, string_list(1, "${time} or result != 'ok'")));
   EXPECT_EQ("time > N*1000", describe(tcp, string_list()));
   EXPECT_EQ("age > N", describe(one("age", above, unit_seconds), string_list()));
-  EXPECT_NE(std::string::npos, describe_unit(tcp.front()).find("milliseconds"));
+  // ... nor that a bare number is milliseconds: "-w 500" is 500 seconds here.
+  EXPECT_EQ(0u, describe_unit(tcp.front()).find("A number without a unit is in seconds, which the keyword counts in milliseconds")) << describe_unit(tcp.front());
+  EXPECT_EQ(0u, describe_unit(spec("time", above, unit_milliseconds)).find("A number without a unit is in milliseconds"));
+  EXPECT_EQ(0u, describe_unit(spec("age", above, unit_seconds)).find("A number without a unit is in seconds;"));
   EXPECT_EQ(std::string::npos, describe_unit(spec("age", above, unit_seconds)).find("milliseconds"));
   EXPECT_EQ("N", describe_usage(tcp));
   EXPECT_EQ("1", default_value(tcp, warning));
@@ -474,4 +477,25 @@ TEST(ThresholdShorthandArguments, FindMissingValue) {
   EXPECT_EQ('c', find_missing_value({"--drive", "c:", "--c="}));
   EXPECT_EQ(0, find_missing_value({"w=80", "c=90", "warning=", "--crit="}));
   EXPECT_EQ("Missing value for -w (use none to remove the threshold)", missing_value_error('w'));
+}
+
+// A list with every value left out is no threshold and no expression: it is
+// what "-w $ARG1$,$ARG2$" leaves behind when neither macro is set.
+TEST(ThresholdExpand, AnAllEmptyListIsAMissingValue) {
+  spec_list ping;
+  ping.push_back(spec("time", above, unit_milliseconds, "60", "100"));
+  ping.push_back(spec("loss", above, unit_percent, "5", "10"));
+  for (const std::string value : {",", ",,", " , "}) {
+    std::vector<std::string> expressions;
+    std::string error;
+    EXPECT_FALSE(expand(ping, std::vector<std::string>(), warning, value, expressions, error)) << value;
+    EXPECT_EQ(missing_value_error('w'), error) << value;
+    EXPECT_TRUE(expressions.empty()) << value;
+  }
+  // One value is enough for it to be a list again.
+  std::vector<std::string> expressions;
+  std::string error;
+  ASSERT_TRUE(expand(ping, std::vector<std::string>(), warning, ",20%", expressions, error)) << error;
+  ASSERT_EQ(1u, expressions.size());
+  EXPECT_EQ("time > 60 or loss > 20%", expressions[0]);
 }

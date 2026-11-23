@@ -486,6 +486,13 @@ inline bool expand(const spec_list &specs, const std::vector<std::string> &templ
     error = missing_value_error(which == warning ? 'w' : 'c');
     return false;
   }
+  // A list with every value left out ("-w ,", what "-w $ARG1$,$ARG2$" is with
+  // both macros unset) names no bound at all. It is not an expression either,
+  // so it is refused like any other value that was not given.
+  if (trimmed.find_first_not_of(", \t") == std::string::npos) {
+    error = missing_value_error(which == warning ? 'w' : 'c');
+    return false;
+  }
   if (!is_threshold(trimmed)) {
     expressions.push_back(trimmed);
     return true;
@@ -575,14 +582,13 @@ inline std::string describe_unit(const spec &s) {
     case unit_percent:
       return "A number without a unit is a percentage; a size (10G) is used as written.";
     case unit_seconds_as_ms:
+      return "A number without a unit is in seconds, which the keyword counts in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).";
     case unit_milliseconds:
       return "A number without a unit is in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 2s).";
     case unit_days:
       return "A number without a unit is in days; d and w are accepted as units (14d, 2w).";
     case unit_seconds:
-      return s.value_unit == unit_seconds_as_ms
-                 ? "A number without a unit is in seconds, which the keyword counts in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 5m)."
-                 : "A number without a unit is in seconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).";
+      return "A number without a unit is in seconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).";
     case unit_plain:
     case unit_percent_number:
     default:
