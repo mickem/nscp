@@ -1233,6 +1233,57 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  // --- check_gpu (Windows) ------------------------------------------------------
+
+  it("check_gpu reports adapters or the documented no-GPU contract (Windows)", async () => {
+    if (!onWindows) return; // check_gpu reads the Windows GPU performance counter sets.
+    // A CI runner or a VM usually has no real GPU: the default filter drops the
+    // software rasteriser and the check lands in its UNKNOWN empty state. A
+    // host older than Windows 10 1709 has no counter sets at all. With a GPU,
+    // thresholds that cannot fire make the verdict independent of its load.
+    const q = await executeQuery(key, "check_gpu", {
+      warning: "utilization > 1000",
+      critical: "utilization > 1000",
+    });
+    if (q.result === UNKNOWN) {
+      expect(messageOf(q)).toMatch(/No GPU adapters found|GPU performance counters are not available/);
+      return;
+    }
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/\d+% busy, .+ dedicated memory used \(\d+%\)/);
+    const loads = Object.entries(perfOf(q)).filter(([label]) => label.endsWith("_utilization"));
+    expect(loads.length).toBeGreaterThan(0);
+    for (const [, entry] of loads) {
+      expect(entry.value as number).toBeGreaterThanOrEqual(0);
+      expect(entry.value as number).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("check_gpu exposes its keywords for every adapter, software ones included (Windows)", async () => {
+    if (!onWindows) return;
+    // filter=none keeps the Microsoft Basic Render Driver, so the keywords are
+    // rendered from live counters even on a host without a GPU; empty-state=ok
+    // covers the host that has no display adapter at all.
+    const q = await executeQuery(key, "check_gpu", {
+      filter: "none",
+      warning: "none",
+      critical: "none",
+      "empty-state": "ok",
+      "top-syntax": "${list}",
+      "detail-syntax": "type=${adapter_type} luid=${luid} load=${utilization} mem=${dedicated_pct}/${shared_pct} procs=${processes}",
+    });
+    if (q.result === UNKNOWN) {
+      expect(messageOf(q)).toMatch(/GPU performance counters are not available/);
+      return;
+    }
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    if (/No GPU adapters found/.test(msg)) return;
+    for (const row of msg.split(", ")) {
+      expect(row).toMatch(/^type=(hardware|software|unknown) luid=0x[0-9A-F]{8}_0x[0-9A-F]{8} load=\d+ mem=\d+\/\d+ procs=\d+$/);
+    }
+  });
+
   // --- check_w32time (Windows) -------------------------------------------------
 
   it("check_w32time reports the Windows Time state (Windows)", async () => {

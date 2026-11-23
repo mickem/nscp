@@ -49,6 +49,7 @@
 		"check_printqueue"		: "Check Windows print queues: queue depth, oldest-job age, offline and error states plus the driver, port and sharing of each printer.",
 		"check_printjobs"		: "Check individual Windows print jobs: document, owner, size, pages, age and spooler status of every queued job.",
 		"check_w32time"			: "Check the Windows Time service: whether the machine is following a time source at all, which one, the computed clock offset and the configured peers.",
+		"check_gpu"				: { "description" : "Check GPU load and GPU memory per adapter (busiest engine, dedicated and shared memory, processes) from the vendor-neutral Windows GPU performance counters.", "experimental" : true },
 
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",
