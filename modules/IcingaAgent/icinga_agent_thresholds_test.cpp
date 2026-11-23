@@ -52,6 +52,14 @@ TEST(IcingaAgentThresholds, RefusesWhatThePluginRefuses) {
   }
 }
 
+// The plugin reads "[20-10]" as a range nothing is inside of; the -w / -c of
+// a filter check refuse a range that starts above its end.
+TEST(IcingaAgentThresholds, RefusesAReversedRange) {
+  EXPECT_THROW(parse_plugin_threshold("[20-10]"), threshold_error);
+  EXPECT_THROW(parse_plugin_threshold("![20%-10%]"), threshold_error);
+  EXPECT_EQ(expanded("@20:10"), "error: Invalid threshold: @20:10 (a range starts at its low end, as in 10:20)");
+}
+
 // threshold::rend() in Icinga's plugins/thresholds.cpp, for a plugin that
 // alerts on the high side: load, procs, users, uptime, network, perfmon, ping.
 TEST(IcingaAgentThresholds, PlainReading) {

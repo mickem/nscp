@@ -25,7 +25,9 @@
 
 namespace icinga_agent {
 
-// A threshold the Icinga plugin would have refused as well.
+// A threshold the Icinga plugin would have refused as well, or a range whose
+// ends are reversed ("[20-10]"), which the plugin takes but the filter checks
+// refuse.
 struct threshold_error : std::runtime_error {
   using std::runtime_error::runtime_error;
 };

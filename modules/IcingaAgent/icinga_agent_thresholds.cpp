@@ -71,8 +71,14 @@ plugin_threshold parse_plugin_threshold(const std::string &text) {
     t.percent = lower_percent;
     t.lower = number(lower, text);
     t.upper = number(upper, text);
+    const double low = std::strtod(t.lower.c_str(), nullptr);
+    const double high = std::strtod(t.upper.c_str(), nullptr);
+    // The plugin takes "[20-10]" and never alerts on it (or always, with `!`).
+    // The filter checks refuse a range that starts above its end, so it is
+    // refused here, where the message can still name the Icinga threshold.
+    if (low > high) throw threshold_error("'" + text + "': a threshold range starts at its low end ([" + t.upper + "-" + t.lower + "])");
     // Equal ends are a single value to the plugin (it tests lower == upper).
-    if (std::strtod(t.lower.c_str(), nullptr) == std::strtod(t.upper.c_str(), nullptr)) t.is_range = false;
+    if (low == high) t.is_range = false;
     return t;
   }
   t.percent = strip_percent(s);

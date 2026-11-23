@@ -270,6 +270,7 @@ measures or reports something else than the plugin did:
 | Command           | Difference                                                                                                          |
 |-------------------|---------------------------------------------------------------------------------------------------------------------|
 | All               | The output text and the performance data labels are NSClient++'s. A graphing backend starts new series; the old ones remain. |
+| All               | A threshold range whose ends are reversed (`[20-10]`) is refused. The plugins took it and never alerted on it (or always, with `!`); swap the ends, or remove the threshold. |
 | `load-windows`    | `check_load.exe` sampled the CPU for one second. `check_cpu` reads the collector's averages over 5 seconds, 1 minute and 5 minutes and alerts when any of them is over: steadier, and slower to clear. |
 | `network-windows` | The plugin added up all interfaces and compared the sum. `check_network` compares each interface on its own.         |
 | `disk-windows`    | Without `disk_win_path` the plugin walked fixed and remote volumes; so does the query, through a filter on the drive type. Volumes without a drive letter are listed by their mount point. |

@@ -190,7 +190,8 @@ it:
 A percentage stays one (`20%`); any other number takes the command's unit (`500` with `disk_win_unit = "mb"` is
 `500m`). A side the service gives no threshold for is passed as `none`: the plugin did not alert on it, so the
 query's own default does not apply either. A use the agent cannot translate - a threshold the plugin would have
-refused, `service_win_description` - is reported as `UNKNOWN` on the service rather than run as something else.
+refused, a range whose ends are reversed (`[20-10]`, which the plugin never alerts on and the query's `-w` / `-c`
+refuse), `service_win_description` - is reported as `UNKNOWN` on the service rather than run as something else.
 
 The result is the query's, not the plugin's: the output text and the performance data labels are NSClient++'s. The
 master shows the query that ran as the executed command.
