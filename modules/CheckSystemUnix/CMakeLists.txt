@@ -228,6 +228,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/cli_helper.cpp
         ${PLATFORM_SRCS}
         ${PLATFORM_TEST_SRCS}
     LIBRARIES

@@ -1573,7 +1573,10 @@ set(NSCP_DEF_PLUGIN_HPP
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.hpp
 )
 
-set(NSCP_FILTER_CPP ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp)
+set(NSCP_FILTER_CPP
+    ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+    ${NSCP_INCLUDEDIR}/parsers/filter/cli_helper.cpp
+)
 set(NSCP_FILTER_HPP
     ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.hpp
     ${NSCP_INCLUDEDIR}/parsers/filter/realtime_helper.hpp
