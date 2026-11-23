@@ -405,7 +405,6 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
           service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
           if (!hService) {
             const DWORD open_error = GetLastError();
-            if (strict_config) throw nsclient::nsclient_exception("Failed to open service: " + info.name + ": " + error::lookup::last_error(open_error));
             // A service whose security descriptor does not let this account
             // read its configuration (common when the agent is not running as
             // LocalSystem) keeps what its status said, as enum_services_where
@@ -413,6 +412,15 @@ std::list<service_info> enum_services(const std::string &computer, const DWORD d
             // locked-down service failed every check_service call and dropped
             // the Checkmk <<<services>>> section. Debug, not error: it is
             // expected, and it would repeat on every check.
+            //
+            // Strict callers tolerate access denied too. It is not a failed
+            // read that the next round may get right: it is the same answer
+            // every time for this account, so refusing it does not protect the
+            // last complete inventory, it means there never is one (McmSvc
+            // alone kept the service facts empty for any agent not running as
+            // LocalSystem). Anything else still ends a strict walk.
+            if (strict_config && open_error != ERROR_ACCESS_DENIED)
+              throw nsclient::nsclient_exception("Failed to open service: " + info.name + ": " + error::lookup::last_error(open_error));
             NSC_DEBUG_MSG("Cannot read the configuration of service " + info.name + ": " + error::lookup::last_error(open_error));
             info.start_type = start_type_unknown;
             info.binary_path = "N/A";

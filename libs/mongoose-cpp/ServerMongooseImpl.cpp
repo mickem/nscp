@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <threads/guarded_thread.hpp>
+#include <type_traits>
 #include <utility>
 
 #include "Helpers.h"
@@ -451,6 +452,29 @@ const char *reason_phrase(const int code) {
   }
 }
 
+// What mg_http_reply() does once the answer is written: the connection may
+// take its next request. Mongoose 7.24 moved that "response in progress"
+// marker from the is_resp bit to pfn_data (set to the connection when a
+// request is handed over, NULL once it is answered). Which one to clear is
+// picked from the mongoose this is compiled against rather than hard-coded:
+// clearing pfn_data on an older mongoose compiles, leaves is_resp set, and
+// mongoose then never parses the next request on the connection - a
+// kept-alive client that sent HEAD waits until it gives up.
+template <class Connection, class = void>
+struct has_is_resp : std::false_type {};
+template <class Connection>
+struct has_is_resp<Connection, decltype(void(std::declval<Connection &>().is_resp = 0))> : std::true_type {};
+
+template <class Connection>
+void mark_answered(Connection *connection, std::true_type /* is_resp, before 7.24 */) {
+  connection->is_resp = 0;
+}
+template <class Connection>
+void mark_answered(Connection *connection, std::false_type /* pfn_data, 7.24 on */) {
+  connection->pfn_data = nullptr;
+}
+void mark_answered(mg_connection *connection) { mark_answered(connection, has_is_resp<mg_connection>{}); }
+
 // Write an answer. For a HEAD request only its header goes out: Content-Length
 // still says how long the GET's body would be, which is what HEAD promises,
 // and on a kept-alive connection the body would otherwise be read by the
@@ -462,11 +486,7 @@ void write_answer(mg_connection *connection, const int code, const char *headers
     return;
   }
   mg_printf(connection, "HTTP/1.1 %d %s\r\n%sContent-Length: %lu\r\n\r\n", code, reason_phrase(code), headers, static_cast<unsigned long>(body.size()));
-  // What mg_http_reply() does once the answer is written: the connection may
-  // take its next request. Mongoose 7.24 moved that "response in progress"
-  // marker from the is_resp bit to pfn_data (set to the connection when a
-  // request is handed over, NULL once it is answered).
-  connection->pfn_data = nullptr;
+  mark_answered(connection);
 }
 
 void write_reply(mg_connection *connection, const ServerMongooseImpl::reply &answer, const bool close, const bool head_only) {

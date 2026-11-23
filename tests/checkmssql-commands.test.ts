@@ -527,9 +527,12 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
   });
 
   it("check_mssql_counters thresholds on the health keywords", async () => {
-    // A fresh container serves everything from memory: hit_ratio ~100, PLE > 0.
+    // The keywords have to parse and evaluate; their values are whatever a
+    // container seconds old has. Its buffer cache may not have been touched
+    // yet, and hit_ratio is then -1 (unavailable, as documented) - so the
+    // warning bound sits below that rather than at 0.
     const out = await query("check_mssql_counters", [
-      "warning=hit_ratio < 0",
+      "warning=hit_ratio < -1",
       "critical=page_life_expectancy < 0 or deadlocks > 1000",
     ]);
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
