@@ -114,6 +114,10 @@ check_cpu show-default
 check_cpu help
 ```
 
+To see the query a check would run with *your* arguments — `-w` / `-c` resolved, and whatever the
+check derives from its other options — add `show-query`; see
+[Seeing what a check runs](#seeing-what-a-check-runs-show-query).
+
 <!-- @formatter:off -->
 !!! note
     You'll see `${name}` in the defaults output. That's the older placeholder syntax, still supported
@@ -334,20 +338,21 @@ A full `warning=` / `critical=` replaces the default entirely when that is what 
 `-w none` removes it.
 
 Every command documents both forms. `help` (and the reference page) lists `warning` with the default
-expression, and `w` with the same default in the short form and what it expands to. On the command
-line each form has its own listing:
+expression, and `w` with the same default in the short form and what it expands to. `show-default`
+lists the long form only, and `show-query` shows what a given `-w` / `-c` turns into
+(see [below](#seeing-what-a-check-runs-show-query)):
 
 ```shell
 check_tcp show-default
 "warning=time > 1000" "critical=time > 5000 or result != 'ok'" ...
 
-check_tcp show-short-defaults
-"w=1" "c=5"
+check_tcp host=db01 -w 2 show-query
+"warning=time > 2000" "critical=time > 5000 or result != 'ok'" ... "host=db01" ...
 ```
 
-They are separate on purpose. `show-default` prints a line you can copy, edit and pass back, and a
-`w=1` left in it would be added to an edited `warning=` as a second expression — the check would go
-on warning at the old bound. Use one form or the other for a side, not both.
+`show-default` leaves `w` and `c` out on purpose: it prints a line you can copy, edit and pass back,
+and a `w=1` left in it would be added to an edited `warning=` as a second expression — the check
+would go on warning at the old bound. Use one form or the other for a side, not both.
 
 What a bare number bounds, and where the defaults sit:
 
@@ -404,6 +409,53 @@ than the check has keywords.
     where it passes everything on untouched: `check_nrpe -H host -c check_cpu -a -w 80 -c 90`.
     If your `check_nrpe` still picks them up, use the forms it cannot mistake for its own:
     `-a w=80 c=90`.
+
+### Seeing what a check runs: `show-query`
+
+Add `show-query` (`show-query=true` over REST) to any filter check and it prints the query it would
+evaluate with the rest of its arguments, instead of running it:
+
+```shell
+check_tcp host=db01 port=5432 -w 2 show-query
+"warning=time > 2000" "critical=time > 5000 or result != 'ok'" "debug=false"
+"empty-state=ignored" "escape-html=false" "list-separator=, " "decimals=-1"
+"top-syntax=${status}: ${problem_list}" "ok-syntax=%(status): %(list)" "empty-syntax=No hosts checked"
+"detail-syntax=${host}:${port} ${result} in ${time}ms" "perf-syntax=${host}_${port}" "host=db01"
+"port=5432" "timeout=5000" "ssl=false" "tls-version=tlsv1.2+" "verify=peer"
+"ca=/etc/ssl/certs/ca-certificates.crt"
+```
+
+(one line in reality, wrapped here). Every value is the one the check would use:
+
+- `-w` and `-c` are resolved into `warning` and `critical`, and never shown themselves; `warn=` and
+  `crit=` are shown as the `warning` / `critical` they set.
+- Each `filter`, `warning`, `critical` and `ok` expression is a token of its own.
+- What the check changes on its own before it runs is included. `check_cpu cores` drops the
+  default filter, so it shows `"filter=none"`; `check_service only-essential` shows the
+  classification clause in the `filter`; `check_eventlog unique` shows its `unique-index`. A
+  threshold you removed (`-w none`) is shown as `none` too, since leaving it out of the line would
+  bring the default back.
+- The check's own options are listed with their values, given or default, so the line can be pasted
+  back as a command. An option that only adds to the filter (`only-essential`) is then applied a
+  second time, which matches the same items.
+- `show-all` is shown as what it does, not as an option: the `top-syntax` is printed with its
+  `problem_list` already turned into `detail_list`.
+- A credential is never printed. The value of an option whose name contains `password`, `token` or
+  `secret`, of `connection-string` and of `header` is shown as `***`, since the line is a check
+  result and ends up on the monitoring server and in logs. Put the real value back before running
+  the line.
+
+The expressions are still parsed, so an unknown keyword or an invalid expression fails with UNKNOWN
+exactly as it would on a real run. `check_cpu show-query` with no other arguments shows the defaults
+in this resolved form; a check that cannot run without an argument (`check_tcp` needs a `host`) says
+so instead. Unlike `show-default`, `show-query` runs the check up to the point where it would start
+collecting: an argument the check holds against an access rule (`file access`, `query access`, …)
+before that point is refused as on a real run.
+
+`check_wmi`, `check_mysql_query` and `check_mssql_query` take their keywords from the columns of the
+query they are given, so they would have to run it to check the expressions. They do not: with
+`show-query` nothing is connected to and the query is not executed, and the expressions are printed
+without being checked.
 
 ### Disabling a threshold
 

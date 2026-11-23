@@ -61,6 +61,11 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
 
   if (query.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No query specified (use query=<T-SQL>)");
 
+  // Before the server is contacted: the keywords are the query's columns, so
+  // build_filter() only runs after the query has, and show-query must not
+  // execute it.
+  if (filter_helper.answer_show_query()) return;
+
   mssql_options::with_session(info, response, [&](mssql_odbc::session &session) {
     const mssql_odbc::result res = session.execute(query);
 

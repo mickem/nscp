@@ -4,7 +4,10 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
+#include <boost/any.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/noncopyable.hpp>
+#include <map>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
@@ -14,8 +17,12 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/threshold_shorthand.hpp>
 #include <sampling_state.hpp>
+#include <set>
+#include <sstream>
 #include <str/format.hpp>
 #include <str/utils_no_boost.hpp>
+#include <string>
+#include <vector>
 
 namespace modern_filter {
 // Appended to the description of every option that is shared by all
@@ -108,9 +115,29 @@ struct cli_helper : boost::noncopyable {
   // name the check declared for itself.
   bool short_warn_owned, short_crit_owned;
   std::vector<std::string> short_warn, short_crit;
+  // show-query: whether it is ours (a check may have an option of that name),
+  // whether it was asked for, and what it echoes besides the filter settings -
+  // the other options as parse_options() saw them, and the arguments the
+  // parser left to the check (check_pdh's counters).
+  bool show_query_registered, show_query_owned, show_query_requested;
+  std::map<std::string, std::vector<std::string> > query_options;
+  std::vector<std::string> query_extra;
 
   cli_helper(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, data_container &data)
-      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false), has_warmup_option(false), short_thresholds_declared(false), short_thresholds_registered(false), short_thresholds_disabled(false), short_warn_owned(false), short_crit_owned(false) {}
+      : data(data),
+        desc("Allowed options for " + request.command()),
+        request(request),
+        response(response),
+        show_all(false),
+        has_warmup_option(false),
+        short_thresholds_declared(false),
+        short_thresholds_registered(false),
+        short_thresholds_disabled(false),
+        short_warn_owned(false),
+        short_crit_owned(false),
+        show_query_registered(false),
+        show_query_owned(false),
+        show_query_requested(false) {}
 
   ~cli_helper() {}
 
@@ -349,16 +376,25 @@ struct cli_helper : boost::noncopyable {
       desc.add_options()("c", short_option(short_crit, shorthand::critical), crit_text.c_str());
       short_crit_owned = true;
     }
-    const std::string show_text =
-        "Show the defaults of the short thresholds -w and -c for a given command.\n"
-        "show-default lists the defaults of warning and critical instead, and leaves these out so that its output can be edited and passed back." +
+  }
+
+  // show-query, registered on the way into parse_options() like -w / -c, so
+  // that it is there whatever the check added after add_options(), and so
+  // that show-default (rendered before it) does not list it. Takes a value
+  // like every other boolean here: REST passes a flag as "show-query=true".
+  void register_show_query() {
+    if (show_query_registered) return;
+    show_query_registered = true;
+    // A check that already has an option of that name keeps it.
+    if (desc.find_nothrow("show-query", false) != nullptr) return;
+    const std::string text =
+        "Show the query the check would run with the given arguments, instead of running it.\n"
+        "Prints every option the check evaluates with its final value - the defaults, -w and -c resolved into warning and critical, and whatever "
+        "the check derives from its other options - as a line that can be passed back. The expressions are still parsed, so an invalid one is "
+        "reported as it would be on a real run." +
         common_option_marker;
-    // Takes a value like every other boolean here, as REST passes a flag as
-    // "show-short-defaults=true". It is answered before the parser runs
-    // (answer_default_queries), so this is what help lists and what accepts
-    // an explicit "=false".
-    if (desc.find_nothrow("show-short-defaults", false) == nullptr)
-      desc.add_options()("show-short-defaults", boost::program_options::value<bool>()->implicit_value(true)->default_value(false), show_text.c_str());
+    desc.add_options()("show-query", boost::program_options::value<bool>()->implicit_value(true)->default_value(false), text.c_str());
+    show_query_owned = true;
   }
 
   // How the help ends its "is the same as ..." sentence. With a template the
@@ -404,33 +440,206 @@ struct cli_helper : boost::noncopyable {
     return true;
   }
 
-  // show-default and show-short-defaults, answered here rather than by the
-  // option parser. The two are kept apart on purpose: "w=80" next to
+  // show-default, answered here rather than by the option parser, and the
+  // options it must not list registered right after. "w=80" next to
   // "warning=load > 80" reads as one line to copy, and whoever then edits only
   // the warning is left with the short form adding the old bound back as a
-  // second expression. So show-default prints what it printed before the
-  // short thresholds existed, and the short defaults have a command of their
-  // own. Returns true when it answered.
+  // second expression; "show-query=false" has no place in such a line either.
+  // So show-default prints what it printed before either existed. The values
+  // as they resolve are what show-query prints. Returns true when it answered.
   bool answer_default_queries() {
-    if (short_thresholds_disabled) return false;
     if (is_requested("show-default")) {
-      // Rendered before -w / -c are registered, which is what leaves them out.
+      // Rendered before -w / -c and show-query are registered, which is what
+      // leaves them out.
       const std::string defaults = nscapi::program_options::help_show_default(desc);
       register_short_thresholds();
+      register_show_query();
       nscapi::protobuf::functions::set_response_good(*response, defaults);
       return true;
     }
     register_short_thresholds();
-    if (is_requested("show-short-defaults")) {
-      std::string defaults;
-      const std::string warn = shorthand::default_value(short_thresholds, shorthand::warning);
-      const std::string crit = shorthand::default_value(short_thresholds, shorthand::critical);
-      if (!warn.empty()) defaults += "\"w=" + warn + "\" ";
-      if (!crit.empty()) defaults += "\"c=" + crit + "\" ";
-      nscapi::protobuf::functions::set_response_good(*response, defaults);
-      return true;
-    }
+    register_show_query();
     return false;
+  }
+
+  // ---- show-query -------------------------------------------------------
+
+  // Options show-query never echoes: the ones that ask for something other
+  // than a run, the aliases folded into warning / critical, and -w / -c, which
+  // are already resolved into warning / critical by the time it renders. A
+  // "w" or "c" the check declared for itself is the check's and is echoed.
+  bool is_query_meta_option(const std::string &name) const {
+    if (name == "w") return short_warn_owned;
+    if (name == "c") return short_crit_owned;
+    return name == "show-query" || name == "show-default" || name == "help" || name == "help-pb" || name == "help-short" || name == "warn" ||
+           name == "crit";
+  }
+
+  // The settings of the filter engine, read off `data` when show-query
+  // renders rather than off the parsed options: a check may rewrite any of
+  // them between parse_options() and build_filter(). Returns false for any
+  // other option.
+  bool final_filter_setting(const std::string &name, std::vector<std::string> &values) const {
+    values.clear();
+    const std::vector<std::string> *list = nullptr;
+    const std::string *value = nullptr;
+    if (name == "filter")
+      list = &data.filter_string;
+    else if (name == "warning")
+      list = &data.warn_string;
+    else if (name == "critical")
+      list = &data.crit_string;
+    else if (name == "ok")
+      list = &data.ok_string;
+    else if (name == "top-syntax")
+      value = &data.syntax_top;
+    else if (name == "ok-syntax")
+      value = &data.syntax_ok;
+    else if (name == "empty-syntax")
+      value = &data.syntax_empty;
+    else if (name == "detail-syntax")
+      value = &data.syntax_detail;
+    else if (name == "perf-syntax")
+      value = &data.syntax_perf;
+    else if (name == "unique-index")
+      value = &data.syntax_unique;
+    else if (name == "empty-state")
+      value = &data.empty_state;
+    else if (name == "perf-config")
+      value = &data.perf_config;
+    else
+      return false;
+    if (list != nullptr) {
+      for (const std::string &v : *list)
+        if (!v.empty()) values.push_back(v);
+    } else if (!value->empty()) {
+      values.push_back(*value);
+    }
+    return true;
+  }
+  static const std::vector<std::string> &filter_setting_names() {
+    static const std::vector<std::string> names = {"filter",        "warning",       "critical",    "ok",           "top-syntax",  "ok-syntax",
+                                                   "empty-syntax", "detail-syntax", "perf-syntax", "unique-index", "empty-state", "perf-config"};
+    return names;
+  }
+
+  // An option value as it is typed: booleans as true / false (as help and
+  // show-default render them), a list as one value per element. Returns false
+  // for a type it does not know, which is then left out.
+  static bool render_option_value(const boost::any &value, std::vector<std::string> &out) {
+    out.clear();
+    if (value.empty()) return false;
+    if (const std::string *s = boost::any_cast<std::string>(&value)) {
+      if (!s->empty()) out.push_back(*s);
+    } else if (const std::vector<std::string> *l = boost::any_cast<std::vector<std::string> >(&value)) {
+      for (const std::string &v : *l)
+        if (!v.empty()) out.push_back(v);
+    } else if (const bool *b = boost::any_cast<bool>(&value)) {
+      out.push_back(*b ? "true" : "false");
+    } else if (const int *i = boost::any_cast<int>(&value)) {
+      out.push_back(std::to_string(*i));
+    } else if (const unsigned int *u = boost::any_cast<unsigned int>(&value)) {
+      out.push_back(std::to_string(*u));
+    } else if (const unsigned short *us = boost::any_cast<unsigned short>(&value)) {
+      out.push_back(std::to_string(*us));
+    } else if (const short *ss = boost::any_cast<short>(&value)) {
+      out.push_back(std::to_string(*ss));
+    } else if (const long *lo = boost::any_cast<long>(&value)) {
+      out.push_back(std::to_string(*lo));
+    } else if (const unsigned long *ul = boost::any_cast<unsigned long>(&value)) {
+      out.push_back(std::to_string(*ul));
+    } else if (const long long *ll = boost::any_cast<long long>(&value)) {
+      out.push_back(std::to_string(*ll));
+    } else if (const unsigned long long *ull = boost::any_cast<unsigned long long>(&value)) {
+      out.push_back(std::to_string(*ull));
+    } else if (const double *d = boost::any_cast<double>(&value)) {
+      out.push_back(boost::lexical_cast<std::string>(*d));
+    } else if (const float *f = boost::any_cast<float>(&value)) {
+      out.push_back(boost::lexical_cast<std::string>(*f));
+    } else {
+      return false;
+    }
+    return true;
+  }
+
+  // Whether the value of option `name` may be a credential. The rule of
+  // failed_check_store::is_sensitive_argument (password, token), plus the
+  // options of the filter checks that can carry one inside a longer value: a
+  // shared secret, an ODBC connection string (PWD=), an HTTP header
+  // (Authorization). Wide on purpose: masking a harmless value costs a
+  // retyped argument, printing a secret cannot be taken back.
+  static bool is_sensitive_option(const std::string &name) {
+    const std::string lower = boost::to_lower_copy(name);
+    return lower.find("password") != std::string::npos || lower.find("token") != std::string::npos || lower.find("secret") != std::string::npos ||
+           lower == "connection-string" || lower == "header";
+  }
+
+  // Called by parse_options() once the arguments are parsed: whether
+  // show-query was asked for, and if so the values of every option that is
+  // not a filter setting, given or defaulted, as they were parsed.
+  void remember_query(const boost::program_options::variables_map &vm, const std::vector<std::string> &extra = std::vector<std::string>()) {
+    show_query_requested = false;
+    query_options.clear();
+    query_extra.clear();
+    if (!show_query_owned || vm.count("show-query") == 0) return;
+    show_query_requested = vm["show-query"].as<bool>();
+    if (!show_query_requested) return;
+    std::vector<std::string> ignored;
+    for (const auto &op : desc.options()) {
+      const std::string &name = op->long_name();
+      if (is_query_meta_option(name) || final_filter_setting(name, ignored) || vm.count(name) == 0) continue;
+      // show-all is not a setting of its own: parse_options_post() has
+      // already folded it into the top-syntax, which is printed as rewritten.
+      // Echoed next to it, the pasted line would rewrite that syntax again.
+      if (name == "show-all") continue;
+      std::vector<std::string> values;
+      if (!render_option_value(vm[name].value(), values) || values.empty()) continue;
+      // The line is a check result: it travels to the monitoring server and
+      // into logs, so a credential is shown as given but never with its value.
+      if (is_sensitive_option(name)) values.assign(values.size(), "***");
+      query_options[name] = values;
+    }
+    query_extra = extra;
+  }
+
+  // The query show-query prints, in the shape of show-default ("key=value"
+  // tokens) and in the order the options are declared. The filter settings
+  // are the final ones; one that a check set without declaring its option
+  // follows the declared ones. A filter, warning, critical or ok that ended up
+  // empty although the option has a default is printed as "none", which is
+  // how the check is told to run without it: left out, the line would bring
+  // the default back.
+  std::string render_query() const {
+    std::stringstream ret;
+    const auto token = [&ret](const std::string &name, const std::vector<std::string> &values) {
+      for (const std::string &v : values) ret << "\"" << name << "=" << v << "\" ";
+    };
+    std::set<std::string> done;
+    for (const auto &op : desc.options()) {
+      const std::string &name = op->long_name();
+      if (is_query_meta_option(name)) continue;
+      std::vector<std::string> values;
+      if (final_filter_setting(name, values)) {
+        done.insert(name);
+        if (values.empty() && (name == "filter" || name == "warning" || name == "critical" || name == "ok")) {
+          boost::any def;
+          std::vector<std::string> defaults;
+          if (op->semantic()->apply_default(def) && render_option_value(def, defaults) && !defaults.empty()) values.push_back("none");
+        }
+        token(name, values);
+        continue;
+      }
+      const auto it = query_options.find(name);
+      if (it != query_options.end()) token(name, it->second);
+    }
+    for (const std::string &name : filter_setting_names()) {
+      if (done.count(name) > 0) continue;
+      std::vector<std::string> values;
+      final_filter_setting(name, values);
+      token(name, values);
+    }
+    for (const std::string &arg : query_extra) ret << "\"" << arg << "\" ";
+    return ret.str();
   }
   // The option carries the short form of the check's own default as its
   // default value, so that help and the reference docs show "-w 80" next to
@@ -598,6 +807,7 @@ struct cli_helper : boost::noncopyable {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response, p)) return false;
     parse_options_post(vm);
+    remember_query(vm);
     return apply_short_thresholds(vm) && validate_options();
   }
   bool parse_options() {
@@ -607,6 +817,7 @@ struct cli_helper : boost::noncopyable {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response)) return false;
     parse_options_post(vm);
+    remember_query(vm);
     return apply_short_thresholds(vm) && validate_options();
   }
   bool parse_options(std::vector<std::string> &extra) {
@@ -616,6 +827,7 @@ struct cli_helper : boost::noncopyable {
     boost::program_options::variables_map vm;
     if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response, true, extra)) return false;
     parse_options_post(vm);
+    remember_query(vm, extra);
     return apply_short_thresholds(vm) && validate_options();
   }
 
@@ -631,6 +843,26 @@ struct cli_helper : boost::noncopyable {
   void set_default_index(const std::string &filter) const {
     if (data.syntax_unique.empty()) data.syntax_unique = filter;
   }
+  // "none" is how an expression is switched off; the engines never see it.
+  void remove_disabled_expressions() const {
+    for (std::vector<std::string> *list : {&data.filter_string, &data.ok_string, &data.warn_string, &data.crit_string})
+      list->erase(std::remove(list->begin(), list->end(), "none"), list->end());
+  }
+
+  // For a check that has to do its work before it can build the filter: one
+  // whose keywords are the columns of a query it runs (check_wmi,
+  // check_mysql_query, check_mssql_query). Called after parse_options() and
+  // before that work, it answers show-query and returns true, so that asking
+  // what a check would run never runs it. The expressions are then not
+  // validated - their keywords are not known yet. Every other check leaves
+  // show-query to build_filter().
+  bool answer_show_query() {
+    if (!show_query_requested) return false;
+    remove_disabled_expressions();
+    nscapi::protobuf::functions::set_response_good(*response, render_query());
+    return true;
+  }
+
   bool build_filter(T &filter) {
     // The separator joins list items as they are collected, so it has to be in
     // place before the first match is recorded (start_match, below).
@@ -645,10 +877,7 @@ struct cli_helper : boost::noncopyable {
     }
     filter.context->set_number_format(number_format);
     filter.set_human_number_format(!number_format.is_default());
-    data.filter_string.erase(std::remove(data.filter_string.begin(), data.filter_string.end(), "none"), data.filter_string.end());
-    data.ok_string.erase(std::remove(data.ok_string.begin(), data.ok_string.end(), "none"), data.ok_string.end());
-    data.warn_string.erase(std::remove(data.warn_string.begin(), data.warn_string.end(), "none"), data.warn_string.end());
-    data.crit_string.erase(std::remove(data.crit_string.begin(), data.crit_string.end(), "none"), data.crit_string.end());
+    remove_disabled_expressions();
 
     if (!filter.build_syntax(data.debug, data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, data.syntax_ok, data.syntax_empty)) {
       nscapi::protobuf::functions::set_response_bad(*response, "Failed to parse syntax");
@@ -669,6 +898,14 @@ struct cli_helper : boost::noncopyable {
     std::string error;
     if (!filter.validate(error)) {
       nscapi::protobuf::functions::set_response_bad(*response, "Failed to validate filter see log for details: " + error);
+      return false;
+    }
+
+    // show-query is answered here, not in parse_options(): this is the query
+    // as it runs, after whatever the check changed in between, and after the
+    // expressions were parsed and validated like on a real run.
+    if (show_query_requested) {
+      nscapi::protobuf::functions::set_response_good(*response, render_query());
       return false;
     }
 

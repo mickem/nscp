@@ -61,6 +61,11 @@ void check_with(const mysql_client::connection_info &defaults, const PB::Command
 
   if (query.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No query specified (use query=<SQL>)");
 
+  // Before the server is contacted: the keywords are the query's columns, so
+  // build_filter() only runs after the query has, and show-query must not
+  // execute it.
+  if (filter_helper.answer_show_query()) return;
+
   mysql_options::with_runner(factory, info, response, [&](const mysql_client::query_runner &run) {
     const mysql_client::result res = run(query);
 

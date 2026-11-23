@@ -474,7 +474,7 @@ class failed_check_store {
         // cli_helper: thresholds, filter and the output syntax.
         "warning", "warn", "critical", "crit", "ok", "filter", "debug", "show-all", "empty-state", "perf-config", "escape-html", "list-separator",
         "decimals", "byte-unit", "decimal-separator", "thousands-separator", "warmup-state", "top-syntax", "ok-syntax", "empty-syntax",
-        "detail-syntax", "perf-syntax", "unique-index",
+        "detail-syntax", "perf-syntax", "unique-index", "show-query",
         // Every command.
         "help", "help-pb", "show-default", "help-short",
         // What is checked: the time window, the object, its kind.

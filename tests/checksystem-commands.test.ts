@@ -1640,3 +1640,65 @@ describeWithModules("CheckSystem")("CheckSystem check_uptime timezone and max-un
     });
   });
 });
+
+describeWithModules("CheckSystem")("CheckSystem show-query (client query)", () => {
+  // show-query is answered by build_filter(), after the check has made its own
+  // changes to the query, and before the collector is read: a one-shot boot
+  // with no samples yet still answers it. The client-query path prints the
+  // raw message, so the line is the whole output.
+  let nscp: NscpInstance;
+
+  async function run(command: string, args: string[]): Promise<{ out: string; code: number }> {
+    const r = await nscp.run(["client", "--module", "CheckSystem", "--boot", "--query", command, ...args], {
+      allowFailure: true,
+    });
+    return { out: r.stdout, code: r.exitCode };
+  }
+
+  beforeAll(() => {
+    nscp = new NscpInstance();
+  });
+
+  it("check_cpu shows its default query with -w / -c resolved", async () => {
+    if (onWindows) return;
+    const { out, code } = await run("check_cpu", ["-w", "70", "show-query"]);
+    expect(code).toBe(OK);
+    expect(out).toContain(`"filter=core = 'total'" `);
+    expect(out).toContain(`"warning=load > 70" `);
+    expect(out).toContain(`"critical=load > 90" `);
+    expect(out).not.toMatch(/"w=|"c=|"show-query=/);
+    // Not run: no collector warm-up message and no perfdata.
+    expect(out).not.toMatch(/collector|=\d+%;/);
+  });
+
+  it("check_cpu shows the filter cores=true removes", async () => {
+    if (onWindows) return;
+    // The check clears its default filter between parsing and building it;
+    // show-query prints what runs, which is no filter at all.
+    const { out, code } = await run("check_cpu", ["cores", "show-query"]);
+    expect(code).toBe(OK);
+    expect(out).toContain(`"filter=none" `);
+    expect(out).not.toContain("core = 'total'");
+    expect(out).toContain(`"cores=true" `);
+    // Pasted back, the line is the same query.
+    const tokens = [...out.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+    const again = await run("check_cpu", [...tokens, "show-query"]);
+    expect(again.code).toBe(OK);
+    expect(again.out.trim()).toBe(out.trim());
+  });
+
+  it("check_cpu show-all is shown as the top-syntax it produces, and round-trips", async () => {
+    if (onWindows) return;
+    // show-all turns the default problem_list into a detail_list. Echoed as
+    // an option next to that syntax, a second run would rewrite it again and
+    // lose the "${status}: " prefix.
+    const { out, code } = await run("check_cpu", ["show-all", "show-query"]);
+    expect(code).toBe(OK);
+    expect(out).toContain('"top-syntax=${status}: ${detail_list}" ');
+    expect(out).not.toContain("show-all");
+    const tokens = [...out.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+    const again = await run("check_cpu", [...tokens, "show-query"]);
+    expect(again.code).toBe(OK);
+    expect(again.out.trim()).toBe(out.trim());
+  });
+});

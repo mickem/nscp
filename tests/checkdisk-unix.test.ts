@@ -415,26 +415,58 @@ describeOnLinux("CheckDisk (Unix)", () => {
 
   it("show-default stays a line that can be edited and passed back", async () => {
     // With "w=20" in it, editing only warning= would leave the short form
-    // adding the old bound back; the short defaults have a command of their own.
+    // adding the old bound back; the resolved query is show-query's job.
     const long = await query("check_drivesize", ["show-default"]);
     expect(long).toMatch(/"warning=used > 80%"/);
     expect(long).toMatch(/"critical=used > 90%"/);
     expect(long).not.toMatch(/"w=/);
     expect(long).not.toMatch(/"c=/);
+    expect(long).not.toMatch(/show-query/);
   });
 
-  it("show-short-defaults lists the defaults of -w and -c", async () => {
-    const short = await query("check_drivesize", ["show-short-defaults"]);
-    expect(short).toMatch(/"w=20" "c=10"/);
-    expect(short).not.toMatch(/warning=/);
-    // REST passes a flag with its value.
-    const valued = await queryWithCode("check_drivesize", ["show-short-defaults=true"]);
-    expect(valued.code).toBe(0);
-    expect(valued.out).toMatch(/"w=20" "c=10"/);
-    // A check that bounds count has none to show.
-    const none = await queryWithCode("check_files", ["show-short-defaults"]);
-    expect(none.code).toBe(0);
-    expect(none.out).not.toMatch(/"w=/);
+  it("show-query prints the query that runs, -w and -c resolved", async () => {
+    const r = await queryWithCode("check_drivesize", ["drive=/", "-w", "25", "-c", "10", "show-query"]);
+    expect(r.code).toBe(0);
+    // One token per expression; -w / -c are folded into warning / critical.
+    expect(r.out).toMatch(/"warning=free < 25%" /);
+    expect(r.out).toMatch(/"critical=free < 10%" /);
+    expect(r.out).not.toMatch(/"w=|"c=|"show-query=|"warn=|"crit=/);
+    // The check's own options are part of the line, so it can be pasted back.
+    expect(r.out).toMatch(/"drive=\/" /);
+    expect(r.out).toMatch(/"top-syntax=[^"]+" /);
+    expect(r.out).toMatch(/"detail-syntax=[^"]+" /);
+    // Nothing was checked: no perfdata, no status.
+    expect(r.out).not.toMatch(/'\/ used'=/);
+  });
+
+  it("show-query with no other arguments is the defaults, resolved", async () => {
+    const r = await queryWithCode("check_drivesize", ["show-query"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/"warning=used > 80%" "critical=used > 90%" /);
+  });
+
+  it("show-query takes the valued form REST passes", async () => {
+    const on = await queryWithCode("check_drivesize", ["drive=/", "show-query=true"]);
+    expect(on.code).toBe(0);
+    expect(on.out).toMatch(/"warning=used > 80%"/);
+    // Switched off it is an ordinary run.
+    const off = await queryWithCode("check_drivesize", ["drive=/", "show-query=false", "warning=used > 101%", "critical=used > 101%"]);
+    expect(off.code).toBe(0);
+    expect(off.out).toMatch(/'\/ used'=/);
+    expect(off.out).not.toMatch(/"warning=/);
+  });
+
+  it("show-query still refuses an invalid expression", async () => {
+    const r = await queryWithCode("check_drivesize", ["drive=/", "warning=no_such_keyword > 1", "show-query"]);
+    expect(r.code).toBe(3);
+    expect(r.out).not.toMatch(/"warning=/);
+  });
+
+  it("show-query is there on a check that bounds count", async () => {
+    const r = await queryWithCode("check_files", [`path=${scratch}`, "-c", "5", "show-query"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/"critical=count > 5" /);
+    expect(r.out).toContain(`"path=${scratch}" `);
   });
 
   it("an empty or mis-united short threshold is refused, not guessed at", async () => {

@@ -1300,56 +1300,16 @@ TEST(CliHelperShortThresholds, ShowDefaultRoundTripsAfterAnEdit) {
   EXPECT_EQ(string_list({"load > 98"}), c.data.crit_string);
 }
 
-TEST(CliHelperShortThresholds, ShowShortDefaultsListsOnlyTheShortForm) {
-  for (const std::string arg : {"show-short-defaults", "--show-short-defaults"}) {
-    short_threshold_case c({arg});
-    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
-    helper.add_options("used > 80%", "used > 90%", "", {});
-    helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
-    EXPECT_FALSE(helper.parse_options());
-    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
-    EXPECT_EQ("\"w=20\" \"c=10\" ", c.message());
-  }
-}
-
-TEST(CliHelperShortThresholds, ShowShortDefaultsForAListAndForOneSide) {
-  {
-    short_threshold_case c({"show-short-defaults"});
-    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
-    helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", {});
-    helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "60", "100");
-    helper.add_short_threshold("loss", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent, "5", "10");
-    EXPECT_FALSE(helper.parse_options());
-    EXPECT_EQ("\"w=60,5\" \"c=100,10\" ", c.message());
-  }
-  {
-    // No bound on the critical side by default: only -w has one to show.
-    short_threshold_case c({"show-short-defaults"});
-    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
-    helper.add_options("time > 5000", "result != 'ok'", "", {});
-    helper.add_short_threshold("time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms, "5", "");
-    EXPECT_FALSE(helper.parse_options());
-    EXPECT_EQ("\"w=5\" ", c.message());
-  }
-  {
-    // A check that bounds count has no short default at all.
-    short_threshold_case c({"show-short-defaults"});
-    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
-    helper.add_options("", "", "", {});
-    EXPECT_FALSE(helper.parse_options());
-    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
-    EXPECT_EQ("", c.message());
-  }
-}
-
 // The option is listed in help; a value that merely contains the word is not
 // taken for the command.
-TEST(CliHelperShortThresholds, ShowShortDefaultsIsListedAndNotMistaken) {
-  short_threshold_case c({"filter=name = 'show-short-defaults'"});
+TEST(CliHelperShortThresholds, ShowQueryIsListedAndNotMistaken) {
+  short_threshold_case c({"filter=name = 'show-query'"});
   modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
   helper.add_options("", "", "", {});
   ASSERT_TRUE(helper.parse_options()) << c.message();
-  EXPECT_NE(nullptr, helper.get_desc().find_nothrow("show-short-defaults", false));
+  EXPECT_NE(nullptr, helper.get_desc().find_nothrow("show-query", false));
+  EXPECT_FALSE(helper.show_query_requested);
+  EXPECT_EQ(string_list({"name = 'show-query'"}), c.data.filter_string);
 }
 
 TEST(CliHelperShortThresholds, OneSideLeavesTheOtherDefaultAlone) {
@@ -1485,36 +1445,15 @@ TEST(CliHelperShortThresholds, AnEmptyOptionOfTheChecksOwnIsNotAMissingThreshold
   EXPECT_EQ(string_list({"load > 70"}), c.data.warn_string);
 }
 
-// REST passes a flag as "x=true" (CLAUDE.md, the bool_switch trap).
-TEST(CliHelperShortThresholds, ShowShortDefaultsAcceptsTheValuedForm) {
-  for (const std::string arg : {"show-short-defaults=true", "--show-short-defaults=true", "show-short-defaults=1"}) {
-    short_threshold_case c({arg});
-    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
-    helper.add_options("load > 80", "load > 90", "", {});
-    helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "90");
-    EXPECT_FALSE(helper.parse_options()) << arg;
-    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result()) << arg << ": " << c.message();
-    EXPECT_EQ("\"w=80\" \"c=90\" ", c.message()) << arg;
-  }
-  // Switched off it is an ordinary run.
-  for (const std::string arg : {"show-short-defaults=false", "--show-short-defaults=false"}) {
-    short_threshold_case c({arg});
-    modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
-    helper.add_options("load > 80", "load > 90", "", {});
-    helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "90");
-    EXPECT_TRUE(helper.parse_options()) << arg << ": " << c.message();
-    EXPECT_EQ(string_list({"load > 80"}), c.data.warn_string) << arg;
-  }
-}
-
-// It is still left out of show-default, which lists every option with a
-// default: "show-short-defaults=false" has no place in a line to pass back.
-TEST(CliHelperShortThresholds, ShowDefaultDoesNotListShowShortDefaults) {
+// show-query is left out of show-default, which lists every option with a
+// default: "show-query=false" has no place in a line to pass back.
+TEST(CliHelperShortThresholds, ShowDefaultDoesNotListShowQuery) {
   short_threshold_case c({"show-default"});
   modern_filter::cli_helper<DummyFilter> helper(c.request, c.response, c.data);
   helper.add_options("load > 80", "load > 90", "", {});
   EXPECT_FALSE(helper.parse_options());
-  EXPECT_EQ(std::string::npos, c.message().find("show-short-defaults")) << c.message();
+  EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+  EXPECT_EQ(std::string::npos, c.message().find("show-query")) << c.message();
 }
 
 // "-w -c 90": the -w has no value. It used to take "-c" for one and fail on
@@ -1655,13 +1594,14 @@ TEST(CliHelperIsRequested, IsAbbreviationOf) {
   EXPECT_FALSE(helper.is_abbreviation_of("w", "warning"));
   EXPECT_FALSE(helper.is_abbreviation_of("warn", "warning"));
   EXPECT_TRUE(helper.is_abbreviation_of("warni", "warning"));
-  // Once the short options are registered "show-s" has a meaning, and
-  // "show-d" still has only the one.
-  EXPECT_TRUE(helper.is_abbreviation_of("show-s", "show-short-defaults"));
+  // Once show-query is registered "show-q" has a meaning, and "show-d" still
+  // has only the one.
+  EXPECT_TRUE(helper.is_abbreviation_of("show-q", "show-query"));
   helper.register_short_thresholds();
-  EXPECT_TRUE(helper.is_abbreviation_of("show-s", "show-short-defaults"));
+  helper.register_show_query();
+  EXPECT_TRUE(helper.is_abbreviation_of("show-q", "show-query"));
   EXPECT_TRUE(helper.is_abbreviation_of("show-d", "show-default"));
-  EXPECT_FALSE(helper.is_abbreviation_of("show-", "show-short-defaults"));
+  EXPECT_FALSE(helper.is_abbreviation_of("show-", "show-query"));
 }
 
 TEST(CliHelperShortRegistration, RegistersOnceAndOnlyWhenEnabled) {
@@ -1675,6 +1615,8 @@ TEST(CliHelperShortRegistration, RegistersOnceAndOnlyWhenEnabled) {
     EXPECT_TRUE(helper.short_thresholds_registered);
     EXPECT_TRUE(helper.short_warn_owned);
     EXPECT_TRUE(helper.short_crit_owned);
+    // show-query is registered next to them on the way into parse_options().
+    helper.register_show_query();
     const std::size_t options = helper.get_desc().options().size();
     // A second call adds nothing (and would throw on a duplicate option at
     // parse time if it did).
@@ -1695,7 +1637,8 @@ TEST(CliHelperShortRegistration, RegistersOnceAndOnlyWhenEnabled) {
     EXPECT_FALSE(helper.short_crit_owned);
     EXPECT_EQ(nullptr, helper.get_desc().find_nothrow("w", false));
     EXPECT_EQ(nullptr, helper.get_desc().find_nothrow("c", false));
-    EXPECT_EQ(nullptr, helper.get_desc().find_nothrow("show-short-defaults", false));
+    // show-query is not one of them: it has a registration of its own.
+    EXPECT_EQ(nullptr, helper.get_desc().find_nothrow("show-query", false));
     EXPECT_TRUE(helper.short_thresholds.empty());
   }
 }
@@ -1737,13 +1680,11 @@ TEST(CliHelperShortRegistration, TheHelpOfAListAndOfAUnit) {
   EXPECT_NE(std::string::npos, warn.find("\nA number without a unit is in milliseconds;")) << warn;
   EXPECT_EQ(std::string::npos, warn.find("Common option for all filter checks.")) << warn;
   // The defaults are those of the short form, as they would be typed.
-  short_threshold_case shown({"show-short-defaults"});
-  short_helper again(shown.request, shown.response, shown.data);
-  again.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", {});
-  again.add_short_threshold("time", sh::above, sh::unit_milliseconds, "60", "100");
-  again.add_short_threshold("loss", sh::above, sh::unit_percent, "5", "10");
-  EXPECT_FALSE(again.parse_options());
-  EXPECT_EQ("\"w=60,5\" \"c=100,10\" ", shown.message());
+  boost::any warn_default, crit_default;
+  ASSERT_TRUE(helper.get_desc().find("w", false).semantic()->apply_default(warn_default));
+  ASSERT_TRUE(helper.get_desc().find("c", false).semantic()->apply_default(crit_default));
+  EXPECT_EQ(string_list({"60,5"}), boost::any_cast<string_list>(warn_default));
+  EXPECT_EQ(string_list({"100,10"}), boost::any_cast<string_list>(crit_default));
 }
 
 TEST(CliHelperShortRegistration, AnOptionTheCheckDeclaredIsLeftAlone) {
@@ -1754,16 +1695,18 @@ TEST(CliHelperShortRegistration, AnOptionTheCheckDeclaredIsLeftAlone) {
   helper.add_options("load > 80", "load > 90", "", {});
   helper.get_desc().add_options()("w", boost::program_options::value<std::string>(&width), "Width")(
       "c", boost::program_options::value<std::string>(&colour), "Colour")(
-      "show-short-defaults", boost::program_options::value<bool>(&own_listing)->implicit_value(true)->default_value(false), "The check's own");
+      "show-query", boost::program_options::value<bool>(&own_listing)->implicit_value(true)->default_value(false), "The check's own");
   const std::size_t options = helper.get_desc().options().size();
   helper.register_short_thresholds();
+  helper.register_show_query();
   EXPECT_TRUE(helper.short_thresholds_registered);
   EXPECT_FALSE(helper.short_warn_owned);
   EXPECT_FALSE(helper.short_crit_owned);
+  EXPECT_FALSE(helper.show_query_owned);
   EXPECT_EQ(options, helper.get_desc().options().size());
   EXPECT_EQ("Width", helper.get_desc().find("w", false).description());
   EXPECT_EQ("Colour", helper.get_desc().find("c", false).description());
-  EXPECT_EQ("The check's own", helper.get_desc().find("show-short-defaults", false).description());
+  EXPECT_EQ("The check's own", helper.get_desc().find("show-query", false).description());
 }
 
 TEST(CliHelperShortRegistration, OnlyOneOfTheTwoIsTheChecksOwn) {
@@ -1831,75 +1774,63 @@ TEST(CliHelperShortDefaults, AnswerDefaultQueries) {
     helper.add_options("load > 80", "load > 90", "", {});
     EXPECT_FALSE(helper.answer_default_queries());
     EXPECT_TRUE(helper.short_thresholds_registered);
+    EXPECT_TRUE(helper.show_query_owned);
     EXPECT_EQ(0, c.response->lines_size());
   }
   {
-    // show-default: rendered before -w / -c exist, which are registered all
-    // the same.
+    // show-default: rendered before -w / -c and show-query exist, which are
+    // registered all the same.
     short_threshold_case c({"show-default"});
     short_helper helper(c.request, c.response, c.data);
     helper.add_options("load > 80", "load > 90", "", {});
     helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
     EXPECT_TRUE(helper.answer_default_queries());
     EXPECT_TRUE(helper.short_thresholds_registered);
+    EXPECT_TRUE(helper.show_query_owned);
     EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
     EXPECT_NE(std::string::npos, c.message().find("\"warning=load > 80\"")) << c.message();
     EXPECT_EQ(std::string::npos, c.message().find("\"w=")) << c.message();
-    EXPECT_EQ(std::string::npos, c.message().find("show-short-defaults")) << c.message();
+    EXPECT_EQ(std::string::npos, c.message().find("show-query")) << c.message();
   }
   {
-    // Both asked for: show-default is the one that answers.
-    short_threshold_case c({"show-short-defaults", "show-default"});
+    // Both asked for: show-default is the one that answers, as it is the one
+    // that never runs the check's own code.
+    short_threshold_case c({"show-query", "show-default"});
     short_helper helper(c.request, c.response, c.data);
     helper.add_options("load > 80", "load > 90", "", {});
     helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
     EXPECT_TRUE(helper.answer_default_queries());
     EXPECT_NE(std::string::npos, c.message().find("\"warning=load > 80\"")) << c.message();
-    EXPECT_EQ(std::string::npos, c.message().find("\"w=80\"")) << c.message();
   }
   {
-    // Only the critical side has a short default.
-    short_threshold_case c({"show-short-defaults"});
-    short_helper helper(c.request, c.response, c.data);
-    helper.add_options("", "health_critical > 0", "", {});
-    helper.add_short_threshold("health_critical", sh::above, sh::unit_plain, "", "0");
-    EXPECT_TRUE(helper.answer_default_queries());
-    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
-    EXPECT_EQ("\"c=0\" ", c.message());
-  }
-  {
-    // Abbreviated, as the option parser would have guessed it.
-    short_threshold_case c({"--show-s"});
+    // show-query is not answered here: build_filter() does.
+    short_threshold_case c({"show-query"});
     short_helper helper(c.request, c.response, c.data);
     helper.add_options("load > 80", "load > 90", "", {});
-    helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
-    EXPECT_TRUE(helper.answer_default_queries());
-    EXPECT_EQ("\"w=80\" \"c=90\" ", c.message());
+    EXPECT_FALSE(helper.answer_default_queries());
+    EXPECT_EQ(0, c.response->lines_size());
   }
 }
 
-TEST(CliHelperShortDefaults, DisabledItIsLeftToTheOptionParser) {
+// A helper without -w / -c (CheckHelpers' render_perf) answers show-default
+// the same way, and leaves show-query out of it just the same.
+TEST(CliHelperShortDefaults, DisabledShowDefaultIsUnchanged) {
   short_threshold_case c({"show-default"});
   short_helper helper(c.request, c.response, c.data);
   helper.add_options("load > 80", "load > 90", "", {});
   helper.disable_short_thresholds();
-  EXPECT_FALSE(helper.answer_default_queries());
-  EXPECT_FALSE(helper.short_thresholds_registered);
-  EXPECT_EQ(0, c.response->lines_size());
-  // The parser still answers it, as it did before the short thresholds.
   EXPECT_FALSE(helper.parse_options());
+  EXPECT_FALSE(helper.short_thresholds_registered);
   EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
   EXPECT_NE(std::string::npos, c.message().find("\"warning=load > 80\"")) << c.message();
   EXPECT_NE(std::string::npos, c.message().find("\"critical=load > 90\"")) << c.message();
-
-  // show-short-defaults is no option of such a helper.
-  short_threshold_case d({"show-short-defaults"});
-  short_helper other(d.request, d.response, d.data);
+  EXPECT_EQ(std::string::npos, c.message().find("show-query")) << c.message();
+  // It is exactly what the option parser printed for it before.
+  modern_filter::data_container other_data;
+  short_threshold_case d({});
+  short_helper other(d.request, d.response, other_data);
   other.add_options("load > 80", "load > 90", "", {});
-  other.disable_short_thresholds();
-  EXPECT_FALSE(other.answer_default_queries());
-  EXPECT_FALSE(other.parse_options());
-  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, d.response->result());
+  EXPECT_EQ(nscapi::program_options::help_show_default(other.get_desc()), c.message());
 }
 
 TEST(CliHelperShortArguments, NormalizedRequest) {
@@ -2128,7 +2059,7 @@ TEST(CliHelperShortParse, EveryOverloadTakesEveryWayOut) {
       EXPECT_EQ(string_list({"load > 95"}), c.data.crit_string) << kind;
     }
     {
-      // show-default and show-short-defaults are answered.
+      // show-default is answered; show-query is recorded for build_filter().
       short_threshold_case c({"show-default"});
       short_helper helper(c.request, c.response, c.data);
       helper.add_options("load > 80", "load > 90", "", {});
@@ -2138,12 +2069,14 @@ TEST(CliHelperShortParse, EveryOverloadTakesEveryWayOut) {
       EXPECT_NE(std::string::npos, c.message().find("\"warning=load > 80\"")) << kind << ": " << c.message();
       EXPECT_EQ(std::string::npos, c.message().find("\"w=")) << kind << ": " << c.message();
 
-      short_threshold_case d({"show-short-defaults=true"});
+      short_threshold_case d({"show-query=true", "-w", "85"});
       short_helper other(d.request, d.response, d.data);
       other.add_options("load > 80", "load > 90", "", {});
       other.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
-      EXPECT_FALSE(run_parse(other, kind, extra)) << kind;
-      EXPECT_EQ("\"w=80\" \"c=90\" ", d.message()) << kind;
+      EXPECT_TRUE(run_parse(other, kind, extra)) << kind << ": " << d.message();
+      EXPECT_TRUE(other.show_query_requested) << kind;
+      EXPECT_EQ(0, d.response->lines_size()) << kind;
+      EXPECT_EQ(string_list({"load > 85"}), d.data.warn_string) << kind;
     }
     {
       // A flag without a value.
@@ -2198,4 +2131,352 @@ TEST(CliHelperShortParse, TheExtraArgumentsAreStillCollected) {
   EXPECT_EQ(string_list({"\\Processor(_total)\\% Processor Time"}), extra);
   EXPECT_EQ(string_list({"value > 80"}), c.data.warn_string);
   EXPECT_EQ(string_list({"value > 90"}), c.data.crit_string);
+}
+
+// ============================================================================
+// cli_helper — show-query
+// ============================================================================
+
+namespace {
+// Enough of a filter for build_filter() to run: records whether matching
+// started, and refuses an expression naming a keyword it does not have, the
+// way the real engine fails to build one.
+struct QueryFilter {
+  struct {
+    std::string list_separator = ", ";
+  } summary;
+  struct fake_context {
+    void set_number_format(const str::number_format &) {}
+  };
+  std::shared_ptr<fake_context> context = std::make_shared<fake_context>();
+  bool started = false;
+  void set_human_number_format(bool) {}
+  bool build_syntax(bool, const std::string &, const std::string &, const std::string &, const std::string &, const std::string &, const std::string &) {
+    return true;
+  }
+  bool build_index(const std::string &, std::string &) { return true; }
+  static bool known(const std::vector<std::string> &expressions) {
+    for (const std::string &e : expressions)
+      if (e.find("no_such_keyword") != std::string::npos) return false;
+    return true;
+  }
+  bool build_engines(bool, const std::vector<std::string> &filter, const std::vector<std::string> &ok, const std::vector<std::string> &warn,
+                     const std::vector<std::string> &crit) {
+    return known(filter) && known(ok) && known(warn) && known(crit);
+  }
+  bool validate(std::string &) { return true; }
+  void start_match() { started = true; }
+};
+typedef modern_filter::cli_helper<QueryFilter> query_helper;
+
+// A check in the shape of check_tcp: a time bound with a template on the
+// critical side, a syntax, and options of its own.
+struct query_case : short_threshold_case {
+  std::string host;
+  int port = 0;
+  bool verbose = false;
+  std::vector<std::string> times;
+  std::string password;
+  std::vector<std::string> headers;
+  query_helper helper;
+  explicit query_case(const string_list &args, const std::string &top_syntax = "${status}: ${list}")
+      : short_threshold_case(args), helper(request, response, data) {
+    helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", {});
+    helper.add_short_threshold("time", sh::above, sh::unit_seconds_as_ms, "1", "5");
+    helper.add_short_critical("${time} or result != 'ok'");
+    helper.add_syntax(top_syntax, "${host}: ${time}ms", "${host}", "", "");
+    // clang-format off
+    helper.get_desc().add_options()
+      ("host", boost::program_options::value<std::string>(&host), "Host")
+      ("port", boost::program_options::value<int>(&port)->default_value(443), "Port")
+      ("verbose", boost::program_options::value<bool>(&verbose)->implicit_value(true)->default_value(false), "Verbose")
+      ("time", boost::program_options::value<std::vector<std::string> >(&times), "Times")
+      ("password", boost::program_options::value<std::string>(&password), "Password")
+      ("header", boost::program_options::value<std::vector<std::string> >(&headers), "Headers")
+      ;
+    // clang-format on
+  }
+  // Runs the check up to where show-query answers; true when it would have
+  // gone on to match.
+  bool run() {
+    if (!helper.parse_options()) return false;
+    QueryFilter filter;
+    const bool built = helper.build_filter(filter);
+    EXPECT_EQ(built, filter.started);
+    return built;
+  }
+  bool has(const std::string &token) const { return message().find("\"" + token + "\" ") != std::string::npos; }
+};
+}  // namespace
+
+TEST(CliHelperShowQuery, TheDefaults) {
+  query_case c({"show-query"});
+  EXPECT_FALSE(c.run());
+  EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+  EXPECT_EQ(
+      "\"warning=time > 1000\" \"critical=time > 5000 or result != 'ok'\" \"debug=false\" \"empty-state=ignored\" "
+      "\"escape-html=false\" \"list-separator=, \" \"decimals=-1\" \"top-syntax=${status}: ${list}\" \"detail-syntax=${host}: ${time}ms\" "
+      "\"perf-syntax=${host}\" \"port=443\" \"verbose=false\" ",
+      c.message());
+}
+
+TEST(CliHelperShowQuery, ShortThresholdsAreResolved) {
+  query_case c({"-w", "2", "show-query", "-c", "10"});
+  EXPECT_FALSE(c.run());
+  EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+  EXPECT_TRUE(c.has("warning=time > 2000")) << c.message();
+  EXPECT_TRUE(c.has("critical=time > 10000 or result != 'ok'")) << c.message();
+  EXPECT_EQ(std::string::npos, c.message().find("\"w=")) << c.message();
+  EXPECT_EQ(std::string::npos, c.message().find("\"c=")) << c.message();
+  EXPECT_EQ(std::string::npos, c.message().find("show-query")) << c.message();
+}
+
+TEST(CliHelperShowQuery, AnExplicitWarningNextToAShortOne) {
+  query_case c({"warning=result = 'timeout'", "-w", "2", "show-query"});
+  EXPECT_FALSE(c.run());
+  // Two expressions, two tokens: the explicit one and the -w.
+  EXPECT_NE(std::string::npos, c.message().find("\"warning=result = 'timeout'\" \"warning=time > 2000\" ")) << c.message();
+  EXPECT_TRUE(c.has("critical=time > 5000 or result != 'ok'")) << c.message();
+}
+
+TEST(CliHelperShowQuery, EveryExpressionIsATokenOfItsOwn) {
+  query_case c({"filter=host = 'a'", "filter=host = 'b'", "critical=time > 1", "crit=time > 2", "show-query"});
+  EXPECT_FALSE(c.run());
+  EXPECT_NE(std::string::npos, c.message().find("\"filter=host = 'a'\" \"filter=host = 'b'\" ")) << c.message();
+  // crit= is folded into critical (it replaces it, as it does on a run), and
+  // is not echoed as an option of its own.
+  EXPECT_TRUE(c.has("critical=time > 2")) << c.message();
+  EXPECT_FALSE(c.has("critical=time > 1")) << c.message();
+  EXPECT_EQ(std::string::npos, c.message().find("\"crit=")) << c.message();
+  // Never joined into one value (the list separator is the first ", " that
+  // belongs in the line).
+  const std::string head = c.message().substr(0, c.message().find("\"list-separator="));
+  EXPECT_EQ(std::string::npos, head.find(", ")) << head;
+}
+
+// What a check changes between parse_options() and build_filter() is what
+// runs, so that is what is shown (check_cpu clears its default filter for
+// cores=true, check_pdh moves its top-syntax, check_eventlog sets a unique
+// index).
+TEST(CliHelperShowQuery, ARewriteByTheCheckIsShown) {
+  query_case c({"show-query", "host=db01"});
+  ASSERT_TRUE(c.helper.parse_options()) << c.message();
+  c.data.syntax_top = "${status}: ${problem_list}";
+  c.helper.append_all_filters("and", "host != 'localhost'");
+  c.helper.set_default_index("${host}");
+  c.data.warn_string.clear();
+  QueryFilter filter;
+  EXPECT_FALSE(c.helper.build_filter(filter));
+  EXPECT_FALSE(filter.started);
+  EXPECT_TRUE(c.has("top-syntax=${status}: ${problem_list}")) << c.message();
+  EXPECT_TRUE(c.has("filter=(host != 'localhost')and host != 'localhost'")) << c.message();
+  EXPECT_TRUE(c.has("unique-index=${host}")) << c.message();
+  // Dropped by the check, while the option has a default: "none" says so, as
+  // leaving it out would bring the default back on a paste.
+  EXPECT_TRUE(c.has("warning=none")) << c.message();
+  EXPECT_TRUE(c.has("host=db01")) << c.message();
+}
+
+// A filter setting the check fills in without declaring its option is shown
+// as well, after the declared ones.
+TEST(CliHelperShowQuery, ASettingWithoutAnOptionIsShownToo) {
+  query_case c({"show-query"});
+  ASSERT_TRUE(c.helper.parse_options());
+  c.data.perf_config = "time(unit:s)";
+  QueryFilter filter;
+  EXPECT_FALSE(c.helper.build_filter(filter));
+  EXPECT_TRUE(c.has("perf-config=time(unit:s)")) << c.message();
+}
+
+TEST(CliHelperShowQuery, TheValuedFormRestPasses) {
+  for (const std::string arg : {"show-query=true", "--show-query=true", "show-query=1", "--show-query"}) {
+    query_case c({arg});
+    EXPECT_FALSE(c.run()) << arg;
+    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result()) << arg;
+    EXPECT_TRUE(c.has("warning=time > 1000")) << arg << ": " << c.message();
+  }
+  // Switched off it is an ordinary run.
+  for (const std::string arg : {"show-query=false", "--show-query=false", "show-query=0"}) {
+    query_case c({arg});
+    EXPECT_TRUE(c.run()) << arg << ": " << c.message();
+    EXPECT_FALSE(c.helper.show_query_requested) << arg;
+    EXPECT_EQ(0, c.response->lines_size()) << arg;
+  }
+}
+
+// The expressions are still built: an invalid one fails as it would on a run.
+TEST(CliHelperShowQuery, AnInvalidExpressionStillFails) {
+  query_case c({"warning=no_such_keyword > 1", "show-query"});
+  EXPECT_FALSE(c.run());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result());
+  EXPECT_EQ("Failed to build engines", c.message());
+  // And so does an option the check refuses before it gets that far.
+  query_case d({"byte-unit=lightyears", "show-query"});
+  EXPECT_FALSE(d.run());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, d.response->result());
+}
+
+TEST(CliHelperShowQuery, TheChecksOwnOptionsAreEchoed) {
+  query_case c({"host=db01", "port=5432", "verbose", "time=5m", "time=1m", "show-all", "show-query"});
+  EXPECT_FALSE(c.run());
+  EXPECT_TRUE(c.has("host=db01")) << c.message();
+  EXPECT_TRUE(c.has("port=5432")) << c.message();
+  EXPECT_TRUE(c.has("verbose=true")) << c.message();
+  EXPECT_NE(std::string::npos, c.message().find("\"time=5m\" \"time=1m\" ")) << c.message();
+  // show-all is shown as what it did to the top-syntax, not as an option.
+  EXPECT_EQ(std::string::npos, c.message().find("show-all")) << c.message();
+  EXPECT_TRUE(c.has("top-syntax=${status}: %(list)")) << c.message();
+  for (const std::string meta : {"help=", "help-pb=", "help-short=", "show-default=", "show-query="})
+    EXPECT_EQ(std::string::npos, c.message().find("\"" + meta)) << meta << ": " << c.message();
+}
+
+// Pasted back, the line is the same query.
+TEST(CliHelperShowQuery, TheLineRoundTrips) {
+  query_case first({"-w", "2", "host=db01", "show-all", "show-query"});
+  EXPECT_FALSE(first.run());
+  string_list args;
+  const std::string line = first.message();
+  for (std::string::size_type at = line.find('"'); at != std::string::npos; at = line.find('"', line.find('"', at + 1) + 1))
+    args.push_back(line.substr(at + 1, line.find('"', at + 1) - at - 1));
+  args.push_back("show-query");
+  query_case second(args);
+  EXPECT_FALSE(second.run());
+  EXPECT_EQ(first.message(), second.message());
+}
+
+namespace {
+// The arguments a printed line amounts to.
+string_list tokens_of(const std::string &line) {
+  string_list args;
+  for (std::string::size_type at = line.find('"'); at != std::string::npos; at = line.find('"', line.find('"', at + 1) + 1))
+    args.push_back(line.substr(at + 1, line.find('"', at + 1) - at - 1));
+  return args;
+}
+}  // namespace
+
+// The default top-syntax of most checks. show-all turns its problem_list into
+// a detail_list, and a second show-all on that would replace the whole syntax
+// - so the line carries the rewritten syntax and no show-all.
+TEST(CliHelperShowQuery, ShowAllOnAProblemListRoundTrips) {
+  query_case first({"show-all", "show-query"}, "${status}: ${problem_list}");
+  EXPECT_FALSE(first.run());
+  EXPECT_TRUE(first.has("top-syntax=${status}: ${detail_list}")) << first.message();
+  EXPECT_EQ(std::string::npos, first.message().find("show-all")) << first.message();
+  string_list args = tokens_of(first.message());
+  args.push_back("show-query");
+  query_case second(args, "${status}: ${problem_list}");
+  EXPECT_FALSE(second.run());
+  EXPECT_EQ(first.message(), second.message());
+}
+
+// The line is a check result, so it must not carry a credential.
+TEST(CliHelperShowQuery, CredentialsAreMasked) {
+  query_case c({"host=db01", "password=s3cret", "header=Authorization: Bearer abc", "header=Accept: text/html", "show-query"});
+  EXPECT_FALSE(c.run());
+  EXPECT_TRUE(c.has("password=***")) << c.message();
+  EXPECT_NE(std::string::npos, c.message().find("\"header=***\" \"header=***\" ")) << c.message();
+  EXPECT_EQ(std::string::npos, c.message().find("s3cret")) << c.message();
+  EXPECT_EQ(std::string::npos, c.message().find("Bearer")) << c.message();
+  EXPECT_TRUE(c.has("host=db01")) << c.message();
+}
+
+TEST(CliHelperShowQuery, WhichOptionsAreSensitive) {
+  for (const std::string name : {"password", "Password", "proxy-password", "password-file", "token", "api-token", "secret", "secret-file", "connection-string", "header"})
+    EXPECT_TRUE(query_helper::is_sensitive_option(name)) << name;
+  for (const std::string name : {"host", "user", "query", "key", "connections", "headers-only"}) EXPECT_FALSE(query_helper::is_sensitive_option(name)) << name;
+}
+
+// A check that has to run a query to learn its keywords answers before it
+// does: no filter is built, and nothing is validated.
+TEST(CliHelperShowQuery, AnsweredBeforeTheFilterIsBuilt) {
+  query_case c({"host=db01", "warning=no_such_keyword > 1", "critical=none", "show-query"});
+  ASSERT_TRUE(c.helper.parse_options());
+  EXPECT_TRUE(c.helper.answer_show_query());
+  EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+  EXPECT_TRUE(c.has("warning=no_such_keyword > 1")) << c.message();
+  EXPECT_TRUE(c.has("critical=none")) << c.message();
+  EXPECT_TRUE(c.has("host=db01")) << c.message();
+}
+
+TEST(CliHelperShowQuery, NotAnsweredEarlyUnlessAskedFor) {
+  query_case c({"host=db01"});
+  ASSERT_TRUE(c.helper.parse_options());
+  EXPECT_FALSE(c.helper.answer_show_query());
+  EXPECT_EQ(0, c.response->lines_size());
+}
+
+// The arguments parse_options() leaves to the check are part of its query.
+TEST(CliHelperShowQuery, TheExtraArgumentsAreEchoed) {
+  short_threshold_case c({"\\Processor(_total)\\% Processor Time", "-w", "80", "show-query"});
+  query_helper helper(c.request, c.response, c.data);
+  helper.add_options("", "", "", {});
+  helper.add_short_threshold("value", sh::above);
+  string_list extra;
+  ASSERT_TRUE(helper.parse_options(extra)) << c.message();
+  QueryFilter filter;
+  EXPECT_FALSE(helper.build_filter(filter));
+  EXPECT_NE(std::string::npos, c.message().find("\"warning=value > 80\" ")) << c.message();
+  EXPECT_NE(std::string::npos, c.message().find("\"\\Processor(_total)\\% Processor Time\" ")) << c.message();
+}
+
+// Without -w / -c it is still there for whatever goes through build_filter().
+TEST(CliHelperShowQuery, WithoutShortThresholds) {
+  short_threshold_case c({"show-query", "warning=x > 1"});
+  query_helper helper(c.request, c.response, c.data);
+  helper.add_options("", "", "", {});
+  helper.disable_short_thresholds();
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  QueryFilter filter;
+  EXPECT_FALSE(helper.build_filter(filter));
+  EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+  EXPECT_NE(std::string::npos, c.message().find("\"warning=x > 1\" ")) << c.message();
+}
+
+// A check with a show-query of its own keeps it, and is not answered for it.
+TEST(CliHelperShowQuery, AnOptionOfTheChecksOwnIsLeftAlone) {
+  short_threshold_case c({"show-query"});
+  query_helper helper(c.request, c.response, c.data);
+  bool own = false;
+  helper.add_options("load > 80", "", "", {});
+  helper.get_desc().add_options()("show-query", boost::program_options::value<bool>(&own)->implicit_value(true)->default_value(false), "Own");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_TRUE(own);
+  EXPECT_FALSE(helper.show_query_owned);
+  QueryFilter filter;
+  EXPECT_TRUE(helper.build_filter(filter));
+}
+
+TEST(CliHelperShowQuery, IsACommonBooleanOption) {
+  query_case c({});
+  ASSERT_TRUE(c.run());
+  const boost::program_options::option_description &op = c.helper.get_desc().find("show-query", false);
+  EXPECT_NE(std::string::npos, op.description().find("Common option for all filter checks.")) << op.description();
+  EXPECT_NE(nullptr, dynamic_cast<const boost::program_options::typed_value<bool> *>(op.semantic().get()));
+  // help lists it with its default, as every other flag.
+  query_case h({"help"});
+  EXPECT_FALSE(h.helper.parse_options());
+  EXPECT_NE(std::string::npos, h.message().find("show-query=ARG")) << h.message();
+}
+
+TEST(CliHelperShowQuery, RenderOptionValue) {
+  string_list out;
+  EXPECT_TRUE(query_helper::render_option_value(boost::any(std::string("x")), out));
+  EXPECT_EQ(string_list({"x"}), out);
+  EXPECT_TRUE(query_helper::render_option_value(boost::any(std::string()), out));
+  EXPECT_TRUE(out.empty());
+  EXPECT_TRUE(query_helper::render_option_value(boost::any(string_list({"a", "", "b"})), out));
+  EXPECT_EQ(string_list({"a", "b"}), out);
+  EXPECT_TRUE(query_helper::render_option_value(boost::any(false), out));
+  EXPECT_EQ(string_list({"false"}), out);
+  EXPECT_TRUE(query_helper::render_option_value(boost::any(-3), out));
+  EXPECT_EQ(string_list({"-3"}), out);
+  EXPECT_TRUE(query_helper::render_option_value(boost::any(static_cast<unsigned short>(7)), out));
+  EXPECT_EQ(string_list({"7"}), out);
+  EXPECT_TRUE(query_helper::render_option_value(boost::any(12LL), out));
+  EXPECT_EQ(string_list({"12"}), out);
+  EXPECT_TRUE(query_helper::render_option_value(boost::any(0.5), out));
+  EXPECT_EQ(string_list({"0.5"}), out);
+  // A type it cannot render is left out rather than guessed at.
+  EXPECT_FALSE(query_helper::render_option_value(boost::any(std::pair<int, int>(1, 2)), out));
+  EXPECT_FALSE(query_helper::render_option_value(boost::any(), out));
 }
