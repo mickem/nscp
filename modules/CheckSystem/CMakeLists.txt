@@ -234,6 +234,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/cli_helper.cpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
