@@ -46,14 +46,6 @@ What stands between a parent and the agent's checks:
 - **`allow arguments`** (default `true`, since Icinga passes thresholds as
   arguments). Set it to `false` to allow only argument-less queries and the
   aliases defined on the agent.
-- **Icinga commands answered under their own names.** The agent turns the
-  ITL's Windows commands (`disk-windows`, `nscp-local`, ...) and the aliases
-  under `/settings/Icinga/agent/commands` into queries. That opens nothing an
-  `ifw-api` command does not: the permission policy is asked about the query
-  that results (`CheckDisk.check_drivesize`), and the values taken from the
-  parent count as arguments under `allow arguments`. Note that `nscp-local`
-  names its query in a variable, so it can run any query the policy grants.
-  `translate commands = false` turns the built-in translations off.
 
 The `ticket` is a password setting, so the settings API and the web UI mask
 it; it is still stored in the configuration file like any other secret
