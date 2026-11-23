@@ -1557,3 +1557,645 @@ TEST(CliHelperShortThresholds, ABareFlagInFrontOfAKeyValueArgumentIsAMissingValu
     EXPECT_EQ("Missing value for -w (use none to remove the threshold)", c.message()) << boost::join(shape, " ");
   }
 }
+
+// ============================================================================
+// cli_helper — the short thresholds, member by member
+// ============================================================================
+
+namespace {
+namespace sh = modern_filter::shorthand;
+typedef modern_filter::cli_helper<DummyFilter> short_helper;
+
+// Whether a helper with the standard options answers `name` for `args`.
+bool requested(const string_list &args, const std::string &name) {
+  short_threshold_case c(args);
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("load > 80", "load > 90", "", {});
+  return helper.is_requested(name);
+}
+}  // namespace
+
+TEST(CliHelperIsRequested, TheBareFlagInEitherShape) {
+  EXPECT_TRUE(requested({"show-default"}, "show-default"));
+  EXPECT_TRUE(requested({"--show-default"}, "show-default"));
+  EXPECT_TRUE(requested({"filter=x = 1", "show-default"}, "show-default"));
+  EXPECT_TRUE(requested({"--filter", "x = 1", "--show-default"}, "show-default"));
+  EXPECT_FALSE(requested({}, "show-default"));
+  EXPECT_FALSE(requested({"filter=x = 1", "show-all"}, "show-default"));
+}
+
+TEST(CliHelperIsRequested, TheValuedFormRestPasses) {
+  for (const std::string value : {"true", "TRUE", "True", "1", "yes", "YES", "on", "On"}) {
+    EXPECT_TRUE(requested({"show-default=" + value}, "show-default")) << value;
+    EXPECT_TRUE(requested({"--show-default=" + value}, "show-default")) << value;
+  }
+  for (const std::string value : {"false", "FALSE", "0", "no", "off", "", "maybe", "true ", "truee"}) {
+    EXPECT_FALSE(requested({"show-default=" + value}, "show-default")) << value;
+    EXPECT_FALSE(requested({"--show-default=" + value}, "show-default")) << value;
+  }
+}
+
+TEST(CliHelperIsRequested, TheLastOneGivenDecides) {
+  EXPECT_FALSE(requested({"show-default", "show-default=false"}, "show-default"));
+  EXPECT_TRUE(requested({"show-default=false", "show-default"}, "show-default"));
+  EXPECT_TRUE(requested({"show-default=false", "show-default=true"}, "show-default"));
+  EXPECT_FALSE(requested({"show-default=true", "--show-default=0"}, "show-default"));
+  // An argument that is not the flag does not change the answer.
+  EXPECT_TRUE(requested({"show-default", "show-all=false", "filter=x"}, "show-default"));
+}
+
+TEST(CliHelperIsRequested, OnlyTheOptionItself) {
+  // The word as a value, inside a value, with something in front or behind.
+  EXPECT_FALSE(requested({"filter=show-default"}, "show-default"));
+  EXPECT_FALSE(requested({"filter=name = 'show-default'"}, "show-default"));
+  EXPECT_FALSE(requested({"show-defaults"}, "show-default"));
+  EXPECT_FALSE(requested({"show-default-values=true"}, "show-default"));
+  EXPECT_FALSE(requested({"xshow-default"}, "show-default"));
+  EXPECT_FALSE(requested({"-show-default"}, "show-default"));
+  EXPECT_FALSE(requested({"---show-default"}, "show-default"));
+  EXPECT_FALSE(requested({"Show-Default"}, "show-default"));
+  // Nothing in front of the "=", or nothing at all.
+  EXPECT_FALSE(requested({"=true"}, "show-default"));
+  EXPECT_FALSE(requested({"--=true"}, "show-default"));
+  EXPECT_FALSE(requested({""}, "show-default"));
+  EXPECT_FALSE(requested({"--"}, "show-default"));
+  // Another flag is another flag.
+  EXPECT_FALSE(requested({"show-all"}, "show-default"));
+  EXPECT_FALSE(requested({"help"}, "show-default"));
+}
+
+TEST(CliHelperIsRequested, AnAbbreviationThatCanOnlyMeanTheOption) {
+  for (const std::string arg : {"show-d", "show-de", "show-defaul", "--show-d", "--show-def", "show-d=true", "--show-def=1"})
+    EXPECT_TRUE(requested({arg}, "show-default")) << arg;
+  EXPECT_FALSE(requested({"show-d=false"}, "show-default"));
+  EXPECT_FALSE(requested({"--show-def=0"}, "show-default"));
+  // show-all shares these, so they name neither.
+  for (const std::string arg : {"s", "sh", "show", "show-", "--show-", "show-=true"}) EXPECT_FALSE(requested({arg}, "show-default")) << arg;
+  // The other way around: what is unique for show-all is not show-default.
+  EXPECT_FALSE(requested({"show-a"}, "show-default"));
+  EXPECT_TRUE(requested({"show-a"}, "show-all"));
+}
+
+TEST(CliHelperIsRequested, IsAbbreviationOf) {
+  short_threshold_case c({});
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("load > 80", "load > 90", "", {});
+  EXPECT_TRUE(helper.is_abbreviation_of("show-d", "show-default"));
+  EXPECT_TRUE(helper.is_abbreviation_of("show-defaul", "show-default"));
+  // Not shorter than the name: the name itself, or longer.
+  EXPECT_FALSE(helper.is_abbreviation_of("show-default", "show-default"));
+  EXPECT_FALSE(helper.is_abbreviation_of("show-defaults", "show-default"));
+  // Empty, or not how the name starts.
+  EXPECT_FALSE(helper.is_abbreviation_of("", "show-default"));
+  EXPECT_FALSE(helper.is_abbreviation_of("how-d", "show-default"));
+  EXPECT_FALSE(helper.is_abbreviation_of("show-x", "show-default"));
+  // Shared with another option: "show-" with show-all, "w" with warn and
+  // warning when asking for an option that is not there at all.
+  EXPECT_FALSE(helper.is_abbreviation_of("show-", "show-default"));
+  EXPECT_FALSE(helper.is_abbreviation_of("w", "warning"));
+  EXPECT_FALSE(helper.is_abbreviation_of("warn", "warning"));
+  EXPECT_TRUE(helper.is_abbreviation_of("warni", "warning"));
+  // Once the short options are registered "show-s" has a meaning, and
+  // "show-d" still has only the one.
+  EXPECT_TRUE(helper.is_abbreviation_of("show-s", "show-short-defaults"));
+  helper.register_short_thresholds();
+  EXPECT_TRUE(helper.is_abbreviation_of("show-s", "show-short-defaults"));
+  EXPECT_TRUE(helper.is_abbreviation_of("show-d", "show-default"));
+  EXPECT_FALSE(helper.is_abbreviation_of("show-", "show-short-defaults"));
+}
+
+TEST(CliHelperShortRegistration, RegistersOnceAndOnlyWhenEnabled) {
+  {
+    short_threshold_case c({});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
+    EXPECT_FALSE(helper.short_thresholds_registered);
+    helper.register_short_thresholds();
+    EXPECT_TRUE(helper.short_thresholds_registered);
+    EXPECT_TRUE(helper.short_warn_owned);
+    EXPECT_TRUE(helper.short_crit_owned);
+    const std::size_t options = helper.get_desc().options().size();
+    // A second call adds nothing (and would throw on a duplicate option at
+    // parse time if it did).
+    helper.register_short_thresholds();
+    EXPECT_EQ(options, helper.get_desc().options().size());
+    EXPECT_EQ(1u, helper.short_thresholds.size());
+    ASSERT_TRUE(helper.parse_options()) << c.message();
+    EXPECT_EQ(options, helper.get_desc().options().size());
+  }
+  {
+    short_threshold_case c({});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.disable_short_thresholds();
+    helper.register_short_thresholds();
+    EXPECT_FALSE(helper.short_thresholds_registered);
+    EXPECT_FALSE(helper.short_warn_owned);
+    EXPECT_FALSE(helper.short_crit_owned);
+    EXPECT_EQ(nullptr, helper.get_desc().find_nothrow("w", false));
+    EXPECT_EQ(nullptr, helper.get_desc().find_nothrow("c", false));
+    EXPECT_EQ(nullptr, helper.get_desc().find_nothrow("show-short-defaults", false));
+    EXPECT_TRUE(helper.short_thresholds.empty());
+  }
+}
+
+TEST(CliHelperShortRegistration, TheDefaultKeywordIsCountAndIsDeclaredOnce) {
+  short_threshold_case c({});
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("", "", "", {});
+  EXPECT_FALSE(helper.short_thresholds_declared);
+  helper.register_short_thresholds();
+  EXPECT_FALSE(helper.short_thresholds_declared);
+  ASSERT_EQ(1u, helper.short_thresholds.size());
+  EXPECT_EQ("count", helper.short_thresholds[0].variable);
+  EXPECT_EQ(sh::above, helper.short_thresholds[0].dir);
+  const std::string warn = helper.get_desc().find("w", false).description();
+  EXPECT_EQ(0u, warn.find("Short form of warning: -w N is the same as warning=\"count > N\" and replaces the default warning.")) << warn;
+  // No unit sentence and no list sentence for a plain single keyword.
+  EXPECT_EQ(std::string::npos, warn.find("A number without a unit")) << warn;
+  EXPECT_EQ(std::string::npos, warn.find("one value per keyword")) << warn;
+  EXPECT_NE(std::string::npos, warn.find("Common option for all filter checks.")) << warn;
+  const std::string crit = helper.get_desc().find("c", false).description();
+  EXPECT_EQ(0u, crit.find("Short form of critical: -c N is the same as critical=\"count > N\" and replaces the default critical.")) << crit;
+}
+
+TEST(CliHelperShortRegistration, TheHelpOfAListAndOfAUnit) {
+  short_threshold_case c({});
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", {});
+  helper.add_short_threshold("time", sh::above, sh::unit_milliseconds, "60", "100");
+  helper.add_short_threshold("loss", sh::above, sh::unit_percent, "5", "10");
+  EXPECT_TRUE(helper.short_thresholds_declared);
+  helper.register_short_thresholds();
+  ASSERT_EQ(2u, helper.short_thresholds.size());
+  const std::string warn = helper.get_desc().find("w", false).description();
+  EXPECT_EQ(0u, warn.find("Short form of warning: -w TIME,LOSS is the same as warning=\"time > TIME or loss > LOSS%\" and replaces the default warning."))
+      << warn;
+  EXPECT_NE(std::string::npos, warn.find("\nTakes one value per keyword, separated by commas; one that is left out keeps its default.")) << warn;
+  // The unit is that of the first keyword.
+  EXPECT_NE(std::string::npos, warn.find("\nA number without a unit is in milliseconds;")) << warn;
+  EXPECT_EQ(std::string::npos, warn.find("Common option for all filter checks.")) << warn;
+  // The defaults are those of the short form, as they would be typed.
+  short_threshold_case shown({"show-short-defaults"});
+  short_helper again(shown.request, shown.response, shown.data);
+  again.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", {});
+  again.add_short_threshold("time", sh::above, sh::unit_milliseconds, "60", "100");
+  again.add_short_threshold("loss", sh::above, sh::unit_percent, "5", "10");
+  EXPECT_FALSE(again.parse_options());
+  EXPECT_EQ("\"w=60,5\" \"c=100,10\" ", shown.message());
+}
+
+TEST(CliHelperShortRegistration, AnOptionTheCheckDeclaredIsLeftAlone) {
+  short_threshold_case c({});
+  short_helper helper(c.request, c.response, c.data);
+  std::string width, colour;
+  bool own_listing = false;
+  helper.add_options("load > 80", "load > 90", "", {});
+  helper.get_desc().add_options()("w", boost::program_options::value<std::string>(&width), "Width")(
+      "c", boost::program_options::value<std::string>(&colour), "Colour")(
+      "show-short-defaults", boost::program_options::value<bool>(&own_listing)->implicit_value(true)->default_value(false), "The check's own");
+  const std::size_t options = helper.get_desc().options().size();
+  helper.register_short_thresholds();
+  EXPECT_TRUE(helper.short_thresholds_registered);
+  EXPECT_FALSE(helper.short_warn_owned);
+  EXPECT_FALSE(helper.short_crit_owned);
+  EXPECT_EQ(options, helper.get_desc().options().size());
+  EXPECT_EQ("Width", helper.get_desc().find("w", false).description());
+  EXPECT_EQ("Colour", helper.get_desc().find("c", false).description());
+  EXPECT_EQ("The check's own", helper.get_desc().find("show-short-defaults", false).description());
+}
+
+TEST(CliHelperShortRegistration, OnlyOneOfTheTwoIsTheChecksOwn) {
+  // "c" is the check's, "w" is the threshold: -w is applied, c= is the
+  // check's value, and an empty c= is no missing threshold.
+  short_threshold_case c({"-w", "50", "c=", "w=60"});
+  short_helper helper(c.request, c.response, c.data);
+  std::string colour = "unset";
+  helper.add_options("load > 80", "load > 90", "", {});
+  helper.get_desc().add_options()("c", boost::program_options::value<std::string>(&colour), "Colour");
+  helper.add_short_threshold("load", sh::above);
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_TRUE(helper.short_warn_owned);
+  EXPECT_FALSE(helper.short_crit_owned);
+  EXPECT_EQ("", colour);
+  EXPECT_EQ(string_list({"load > 50", "load > 60"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"load > 90"}), c.data.crit_string);
+
+  // The other way around, and here the empty w= is the check's.
+  short_threshold_case d({"w=", "-c", "95"});
+  short_helper other(d.request, d.response, d.data);
+  std::string width = "unset";
+  other.add_options("load > 80", "load > 90", "", {});
+  other.get_desc().add_options()("w", boost::program_options::value<std::string>(&width), "Width");
+  other.add_short_threshold("load", sh::above);
+  ASSERT_TRUE(other.parse_options()) << d.message();
+  EXPECT_FALSE(other.short_warn_owned);
+  EXPECT_TRUE(other.short_crit_owned);
+  EXPECT_EQ("", width);
+  EXPECT_EQ(string_list({"load > 80"}), d.data.warn_string);
+  EXPECT_EQ(string_list({"load > 95"}), d.data.crit_string);
+}
+
+TEST(CliHelperShortRegistration, ShortEffect) {
+  EXPECT_EQ(" and replaces the default warning.", short_helper::short_effect("warning", string_list()));
+  EXPECT_EQ(" and replaces the default critical.", short_helper::short_effect("critical", string_list()));
+  EXPECT_EQ(": the default critical with its bound moved, the other conditions stay.", short_helper::short_effect("critical", string_list(1, "${time} or x = 1")));
+  EXPECT_EQ(": the default warning with its bound moved, the other conditions stay.", short_helper::short_effect("warning", string_list(2, "${time}")));
+}
+
+TEST(CliHelperShortRegistration, ShortOptionCarriesTheShortDefault) {
+  short_threshold_case c({});
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("time > 5000", "result != 'ok'", "", {});
+  helper.add_short_threshold("time", sh::above, sh::unit_seconds_as_ms, "5", "");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  // -w has a default to show, -c has none ...
+  const boost::program_options::option_description &warn = helper.get_desc().find("w", false);
+  const boost::program_options::option_description &crit = helper.get_desc().find("c", false);
+  boost::any value;
+  EXPECT_TRUE(warn.semantic()->apply_default(value));
+  EXPECT_EQ(string_list({"5"}), boost::any_cast<string_list>(value));
+  boost::any none;
+  EXPECT_FALSE(crit.semantic()->apply_default(none));
+  // ... and neither of them ran: the check's own defaults did.
+  EXPECT_EQ(string_list({"time > 5000"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"result != 'ok'"}), c.data.crit_string);
+}
+
+TEST(CliHelperShortDefaults, AnswerDefaultQueries) {
+  {
+    // Nothing asked: nothing answered, but the options are registered.
+    short_threshold_case c({"filter=x = 1"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    EXPECT_FALSE(helper.answer_default_queries());
+    EXPECT_TRUE(helper.short_thresholds_registered);
+    EXPECT_EQ(0, c.response->lines_size());
+  }
+  {
+    // show-default: rendered before -w / -c exist, which are registered all
+    // the same.
+    short_threshold_case c({"show-default"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
+    EXPECT_TRUE(helper.answer_default_queries());
+    EXPECT_TRUE(helper.short_thresholds_registered);
+    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+    EXPECT_NE(std::string::npos, c.message().find("\"warning=load > 80\"")) << c.message();
+    EXPECT_EQ(std::string::npos, c.message().find("\"w=")) << c.message();
+    EXPECT_EQ(std::string::npos, c.message().find("show-short-defaults")) << c.message();
+  }
+  {
+    // Both asked for: show-default is the one that answers.
+    short_threshold_case c({"show-short-defaults", "show-default"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
+    EXPECT_TRUE(helper.answer_default_queries());
+    EXPECT_NE(std::string::npos, c.message().find("\"warning=load > 80\"")) << c.message();
+    EXPECT_EQ(std::string::npos, c.message().find("\"w=80\"")) << c.message();
+  }
+  {
+    // Only the critical side has a short default.
+    short_threshold_case c({"show-short-defaults"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("", "health_critical > 0", "", {});
+    helper.add_short_threshold("health_critical", sh::above, sh::unit_plain, "", "0");
+    EXPECT_TRUE(helper.answer_default_queries());
+    EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+    EXPECT_EQ("\"c=0\" ", c.message());
+  }
+  {
+    // Abbreviated, as the option parser would have guessed it.
+    short_threshold_case c({"--show-s"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
+    EXPECT_TRUE(helper.answer_default_queries());
+    EXPECT_EQ("\"w=80\" \"c=90\" ", c.message());
+  }
+}
+
+TEST(CliHelperShortDefaults, DisabledItIsLeftToTheOptionParser) {
+  short_threshold_case c({"show-default"});
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("load > 80", "load > 90", "", {});
+  helper.disable_short_thresholds();
+  EXPECT_FALSE(helper.answer_default_queries());
+  EXPECT_FALSE(helper.short_thresholds_registered);
+  EXPECT_EQ(0, c.response->lines_size());
+  // The parser still answers it, as it did before the short thresholds.
+  EXPECT_FALSE(helper.parse_options());
+  EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+  EXPECT_NE(std::string::npos, c.message().find("\"warning=load > 80\"")) << c.message();
+  EXPECT_NE(std::string::npos, c.message().find("\"critical=load > 90\"")) << c.message();
+
+  // show-short-defaults is no option of such a helper.
+  short_threshold_case d({"show-short-defaults"});
+  short_helper other(d.request, d.response, d.data);
+  other.add_options("load > 80", "load > 90", "", {});
+  other.disable_short_thresholds();
+  EXPECT_FALSE(other.answer_default_queries());
+  EXPECT_FALSE(other.parse_options());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, d.response->result());
+}
+
+TEST(CliHelperShortArguments, NormalizedRequest) {
+  const string_list typed{"-w", "80", "drive=c:", "-c90"};
+  short_threshold_case c(typed);
+  short_helper helper(c.request, c.response, c.data);
+  const PB::Commands::QueryRequestMessage::Request normalized = helper.normalized_request();
+  EXPECT_EQ("test_command", normalized.command());
+  EXPECT_EQ(string_list({"w=80", "drive=c:", "c=90"}), string_list(normalized.arguments().begin(), normalized.arguments().end()));
+  // The request itself is not touched.
+  EXPECT_EQ(typed, string_list(c.request.arguments().begin(), c.request.arguments().end()));
+
+  // Disabled: handed on exactly as typed.
+  helper.disable_short_thresholds();
+  const PB::Commands::QueryRequestMessage::Request untouched = helper.normalized_request();
+  EXPECT_EQ("test_command", untouched.command());
+  EXPECT_EQ(typed, string_list(untouched.arguments().begin(), untouched.arguments().end()));
+
+  // No arguments at all.
+  short_threshold_case none({});
+  short_helper empty(none.request, none.response, none.data);
+  EXPECT_EQ(0, empty.normalized_request().arguments_size());
+}
+
+TEST(CliHelperShortArguments, CheckShortValues) {
+  const auto request_of = [](const string_list &args) {
+    PB::Commands::QueryRequestMessage::Request request;
+    for (const std::string &a : args) request.add_arguments(a);
+    return request;
+  };
+  {
+    // Every value is there.
+    short_threshold_case c({});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.register_short_thresholds();
+    EXPECT_TRUE(helper.check_short_values(request_of({"w=80", "c=90", "filter="})));
+    EXPECT_TRUE(helper.check_short_values(request_of({})));
+    EXPECT_EQ(0, c.response->lines_size());
+  }
+  for (const std::string flag : {"w", "c"}) {
+    for (const std::string arg : {flag + "=", "--" + flag + "="}) {
+      short_threshold_case c({});
+      short_helper helper(c.request, c.response, c.data);
+      helper.add_options("load > 80", "load > 90", "", {});
+      helper.register_short_thresholds();
+      EXPECT_FALSE(helper.check_short_values(request_of({"filter=x", arg}))) << arg;
+      EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result()) << arg;
+      EXPECT_EQ("Missing value for -" + flag + " (use none to remove the threshold)", c.message()) << arg;
+    }
+  }
+  {
+    // Disabled: an empty w= is none of our business.
+    short_threshold_case c({});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.disable_short_thresholds();
+    EXPECT_TRUE(helper.check_short_values(request_of({"w=", "c="})));
+    EXPECT_EQ(0, c.response->lines_size());
+  }
+  {
+    // Not registered, so neither is ours yet.
+    short_threshold_case c({});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    EXPECT_TRUE(helper.check_short_values(request_of({"w="})));
+    EXPECT_TRUE(helper.check_short_values(request_of({"c="})));
+    EXPECT_EQ(0, c.response->lines_size());
+  }
+}
+
+TEST(CliHelperShortApply, NotGivenOrDefaultedLeavesTheDefaultsAlone) {
+  short_threshold_case c({"filter=x = 1"});
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("load > 80", "load > 90", "", {});
+  helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "70", "");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  // -w has a default (and so is in the map, defaulted), -c has none (and is
+  // not in it): neither is applied.
+  EXPECT_EQ(string_list({"load > 80"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"load > 90"}), c.data.crit_string);
+}
+
+TEST(CliHelperShortApply, NextToEveryWayOfGivingTheLongForm) {
+  // warning= and critical=: one more expression each.
+  {
+    short_threshold_case c({"warning=load > 50", "critical=load > 60", "w=70", "c=75"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above);
+    ASSERT_TRUE(helper.parse_options()) << c.message();
+    EXPECT_EQ(string_list({"load > 50", "load > 70"}), c.data.warn_string);
+    EXPECT_EQ(string_list({"load > 60", "load > 75"}), c.data.crit_string);
+  }
+  // The aliases warn= and crit= count as given too.
+  {
+    short_threshold_case c({"warn=load > 50", "crit=load > 60", "w=70", "c=75"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above);
+    ASSERT_TRUE(helper.parse_options()) << c.message();
+    EXPECT_EQ(string_list({"load > 50", "load > 70"}), c.data.warn_string);
+    EXPECT_EQ(string_list({"load > 60", "load > 75"}), c.data.crit_string);
+  }
+  // A check without a default has nothing to replace.
+  {
+    short_threshold_case c({"w=70", "c=75"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("", "", "", {});
+    helper.add_short_threshold("load", sh::above);
+    ASSERT_TRUE(helper.parse_options()) << c.message();
+    EXPECT_EQ(string_list({"load > 70"}), c.data.warn_string);
+    EXPECT_EQ(string_list({"load > 75"}), c.data.crit_string);
+  }
+  // A helper that never declared warning / critical at all.
+  {
+    short_threshold_case c({"w=70", "c=75"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options(std::map<std::string, std::string>(), "ignored");
+    helper.add_short_threshold("load", sh::above);
+    ASSERT_TRUE(helper.parse_options()) << c.message();
+    EXPECT_EQ(string_list({"load > 70"}), c.data.warn_string);
+    EXPECT_EQ(string_list({"load > 75"}), c.data.crit_string);
+  }
+}
+
+TEST(CliHelperShortApply, GivenMoreThanOnce) {
+  short_threshold_case c({"w=70", "w=load < 5", "-w", "@1:2", "-c", "none"});
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("load > 80", "load > 90", "", {});
+  helper.add_short_threshold("load", sh::above);
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_EQ(string_list({"load > 70", "load < 5", "load >= 1 and load <= 2"}), c.data.warn_string);
+  // "none" is an expression like any other here; build_filter() drops it.
+  EXPECT_EQ(string_list({"none"}), c.data.crit_string);
+}
+
+TEST(CliHelperShortApply, ABadValueOnEitherSideIsReportedAndNothingIsApplied) {
+  {
+    short_threshold_case c({"w=80m", "c=90"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above, sh::unit_percent_number);
+    EXPECT_FALSE(helper.parse_options());
+    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result());
+    EXPECT_EQ("Invalid unit for load: 80m (expected a percentage)", c.message());
+    EXPECT_EQ(string_list({"load > 80"}), c.data.warn_string);
+    // The critical side is not looked at once the warning failed.
+    EXPECT_EQ(string_list({"load > 90"}), c.data.crit_string);
+  }
+  {
+    short_threshold_case c({"w=85", "c=20:10"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above, sh::unit_percent_number);
+    EXPECT_FALSE(helper.parse_options());
+    EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result());
+    EXPECT_EQ("Invalid threshold: 20:10 (a range starts at its low end, as in 10:20)", c.message());
+    EXPECT_EQ(string_list({"load > 90"}), c.data.crit_string);
+  }
+  {
+    // The second of two values is the bad one: the first is not applied.
+    short_threshold_case c({"w=85", "w=1,2"});
+    short_helper helper(c.request, c.response, c.data);
+    helper.add_options("load > 80", "load > 90", "", {});
+    helper.add_short_threshold("load", sh::above);
+    EXPECT_FALSE(helper.parse_options());
+    EXPECT_EQ("Too many values in threshold 1,2: expected at most 1 (load)", c.message());
+    EXPECT_EQ(string_list({"load > 80"}), c.data.warn_string);
+  }
+  {
+    // A list with nothing in it, and a value that is only blanks.
+    for (const std::string value : {",", " "}) {
+      short_threshold_case c({"--show-all", "--w", value});
+      short_helper helper(c.request, c.response, c.data);
+      helper.add_options("load > 80", "load > 90", "", {});
+      helper.add_short_threshold("load", sh::above);
+      EXPECT_FALSE(helper.parse_options()) << value;
+      EXPECT_EQ("Missing value for -w (use none to remove the threshold)", c.message()) << value;
+    }
+  }
+}
+
+TEST(CliHelperShortApply, CalledDirectlyWithAnOptionThatIsNotOurs) {
+  // apply_short_thresholds() skips a side whose option is the check's own,
+  // whatever that option holds.
+  short_threshold_case c({"w=not a threshold, 1:2:3", "c=5"});
+  short_helper helper(c.request, c.response, c.data);
+  std::string width, colour;
+  helper.add_options("load > 80", "load > 90", "", {});
+  helper.get_desc().add_options()("w", boost::program_options::value<std::string>(&width), "Width")(
+      "c", boost::program_options::value<std::string>(&colour), "Colour");
+  ASSERT_TRUE(helper.parse_options()) << c.message();
+  EXPECT_EQ("not a threshold, 1:2:3", width);
+  EXPECT_EQ("5", colour);
+  EXPECT_EQ(string_list({"load > 80"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"load > 90"}), c.data.crit_string);
+}
+
+// The three parse_options() overloads share the short threshold handling;
+// each of them is taken through every way out.
+namespace {
+enum parse_kind { parse_plain, parse_positional, parse_extra };
+bool run_parse(short_helper &helper, const parse_kind kind, string_list &extra) {
+  if (kind == parse_positional) {
+    boost::program_options::positional_options_description p;
+    p.add("filter", -1);
+    return helper.parse_options(p);
+  }
+  if (kind == parse_extra) return helper.parse_options(extra);
+  return helper.parse_options();
+}
+}  // namespace
+
+TEST(CliHelperShortParse, EveryOverloadTakesEveryWayOut) {
+  for (const parse_kind kind : {parse_plain, parse_positional, parse_extra}) {
+    string_list extra;
+    {
+      // Applied.
+      short_threshold_case c({"show-all=true", "-w", "85", "-c95"});
+      short_helper helper(c.request, c.response, c.data);
+      helper.add_options("load > 80", "load > 90", "", {});
+      helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
+      ASSERT_TRUE(run_parse(helper, kind, extra)) << kind << ": " << c.message();
+      EXPECT_EQ(string_list({"load > 85"}), c.data.warn_string) << kind;
+      EXPECT_EQ(string_list({"load > 95"}), c.data.crit_string) << kind;
+    }
+    {
+      // show-default and show-short-defaults are answered.
+      short_threshold_case c({"show-default"});
+      short_helper helper(c.request, c.response, c.data);
+      helper.add_options("load > 80", "load > 90", "", {});
+      helper.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
+      EXPECT_FALSE(run_parse(helper, kind, extra)) << kind;
+      EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result()) << kind;
+      EXPECT_NE(std::string::npos, c.message().find("\"warning=load > 80\"")) << kind << ": " << c.message();
+      EXPECT_EQ(std::string::npos, c.message().find("\"w=")) << kind << ": " << c.message();
+
+      short_threshold_case d({"show-short-defaults=true"});
+      short_helper other(d.request, d.response, d.data);
+      other.add_options("load > 80", "load > 90", "", {});
+      other.add_short_threshold("load", sh::above, sh::unit_percent_number, "80", "90");
+      EXPECT_FALSE(run_parse(other, kind, extra)) << kind;
+      EXPECT_EQ("\"w=80\" \"c=90\" ", d.message()) << kind;
+    }
+    {
+      // A flag without a value.
+      short_threshold_case c({"show-all=true", "-c"});
+      short_helper helper(c.request, c.response, c.data);
+      helper.add_options("load > 80", "load > 90", "", {});
+      EXPECT_FALSE(run_parse(helper, kind, extra)) << kind;
+      EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result()) << kind;
+      EXPECT_EQ("Missing value for -c (use none to remove the threshold)", c.message()) << kind;
+    }
+    {
+      // The option parser refuses the line: a value for a number that is none.
+      short_threshold_case c({"decimals=many", "-w", "85"});
+      short_helper helper(c.request, c.response, c.data);
+      helper.add_options("load > 80", "load > 90", "", {});
+      EXPECT_FALSE(run_parse(helper, kind, extra)) << kind;
+      EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, c.response->result()) << kind;
+      // Nothing was stored, the short threshold included.
+      EXPECT_TRUE(c.data.warn_string.empty()) << kind;
+    }
+    {
+      // A threshold that does not fit the check.
+      short_threshold_case c({"-w", "1,2"});
+      short_helper helper(c.request, c.response, c.data);
+      helper.add_options("load > 80", "load > 90", "", {});
+      EXPECT_FALSE(run_parse(helper, kind, extra)) << kind;
+      EXPECT_EQ("Too many values in threshold 1,2: expected at most 1 (count)", c.message()) << kind;
+    }
+    {
+      // warmup-state is validated after the thresholds are applied.
+      short_threshold_case c({"warmup-state=sideways", "-w", "85"});
+      short_helper helper(c.request, c.response, c.data);
+      helper.add_options("load > 80", "load > 90", "", {});
+      helper.add_warmup_option();
+      helper.add_short_threshold("load", sh::above);
+      EXPECT_FALSE(run_parse(helper, kind, extra)) << kind;
+      EXPECT_EQ("Invalid warmup-state: sideways (expected one of ok, warning, critical, unknown)", c.message()) << kind;
+      EXPECT_EQ(string_list({"load > 85"}), c.data.warn_string) << kind;
+    }
+  }
+}
+
+TEST(CliHelperShortParse, TheExtraArgumentsAreStillCollected) {
+  // check_pdh: what is not an option is a counter, and -w / -c are not left
+  // among them.
+  short_threshold_case c({"\\Processor(_total)\\% Processor Time", "-w", "80", "-c", "90"});
+  short_helper helper(c.request, c.response, c.data);
+  helper.add_options("", "", "", {});
+  helper.add_short_threshold("value", sh::above);
+  string_list extra;
+  ASSERT_TRUE(helper.parse_options(extra)) << c.message();
+  EXPECT_EQ(string_list({"\\Processor(_total)\\% Processor Time"}), extra);
+  EXPECT_EQ(string_list({"value > 80"}), c.data.warn_string);
+  EXPECT_EQ(string_list({"value > 90"}), c.data.crit_string);
+}
