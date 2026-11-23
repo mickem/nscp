@@ -562,6 +562,18 @@ struct cli_helper : boost::noncopyable {
     return true;
   }
 
+  // Whether the value of option `name` may be a credential. The rule of
+  // failed_check_store::is_sensitive_argument (password, token), plus the
+  // options of the filter checks that can carry one inside a longer value: a
+  // shared secret, an ODBC connection string (PWD=), an HTTP header
+  // (Authorization). Wide on purpose: masking a harmless value costs a
+  // retyped argument, printing a secret cannot be taken back.
+  static bool is_sensitive_option(const std::string &name) {
+    const std::string lower = boost::to_lower_copy(name);
+    return lower.find("password") != std::string::npos || lower.find("token") != std::string::npos || lower.find("secret") != std::string::npos ||
+           lower == "connection-string" || lower == "header";
+  }
+
   // Called by parse_options() once the arguments are parsed: whether
   // show-query was asked for, and if so the values of every option that is
   // not a filter setting, given or defaulted, as they were parsed.
@@ -576,8 +588,16 @@ struct cli_helper : boost::noncopyable {
     for (const auto &op : desc.options()) {
       const std::string &name = op->long_name();
       if (is_query_meta_option(name) || final_filter_setting(name, ignored) || vm.count(name) == 0) continue;
+      // show-all is not a setting of its own: parse_options_post() has
+      // already folded it into the top-syntax, which is printed as rewritten.
+      // Echoed next to it, the pasted line would rewrite that syntax again.
+      if (name == "show-all") continue;
       std::vector<std::string> values;
-      if (render_option_value(vm[name].value(), values) && !values.empty()) query_options[name] = values;
+      if (!render_option_value(vm[name].value(), values) || values.empty()) continue;
+      // The line is a check result: it travels to the monitoring server and
+      // into logs, so a credential is shown as given but never with its value.
+      if (is_sensitive_option(name)) values.assign(values.size(), "***");
+      query_options[name] = values;
     }
     query_extra = extra;
   }
@@ -823,6 +843,26 @@ struct cli_helper : boost::noncopyable {
   void set_default_index(const std::string &filter) const {
     if (data.syntax_unique.empty()) data.syntax_unique = filter;
   }
+  // "none" is how an expression is switched off; the engines never see it.
+  void remove_disabled_expressions() const {
+    for (std::vector<std::string> *list : {&data.filter_string, &data.ok_string, &data.warn_string, &data.crit_string})
+      list->erase(std::remove(list->begin(), list->end(), "none"), list->end());
+  }
+
+  // For a check that has to do its work before it can build the filter: one
+  // whose keywords are the columns of a query it runs (check_wmi,
+  // check_mysql_query, check_mssql_query). Called after parse_options() and
+  // before that work, it answers show-query and returns true, so that asking
+  // what a check would run never runs it. The expressions are then not
+  // validated - their keywords are not known yet. Every other check leaves
+  // show-query to build_filter().
+  bool answer_show_query() {
+    if (!show_query_requested) return false;
+    remove_disabled_expressions();
+    nscapi::protobuf::functions::set_response_good(*response, render_query());
+    return true;
+  }
+
   bool build_filter(T &filter) {
     // The separator joins list items as they are collected, so it has to be in
     // place before the first match is recorded (start_match, below).
@@ -837,10 +877,7 @@ struct cli_helper : boost::noncopyable {
     }
     filter.context->set_number_format(number_format);
     filter.set_human_number_format(!number_format.is_default());
-    data.filter_string.erase(std::remove(data.filter_string.begin(), data.filter_string.end(), "none"), data.filter_string.end());
-    data.ok_string.erase(std::remove(data.ok_string.begin(), data.ok_string.end(), "none"), data.ok_string.end());
-    data.warn_string.erase(std::remove(data.warn_string.begin(), data.warn_string.end(), "none"), data.warn_string.end());
-    data.crit_string.erase(std::remove(data.crit_string.begin(), data.crit_string.end(), "none"), data.crit_string.end());
+    remove_disabled_expressions();
 
     if (!filter.build_syntax(data.debug, data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, data.syntax_ok, data.syntax_empty)) {
       nscapi::protobuf::functions::set_response_bad(*response, "Failed to parse syntax");

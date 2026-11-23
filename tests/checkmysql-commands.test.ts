@@ -131,6 +131,34 @@ dockerOrSkip()("CheckMySQL commands", () => {
     const out = await query("check_mysql", ["host=127.0.0.1", "port=1", "timeout=2"]);
     expect(out).toMatch(/Failed to connect to MySQL server '127\.0\.0\.1:1'/);
   });
+
+  it("check_mysql_query show-query prints the query without running it or the password", async () => {
+    if (!moduleBuilt()) return;
+    // The statement would create a table if it ran.
+    const out = await query("check_mysql_query", [
+      ...conn(),
+      "query=CREATE TABLE mysql.show_query_ran (id INT)",
+      "warning=id > 1",
+      "show-query",
+    ]);
+    expect(out).toContain('"query=CREATE TABLE mysql.show_query_ran (id INT)" ');
+    expect(out).toContain('"warning=id > 1" ');
+    expect(out).toContain('"password=***" ');
+    expect(out).not.toContain(ROOT_PASSWORD);
+    const tables = await query("check_mysql_query", [
+      ...conn(),
+      "query=SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_name = 'show_query_ran'",
+      "detail-syntax=n=%(n)",
+    ]);
+    expect(tables).toContain("n=0");
+  });
+
+  it("check_mysql_query show-query does not contact the server", async () => {
+    if (!moduleBuilt()) return;
+    const out = await query("check_mysql_query", ["host=127.0.0.1", "port=1", "timeout=2", "query=SELECT 1", "show-query"]);
+    expect(out).not.toMatch(/Failed to connect/);
+    expect(out).toContain('"query=SELECT 1" ');
+  });
 });
 
 /**

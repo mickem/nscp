@@ -232,6 +232,11 @@ void CheckWMI::check_wmi(const PB::Commands::QueryRequestMessage::Request &reque
     }
   }
 
+  // After the access rules, so a refused query is refused here too, and before
+  // WMI is touched: the keywords are the query's columns, so build_filter()
+  // only runs once the query has been prepared.
+  if (filter_helper.answer_show_query()) return;
+
   {
     std::string resolved_ns, error;
     if (!resolve_namespace(ns, target_info.hostname, resolved_ns, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);

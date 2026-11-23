@@ -2176,18 +2176,23 @@ struct query_case : short_threshold_case {
   int port = 0;
   bool verbose = false;
   std::vector<std::string> times;
+  std::string password;
+  std::vector<std::string> headers;
   query_helper helper;
-  explicit query_case(const string_list &args) : short_threshold_case(args), helper(request, response, data) {
+  explicit query_case(const string_list &args, const std::string &top_syntax = "${status}: ${list}")
+      : short_threshold_case(args), helper(request, response, data) {
     helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", {});
     helper.add_short_threshold("time", sh::above, sh::unit_seconds_as_ms, "1", "5");
     helper.add_short_critical("${time} or result != 'ok'");
-    helper.add_syntax("${status}: ${list}", "${host}: ${time}ms", "${host}", "", "");
+    helper.add_syntax(top_syntax, "${host}: ${time}ms", "${host}", "", "");
     // clang-format off
     helper.get_desc().add_options()
       ("host", boost::program_options::value<std::string>(&host), "Host")
       ("port", boost::program_options::value<int>(&port)->default_value(443), "Port")
       ("verbose", boost::program_options::value<bool>(&verbose)->implicit_value(true)->default_value(false), "Verbose")
       ("time", boost::program_options::value<std::vector<std::string> >(&times), "Times")
+      ("password", boost::program_options::value<std::string>(&password), "Password")
+      ("header", boost::program_options::value<std::vector<std::string> >(&headers), "Headers")
       ;
     // clang-format on
   }
@@ -2209,7 +2214,7 @@ TEST(CliHelperShowQuery, TheDefaults) {
   EXPECT_FALSE(c.run());
   EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
   EXPECT_EQ(
-      "\"warning=time > 1000\" \"critical=time > 5000 or result != 'ok'\" \"debug=false\" \"show-all=false\" \"empty-state=ignored\" "
+      "\"warning=time > 1000\" \"critical=time > 5000 or result != 'ok'\" \"debug=false\" \"empty-state=ignored\" "
       "\"escape-html=false\" \"list-separator=, \" \"decimals=-1\" \"top-syntax=${status}: ${list}\" \"detail-syntax=${host}: ${time}ms\" "
       "\"perf-syntax=${host}\" \"port=443\" \"verbose=false\" ",
       c.message());
@@ -2318,9 +2323,8 @@ TEST(CliHelperShowQuery, TheChecksOwnOptionsAreEchoed) {
   EXPECT_TRUE(c.has("port=5432")) << c.message();
   EXPECT_TRUE(c.has("verbose=true")) << c.message();
   EXPECT_NE(std::string::npos, c.message().find("\"time=5m\" \"time=1m\" ")) << c.message();
-  EXPECT_TRUE(c.has("show-all=true")) << c.message();
-  // show-all is already applied to the top-syntax shown next to it, and
-  // applying it again is a no-op: the line runs the same pasted back.
+  // show-all is shown as what it did to the top-syntax, not as an option.
+  EXPECT_EQ(std::string::npos, c.message().find("show-all")) << c.message();
   EXPECT_TRUE(c.has("top-syntax=${status}: %(list)")) << c.message();
   for (const std::string meta : {"help=", "help-pb=", "help-short=", "show-default=", "show-query="})
     EXPECT_EQ(std::string::npos, c.message().find("\"" + meta)) << meta << ": " << c.message();
@@ -2338,6 +2342,67 @@ TEST(CliHelperShowQuery, TheLineRoundTrips) {
   query_case second(args);
   EXPECT_FALSE(second.run());
   EXPECT_EQ(first.message(), second.message());
+}
+
+namespace {
+// The arguments a printed line amounts to.
+string_list tokens_of(const std::string &line) {
+  string_list args;
+  for (std::string::size_type at = line.find('"'); at != std::string::npos; at = line.find('"', line.find('"', at + 1) + 1))
+    args.push_back(line.substr(at + 1, line.find('"', at + 1) - at - 1));
+  return args;
+}
+}  // namespace
+
+// The default top-syntax of most checks. show-all turns its problem_list into
+// a detail_list, and a second show-all on that would replace the whole syntax
+// - so the line carries the rewritten syntax and no show-all.
+TEST(CliHelperShowQuery, ShowAllOnAProblemListRoundTrips) {
+  query_case first({"show-all", "show-query"}, "${status}: ${problem_list}");
+  EXPECT_FALSE(first.run());
+  EXPECT_TRUE(first.has("top-syntax=${status}: ${detail_list}")) << first.message();
+  EXPECT_EQ(std::string::npos, first.message().find("show-all")) << first.message();
+  string_list args = tokens_of(first.message());
+  args.push_back("show-query");
+  query_case second(args, "${status}: ${problem_list}");
+  EXPECT_FALSE(second.run());
+  EXPECT_EQ(first.message(), second.message());
+}
+
+// The line is a check result, so it must not carry a credential.
+TEST(CliHelperShowQuery, CredentialsAreMasked) {
+  query_case c({"host=db01", "password=s3cret", "header=Authorization: Bearer abc", "header=Accept: text/html", "show-query"});
+  EXPECT_FALSE(c.run());
+  EXPECT_TRUE(c.has("password=***")) << c.message();
+  EXPECT_NE(std::string::npos, c.message().find("\"header=***\" \"header=***\" ")) << c.message();
+  EXPECT_EQ(std::string::npos, c.message().find("s3cret")) << c.message();
+  EXPECT_EQ(std::string::npos, c.message().find("Bearer")) << c.message();
+  EXPECT_TRUE(c.has("host=db01")) << c.message();
+}
+
+TEST(CliHelperShowQuery, WhichOptionsAreSensitive) {
+  for (const std::string name : {"password", "Password", "proxy-password", "password-file", "token", "api-token", "secret", "secret-file", "connection-string", "header"})
+    EXPECT_TRUE(query_helper::is_sensitive_option(name)) << name;
+  for (const std::string name : {"host", "user", "query", "key", "connections", "headers-only"}) EXPECT_FALSE(query_helper::is_sensitive_option(name)) << name;
+}
+
+// A check that has to run a query to learn its keywords answers before it
+// does: no filter is built, and nothing is validated.
+TEST(CliHelperShowQuery, AnsweredBeforeTheFilterIsBuilt) {
+  query_case c({"host=db01", "warning=no_such_keyword > 1", "critical=none", "show-query"});
+  ASSERT_TRUE(c.helper.parse_options());
+  EXPECT_TRUE(c.helper.answer_show_query());
+  EXPECT_EQ(PB::Common::ResultCode::OK, c.response->result());
+  EXPECT_TRUE(c.has("warning=no_such_keyword > 1")) << c.message();
+  EXPECT_TRUE(c.has("critical=none")) << c.message();
+  EXPECT_TRUE(c.has("host=db01")) << c.message();
+}
+
+TEST(CliHelperShowQuery, NotAnsweredEarlyUnlessAskedFor) {
+  query_case c({"host=db01"});
+  ASSERT_TRUE(c.helper.parse_options());
+  EXPECT_FALSE(c.helper.answer_show_query());
+  EXPECT_EQ(0, c.response->lines_size());
 }
 
 // The arguments parse_options() leaves to the check are part of its query.

@@ -1635,4 +1635,19 @@ describeWithModules("CheckSystem")("CheckSystem show-query (client query)", () =
     expect(again.code).toBe(OK);
     expect(again.out.trim()).toBe(out.trim());
   });
+
+  it("check_cpu show-all is shown as the top-syntax it produces, and round-trips", async () => {
+    if (onWindows) return;
+    // show-all turns the default problem_list into a detail_list. Echoed as
+    // an option next to that syntax, a second run would rewrite it again and
+    // lose the "${status}: " prefix.
+    const { out, code } = await run("check_cpu", ["show-all", "show-query"]);
+    expect(code).toBe(OK);
+    expect(out).toContain('"top-syntax=${status}: ${detail_list}" ');
+    expect(out).not.toContain("show-all");
+    const tokens = [...out.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+    const again = await run("check_cpu", [...tokens, "show-query"]);
+    expect(again.code).toBe(OK);
+    expect(again.out.trim()).toBe(out.trim());
+  });
 });

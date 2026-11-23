@@ -417,7 +417,7 @@ evaluate with the rest of its arguments, instead of running it:
 
 ```shell
 check_tcp host=db01 port=5432 -w 2 show-query
-"warning=time > 2000" "critical=time > 5000 or result != 'ok'" "debug=false" "show-all=false"
+"warning=time > 2000" "critical=time > 5000 or result != 'ok'" "debug=false"
 "empty-state=ignored" "escape-html=false" "list-separator=, " "decimals=-1"
 "top-syntax=${status}: ${problem_list}" "ok-syntax=%(status): %(list)" "empty-syntax=No hosts checked"
 "detail-syntax=${host}:${port} ${result} in ${time}ms" "perf-syntax=${host}_${port}" "host=db01"
@@ -438,14 +438,24 @@ check_tcp host=db01 port=5432 -w 2 show-query
 - The check's own options are listed with their values, given or default, so the line can be pasted
   back as a command. An option that only adds to the filter (`only-essential`) is then applied a
   second time, which matches the same items.
+- `show-all` is shown as what it does, not as an option: the `top-syntax` is printed with its
+  `problem_list` already turned into `detail_list`.
+- A credential is never printed. The value of an option whose name contains `password`, `token` or
+  `secret`, of `connection-string` and of `header` is shown as `***`, since the line is a check
+  result and ends up on the monitoring server and in logs. Put the real value back before running
+  the line.
 
 The expressions are still parsed, so an unknown keyword or an invalid expression fails with UNKNOWN
 exactly as it would on a real run. `check_cpu show-query` with no other arguments shows the defaults
 in this resolved form; a check that cannot run without an argument (`check_tcp` needs a `host`) says
 so instead. Unlike `show-default`, `show-query` runs the check up to the point where it would start
 collecting: an argument the check holds against an access rule (`file access`, `query access`, …)
-before that point is refused as on a real run, and `check_wmi` runs its WMI query, as it needs the
-columns to know its keywords.
+before that point is refused as on a real run.
+
+`check_wmi`, `check_mysql_query` and `check_mssql_query` take their keywords from the columns of the
+query they are given, so they would have to run it to check the expressions. They do not: with
+`show-query` nothing is connected to and the query is not executed, and the expressions are printed
+without being checked.
 
 ### Disabling a threshold
 

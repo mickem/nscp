@@ -225,6 +225,21 @@ TEST(CheckMysqlQuery, ColumnsBecomeKeywordsAndThresholdsApply) {
   EXPECT_NE(join_lines(response).find("queue_b=12"), std::string::npos) << join_lines(response);
 }
 
+// show-query says what would run and must not run it: the server is never
+// contacted (this one refuses every connection), and the password it would
+// have been given is not printed.
+TEST(CheckMysqlQuery, ShowQueryNeitherConnectsNorPrintsThePassword) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_query(refusing_server("must not connect"), {"query=CALL purge_old_rows()", "password=s3cret", "warning=value > 10", "show-query"}, response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  const std::string line = join_lines(response);
+  EXPECT_NE(line.find("\"query=CALL purge_old_rows()\""), std::string::npos) << line;
+  EXPECT_NE(line.find("\"warning=value > 10\""), std::string::npos) << line;
+  EXPECT_NE(line.find("\"password=***\""), std::string::npos) << line;
+  EXPECT_EQ(line.find("s3cret"), std::string::npos) << line;
+}
+
 TEST(CheckMysqlQuery, StatementWithoutResultSetIsUnknown) {
   const auto factory = [](const mysql_client::connection_info &) -> mysql_client::query_runner {
     return [](const std::string &) -> mysql_client::result { return mysql_client::result(); };
