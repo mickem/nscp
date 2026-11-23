@@ -66,3 +66,13 @@ TEST(IcingaAgentMacros, ExpandValueWalksArrays) {
   EXPECT_FALSE(expand_value(json::array{"$a$", "$nope$"}, macros).has_value());
   EXPECT_EQ(expand_value(json::value(3), macros).value(), json::value(3));
 }
+
+TEST(IcingaAgentMacros, MacroText) {
+  const json::object values = json::parse(R"({"s":"x","n":80,"d":2.5,"l":["a","b"],"t":true})").as_object();
+  EXPECT_EQ(macro_text(values, "s"), "x");
+  EXPECT_EQ(macro_text(values, "n"), "80");
+  EXPECT_EQ(macro_text(values, "d"), "2.5");
+  EXPECT_EQ(macro_text(values, "l"), "a,b");
+  EXPECT_EQ(macro_text(values, "t"), "true");
+  EXPECT_EQ(macro_text(values, "absent"), "");
+}

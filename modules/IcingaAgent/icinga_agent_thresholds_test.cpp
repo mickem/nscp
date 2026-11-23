@@ -106,3 +106,46 @@ TEST(IcingaAgentThresholds, Expressions) {
   EXPECT_EQ(expression("![10-20]", false), "used < 10g or used > 20g");
   EXPECT_EQ(expression("20%", true), "used <= 20%");
 }
+
+TEST(IcingaAgentThresholds, NumbersAsThePluginsReadThem) {
+  // Whitespace around the threshold and inside a range is trimmed.
+  EXPECT_EQ(range("  20  ", false), "~:20");
+  EXPECT_EQ(range("[ 10 - 20 ]", false), "@10:20");
+  EXPECT_EQ(range("![10%-20%]", false), "10%:20%");
+  // ...but not between the `!` and what it negates: the plugins look for the
+  // bracket right after it, and fail to read the rest as a number.
+  EXPECT_THROW(parse_plugin_threshold("! [10%-20%]"), threshold_error);
+  // Fractions and signs.
+  EXPECT_EQ(range("0.5", false), "~:0.5");
+  EXPECT_EQ(range("12.5%", true), "@~:12.5%");
+  EXPECT_EQ(range("+5", false), "~:+5");
+  EXPECT_EQ(expanded(range("0.5", false)), "v > 0.5");
+  // A range is split on its dash, so it cannot hold a negative number.
+  EXPECT_THROW(parse_plugin_threshold("[-5-5]"), threshold_error);
+}
+
+// Every form, both readings, through the filter checks' own parser: the
+// expression is the comparison threshold::rend() makes in Icinga.
+TEST(IcingaAgentThresholds, EveryFormRoundTrips) {
+  struct form {
+    const char *threshold;
+    bool inverted;
+    const char *expression;
+  };
+  const form forms[] = {
+      {"20", false, "v > 20"},
+      {"!20", false, "v <= 20"},
+      {"[10-20]", false, "v >= 10 and v <= 20"},
+      {"![10-20]", false, "v < 10 or v > 20"},
+      {"20", true, "v <= 20"},
+      {"!20", true, "v > 20"},
+      {"[10-20]", true, "v < 10 or v > 20"},
+      {"![10-20]", true, "v >= 10 and v <= 20"},
+  };
+  for (const form &f : forms) {
+    EXPECT_EQ(expanded(range(f.threshold, f.inverted)), f.expression) << f.threshold << (f.inverted ? " (inverted)" : "");
+    // ...and the expression form says the same thing.
+    std::string expression = to_expression(parse_plugin_threshold(f.threshold), f.inverted, "v", "", true);
+    EXPECT_EQ(expression, f.expression) << f.threshold << (f.inverted ? " (inverted)" : "");
+  }
+}

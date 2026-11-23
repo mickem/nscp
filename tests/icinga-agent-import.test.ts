@@ -177,6 +177,90 @@ describe("nscp icinga-agent import", () => {
     expect(setting("parent host")).toBe("master.example.com");
   });
 
+  it("refuses a certificate that is not the agent's own, even with --force", async () => {
+    // The CA's own pair under the agent's name: a matching key and
+    // certificate, signed by nobody for this endpoint. --force is about
+    // replacing a stored key, never about skipping the checks.
+    fs.writeFileSync(path.join(certs, `${AGENT}.crt`), pki.ca.certPem);
+    fs.writeFileSync(path.join(certs, `${AGENT}.key`), pki.ca.keyPem);
+    const r = await nscp.run(["icinga-agent", "import", "--from", icinga, "--force"], {
+      allowFailure: true,
+    });
+    expect(r.exitCode).not.toBe(0);
+    expect(r.all).toMatch(/self-signed|is for 'Icinga CA'/);
+    // What was imported before is still there.
+    expect(fs.readFileSync(path.join(target, `${AGENT}.key`), "utf8")).toBe(
+      pki.signed.agent.keyPem,
+    );
+  });
+
+  it("refuses when a file of the identity is missing, naming it", async () => {
+    fs.rmSync(path.join(certs, "ca.crt"));
+    const r = await refused(icinga);
+    expect(r.all).toContain("Cannot read the Icinga CA");
+    expect(r.all).toContain("ca.crt");
+  });
+
+  it("refuses a certificate another CA issued", async () => {
+    const other = generateCertChain({
+      outDir: nscp.scratch(`pki-other-${Date.now()}`),
+      caCommonName: "Some other CA",
+      signed: { x: { commonName: "x" } },
+    });
+    fs.writeFileSync(path.join(certs, "ca.crt"), other.ca.certPem);
+    const r = await refused(icinga);
+    expect(r.all).toContain("not issued by the CA beside it");
+  });
+
+  it("takes the folders and the names from the command line when the layout differs", async () => {
+    // Certificates and configuration in unrelated places, two keys in the
+    // folder, and a zones.conf with two parents: every default is ambiguous.
+    const elsewhere = nscp.scratch(`elsewhere-${Date.now()}`);
+    const certFolder = path.join(elsewhere, "pki");
+    const confFolder = path.join(elsewhere, "conf");
+    fs.mkdirSync(certFolder, { recursive: true });
+    fs.mkdirSync(confFolder, { recursive: true });
+    for (const file of [`${AGENT}.crt`, `${AGENT}.key`, "ca.crt"]) {
+      fs.copyFileSync(path.join(certs, file), path.join(certFolder, file));
+    }
+    fs.writeFileSync(path.join(certFolder, "someone-else.key"), pki.signed.other.keyPem);
+    fs.writeFileSync(
+      path.join(confFolder, "zones.conf"),
+      `object Endpoint "sat-1" { host = "sat-1.example.com" }\n` +
+        `object Endpoint "sat-2" { host = "sat-2.example.com"; port = "5666" }\n`,
+    );
+    const run = (extra: string[]) =>
+      nscp.run(
+        [
+          "icinga-agent",
+          "import",
+          "--certificates",
+          certFolder,
+          "--config",
+          confFolder,
+          "--dry-run",
+          ...extra,
+        ],
+        { allowFailure: true },
+      );
+
+    expect((await run([])).all).toContain("Cannot tell this agent's name");
+    expect((await run(["--endpoint-name", AGENT])).all).toContain("has 2 parents (sat-1, sat-2)");
+    const chosen = await run(["--endpoint-name", AGENT, "--parent-endpoint", "sat-2"]);
+    expect(chosen.exitCode).toBe(0);
+    expect(chosen.all).toContain(`Would import the Icinga 2 agent '${AGENT}' from ${certFolder}`);
+    expect(chosen.all).toContain("Parent: sat-2 at sat-2.example.com:5666");
+  });
+
+  it("explains itself with --help and without a subcommand", async () => {
+    const help = await nscp.run(["icinga-agent", "import", "--help"]);
+    for (const option of ["from", "endpoint-name", "parent-host", "stop-icinga", "dry-run"]) {
+      expect(help.all).toContain(option);
+    }
+    const bare = await nscp.run(["icinga-agent"], { allowFailure: true });
+    expect(bare.all).toContain("nscp icinga-agent import --help");
+  });
+
   it("stops the Icinga agent last, and says so when it cannot", async () => {
     const plan = await nscp.run([
       "icinga-agent",

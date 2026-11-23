@@ -84,3 +84,90 @@ TEST(IcingaAgentImport, EndpointVariants) {
   EXPECT_EQ(parents[0].name, "sat-1");
   EXPECT_EQ(parents[1].name, "sat-2");
 }
+
+TEST(IcingaAgentImport, EndpointNameFromOptionThenNodeNameThenTheOnlyKey) {
+  import_options options;
+  const std::string constants = "const NodeName = \"from-constants\"\n";
+  EXPECT_EQ(resolve_endpoint_name(options, constants, {"from-key"}), "from-constants");
+  EXPECT_EQ(resolve_endpoint_name(options, "", {"from-key"}), "from-key");
+  options.endpoint_name = "from-option";
+  EXPECT_EQ(resolve_endpoint_name(options, constants, {"from-key"}), "from-option");
+}
+
+TEST(IcingaAgentImport, EndpointNameIsNotGuessed) {
+  const import_options options;
+  EXPECT_THROW(resolve_endpoint_name(options, "", {}), import_error);
+  // Two keys: nothing says which one is this agent's.
+  EXPECT_THROW(resolve_endpoint_name(options, "", {"a", "b"}), import_error);
+  EXPECT_THROW(resolve_endpoint_name(options, "", {""}), import_error);
+  try {
+    resolve_endpoint_name(options, "", {});
+  } catch (const import_error &e) {
+    EXPECT_NE(std::string(e.what()).find("--endpoint-name"), std::string::npos);
+  }
+}
+
+TEST(IcingaAgentImport, PlanFromTheNodeWizard) {
+  const import_plan plan = plan_import(import_options(), "win-host-01", wizard_zones);
+  EXPECT_EQ(plan.endpoint_name, "win-host-01");
+  EXPECT_EQ(plan.parent_endpoint, "icinga-master.example.com");
+  EXPECT_EQ(plan.parent_host, "192.0.2.10");
+  EXPECT_EQ(plan.parent_port, "5665");
+}
+
+TEST(IcingaAgentImport, OptionsWinOverZonesConf) {
+  import_options options;
+  options.parent_host = "master.internal";
+  options.parent_port = "15665";
+  const import_plan plan = plan_import(options, "win-host-01", wizard_zones);
+  EXPECT_EQ(plan.parent_endpoint, "icinga-master.example.com");
+  EXPECT_EQ(plan.parent_host, "master.internal");
+  EXPECT_EQ(plan.parent_port, "15665");
+}
+
+TEST(IcingaAgentImport, ChoosingAmongTwoParents) {
+  const std::string zones = R"conf(
+    object Endpoint "sat-1" { host = "sat-1.example.com" }
+    object Endpoint "sat-2" { host = "sat-2.example.com"; port = "5666" }
+    object Endpoint NodeName { }
+  )conf";
+  try {
+    plan_import(import_options(), "agent", zones);
+    FAIL() << "two parents were not refused";
+  } catch (const import_error &e) {
+    const std::string what = e.what();
+    EXPECT_NE(what.find("2 parents (sat-1, sat-2)"), std::string::npos) << what;
+    EXPECT_NE(what.find("--parent-endpoint"), std::string::npos) << what;
+  }
+  import_options options;
+  options.parent_endpoint = "sat-2";
+  const import_plan plan = plan_import(options, "agent", zones);
+  EXPECT_EQ(plan.parent_endpoint, "sat-2");
+  EXPECT_EQ(plan.parent_host, "sat-2.example.com");
+  EXPECT_EQ(plan.parent_port, "5666");
+}
+
+TEST(IcingaAgentImport, AParentThatIsNotInZonesConfNeedsItsAddress) {
+  import_options options;
+  options.parent_endpoint = "elsewhere";
+  EXPECT_THROW(plan_import(options, "agent", wizard_zones), import_error);
+  options.parent_host = "elsewhere.example.com";
+  const import_plan plan = plan_import(options, "agent", wizard_zones);
+  EXPECT_EQ(plan.parent_endpoint, "elsewhere");
+  EXPECT_EQ(plan.parent_host, "elsewhere.example.com");
+  // No port anywhere: the setting is left at its default.
+  EXPECT_TRUE(plan.parent_port.empty());
+}
+
+TEST(IcingaAgentImport, NoParentAndNoAddress) {
+  // Nothing but the agent itself, named by its string.
+  EXPECT_THROW(plan_import(import_options(), "agent", "object Endpoint \"agent\" { }"), import_error);
+  EXPECT_THROW(plan_import(import_options(), "agent", ""), import_error);
+  // The master connected to the agent: its Endpoint carries no host.
+  try {
+    plan_import(import_options(), "agent", "object Endpoint \"master\" { }\nobject Endpoint NodeName { }");
+    FAIL() << "a parent without an address was not refused";
+  } catch (const import_error &e) {
+    EXPECT_NE(std::string(e.what()).find("--parent-host"), std::string::npos) << e.what();
+  }
+}

@@ -67,3 +67,20 @@ TEST(IcingaAgentJson, ToLongAcceptsNumbersAndNumericStrings) {
   EXPECT_EQ(to_long(json::value(""), 9), 9);
   EXPECT_EQ(to_long(json::value(true), 9), 9);
 }
+
+// What a translation reads of the macros a master sends: missing and empty
+// are the same thing.
+TEST(IcingaAgentJson, ReadersTreatMissingAndEmptyAlike) {
+  const json::object macros = json::parse(R"({"warn":"20%","list":["C:","D:"],"count":5,"on":true,"off":"0","blank":"","none":null,"nothing":[]})").as_object();
+
+  for (const char *key : {"warn", "list", "count", "on", "off"}) EXPECT_TRUE(has_value(macros, key)) << key;
+  for (const char *key : {"blank", "none", "nothing", "absent"}) EXPECT_FALSE(has_value(macros, key)) << key;
+
+  for (const char *key : {"warn", "list", "count", "on"}) EXPECT_TRUE(truthy_field(macros, key)) << key;
+  for (const char *key : {"off", "blank", "none", "nothing", "absent"}) EXPECT_FALSE(truthy_field(macros, key)) << key;
+
+  EXPECT_EQ(text_list(macros, "list"), (std::vector<std::string>{"C:", "D:"}));
+  EXPECT_EQ(text_list(macros, "warn"), (std::vector<std::string>{"20%"}));
+  EXPECT_EQ(text_list(macros, "count"), (std::vector<std::string>{"5"}));
+  for (const char *key : {"blank", "none", "nothing", "absent"}) EXPECT_TRUE(text_list(macros, key).empty()) << key;
+}
