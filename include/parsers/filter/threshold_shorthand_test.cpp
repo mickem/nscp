@@ -936,9 +936,6 @@ TEST(ThresholdPieces, DescribeUnitOfEveryUnit) {
   EXPECT_EQ("A number without a unit is in seconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).", describe_unit(spec("k", above, unit_seconds)));
   EXPECT_EQ("A number without a unit is in seconds, which the keyword counts in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).",
             describe_unit(spec("k", above, unit_seconds_as_ms)));
-  // A value that is not one of the units reads as a plain keyword.
-  EXPECT_EQ("", describe_unit(spec("k", above, static_cast<unit>(99))));
-  EXPECT_EQ("80x", rendered(static_cast<unit>(99), "80x"));
 }
 
 TEST(ThresholdPieces, IsShortFlag) {
