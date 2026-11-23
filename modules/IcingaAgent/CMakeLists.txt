@@ -53,6 +53,10 @@ if(WIN32)
         icinga_agent_connection.hpp
         icinga_agent_pki.hpp
         icinga_agent_service.hpp
+        ${NSCP_INCLUDEDIR}/win/service_control.cpp
+        ${NSCP_INCLUDEDIR}/win/service_control.hpp
+        ${NSCP_ERROR_CPP}
+        ${NSCP_ERROR_HPP}
         icinga_agent_openssl.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )
