@@ -23,9 +23,14 @@ jobs:
 
     - name: Fetch version from git tags
       id: version
-      uses: codacy/git-version@376c75fc90be05da2e5c3b7e54de18524b5226bd # 2.8.8
+      uses: codacy/git-version@5cabe6920ad6a182ba6d653ee8cb5ec65b8b4cfd # 2.9.0
       with:
         release-branch: main
+        # Spelled out, not left to the action's defaults: 2.9.0 changed them to
+        # conventional-commit patterns (`feat:` and `type!:` would start bumping
+        # the version). These are the two words CLAUDE.md documents.
+        minor-identifier: 'feature:'
+        major-identifier: 'breaking:'
         # Pin the downloaded git-version binary instead of resolving
         # 'latest' via api.github.com — anonymous Actions runners share a
         # 60 req/hour IP quota and the bootstrap fails with curl exit 6
