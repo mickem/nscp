@@ -32,6 +32,16 @@ typedef modern_filter::modern_filters<gpu_adapter, filter_obj_handler> filter_ty
 void check_gpu_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                     const std::vector<gpu_adapter> &adapters);
 
+// Testable variant of the whole check: builds the adapters from the counters
+// and the DXGI enumeration, or reports UNKNOWN when the enumeration failed -
+// without DXGI no adapter could be told from the software rasteriser and no
+// percentage could be computed, so the check would pass every host as healthy.
+void check_gpu_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                    const counter_snapshot &snapshot, const adapter_enumeration &enumeration);
+
+// The UNKNOWN message for a failed DXGI enumeration.
+std::string enumeration_error(const std::string &reason);
+
 // Live check (gpu_source_win.cpp): samples the counter sets - the engine
 // utilisation is a rate, so this takes a second - and names the adapters
 // through DXGI.

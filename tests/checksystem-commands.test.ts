@@ -1246,7 +1246,9 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
       critical: "utilization > 1000",
     });
     if (q.result === UNKNOWN) {
-      expect(messageOf(q)).toMatch(/No GPU adapters found|GPU performance counters are not available/);
+      expect(messageOf(q)).toMatch(
+        /No GPU adapters found|GPU performance counters are not available|could not be identified through DXGI/,
+      );
       return;
     }
     expect(q.result).toBe(OK);
@@ -1273,7 +1275,11 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
       "detail-syntax": "type=${adapter_type} luid=${luid} load=${utilization} mem=${dedicated_pct}/${shared_pct} procs=${processes}",
     });
     if (q.result === UNKNOWN) {
-      expect(messageOf(q)).toMatch(/GPU performance counters are not available/);
+      // No counter sets (pre-1709), or DXGI could not name the adapters -
+      // empty-state=ok does not turn either into an OK.
+      expect(messageOf(q)).toMatch(
+        /GPU performance counters are not available|could not be identified through DXGI/,
+      );
       return;
     }
     expect(q.result).toBe(OK);

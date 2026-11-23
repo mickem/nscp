@@ -8,7 +8,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <set>
+#include <tuple>
 #include <utility>
 
 namespace gpu_check {
@@ -128,6 +130,71 @@ std::string engine_class(const std::string &engine_type) {
   return out;
 }
 
+engine_kinds classify_engine(const std::string &engine_type) {
+  const std::string cls = engine_class(engine_type);
+  const auto has = [&cls](const char *part) { return cls.find(part) != std::string::npos; };
+  engine_kinds out;
+  out.is_3d = has("3d");
+  out.copy = has("copy");
+  out.video_decode = has("videodecode") || has("videocodec");
+  out.video_encode = has("videoencode") || has("videocodec");
+  out.compute = has("compute") || has("cuda");
+  return out;
+}
+
+long long memory_total(const unsigned long long reported, const unsigned size_bits, const unsigned long long driver_size) {
+  const unsigned long long max_total = static_cast<unsigned long long>(std::numeric_limits<long long>::max());
+  if (size_bits >= 64) return static_cast<long long>(std::min(reported, max_total));
+  // A 32-bit build. A size below the floor is one DXGI could express, and it
+  // is the budget the usage counters are measured against - an integrated
+  // adapter's driver key can record a different figure, so it is not consulted.
+  if (reported < clamped_size_floor_32) return static_cast<long long>(reported);
+  // Clamped: the driver's own figure, when it is there and does not contradict
+  // DXGI, is the size DXGI could not express; otherwise the size is unknown.
+  if (driver_size >= reported) return static_cast<long long>(std::min(driver_size, max_total));
+  return 0;
+}
+
+namespace {
+
+std::string lower(const std::string &s) {
+  std::string out;
+  for (const char c : s) out += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return out;
+}
+
+// The hex number of exactly `digits` digits after `marker`, as in
+// "ven_10de"; false when the marker is absent or not followed by one.
+bool hex_after(const std::string &id, const std::string &marker, const std::string::size_type digits, unsigned long long &out) {
+  const std::string::size_type pos = id.find(marker);
+  if (pos == std::string::npos) return false;
+  const std::string token = id.substr(pos + marker.size(), digits);
+  if (token.size() != digits) return false;
+  for (const char c : token) {
+    if (std::isxdigit(static_cast<unsigned char>(c)) == 0) return false;
+  }
+  return parse_number(token, 16, out);
+}
+
+}  // namespace
+
+unsigned long long driver_memory_size(const std::vector<driver_key> &keys, const unsigned vendor_id, const unsigned device_id, const unsigned subsys_id) {
+  unsigned long long found = 0;
+  for (const driver_key &key : keys) {
+    if (key.memory_size == 0) continue;
+    const std::string id = lower(key.matching_device_id);
+    unsigned long long ven = 0;
+    unsigned long long dev = 0;
+    if (!hex_after(id, "ven_", 4, ven) || !hex_after(id, "dev_", 4, dev)) continue;
+    if (ven != vendor_id || dev != device_id) continue;
+    unsigned long long subsys = 0;
+    if (hex_after(id, "subsys_", 8, subsys) && subsys != subsys_id) continue;
+    if (found != 0 && found != key.memory_size) return 0;  // ambiguous
+    found = key.memory_size;
+  }
+  return found;
+}
+
 long long gpu_adapter::get_dedicated_pct() const { return percent_of(dedicated_used, dedicated_total); }
 long long gpu_adapter::get_shared_pct() const { return percent_of(shared_used, shared_total); }
 
@@ -171,39 +238,40 @@ std::vector<gpu_adapter> build_adapters(const counter_snapshot &snapshot, const 
     work[key].pids.insert(id.pid);
   }
 
-  // Linked adapters share one luid and differ in phys; only then does the
-  // index need to show in the name.
-  std::map<std::string, int> per_luid;
-  for (const auto &entry : work) ++per_luid[entry.first.first];
-
   std::vector<gpu_adapter> out;
+  // Where each record sits in DXGI enumeration order; adapters DXGI did not
+  // list sort after the ones it did.
+  std::vector<std::size_t> dxgi_position;
   for (auto &entry : work) {
     gpu_adapter &record = entry.second.record;
     record.luid = entry.first.first;
     record.phys = entry.first.second;
     record.name = record.luid;
     record.adapter_type = "unknown";
-    for (const adapter_info &info : adapters) {
+    std::size_t position = std::numeric_limits<std::size_t>::max();
+    for (std::size_t i = 0; i < adapters.size(); ++i) {
+      const adapter_info &info = adapters[i];
       if (info.luid != record.luid) continue;
       if (!info.name.empty()) record.name = info.name;
       record.adapter_type = info.software ? "software" : "hardware";
       record.dedicated_total = info.dedicated_total;
       record.shared_total = info.shared_total;
+      position = i;
       break;
     }
-    if (per_luid[record.luid] > 1) record.name += " #" + std::to_string(record.phys);
+    dxgi_position.push_back(position);
 
     // The adapter is as busy as its busiest engine - the figure Task Manager
     // shows. Engines run side by side, so adding them up would pass 100%.
     double busiest = 0.0;
     for (const auto &engine : entry.second.engines) {
       const long long load = to_percent(engine.second.utilization);
-      const std::string cls = engine_class(engine.second.type);
-      if (cls == "3d") record.utilization_3d = std::max(record.utilization_3d, load);
-      if (cls == "copy") record.utilization_copy = std::max(record.utilization_copy, load);
-      if (cls == "videodecode") record.utilization_video_decode = std::max(record.utilization_video_decode, load);
-      if (cls == "videoencode") record.utilization_video_encode = std::max(record.utilization_video_encode, load);
-      if (cls == "compute") record.utilization_compute = std::max(record.utilization_compute, load);
+      const engine_kinds kinds = classify_engine(engine.second.type);
+      if (kinds.is_3d) record.utilization_3d = std::max(record.utilization_3d, load);
+      if (kinds.copy) record.utilization_copy = std::max(record.utilization_copy, load);
+      if (kinds.video_decode) record.utilization_video_decode = std::max(record.utilization_video_decode, load);
+      if (kinds.video_encode) record.utilization_video_encode = std::max(record.utilization_video_encode, load);
+      if (kinds.compute) record.utilization_compute = std::max(record.utilization_compute, load);
       if (engine.second.utilization > busiest) {
         busiest = engine.second.utilization;
         record.busiest_engine = engine.second.type;
@@ -212,6 +280,20 @@ std::vector<gpu_adapter> build_adapters(const counter_snapshot &snapshot, const 
     record.utilization = to_percent(busiest);
     record.processes = static_cast<long long>(entry.second.pids.size());
     out.push_back(record);
+  }
+
+  // Make the names unique (see the header): number the records that share a
+  // name in DXGI order, then luid (only adapters DXGI did not list, named
+  // after their luid, tie on the position), then phys.
+  std::map<std::string, std::vector<std::size_t> > by_name;
+  for (std::size_t i = 0; i < out.size(); ++i) by_name[out[i].name].push_back(i);
+  for (auto &group : by_name) {
+    std::vector<std::size_t> &members = group.second;
+    if (members.size() < 2) continue;
+    std::sort(members.begin(), members.end(), [&out, &dxgi_position](const std::size_t a, const std::size_t b) {
+      return std::make_tuple(dxgi_position[a], out[a].luid, out[a].phys) < std::make_tuple(dxgi_position[b], out[b].luid, out[b].phys);
+    });
+    for (std::size_t n = 0; n < members.size(); ++n) out[members[n]].name += " #" + std::to_string(n);
   }
   return out;
 }
