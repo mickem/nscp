@@ -499,3 +499,512 @@ TEST(ThresholdExpand, AnAllEmptyListIsAMissingValue) {
   ASSERT_EQ(1u, expressions.size());
   EXPECT_EQ("time > 60 or loss > 20%", expressions[0]);
 }
+
+// ============================================================================
+// The pieces, one by one: every branch of the helpers the cases above only
+// reach through expand() and normalize_arguments().
+// ============================================================================
+
+namespace {
+bool ranged(const std::string &text) {
+  detail::range r;
+  return detail::parse_range(text, r);
+}
+std::string rendered(const unit u, const std::string &value) {
+  std::string out, error;
+  return detail::render_value(spec("k", above, u), value, out, error) ? out : "error: " + error;
+}
+bool can_compare(const unit u, const std::string &a, const std::string &b, double &na, double &nb) {
+  return detail::comparable(spec("k", above, u), a, b, na, nb);
+}
+std::string filled(const spec_list &specs, const string_list &bounds, const std::string &alternative) {
+  std::string out;
+  return detail::fill_alternative(specs, bounds, alternative, out) ? out : "<dropped>";
+}
+}  // namespace
+
+TEST(ThresholdPieces, Trim) {
+  EXPECT_EQ("", detail::trim(""));
+  EXPECT_EQ("", detail::trim(" \t "));
+  EXPECT_EQ("a b", detail::trim(" \ta b\t "));
+  EXPECT_EQ("a", detail::trim("a"));
+}
+
+TEST(ThresholdPieces, CharacterClasses) {
+  EXPECT_EQ('a', detail::lower('A'));
+  EXPECT_EQ('z', detail::lower('Z'));
+  EXPECT_EQ('a', detail::lower('a'));
+  EXPECT_EQ('@', detail::lower('@'));
+  EXPECT_EQ('[', detail::lower('['));
+  for (const char c : {'a', 'z', 'A', 'Z'}) EXPECT_TRUE(detail::is_alpha(c)) << c;
+  for (const char c : {'`', '{', '@', '[', '0', '_'}) EXPECT_FALSE(detail::is_alpha(c)) << c;
+  for (const char c : {'0', '9'}) EXPECT_TRUE(detail::is_digit(c)) << c;
+  for (const char c : {'/', ':', 'a'}) EXPECT_FALSE(detail::is_digit(c)) << c;
+  for (const char c : {'a', 'Z', '5', '_'}) EXPECT_TRUE(detail::is_word(c)) << c;
+  for (const char c : {' ', '-', '(', '\''}) EXPECT_FALSE(detail::is_word(c)) << c;
+}
+
+TEST(ThresholdPieces, IsValue) {
+  for (const std::string v : {"80", "80%", "-5", "+5", "1.5", ".5", "5.", "2d", "10GB", "500ms", "5Z", "5z", "-1.5h"}) EXPECT_TRUE(detail::is_value(v)) << v;
+  for (const std::string v : {"", "-", "+", ".", "-.", "abc", "%", "80%%", "80%x", "80 %", "5[", "5{", "5_", "1.2.3", "1e5", "5m5"})
+    EXPECT_FALSE(detail::is_value(v)) << v;
+}
+
+TEST(ThresholdPieces, ParseRange) {
+  for (const std::string v : {"10", "@10", "10:", "@10:", "~:10", "@~:10", "10:20", "@10:20", "-5:5", "1k:1m"}) EXPECT_TRUE(ranged(v)) << v;
+  for (const std::string v : {"", "@", ":", ":10", "~:", "@~:", "x:10", "10:x", "~", "10:20:30", "a"}) EXPECT_FALSE(ranged(v)) << v;
+  detail::range r;
+  ASSERT_TRUE(detail::parse_range("@~:10", r));
+  EXPECT_TRUE(r.inside);
+  EXPECT_TRUE(r.has_colon);
+  EXPECT_EQ("~", r.start);
+  EXPECT_EQ("10", r.end);
+  detail::range bare;
+  ASSERT_TRUE(detail::parse_range("10", bare));
+  EXPECT_FALSE(bare.inside);
+  EXPECT_FALSE(bare.has_colon);
+  EXPECT_EQ("", bare.start);
+  EXPECT_EQ("10", bare.end);
+}
+
+TEST(ThresholdPieces, SplitList) {
+  EXPECT_EQ(string_list({""}), detail::split_list(""));
+  EXPECT_EQ(string_list({"1"}), detail::split_list("1"));
+  EXPECT_EQ(string_list({"1", "2", "3"}), detail::split_list("1, 2 ,3"));
+  EXPECT_EQ(string_list({"", "2", ""}), detail::split_list(",2,"));
+}
+
+TEST(ThresholdPieces, RenderNumber) {
+  EXPECT_EQ("0", detail::render_number(0));
+  EXPECT_EQ("5", detail::render_number(5.0));
+  EXPECT_EQ("-5", detail::render_number(-5.0));
+  EXPECT_EQ("1.5", detail::render_number(1.5));
+  EXPECT_EQ("-2.5", detail::render_number(-2.5));
+  EXPECT_EQ("0.25", detail::render_number(0.25));
+  EXPECT_EQ("1234567.8", detail::render_number(1234567.8));
+  // As good as whole: no "5.000000".
+  EXPECT_EQ("5", detail::render_number(5.0000000001));
+  // Below the precision it is rendered with, the fraction is gone - and so is
+  // the decimal point.
+  EXPECT_EQ("0", detail::render_number(0.0000001));
+  // Too large for the integer path, still not in scientific notation.
+  EXPECT_EQ("2000000000000000", detail::render_number(2e15));
+  EXPECT_EQ("999999999999999", detail::render_number(999999999999999.0));
+}
+
+TEST(ThresholdPieces, Durations) {
+  for (const unit u : {unit_seconds_as_ms, unit_seconds, unit_milliseconds, unit_days}) EXPECT_TRUE(detail::is_duration(u));
+  for (const unit u : {unit_plain, unit_percent, unit_percent_number}) EXPECT_FALSE(detail::is_duration(u));
+  EXPECT_EQ(0.001, detail::bare_seconds_of(unit_milliseconds));
+  EXPECT_EQ(86400.0, detail::bare_seconds_of(unit_days));
+  EXPECT_EQ(1.0, detail::bare_seconds_of(unit_seconds));
+  EXPECT_EQ(1.0, detail::bare_seconds_of(unit_seconds_as_ms));
+  EXPECT_EQ(1.0, detail::bare_seconds_of(unit_plain));
+
+  double seconds = -1;
+  ASSERT_TRUE(detail::parse_duration("5", seconds));
+  EXPECT_EQ(5.0, seconds);
+  ASSERT_TRUE(detail::parse_duration("5", seconds, 86400.0));
+  EXPECT_EQ(432000.0, seconds);
+  ASSERT_TRUE(detail::parse_duration("5s", seconds));
+  EXPECT_EQ(5.0, seconds);
+  ASSERT_TRUE(detail::parse_duration("500ms", seconds));
+  EXPECT_EQ(0.5, seconds);
+  ASSERT_TRUE(detail::parse_duration("5m", seconds));
+  EXPECT_EQ(300.0, seconds);
+  ASSERT_TRUE(detail::parse_duration("1.5h", seconds));
+  EXPECT_EQ(5400.0, seconds);
+  ASSERT_TRUE(detail::parse_duration("2d", seconds));
+  EXPECT_EQ(172800.0, seconds);
+  ASSERT_TRUE(detail::parse_duration("1w", seconds));
+  EXPECT_EQ(604800.0, seconds);
+  ASSERT_TRUE(detail::parse_duration("-5m", seconds));
+  EXPECT_EQ(-300.0, seconds);
+  // Units are lower case, and a percentage or a size is not a duration.
+  for (const std::string v : {"5x", "5S", "5MS", "5%", "5gb", "5min"}) EXPECT_FALSE(detail::parse_duration(v, seconds)) << v;
+}
+
+TEST(ThresholdPieces, SuffixAndNumber) {
+  EXPECT_EQ("", detail::suffix_of("80"));
+  EXPECT_EQ("", detail::suffix_of(""));
+  EXPECT_EQ("%", detail::suffix_of("80%"));
+  EXPECT_EQ("GB", detail::suffix_of("10GB"));
+  EXPECT_EQ("ms", detail::suffix_of("-1.5ms"));
+  EXPECT_EQ(80.0, detail::number_of("80"));
+  EXPECT_EQ(80.0, detail::number_of("80%"));
+  EXPECT_EQ(-1.5, detail::number_of("-1.5ms"));
+  EXPECT_EQ(10.0, detail::number_of("10GB"));
+}
+
+TEST(ThresholdPieces, SizeSuffix) {
+  for (const std::string v : {"b", "B", "k", "K", "m", "g", "t", "p", "e", "E", "kb", "KB", "mb", "Gb", "tB", "pb", "eb"}) EXPECT_TRUE(detail::is_size_suffix(v)) << v;
+  for (const std::string v : {"", "x", "%", "d", "ms", "kx", "bb", "bk", "xb", "kbb", "gib"}) EXPECT_FALSE(detail::is_size_suffix(v)) << v;
+}
+
+TEST(ThresholdPieces, Comparable) {
+  double a = 0, b = 0;
+  // Durations are compared in seconds, whatever each end is written in.
+  ASSERT_TRUE(can_compare(unit_seconds, "2d", "12h", a, b));
+  EXPECT_EQ(172800.0, a);
+  EXPECT_EQ(43200.0, b);
+  ASSERT_TRUE(can_compare(unit_milliseconds, "100", "1s", a, b));
+  EXPECT_EQ(0.1, a);
+  EXPECT_EQ(1.0, b);
+  ASSERT_TRUE(can_compare(unit_days, "2", "1w", a, b));
+  EXPECT_EQ(172800.0, a);
+  EXPECT_EQ(604800.0, b);
+  EXPECT_FALSE(can_compare(unit_seconds, "5x", "5", a, b));
+  EXPECT_FALSE(can_compare(unit_seconds, "5", "5x", a, b));
+
+  // The same suffix, or none.
+  ASSERT_TRUE(can_compare(unit_plain, "20", "10", a, b));
+  EXPECT_EQ(20.0, a);
+  EXPECT_EQ(10.0, b);
+  ASSERT_TRUE(can_compare(unit_plain, "2D", "1d", a, b));
+  EXPECT_EQ(2.0, a);
+  EXPECT_EQ(1.0, b);
+  // A plain keyword gives its suffixes their meaning itself.
+  EXPECT_FALSE(can_compare(unit_plain, "2d", "12h", a, b));
+  EXPECT_FALSE(can_compare(unit_plain, "2d", "12", a, b));
+  EXPECT_FALSE(can_compare(unit_plain, "12", "2d", a, b));
+
+  // A bare number of a percentage keyword is a percentage.
+  ASSERT_TRUE(can_compare(unit_percent, "20", "10%", a, b));
+  EXPECT_EQ(20.0, a);
+  EXPECT_EQ(10.0, b);
+  ASSERT_TRUE(can_compare(unit_percent, "20%", "10", a, b));
+  ASSERT_TRUE(can_compare(unit_percent_number, "20", "10", a, b));
+  // ... which is not a size.
+  EXPECT_FALSE(can_compare(unit_percent, "20", "10g", a, b));
+  EXPECT_FALSE(can_compare(unit_percent, "10g", "20%", a, b));
+
+  // Sizes, a bare number next to one being bytes.
+  ASSERT_TRUE(can_compare(unit_plain, "2000", "1k", a, b));
+  EXPECT_EQ(2000.0, a);
+  EXPECT_EQ(1024.0, b);
+  ASSERT_TRUE(can_compare(unit_plain, "1k", "2000", a, b));
+  EXPECT_EQ(1024.0, a);
+  EXPECT_EQ(2000.0, b);
+  ASSERT_TRUE(can_compare(unit_plain, "1MB", "1g", a, b));
+  EXPECT_EQ(1048576.0, a);
+  EXPECT_EQ(1073741824.0, b);
+  ASSERT_TRUE(can_compare(unit_plain, "512b", "1kb", a, b));
+  EXPECT_EQ(512.0, a);
+  EXPECT_EQ(1024.0, b);
+  ASSERT_TRUE(can_compare(unit_percent, "1g", "1t", a, b));
+  EXPECT_FALSE(can_compare(unit_plain, "1k", "5x", a, b));
+  EXPECT_FALSE(can_compare(unit_plain, "5x", "1k", a, b));
+}
+
+TEST(ThresholdPieces, RenderValue) {
+  EXPECT_EQ("80", rendered(unit_plain, "80"));
+  EXPECT_EQ("2d", rendered(unit_plain, "2d"));
+  EXPECT_EQ("10G", rendered(unit_plain, "10G"));
+
+  EXPECT_EQ("10%", rendered(unit_percent, "10"));
+  EXPECT_EQ("10%", rendered(unit_percent, "10%"));
+  EXPECT_EQ("10G", rendered(unit_percent, "10G"));
+  EXPECT_EQ("error: Invalid unit for k: 10ms (expected a percentage, or a size such as 10G)", rendered(unit_percent, "10ms"));
+
+  EXPECT_EQ("80", rendered(unit_percent_number, "80"));
+  EXPECT_EQ("80", rendered(unit_percent_number, "80%"));
+  EXPECT_EQ("error: Invalid unit for k: 80m (expected a percentage)", rendered(unit_percent_number, "80m"));
+
+  EXPECT_EQ("2000", rendered(unit_seconds_as_ms, "2"));
+  EXPECT_EQ("500", rendered(unit_seconds_as_ms, "0.5"));
+  EXPECT_EQ("500", rendered(unit_seconds_as_ms, "500ms"));
+  EXPECT_EQ("300000", rendered(unit_seconds_as_ms, "5m"));
+  EXPECT_EQ("error: Invalid duration for k: 5x (expected a number of seconds, or a number with one of ms, s, m, h, d, w)", rendered(unit_seconds_as_ms, "5x"));
+
+  EXPECT_EQ("2", rendered(unit_seconds, "2"));
+  EXPECT_EQ("7200", rendered(unit_seconds, "2h"));
+  EXPECT_EQ("0.5", rendered(unit_seconds, "500ms"));
+  EXPECT_EQ("error: Invalid duration for k: 5% (expected a number of seconds, or a number with one of ms, s, m, h, d, w)", rendered(unit_seconds, "5%"));
+
+  EXPECT_EQ("100", rendered(unit_milliseconds, "100"));
+  EXPECT_EQ("1000", rendered(unit_milliseconds, "1s"));
+  EXPECT_EQ("100", rendered(unit_milliseconds, "100ms"));
+  EXPECT_EQ("error: Invalid duration for k: 5x (expected a number of milliseconds, or a number with one of ms, s, m, h, d, w)", rendered(unit_milliseconds, "5x"));
+
+  EXPECT_EQ("3", rendered(unit_days, "3"));
+  EXPECT_EQ("3", rendered(unit_days, "3d"));
+  EXPECT_EQ("14", rendered(unit_days, "2w"));
+  // A unit below a day is refused rather than rounded - each of them - and so
+  // is one that is no duration at all.
+  for (const std::string v : {"500ms", "30s", "30m", "12h", "5x", "5%"})
+    EXPECT_EQ("error: Invalid duration for k: " + v + " (the keyword counts days: expected a number of days, or a number with d or w)", rendered(unit_days, v)) << v;
+}
+
+TEST(ThresholdPieces, ExpandRange) {
+  const spec up("k", above), down("k", below);
+  std::string out, error;
+  const auto expanded = [&](const spec &s, const std::string &text) {
+    out = error = "";
+    return detail::expand_range(s, text, out, error) ? out : "error: " + error;
+  };
+  EXPECT_EQ("k > 10", expanded(up, "10"));
+  EXPECT_EQ("k < 10", expanded(down, "10"));
+  EXPECT_EQ("k >= 0 and k <= 10", expanded(up, "@10"));
+  EXPECT_EQ("k < 10", expanded(up, "10:"));
+  EXPECT_EQ("k > 10", expanded(down, "~:10"));
+  EXPECT_EQ("k < 10 or k > 20", expanded(up, "10:20"));
+  EXPECT_EQ("k >= 10 and k <= 20", expanded(up, "@10:20"));
+  EXPECT_EQ("k <= 10", expanded(up, "@~:10"));
+  EXPECT_EQ("k >= 10", expanded(up, "@10:"));
+  EXPECT_EQ("k < 10 or k > 10", expanded(up, "10:10"));
+  // Not a range at all.
+  EXPECT_EQ("error: Invalid threshold: abc", expanded(up, "abc"));
+  EXPECT_EQ("error: Invalid threshold: ~:", expanded(up, "~:"));
+  EXPECT_EQ("error: Invalid threshold: ", expanded(up, ""));
+  EXPECT_EQ("error: Invalid threshold: 20:10 (a range starts at its low end, as in 10:20)", expanded(up, "20:10"));
+  // The unit is checked on both ends, whichever of them is wrong.
+  const spec age("age", above, unit_seconds);
+  EXPECT_EQ("error: Invalid duration for age: 5x (expected a number of seconds, or a number with one of ms, s, m, h, d, w)", expanded(age, "5x:10"));
+  EXPECT_EQ("error: Invalid duration for age: 5x (expected a number of seconds, or a number with one of ms, s, m, h, d, w)", expanded(age, "10:5x"));
+  EXPECT_EQ("error: Invalid duration for age: 5x (expected a number of seconds, or a number with one of ms, s, m, h, d, w)", expanded(age, "5x"));
+  EXPECT_EQ("age < 60 or age > 3600", expanded(age, "1m:1h"));
+  EXPECT_EQ("error: Invalid threshold: 1h:1m (a range starts at its low end, as in 1m:1h)", expanded(age, "1h:1m"));
+  // Ends that cannot be compared here are passed on as they are.
+  EXPECT_EQ("k < 2d or k > 12h", expanded(up, "2d:12h"));
+}
+
+TEST(ThresholdPieces, SplitAlternatives) {
+  EXPECT_EQ(string_list({""}), detail::split_alternatives(""));
+  EXPECT_EQ(string_list({"a = 1"}), detail::split_alternatives("a = 1"));
+  EXPECT_EQ(string_list({"a = 1", "b = 2 and c = 3", "d = 4"}), detail::split_alternatives("a = 1 or b = 2 and c = 3 OR d = 4"));
+  EXPECT_EQ(string_list({"a = 1", "b = 2"}), detail::split_alternatives("a = 1 Or b = 2"));
+  EXPECT_EQ(string_list({"a = 1", "b = 2"}), detail::split_alternatives("a = 1 oR b = 2"));
+  // Not inside quotes of either kind, nor inside parentheses.
+  EXPECT_EQ(string_list({"a = 'x or y'", "b = 2"}), detail::split_alternatives("a = 'x or y' or b = 2"));
+  EXPECT_EQ(string_list({"a = \"x or y\"", "b = 2"}), detail::split_alternatives("a = \"x or y\" or b = 2"));
+  EXPECT_EQ(string_list({"a = \"it's or not\"", "b = 2"}), detail::split_alternatives("a = \"it's or not\" or b = 2"));
+  EXPECT_EQ(string_list({"(a = 1 or (b = 2 or c = 3))", "d = 4"}), detail::split_alternatives("(a = 1 or (b = 2 or c = 3)) or d = 4"));
+  // Only the word: not the letters in a keyword or a value.
+  EXPECT_EQ(string_list({"error = 1", "order > 2", "color = 3"}), detail::split_alternatives("error = 1 or order > 2 or color = 3"));
+  EXPECT_EQ(string_list({"or_else = 1"}), detail::split_alternatives("or_else = 1"));
+  EXPECT_EQ(string_list({"a = 1 or_b"}), detail::split_alternatives("a = 1 or_b"));
+  EXPECT_EQ(string_list({"a = 1 xor b"}), detail::split_alternatives("a = 1 xor b"));
+  EXPECT_EQ(string_list({"a = 1 o"}), detail::split_alternatives("a = 1 o"));
+  EXPECT_EQ(string_list({"a = 1 ox b"}), detail::split_alternatives("a = 1 ox b"));
+  // At the very start it has nothing to its left; at the end, nothing to its
+  // right.
+  EXPECT_EQ(string_list({"or b = 2"}), detail::split_alternatives("or b = 2"));
+  EXPECT_EQ(string_list({"a = 1", ""}), detail::split_alternatives("a = 1 or"));
+  EXPECT_EQ(string_list({"(a)", "(b)"}), detail::split_alternatives("(a)or(b)"));
+}
+
+TEST(ThresholdPieces, FillAlternative) {
+  spec_list specs;
+  specs.push_back(spec("time", above));
+  specs.push_back(spec("loss", above));
+  const string_list bounds{"time > 5", ""};
+  EXPECT_EQ("x = 1", filled(specs, bounds, "x = 1"));
+  EXPECT_EQ("time > 5", filled(specs, bounds, "${time}"));
+  EXPECT_EQ("x = 1 and time > 5 and y = 2", filled(specs, bounds, "x = 1 and ${time} and y = 2"));
+  EXPECT_EQ("time > 5 and time > 5", filled(specs, bounds, "${time} and ${time}"));
+  // A keyword without a value, or one the check does not have, drops it.
+  EXPECT_EQ("<dropped>", filled(specs, bounds, "${loss}"));
+  EXPECT_EQ("<dropped>", filled(specs, bounds, "${time} and ${loss}"));
+  EXPECT_EQ("<dropped>", filled(specs, bounds, "${nope}"));
+  EXPECT_EQ("<dropped>", filled(specs, bounds, "${}"));
+  // An unfinished placeholder is text.
+  EXPECT_EQ("x = '${time'", filled(specs, bounds, "x = '${time'"));
+  EXPECT_EQ("time > 5 and ${loss", filled(specs, bounds, "${time} and ${loss"));
+  // A range is two comparisons: alone it stands as it is, next to anything
+  // else it is parenthesised - on either side.
+  const string_list outside{"time < 1 or time > 5", ""}, inside{"time >= 1 and time <= 5", ""};
+  EXPECT_EQ("time < 1 or time > 5", filled(specs, outside, "${time}"));
+  EXPECT_EQ("guard = 1 and (time < 1 or time > 5)", filled(specs, outside, "guard = 1 and ${time}"));
+  EXPECT_EQ("(time < 1 or time > 5) and guard = 1", filled(specs, outside, "${time} and guard = 1"));
+  EXPECT_EQ("time >= 1 and time <= 5", filled(specs, inside, "${time}"));
+  EXPECT_EQ("(time >= 1 and time <= 5) and guard = 1", filled(specs, inside, "${time} and guard = 1"));
+}
+
+TEST(ThresholdPieces, FillTemplate) {
+  spec_list specs;
+  specs.push_back(spec("time", above));
+  specs.push_back(spec("loss", above));
+  const string_list bounds{"time > 5", ""};
+  EXPECT_EQ("time > 5 or x = 1", detail::fill_template(specs, bounds, "${time} or x = 1"));
+  EXPECT_EQ("x = 1", detail::fill_template(specs, bounds, "${loss} or x = 1"));
+  EXPECT_EQ("", detail::fill_template(specs, bounds, "${loss}"));
+  EXPECT_EQ("", detail::fill_template(specs, bounds, ""));
+  // An empty alternative is skipped rather than joined in.
+  EXPECT_EQ("time > 5 or x = 1", detail::fill_template(specs, bounds, "${time} or or x = 1"));
+  EXPECT_EQ("time > 5", detail::fill_template(specs, bounds, "${time} or"));
+  EXPECT_EQ("${time} or ${loss}", detail::default_template(specs));
+  EXPECT_EQ("", detail::default_template(spec_list()));
+  EXPECT_EQ("${time}", detail::default_template(one("time", above)));
+}
+
+TEST(ThresholdPieces, ExpandReportsTheSideAndTheKeywords) {
+  spec_list ping;
+  ping.push_back(spec("time", above, unit_milliseconds, "60", "100"));
+  ping.push_back(spec("loss", above, unit_percent, "5", "10"));
+  string_list expressions(1, "stale");
+  std::string error;
+  for (const std::string value : {"", "  ", ",", ", ,"}) {
+    EXPECT_FALSE(expand(ping, string_list(), critical, value, expressions, error)) << value;
+    EXPECT_EQ("Missing value for -c (use none to remove the threshold)", error) << value;
+    EXPECT_TRUE(expressions.empty()) << value;
+    EXPECT_FALSE(expand(ping, string_list(), warning, value, expressions, error)) << value;
+    EXPECT_EQ("Missing value for -w (use none to remove the threshold)", error) << value;
+  }
+  EXPECT_FALSE(expand(ping, string_list(), warning, "1,2,3", expressions, error));
+  EXPECT_EQ("Too many values in threshold 1,2,3: expected at most 2 (time,loss)", error);
+  EXPECT_FALSE(expand(one("load", above), string_list(), warning, "1,2", expressions, error));
+  EXPECT_EQ("Too many values in threshold 1,2: expected at most 1 (load)", error);
+  // The critical defaults fill in on the critical side.
+  ASSERT_TRUE(expand(ping, string_list(), critical, ",20%", expressions, error)) << error;
+  EXPECT_EQ(string_list({"time > 100 or loss > 20%"}), expressions);
+  // A bad value in any position is reported, a bad default included.
+  EXPECT_FALSE(expand(ping, string_list(), warning, "100,5x", expressions, error));
+  EXPECT_EQ("Invalid unit for loss: 5x (expected a percentage, or a size such as 10G)", error);
+  spec_list bad;
+  bad.push_back(spec("age", above, unit_seconds, "5x", ""));
+  bad.push_back(spec("size", above));
+  EXPECT_FALSE(expand(bad, string_list(), warning, ",5", expressions, error));
+  EXPECT_EQ("Invalid duration for age: 5x (expected a number of seconds, or a number with one of ms, s, m, h, d, w)", error);
+  // ... but only where it is used: the critical side has no default for age.
+  ASSERT_TRUE(expand(bad, string_list(), critical, ",5", expressions, error)) << error;
+  EXPECT_EQ(string_list({"size > 5"}), expressions);
+}
+
+TEST(ThresholdPieces, ATemplateThatFillsToNothingAddsNoExpression) {
+  // Two keywords without defaults and a template per keyword: the one whose
+  // keyword was given no value contributes nothing, rather than an empty
+  // expression.
+  spec_list specs;
+  specs.push_back(spec("cpu_pct", above));
+  specs.push_back(spec("memory_pct", above));
+  string_list templates;
+  templates.push_back("${cpu_pct}");
+  templates.push_back("${memory_pct}");
+  EXPECT_EQ(string_list({"cpu_pct > 80"}), expand_with(specs, templates, warning, "80"));
+  EXPECT_EQ(string_list({"memory_pct > 90"}), expand_with(specs, templates, warning, ",90"));
+  EXPECT_EQ(string_list({"cpu_pct > 80", "memory_pct > 90"}), expand_with(specs, templates, warning, "80,90"));
+  // And without templates, a keyword left out and without a default is left
+  // out of the one expression.
+  EXPECT_EQ(string_list({"memory_pct > 90"}), expand_with(specs, string_list(), critical, ",90"));
+}
+
+TEST(ThresholdPieces, Describe) {
+  EXPECT_EQ("load > N", describe(one("load", above), string_list()));
+  EXPECT_EQ("free < N%", describe(one("free", below, unit_percent), string_list()));
+  EXPECT_EQ("N", describe_usage(one("load", above)));
+  spec_list load;
+  load.push_back(spec("load1", above));
+  load.push_back(spec("load_5", below));
+  load.push_back(spec("Load15", above, unit_seconds_as_ms));
+  // The names are upper-cased, digits and all else left as they are.
+  EXPECT_EQ("load1 > LOAD1 or load_5 < LOAD_5 or Load15 > LOAD15*1000", describe(load, string_list()));
+  EXPECT_EQ("LOAD1,LOAD_5,LOAD15", describe_usage(load));
+  EXPECT_EQ("", describe_usage(spec_list()));
+  // One template per expression; one that names no keyword of the check is
+  // left out.
+  const spec_list count = one("count", above);
+  string_list templates;
+  templates.push_back("state = 'stopped'");
+  templates.push_back("${nope}");
+  templates.push_back("${count}");
+  EXPECT_EQ("state = 'stopped'\" and \"count > N", describe(count, templates));
+  EXPECT_EQ("", describe(count, string_list(1, "${nope}")));
+}
+
+TEST(ThresholdPieces, DefaultValue) {
+  EXPECT_EQ("", default_value(spec_list(), warning));
+  EXPECT_EQ("", default_value(one("load", above), warning));
+  EXPECT_EQ("", default_value(one("load", above), critical));
+  EXPECT_EQ("80", default_value(one("load", above, unit_plain, "80", ""), warning));
+  EXPECT_EQ("", default_value(one("load", above, unit_plain, "80", ""), critical));
+  spec_list specs;
+  specs.push_back(spec("health", above, unit_plain, "", "0"));
+  specs.push_back(spec("run_time", above, unit_plain, "80", "90"));
+  specs.push_back(spec("other", above));
+  // A keyword without a default keeps its place in the list.
+  EXPECT_EQ(",80,", default_value(specs, warning));
+  EXPECT_EQ("0,90,", default_value(specs, critical));
+}
+
+TEST(ThresholdPieces, DescribeUnitOfEveryUnit) {
+  EXPECT_EQ("", describe_unit(spec("k", above, unit_plain)));
+  EXPECT_EQ("", describe_unit(spec("k", above, unit_percent_number)));
+  EXPECT_EQ("A number without a unit is a percentage; a size (10G) is used as written.", describe_unit(spec("k", above, unit_percent)));
+  EXPECT_EQ("A number without a unit is in days; d and w are accepted as units (14d, 2w).", describe_unit(spec("k", above, unit_days)));
+  EXPECT_EQ("A number without a unit is in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 2s).",
+            describe_unit(spec("k", above, unit_milliseconds)));
+  EXPECT_EQ("A number without a unit is in seconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).", describe_unit(spec("k", above, unit_seconds)));
+  EXPECT_EQ("A number without a unit is in seconds, which the keyword counts in milliseconds; ms, s, m, h, d and w are accepted as units (500ms, 5m).",
+            describe_unit(spec("k", above, unit_seconds_as_ms)));
+  // A value that is not one of the units reads as a plain keyword.
+  EXPECT_EQ("", describe_unit(spec("k", above, static_cast<unit>(99))));
+  EXPECT_EQ("80x", rendered(static_cast<unit>(99), "80x"));
+}
+
+TEST(ThresholdPieces, IsShortFlag) {
+  char flag = 0;
+  std::string attached = "stale";
+  const auto parsed = [&](const std::string &arg) {
+    flag = 0;
+    attached = "stale";
+    return is_short_flag(arg, flag, attached) ? std::string(1, flag) + "|" + attached : std::string("no");
+  };
+  EXPECT_EQ("w|", parsed("-w"));
+  EXPECT_EQ("c|", parsed("-c"));
+  EXPECT_EQ("w|", parsed("-w="));
+  EXPECT_EQ("c|load > 5", parsed("-c=load > 5"));
+  EXPECT_EQ("w|80", parsed("-w80"));
+  EXPECT_EQ("w|.5", parsed("-w.5"));
+  EXPECT_EQ("w|@10:20", parsed("-w@10:20"));
+  EXPECT_EQ("c|~:10", parsed("-c~:10"));
+  EXPECT_EQ("c|-5:", parsed("-c-5:"));
+  EXPECT_EQ("c|+5", parsed("-c+5"));
+  EXPECT_EQ("c|-.5", parsed("-c-.5"));
+  for (const std::string arg : {"", "-", "w", "c", "x", "w=80", "-x", "-x5", "--w", "-warning", "-cores", "-w-", "-w+", "-c-foo", "-w-@1", "-w-~:1", "-w:", "-w "})
+    EXPECT_EQ("no", parsed(arg)) << arg;
+}
+
+TEST(ThresholdPieces, IsKeyValue) {
+  for (const std::string arg : {"a=b", "a=", "drive=C:", "show-all=true", "top_syntax1=x", "A=b", "a==b"}) EXPECT_TRUE(is_key_value(arg)) << arg;
+  for (const std::string arg : {"", "a", "=b", "1a=b", "-a=b", "a b=c", "a = b", "used>80%", "a.b=c", "load"}) EXPECT_FALSE(is_key_value(arg)) << arg;
+}
+
+TEST(ThresholdPieces, IsFlagValue) {
+  for (const std::string arg : {"80", "-5:", "-5", "~:10", "load = 5", "used>80%", "none", "", "-", "--", "-x"}) EXPECT_TRUE(is_flag_value(arg)) << arg;
+  for (const std::string arg : {"-w", "-c", "-c90", "-w=1", "drive=/", "--drive", "--show-all=true"}) EXPECT_FALSE(is_flag_value(arg)) << arg;
+}
+
+TEST(ThresholdPieces, FindMissingValueInEveryShape) {
+  EXPECT_EQ('w', find_missing_value({"w="}));
+  EXPECT_EQ('w', find_missing_value({"--w="}));
+  EXPECT_EQ('c', find_missing_value({"c="}));
+  EXPECT_EQ('c', find_missing_value({"--c="}));
+  // The first one found is the one reported.
+  EXPECT_EQ('c', find_missing_value({"x=1", "c=", "w="}));
+  EXPECT_EQ(0, find_missing_value({}));
+  EXPECT_EQ(0, find_missing_value({"w", "c", "-w", "--w", "w=1", "xw=", "w= "}));
+  EXPECT_EQ("Missing value for -c (use none to remove the threshold)", missing_value_error('c'));
+}
+
+TEST(ThresholdPieces, NormalizeArgumentsAtTheEdges) {
+  EXPECT_EQ(args({}), normalize_arguments({}));
+  // Nothing but a flag without a value: the shape defaults to key=value.
+  EXPECT_EQ(args({"w="}), normalize_arguments({"-w"}));
+  EXPECT_EQ(args({"w=", "c="}), normalize_arguments({"-w", "-c"}));
+  EXPECT_EQ(args({"w=1", "c="}), normalize_arguments({"-w", "1", "-c"}));
+  // The shape is that of the first argument that is not a short threshold,
+  // also when the flag in front of it has no value.
+  EXPECT_EQ(args({"--w=", "--drive", "c:"}), normalize_arguments({"-w", "--drive", "c:"}));
+  EXPECT_EQ(args({"w=", "drive=c:"}), normalize_arguments({"-w", "drive=c:"}));
+  EXPECT_EQ(args({"--w=5", "--c=", "--show-all"}), normalize_arguments({"-w5", "-c", "--show-all"}));
+  // Dashed means two dashes and a name: these are not.
+  EXPECT_EQ(args({"--", "w=5"}), normalize_arguments({"--", "-w", "5"}));
+  EXPECT_EQ(args({"-x", "w=5"}), normalize_arguments({"-x", "-w", "5"}));
+  EXPECT_EQ(args({"-ab", "w=5"}), normalize_arguments({"-ab", "-w", "5"}));
+  EXPECT_EQ(args({"x", "w=5"}), normalize_arguments({"x", "-w", "5"}));
+  EXPECT_EQ(args({"a--b", "w=5"}), normalize_arguments({"a--b", "-w", "5"}));
+  // The value of a flag is not looked at for the shape.
+  EXPECT_EQ(args({"w=--x"}), normalize_arguments({"-w=--x"}));
+  // Later arguments do not change it either.
+  EXPECT_EQ(args({"drive=c:", "w=5", "--show-all"}), normalize_arguments({"drive=c:", "-w", "5", "--show-all"}));
+}
