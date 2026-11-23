@@ -12,6 +12,7 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/functions_status.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <parsers/filter/threshold_shorthand.hpp>
 #include <sampling_state.hpp>
 #include <str/format.hpp>
 #include <str/utils_no_boost.hpp>
@@ -96,9 +97,20 @@ struct cli_helper : boost::noncopyable {
   bool show_all;
   bool has_warmup_option;
   nscapi::program_options::field_map fields;
+  // The -w / -c short thresholds (threshold_shorthand.hpp): which keyword a
+  // bare "-w 80" bounds, and what was passed.
+  shorthand::spec_list short_thresholds;
+  std::vector<std::string> short_warn_templates, short_crit_templates;
+  bool short_thresholds_declared;
+  bool short_thresholds_registered;
+  bool short_thresholds_disabled;
+  // Whether "w" / "c" are the short thresholds, rather than an option of that
+  // name the check declared for itself.
+  bool short_warn_owned, short_crit_owned;
+  std::vector<std::string> short_warn, short_crit;
 
   cli_helper(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, data_container &data)
-      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false), has_warmup_option(false) {}
+      : data(data), desc("Allowed options for " + request.command()), request(request), response(response), show_all(false), has_warmup_option(false), short_thresholds_declared(false), short_thresholds_registered(false), short_thresholds_disabled(false), short_warn_owned(false), short_crit_owned(false) {}
 
   ~cli_helper() {}
 
@@ -275,6 +287,217 @@ struct cli_helper : boost::noncopyable {
     add_misc_options(empty_state);
   }
 
+  // Says what "-w 80" means for this check: `variable` is the keyword a bare
+  // number bounds and `dir` the side it alerts on, so ("load", above) reads
+  // "-w 80" as "warning=load > 80". `warn_default` and `crit_default` are what
+  // the check's own defaults amount to in the short form ("80", "90"): they
+  // are shown as the defaults of -w and -c, and fill in for a value that is
+  // left out of a list. Call it again for a check whose standard counterpart
+  // takes a list ("-w 100,20%" for a ping is time, then loss).
+  // A check that never calls it bounds the number of matched items (`count`),
+  // which every filter check has. Can be called before or after add_options().
+  void add_short_threshold(const std::string &variable, const shorthand::direction dir, const shorthand::unit value_unit = shorthand::unit_plain,
+                           const std::string &warn_default = "", const std::string &crit_default = "") {
+    short_thresholds.push_back(shorthand::spec(variable, dir, value_unit, warn_default, crit_default));
+    short_thresholds_declared = true;
+  }
+
+  // What -w / -c stand for when the threshold is more than a bound: a
+  // template in which ${keyword} is the bound on that keyword, for instance
+  // "${time} or result != 'ok'" or "decisions >= min_requests and
+  // ${reject_pct}" (see threshold_shorthand.hpp). Without one the short form
+  // is the bound alone. This is the whole statement of what the short form
+  // means - nothing is taken from the text of the default expression - so it
+  // has to carry every condition and guard that should survive -w / -c.
+  // Call it more than once for a check with several expressions on a side.
+  void add_short_warning(const std::string &text) { short_warn_templates.push_back(text); }
+  void add_short_critical(const std::string &text) { short_crit_templates.push_back(text); }
+
+  // For the few users of this helper that are not a check of anything (the
+  // CheckHelpers commands that reshape another check's result): they get no
+  // -w / -c at all.
+  void disable_short_thresholds() { short_thresholds_disabled = true; }
+
+  // Registered on the way into parse_options() rather than with the other
+  // options, so that a check can declare its keyword after add_options().
+  void register_short_thresholds() {
+    if (short_thresholds_registered || short_thresholds_disabled) return;
+    short_thresholds_registered = true;
+    const bool is_default = !short_thresholds_declared;
+    if (is_default) short_thresholds.push_back(shorthand::spec("count", shorthand::above));
+    const std::string usage = shorthand::describe_usage(short_thresholds);
+    std::string tail =
+        "\nTakes a number or a range in the format of the monitoring plugins (10: is below 10, ~:10 is above 10, 10:20 is outside 10 to 20 and @10:20 is "
+        "inside it); anything else is used as an expression as it is.";
+    if (short_thresholds.size() > 1) tail += "\nTakes one value per keyword, separated by commas; one that is left out keeps its default.";
+    const std::string unit_text = shorthand::describe_unit(short_thresholds.front());
+    if (!unit_text.empty()) tail += "\n" + unit_text;
+    // Only the form every check without a keyword of its own shares is a
+    // common option; a check-specific one stays on the command's own page.
+    if (is_default) tail += common_option_marker;
+    const std::string warn_text = "Short form of warning: -w " + usage + " is the same as warning=\"" +
+                                  shorthand::describe(short_thresholds, short_warn_templates) + "\"" + short_effect("warning", short_warn_templates) + tail;
+    const std::string crit_text = "Short form of critical: -c " + usage + " is the same as critical=\"" +
+                                  shorthand::describe(short_thresholds, short_crit_templates) + "\"" + short_effect("critical", short_crit_templates) + tail;
+    // A check that already has an option of that name keeps it, and its value
+    // is then not ours to read (apply_short_threshold).
+    if (desc.find_nothrow("w", false) == nullptr) {
+      desc.add_options()("w", short_option(short_warn, shorthand::warning), warn_text.c_str());
+      short_warn_owned = true;
+    }
+    if (desc.find_nothrow("c", false) == nullptr) {
+      desc.add_options()("c", short_option(short_crit, shorthand::critical), crit_text.c_str());
+      short_crit_owned = true;
+    }
+    const std::string show_text =
+        "Show the defaults of the short thresholds -w and -c for a given command.\n"
+        "show-default lists the defaults of warning and critical instead, and leaves these out so that its output can be edited and passed back." +
+        common_option_marker;
+    // Takes a value like every other boolean here, as REST passes a flag as
+    // "show-short-defaults=true". It is answered before the parser runs
+    // (answer_default_queries), so this is what help lists and what accepts
+    // an explicit "=false".
+    if (desc.find_nothrow("show-short-defaults", false) == nullptr)
+      desc.add_options()("show-short-defaults", boost::program_options::value<bool>()->implicit_value(true)->default_value(false), show_text.c_str());
+  }
+
+  // How the help ends its "is the same as ..." sentence. With a template the
+  // expression is the default with another number in it, and saying that it
+  // replaces the default would contradict the conditions printed right there.
+  static std::string short_effect(const std::string &option, const std::vector<std::string> &templates) {
+    if (templates.empty()) return " and replaces the default " + option + ".";
+    return ": the default " + option + " with its bound moved, the other conditions stay.";
+  }
+
+  // Whether the request asks for the flag `name`: bare, or with a value as
+  // REST passes it ("name=true"), in either shape. An abbreviation counts when
+  // it can only mean this option ("--show-def"): the option parser guesses
+  // those too, and one that got past us would be answered by it instead -
+  // after -w / -c are registered, which is the listing show-default must not
+  // print.
+  bool is_requested(const std::string &name) const {
+    bool requested = false;
+    for (int i = 0; i < request.arguments_size(); ++i) {
+      std::string arg = request.arguments(i);
+      if (boost::starts_with(arg, "--")) arg = arg.substr(2);
+      const std::string::size_type eq = arg.find('=');
+      const std::string key = arg.substr(0, eq);
+      if (key != name && !is_abbreviation_of(key, name)) continue;
+      if (eq == std::string::npos) {
+        requested = true;
+      } else {
+        const std::string value = boost::to_lower_copy(arg.substr(eq + 1));
+        requested = value == "true" || value == "1" || value == "yes" || value == "on";
+      }
+    }
+    return requested;
+  }
+
+  // Whether `key` is a prefix of `name` that no other option shares, nor is
+  // itself the name of one.
+  bool is_abbreviation_of(const std::string &key, const std::string &name) const {
+    if (key.empty() || key.size() >= name.size() || !boost::starts_with(name, key)) return false;
+    for (const auto &op : desc.options()) {
+      const std::string &other = op->long_name();
+      if (other != name && boost::starts_with(other, key)) return false;
+    }
+    return true;
+  }
+
+  // show-default and show-short-defaults, answered here rather than by the
+  // option parser. The two are kept apart on purpose: "w=80" next to
+  // "warning=load > 80" reads as one line to copy, and whoever then edits only
+  // the warning is left with the short form adding the old bound back as a
+  // second expression. So show-default prints what it printed before the
+  // short thresholds existed, and the short defaults have a command of their
+  // own. Returns true when it answered.
+  bool answer_default_queries() {
+    if (short_thresholds_disabled) return false;
+    if (is_requested("show-default")) {
+      // Rendered before -w / -c are registered, which is what leaves them out.
+      const std::string defaults = nscapi::program_options::help_show_default(desc);
+      register_short_thresholds();
+      nscapi::protobuf::functions::set_response_good(*response, defaults);
+      return true;
+    }
+    register_short_thresholds();
+    if (is_requested("show-short-defaults")) {
+      std::string defaults;
+      const std::string warn = shorthand::default_value(short_thresholds, shorthand::warning);
+      const std::string crit = shorthand::default_value(short_thresholds, shorthand::critical);
+      if (!warn.empty()) defaults += "\"w=" + warn + "\" ";
+      if (!crit.empty()) defaults += "\"c=" + crit + "\" ";
+      nscapi::protobuf::functions::set_response_good(*response, defaults);
+      return true;
+    }
+    return false;
+  }
+  // The option carries the short form of the check's own default as its
+  // default value, so that help and the reference docs show "-w 80" next to
+  // "warning=load > 80". show-default deliberately does not, see
+  // answer_default_queries().
+  boost::program_options::typed_value<std::vector<std::string> > *short_option(std::vector<std::string> &store, const shorthand::side which) const {
+    boost::program_options::typed_value<std::vector<std::string> > *option = boost::program_options::value<std::vector<std::string> >(&store);
+    const std::string value = shorthand::default_value(short_thresholds, which);
+    if (!value.empty()) option->default_value(std::vector<std::string>(1, value), value);
+    return option;
+  }
+
+  // The request with "-w 80" rewritten into the shape the rest of its
+  // arguments have, see shorthand::normalize_arguments().
+  PB::Commands::QueryRequestMessage::Request normalized_request() const {
+    PB::Commands::QueryRequestMessage::Request copy(request);
+    if (short_thresholds_disabled) return copy;
+    const std::vector<std::string> args(request.arguments().begin(), request.arguments().end());
+    copy.clear_arguments();
+    for (const std::string &arg : shorthand::normalize_arguments(args)) copy.add_arguments(arg);
+    return copy;
+  }
+
+  // Refuses a -w / -c that was given no value ("-w -c 90", a trailing "-w",
+  // "w="), in the same words whatever shape the arguments have. Returns false
+  // when it answered.
+  bool check_short_values(const PB::Commands::QueryRequestMessage::Request &normalized) {
+    if (short_thresholds_disabled) return true;
+    const std::vector<std::string> args(normalized.arguments().begin(), normalized.arguments().end());
+    const char flag = shorthand::find_missing_value(args);
+    if (flag == 0 || !(flag == 'w' ? short_warn_owned : short_crit_owned)) return true;
+    nscapi::protobuf::functions::set_response_bad(*response, shorthand::missing_value_error(flag));
+    return false;
+  }
+
+  // Turns what -w / -c were given into expressions. A short threshold takes
+  // the place of the check's default for its side - the template says what
+  // that is - and next to an explicit warning= it is one more expression.
+  bool apply_short_thresholds(const boost::program_options::variables_map &vm) {
+    // An option of that name the check declared itself is not a threshold:
+    // reading it as one would find no values and clear the default.
+    return (!short_warn_owned || apply_short_threshold(vm, "w", "warning", shorthand::warning, short_warn, short_warn_templates, data.warn_string)) &&
+           (!short_crit_owned || apply_short_threshold(vm, "c", "critical", shorthand::critical, short_crit, short_crit_templates, data.crit_string));
+  }
+  bool apply_short_threshold(const boost::program_options::variables_map &vm, const std::string &short_name, const std::string &option,
+                             const shorthand::side which, const std::vector<std::string> &values, const std::vector<std::string> &templates,
+                             std::vector<std::string> &target) {
+    // The option's default is documentation: the check's own default is what
+    // runs until -w / -c is actually given.
+    if (vm.count(short_name) == 0 || vm[short_name].defaulted()) return true;
+    const std::string alias = option == "warning" ? "warn" : "crit";
+    const bool defaulted = (vm.count(option) == 0 || vm[option].defaulted()) && vm.count(alias) == 0;
+    std::vector<std::string> expressions;
+    for (const std::string &value : values) {
+      std::vector<std::string> expanded;
+      std::string error;
+      if (!shorthand::expand(short_thresholds, templates, which, value, expanded, error)) {
+        nscapi::protobuf::functions::set_response_bad(*response, error);
+        return false;
+      }
+      expressions.insert(expressions.end(), expanded.begin(), expanded.end());
+    }
+    if (defaulted) target.clear();
+    target.insert(target.end(), expressions.begin(), expressions.end());
+    return true;
+  }
+
   // Opt-in for checks that read a background collector: before its first
   // sample there is nothing to evaluate, and this picks the status reported
   // meanwhile. Not a common option - most filter checks have no warm-up.
@@ -368,23 +591,32 @@ struct cli_helper : boost::noncopyable {
     if (vm.count("crit")) data.crit_string = vm["crit"].as<std::vector<std::string> >();
   }
 
-  bool parse_options(const boost::program_options::positional_options_description &p) const {
+  bool parse_options(const boost::program_options::positional_options_description &p) {
+    if (answer_default_queries()) return false;
+    const PB::Commands::QueryRequestMessage::Request normalized = normalized_request();
+    if (!check_short_values(normalized)) return false;
     boost::program_options::variables_map vm;
-    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response, p)) return false;
+    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response, p)) return false;
     parse_options_post(vm);
-    return validate_options();
+    return apply_short_thresholds(vm) && validate_options();
   }
-  bool parse_options() const {
+  bool parse_options() {
+    if (answer_default_queries()) return false;
+    const PB::Commands::QueryRequestMessage::Request normalized = normalized_request();
+    if (!check_short_values(normalized)) return false;
     boost::program_options::variables_map vm;
-    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response)) return false;
+    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response)) return false;
     parse_options_post(vm);
-    return validate_options();
+    return apply_short_thresholds(vm) && validate_options();
   }
-  bool parse_options(std::vector<std::string> &extra) const {
+  bool parse_options(std::vector<std::string> &extra) {
+    if (answer_default_queries()) return false;
+    const PB::Commands::QueryRequestMessage::Request normalized = normalized_request();
+    if (!check_short_values(normalized)) return false;
     boost::program_options::variables_map vm;
-    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, request, *response, true, extra)) return false;
+    if (!nscapi::program_options::process_arguments_from_request(vm, desc, fields, normalized, *response, true, extra)) return false;
     parse_options_post(vm);
-    return validate_options();
+    return apply_short_thresholds(vm) && validate_options();
   }
 
   bool empty() const { return data.warn_string.empty() && data.crit_string.empty(); }

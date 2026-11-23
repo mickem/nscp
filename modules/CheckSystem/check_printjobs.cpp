@@ -144,6 +144,8 @@ void check_printjobs_from(const PB::Commands::QueryRequestMessage::Request &requ
   // and WARNING on a job that has been waiting more than ten minutes. An empty
   // queue is the normal state, so empty_state is ok.
   filter_helper.add_options("age > 600", "error = 1 or blocked = 1 or user_intervention = 1", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("age", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds, "600", "");
+  filter_helper.add_short_critical("${age} or error = 1 or blocked = 1 or user_intervention = 1");
   filter_helper.add_syntax("${status}: ${list}", "${printer}: '${document}' by ${owner} (${job_status}, ${age}s)", "${printer}_${id}",
                            "%(status): No print jobs queued", "%(status): All %(count) job(s) ok.");
   filter_helper.set_default_perf_config("extra(count)");

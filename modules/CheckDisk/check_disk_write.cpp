@@ -217,6 +217,8 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 
   filter_type filter;
   filter_helper.add_options("", "has_issues = 1", "", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_short_threshold("total_time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds_as_ms);
+  filter_helper.add_short_critical("${total_time} or has_issues = 1");
   // The top-syntax embeds `%(list)` so the single record renders in per-item
   // context for every status (see check_single_file for the details).
   filter_helper.add_syntax("${status}: ${list}", "%(path): %(message)", "%(path)", "No write test performed", "%(status): %(list)");

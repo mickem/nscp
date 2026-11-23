@@ -89,6 +89,7 @@ void check_network(std::shared_ptr<pdh_thread> collector, const PB::Commands::Qu
 
   filter_type filter;
   filter_helper.add_options("throughput > 10000", "throughput > 100000", "", filter.get_filter_syntax(), "critical");
+  filter_helper.add_short_threshold("throughput", modern_filter::shorthand::above, modern_filter::shorthand::unit_plain, "10000", "100000");
   filter_helper.add_syntax("${status}: ${list}", "${name} >${sent_human}/s <${received_human}/s", "${name}", "", "%(status): Network interfaces seem ok.");
   filter_helper.add_warmup_option();
 

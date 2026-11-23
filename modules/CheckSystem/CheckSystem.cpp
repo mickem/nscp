@@ -813,6 +813,7 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 
   filter_type filter;
   filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("load", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "90");
   filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
   filter_helper.add_warmup_option();
   // clang-format off
@@ -914,6 +915,7 @@ void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request 
   filter_type filter;
   std::string max_unit_str = "w";
   filter_helper.add_options("uptime < 2d", "uptime < 1d", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("uptime", modern_filter::shorthand::below, modern_filter::shorthand::unit_seconds, "2d", "1d");
   // The timezone label is rendered via the ${tz} placeholder so the configured
   // value (default "local") is reflected in the output (issue #365).
   filter_helper.add_syntax("${status}: ${list}", "uptime: ${uptime}h, boot: ${boot} (${tz})", "uptime", "", "");
@@ -1171,6 +1173,7 @@ void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Reques
 
   filter_type filter;
   filter_helper.add_options("used > 60%", "used > 80%", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "40", "20");
   filter_helper.add_syntax("${status}: ${list}", "${name} ${used} (${size})", "${name}", "", "");
 
   if (!filter_helper.parse_options()) return;

@@ -73,6 +73,7 @@ void check_memory(std::shared_ptr<pdh_thread> collector, const PB::Commands::Que
 
   filter_type filter;
   filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_short_threshold("free", modern_filter::shorthand::below, modern_filter::shorthand::unit_percent, "20", "10");
   filter_helper.add_syntax("${status}: ${list}", "${type} = ${used}", "${type}", "", "");
   filter_helper.add_warmup_option();
   filter_helper.get_desc().add_options()("type", po::value<std::vector<std::string> >(&types),

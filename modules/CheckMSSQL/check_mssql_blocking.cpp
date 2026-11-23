@@ -132,6 +132,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // Momentary lock waits are normal; sustained ones are not. 30s of blocking
   // is already user-visible, 5 minutes means the application is frozen.
   filter_helper.add_options("wait_time > 30", "wait_time > 300", "", filter.get_filter_syntax(), "ok");
+  filter_helper.add_short_threshold("wait_time", modern_filter::shorthand::above, modern_filter::shorthand::unit_seconds, "30", "300");
   filter_helper.add_syntax("${status}: ${problem_count}/${count} blocked sessions (${problem_list})",
                            "${database}/${login} blocked by session ${blocking_session_id} (${blocking_login}) for ${wait_time}s on ${wait_type}",
                            "${session_id}", "%(status): No blocked sessions", "%(status): %(count) blocked sessions, none over the thresholds");
