@@ -64,6 +64,16 @@ updates:
       # change of its own, with an upgrade note, not inside a grouped bump.
       - dependency-name: "protobuf"
         update-types: ["version-update:semver-major"]
+      # The same requirements file is installed on every build image, and the
+      # oldest of them is Rocky 9 with Python 3.9. mkdocs-material 9.8 needs
+      # Python 3.11 and setuptools 83 needs 3.10, so pip finds no such version
+      # there. mkdocs-material 9.8 also needs Pygments 2.20, and pip cannot
+      # replace the 2.17 that apt installed on Ubuntu 24.04. Lift when Rocky 9
+      # leaves the build matrix or the docs requirements get a file of their own.
+      - dependency-name: "mkdocs-material"
+        versions: [">=9.8"]
+      - dependency-name: "setuptools"
+        versions: [">=83"]
   - package-ecosystem: pip
     directory: "tests/msi"
     schedule:
