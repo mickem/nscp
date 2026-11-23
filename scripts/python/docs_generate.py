@@ -45,7 +45,7 @@ PLATFORM_LABEL = {'windows': 'Windows', 'unix': 'Linux', 'darwin': 'macOS'}
 COMMON_OPTION_ORDER = ['filter', 'warning', 'warn', 'critical', 'crit', 'ok',
                        'debug', 'show-all', 'empty-state', 'perf-config', 'escape-html',
                        'list-separator', 'top-syntax', 'ok-syntax', 'empty-syntax',
-                       'detail-syntax', 'perf-syntax', 'unique-index',
+                       'detail-syntax', 'perf-syntax', 'unique-index', 'show-query',
                        'help', 'help-pb', 'show-default', 'help-short']
 COMMON_FIELD_ORDER = ['count', 'total', 'ok_count', 'warn_count', 'crit_count', 'problem_count',
                       'list', 'ok_list', 'warn_list', 'crit_list', 'problem_list', 'detail_list',

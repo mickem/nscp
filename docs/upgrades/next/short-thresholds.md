@@ -14,8 +14,9 @@ its `-w` stands for. Ranges in the monitoring plugins format work too (`10:`,
 used as the expression it is. A short threshold moves the number and leaves
 the rest of the check's threshold in place, so `check_http -c 5` is still
 critical on a failed request. `help` lists the default of `-w` and `-c` for
-every command and the new `show-short-defaults` prints them; `show-default`
-is unchanged and lists `warning` and `critical` only. Durations are in seconds unless a unit is given
+every command, and the new `show-query` prints the `warning` and `critical`
+a given `-w` / `-c` turns into; `show-default` is unchanged and lists `warning`
+and `critical` only. Durations are in seconds unless a unit is given
 (`500ms`, `5m`), also for checks whose `time` keyword counts milliseconds;
 `check_ping` keeps the standard plugin's milliseconds (`-w 100,20%`, or
 `-w 1s`), and keywords that count days take `d` and `w`. A range whose start
@@ -26,4 +27,4 @@ items: `check_process process=nginx -c 1:`. See
 [Short thresholds](../concepts/checks.md#short-thresholds-w-and-c) for the
 keyword of each check. Nothing to do: `warning=` and `critical=` are unchanged,
 and a check that is given neither `-w` nor `-c` behaves as before. The only new
-names are the options `w`, `c` and `show-short-defaults`, which no check used.
+names are the options `w` and `c`, which no check used.
