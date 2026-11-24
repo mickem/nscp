@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 // The hardware readers and the host facts on Linux: sysfs for batteries,
-// thermal zones and cpufreq, and /etc/os-release, DMI and /proc/cpuinfo for
+// thermal zones, cpufreq and the DMI/SMBIOS inventory, and /etc/os-release, DMI and /proc/cpuinfo for
 // the facts. The parsing of each is platform-neutral and lives with its
 // check; this file only says where Linux keeps it.
 
@@ -17,6 +17,7 @@
 
 #include "check_battery.h"
 #include "check_cpu_frequency.h"
+#include "check_hardware.h"
 #include "check_temperature.h"
 #include "system_facts.h"
 #include "procfs_linux.h"
@@ -26,6 +27,8 @@ battery_check::batteries_type battery_check::read_battery() { return read_batter
 temperature_check::zones_type temperature_check::read_temperature() { return read_temperature_from("/sys/class/thermal", "/sys/class/hwmon"); }
 
 cpu_frequency_check::cpus_type cpu_frequency_check::read_cpu_frequency() { return read_cpu_frequency("/sys/devices/system/cpu"); }
+
+hardware_check::hardware_info hardware_check::gather_hardware() { return gather_hardware_from(""); }
 
 namespace system_facts {
 namespace {

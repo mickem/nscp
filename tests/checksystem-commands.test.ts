@@ -1158,6 +1158,46 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  // --- check_hardware (Linux) ------------------------------------------------------
+
+  // A host exposes an SMBIOS identity through /sys/class/dmi/id or the raw
+  // table; a container or microVM has neither, and the check then gives its
+  // documented no-data UNKNOWN rather than an all-empty inventory line.
+  const linuxHasDmi = () =>
+    fs.existsSync("/sys/class/dmi/id") || fs.existsSync("/sys/firmware/dmi/tables/DMI");
+
+  it("check_hardware inventories the machine or reports the no-DMI result (Linux)", async () => {
+    if (!onLinux) return;
+    const q = await executeQuery(key, "check_hardware", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax":
+        "${vendor} ${model} (${chassis}) modules=${modules} memory=${memory} src=${memory_source}",
+    });
+    if (linuxHasDmi()) {
+      expect(q.result).toBe(OK);
+      // modules is 'unknown' unless the agent may read the SMBIOS table (root).
+      expect(messageOf(q)).toMatch(/modules=(\d+|unknown) memory=\S+ src=(smbios|sysfs|none)/);
+    } else {
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(
+        /No hardware inventory available: this host exposes no DMI\/SMBIOS data/,
+      );
+    }
+  });
+
+  it("check_hardware pinned-expectation expressions parse over REST (Linux)", async () => {
+    if (!onLinux || !linuxHasDmi()) return; // the no-DMI result is covered above.
+    // The same policy patterns as on Windows; the optional modules/slots
+    // keywords never trip a numeric threshold while they are 'unknown'.
+    const q = await executeQuery(key, "check_hardware", {
+      warning: "modules > 99999 or slots > 99999",
+      critical: "serial = 'zz_no_such_serial_zz' or chassis like 'zz_no_such_chassis'",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_printqueue (Windows) --------------------------------------------
 
   it("check_printqueue runs and reports a valid status (Windows)", async () => {
