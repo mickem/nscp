@@ -22,6 +22,7 @@ set(SRCS
     check_storagepool.cpp
     check_shadowcopy.cpp
     check_share.cpp
+    check_smb_client.cpp
     collector_thread.cpp
     filter.cpp
     growth_spots.cpp
@@ -43,7 +44,18 @@ if(WIN32)
         filter_win.cpp
         growth_spots_win.cpp
         largest_files_source_win.cpp
+        smb_client_source_win.cpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
+        # The PDH stack, for check_smb_client's counter set.
+        ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_object_gather.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.cpp
+        ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.cpp
         # Headers (for IDE project generation).
         "${TARGET}.h"
         check_drive.hpp
@@ -58,6 +70,7 @@ if(WIN32)
         check_storagepool.hpp
         check_shadowcopy.hpp
         check_share.hpp
+        check_smb_client.hpp
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
@@ -70,6 +83,8 @@ if(WIN32)
         ${NSCP_ERROR_HPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_object_gather.hpp
         ${NSCP_INCLUDEDIR}/compat.hpp
     )
 else()
@@ -81,6 +96,7 @@ else()
         file_finder_unix.cpp
         filter_unix.cpp
         largest_files_source_unix.cpp
+        smb_client_source_unix.cpp
     )
     # The Linux readers: mounts through mntent(3), block-device statistics from
     # /proc/diskstats. Darwin has neither (getmntinfo(3) and IOKit spell the
@@ -154,6 +170,7 @@ if(WIN32)
             check_storagepool_test.cpp
             check_shadowcopy_test.cpp
             check_share_test.cpp
+            check_smb_client_test.cpp
             collector_thread_test.cpp
             file_finder_filter_test.cpp
             storage_facts_test.cpp
@@ -173,6 +190,8 @@ if(WIN32)
             check_storagepool.cpp
             check_shadowcopy.cpp
             check_share.cpp
+            # Without its source: the test drives check_smb_client_from().
+            check_smb_client.cpp
             collector_thread.cpp
             file_finder_win.cpp
             filter.cpp
@@ -264,6 +283,9 @@ else()
             check_shadowcopy_test.cpp
             check_share.cpp
             check_share_test.cpp
+            check_smb_client.cpp
+            check_smb_client_test.cpp
+            smb_client_source_unix.cpp
             check_storagepool.cpp
             check_storagepool_test.cpp
             check_uncpath.cpp
