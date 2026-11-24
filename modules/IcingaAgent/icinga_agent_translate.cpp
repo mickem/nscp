@@ -110,7 +110,9 @@ translated_command disk_windows(const json::object &macros) {
   const std::vector<std::string> paths = text_list(macros, "disk_win_path");
   for (const std::string &path : paths) out.arguments.push_back("drive=" + path);
   // No path: every fixed and remote volume, which is what the plugin walks.
-  if (paths.empty()) out.arguments.push_back("filter=type in ('fixed', 'remote')");
+  // A filter replaces the query's default, so its guard against volumes that
+  // cannot be read (locked, disconnected) is repeated here.
+  if (paths.empty()) out.arguments.push_back("filter=mounted = 1 and type in ('fixed', 'remote')");
   for (const std::string &drive : text_list(macros, "disk_win_exclude")) out.arguments.push_back("exclude=" + drive);
   add_sides(out.arguments, macros, "disk_win_warn", "disk_win_crit", space_bound(macros, "disk_win_unit", "b", "disk_win_show_used"));
   return out;
@@ -420,6 +422,7 @@ boost::optional<translated_command> translate_command(const translation_config &
   if (!config.builtin) return boost::none;
   const auto builtin = builtins().find(command);
   if (builtin == builtins().end()) return boost::none;
+  if (config.is_local_query && config.is_local_query(command)) return boost::none;
   return builtin->second(macros);
 }
 

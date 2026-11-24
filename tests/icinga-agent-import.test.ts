@@ -92,6 +92,16 @@ describe("nscp icinga-agent import", () => {
     icinga = icingaTree(`icinga-${Date.now()}-${Math.random().toString(16).slice(2)}`);
   });
 
+  it("refuses in a dry run what the real run would refuse", async () => {
+    fs.writeFileSync(path.join(certs, `${AGENT}.key`), pki.signed.other.keyPem);
+    const r = await nscp.run(["icinga-agent", "import", "--from", icinga, "--dry-run"], {
+      allowFailure: true,
+    });
+    expect(r.exitCode).not.toBe(0);
+    expect(r.all).toContain("do not belong together");
+    expect(r.all).not.toContain("Would import");
+  });
+
   it("shows what it would do and changes nothing with --dry-run", async () => {
     const r = await nscp.run(["icinga-agent", "import", "--from", icinga, "--dry-run"]);
     expect(r.all).toContain(`Would import the Icinga 2 agent '${AGENT}'`);
@@ -155,6 +165,12 @@ describe("nscp icinga-agent import", () => {
     expect(setting("parent port")).toBe("5665");
     expect(setting("trust on first use")).toBe("false");
     expect(iniValue(nscp.settingsFile, "/modules", "IcingaAgent")).toBe("enabled");
+  });
+
+  it("leaves no staging or backup files behind", () => {
+    expect(fs.readdirSync(target).sort()).toEqual(
+      [`${AGENT}.crt`, `${AGENT}.key`, "ca.crt"].sort(),
+    );
   });
 
   itOnUnix("stores the key readable by its owner only", () => {
@@ -259,6 +275,30 @@ describe("nscp icinga-agent import", () => {
     }
     const bare = await nscp.run(["icinga-agent"], { allowFailure: true });
     expect(bare.all).toContain("nscp icinga-agent import --help");
+  });
+
+  it("replaces a port and a pin left over from an earlier parent", async () => {
+    // An agent that was set up by hand against another parent before.
+    const earlier = new NscpInstance();
+    await earlier.configure({
+      "/settings/Icinga/agent": {
+        "parent host": "old-master.example.com",
+        "parent port": "15665",
+        "parent fingerprint": "AA".repeat(32),
+      },
+    });
+    const from = icinga;
+    // zones.conf without a port: Icinga's default, which the summary states.
+    fs.writeFileSync(
+      path.join(etc, "zones.conf"),
+      `object Endpoint "${PARENT}" { host = "192.0.2.10" }\nobject Endpoint NodeName { }\n`,
+    );
+    const r = await earlier.run(["icinga-agent", "import", "--from", from]);
+    expect(r.all).toContain(`Parent: ${PARENT} at 192.0.2.10:5665`);
+    const value = (key: string) => iniValue(earlier.settingsFile, SECTION, key);
+    expect(value("parent host")).toBe("192.0.2.10");
+    expect(value("parent port")).toBe("5665");
+    expect(value("parent fingerprint") ?? "").toBe("");
   });
 
   it("stops the Icinga agent last, and says so when it cannot", async () => {

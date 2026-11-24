@@ -193,7 +193,7 @@ void store_signed_certificate(const pki_paths &paths, const std::string &cn, con
   certificate.commit();
 }
 
-void import_identity(const pki_paths &paths, const std::string &cn, const std::string &cert_pem, const std::string &key_pem, const std::string &ca_pem) {
+void check_identity(const std::string &cn, const std::string &cert_pem, const std::string &key_pem, const std::string &ca_pem) {
   const std::vector<ossl::x509_ptr> certs = parse_certificates(cert_pem, "The certificate");
   X509 *cert = certs.front().get();
   if (key_pem.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) throw std::runtime_error("The key is too large");
@@ -217,15 +217,81 @@ void import_identity(const pki_paths &paths, const std::string &cn, const std::s
   } catch (const std::exception &) {
     throw std::runtime_error("The certificate was not issued by the CA beside it");
   }
+}
 
+namespace {
+// Several files replaced as one: each new file is already complete beside its
+// target, and a target that cannot be replaced puts the earlier ones back, so
+// the directory never holds a key from one identity and a certificate from
+// another.
+class replacement_set {
+ public:
+  // `staged` is a finished file that takes the place of `target`.
+  void add(const boost::filesystem::path &staged, const boost::filesystem::path &target) { entries_.push_back({staged, target, false, false}); }
+
+  ~replacement_set() {
+    boost::system::error_code ignored;
+    for (const entry &e : entries_) boost::filesystem::remove(e.staged, ignored);
+  }
+
+  void commit() {
+    boost::system::error_code ec;
+    for (entry &e : entries_) {
+      const boost::filesystem::path saved = previous(e);
+      boost::system::error_code ignored;
+      boost::filesystem::remove(saved, ignored);
+      if (boost::filesystem::exists(e.target)) {
+        boost::filesystem::rename(e.target, saved, ec);
+        if (ec) return fail("Failed to set " + e.target.string() + " aside", ec);
+        e.saved = true;
+      }
+      boost::filesystem::rename(e.staged, e.target, ec);
+      if (ec) return fail("Failed to move " + e.staged.string() + " into place", ec);
+      e.replaced = true;
+    }
+    boost::system::error_code ignored;
+    for (const entry &e : entries_) boost::filesystem::remove(previous(e), ignored);
+  }
+
+ private:
+  struct entry {
+    boost::filesystem::path staged;
+    boost::filesystem::path target;
+    bool saved;     // the old target is waiting beside it
+    bool replaced;  // the new file is in place
+  };
+  static boost::filesystem::path previous(const entry &e) { return e.target.string() + ".old"; }
+
+  // Put back what was there and report why.
+  void fail(const std::string &what, const boost::system::error_code &ec) {
+    boost::system::error_code ignored;
+    for (auto e = entries_.rbegin(); e != entries_.rend(); ++e) {
+      if (e->replaced) boost::filesystem::remove(e->target, ignored);
+      if (e->saved) boost::filesystem::rename(previous(*e), e->target, ignored);
+    }
+    throw std::runtime_error(what + ": " + utf8::utf8_from_native(ec.message()));
+  }
+
+  std::vector<entry> entries_;
+};
+}  // namespace
+
+void import_identity(const pki_paths &paths, const std::string &cn, const std::string &cert_pem, const std::string &key_pem, const std::string &ca_pem) {
+  check_identity(cn, cert_pem, key_pem, ca_pem);
   ensure_directory(paths.key);
-  // The CA and the certificate are staged first, so a failure writing either
-  // leaves whatever was there untouched; the key goes in before they do.
-  staged_file ca(paths.ca, ca_pem);
-  staged_file certificate(paths.certificate, cert_pem);
-  socket_helpers::write_private_file(paths.key, key_pem);
-  ca.commit();
-  certificate.commit();
+  // All three are written in full, the key privately, before any of them
+  // replaces anything.
+  const std::string staged_key = paths.key + ".import";
+  const std::string staged_certificate = paths.certificate + ".import";
+  const std::string staged_ca = paths.ca + ".import";
+  replacement_set files;
+  files.add(staged_key, paths.key);
+  files.add(staged_certificate, paths.certificate);
+  files.add(staged_ca, paths.ca);
+  socket_helpers::write_private_file(staged_key, key_pem);
+  socket_helpers::write_public_file(staged_certificate, cert_pem);
+  socket_helpers::write_public_file(staged_ca, ca_pem);
+  files.commit();
 }
 
 bool is_signed(const std::string &certificate) {

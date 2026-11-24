@@ -27,7 +27,7 @@ translated_command builtin(const std::string &command, const char *macros) {
 TEST(IcingaAgentTranslate, DiskWindows) {
   translated_command t = builtin("disk-windows", R"({"disk_win_unit":"mb","disk_win_warn":"20%","disk_win_crit":"10%"})");
   EXPECT_EQ(t.query, "check_drivesize");
-  EXPECT_EQ(t.arguments, (args{"filter=type in ('fixed', 'remote')", "w=@~:20%", "c=@~:10%"}));
+  EXPECT_EQ(t.arguments, (args{"filter=mounted = 1 and type in ('fixed', 'remote')", "w=@~:20%", "c=@~:10%"}));
   EXPECT_FALSE(t.fixed_arguments);
 
   // Paths, excludes, and a bare number in the command's unit.
@@ -385,4 +385,33 @@ TEST(IcingaAgentTranslate, IfwApiWinsOverAnAlias) {
   req = parse_execute_command(json::parse(R"({"command_type":"check_command","command":"nscp-cpu","host":"h","macros":{}})"), config);
   EXPECT_EQ(req.query, "check_ok");
   EXPECT_TRUE(req.fixed_arguments);
+}
+
+// A query the agent already has under an ITL name was put there on purpose:
+// the built-in translation stands back for it. The module's own aliases are
+// not asked about - they are the configuration saying what the name means.
+TEST(IcingaAgentTranslate, ALocalQueryOfTheSameNameWins) {
+  translation_config config;
+  std::vector<std::string> asked;
+  config.is_local_query = [&asked](const std::string &name) {
+    asked.push_back(name);
+    return name == "disk-windows";
+  };
+  EXPECT_FALSE(translate_command(config, "disk-windows", json::object()));
+  EXPECT_TRUE(static_cast<bool>(translate_command(config, "load-windows", json::object())));
+  // A name that is not an ITL command is never looked up.
+  EXPECT_FALSE(translate_command(config, "check_cpu", json::object()));
+  EXPECT_EQ(asked, (std::vector<std::string>{"disk-windows", "load-windows"}));
+
+  // Through an ExecuteCommand it then runs under its own name, macros unused.
+  const query_request req = parse_execute_command(
+      json::parse(R"({"command_type":"check_command","command":"disk-windows","host":"h","macros":{"disk_win_warn":"20%"}})"), config);
+  EXPECT_TRUE(req.error.empty()) << req.error;
+  EXPECT_EQ(req.query, "disk-windows");
+  EXPECT_TRUE(req.arguments.empty());
+
+  config.aliases["disk-windows"] = command_alias{"check_drivesize", {"drive=C:"}};
+  asked.clear();
+  EXPECT_EQ(translate_command(config, "disk-windows", json::object()).value().query, "check_drivesize");
+  EXPECT_TRUE(asked.empty());
 }

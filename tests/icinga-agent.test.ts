@@ -259,9 +259,14 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
           "legacy-ok": 'check_ok "message=alias for $who$" $dropped$',
           "fixed-ok": "check_ok message=fixed",
         },
+        // A query the agent already has under the name of an ITL command.
+        "/settings/check helpers/alias": {
+          "users-windows": 'check_ok "message=the local users-windows"',
+        },
         "/settings/permissions": { enabled: "true" },
         "/settings/permissions/policies": {
-          [`IcingaAgent:${PARENT}`]: "CheckHelpers.check_ok, CheckHelpers.check_warning",
+          [`IcingaAgent:${PARENT}`]:
+            "CheckHelpers.check_ok, CheckHelpers.check_warning, CheckHelpers.users-windows",
         },
       });
     }
@@ -425,6 +430,15 @@ describeWithModules("IcingaAgent", "CheckHelpers")(
       expect(cr.exit_status).toBe(3);
       expect(String(cr.output)).toMatch(/not allowed/i);
       expect(String(cr.output)).toContain("check_critical");
+    });
+
+    it("leaves an ITL name to a query the agent already has under it", async () => {
+      // users-windows has a built-in translation (check_users); the alias of
+      // the same name on this agent was there first and is what runs.
+      const cr = await session.execute("itl-local", "users-windows", { users_win_warn: 5 });
+      expect(cr.exit_status).toBe(0);
+      expect(cr.output).toBe("the local users-windows");
+      expect(String(cr.command)).toBe("users-windows");
     });
 
     it("answers a configured command alias with the master's macros", async () => {

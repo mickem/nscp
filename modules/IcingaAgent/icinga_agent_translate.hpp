@@ -22,6 +22,7 @@
 
 #include <boost/json.hpp>
 #include <boost/optional.hpp>
+#include <functional>
 #include <list>
 #include <map>
 #include <stdexcept>
@@ -46,6 +47,12 @@ struct command_alias {
 struct translation_config {
   bool builtin = true;  // translate the ITL commands listed by builtin_translations()
   std::map<std::string, command_alias> aliases;
+  // Whether the agent has a query of its own under this name (a script, an
+  // alias of another module). Such a query was there first and was put there
+  // on purpose: a built-in translation of the same name stands back for it.
+  // Not consulted for the aliases above, which are this module's own. Unset:
+  // nothing is local.
+  std::function<bool(const std::string &)> is_local_query;
 };
 
 struct translated_command {

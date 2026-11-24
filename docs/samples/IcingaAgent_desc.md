@@ -208,7 +208,9 @@ load-windows = check_cpu time=5m w=$load_win_warn$ c=$load_win_crit$
 ```
 
 An argument whose macro has no value is left out, and an argument that is one list macro becomes one argument per
-element. An alias takes precedence over the built-in translation of the same name. Values are passed as they are
+element. An alias takes precedence over the built-in translation of the same name, and so does a query another module
+already provides under it (an external script or a `CheckHelpers` alias called `disk-windows`): the built-in
+translations only answer names the agent would otherwise not know. Values are passed as they are
 here: the threshold conversion above applies to the built-in translations only.
 
 Translated or aliased, the query is what the permission policy sees (`CheckDisk.check_drivesize`, not

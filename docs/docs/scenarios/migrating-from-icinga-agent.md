@@ -93,7 +93,7 @@ The plugins' threshold forms all carry over, each meaning what it meant:
 A side without a threshold stays without one. With the ITL's defaults, a `disk-windows` service runs as:
 
 ```
-check_drivesize "filter=type in ('fixed', 'remote')" w=@~:20% c=@~:10%
+check_drivesize "filter=mounted = 1 and type in ('fixed', 'remote')" w=@~:20% c=@~:10%
 ```
 
 which is *warning at 20% free or less, critical at 10% or less, on every fixed and remote volume* - what
@@ -150,7 +150,7 @@ Now run the queries on the host itself, the way the agent will, before anything 
 prompt: the configuration is not readable otherwise):
 
 ```
-nscp client --module CheckDisk --boot --query check_drivesize "filter=type in ('fixed', 'remote')" "w=@~:20%" "c=@~:10%"
+nscp client --module CheckDisk --boot --query check_drivesize "filter=mounted = 1 and type in ('fixed', 'remote')" "w=@~:20%" "c=@~:10%"
 nscp client --module CheckSystem --boot --query check_service service=Spooler warning=none "critical=state != 'running'"
 ```
 
@@ -249,7 +249,7 @@ curl -k -s -u <api user> 'https://localhost:5665/v1/objects/services?filter=host
 ```
 
 ```
-disk      OK   OK All 2 drive(s) are ok      check_drivesize filter=type in ('fixed', 'remote') w=@~:20% c=@~:10%
+disk      OK   OK All 2 drive(s) are ok      check_drivesize filter=mounted = 1 and type in ('fixed', 'remote') w=@~:20% c=@~:10%
 load      OK   OK: CPU load is ok.           check_cpu w=~:80 c=~:95
 memory    OK   OK: physical = 6.2GB          check_memory type=physical w=@~:10% c=@~:5%
 ```
@@ -273,7 +273,7 @@ measures or reports something else than the plugin did:
 | All               | A threshold range whose ends are reversed (`[20-10]`) is refused. The plugins took it and never alerted on it (or always, with `!`); swap the ends, or remove the threshold. |
 | `load-windows`    | `check_load.exe` sampled the CPU for one second. `check_cpu` reads the collector's averages over 5 seconds, 1 minute and 5 minutes and alerts when any of them is over: steadier, and slower to clear. |
 | `network-windows` | The plugin added up all interfaces and compared the sum. `check_network` compares each interface on its own.         |
-| `disk-windows`    | Without `disk_win_path` the plugin walked fixed and remote volumes; so does the query, through a filter on the drive type. Volumes without a drive letter are listed by their mount point. |
+| `disk-windows`    | Without `disk_win_path` the plugin walked fixed and remote volumes; so does the query, through a filter on the drive type that also keeps the query's own `mounted = 1`, so a locked or disconnected volume is left out rather than reported. Volumes without a drive letter are listed by their mount point. |
 | `procs-windows`   | With `procs_win_user` the query resolves each process's owner, which needs the agent to run as an account that may (LocalSystem does). |
 | `update-windows`  | `update_win_reboot` ("may need a reboot" counts as "needs one") has no counterpart and is ignored.                  |
 | `service-windows` | `service_win_description` (match by display name) is refused: name the service.                                     |

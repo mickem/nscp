@@ -169,7 +169,12 @@ std::string write_settings(nscapi::core_wrapper *core, const unsigned int plugin
   s.set(agent_settings_path, "endpoint name", plan.endpoint_name);
   s.set(agent_settings_path, "parent endpoint", plan.parent_endpoint);
   s.set(agent_settings_path, "parent host", plan.parent_host);
-  if (!plan.parent_port.empty()) s.set(agent_settings_path, "parent port", plan.parent_port);
+  // Always written: a port left over from an earlier setup is not this
+  // parent's, and the summary has just said which one is used.
+  s.set(agent_settings_path, "parent port", plan.parent_port.empty() ? "5665" : plan.parent_port);
+  // A pin belongs to the parent it was taken from. The CA now verifies this
+  // one, so a pin kept from before could only ever be wrong.
+  s.erase(agent_settings_path, "parent fingerprint");
   // The CA is in place, so there is never a reason to connect unverified.
   s.set(agent_settings_path, "trust on first use", "false");
   s.save();
@@ -199,6 +204,9 @@ void import(nscapi::core_wrapper *core, const unsigned int plugin_id, const std:
   if (certificate_directory.empty()) throw import_error("No `certificate directory` is configured under /settings/Icinga/agent");
   const pki_paths paths = pki_paths::for_endpoint(certificate_directory, plan.endpoint_name);
   refuse_other_key(paths, id, plan.endpoint_name, args.force);
+  // Before anything is said or written, a dry run included: an identity that
+  // would be refused is refused here.
+  check_identity(plan.endpoint_name, id.certificate, id.key, id.ca);
 
   std::stringstream result;
   result << describe(plan, paths, certificate_source, args.dry_run);

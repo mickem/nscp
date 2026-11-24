@@ -12,12 +12,15 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread/thread.hpp>
 #include <chrono>
+#include <map>
+#include <mutex>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/registry.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
@@ -74,7 +77,10 @@ class agent : public std::enable_shared_from_this<agent> {
         net_work_(asio::make_work_guard(net_io_)),
         check_work_(asio::make_work_guard(check_io_)),
         reconnect_timer_(net_io_),
-        paths_(pki_paths::for_endpoint(config_.certificate_directory, config_.endpoint_name)) {}
+        paths_(pki_paths::for_endpoint(config_.certificate_directory, config_.endpoint_name)) {
+    // `this` outlives the function: it is stored in a member.
+    config_.translation.is_local_query = [this](const std::string &name) { return has_local_query(name); };
+  }
 
   void start() {
     if (ensure_bootstrap_certificate(paths_, config_.endpoint_name)) {
@@ -280,7 +286,45 @@ class agent : public std::enable_shared_from_this<agent> {
     conn->send(make_check_result(req.host, req.service, result));
   }
 
+  // Whether another module has registered a query or an alias under `name`.
+  // Asked once a minute per name at most: the answer changes only when a
+  // module loads or a script registers a command.
+  bool has_local_query(const std::string &name) {
+    const auto now = std::chrono::steady_clock::now();
+    {
+      const std::lock_guard<std::mutex> lock(local_queries_mutex_);
+      const auto cached = local_queries_.find(name);
+      if (cached != local_queries_.end() && now - cached->second.second < std::chrono::seconds(60)) return cached->second.first;
+    }
+    bool found = false;
+    try {
+      PB::Registry::RegistryRequestMessage request;
+      PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+      payload->mutable_inventory()->set_name(name);
+      payload->mutable_inventory()->set_fetch_all(false);
+      payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY);
+      payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY_ALIAS);
+      std::string buffer;
+      core_->registry_query(request.SerializeAsString(), buffer);
+      PB::Registry::RegistryResponseMessage response;
+      response.ParseFromString(buffer);
+      for (const auto &r : response.payload()) {
+        for (const auto &item : r.inventory()) {
+          if (boost::iequals(item.name(), name)) found = true;
+        }
+      }
+    } catch (const std::exception &e) {
+      NSC_DEBUG_MSG(std::string("Icinga agent: could not look up the query '") + name + "': " + e.what());
+    }
+    if (found) NSC_DEBUG_MSG("Icinga agent: '" + name + "' is a query on this agent; it runs as that, not as the built-in translation");
+    const std::lock_guard<std::mutex> lock(local_queries_mutex_);
+    local_queries_[name] = std::make_pair(found, now);
+    return found;
+  }
+
   agent_config config_;
+  std::mutex local_queries_mutex_;
+  std::map<std::string, std::pair<bool, std::chrono::steady_clock::time_point>> local_queries_;
   nscapi::core_wrapper *core_;
   unsigned int plugin_id_;
   asio::io_context net_io_;
@@ -468,8 +512,11 @@ bool IcingaAgent::unloadModule() {
   return true;
 }
 
-bool IcingaAgent::commandLineExec(const int, const PB::Commands::ExecuteRequestMessage::Request &request,
+bool IcingaAgent::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
                                   PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &) {
+  // Only what was sent to this module (`nscp icinga-agent ...`). An exec
+  // offered to every module is somebody else's to answer.
+  if (target_mode != NSCAPI::target_module) return false;
   if (request.arguments_size() > 0 && request.arguments(0) == "import") {
     return icinga_agent::run_import_command(get_core(), get_id(), certificate_directory_, request, response);
   }
