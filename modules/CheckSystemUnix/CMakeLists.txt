@@ -21,6 +21,7 @@ set(SRCS
     check_installed_software.cpp
     check_hostname.cpp
     check_pending_reboot.cpp
+    check_hardware.cpp
     check_kernel_memory.cpp
     check_memory.cpp
     check_cpu.cpp
@@ -120,6 +121,7 @@ if(WIN32)
         check_installed_software.h
         check_hostname.h
         check_pending_reboot.h
+        check_hardware.h
         check_kernel_memory.h
         check_memory.h
         check_cpu.h
@@ -176,6 +178,8 @@ NSCP_CREATE_TEST(
         check_hostname.cpp
         check_pending_reboot_test.cpp
         check_pending_reboot.cpp
+        check_hardware_test.cpp
+        check_hardware.cpp
         check_kernel_memory_test.cpp
         check_kernel_memory.cpp
         check_os_version_test.cpp
