@@ -68,3 +68,29 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# Unit tests for the module class: the settings it registers and the requests
+# commandLineExec declines. The stub core (include/nscapi/test_helpers.hpp)
+# stands in for the daemon; no test starts the console, which reads stdin.
+NSCP_CREATE_TEST(
+    command_client_module_test
+    SOURCES
+        command_client_module_test.cpp
+        "${TARGET}.cpp"
+        console_editor.cpp
+        console_syntax.cpp
+        ${NSCP_INCLUDEDIR}/client/simple_client.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        nscp_client
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+        replxx
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
