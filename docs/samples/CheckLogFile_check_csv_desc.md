@@ -24,7 +24,7 @@ columns=Hostname TEXT, WaitingUpdates INTEGER, Load REAL
 |------|--------------------|-----------|
 | TEXT | `TEXT`, `VARCHAR(n)`, `CHAR`, `STRING`, or no type | compared as a string |
 | INTEGER | `INTEGER`, `INT`, `BIGINT`, `SMALLINT` | compared as a number; an empty or non-numeric cell has no value, renders as `''` and compares false against every number |
-| REAL | `REAL`, `FLOAT`, `DOUBLE`, `NUMERIC`, `DECIMAL(p,s)` | compared as a decimal number |
+| REAL | `REAL`, `FLOAT`, `DOUBLE`, `NUMERIC`, `DECIMAL(p,s)` | compared as a decimal number, also against a whole-number threshold (`Load > 3` is true for 3.75); an empty or non-numeric cell has no value, as for INTEGER, and produces no performance data |
 
 Columns map to fields by position; fields beyond the declared columns are
 ignored, and a row with fewer fields has the missing ones empty
@@ -55,7 +55,12 @@ called `Count` or `Status` is fine.
   file starts with a byte-order mark, as Windows exports often do. Name
   `utf-16le`, `utf-16be`, `utf-8` or `latin1` for a file without one.
 * The whole file is read into memory, so it is refused above `max-size`
-  (default `16m`).
+  (default `16m`). The limit is enforced while reading, not only from the
+  size the file reports, and only a regular file is read: a device
+  (`/dev/zero`), a FIFO or a Windows named pipe is refused rather than read
+  until memory runs out or the other end writes.
+* Numbers are read with `.` as the decimal separator (and no thousands
+  separator), as CSV exports write them, whatever the host's locale is.
 
 Every problem reading or parsing the file — not found, too large, an
 unterminated quote, an unknown column in a filter — is reported as UNKNOWN.

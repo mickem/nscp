@@ -38,9 +38,12 @@ bool read_local_file(const std::string &path, const std::uint64_t max_bytes, std
   }
   handle_closer closer(h);
 
+  // Only a file on a disk (local or a share): a named pipe (\\.\pipe\x) or a
+  // character device (CON, \\.\COM1) would block ReadFile until its other end
+  // writes, which is the check hanging.
   BY_HANDLE_FILE_INFORMATION info;
-  if (GetFileInformationByHandle(h, &info) && (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
-    error = "Not a file: " + path;
+  if (GetFileType(h) != FILE_TYPE_DISK || (GetFileInformationByHandle(h, &info) && (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)) {
+    error = "Not a regular file: " + path;
     return false;
   }
   LARGE_INTEGER size;

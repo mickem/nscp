@@ -46,6 +46,8 @@ struct data_obj {
   long long zval;        // byte count, registered as type_size
   std::string dval_s;    // dual string/int column (a log column shape)
   long long dval_i;
+  boost::optional<double> pval;  // optional decimal (a CSV REAL column)
+  std::string pval_s;            // ...and the text it renders as
 
   std::string show() const { return name; }
 };
@@ -77,6 +79,7 @@ struct filter_obj_handler : native_context {
     registry_.add_string_var("sval", [](data_ptr o) { return o->sval; }, "String keyword");
     registry_.add_optional_int_var("oval", [](data_ptr o) { return o->oval; }, "unknown", "Optional int keyword").add_int_perf();
     registry_.add_string_var("dval", [](data_ptr o) { return o->dval_s; }, [](data_ptr o) { return o->dval_i; }, "Dual string/int keyword");
+    registry_.add_optional_float_var("pval", [](data_ptr o) { return o->pval; }, [](data_ptr o) { return o->pval_s; }, "unknown", "Optional float keyword");
     registry_.add_int_var("cust", type_custom_tens, [](data_ptr o) { return o->ival * 10; }, "Custom int keyword with converter (Nu = N*10)").no_perf();
     registry_.add_int_var("quiet", [](data_ptr o) { return o->ival; }, "Int keyword that must not emit perf").no_perf();
     registry_.add_converter(type_custom_tens, &parse_tens);
@@ -95,10 +98,10 @@ typedef modern_filter::modern_filters<data_obj, filter_obj_handler> filter_type;
 //   d     50    0.5    beta     0        4096  "30"/30
 std::vector<data_obj> rows() {
   return {
-      {"a", 1, 1.5, "alpha", boost::optional<long long>(100), 512, "7", 7},
-      {"b", 5, 5.0, "100", boost::none, 1536, "2", 2},
-      {"c", 10, 10.25, "90", boost::optional<long long>(5), 2048, "x", 0},
-      {"d", 50, 0.5, "beta", boost::optional<long long>(0), 4096, "30", 30},
+      {"a", 1, 1.5, "alpha", boost::optional<long long>(100), 512, "7", 7, boost::optional<double>(1.5), "1.50"},
+      {"b", 5, 5.0, "100", boost::none, 1536, "2", 2, boost::none, ""},
+      {"c", 10, 10.25, "90", boost::optional<long long>(5), 2048, "x", 0, boost::optional<double>(10.25), "10.25"},
+      {"d", 50, 0.5, "beta", boost::optional<long long>(0), 4096, "30", 30, boost::optional<double>(0.0), "0"},
   };
 }
 
@@ -444,6 +447,75 @@ TEST(FilterMatrixOptional, QuotedNumberStaysInTheSentinelStringDomain) {
       {"oval > '50'", "b"},
       {"oval < '50'", "a, c, d"},
   });
+}
+
+// ============================================================================
+// Optional float keyword: pval = {a:1.5, b:(no value), c:10.25, d:0}
+// ============================================================================
+
+TEST(FilterMatrixOptionalFloat, BareIntegerThresholdsDoNotTruncate) {
+  // The fractions sit on either side of the integer thresholds: truncating
+  // 1.5 to 1 or 10.25 to 10 would flip every one of these.
+  run_matrix({
+      {"pval > 1", "a, c"},
+      {"pval >= 2", "c"},
+      {"pval < 2", "a, d"},
+      {"pval > 10", "c"},
+      {"pval <= 10", "a, d"},
+      {"pval = 1", ""},
+      {"pval != 1", "a, c, d"},
+      {"pval = 0", "d"},
+  });
+}
+
+TEST(FilterMatrixOptionalFloat, DecimalThresholds) {
+  run_matrix({
+      {"pval > 1.5", "c"},
+      {"pval >= 1.5", "a, c"},
+      {"pval = 10.25", "c"},
+      {"pval < 0.5", "d"},
+  });
+}
+
+TEST(FilterMatrixOptionalFloat, TheValuelessRowNeverMatchesANumber) {
+  // b has no value: false for every operator, != and < 1 included (a NaN or a
+  // 0 standing in for it would match those).
+  run_matrix({
+      {"pval < 1", "d"},
+      {"pval != 5", "a, c, d"},
+      {"pval >= 0", "a, c, d"},
+      {"pval = 'unknown'", "b"},
+  });
+}
+
+TEST(FilterMatrixOptionalFloat, QuotedTextComparesAgainstTheRenderedText) {
+  run_matrix({
+      {"pval = '1.50'", "a"},
+      {"pval = '10.25'", "c"},
+  });
+}
+
+TEST(FilterMatrixOptionalFloat, PerfdataKeepsTheFractionAndSkipsTheValuelessRow) {
+  const run_result r = run_query({"warning=pval > 1", "critical=pval > 10"});
+  ASSERT_TRUE(r.built) << r.message;
+  // The default generator labels the value <alias>_<keyword>.
+  const PB::Common::PerformanceData *a = find_perf(r, "a_pval");
+  ASSERT_NE(a, nullptr) << r.message;
+  ASSERT_TRUE(a->has_float_value());
+  EXPECT_DOUBLE_EQ(a->float_value().value(), 1.5);
+  EXPECT_DOUBLE_EQ(a->float_value().warning().value(), 1.0);
+  EXPECT_DOUBLE_EQ(a->float_value().critical().value(), 10.0);
+  const PB::Common::PerformanceData *c = find_perf(r, "c_pval");
+  ASSERT_NE(c, nullptr) << r.message;
+  EXPECT_DOUBLE_EQ(c->float_value().value(), 10.25);
+  EXPECT_EQ(find_perf(r, "b_pval"), nullptr) << r.message;
+  EXPECT_NE(find_perf(r, "d_pval"), nullptr) << r.message;
+}
+
+TEST(FilterMatrixOptionalFloat, RendersTheSourceTextOrTheNoValueString) {
+  const run_result r = run_query({"warning=none", "critical=none"}, "%(list)", "%(name)=%(pval)");
+  ASSERT_TRUE(r.built) << r.message;
+  EXPECT_EQ(r.message, "a=1.50, b=unknown, c=10.25, d=0");
 }
 
 // ============================================================================

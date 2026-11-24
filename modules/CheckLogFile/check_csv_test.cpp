@@ -5,8 +5,20 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/filesystem.hpp>
+#include <clocale>
+#include <fstream>
 #include <map>
 #include <nscapi/nscapi_helper_singleton.hpp>
+
+#ifdef WIN32
+#include <windows.h>
+
+#include <str/utf8.hpp>
+#else
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 // Normally provided by NSC_WRAP_DLL(); a unit test has no generated module glue.
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
@@ -258,6 +270,76 @@ TEST(CheckCsv, RealColumnsCompareAsNumbers) {
   EXPECT_EQ("CRITICAL: srv3", r.message());
 }
 
+TEST(CheckCsv, RealColumnsDoNotTruncateAgainstAnIntegerThreshold) {
+  // Load is 0.25 / 1.5 / 3.75: an integer threshold must compare as a decimal,
+  // not against the value with its fraction cut off (3.75 > 3 is true).
+  runner r;
+  r.source.files["/data/updates.csv"] = kUpdates;
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.run({"file=/data/updates.csv", "header=true", "columns=Hostname, WaitingUpdates INTEGER, Load REAL",
+                                                     "critical=Load > 3", "detail-syntax=%(Hostname)"}))
+      << r.message();
+  EXPECT_EQ("CRITICAL: srv3", r.message());
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, r.run({"file=/data/updates.csv", "header=true", "columns=Hostname, WaitingUpdates INTEGER, Load REAL",
+                                                    "warning=Load >= 1", "detail-syntax=%(Hostname)"}))
+      << r.message();
+  EXPECT_EQ("WARNING: srv2, srv3", r.message());
+}
+
+TEST(CheckCsv, EmptyOrTextRealCellNeverMatchesANumber) {
+  runner r;
+  r.source.files["/x.csv"] = "a,\nb,0.5\nc,n/a\n";
+  // Only b has a value; a blank or non-numeric cell is not 0.
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.run({"file=/x.csv", "columns=Name, Load REAL", "critical=Load < 1", "detail-syntax=%(Name)"})) << r.message();
+  EXPECT_EQ("CRITICAL: b", r.message());
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.run({"file=/x.csv", "columns=Name, Load REAL", "critical=Load = ''", "detail-syntax=%(Name)"})) << r.message();
+  EXPECT_EQ("CRITICAL: a, c", r.message());
+}
+
+TEST(CheckCsv, RealPerfdataKeepsTheFractionAndSkipsEmptyCells) {
+  runner r;
+  r.source.files["/x.csv"] = "a,3.75\nb,\n";
+  EXPECT_EQ(PB::Common::ResultCode::WARNING,
+            r.run({"file=/x.csv", "columns=Name, Load REAL", "warning=Load > 3", "detail-syntax=%(Name)=%(Load)", "perf-syntax=%(Name)"}))
+      << r.message();
+  EXPECT_EQ("WARNING: a=3.75", r.message());
+  ASSERT_EQ(1, r.response.lines_size());
+  ASSERT_EQ(1, r.response.lines(0).perf_size()) << perf_of(r.response);
+  const PB::Common::PerformanceData &perf = r.response.lines(0).perf(0);
+  EXPECT_EQ("a_Load", perf.alias());
+  ASSERT_TRUE(perf.has_float_value());
+  EXPECT_DOUBLE_EQ(3.75, perf.float_value().value());
+  EXPECT_DOUBLE_EQ(3.0, perf.float_value().warning().value());
+}
+
+TEST(CheckCsv, DecimalsDoNotFollowTheProcessLocale) {
+  // The agent calls setlocale(LC_ALL, "") at startup; on a host whose locale
+  // writes decimals with a comma, a C-library parser reads "3.75" as no value.
+  const char *candidates[] = {"de_DE.UTF-8", "de_DE.utf8", "sv_SE.UTF-8", "German_Germany.1252", "Swedish_Sweden.1252"};
+  const char *selected = nullptr;
+  for (const char *name : candidates) {
+    if (std::setlocale(LC_NUMERIC, name) != nullptr) {
+      selected = name;
+      break;
+    }
+  }
+  if (selected == nullptr) GTEST_SKIP() << "no decimal-comma locale installed on this host";
+  ASSERT_EQ(',', *std::localeconv()->decimal_point) << selected;
+
+  runner r;
+  r.source.files["/data/updates.csv"] = kUpdates;
+  const PB::Common::ResultCode code =
+      r.run({"file=/data/updates.csv", "header=true", "columns=Hostname, WaitingUpdates INTEGER, Load REAL", "critical=Load > 3", "detail-syntax=%(Hostname)"});
+  const std::string message = r.message();
+  r.source.files["/x.csv"] = "a,3.0\n";
+  const PB::Common::ResultCode int_code = r.run({"file=/x.csv", "columns=Name, Count INTEGER", "critical=Count = 3", "detail-syntax=%(Name)"});
+  std::setlocale(LC_NUMERIC, "C");
+
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, code) << message;
+  EXPECT_EQ("CRITICAL: srv3", message);
+  // INTEGER also reads "3.0" (SQLite affinity) through the same parser.
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, int_code);
+}
+
 TEST(CheckCsv, ColumnsFromTheHeaderRow) {
   runner r;
   r.source.files["/data/updates.csv"] = kUpdates;
@@ -374,3 +456,119 @@ TEST(CheckCsv, RestrictedAccessRefusesAPathOutsideTheAllowList) {
   EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.run({"file=/etc/passwd", "columns=a", "delimiter=:"})) << r.message();
   EXPECT_TRUE(r.source.last_source.empty()) << "the source must not be read before the gate";
 }
+
+// --- the file readers (csv_source_win.cpp / csv_source_unix.cpp) ----------
+// These run against the real file system: the reader is the only thing
+// between a caller-supplied path and an unbounded read.
+
+namespace {
+struct scratch_dir {
+  boost::filesystem::path dir;
+  scratch_dir() : dir(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("check-csv-%%%%-%%%%")) {
+    boost::filesystem::create_directories(dir);
+  }
+  ~scratch_dir() {
+    boost::system::error_code ec;
+    boost::filesystem::remove_all(dir, ec);
+  }
+  std::string write(const std::string &name, const std::string &content) const {
+    const boost::filesystem::path file = dir / name;
+    std::ofstream out(file.string().c_str(), std::ios::binary);
+    out << content;
+    return file.string();
+  }
+};
+}  // namespace
+
+TEST(CheckCsvReader, ReadsARegularFile) {
+  const scratch_dir tmp;
+  const std::string content("a,1\r\nb,\0002\r\n", 11);
+  std::string bytes, error;
+  ASSERT_TRUE(read_local_file(tmp.write("x.csv", content), 1024, bytes, error)) << error;
+  EXPECT_EQ(content, bytes);
+}
+
+TEST(CheckCsvReader, RefusesAFileOverTheLimit) {
+  const scratch_dir tmp;
+  std::string bytes, error;
+  EXPECT_FALSE(read_local_file(tmp.write("x.csv", std::string(100, 'x')), 10, bytes, error));
+  EXPECT_NE(std::string::npos, error.find("larger than max-size (10 bytes)")) << error;
+}
+
+TEST(CheckCsvReader, ZeroLimitMeansUnlimited) {
+  const scratch_dir tmp;
+  std::string bytes, error;
+  ASSERT_TRUE(read_local_file(tmp.write("x.csv", std::string(200000, 'x')), 0, bytes, error)) << error;
+  EXPECT_EQ(200000u, bytes.size());
+}
+
+TEST(CheckCsvReader, MissingFileIsAnError) {
+  const scratch_dir tmp;
+  std::string bytes, error;
+  EXPECT_FALSE(read_local_file((tmp.dir / "missing.csv").string(), 1024, bytes, error));
+  EXPECT_NE(std::string::npos, error.find("Failed to open")) << error;
+}
+
+TEST(CheckCsvReader, DirectoryIsRefused) {
+  const scratch_dir tmp;
+  std::string bytes, error;
+  EXPECT_FALSE(read_local_file(tmp.dir.string(), 1024, bytes, error));
+  EXPECT_FALSE(error.empty());
+}
+
+#ifndef WIN32
+TEST(CheckCsvReader, DeviceIsRefusedBeforeAnythingIsRead) {
+  // /dev/zero reports a size of 0 and never ends: read in full it exhausts
+  // memory, so it has to be refused for what it is, not for its size.
+  std::string bytes, error;
+  EXPECT_FALSE(read_local_file("/dev/zero", 1024, bytes, error));
+  EXPECT_EQ("Not a regular file: /dev/zero", error);
+  EXPECT_TRUE(bytes.empty());
+  EXPECT_FALSE(read_local_file("/dev/zero", 0, bytes, error));  // unlimited too
+}
+
+TEST(CheckCsvReader, SymlinkToADeviceIsRefused) {
+  const scratch_dir tmp;
+  const std::string link = (tmp.dir / "looks-like.csv").string();
+  ASSERT_EQ(0, ::symlink("/dev/zero", link.c_str()));
+  std::string bytes, error;
+  EXPECT_FALSE(read_local_file(link, 1024, bytes, error));
+  EXPECT_EQ("Not a regular file: " + link, error);
+}
+
+TEST(CheckCsvReader, FifoIsRefusedWithoutBlocking) {
+  // Opening a FIFO that has no writer blocks a plain open() forever.
+  const scratch_dir tmp;
+  const std::string fifo = (tmp.dir / "pipe.csv").string();
+  ASSERT_EQ(0, ::mkfifo(fifo.c_str(), 0600));
+  std::string bytes, error;
+  EXPECT_FALSE(read_local_file(fifo, 1024, bytes, error));
+  EXPECT_EQ("Not a regular file: " + fifo, error);
+}
+
+TEST(CheckCsvReader, LimitIsEnforcedWhileReadingAFileThatReportsNoSize) {
+  // A /proc file is a regular file whose size reads as 0 while it has
+  // content: only the per-chunk check can stop it.
+  struct stat st{};
+  ASSERT_EQ(0, ::stat("/proc/self/status", &st));
+  ASSERT_EQ(0, st.st_size);
+  std::string bytes, error;
+  EXPECT_FALSE(read_local_file("/proc/self/status", 16, bytes, error));
+  EXPECT_NE(std::string::npos, error.find("larger than max-size (16 bytes)")) << error;
+  ASSERT_TRUE(read_local_file("/proc/self/status", 0, bytes, error)) << error;
+  EXPECT_FALSE(bytes.empty());
+}
+#else
+TEST(CheckCsvReader, NamedPipeIsRefusedWithoutBlocking) {
+  // A client end of a named pipe opens fine, and ReadFile on it then waits for
+  // the server to write: the check would hang.
+  const std::wstring name = L"\\\\.\\pipe\\nscp-check-csv-test-" + std::to_wstring(GetCurrentProcessId());
+  const HANDLE server = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_OUTBOUND, PIPE_TYPE_BYTE | PIPE_WAIT, 1, 0, 0, 0, nullptr);
+  ASSERT_NE(INVALID_HANDLE_VALUE, server);
+  std::string bytes, error;
+  const bool read = read_local_file(utf8::cvt<std::string>(name), 1024, bytes, error);
+  CloseHandle(server);
+  EXPECT_FALSE(read);
+  EXPECT_NE(std::string::npos, error.find("Not a regular file")) << error;
+}
+#endif

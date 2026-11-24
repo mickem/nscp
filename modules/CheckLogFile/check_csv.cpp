@@ -8,7 +8,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
-#include <limits>
+#include <locale>
 #include <memory>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/csv/csv_parser.hpp>
@@ -16,8 +16,8 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <set>
+#include <sstream>
 #include <str/format.hpp>
-#include <str/saturate.hpp>
 #include <str/utf8.hpp>
 
 namespace po = boost::program_options;
@@ -103,6 +103,22 @@ std::vector<std::string> split_declaration(const std::string &spec) {
   return out;
 }
 
+// A decimal in the file's own notation ('.' separator, as RFC 4180 data and
+// every spreadsheet export in the C locale write it) whatever the process
+// locale is. The agent calls setlocale(LC_ALL, "") at startup, so strtod would
+// read "3.75" as no value on a host whose locale writes "3,75".
+boost::optional<double> parse_real(const std::string &raw) {
+  const std::string value = boost::algorithm::trim_copy(raw);
+  if (value.empty()) return boost::none;
+  std::istringstream in(value);
+  in.imbue(std::locale::classic());
+  double d = 0;
+  in >> d;
+  // Anything left over ("3.75 kg", "3,75") or out of range is not a number.
+  if (in.fail() || in.peek() != std::char_traits<char>::eof() || !std::isfinite(d)) return boost::none;
+  return d;
+}
+
 boost::optional<long long> parse_integer(const std::string &raw) {
   const std::string value = boost::algorithm::trim_copy(raw);
   if (value.empty()) return boost::none;
@@ -111,19 +127,9 @@ boost::optional<long long> parse_integer(const std::string &raw) {
   const long long parsed = std::strtoll(value.c_str(), &end, 10);
   if (errno == 0 && end != nullptr && *end == '\0') return parsed;
   // SQLite's INTEGER affinity also takes "3.0": a real with no fraction.
-  end = nullptr;
-  const double d = std::strtod(value.c_str(), &end);
-  if (end != nullptr && *end == '\0' && std::isfinite(d) && d == std::floor(d) && std::fabs(d) < 9.2e18) return static_cast<long long>(d);
+  const boost::optional<double> d = parse_real(value);
+  if (d && d.value() == std::floor(d.value()) && std::fabs(d.value()) < 9.2e18) return static_cast<long long>(d.value());
   return boost::none;
-}
-
-double parse_real(const std::string &raw) {
-  const std::string value = boost::algorithm::trim_copy(raw);
-  if (value.empty()) return std::numeric_limits<double>::quiet_NaN();
-  char *end = nullptr;
-  const double d = std::strtod(value.c_str(), &end);
-  if (end == nullptr || *end != '\0') return std::numeric_limits<double>::quiet_NaN();
-  return d;
 }
 
 // "," / ";" / "\t" / "tab" / "|" ... -> the single character.
@@ -217,12 +223,11 @@ void register_columns(filter_type &filter, const std::vector<column_spec> &colum
         filter.context->registry_.add_optional_int_var(name, [i](auto obj) { return parse_integer(obj->cell(i)); }, "", "Column " + name + " (INTEGER)");
         break;
       case column_type::real: {
-        auto var =
-            std::make_shared<parsers::where::filter_variable<std::shared_ptr<filter_obj>>>(name, parsers::where::type_float, "Column " + name + " (REAL)");
-        var->f_function = [i](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return parse_real(o->cell(i)); };
-        var->i_function = [i](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return str::to_int64_saturating(parse_real(o->cell(i))); };
-        var->s_function = [i](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->cell(i); };
-        filter.context->registry_.add(var, false);
+        // Same "no value" contract as INTEGER, but compared as a decimal: an
+        // integer threshold (`x > 3`) does not truncate 3.75, and perfdata
+        // keeps the fraction. A present value renders as the cell's text.
+        filter.context->registry_.add_optional_float_var(
+            name, [i](auto obj) { return parse_real(obj->cell(i)); }, [i](auto obj) { return obj->cell(i); }, "", "Column " + name + " (REAL)");
         break;
       }
     }
