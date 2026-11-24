@@ -201,7 +201,10 @@ TEST_F(ExternalScriptsModule, AMissingScriptPathIsReported) {
   core().set_setting(kRoot, "script path", "sub/*.sh");
 
   ASSERT_TRUE(load());
-  EXPECT_TRUE(core().has_logged("Path was not found: /nonexistent-nscp-test-dir/sub")) << (core().logged().empty() ? "" : core().logged().back().message);
+  // The module joins the two with boost::filesystem, which uses the platform's
+  // preferred separator: "...-dir/sub" on POSIX, "...-dir\\sub" on Windows.
+  const std::string missing = (boost::filesystem::path("/nonexistent-nscp-test-dir") / "sub").string();
+  EXPECT_TRUE(core().has_logged("Path was not found: " + missing)) << (core().logged().empty() ? "" : core().logged().back().message);
 }
 
 TEST_F(ExternalScriptsModule, ReloadIsSafe) {
@@ -366,7 +369,8 @@ TEST_F(ExternalScriptsModule, IgnorePerfdataKeepsThePipeInTheMessage) {
 }
 
 TEST_F(ExternalScriptsModule, AScriptWithNoOutputSaysSo) {
-  scripts({{"check_silent", "/bin/true"}});
+  // Not /bin/true: macOS only has /usr/bin/true, and a missing binary exits 127.
+  scripts({{"check_silent", "/bin/sh -c \"exit 0\""}});
 
   ASSERT_TRUE(load());
   const PB::Commands::QueryResponseMessage::Response r = query("check_silent");
