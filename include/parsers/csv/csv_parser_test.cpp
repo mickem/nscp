@@ -202,3 +202,50 @@ TEST(csv_parser, parse_replaces_the_output) {
   ASSERT_EQ(1u, rows.size());
   EXPECT_EQ("x", rows[0].fields[0]);
 }
+
+// --- skip_lines --------------------------------------------------------------
+// Physical lines dropped before anything is interpreted: blank lines count,
+// and a quote in a skipped line is not a quote.
+
+namespace {
+options skipping(const std::size_t lines) {
+  options opt;
+  opt.skip_lines = lines;
+  return opt;
+}
+}  // namespace
+
+TEST(csv_parser, skip_lines_counts_physical_lines_including_blank_ones) {
+  const std::vector<record> rows = ok("#TYPE x\n\nName,N\na,1\n", skipping(2));
+  ASSERT_EQ(2u, rows.size());
+  EXPECT_EQ(fields({"Name", "N"}), rows[0].fields);
+  EXPECT_EQ(3u, rows[0].line);  // still the line it has in the file
+  EXPECT_EQ(4u, rows[1].line);
+}
+
+TEST(csv_parser, skip_lines_ignores_quotes_in_the_skipped_lines) {
+  // The preamble's unbalanced quote would otherwise swallow the rest of the file.
+  const std::vector<record> rows = ok("Report \"Q3\nexported 5\" ago\nName,N\na,1\n", skipping(2));
+  ASSERT_EQ(2u, rows.size());
+  EXPECT_EQ(fields({"Name", "N"}), rows[0].fields);
+}
+
+TEST(csv_parser, skip_lines_understands_every_line_ending) {
+  const std::vector<record> rows = ok("x\r\ny\rz\nName\n", skipping(3));
+  ASSERT_EQ(1u, rows.size());
+  EXPECT_EQ("Name", rows[0].fields[0]);
+  EXPECT_EQ(4u, rows[0].line);
+}
+
+TEST(csv_parser, skip_lines_past_the_end_leaves_nothing) {
+  EXPECT_TRUE(ok("a\nb\n", skipping(5)).empty());
+  EXPECT_TRUE(ok("a\nb", skipping(2)).empty());  // last line has no terminator
+  EXPECT_TRUE(ok("", skipping(1)).empty());
+}
+
+TEST(csv_parser, skip_lines_keeps_error_lines_true_to_the_file) {
+  std::vector<record> rows;
+  std::string error;
+  EXPECT_FALSE(csv_parser::parse("skip\nskip\na,\"open\n", skipping(2), rows, error));
+  EXPECT_EQ("Unterminated quoted field starting on line 3", error);
+}

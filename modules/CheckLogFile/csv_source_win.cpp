@@ -30,8 +30,13 @@ struct handle_closer {
 
 bool read_local_file(const std::string &path, const std::uint64_t max_bytes, std::string &bytes, std::string &error) {
   const std::wstring wide = utf8::cvt<std::wstring>(path);
+  // A path can name a named pipe (\\.\pipe\x, \\host\pipe\x), and opening one
+  // connects to it before GetFileType below gets to refuse the handle. With no
+  // quality-of-service flags that connection lets the pipe's server
+  // impersonate the agent's account (SYSTEM). SECURITY_IDENTIFICATION lets it
+  // learn who connected and nothing more; the flags mean nothing for a file.
   const HANDLE h = CreateFileW(wide.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
-                               FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+                               FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr);
   if (h == INVALID_HANDLE_VALUE) {
     error = "Failed to open " + path + ": " + error::lookup::last_error();
     return false;

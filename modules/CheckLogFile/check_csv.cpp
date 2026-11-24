@@ -356,7 +356,8 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
       "The text encoding: auto (UTF-8, or UTF-16LE/BE when the file starts with a byte-order mark, as Windows exports often do), utf-8, utf-16le, "
       "utf-16be or latin1.")
     ("skip-lines", po::value<int>(&skip_lines)->default_value(0),
-      "Records to drop from the top before the header or the data, such as the '#TYPE' line Export-Csv writes on Windows PowerShell 5.")
+      "Lines to drop from the top of the file before it is parsed, such as the '#TYPE' line Export-Csv writes on Windows PowerShell 5 or a "
+      "report title. Every line counts, blank ones included, and nothing in a skipped line is interpreted: a quote there does not open a field.")
     ("max-size", po::value<std::string>(&max_size)->default_value("16m"),
       "Refuse a file larger than this, in bytes optionally suffixed k/m/g. The whole file is read into memory.")
     ;
@@ -373,6 +374,7 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   error = csv_parser::validate(format);
   if (!error.empty()) return nscapi::protobuf::functions::set_response_bad(*response, error);
   if (skip_lines < 0) return nscapi::protobuf::functions::set_response_bad(*response, "skip-lines must not be negative");
+  format.skip_lines = static_cast<std::size_t>(skip_lines);
   try {
     const long long parsed = str::format::decode_byte_units(max_size);
     if (parsed < 0) return nscapi::protobuf::functions::set_response_bad(*response, "Invalid max-size: " + max_size + " (must not be negative)");
@@ -410,7 +412,8 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   if (!csv_parser::parse(text, format, records, error)) return nscapi::protobuf::functions::set_response_bad(*response, error + ": " + source);
   text.clear();
 
-  std::size_t first = std::min(records.size(), static_cast<std::size_t>(skip_lines));
+  // skip-lines was applied by the parser, before anything was interpreted.
+  std::size_t first = 0;
   if (header) {
     if (first >= records.size()) return nscapi::protobuf::functions::set_response_bad(*response, "header=true but the CSV has no header row: " + source);
     if (columns.empty() && !columns_from_header(records[first].fields, columns, error)) {

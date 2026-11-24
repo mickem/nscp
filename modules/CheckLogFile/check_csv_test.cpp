@@ -340,6 +340,23 @@ TEST(CheckCsv, DecimalsDoNotFollowTheProcessLocale) {
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, int_code);
 }
 
+TEST(CheckCsv, ColumnsStartingWithNotAreOrdinaryKeywords) {
+  // "not" is a word of the filter language; a column that merely starts with
+  // it (NotAfter, notes) must still be a column, at the start of a filter and
+  // after and/or, whether it was declared or taken from the header.
+  runner r;
+  r.source.files["/certs.csv"] = "Name,NotAfter,notes\nweb,2026-01-01,ok\ndb,2027-06-30,renew\n";
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.run({"file=/certs.csv", "header=true", "critical=NotAfter = '2026-01-01'", "detail-syntax=%(Name)"}))
+      << r.message();
+  EXPECT_EQ("CRITICAL: web", r.message());
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, r.run({"file=/certs.csv", "header=true", "warning=Name = 'db' and notes = 'renew'", "detail-syntax=%(Name)"}))
+      << r.message();
+  EXPECT_EQ("WARNING: db", r.message());
+  // ...while the word itself still negates.
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, r.run({"file=/certs.csv", "header=true", "warning=not notes = 'ok'", "detail-syntax=%(Name)"})) << r.message();
+  EXPECT_EQ("WARNING: db", r.message());
+}
+
 TEST(CheckCsv, ColumnsFromTheHeaderRow) {
   runner r;
   r.source.files["/data/updates.csv"] = kUpdates;
@@ -373,6 +390,27 @@ TEST(CheckCsv, SkipLinesDropsThePowerShellTypeLine) {
                                                     "top-syntax=%(status): %(count) of %(total): %(list)", "detail-syntax=%(Name)=%(Count)"}))
       << r.message();
   EXPECT_EQ("WARNING: 2 of 2: a=1, b=2", r.message());
+}
+
+TEST(CheckCsv, SkipLinesCountsBlankLines) {
+  // Counted as records, the blank line would not count: skip-lines=2 would
+  // then eat the header too and make the first data row the header.
+  runner r;
+  r.source.files["/x.csv"] = "Exported 2026-11-24\n\nName,Count\na,1\nb,3\n";
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.run({"file=/x.csv", "skip-lines=2", "header=true", "top-syntax=%(count) rows: %(list)", "detail-syntax=%(Name)"}))
+      << r.message();
+  EXPECT_EQ("2 rows: a, b", r.message());
+}
+
+TEST(CheckCsv, SkipLinesDoesNotParseTheSkippedLines) {
+  // A preamble that opens a quote and never closes it: skipped, it must not
+  // swallow the rest of the file.
+  runner r;
+  r.source.files["/x.csv"] = "\"Quarterly report\nName,Count\na,1\nb,3\n";
+  EXPECT_EQ(PB::Common::ResultCode::WARNING,
+            r.run({"file=/x.csv", "skip-lines=1", "header=true", "columns=Name, Count INTEGER", "warning=Count > 2", "detail-syntax=%(Name)"}))
+      << r.message();
+  EXPECT_EQ("WARNING: b", r.message());
 }
 
 TEST(CheckCsv, EmptyIntegerCellHasNoValue) {

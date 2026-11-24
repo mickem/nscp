@@ -48,9 +48,12 @@ called `Count` or `Status` is fine.
   breaks and the quote itself written twice (`"say ""hi"""`). A backslash is an
   ordinary character, so Windows paths in cells are read as written. Empty
   lines are skipped.
-* `delimiter=` (default `,`; also `tab`, `semicolon`, `pipe`), `quote=`
-  (default `"`, `none` to disable) and `skip-lines=` (records dropped before the
-  header, such as PowerShell's `#TYPE` line) adapt it to other dialects.
+* `delimiter=` (default `,`; also `tab`, `semicolon`, `pipe`) and `quote=`
+  (default `"`, `none` to disable) adapt it to other dialects.
+* `skip-lines=` drops lines from the top of the file before it is parsed, such
+  as PowerShell's `#TYPE` line or a report title. Every line counts, blank ones
+  included, and nothing in a skipped line is interpreted, so a stray quote
+  there cannot swallow the rest of the file.
 * `encoding=auto` (the default) reads UTF-8, and UTF-16LE or UTF-16BE when the
   file starts with a byte-order mark, as Windows exports often do. Name
   `utf-16le`, `utf-16be`, `utf-8` or `latin1` for a file without one.

@@ -24,6 +24,10 @@ namespace csv_parser {
 struct options {
   char delimiter = ',';
   char quote = '"';
+  // Physical lines to drop before parsing begins (a title, a '#TYPE' line):
+  // blank lines count and nothing in them is interpreted, so a quote in a
+  // skipped line cannot open a field. Line numbers still count them.
+  std::size_t skip_lines = 0;
 };
 
 struct record {
@@ -60,7 +64,7 @@ class parser {
   parser(const std::string &text, const options &opt, std::vector<record> &out) : text_(text), opt_(opt), out_(out) { current_.line = line_; }
 
   bool run(std::string &error) {
-    for (std::size_t i = 0; i < text_.size();) i += in_quotes_ ? step_quoted(i) : step_plain(i);
+    for (std::size_t i = skip_leading_lines(); i < text_.size();) i += in_quotes_ ? step_quoted(i) : step_plain(i);
     if (in_quotes_) {
       error = "Unterminated quoted field starting on line " + std::to_string(quote_line_);
       return false;
@@ -70,6 +74,27 @@ class parser {
   }
 
  private:
+  // Where parsing starts: past opt_.skip_lines line breaks, or the end of the
+  // text if it has fewer lines.
+  std::size_t skip_leading_lines() {
+    std::size_t i = 0;
+    for (std::size_t skipped = 0; skipped < opt_.skip_lines && i < text_.size(); ++skipped) i = next_line(i);
+    current_.line = line_;
+    return i;
+  }
+
+  // The start of the line after the one i is on, or the end of the text.
+  std::size_t next_line(std::size_t i) {
+    for (; i < text_.size(); ++i) {
+      const std::size_t brk = line_break_at(text_, i);
+      if (brk > 0) {
+        ++line_;
+        return i + brk;
+      }
+    }
+    return i;
+  }
+
   // Inside quotes everything is data except the quote itself.
   std::size_t step_quoted(const std::size_t i) {
     if (text_[i] == opt_.quote) return close_or_escape(i);

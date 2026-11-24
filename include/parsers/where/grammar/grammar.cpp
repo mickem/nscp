@@ -116,8 +116,13 @@ where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_t
 				= not_expr[qi::_val = qi::_1]
 				>> *(charset::no_case["and"] >> not_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_and, qi::_val, qi::_1)]
 				;
+			// `not` is a word, not a prefix: without the look-ahead a keyword
+			// that merely starts with it (a CSV column NotAfter, a field notes)
+			// parsed as `not After`. The lexeme keeps the skipper from eating
+			// the space the look-ahead has to see in `not x`.
 			not_expr
-				= charset::no_case["not"] >> cond_expr[qi::_val = phoenix::bind(&factory::create_un_op, op_not, qi::_1)]
+				= qi::lexeme[charset::no_case["not"] >> !(charset::alnum | charset::char_('_'))]
+					>> cond_expr[qi::_val = phoenix::bind(&factory::create_un_op, op_not, qi::_1)]
 				| cond_expr[qi::_val = qi::_1]
 				;
 
