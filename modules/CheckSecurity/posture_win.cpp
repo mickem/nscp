@@ -273,6 +273,8 @@ std::string sid_usage_to_string(SID_NAME_USE u) {
 }
 }  // namespace
 
+std::string default_group() { return "Administrators"; }
+
 void gather(const std::string &group, std::vector<group_members_filter::filter_obj_ptr> &out, std::string &error) {
   const std::wstring wgroup = utf8::cvt<std::wstring>(group);
   LOCALGROUP_MEMBERS_INFO_2 *buf = nullptr;

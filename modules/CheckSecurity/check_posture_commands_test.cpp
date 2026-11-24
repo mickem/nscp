@@ -67,8 +67,9 @@ source_fixture<group_members_filter::filter_obj> group_member_rows;
 source_fixture<users_filter::filter_obj> user_rows;
 
 // The group check_group_members was asked about, so the option plumbing can be
-// asserted on rather than assumed.
+// asserted on rather than assumed, and the platform default it falls back to.
 std::string requested_group;
+std::string platform_default_group = "Administrators";
 
 std::string join_lines(const PB::Commands::QueryResponseMessage::Response &r) {
   std::string out;
@@ -140,6 +141,7 @@ void gather(std::vector<local_accounts_filter::filter_obj_ptr> &out, std::string
 }  // namespace local_accounts_source
 
 namespace group_members_source {
+std::string default_group() { return platform_default_group; }
 void gather(const std::string &group, std::vector<group_members_filter::filter_obj_ptr> &out, std::string &error) {
   requested_group = group;
   error = group_member_rows.error;
@@ -170,6 +172,7 @@ class posture_command : public ::testing::Test {
     group_member_rows.reset();
     user_rows.reset();
     requested_group.clear();
+    platform_default_group = "Administrators";
   }
 };
 
@@ -461,6 +464,32 @@ TEST_F(posture_command, secureboot_a_legacy_bios_boot_can_be_excused) {
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
 }
 
+TEST_F(posture_command, secureboot_setup_mode_is_unknown_unless_the_source_read_it) {
+  // Windows never reads it; it must render as unknown rather than a fake 0.
+  auto state = secureboot_rows.add();
+  state->enabled = 1;
+  state->supported = 1;
+
+  PB::Commands::QueryResponseMessage::Response response;
+  check_secureboot_command::check(request_for("check_secureboot", {"crit=setup_mode = 1", "detail-syntax=sm=${setup_mode}"}), &response);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("sm=unknown"), std::string::npos) << join_lines(response);
+}
+
+TEST_F(posture_command, secureboot_setup_mode_can_be_alerted_on) {
+  auto state = secureboot_rows.add();
+  state->enabled = 0;
+  state->supported = 1;
+  state->setup_mode = 1;
+
+  PB::Commands::QueryResponseMessage::Response response;
+  check_secureboot_command::check(request_for("check_secureboot", {"crit=setup_mode = 1", "detail-syntax=sm=${setup_mode}"}), &response);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("sm=1"), std::string::npos) << join_lines(response);
+}
+
 // ---------------------------------------------------------------------------
 // check_defender - warning on ageing definitions, critical when protection is
 // off or the definitions are badly stale.
@@ -636,9 +665,35 @@ TEST(check_local_accounts_rid, well_known_rids_drive_the_builtin_flags) {
 TEST(check_local_accounts_rid, enabled_is_the_inverse_of_disabled) {
   local_accounts_filter::filter_obj account;
   account.disabled = 0;
-  EXPECT_EQ(1, account.get_enabled());
+  EXPECT_EQ(1, account.get_enabled().value());
   account.disabled = 1;
-  EXPECT_EQ(0, account.get_enabled());
+  EXPECT_EQ(0, account.get_enabled().value());
+}
+
+TEST(check_local_accounts_rid, enabled_is_unknown_when_disabled_is) {
+  // Linux without read access to /etc/shadow: no expiry data, so neither.
+  local_accounts_filter::filter_obj account;
+  account.disabled = boost::none;
+  EXPECT_FALSE(account.get_enabled());
+}
+
+TEST(check_local_accounts_rid, root_is_the_builtin_admin_and_other_uid0_accounts_are_extra) {
+  local_accounts_filter::filter_obj account;
+  account.name = "root";
+  account.uid = 0;
+  EXPECT_EQ(1, account.get_is_builtin_admin());
+  EXPECT_EQ(0, account.get_is_extra_uid0());
+  EXPECT_EQ(0, account.get_is_builtin_guest());
+
+  account.name = "toor";
+  EXPECT_EQ(0, account.get_is_builtin_admin());
+  EXPECT_EQ(1, account.get_is_extra_uid0());
+
+  // A Windows row has no uid at all: neither.
+  local_accounts_filter::filter_obj windows;
+  windows.name = "root";
+  EXPECT_EQ(0, windows.get_is_builtin_admin());
+  EXPECT_EQ(0, windows.get_is_extra_uid0());
 }
 
 namespace {
@@ -747,6 +802,77 @@ TEST_F(posture_command, local_accounts_emits_the_account_count_as_perfdata) {
   EXPECT_NE(std::find(labels.begin(), labels.end(), "svc-backup_password_required"), labels.end()) << join_lines(response);
 }
 
+namespace {
+
+// A Linux account as local_accounts_source::build_accounts() leaves it when
+// /etc/shadow could not be read: no hygiene flags, and the reason.
+std::shared_ptr<local_accounts_filter::filter_obj> unreadable_shadow_account(const std::string &name, const long long uid) {
+  auto row = local_account_rows.add();
+  row->name = name;
+  row->sid = std::to_string(uid);
+  row->uid = uid;
+  row->disabled = boost::none;
+  row->locked = boost::none;
+  row->password_expires = boost::none;
+  row->password_required = boost::none;
+  row->password_state = "unknown";
+  row->interactive = 1;
+  row->shadow_error = "Cannot read /etc/shadow: Permission denied";
+  return row;
+}
+
+}  // namespace
+
+TEST_F(posture_command, local_accounts_an_unreadable_shadow_is_unknown_not_ok) {
+  // The default critical reads password_required, which an unprivileged agent
+  // cannot know: reporting OK would be a silent false negative.
+  unreadable_shadow_account("root", 0);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  check_local_accounts_command::check(request_for("check_local_accounts", {}), &response);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("Cannot read /etc/shadow"), std::string::npos) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("allow-unreadable-shadow"), std::string::npos) << join_lines(response);
+}
+
+TEST_F(posture_command, local_accounts_an_unreadable_shadow_can_be_accepted_and_renders_unknown) {
+  unreadable_shadow_account("root", 0);
+  unreadable_shadow_account("toor", 0);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  // REST passes a valued boolean as one token: the bool_switch trap.
+  check_local_accounts_command::check(request_for("check_local_accounts", {"allow-unreadable-shadow=true", "show-all"}), &response);
+
+  // Unknown flags never satisfy the default thresholds...
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("root (enabled=unknown, pw_req=unknown, pw_exp=unknown, locked=unknown)"), std::string::npos) << join_lines(response);
+
+  // ...while the passwd-derived keywords still work.
+  PB::Commands::QueryResponseMessage::Response extra;
+  check_local_accounts_command::check(request_for("check_local_accounts", {"allow-unreadable-shadow", "crit=is_extra_uid0 = 1"}), &extra);
+  EXPECT_EQ(extra.result(), PB::Common::ResultCode::CRITICAL) << join_lines(extra);
+  EXPECT_NE(join_lines(extra).find("toor"), std::string::npos) << join_lines(extra);
+}
+
+TEST_F(posture_command, local_accounts_password_age_takes_durations) {
+  auto row = account("alice", -1, /*disabled=*/0);
+  row->now = 1000LL * 86400;
+  row->password_changed = 800LL * 86400;  // 200 days before `now`
+
+  PB::Commands::QueryResponseMessage::Response response;
+  check_local_accounts_command::check(request_for("check_local_accounts", {"warn=password_age > 90d", "crit=password_age > 365d"}), &response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::WARNING) << join_lines(response);
+}
+
+TEST_F(posture_command, local_accounts_an_unknown_password_age_never_alerts) {
+  account("alice", -1, /*disabled=*/0);  // no password_changed
+
+  PB::Commands::QueryResponseMessage::Response response;
+  check_local_accounts_command::check(request_for("check_local_accounts", {"crit=password_age > 1d"}), &response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+}
+
 // ---------------------------------------------------------------------------
 // check_group_members - membership drift against an expected= allow-list.
 // ---------------------------------------------------------------------------
@@ -782,6 +908,18 @@ TEST(check_group_members_allow_list, an_empty_list_matches_nothing) {
   EXPECT_FALSE(group_members_filter::is_expected(member, {}));
 }
 
+TEST(check_group_members_allow_list, linux_names_match_exactly) {
+  // On Linux "Root" and "root" are different accounts: a look-alike added to
+  // sudo must read as drift, not as the allowed account.
+  group_members_filter::filter_obj member;
+  member.member = "Root";
+  member.name = "Root";
+  member.case_sensitive = true;
+
+  EXPECT_FALSE(group_members_filter::is_expected(member, {"root"}));
+  EXPECT_TRUE(group_members_filter::is_expected(member, {"Root"}));
+}
+
 namespace {
 
 std::shared_ptr<group_members_filter::filter_obj> group_member(const std::string &domain, const std::string &name, const std::string &type = "user") {
@@ -802,6 +940,23 @@ TEST_F(posture_command, group_members_defaults_to_the_administrators_group) {
   check_group_members_command::check(request_for("check_group_members", {}), &response);
 
   EXPECT_EQ(requested_group, "Administrators");
+}
+
+TEST_F(posture_command, group_members_defaults_to_whatever_the_platform_names) {
+  // Linux: the first of sudo and wheel that exists.
+  platform_default_group = "wheel";
+  PB::Commands::QueryResponseMessage::Response response;
+  check_group_members_command::check(request_for("check_group_members", {}), &response);
+
+  EXPECT_EQ(requested_group, "wheel");
+}
+
+TEST_F(posture_command, group_members_an_explicit_group_wins_over_the_platform_default) {
+  platform_default_group = "sudo";
+  PB::Commands::QueryResponseMessage::Response response;
+  check_group_members_command::check(request_for("check_group_members", {"group=adm"}), &response);
+
+  EXPECT_EQ(requested_group, "adm");
 }
 
 TEST_F(posture_command, group_members_passes_the_requested_group_through) {

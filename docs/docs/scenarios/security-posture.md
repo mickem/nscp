@@ -1,15 +1,15 @@
 # Host Security Posture Monitoring
 
 **Goal:** Monitor a host's security posture — certificate expiry and TLS hygiene,
-interactive logon sessions, and (on Windows) the firewall, antivirus, disk
-encryption, Secure Boot and network-profile state — using the `CheckSecurity`
-module.
+interactive logon sessions, Secure Boot, local accounts and administrator group
+membership, and (on Windows) the firewall, antivirus, disk encryption and
+network-profile state — using the `CheckSecurity` module.
 
-`check_certificate` and `check_users` work on **Windows and Linux**; the
-remaining checks (`check_firewall`, `check_antivirus`, `check_bitlocker`,
-`check_secureboot`, `check_nla`, `check_activation`, `check_file_security`) are
-**Windows-only** and report a clear
-"not supported" on other platforms rather than a false OK.
+`check_certificate`, `check_users`, `check_secureboot`, `check_local_accounts`
+and `check_group_members` work on **Windows and Linux**; the remaining checks
+(`check_firewall`, `check_antivirus`, `check_bitlocker`, `check_nla`,
+`check_activation`, `check_file_security`) are **Windows-only** and report a
+clear "not supported" on other platforms rather than a false OK.
 
 ---
 
@@ -79,6 +79,52 @@ check_users "filter=session_type = 'remote'" "crit=count > 0" ; Linux ssh
 
 ---
 
+## Secure Boot, Local Accounts and Admin Groups (Windows and Linux)
+
+These three read the Windows registry, SAM and local groups on Windows, and the
+UEFI variables, `/etc/passwd` + `/etc/shadow` and `/etc/group` on Linux.
+
+### UEFI Secure Boot
+
+`check_secureboot` reports whether Secure Boot is enabled. Use `supported` to
+tell "disabled" from "legacy BIOS" (on Linux: no `/sys/firmware/efi`):
+
+```
+check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
+OK: secure boot is enabled
+```
+
+On Linux `setup_mode = 1` additionally catches firmware with no Platform Key
+enrolled.
+
+### Local accounts
+
+`check_local_accounts` is critical by default when an enabled account needs no
+password. On Linux that means an empty password field; the `*` / `!` system
+accounts are fine. Add a rule for a second superuser:
+
+```
+check_local_accounts "crit=(enabled = 1 and password_required = 0) or is_extra_uid0 = 1"
+```
+
+On Linux the password state lives in `/etc/shadow`, which the unprivileged
+`nsclient` user cannot read: the check is then UNKNOWN until the agent can read
+it (Debian: add `nsclient` to the `shadow` group) or `allow-unreadable-shadow`
+is passed, which keeps only the `/etc/passwd` keywords meaningful.
+
+### Administrator group membership
+
+`check_group_members` lists a local group (default `Administrators` on Windows,
+`sudo` or `wheel` on Linux) and is critical on any member not on the
+`expected=` allow-list:
+
+```
+check_group_members expected=Administrator "expected=Domain Admins"
+check_group_members expected=root expected=deploy        ; Linux
+```
+
+---
+
 ## Windows Posture Checks
 
 These read Windows-specific facilities and are **Windows-only**.
@@ -111,16 +157,6 @@ unprotected). Filter to the drives that matter:
 ```
 check_bitlocker "filter=drive = 'C:'" "crit=protected = 0"
 OK: all 1 volume(s) protected
-```
-
-### UEFI Secure Boot
-
-`check_secureboot` reports whether Secure Boot is enabled. Use `supported` to
-tell "disabled" from "legacy BIOS":
-
-```
-check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
-OK: secure boot is enabled
 ```
 
 ### Network Location Awareness
@@ -195,8 +231,11 @@ On a **Linux** host the cross-platform subset applies:
 
 ```ini
 [/settings/check helpers/alias]
-alias_cert  = check_certificate file=/etc/ssl/certs recursive=true "crit=expired = 1 or expires_in < 10"
-alias_users = check_users "crit=count > 10"
+alias_cert       = check_certificate file=/etc/ssl/certs recursive=true "crit=expired = 1 or expires_in < 10"
+alias_users      = check_users "crit=count > 10"
+alias_secureboot = check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
+alias_accounts   = check_local_accounts "crit=(enabled = 1 and password_required = 0) or is_extra_uid0 = 1"
+alias_sudoers    = check_group_members expected=root expected=deploy
 ```
 
 Each alias is then callable by name over NRPE

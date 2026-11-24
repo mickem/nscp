@@ -1,0 +1,136 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
+// Linux data source for check_group_members: a group's members from the local
+// files, /etc/group (the listed members) and /etc/passwd (the accounts whose
+// primary group it is - membership that `getent group` does not show, which is
+// why it is included). Both files are world-readable. NSS sources (LDAP, sssd)
+// are not enumerated: a group that only exists in a directory is "not found".
+
+#include <set>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "check_group_members.hpp"
+#include "check_local_accounts.hpp"
+
+namespace group_members_source {
+
+namespace {
+
+struct group_entry {
+  std::string name;
+  long long gid = -1;
+  std::vector<std::string> members;
+};
+
+// The /etc/group entries (name:password:gid:member,member,...). Comments,
+// blank, NIS compat (+/-) and malformed lines are skipped.
+std::vector<group_entry> parse_group(const std::string &content) {
+  std::vector<group_entry> out;
+  std::istringstream in(content);
+  std::string line;
+  while (std::getline(in, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (line.empty() || line[0] == '#' || line[0] == '+' || line[0] == '-') continue;
+    std::vector<std::string> f;
+    std::string::size_type start = 0;
+    for (;;) {
+      const std::string::size_type colon = line.find(':', start);
+      f.push_back(line.substr(start, colon == std::string::npos ? std::string::npos : colon - start));
+      if (colon == std::string::npos) break;
+      start = colon + 1;
+    }
+    if (f.size() != 4 || f[0].empty() || f[2].empty() || f[2].size() > 18) continue;
+    group_entry g;
+    g.name = f[0];
+    g.gid = 0;
+    bool numeric = true;
+    for (const char c : f[2]) {
+      if (c < '0' || c > '9') {
+        numeric = false;
+        break;
+      }
+      g.gid = g.gid * 10 + (c - '0');
+    }
+    if (!numeric) continue;
+    std::string::size_type ms = 0;
+    while (ms <= f[3].size() && !f[3].empty()) {
+      const std::string::size_type comma = f[3].find(',', ms);
+      const std::string m = f[3].substr(ms, comma == std::string::npos ? std::string::npos : comma - ms);
+      if (!m.empty()) g.members.push_back(m);
+      if (comma == std::string::npos) break;
+      ms = comma + 1;
+    }
+    out.push_back(g);
+  }
+  return out;
+}
+
+}  // namespace
+
+std::string first_existing_group(const std::string &group_content, const std::vector<std::string> &candidates) {
+  const std::vector<group_entry> groups = parse_group(group_content);
+  for (const std::string &c : candidates) {
+    for (const group_entry &g : groups) {
+      if (g.name == c) return c;
+    }
+  }
+  return "";
+}
+
+void members_from(const std::string &group_content, const std::string &passwd_content, const std::string &group,
+                  std::vector<group_members_filter::filter_obj_ptr> &out, std::string &error) {
+  if (group.empty()) {
+    error = "No default administrators group on this host (neither sudo nor wheel exists in /etc/group); pass group=<name>";
+    return;
+  }
+  const std::vector<group_entry> groups = parse_group(group_content);
+  const group_entry *entry = nullptr;
+  for (const group_entry &g : groups) {
+    if (g.name == group) {
+      entry = &g;
+      break;
+    }
+  }
+  if (entry == nullptr) {
+    error = "Local group not found: " + group;
+    return;
+  }
+  std::size_t skipped = 0;
+  const std::vector<local_accounts_source::passwd_entry> passwd = local_accounts_source::parse_passwd(passwd_content, skipped);
+
+  std::set<std::string> seen;
+  auto add = [&](const std::string &name) {
+    if (!seen.insert(name).second) return;
+    auto o = std::make_shared<group_members_filter::filter_obj>();
+    o->group = group;
+    o->member = name;
+    o->name = name;
+    o->case_sensitive = true;
+    o->type = "unknown";
+    for (const local_accounts_source::passwd_entry &p : passwd) {
+      if (p.name == name) {
+        o->type = "user";
+        o->sid = std::to_string(p.uid);
+        break;
+      }
+    }
+    out.push_back(o);
+  };
+  for (const std::string &m : entry->members) add(m);
+  for (const local_accounts_source::passwd_entry &p : passwd) {
+    if (p.gid == entry->gid) add(p.name);
+  }
+}
+
+void gather_from(const std::string &group_path, const std::string &passwd_path, const std::string &group,
+                 std::vector<group_members_filter::filter_obj_ptr> &out, std::string &error) {
+  std::string group_content, passwd_content;
+  if (!local_accounts_source::read_text_file(group_path, group_content, error)) return;
+  if (!local_accounts_source::read_text_file(passwd_path, passwd_content, error)) return;
+  members_from(group_content, passwd_content, group, out, error);
+}
+
+}  // namespace group_members_source
