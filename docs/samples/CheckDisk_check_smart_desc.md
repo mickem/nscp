@@ -25,7 +25,11 @@ of quietly reporting healthy drives.
 #### Drives without SMART
 
 Virtual disks (virtio, Hyper-V, Storage Spaces), hardware RAID volumes and SAS
-disks have no ATA or NVMe SMART to read; they get `smart_state=unsupported`. The
+disks have no ATA or NVMe SMART to read; they get `smart_state=unsupported`. On
+Windows a disk on any bus other than ATA/SATA or NVMe (USB, SD, SAS, iSCSI,
+RAID) is still asked, since some drivers pass SMART through, but a failure there
+is `unsupported` rather than `error`; only a failed read of an ATA/SATA or NVMe
+drive is an `error`. The
 default filter (`smart_state != 'unsupported'`) drops them, so a virtual machine
 lands in the empty state — `UNKNOWN: No drives with SMART data found`. Add
 `empty-state=ok` when the check is deployed to physical and virtual hosts alike.
@@ -42,7 +46,10 @@ never fires on a drive without a temperature sensor.
 `wear` is the share of the rated write endurance used: the NVMe *percentage
 used* (which may pass 100 on a drive that has outlived its rating), or for an ATA
 SSD 100 minus the normalised value of the first life-remaining attribute found
-(231, 233, 177, 202, 169). ATA counters are taken from the low 32 bits of the raw
+(231, 233, 177, 202, 169). Those ids mean other things on some hard drives, so
+an ATA drive's wear is only read when it reports itself as solid-state (`media`
+is `ssd`, from the rotation rate in its IDENTIFY data); a drive read through the
+Windows WMI fallback has no IDENTIFY data and reports no wear. ATA counters are taken from the low 32 bits of the raw
 value, which is where every vendor keeps the count.
 
 #### Thresholds

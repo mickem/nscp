@@ -60,7 +60,11 @@ struct smart_drive {
   std::string serial;
   std::string firmware;
   std::string protocol;  // ata, nvme, scsi, virtual, unknown
-  std::string source;    // how it was read: ioctl, wmi, sg_io, nvme_ioctl
+  // ssd, hdd or unknown: ATA IDENTIFY word 217 (nominal media rotation rate),
+  // ssd for every NVMe drive. Gates `wear`, whose attribute ids are not
+  // reserved for life-remaining on spinning drives.
+  std::string media = "unknown";
+  std::string source;  // how it was read: ioctl, wmi, sg_io, nvme_ioctl
   smart_state state = smart_state::unsupported;
   std::string error;  // why state != available
   smart_health health = smart_health::unknown;
@@ -141,6 +145,24 @@ int ata_status_from_registers(unsigned char lba_mid, unsigned char lba_high);
 // (09h), or fixed-format sense with the registers in the information and
 // command-specific fields (SAT-2 12.2.2.6). -1 when neither is present.
 int ata_status_from_sense(const unsigned char *sense, std::size_t length);
+
+// ATA IDENTIFY word 217: 1 is a non-rotating (solid-state) device, 0401h to
+// FFFEh a spinning one in rpm; 0 (not reported) and the reserved values read
+// as unknown.
+std::string media_from_rotation_rate(unsigned word217);
+
+// Whether an SG_IO call failed in transport rather than in the command: a
+// non-zero host status, or a driver status whose low three bits carry an error
+// (DRIVER_BUSY .. DRIVER_HARD). DRIVER_SENSE (08h) alone only says that sense
+// data came back, which CK_COND asks for.
+bool sg_transport_failed(unsigned host_status, unsigned driver_status);
+
+// The state of a drive whose SMART read failed. Only a drive on an ATA/SATA
+// bus is expected to answer, so only there is a failure an `error` (which
+// warns); behind anything else - USB, SD, SAS, iSCSI, RAID, an unknown bus -
+// or when the driver refused the command outright, the device simply does
+// not offer ATA SMART and is `unsupported`.
+smart_state ata_read_failure_state(bool ata_bus, bool refused_by_driver);
 }  // namespace detail
 
 }  // namespace smart_check

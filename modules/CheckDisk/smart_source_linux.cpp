@@ -21,6 +21,7 @@
 #include <fstream>
 #include <regex>
 #include <set>
+#include <sstream>
 
 #include "smart_data.hpp"
 
@@ -122,7 +123,7 @@ sg_result ata_pass_through(const int fd, const ata_command &cmd, std::vector<uns
     return sg_result::failed;
   }
   sense.resize(io.sb_len_wr);
-  if (io.host_status != 0 || (io.driver_status & 0x0F) > 0x08) {
+  if (detail::sg_transport_failed(io.host_status, io.driver_status)) {
     error = "SG_IO transport error (host " + std::to_string(io.host_status) + ", driver " + std::to_string(io.driver_status) + ")";
     return sg_result::failed;
   }
@@ -171,8 +172,8 @@ void read_ata(smart_drive &drive, const fs::path &sys) {
   if (r != sg_result::ok) {
     // Not an ATA device behind this path. A SAS disk keeps its health in SCSI
     // log pages, which this check does not read.
-    drive.state = r == sg_result::unsupported || drive.protocol == "scsi" ? smart_state::unsupported : smart_state::error;
-    drive.error = r == sg_result::unsupported || drive.protocol == "scsi" ? "device does not accept ATA pass-through (SCSI/SAS log pages are not read)" : error;
+    drive.state = detail::ata_read_failure_state(drive.protocol == "ata", r == sg_result::unsupported);
+    drive.error = drive.state == smart_state::unsupported ? "device does not accept ATA pass-through (SCSI/SAS log pages are not read)" : error;
     return;
   }
   drive.protocol = "ata";
@@ -182,6 +183,7 @@ void read_ata(smart_drive &drive, const fs::path &sys) {
   // Word 82 bit 0: SMART feature set supported; word 85 bit 0: enabled.
   const unsigned w82 = identify[164] | (identify[165] << 8);
   const unsigned w85 = identify[170] | (identify[171] << 8);
+  drive.media = detail::media_from_rotation_rate(identify[434] | (identify[435] << 8));
   if ((w82 & 1) == 0) {
     drive.state = smart_state::unsupported;
     drive.error = "drive does not implement SMART";
@@ -252,10 +254,20 @@ void read_nvme(smart_drive &drive, const std::string &controller, const std::str
   cmd.data_len = static_cast<unsigned int>(log.size());
   cmd.cdw10 = ((static_cast<unsigned int>(log.size() / 4) - 1) << 16) | 0x02;  // NUMDL | LID 02h (SMART / Health)
   cmd.timeout_ms = 10000;
-  if (::ioctl(fd, NVME_IOCTL_ADMIN_CMD, &cmd) < 0) {
+  const int rc = ::ioctl(fd, NVME_IOCTL_ADMIN_CMD, &cmd);
+  if (rc < 0) {
     const int err = errno;
     drive.state = is_permission_error(err) ? smart_state::denied : smart_state::error;
     drive.error = is_permission_error(err) ? permission_message(device, "CAP_SYS_ADMIN") : std::string("NVMe Get Log Page failed: ") + std::strerror(err);
+    return;
+  }
+  if (rc > 0) {
+    // The controller rejected the command: a positive return is the NVMe
+    // status field, and the buffer was never filled.
+    std::ostringstream ss;
+    ss << "NVMe Get Log Page failed with status 0x" << std::hex << rc;
+    drive.state = smart_state::error;
+    drive.error = ss.str();
     return;
   }
   drive.source = "nvme_ioctl";

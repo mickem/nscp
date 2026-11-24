@@ -85,6 +85,18 @@ int ata_status_from_sense(const unsigned char *sense, const std::size_t length) 
   }
   return -1;
 }
+
+std::string media_from_rotation_rate(const unsigned word217) {
+  if (word217 == 1) return "ssd";
+  if (word217 >= 0x0401 && word217 <= 0xFFFE) return "hdd";
+  return "unknown";
+}
+
+bool sg_transport_failed(const unsigned host_status, const unsigned driver_status) { return host_status != 0 || (driver_status & 0x07) != 0; }
+
+smart_state ata_read_failure_state(const bool ata_bus, const bool refused_by_driver) {
+  return ata_bus && !refused_by_driver ? smart_state::error : smart_state::unsupported;
+}
 }  // namespace detail
 
 std::string attribute_name(const int id) {
@@ -251,10 +263,14 @@ void apply_ata_attributes(smart_drive &drive, const std::vector<smart_attribute>
 
   // SSD wear: the vendors that report a lifetime keep the percentage
   // *remaining* in the normalised value of one of these (Kingston/SandForce
-  // 231, Intel 233, Samsung 177, Micron/Crucial 202, WD/SanDisk 169).
+  // 231, Intel 233, Samsung 177, Micron/Crucial 202, WD/SanDisk 169). The same
+  // ids mean other things on some hard drives, so only a drive that says it
+  // is solid-state is read; and a normalised value is 1..253, so 0 is an
+  // unused slot rather than a worn-out drive.
   for (const int id : {231, 233, 177, 202, 169}) {
+    if (drive.media != "ssd") break;
     if (const smart_attribute *a = find(attributes, id)) {
-      if (a->current >= 0 && a->current <= 100) {
+      if (a->current >= 1 && a->current <= 100) {
         drive.wear = 100 - a->current;
         break;
       }
@@ -276,6 +292,7 @@ void apply_ata_attributes(smart_drive &drive, const std::vector<smart_attribute>
 
 void apply_nvme_health_log(smart_drive &drive, const std::vector<unsigned char> &log) {
   if (log.size() < 512) throw std::invalid_argument("NVMe health log is " + std::to_string(log.size()) + " bytes, expected 512");
+  drive.media = "ssd";
   drive.critical_warning = log[0];
   const long long kelvin = static_cast<long long>(le(log, 1, 2));
   if (kelvin > 0) drive.temperature = kelvin - 273;

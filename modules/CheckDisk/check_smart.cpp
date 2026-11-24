@@ -39,6 +39,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("firmware", [](obj_type o) { return o->firmware; }, "Drive firmware revision")
       .add_string_var("protocol", [](obj_type o) { return o->protocol; },
                       "How the drive is attached: ata (ATA/SATA), nvme, scsi (SAS and other SCSI disks), virtual or unknown")
+      .add_string_var("media", [](obj_type o) { return o->media; },
+                      "ssd, hdd or unknown: the drive's reported rotation rate (ATA IDENTIFY word 217); every NVMe drive is ssd")
       .add_string_var("source", [](obj_type o) { return o->source; },
                       "Where the SMART data was read from: ioctl or wmi on Windows, sg_io or nvme_ioctl on Linux; empty when nothing was read")
       .add_string_var("smart_state", [](obj_type o) { return to_string(o->state); },
@@ -71,7 +73,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("c", "", "_power_cycles");
   registry_.add_int_var("wear", type_int, [](obj_type o) { return o->wear; },
                         "Percent of the rated write endurance used: NVMe percentage used (may exceed 100), or 100 minus the normalised "
-                        "life-remaining attribute of an ATA SSD (231, 233, 177, 202 or 169); -1 when not reported")
+                        "life-remaining attribute of an ATA SSD (231, 233, 177, 202 or 169); -1 when not reported, and always -1 unless media is ssd")
       .add_int_perf("%", "", "_wear");
   registry_.add_int_var("available_spare", type_int, [](obj_type o) { return o->available_spare; },
                         "NVMe available spare capacity in percent; -1 when not reported")

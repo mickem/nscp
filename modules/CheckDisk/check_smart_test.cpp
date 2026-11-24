@@ -160,8 +160,67 @@ TEST(SmartAta, SsdWearFromLifeRemaining) {
   bytes data, thresholds;
   make_ata({{177, 0x0013, 93, 93, 120, 0}}, data, thresholds);
   smart_drive d;
+  d.media = "ssd";
   apply_ata_attributes(d, parse_ata_attributes(data, thresholds), nullptr);
   EXPECT_EQ(d.wear, 7);
+}
+
+TEST(SmartAta, WearIsOnlyReadOnSolidStateDrives) {
+  // 177 and friends mean other things on some hard drives.
+  bytes data, thresholds;
+  make_ata({{177, 0x0013, 5, 5, 120, 0}}, data, thresholds);
+  for (const char *media : {"hdd", "unknown"}) {
+    smart_drive d;
+    d.media = media;
+    apply_ata_attributes(d, parse_ata_attributes(data, thresholds), nullptr);
+    EXPECT_EQ(d.wear, smart_check::not_reported) << media;
+  }
+}
+
+TEST(SmartAta, WearIgnoresAZeroNormalisedValue) {
+  // A normalised value is 1..253; 0 is an unused slot, not a worn-out drive.
+  // The next candidate (233) is used instead.
+  bytes data, thresholds;
+  make_ata({{231, 0x0013, 0, 0, 0, 0}, {233, 0x0032, 98, 98, 0, 0}}, data, thresholds);
+  smart_drive d;
+  d.media = "ssd";
+  apply_ata_attributes(d, parse_ata_attributes(data, thresholds), nullptr);
+  EXPECT_EQ(d.wear, 2);
+
+  make_ata({{231, 0x0013, 0, 0, 0, 0}}, data, thresholds);
+  smart_drive only_zero;
+  only_zero.media = "ssd";
+  apply_ata_attributes(only_zero, parse_ata_attributes(data, thresholds), nullptr);
+  EXPECT_EQ(only_zero.wear, smart_check::not_reported);
+}
+
+TEST(SmartAta, MediaFromRotationRate) {
+  EXPECT_EQ(smart_check::detail::media_from_rotation_rate(1), "ssd");
+  EXPECT_EQ(smart_check::detail::media_from_rotation_rate(7200), "hdd");
+  EXPECT_EQ(smart_check::detail::media_from_rotation_rate(0), "unknown");
+  EXPECT_EQ(smart_check::detail::media_from_rotation_rate(0x0002), "unknown");  // reserved
+  EXPECT_EQ(smart_check::detail::media_from_rotation_rate(0xFFFF), "unknown");  // reserved
+}
+
+TEST(SmartAta, SgTransportFailure) {
+  using smart_check::detail::sg_transport_failed;
+  EXPECT_FALSE(sg_transport_failed(0, 0));
+  EXPECT_FALSE(sg_transport_failed(0, 0x08));   // DRIVER_SENSE: sense data came back, as CK_COND asks
+  for (unsigned code = 1; code <= 7; ++code) {  // DRIVER_BUSY .. DRIVER_HARD
+    EXPECT_TRUE(sg_transport_failed(0, code)) << code;
+    EXPECT_TRUE(sg_transport_failed(0, code | 0x08)) << code;
+  }
+  EXPECT_TRUE(sg_transport_failed(7, 0));  // DID_ERROR
+}
+
+TEST(SmartAta, ReadFailureStateByBus) {
+  using smart_check::detail::ata_read_failure_state;
+  // Only an ATA/SATA disk that did not simply refuse is an error (and warns).
+  EXPECT_EQ(ata_read_failure_state(true, false), smart_state::error);
+  EXPECT_EQ(ata_read_failure_state(true, true), smart_state::unsupported);
+  // USB, SD, SAS, iSCSI, RAID: whatever the failure, the device has no ATA SMART to offer.
+  EXPECT_EQ(ata_read_failure_state(false, false), smart_state::unsupported);
+  EXPECT_EQ(ata_read_failure_state(false, true), smart_state::unsupported);
 }
 
 TEST(SmartAta, ImplausibleTemperatureIsNotReported) {
@@ -235,6 +294,7 @@ TEST(SmartNvme, DecodesHealthLog) {
   d.state = smart_state::available;
   apply_nvme_health_log(d, nvme_log());
   EXPECT_EQ(d.health, smart_health::passed);
+  EXPECT_EQ(d.media, "ssd");
   EXPECT_EQ(d.temperature, 41);
   EXPECT_EQ(d.available_spare, 100);
   EXPECT_EQ(d.available_spare_threshold, 10);

@@ -228,6 +228,7 @@ bool read_ata(const HANDLE h, smart_drive &drive, DWORD &ata_error) {
     if (!firmware.empty()) drive.firmware = firmware;
     const unsigned w82 = identify[164] | (identify[165] << 8);
     const unsigned w85 = identify[170] | (identify[171] << 8);
+    drive.media = detail::media_from_rotation_rate(identify[434] | (identify[435] << 8));
     if ((w82 & 1) == 0) {
       drive.protocol = "ata";
       drive.state = smart_state::unsupported;
@@ -296,53 +297,43 @@ std::string instance_to_pnp(const std::string &instance) {
 
 // Keyed by PhysicalDrive index. Empty when root\WMI has nothing (no
 // FailurePredict provider, not elevated) - the IOCTL path is the primary one.
+// Runs one root\WMI / root\cimv2 query and hands each row to `fn`. A query
+// that fails (the class has no provider, the namespace refuses an unelevated
+// caller) is skipped on its own, so a missing ...Thresholds class does not
+// throw away the PredictFailure verdict that ...Status already gave.
+template <class Fn> void each_row(const std::string &wql, const std::string &ns, Fn fn) {
+  try {
+    wmi_impl::query q(wql, ns, "", "");
+    wmi_impl::row_enumerator rows = q.execute();
+    while (rows.has_next()) fn(rows.get_next());
+  } catch (const std::exception &) {
+  }
+}
+
+// Keyed by PhysicalDrive index. Empty when root\WMI has nothing (no
+// FailurePredict provider, not elevated) - the IOCTL path is the primary one.
 std::map<int, wmi_predict> read_wmi() {
   std::map<int, wmi_predict> out;
-  try {
-    std::map<std::string, int> pnp_to_index;
-    {
-      wmi_impl::query q("select Index, PNPDeviceID from Win32_DiskDrive", "root\\cimv2", "", "");
-      wmi_impl::row_enumerator rows = q.execute();
-      while (rows.has_next()) {
-        const wmi_impl::row &r = rows.get_next();
-        pnp_to_index[upper(r.get_string_or_empty("PNPDeviceID"))] = static_cast<int>(r.get_int_or("Index", -1));
-      }
-    }
-    std::map<std::string, wmi_predict> by_pnp;
-    {
-      wmi_impl::query q("select InstanceName, PredictFailure from MSStorageDriver_FailurePredictStatus", "root\\WMI", "", "");
-      wmi_impl::row_enumerator rows = q.execute();
-      while (rows.has_next()) {
-        const wmi_impl::row &r = rows.get_next();
-        wmi_predict &p = by_pnp[instance_to_pnp(r.get_string_or_empty("InstanceName"))];
-        p.have_status = true;
-        p.predict_failure = r.get_int_or("PredictFailure", 0) != 0;
-      }
-    }
-    {
-      wmi_impl::query q("select InstanceName, VendorSpecific from MSStorageDriver_FailurePredictData", "root\\WMI", "", "");
-      wmi_impl::row_enumerator rows = q.execute();
-      while (rows.has_next()) {
-        const wmi_impl::row &r = rows.get_next();
-        by_pnp[instance_to_pnp(r.get_string_or_empty("InstanceName"))].data = get_bytes(r, L"VendorSpecific");
-      }
-    }
-    {
-      wmi_impl::query q("select InstanceName, VendorSpecific from MSStorageDriver_FailurePredictThresholds", "root\\WMI", "", "");
-      wmi_impl::row_enumerator rows = q.execute();
-      while (rows.has_next()) {
-        const wmi_impl::row &r = rows.get_next();
-        by_pnp[instance_to_pnp(r.get_string_or_empty("InstanceName"))].thresholds = get_bytes(r, L"VendorSpecific");
-      }
-    }
-    for (const auto &e : by_pnp) {
-      const auto it = pnp_to_index.find(e.first);
-      if (it != pnp_to_index.end() && it->second >= 0) out[it->second] = e.second;
-    }
-  } catch (const std::exception &) {
-    // No FailurePredict provider for any disk (the classes then have no
-    // instances, or the namespace refuses an unelevated caller): the IOCTL
-    // results stand on their own.
+  std::map<std::string, int> pnp_to_index;
+  each_row("select Index, PNPDeviceID from Win32_DiskDrive", "root\\cimv2",
+           [&](const wmi_impl::row &r) { pnp_to_index[upper(r.get_string_or_empty("PNPDeviceID"))] = static_cast<int>(r.get_int_or("Index", -1)); });
+  // Without the disk list no instance can be tied to a PhysicalDrive.
+  if (pnp_to_index.empty()) return out;
+
+  std::map<std::string, wmi_predict> by_pnp;
+  each_row("select InstanceName, PredictFailure from MSStorageDriver_FailurePredictStatus", "root\\WMI", [&](const wmi_impl::row &r) {
+    wmi_predict &p = by_pnp[instance_to_pnp(r.get_string_or_empty("InstanceName"))];
+    p.have_status = true;
+    p.predict_failure = r.get_int_or("PredictFailure", 0) != 0;
+  });
+  each_row("select InstanceName, VendorSpecific from MSStorageDriver_FailurePredictData", "root\\WMI",
+           [&](const wmi_impl::row &r) { by_pnp[instance_to_pnp(r.get_string_or_empty("InstanceName"))].data = get_bytes(r, L"VendorSpecific"); });
+  each_row("select InstanceName, VendorSpecific from MSStorageDriver_FailurePredictThresholds", "root\\WMI",
+           [&](const wmi_impl::row &r) { by_pnp[instance_to_pnp(r.get_string_or_empty("InstanceName"))].thresholds = get_bytes(r, L"VendorSpecific"); });
+
+  for (const auto &e : by_pnp) {
+    const auto it = pnp_to_index.find(e.first);
+    if (it != pnp_to_index.end() && it->second >= 0) out[it->second] = e.second;
   }
   return out;
 }
@@ -398,13 +389,17 @@ std::vector<smart_drive> read_drives() {
       drive.state = smart_state::unsupported;
       drive.error = "virtual disk";
     } else {
+      // Every other bus is worth a try - some RAID and USB drivers pass SMART
+      // through - but only an ATA/SATA disk is expected to answer, so only
+      // there is a failure reported as an error.
       DWORD ata_error = 0;
       if (!read_ata(rw, drive, ata_error)) {
-        // ERROR_INVALID_FUNCTION / ERROR_NOT_SUPPORTED: the driver does not
-        // pass SMART through (USB bridges, RAID controllers, SAS HBAs).
-        const bool not_passed = ata_error == ERROR_INVALID_FUNCTION || ata_error == ERROR_NOT_SUPPORTED || ata_error == ERROR_INVALID_PARAMETER;
-        drive.state = not_passed ? smart_state::unsupported : smart_state::error;
-        drive.error = not_passed ? "the storage driver does not pass SMART commands through" : "SMART read failed: " + last_error_text(ata_error);
+        // ERROR_INVALID_FUNCTION / ERROR_NOT_SUPPORTED / ERROR_INVALID_PARAMETER:
+        // the driver refused the command outright.
+        const bool refused = ata_error == ERROR_INVALID_FUNCTION || ata_error == ERROR_NOT_SUPPORTED || ata_error == ERROR_INVALID_PARAMETER;
+        drive.state = detail::ata_read_failure_state(bus == bus_ata || bus == bus_sata, refused);
+        drive.error = drive.state == smart_state::unsupported ? "the storage driver does not pass SMART commands through (" + last_error_text(ata_error) + ")"
+                                                              : "SMART read failed: " + last_error_text(ata_error);
       }
     }
 
