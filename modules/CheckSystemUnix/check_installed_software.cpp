@@ -13,6 +13,7 @@
 #include <memory>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/helpers.hpp>
+#include <str/ascii.hpp>
 
 namespace installed_software {
 
@@ -232,7 +233,7 @@ software_entry receipt_entry(const plist::value &receipt) {
 
 bool version_less(const std::string &a, const std::string &b) {
   std::string::size_type i = 0, j = 0;
-  const auto is_digit = [](const char c) { return c >= '0' && c <= '9'; };
+  using str::ascii::is_digit;
   while (i < a.size() && j < b.size()) {
     if (is_digit(a[i]) && is_digit(b[j])) {
       // Compare the digit runs as numbers of any length: skip leading zeros,

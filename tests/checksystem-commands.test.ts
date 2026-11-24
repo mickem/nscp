@@ -869,10 +869,13 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
   it("check_pending_reboot returns one aggregate row with perf", async () => {
     if (onDarwin) return; // no macOS reader yet: the check reports UNKNOWN there.
     // Pin thresholds off so the result is deterministic regardless of the host's
-    // actual reboot state; here we exercise the command and its perfdata.
+    // actual reboot state; here we exercise the command and its perfdata. On
+    // Linux, allow-unreadable keeps a kernel inventory the agent may not read
+    // from turning the result UNKNOWN.
     const q = await executeQuery(key, "check_pending_reboot", {
       warning: "none",
       critical: "none",
+      ...(onLinux ? { "allow-unreadable": "true" } : {}),
     });
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toMatch(/No reboot pending|Reboot required: /);
@@ -909,6 +912,7 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     const q = await executeQuery(key, "check_pending_reboot", {
       warning: "none",
       critical: "pending = 1 and age > 3650d",
+      ...(onLinux ? { "allow-unreadable": "true" } : {}),
     });
     expect(messageOf(q)).not.toMatch(/does not take any arguments/);
     expect(messageOf(q)).not.toMatch(/invalid|error/i);
@@ -918,26 +922,51 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
   it("check_pending_reboot exposes the Linux signals and the running kernel (Linux)", async () => {
     if (!onLinux) return; // marker/kernel/running_kernel are the Linux keywords.
     // The per-cause bool keywords parse in a threshold, and running_kernel is
-    // uname -r. In a container (no kernel package, no /lib/modules for the
-    // host's kernel) kernel must stay 0 - never a false positive.
+    // uname -r. A signal the agent could not read is 'unknown'. In a
+    // container kernel must stay 0 - never a false positive.
     const q = await executeQuery(key, "check_pending_reboot", {
       warning: "none",
       critical: "none",
+      "allow-unreadable": "true",
       "detail-syntax":
         "signals=${signals} marker=${marker} kernel=${kernel} running=${running_kernel} reasons=${reasons}",
     });
     expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
     expect(q.result).toBe(OK);
-    expect(messageOf(q)).toMatch(/signals=[0-2] marker=[01] kernel=[01] running=\S+ reasons=/);
+    expect(messageOf(q)).toMatch(
+      /signals=[0-2] marker=([01]|unknown) kernel=([01]|unknown) running=\S+ reasons=/,
+    );
     expect(messageOf(q)).toContain(`running=${os.release()} `);
-    if (
-      !fs.existsSync(`/lib/modules/${os.release()}`) &&
-      !fs.existsSync(`/usr/lib/modules/${os.release()}`)
-    ) {
+    const inContainer = ["/run/systemd/container", "/run/.containerenv", "/.dockerenv"].some((p) =>
+      fs.existsSync(p),
+    );
+    if (inContainer) {
       expect(messageOf(q)).toContain("kernel=0");
     }
     if (!fs.existsSync("/run/reboot-required") && !fs.existsSync("/run/reboot-needed")) {
       expect(messageOf(q)).toContain("marker=0");
+    }
+  });
+
+  it("check_pending_reboot takes allow-unreadable as a valued boolean over REST (Linux)", async () => {
+    if (!onLinux) return; // the option is Linux-only.
+    // The bool_switch trap: REST passes `allow-unreadable=true` as one token.
+    // With thresholds pinned off the result is OK whatever the host's state.
+    for (const value of ["true", "false"]) {
+      const q = await executeQuery(key, "check_pending_reboot", {
+        warning: "none",
+        critical: "none",
+        "allow-unreadable": value,
+      });
+      expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+      // false may legitimately be UNKNOWN on a host whose kernel inventory
+      // this agent cannot read; it must then say so.
+      if (q.result === UNKNOWN) {
+        expect(value).toBe("false");
+        expect(messageOf(q)).toMatch(/^Cannot tell whether a reboot is pending: /);
+      } else {
+        expect(q.result).toBe(OK);
+      }
     }
   });
 

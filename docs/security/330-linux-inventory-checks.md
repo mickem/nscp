@@ -12,8 +12,11 @@ report:
 
 - `check_pending_reboot`: the running kernel release, the newest installed
   kernel release and the package names in `/run/reboot-required.pkgs`, which
-  together show the host's patch level. It needs no privileges: every file it
-  reads is world-readable, and it runs no external process.
+  together show the host's patch level. It needs no privileges: the files it
+  reports from are world-readable, and it runs no external process. When the
+  agent runs as root it also reads PID 1's environment to recognise a
+  container; nothing from it is reported. A message saying the kernel
+  inventory could not be read names the path and the error.
 - `check_hardware`: vendor, model, chassis type, asset tag and installed
   memory, which any user can read. When the agent runs as root it also reports
   the system serial, the system UUID, the enclosure serial and the per-DIMM
