@@ -62,3 +62,27 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Server" REGULAR_EXPRESSION .*include/nrpe/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+
+# Unit tests for the module class: the settings it registers, the
+# configurations a start refuses before the listener is built, and handle()
+# driven directly with the stub core (include/nscapi/test_helpers.hpp)
+# answering the queries. No test opens a socket.
+NSCP_CREATE_TEST(
+    nrpe_server_module_test
+    SOURCES
+        nrpe_server_module_test.cpp
+        "${TARGET}.cpp"
+        ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
+        ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        nscp_net
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
