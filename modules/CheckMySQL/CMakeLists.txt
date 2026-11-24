@@ -125,3 +125,41 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# Unit tests for the module class: the settings it registers, the facts
+# selection, and that the checks and the facts round connect with the
+# configured defaults - pointed at a unix socket that does not exist, so no
+# server is needed. The stub core (include/nscapi/test_helpers.hpp) stands in
+# for the daemon. Not on Windows: there `socket` names a named pipe, and the
+# test executable would also need libmariadb.dll staged next to it.
+if(NOT WIN32)
+    NSCP_CREATE_TEST(
+        check_mysql_module_test
+        SOURCES
+            check_mysql_module_test.cpp
+            "${TARGET}.cpp"
+            check_mysql.cpp
+            check_mysql_query.cpp
+            mysql_client.cpp
+            mysql_facts.cpp
+            mysql_session.cpp
+            ${NSCP_DEF_PLUGIN_CPP}
+            ${NSCP_FILTER_CPP}
+            ${NSCP_ERROR_CPP}
+        LIBRARIES
+            GTest::gtest_main
+            ${Boost_FILESYSTEM_LIBRARY}
+            ${Boost_REGEX_LIBRARY}
+            ${Boost_DATE_TIME_LIBRARY}
+            ${Boost_THREAD_LIBRARY}
+            ${Boost_PROGRAM_OPTIONS_LIBRARY}
+            ${NSCP_DEF_PLUGIN_LIB}
+            ${NSCP_FILTER_LIB}
+            expression_parser
+            ${MARIADB_LIBRARY}
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${MARIADB_INCLUDE_DIR}
+    )
+endif()
