@@ -14,7 +14,9 @@ platform: `uid`, `gid`, `home`, `shell`, `interactive`, `is_extra_uid0`,
 Windows), and the enabled/password keywords render `unknown` when they cannot
 be read. `/etc/shadow` is root-only, so under the packaged unprivileged
 `nsclient` user the check returns UNKNOWN until the agent can read it (Debian:
-add it to the `shadow` group) or `allow-unreadable-shadow` is passed. Windows
-behaviour is unchanged; macOS still reports "not supported". See the
+add it to the `shadow` group) or `allow-unreadable-shadow` is passed. It is
+also UNKNOWN when a `/etc/passwd` line cannot be parsed or a shadowed account
+has no usable `/etc/shadow` entry (`pwck` finds both), rather than answering
+for the accounts it could read. Windows behaviour is unchanged; macOS still reports "not supported". See the
 [security notice](../security/notices.md#linux-account-checks-expose-the-local-account-list-and-password-state)
 for what the check exposes.

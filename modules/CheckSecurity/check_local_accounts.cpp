@@ -35,13 +35,15 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("shell", &filter_obj::get_shell, "Login shell (Linux; empty on Windows)")
       .add_string_var("password_state", &filter_obj::get_password_state,
                       "What the password field allows (Linux): set (a password hash), empty (no password: passwordless logon), locked (starts "
-                      "with '!'), none ('*' or another value no password matches), unknown (/etc/shadow unreadable or no entry). Empty on Windows");
+                      "with '!'), none ('*' or another value no password matches), unknown (/etc/shadow unreadable, or no usable entry in it). "
+                      "Empty on Windows");
   // The hygiene flags are optional: on Linux they come from /etc/shadow and are
   // 'unknown' when the agent cannot read it, so they never trip a threshold on
   // a made-up value.
   registry_
       .add_optional_int_var("disabled", type_bool, [](auto obj) { return obj->get_disabled(); }, "unknown",
-                            "True if the account is disabled (Linux: the account expiry date in /etc/shadow has passed)")
+                            "True if the account is disabled (Linux: the account expiry date in /etc/shadow has passed, or the password expired "
+                            "longer ago than its inactivity period allows)")
       .add_optional_int_var("enabled", type_bool, [](auto obj) { return obj->get_enabled(); }, "unknown",
                             "True if the account is enabled (convenience inverse of disabled)")
       .add_optional_int_var("locked", type_bool, [](auto obj) { return obj->get_locked(); }, "unknown",
@@ -77,6 +79,24 @@ filter_obj_handler::filter_obj_handler() {
 
 namespace check_local_accounts_command {
 
+std::string unknown_state_error(const std::vector<local_accounts_filter::filter_obj_ptr> &accounts) {
+  const local_accounts_filter::filter_obj *first = nullptr;
+  std::size_t others = 0;
+  for (const local_accounts_filter::filter_obj_ptr &a : accounts) {
+    if (a->shadow_error.empty()) continue;
+    if (first == nullptr) {
+      first = a.get();
+    } else if (a->shadow_error != first->shadow_error) {
+      ++others;
+    }
+  }
+  if (first == nullptr) return "";
+  std::string message = first->shadow_error;
+  if (others > 0) message += " (and " + std::to_string(others) + " more account(s))";
+  return message + " - password and expiry state is unknown; " + (first->shadow_hint.empty() ? "run the agent with read access to it" : first->shadow_hint) +
+         " or pass allow-unreadable-shadow";
+}
+
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   modern_filter::data_container data;
   modern_filter::cli_helper<local_accounts_filter::filter> filter_helper(request, response, data);
@@ -98,9 +118,10 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // clang-format off
   filter_helper.get_desc().add_options()
     ("allow-unreadable-shadow", po::value<bool>(&allow_unreadable_shadow)->implicit_value(true)->default_value(false),
-     "Linux: report the accounts even when /etc/shadow cannot be read (the agent is not root). The password and expiry keywords "
-     "(enabled, disabled, locked, password_required, password_expires, password_*) are then 'unknown' and never match a threshold. "
-     "Without it, an unreadable /etc/shadow makes the check UNKNOWN. No effect on Windows.")
+     "Linux: report the accounts even when /etc/shadow cannot be read (the agent is not root) or has no usable entry for an "
+     "account. The password and expiry keywords (enabled, disabled, locked, password_required, password_expires, password_*) "
+     "of those accounts are then 'unknown' and no comparison on them is true - so a negated rule (not password_required = 1) "
+     "does match them. Without it, such an account makes the check UNKNOWN. No effect on Windows.")
     ;
   // clang-format on
 
@@ -116,12 +137,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // An account whose password state could not be read would otherwise pass the
   // default thresholds silently: refuse unless the operator opted in.
   if (!allow_unreadable_shadow) {
-    for (const local_accounts_filter::filter_obj_ptr &a : accounts) {
-      if (!a->shadow_error.empty()) {
-        return nscapi::protobuf::functions::set_response_bad(
-            *response, a->shadow_error + " - password and expiry state is unknown; run the agent with read access to it or pass allow-unreadable-shadow");
-      }
-    }
+    const std::string refusal = check_local_accounts_command::unknown_state_error(accounts);
+    if (!refusal.empty()) return nscapi::protobuf::functions::set_response_bad(*response, refusal);
   }
 
   parsers::where::constants::reset();

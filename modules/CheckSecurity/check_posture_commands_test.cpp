@@ -250,8 +250,7 @@ TEST_F(posture_command, nla_the_problem_list_holds_only_the_offending_network) {
   guest->connected = 1;
 
   PB::Commands::QueryResponseMessage::Response response;
-  check_nla_command::check(
-      request_for("check_nla", {"crit=connected = 1 and category = 'public'", "top-syntax=${status}: ${problem_list}"}), &response);
+  check_nla_command::check(request_for("check_nla", {"crit=connected = 1 and category = 'public'", "top-syntax=${status}: ${problem_list}"}), &response);
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
   EXPECT_NE(join_lines(response).find("Guest Wifi=public"), std::string::npos) << join_lines(response);
@@ -855,6 +854,68 @@ TEST_F(posture_command, local_accounts_an_unreadable_shadow_can_be_accepted_and_
   EXPECT_NE(join_lines(extra).find("toor"), std::string::npos) << join_lines(extra);
 }
 
+TEST_F(posture_command, local_accounts_unknown_fails_every_comparison_but_a_negated_rule_matches_it) {
+  // The engine is two-valued: a comparison on an unknown value is false, so
+  // `not <comparison>` is true. Documented on allow-unreadable-shadow, and
+  // pinned here so that the documentation stays honest if the engine changes.
+  unreadable_shadow_account("root", 0);
+  const auto result_of = [](const char *rule) {
+    PB::Commands::QueryResponseMessage::Response response;
+    check_local_accounts_command::check(request_for("check_local_accounts", {"allow-unreadable-shadow", rule}), &response);
+    return response.result();
+  };
+  for (const char *rule : {"crit=password_required = 0", "crit=password_required = 1", "crit=password_required != 1", "crit=password_required < 1",
+                           "crit=password_required not in (1)", "crit=enabled = 1 and password_required = 0"}) {
+    EXPECT_EQ(result_of(rule), PB::Common::ResultCode::OK) << rule;
+  }
+  for (const char *rule : {"crit=not password_required = 1", "crit=not (enabled = 1 and password_required = 1)"}) {
+    EXPECT_EQ(result_of(rule), PB::Common::ResultCode::CRITICAL) << rule;
+  }
+}
+
+TEST_F(posture_command, local_accounts_an_account_without_a_usable_shadow_entry_is_unknown_not_ok) {
+  // /etc/shadow was readable but said nothing usable about these accounts: the
+  // default thresholds must not pass on password state nobody read.
+  account("alice", -1, /*disabled=*/0);
+  for (const char *name : {"bob", "carol"}) {
+    auto row = unreadable_shadow_account(name, 1000);
+    row->shadow_error = std::string("No entry for account '") + name + "' in /etc/shadow";
+    row->shadow_hint = "repair the file (see pwck)";
+  }
+
+  PB::Commands::QueryResponseMessage::Response response;
+  check_local_accounts_command::check(request_for("check_local_accounts", {}), &response);
+  const std::string text = join_lines(response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << text;
+  EXPECT_NE(text.find("No entry for account 'bob' in /etc/shadow (and 1 more account(s))"), std::string::npos) << text;
+  EXPECT_NE(text.find("repair the file (see pwck) or pass allow-unreadable-shadow"), std::string::npos) << text;
+  // The advice for an unreadable file does not apply here.
+  EXPECT_EQ(text.find("read access"), std::string::npos) << text;
+
+  PB::Commands::QueryResponseMessage::Response accepted;
+  check_local_accounts_command::check(request_for("check_local_accounts", {"allow-unreadable-shadow=true"}), &accepted);
+  EXPECT_EQ(accepted.result(), PB::Common::ResultCode::OK) << join_lines(accepted);
+}
+
+TEST(check_local_accounts_refusal, names_the_first_reason_and_counts_only_different_ones) {
+  const auto row = [](const std::string &error, const std::string &hint = "") {
+    auto r = std::make_shared<local_accounts_filter::filter_obj>();
+    r->shadow_error = error;
+    r->shadow_hint = hint;
+    return r;
+  };
+  EXPECT_EQ("", check_local_accounts_command::unknown_state_error({}));
+  EXPECT_EQ("", check_local_accounts_command::unknown_state_error({row(""), row("")}));
+  // An unreadable file marks every row with the same reason: said once.
+  EXPECT_EQ(
+      "Cannot read /etc/shadow: Permission denied - password and expiry state is unknown; run the agent with read access to it or pass "
+      "allow-unreadable-shadow",
+      check_local_accounts_command::unknown_state_error(
+          {row("Cannot read /etc/shadow: Permission denied"), row(""), row("Cannot read /etc/shadow: Permission denied")}));
+  EXPECT_EQ("a (and 2 more account(s)) - password and expiry state is unknown; fix it or pass allow-unreadable-shadow",
+            check_local_accounts_command::unknown_state_error({row(""), row("a", "fix it"), row("b", "other"), row("c")}));
+}
+
 TEST_F(posture_command, local_accounts_password_age_takes_durations) {
   auto row = account("alice", -1, /*disabled=*/0);
   row->now = 1000LL * 86400;
@@ -1001,8 +1062,8 @@ TEST_F(posture_command, group_members_an_unexpected_member_is_critical) {
   group_member("CONTOSO", "eve");
 
   PB::Commands::QueryResponseMessage::Response response;
-  check_group_members_command::check(
-      request_for("check_group_members", {"expected=BUILTIN\\Administrator", "top-syntax=${status}: ${problem_list}"}), &response);
+  check_group_members_command::check(request_for("check_group_members", {"expected=BUILTIN\\Administrator", "top-syntax=${status}: ${problem_list}"}),
+                                     &response);
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
   // Only the drift is a problem; the allowed member is not in the problem list.
@@ -1015,8 +1076,7 @@ TEST_F(posture_command, group_members_a_fully_expected_group_is_ok) {
   group_member("CONTOSO", "Domain Admins", "group");
 
   PB::Commands::QueryResponseMessage::Response response;
-  check_group_members_command::check(
-      request_for("check_group_members", {"expected=BUILTIN\\Administrator", "expected=CONTOSO\\Domain Admins"}), &response);
+  check_group_members_command::check(request_for("check_group_members", {"expected=BUILTIN\\Administrator", "expected=CONTOSO\\Domain Admins"}), &response);
 
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
 }

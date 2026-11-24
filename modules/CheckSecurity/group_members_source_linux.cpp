@@ -8,10 +8,10 @@
 // are not enumerated: a group that only exists in a directory is "not found".
 
 #include <set>
-#include <sstream>
 #include <string>
 #include <vector>
 
+#include "account_files_linux.hpp"
 #include "check_group_members.hpp"
 #include "check_local_accounts.hpp"
 
@@ -36,51 +36,25 @@ struct group_file {
 
 // The /etc/group entries (name:password:gid:member,member,...). Comments,
 // blank and NIS compat (+/-) lines are skipped; malformed lines are remembered
-// by name.
+// by name. As in glibc, the member field may be missing altogether
+// ("sudo:x:27" is a group with no listed members).
 group_file parse_group(const std::string &content) {
   group_file out;
-  std::istringstream in(content);
-  std::string line;
-  while (std::getline(in, line)) {
-    if (!line.empty() && line.back() == '\r') line.pop_back();
-    if (line.empty() || line[0] == '#' || line[0] == '+' || line[0] == '-') continue;
-    std::vector<std::string> f;
-    std::string::size_type start = 0;
-    for (;;) {
-      const std::string::size_type colon = line.find(':', start);
-      f.push_back(line.substr(start, colon == std::string::npos ? std::string::npos : colon - start));
-      if (colon == std::string::npos) break;
-      start = colon + 1;
-    }
-    if (f.size() != 4 || f[0].empty() || f[2].empty() || f[2].size() > 18) {
-      out.malformed.insert(f[0]);
-      continue;
-    }
+  account_files::for_each_entry(content, [&](const std::string &line, std::size_t) {
+    const std::vector<std::string> f = account_files::split_fields(line);
     group_entry g;
-    g.name = f[0];
-    g.gid = 0;
-    bool numeric = true;
-    for (const char c : f[2]) {
-      if (c < '0' || c > '9') {
-        numeric = false;
-        break;
-      }
-      g.gid = g.gid * 10 + (c - '0');
-    }
-    if (!numeric) {
+    if (f.size() < 3 || f.size() > 4 || f[0].empty() || !account_files::parse_number(f[2], g.gid) || g.gid < 0) {
       out.malformed.insert(f[0]);
-      continue;
+      return;
     }
-    std::string::size_type ms = 0;
-    while (ms <= f[3].size() && !f[3].empty()) {
-      const std::string::size_type comma = f[3].find(',', ms);
-      const std::string m = f[3].substr(ms, comma == std::string::npos ? std::string::npos : comma - ms);
-      if (!m.empty()) g.members.push_back(m);
-      if (comma == std::string::npos) break;
-      ms = comma + 1;
+    g.name = f[0];
+    if (f.size() == 4) {
+      for (const std::string &member : account_files::split_fields(f[3], ',')) {
+        if (!member.empty()) g.members.push_back(member);
+      }
     }
     out.entries.push_back(g);
-  }
+  });
   return out;
 }
 
@@ -123,8 +97,14 @@ void members_from(const std::string &group_content, const std::string &passwd_co
     error = "Local group not found: " + group;
     return;
   }
-  std::size_t skipped = 0;
+  std::vector<std::size_t> skipped;
   const std::vector<local_accounts_source::passwd_entry> passwd = local_accounts_source::parse_passwd(passwd_content, skipped);
+  // A passwd line that cannot be parsed may be an account whose primary group
+  // this is: listing the others would hide it.
+  if (!skipped.empty()) {
+    error = account_files::unparsed_lines_error("/etc/passwd", skipped) + ": primary-group members cannot be listed; repair the file (see pwck)";
+    return;
+  }
 
   std::set<std::string> seen;
   auto add = [&](const std::string &name) {

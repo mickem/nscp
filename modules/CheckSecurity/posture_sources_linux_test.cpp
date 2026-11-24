@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "account_files_linux.hpp"
 #include "check_group_members.hpp"
 #include "check_local_accounts.hpp"
 #include "check_secureboot.hpp"
@@ -479,7 +480,7 @@ const std::string shadow_fixture =
 const long long now = 20000LL * 86400 + 3600;  // day 20000, 01:00 UTC
 
 std::vector<local_accounts_filter::filter_obj_ptr> build(const bool shadow_readable) {
-  std::size_t skipped = 0;
+  std::vector<std::size_t> skipped;
   const auto passwd = local_accounts_source::parse_passwd(passwd_fixture, skipped);
   const auto shadow = local_accounts_source::parse_shadow(shadow_fixture, skipped);
   std::vector<local_accounts_filter::filter_obj_ptr> out;
@@ -524,22 +525,282 @@ TEST(local_accounts_linux, nologin_style_shells_are_not_interactive) {
 }
 
 TEST(local_accounts_linux, malformed_and_compat_lines_are_skipped) {
-  std::size_t skipped = 0;
+  std::vector<std::size_t> skipped;
   const auto passwd = local_accounts_source::parse_passwd(passwd_fixture, skipped);
-  EXPECT_EQ(1u, skipped);  // "broken"; the comment, blank and +@netgroup lines are not entries
+  // "broken", by its line number; the comment, blank and +@netgroup lines are not entries
+  EXPECT_EQ((std::vector<std::size_t>{16}), skipped);
   ASSERT_EQ(12u, passwd.size());
   EXPECT_EQ("root", passwd[0].name);
   EXPECT_EQ(0, passwd[0].uid);
   EXPECT_EQ("/bin/bash", passwd[0].shell);
 
   const auto shadow = local_accounts_source::parse_shadow("root:*:1:2:3:4:5:6:\nshort:*:1\nwindows:*:1:0:99999:7:::\r\n", skipped);
-  EXPECT_EQ(1u, skipped);
-  ASSERT_EQ(2u, shadow.size());
-  EXPECT_EQ("windows", shadow[1].name);  // a CRLF file still parses
+  // The malformed line stays, flagged, so its account is not mistaken for one
+  // without an entry.
+  EXPECT_EQ((std::vector<std::size_t>{2}), skipped);
+  ASSERT_EQ(3u, shadow.size());
+  EXPECT_TRUE(shadow[1].malformed);
+  EXPECT_EQ("short", shadow[1].name);
+  EXPECT_EQ(2u, shadow[1].line);
+  EXPECT_FALSE(shadow[2].malformed);
+  EXPECT_EQ("windows", shadow[2].name);  // a CRLF file still parses
+}
+
+// --- the line handling shared by the passwd, shadow and group readers --------
+
+TEST(account_files, fields_are_split_on_every_separator) {
+  EXPECT_EQ((std::vector<std::string>{"a", "", "c"}), account_files::split_fields("a::c"));
+  EXPECT_EQ((std::vector<std::string>{""}), account_files::split_fields(""));
+  EXPECT_EQ((std::vector<std::string>{"a", ""}), account_files::split_fields("a:"));
+  EXPECT_EQ((std::vector<std::string>{"x", "y"}), account_files::split_fields("x,y", ','));
+}
+
+TEST(account_files, numbers_are_digits_only_and_empty_is_minus_one) {
+  long long v = 7;
+  EXPECT_TRUE(account_files::parse_number("", v));
+  EXPECT_EQ(-1, v);
+  EXPECT_TRUE(account_files::parse_number("0", v));
+  EXPECT_EQ(0, v);
+  EXPECT_TRUE(account_files::parse_number("9223372036854775807", v));
+  EXPECT_EQ(9223372036854775807LL, v);
+  for (const char *bad : {"-1", "+0", " 0", "0 ", "0x0", "1a", "9223372036854775808", "99999999999999999999999"}) {
+    v = 7;
+    EXPECT_FALSE(account_files::parse_number(bad, v)) << bad;
+    EXPECT_EQ(7, v) << bad;
+  }
+}
+
+TEST(account_files, entries_are_numbered_as_an_editor_shows_them) {
+  std::vector<std::pair<std::string, std::size_t>> seen;
+  account_files::for_each_entry("# c\n\n  \t\na:1\r\n+nis\n-nis\n  b:2\n\t# indented comment\nlast",
+                                [&](const std::string &line, const std::size_t n) { seen.emplace_back(line, n); });
+  // Leading blanks are dropped, as glibc does before it looks at the line.
+  EXPECT_EQ((std::vector<std::pair<std::string, std::size_t>>{{"a:1", 4}, {"b:2", 7}, {"last", 9}}), seen);
+}
+
+TEST(account_files, unparsed_lines_are_named_by_number_only) {
+  EXPECT_EQ("", account_files::unparsed_lines_error("/etc/passwd", {}));
+  EXPECT_EQ("1 unparseable line(s) in /etc/passwd (line 3)", account_files::unparsed_lines_error("/etc/passwd", {3}));
+  EXPECT_EQ("7 unparseable line(s) in f (line 1, 2, 3, 4, 5, ...)", account_files::unparsed_lines_error("f", {1, 2, 3, 4, 5, 6, 7}));
+}
+
+// --- what glibc accepts, checked against fgetpwent()/fgetspent() -------------
+
+TEST(local_accounts_linux, a_short_passwd_line_is_still_an_account) {
+  // glibc needs four fields: "toor::0:0" is a passwordless root.
+  std::vector<std::size_t> skipped;
+  const auto passwd = local_accounts_source::parse_passwd("toor::0:0\nfive:x:5:5:gecos\n  lead:x:8:8::/:/bin/sh\n", skipped);
+  EXPECT_TRUE(skipped.empty());
+  ASSERT_EQ(3u, passwd.size());
+  EXPECT_EQ("toor", passwd[0].name);
+  EXPECT_EQ("", passwd[0].password);
+  EXPECT_EQ(0, passwd[0].uid);
+  EXPECT_EQ("", passwd[0].home);
+  EXPECT_EQ("", passwd[0].shell);
+  EXPECT_EQ("lead", passwd[2].name);
+
+  std::vector<local_accounts_filter::filter_obj_ptr> out;
+  local_accounts_source::build_accounts(passwd, nullptr, "Cannot read /etc/shadow: Permission denied", now, out);
+  EXPECT_EQ("empty", out[0]->password_state);
+  EXPECT_EQ(0, out[0]->get_password_required().value());
+  EXPECT_EQ(1, out[0]->get_enabled().value());
+  EXPECT_EQ(1, out[0]->get_is_extra_uid0());
+  EXPECT_EQ(1, out[0]->get_interactive().value());
+}
+
+TEST(local_accounts_linux, the_shell_is_the_rest_of_the_line) {
+  std::vector<std::size_t> skipped;
+  const auto passwd = local_accounts_source::parse_passwd("long:x:7:7:g:/h:/bin/sh:extra\n", skipped);
+  EXPECT_TRUE(skipped.empty());
+  ASSERT_EQ(1u, passwd.size());
+  EXPECT_EQ("/h", passwd[0].home);
+  EXPECT_EQ("/bin/sh:extra", passwd[0].shell);
+}
+
+TEST(local_accounts_linux, passwd_lines_that_cannot_be_parsed_are_reported_by_line) {
+  std::vector<std::size_t> skipped;
+  const auto passwd = local_accounts_source::parse_passwd(
+      "root:x:0:0::/root:/bin/sh\n"
+      "three:x:5\n"
+      "only2:x\n"
+      "nouid:x::9::/:/bin/sh\n"
+      "nogid:x:9:::/:/bin/sh\n"
+      "alpha:x:1a:1::/:/bin/sh\n"
+      ":x:1:1::/:/bin/sh\n"
+      "signed:x:+0:0::/:/bin/sh\n",
+      skipped);
+  ASSERT_EQ(1u, passwd.size());
+  EXPECT_EQ((std::vector<std::size_t>{2, 3, 4, 5, 6, 7, 8}), skipped);
+}
+
+TEST(local_accounts_linux, an_unparseable_passwd_line_fails_the_check) {
+  // "signed" is uid 0 to glibc (strtoul takes the sign): answering for the
+  // other accounts would hide a second root.
+  temp_dir t;
+  t.write("passwd", "root:x:0:0::/root:/bin/sh\nsigned:x:+0:0::/:/bin/sh\n");
+  t.write("shadow", "root:*:19700:0:99999:7:::\n", 0600);
+  std::vector<local_accounts_filter::filter_obj_ptr> out;
+  std::string error;
+  local_accounts_source::gather_from(t.path() + "/passwd", t.path() + "/shadow", now, out, error);
+  EXPECT_TRUE(out.empty());
+  EXPECT_NE(error.find("1 unparseable line(s) in " + t.path() + "/passwd (line 2)"), std::string::npos) << error;
+  EXPECT_EQ(error.find("signed"), std::string::npos) << error;  // a line number, never the line
+}
+
+TEST(local_accounts_linux, the_shadow_forms_glibc_returns_are_accepted) {
+  std::vector<std::size_t> skipped;
+  const auto shadow = local_accounts_source::parse_shadow(
+      "nine:*:19000:0:99999:7:30:20000:\n"
+      "eight:*:19000:0:99999:7:30:20000\n"
+      "old5:*:19000:0:99999\n",
+      skipped);
+  EXPECT_TRUE(skipped.empty());
+  ASSERT_EQ(3u, shadow.size());
+  for (const auto &s : shadow) EXPECT_FALSE(s.malformed) << s.name;
+  EXPECT_EQ(30, shadow[0].inactive);
+  EXPECT_EQ(20000, shadow[1].expire);
+  EXPECT_EQ(-1, shadow[2].inactive);
+  EXPECT_EQ(-1, shadow[2].expire);
+  EXPECT_EQ(99999, shadow[2].max_days);
+}
+
+TEST(local_accounts_linux, shadow_lines_glibc_rejects_are_malformed_and_carry_nothing) {
+  std::vector<std::size_t> skipped;
+  const auto shadow = local_accounts_source::parse_shadow(
+      "two:$6$a$b\n"
+      "six:$6$a$b:19000:0:99999:7\n"
+      "minus:$6$a$b:19000:0:99999:7:-1:-1:\n"
+      "alpha:$6$a$b:abc:0:99999:7:::\n"
+      "warn:$6$a$b:19000:0:99999:x:::\n"
+      "ten:$6$a$b:19000:0:99999:7::::\n"
+      "name1\n"
+      ":$6$a$b:19000:0:99999:7:::\n",
+      skipped);
+  EXPECT_EQ((std::vector<std::size_t>{1, 2, 3, 4, 5, 6, 7, 8}), skipped);
+  ASSERT_EQ(7u, shadow.size());  // the nameless line names no account
+  for (const auto &s : shadow) {
+    EXPECT_TRUE(s.malformed) << s.name;
+    EXPECT_EQ("unknown", s.state) << s.name;
+    EXPECT_EQ(-1, s.last_change) << s.name;
+    EXPECT_EQ(-1, s.max_days) << s.name;
+  }
+}
+
+TEST(local_accounts_linux, a_malformed_shadow_entry_is_unknown_and_says_which_line) {
+  std::vector<std::size_t> skipped;
+  const auto passwd = local_accounts_source::parse_passwd("bad:x:2000:2000::/home/bad:/bin/bash\ngood:x:2001:2001::/home/good:/bin/bash\n", skipped);
+  const auto shadow = local_accounts_source::parse_shadow("good::19000:0:99999:7:::\nbad::19000:0:99999:7:-1:-1:\n", skipped);
+  std::vector<local_accounts_filter::filter_obj_ptr> out;
+  local_accounts_source::build_accounts(passwd, &shadow, "", now, out);
+  ASSERT_EQ(2u, out.size());
+  EXPECT_EQ("unknown", out[0]->password_state);
+  EXPECT_FALSE(out[0]->get_password_required());
+  EXPECT_FALSE(out[0]->get_enabled());
+  EXPECT_EQ("Unparseable entry for account 'bad' in /etc/shadow (line 2)", out[0]->shadow_error);
+  EXPECT_FALSE(out[0]->shadow_hint.empty());
+  // The account next to it is unaffected.
+  EXPECT_EQ("empty", out[1]->password_state);
+  EXPECT_TRUE(out[1]->shadow_error.empty());
+}
+
+TEST(local_accounts_linux, the_first_parseable_shadow_entry_wins) {
+  // getspnam() skips the line it cannot parse and returns the next one.
+  std::vector<std::size_t> skipped;
+  const auto passwd = local_accounts_source::parse_passwd("dup:x:2000:2000::/home/dup:/bin/bash\n", skipped);
+  for (const char *content : {"dup:broken\ndup::19000:0:99999:7:::\ndup:*:19000:0:99999:7:::\n", "dup::19000:0:99999:7:::\ndup:broken\n"}) {
+    const auto shadow = local_accounts_source::parse_shadow(content, skipped);
+    std::vector<local_accounts_filter::filter_obj_ptr> out;
+    local_accounts_source::build_accounts(passwd, &shadow, "", now, out);
+    EXPECT_EQ("empty", out[0]->password_state) << content;
+    EXPECT_TRUE(out[0]->shadow_error.empty()) << content;
+  }
+}
+
+TEST(local_accounts_linux, every_spelling_pam_treats_as_shadowed_reads_shadow) {
+  EXPECT_TRUE(local_accounts_source::defers_to_shadow("alice", "x"));
+  EXPECT_TRUE(local_accounts_source::defers_to_shadow("alice", "##alice"));
+  EXPECT_TRUE(local_accounts_source::defers_to_shadow("alice", "*NP*"));
+  EXPECT_FALSE(local_accounts_source::defers_to_shadow("alice", "##bob"));
+  EXPECT_FALSE(local_accounts_source::defers_to_shadow("alice", "##"));
+  EXPECT_FALSE(local_accounts_source::defers_to_shadow("alice", "*"));
+  EXPECT_FALSE(local_accounts_source::defers_to_shadow("alice", ""));
+  EXPECT_FALSE(local_accounts_source::defers_to_shadow("alice", "X"));
+
+  std::vector<std::size_t> skipped;
+  const auto passwd =
+      local_accounts_source::parse_passwd("hash:##hash:2000:2000::/h:/bin/sh\nnis:*NP*:2001:2001::/h:/bin/sh\nother:##hash:2002:2002::/h:/bin/sh\n", skipped);
+  const auto shadow = local_accounts_source::parse_shadow("hash::19000:0:99999:7:::\nnis:$6$s$h:19000:0:90:7:::\n", skipped);
+  std::vector<local_accounts_filter::filter_obj_ptr> out;
+  local_accounts_source::build_accounts(passwd, &shadow, "", now, out);
+  ASSERT_EQ(3u, out.size());
+  EXPECT_EQ("empty", out[0]->password_state);  // from shadow, not "none" from the marker
+  EXPECT_EQ(0, out[0]->get_password_required().value());
+  EXPECT_EQ("set", out[1]->password_state);
+  EXPECT_EQ(1, out[1]->get_password_expires().value());
+  // "##hash" on another account is not a shadow marker: a field nothing matches.
+  EXPECT_EQ("none", out[2]->password_state);
+  EXPECT_TRUE(out[2]->shadow_error.empty());
+
+  // ...and without shadow access they are unknown, not guessed.
+  out.clear();
+  local_accounts_source::build_accounts(passwd, nullptr, "Cannot read /etc/shadow: Permission denied", now, out);
+  EXPECT_EQ("unknown", out[0]->password_state);
+  EXPECT_FALSE(out[0]->shadow_error.empty());
+  EXPECT_FALSE(out[1]->shadow_error.empty());
+  EXPECT_TRUE(out[2]->shadow_error.empty());
+}
+
+TEST(local_accounts_linux, the_older_des_hash_forms_are_passwords_too) {
+  EXPECT_EQ("set", local_accounts_source::classify_password("abJnggxhB/yWIabcdefghijk"));  // bigcrypt: DES past 13 characters
+  EXPECT_EQ("set", local_accounts_source::classify_password("_J9..rasmBYk8r9AiWNc"));      // BSDi extended DES
+  EXPECT_EQ("none", local_accounts_source::classify_password("_J9..rasm"));                // too short for BSDi
+  EXPECT_EQ("none", local_accounts_source::classify_password("_J9..rasmBYk8r9AiW*c"));     // not the crypt alphabet
+  EXPECT_EQ("none", local_accounts_source::classify_password("abJnggxhB/yW"));             // 12 characters: no hash is that short
+  EXPECT_EQ("none", local_accounts_source::classify_password("*LK*"));
+  EXPECT_EQ("none", local_accounts_source::classify_password("NP"));
+  EXPECT_EQ("none", local_accounts_source::classify_password("abJnggxhB/yW*abcdefgh"));  // a '*' anywhere: nothing hashes to it
+}
+
+namespace {
+
+// One shadowed account "u" with the given shadow line, as build_accounts sees it.
+local_accounts_filter::filter_obj_ptr account_with_shadow(const std::string &shadow_line) {
+  std::vector<std::size_t> skipped;
+  const auto passwd = local_accounts_source::parse_passwd("u:x:2000:2000::/home/u:/bin/bash\n", skipped);
+  const auto shadow = local_accounts_source::parse_shadow(shadow_line + "\n", skipped);
+  std::vector<local_accounts_filter::filter_obj_ptr> out;
+  local_accounts_source::build_accounts(passwd, &shadow, "", now, out);
+  return out.at(0);
+}
+
+}  // namespace
+
+TEST(local_accounts_linux, a_password_expired_past_its_inactivity_period_disables_the_account) {
+  // Today is day 20000. Changed on day 19000 with a 90 day maximum: expired on
+  // day 19090. PAM refuses the account once max + inactive days have passed.
+  EXPECT_EQ(1, account_with_shadow("u:$6$s$h:19000:0:90:7:30::")->get_disabled().value());
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0:90:7:30::")->get_enabled().value());
+  EXPECT_EQ(1, account_with_shadow("u:$6$s$h:19000:0:90:7:0::")->get_disabled().value());
+  // The boundary: 1000 days have passed.
+  EXPECT_EQ(1, account_with_shadow("u:$6$s$h:19000:0:900:7:100::")->get_disabled().value());
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0:900:7:101::")->get_disabled().value());
+}
+
+TEST(local_accounts_linux, inactivity_needs_every_field_it_is_computed_from) {
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0:90:7:::")->get_disabled().value());       // no inactivity period
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0::7:30::")->get_disabled().value());       // password never expires
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h::0:90:7:30::")->get_disabled().value());          // no change recorded
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:0:0:90:7:30::")->get_disabled().value());         // change forced at next logon
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:20001:0:90:7:30::")->get_disabled().value());     // changed "tomorrow": clock skew
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0:99999:7:30::")->get_disabled().value());  // 99999 + 30 days is centuries away
+  // Values that would overflow when added are "never", not a wrapped date.
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0:9223372036854775807:7:30::")->get_disabled().value());
+  // The expiry date still disables on its own.
+  EXPECT_EQ(1, account_with_shadow("u:$6$s$h:19000:0:99999:7::19999:")->get_disabled().value());
 }
 
 TEST(local_accounts_linux, no_hash_survives_parsing) {
-  std::size_t skipped = 0;
+  std::vector<std::size_t> skipped;
   const auto shadow = local_accounts_source::parse_shadow(shadow_fixture, skipped);
   for (const auto &s : shadow) {
     EXPECT_EQ(s.state.find('$'), std::string::npos) << s.name;
@@ -631,7 +892,7 @@ TEST(local_accounts_linux, an_expired_account_is_disabled) {
   EXPECT_EQ(0, expired->get_enabled().value());
 
   // Expiry day == today is already expired (pam_unix: today >= expire).
-  std::size_t skipped = 0;
+  std::vector<std::size_t> skipped;
   const auto passwd = local_accounts_source::parse_passwd("edge:x:2000:2000::/home/edge:/bin/bash\n", skipped);
   const auto shadow = local_accounts_source::parse_shadow("edge:$6$s$h:19000:0:99999:7::20000:\n", skipped);
   std::vector<local_accounts_filter::filter_obj_ptr> out;
@@ -666,17 +927,25 @@ TEST(local_accounts_linux, an_unreadable_shadow_leaves_the_flags_unknown) {
   EXPECT_EQ(0, find(rows, "daemon")->get_interactive().value());
 }
 
-TEST(local_accounts_linux, an_account_missing_from_shadow_is_unknown_but_not_an_error) {
+TEST(local_accounts_linux, an_account_missing_from_shadow_is_unknown_and_says_so) {
+  // Its password state was never read: passing the default thresholds on it
+  // would be the false negative the unreadable-shadow refusal exists to prevent.
   const auto r = find(build(true), "noshadow");
   ASSERT_TRUE(r);
   EXPECT_EQ("unknown", r->password_state);
   EXPECT_FALSE(r->get_password_required());
-  EXPECT_TRUE(r->shadow_error.empty());
+  EXPECT_FALSE(r->get_enabled());
+  EXPECT_FALSE(r->get_locked());
+  EXPECT_EQ("No entry for account 'noshadow' in /etc/shadow", r->shadow_error);
+  EXPECT_NE(r->shadow_hint.find("pwck"), std::string::npos);
+  // The accounts that do have an entry are unaffected.
+  EXPECT_TRUE(find(build(true), "root")->shadow_error.empty());
 }
 
 TEST(local_accounts_linux, gather_from_reads_the_files_and_reports_an_unreadable_passwd) {
   temp_dir t;
-  t.write("passwd", passwd_fixture);
+  const std::string broken = "broken:x:notanumber:1:::\n";
+  t.write("passwd", passwd_fixture.substr(0, passwd_fixture.size() - broken.size()));
   t.write("shadow", shadow_fixture, 0600);
   std::vector<local_accounts_filter::filter_obj_ptr> out;
   std::string error;
@@ -786,7 +1055,7 @@ TEST(group_members_linux, a_differently_named_line_with_the_same_gid_confers_mem
 }
 
 TEST(group_members_linux, a_malformed_line_is_an_error_not_a_missing_group) {
-  for (const std::string bad : {"sudo:x:27:alice:\n", "sudo:x:abc:alice\n", "sudo:x:27\n"}) {
+  for (const std::string bad : {"sudo:x:27:alice:\n", "sudo:x:abc:alice\n", "sudo:x::alice\n", "sudo:x\n", "sudo:x:+27:alice\n"}) {
     std::string error;
     std::vector<group_members_filter::filter_obj_ptr> out;
     group_members_source::members_from(bad + "wheel:x:10:alice\n", member_passwd, "sudo", out, error);
@@ -801,6 +1070,25 @@ TEST(group_members_linux, a_malformed_line_is_an_error_not_a_missing_group) {
   group_members_source::members_from("adm:x:4:syslog:\nwheel:x:10:alice\n", member_passwd, "wheel", out, error);
   EXPECT_TRUE(error.empty()) << error;
   EXPECT_EQ(1u, out.size());
+}
+
+TEST(group_members_linux, a_group_line_without_a_member_field_is_an_empty_group) {
+  // glibc returns "sudo:x:27" as a group with no listed members.
+  std::string error;
+  std::vector<group_members_filter::filter_obj_ptr> out;
+  group_members_source::members_from("  sudo:x:27\n", member_passwd, "sudo", out, error);
+  ASSERT_TRUE(error.empty()) << error;
+  ASSERT_EQ(1u, out.size());
+  EXPECT_EQ("carol", out[0]->member);  // through her primary gid
+}
+
+TEST(group_members_linux, an_unparseable_passwd_line_is_an_error) {
+  // It may be an account whose primary group this is.
+  std::string error;
+  std::vector<group_members_filter::filter_obj_ptr> out;
+  group_members_source::members_from("sudo:x:27:alice\n", "alice:x:1000:1000::/home/alice:/bin/bash\nmallory:x:+1:27::/:/bin/sh\n", "sudo", out, error);
+  EXPECT_TRUE(out.empty());
+  EXPECT_NE(error.find("1 unparseable line(s) in /etc/passwd (line 2)"), std::string::npos) << error;
 }
 
 TEST(group_members_linux, a_group_with_only_primary_members_is_not_empty) {

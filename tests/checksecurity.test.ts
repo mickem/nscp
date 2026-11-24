@@ -282,7 +282,11 @@ describeOnLinux("CheckSecurity (Linux posture)", () => {
       "detail-syntax=${name} pw=${password_state} req=${password_required} enabled=${enabled}",
     ]);
     if (readable("/etc/shadow")) {
-      expect(out).toMatch(/^OK: root pw=(set|empty|locked|none) req=[01] enabled=[01]/m);
+      // A shadowed account with no usable shadow entry (pwck would say so) is
+      // refused like an unreadable file, whatever the filter selects.
+      expect(out).toMatch(
+        /^OK: root pw=(set|empty|locked|none) req=[01] enabled=[01]|(No|Unparseable) entry for account '.*' in \/etc\/shadow.* - password and expiry state is unknown/m,
+      );
     } else {
       // Unprivileged agent: UNKNOWN with the reason, never a made-up OK.
       expect(out).toMatch(/Cannot read \/etc\/shadow: .* - password and expiry state is unknown/);
