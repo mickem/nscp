@@ -177,8 +177,11 @@ jobs:
         }
         # The runner's python is Homebrew's, which is an externally managed
         # environment; --break-system-packages is the same escape hatch the
-        # Debian and RedHat jobs use.
-        retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
+        # Debian and RedHat jobs use. Unlike those, there is no fallback to a
+        # plain install: Homebrew's pip always knows the flag, and the
+        # fallback hid the real error (a network failure surfaced as the
+        # fallback's misleading "externally-managed-environment").
+        retry pip3 install --break-system-packages -r build/python/requirements.txt
         # The extractor imports PyYAML and protobuf from inside the embedded
         # interpreter, which is the one Boost.Python was built against - not
         # necessarily the one pip3 above installs into.
