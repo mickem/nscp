@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -150,6 +151,23 @@ TEST(SmbClientRecords, ConvertsSecondsToMilliseconds) {
   EXPECT_DOUBLE_EQ(a.writes_per_sec, 1.5);
   EXPECT_DOUBLE_EQ(a.metadata_per_sec, 3);
   EXPECT_DOUBLE_EQ(a.avg_queue_length, 0.25);
+}
+
+TEST(SmbClientRecords, NameIsTheUncPathWhateverPdhSpellsIt) {
+  // PDH hands the instances back with a single leading backslash (seen on
+  // the Windows CI runners); the name keyword, the docs and the detail line
+  // promise the UNC path, so it is rebuilt from server and share.
+  instance_values in;
+  in["\\localhost\\C$"] = share_counters(0, 0);
+  in["\\\\fs01\\data"] = share_counters(0, 0);
+  in["sofs\\VMs"] = share_counters(0, 0);
+  const std::vector<share_activity> shares = build_shares(in);
+  ASSERT_EQ(shares.size(), 3u);
+  std::vector<std::string> names;
+  for (const share_activity &a : shares) names.push_back(a.name);
+  EXPECT_NE(std::find(names.begin(), names.end(), "\\\\localhost\\C$"), names.end());
+  EXPECT_NE(std::find(names.begin(), names.end(), "\\\\fs01\\data"), names.end());
+  EXPECT_NE(std::find(names.begin(), names.end(), "\\\\sofs\\VMs"), names.end());
 }
 
 TEST(SmbClientRecords, LatencyIsTheSlowerDirection) {

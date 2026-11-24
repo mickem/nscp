@@ -72,8 +72,13 @@ std::vector<share_activity> build_shares(const instance_values &instances) {
   std::vector<share_activity> out;
   for (const auto &instance : instances) {
     share_activity a;
-    a.name = instance.first;
-    if (!split_instance(instance.first, a.server, a.share)) a.server = instance.first;
+    // The name is rebuilt from its parts: PDH spells the instance with a
+    // single leading backslash, and the keyword promises \\server\share.
+    if (split_instance(instance.first, a.server, a.share)) {
+      a.name = "\\\\" + a.server + (a.share.empty() ? "" : "\\" + a.share);
+    } else {
+      a.name = a.server = instance.first;
+    }
     const std::map<std::string, double> &v = instance.second;
     a.read_latency = seconds_to_ms(value_of(v, c_sec_read));
     a.write_latency = seconds_to_ms(value_of(v, c_sec_write));

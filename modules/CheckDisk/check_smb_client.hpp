@@ -41,7 +41,7 @@ struct counter_snapshot {
 
 // One remote share the SMB client has open.
 struct share_activity {
-  std::string name;    // the counter instance, \\server\share
+  std::string name;    // \\server\share, rebuilt from the counter instance
   std::string server;  // as the client addressed it: a host name, an FQDN or an address
   std::string share;   // the share name; empty when the instance names none
 
@@ -72,7 +72,8 @@ struct share_activity {
 // share part yields an empty share. False when there is no server.
 bool split_instance(const std::string &instance, std::string &server, std::string &share);
 
-// The records, one per instance, in instance-name order. Latencies are
+// The records, one per instance, in instance-name order, each named
+// \\server\share however the instance spelled it. Latencies are
 // converted from seconds to milliseconds; a counter missing from an instance
 // reads as 0.
 std::vector<share_activity> build_shares(const instance_values &instances);
