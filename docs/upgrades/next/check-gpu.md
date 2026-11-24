@@ -15,4 +15,10 @@ is reported as `dedicated_used`/`dedicated_pct`, `shared_used`/`shared_pct`,
 memory on the adapter. The defaults warn at `dedicated_pct > 85` and go
 critical at `dedicated_pct > 95`. Needs Windows 10 1709 / Windows Server 2019
 or later; a host without a real GPU returns `UNKNOWN: No GPU adapters found`
-unless `empty-state=ok` is given. The check is marked experimental.
+unless `empty-state=ok` is given, and a host where DXGI cannot list the
+adapters returns `UNKNOWN: GPU adapters could not be identified through DXGI
+...` rather than reporting them as healthy. Cards of the same model are told
+apart by a ` #0`, ` #1`, ... suffix on `name`. On the 32-bit agent a card with
+4 GB or more whose size the driver does not record has `dedicated_total` and
+`dedicated_pct` of `0`, so the default thresholds do not apply to it. The check
+is marked experimental.
