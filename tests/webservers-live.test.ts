@@ -1,8 +1,9 @@
 /**
  * Web/application server status checks against the real servers: Apache
  * httpd's mod_status, NGINX's stub_status, PHP-FPM's pm.status_path (behind
- * an nginx front door) and Tomcat's manager status XML, each running in its
- * official container image and queried through one-shot client commands
+ * an nginx front door), Tomcat's manager status XML and a Jolokia JVM agent
+ * (check_jvm, on the Tomcat image), each running in its official container
+ * image and queried through one-shot client commands
  * (`nscp client --module CheckNet --boot --query <cmd> url=...`).
  *
  * The sibling cases in checknet-commands.test.ts feed the parsers canned
@@ -165,6 +166,67 @@ dockerOrSkip()("Web server status checks against live servers", () => {
       const out = await query("check_tomcat_status", [`url=${url}`]);
       expect(out).toMatch(/CRITICAL/);
       expect(out).toMatch(/http_401/);
+    });
+  });
+
+  describe("Jolokia JVM agent", () => {
+    let server: StartedTestContainer;
+    let url: string;
+
+    beforeAll(async () => {
+      // The agent answers as soon as the JVM starts, before Catalina has
+      // registered the webapp MBeans; wait for the startup line so the
+      // Manager MBean read cannot race the deployment.
+      server = await startServer(
+        "jolokia-jvm.Dockerfile",
+        "jolokia_jvm_server",
+        8778,
+        Wait.forLogMessage(/Server startup in/),
+      );
+      url = `http://127.0.0.1:${server.getMappedPort(8778)}/jolokia/`;
+    });
+
+    afterAll(async () => {
+      await server?.stop();
+    });
+
+    it("check_jvm reads heap, threads and GC from the real agent", async () => {
+      const out = await query("check_jvm", [`url=${url}`]);
+      // Tomcat on a container-sized heap sits well under the 80% default.
+      expect(out).toMatch(/OK: ok: heap \S+ of \S+ \([\d.]+%\), \d+ threads, \d+ collections/);
+      expect(out).toMatch(/'[^']*_heap_used'=\d+B/);
+      expect(out).toMatch(/'[^']*_threads'=[1-9]\d*/);
+      expect(out).toMatch(/'[^']*_gc_count'=\d+c/);
+    });
+
+    it("check_jvm reports the JVM identity", async () => {
+      const out = await query("check_jvm", [
+        `url=${url}`,
+        "detail-syntax=java ${spec_version} on ${vm_name}, collectors: ${collectors}",
+      ]);
+      // The image is a Java 21 JRE; its default collector is G1.
+      expect(out).toMatch(/java 21 on .*VM, collectors: .*G1/);
+    });
+
+    it("check_jvm reads an application MBean whose name contains a slash", async () => {
+      // An always-true threshold: WARNING proves the alias resolved to a
+      // number read from the real Catalina Manager MBean.
+      const out = await query("check_jvm", [
+        `url=${url}`,
+        "attribute=sessions=Catalina:type=Manager,host=localhost,context=!/docs/activeSessions",
+        "warning=sessions >= 0",
+      ]);
+      expect(out).toMatch(/WARNING/);
+      expect(out).toMatch(/'[^']*_sessions'=\d+;0/);
+    });
+
+    it("check_jvm names an MBean the agent cannot find", async () => {
+      const out = await query("check_jvm", [
+        `url=${url}`,
+        "attribute=x=com.example:type=DoesNotExist/Value",
+      ]);
+      expect(out).toMatch(/CRITICAL/);
+      expect(out).toMatch(/error: x: com\.example:type=DoesNotExist: .*InstanceNotFoundException/);
     });
   });
 });
