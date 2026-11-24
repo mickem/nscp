@@ -23,6 +23,7 @@
 #include "bookmark_state.hpp"
 #include "check_csv.hpp"
 #include "file_reader.hpp"
+#include "log_file.hpp"
 #include "realtime_thread.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -400,10 +401,12 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
   std::vector<std::pair<std::string, std::string> > pending;
 
   for (const std::string &filename : file_list) {
-    std::ifstream file(filename.c_str(), std::ios::in | std::ios::binary);
-    if (!file.is_open()) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to open file: " + filename);
+    std::string open_error;
+    const std::unique_ptr<std::streambuf> file_buf = check_logfile::open_log_file(filename, open_error);
+    if (!file_buf) {
+      return nscapi::protobuf::functions::set_response_bad(*response, open_error);
     }
+    std::istream file(file_buf.get());
     if (bookmark.empty()) {
       // With a line limit only the part of the file which can hold the wanted
       // records is read: from the last max_lines records to the end, or from
