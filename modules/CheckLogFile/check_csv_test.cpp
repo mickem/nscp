@@ -137,15 +137,24 @@ TEST(CheckCsvColumns, FromHeader) {
 
 TEST(CheckCsvDecode, Utf8BomIsDropped) {
   std::string out, error;
-  ASSERT_TRUE(decode_text("\xEF\xBB\xBF" "a,b", "auto", out, error));
+  ASSERT_TRUE(
+      decode_text("\xEF\xBB\xBF"
+                  "a,b",
+                  "auto", out, error));
   EXPECT_EQ("a,b", out);
-  ASSERT_TRUE(decode_text("\xEF\xBB\xBF" "a,b", "utf-8", out, error));
+  ASSERT_TRUE(
+      decode_text("\xEF\xBB\xBF"
+                  "a,b",
+                  "utf-8", out, error));
   EXPECT_EQ("a,b", out);
 }
 
 TEST(CheckCsvDecode, Utf16LittleEndianWithBomIsDetected) {
   // "Å,1\r\n" as Windows writes it (Export-Csv -Encoding Unicode).
-  const std::string bytes("\xFF\xFE\xC5\x00,\x00" "1\x00\r\x00\n\x00", 12);
+  const std::string bytes(
+      "\xFF\xFE\xC5\x00,\x00"
+      "1\x00\r\x00\n\x00",
+      12);
   std::string out, error;
   ASSERT_TRUE(decode_text(bytes, "auto", out, error)) << error;
   EXPECT_EQ("\xC3\x85,1\r\n", out);
@@ -168,7 +177,10 @@ TEST(CheckCsvDecode, ExplicitUtf16WithoutBom) {
 
 TEST(CheckCsvDecode, OddUtf16IsAnError) {
   std::string out, error;
-  EXPECT_FALSE(decode_text(std::string("\xFF\xFE" "a", 3), "auto", out, error));
+  EXPECT_FALSE(decode_text(std::string("\xFF\xFE"
+                                       "a",
+                                       3),
+                           "auto", out, error));
   EXPECT_NE(std::string::npos, error.find("UTF-16")) << error;
 }
 
@@ -183,64 +195,27 @@ TEST(CheckCsvDecode, UnknownEncodingIsAnError) {
   EXPECT_FALSE(decode_text("x", "ebcdic", out, error));
 }
 
-// --- splitting -------------------------------------------------------------
+// The splitter itself is csv_parser (include/parsers/csv/csv_parser_test.cpp);
+// these cases only cover how the check passes its options through.
 
-TEST(CheckCsvSplit, Rfc4180Quoting) {
-  std::vector<csv_record> rows;
-  std::string error;
-  ASSERT_TRUE(split_csv("a,\"b,c\",\"say \"\"hi\"\"\",\"\"\r\nx,y\r\n", ',', '"', rows, error)) << error;
-  ASSERT_EQ(2u, rows.size());
-  ASSERT_EQ(4u, rows[0].fields.size());
-  EXPECT_EQ("a", rows[0].fields[0]);
-  EXPECT_EQ("b,c", rows[0].fields[1]);
-  EXPECT_EQ("say \"hi\"", rows[0].fields[2]);
-  EXPECT_EQ("", rows[0].fields[3]);
-  EXPECT_EQ(2u, rows[1].line);
+TEST(CheckCsv, QuoteNoneAndOtherDelimiters) {
+  runner r;
+  r.source.files["/x.csv"] = "a;\"b\"\rc;d\n";
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL,
+            r.run({"file=/x.csv", "delimiter=semicolon", "quote=none", "columns=N, V", "critical=V = '\"b\"'", "detail-syntax=%(N)"}))
+      << r.message();
+  EXPECT_EQ("CRITICAL: a", r.message());
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.run({"file=/x.csv", "delimiter=pipe", "quote=none", "columns=N"})) << r.message();
+  EXPECT_EQ("OK: 2 rows matched", r.message());
 }
 
-TEST(CheckCsvSplit, BackslashIsAnOrdinaryCharacter) {
-  std::vector<csv_record> rows;
-  std::string error;
-  ASSERT_TRUE(split_csv("srv1,C:\\data\\x.csv,\"\\\\server\\share\"", ',', '"', rows, error)) << error;
-  ASSERT_EQ(1u, rows.size());
-  EXPECT_EQ("C:\\data\\x.csv", rows[0].fields[1]);
-  EXPECT_EQ("\\\\server\\share", rows[0].fields[2]);
-}
-
-TEST(CheckCsvSplit, QuotedLineBreakStaysInTheField) {
-  std::vector<csv_record> rows;
-  std::string error;
-  ASSERT_TRUE(split_csv("a,\"line1\nline2\"\nb,c\n", ',', '"', rows, error)) << error;
-  ASSERT_EQ(2u, rows.size());
-  EXPECT_EQ("line1\nline2", rows[0].fields[1]);
-  EXPECT_EQ(3u, rows[1].line);  // the record after a two-line record starts on line 3
-}
-
-TEST(CheckCsvSplit, EmptyLinesAndTrailingFields) {
-  std::vector<csv_record> rows;
-  std::string error;
-  ASSERT_TRUE(split_csv("\n\na,\n\r\n,\nlast", ',', '"', rows, error)) << error;
-  ASSERT_EQ(3u, rows.size());
-  EXPECT_EQ(2u, rows[0].fields.size());  // "a,"  -> a, ""
-  EXPECT_EQ(2u, rows[1].fields.size());  // ","   -> "", ""
-  EXPECT_EQ(1u, rows[2].fields.size());  // no newline at the end
-  EXPECT_EQ("last", rows[2].fields[0]);
-}
-
-TEST(CheckCsvSplit, OtherDelimiterAndNoQuoting) {
-  std::vector<csv_record> rows;
-  std::string error;
-  ASSERT_TRUE(split_csv("a;\"b\";c\rd;e;f", ';', '\0', rows, error)) << error;
-  ASSERT_EQ(2u, rows.size());
-  EXPECT_EQ("\"b\"", rows[0].fields[1]);
-  EXPECT_EQ("d", rows[1].fields[0]);
-}
-
-TEST(CheckCsvSplit, UnterminatedQuoteIsAnError) {
-  std::vector<csv_record> rows;
-  std::string error;
-  EXPECT_FALSE(split_csv("a,b\nc,\"open\nd,e\n", ',', '"', rows, error));
-  EXPECT_NE(std::string::npos, error.find("line 2")) << error;
+TEST(CheckCsv, ParseErrorsAreUnknownAndNameTheFile) {
+  runner r;
+  r.source.files["/x.csv"] = "a,\"open\n";
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.run({"file=/x.csv", "columns=a"}));
+  EXPECT_EQ("Unterminated quoted field starting on line 1: /x.csv", r.message());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.run({"file=/x.csv", "columns=a", "quote=;", "delimiter=semicolon"}));
+  EXPECT_EQ("The quote and the delimiter must differ", r.message());
 }
 
 // --- the check -------------------------------------------------------------
@@ -266,10 +241,9 @@ TEST(CheckCsv, RowCountModeIsOkWhenNothingMatches) {
 TEST(CheckCsv, SingleValueModeThresholdsOneCell) {
   runner r;
   r.source.files["/data/updates.csv"] = kUpdates;
-  EXPECT_EQ(PB::Common::ResultCode::WARNING,
-            r.run({"file=/data/updates.csv", "header=true", "columns=Hostname TEXT, WaitingUpdates INTEGER", "filter=Hostname = 'srv2'",
-                   "warning=WaitingUpdates > 5", "critical=WaitingUpdates > 10", "detail-syntax=%(Hostname): %(WaitingUpdates) updates",
-                   "perf-syntax=%(Hostname)"}))
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, r.run({"file=/data/updates.csv", "header=true", "columns=Hostname TEXT, WaitingUpdates INTEGER",
+                                                    "filter=Hostname = 'srv2'", "warning=WaitingUpdates > 5", "critical=WaitingUpdates > 10",
+                                                    "detail-syntax=%(Hostname): %(WaitingUpdates) updates", "perf-syntax=%(Hostname)"}))
       << r.message();
   EXPECT_EQ("WARNING: srv2: 7 updates", r.message());
   EXPECT_EQ("srv2_WaitingUpdates", perf_of(r.response));
@@ -278,9 +252,8 @@ TEST(CheckCsv, SingleValueModeThresholdsOneCell) {
 TEST(CheckCsv, RealColumnsCompareAsNumbers) {
   runner r;
   r.source.files["/data/updates.csv"] = kUpdates;
-  EXPECT_EQ(PB::Common::ResultCode::CRITICAL,
-            r.run({"file=/data/updates.csv", "header=true", "columns=Hostname, WaitingUpdates INTEGER, Load REAL", "critical=Load > 3.5",
-                   "detail-syntax=%(Hostname)"}))
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.run({"file=/data/updates.csv", "header=true", "columns=Hostname, WaitingUpdates INTEGER, Load REAL",
+                                                     "critical=Load > 3.5", "detail-syntax=%(Hostname)"}))
       << r.message();
   EXPECT_EQ("CRITICAL: srv3", r.message());
 }

@@ -77,11 +77,12 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
       .add_key_to_settings()
 
       .add_string("file access", sh::string_fun_key([this](const auto& value) { file_access_.set_mode(value); }, "any"), "FILE ACCESS MODE",
-                  "Which files a caller may ask check_logfile and check_csv to read: any (the default - any path the caller names, which is how every earlier release "
-                  "behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the [/settings/logfile/files] section).\n"
-                  "Both read the file they are given with the privileges of the agent and return its contents, so on a host where callers may pass arguments (NRPE with "
-                  "'allow arguments', or the REST API) this decides how much of the machine a check can read. See the 'Restricting what a check may read' "
-                  "section of the documentation.")
+                  "Which files a caller may ask check_logfile and check_csv to read: any (the default - any path the caller names, which is how every "
+                  "earlier release behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the "
+                  "[/settings/logfile/files] section).\n"
+                  "Both read the file they are given with the privileges of the agent and return its contents, so on a host where callers may pass "
+                  "arguments (NRPE with 'allow arguments', or the REST API) this decides how much of the machine a check can read. See the 'Restricting "
+                  "what a check may read' section of the documentation.")
 
       .add_string("allowed files", sh::string_fun_key([this](const auto& value) { file_access_.set_allow_list(value); }, ""), "ALLOWED LOG FILES",
                   "Comma separated list of files check_logfile and check_csv may read when 'file access' is set to allowed.\n"

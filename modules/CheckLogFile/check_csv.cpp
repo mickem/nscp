@@ -11,12 +11,14 @@
 #include <limits>
 #include <memory>
 #include <nscapi/protobuf/functions_response.hpp>
+#include <parsers/csv/csv_parser.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <set>
 #include <str/format.hpp>
 #include <str/saturate.hpp>
+#include <str/utf8.hpp>
 
 namespace po = boost::program_options;
 
@@ -32,9 +34,9 @@ namespace {
 // grammar are matched without regard to case, so those are refused in any
 // spelling.
 bool is_reserved_name(const std::string &name) {
-  static const std::set<std::string> keywords = {"count",     "total",     "ok_count",  "warn_count", "crit_count", "problem_count",
-                                                 "list",      "ok_list",   "warn_list", "crit_list",  "problem_list", "detail_list",
-                                                 "lines",     "status",    "sep",       "row",        "field_count",  "values"};
+  static const std::set<std::string> keywords = {"count", "total",   "ok_count",  "warn_count", "crit_count",   "problem_count",
+                                                 "list",  "ok_list", "warn_list", "crit_list",  "problem_list", "detail_list",
+                                                 "lines", "status",  "sep",       "row",        "field_count",  "values"};
   static const std::set<std::string> grammar = {"and", "or", "not", "in", "like", "regexp", "eq", "ne", "lt", "le", "gt", "ge", "str", "where"};
   return keywords.count(name) > 0 || grammar.count(boost::algorithm::to_lower_copy(name)) > 0;
 }
@@ -124,59 +126,6 @@ double parse_real(const std::string &raw) {
   return d;
 }
 
-void append_utf8(std::string &out, unsigned int cp) {
-  if (cp < 0x80) {
-    out += static_cast<char>(cp);
-  } else if (cp < 0x800) {
-    out += static_cast<char>(0xC0 | (cp >> 6));
-    out += static_cast<char>(0x80 | (cp & 0x3F));
-  } else if (cp < 0x10000) {
-    out += static_cast<char>(0xE0 | (cp >> 12));
-    out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-    out += static_cast<char>(0x80 | (cp & 0x3F));
-  } else {
-    out += static_cast<char>(0xF0 | (cp >> 18));
-    out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
-    out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-    out += static_cast<char>(0x80 | (cp & 0x3F));
-  }
-}
-
-bool decode_utf16(const std::string &bytes, std::size_t offset, bool little_endian, std::string &out, std::string &error) {
-  if ((bytes.size() - offset) % 2 != 0) {
-    error = "The file is not valid UTF-16: it has an odd number of bytes";
-    return false;
-  }
-  out.clear();
-  out.reserve((bytes.size() - offset) / 2);
-  auto unit_at = [&](std::size_t i) -> unsigned int {
-    const unsigned int a = static_cast<unsigned char>(bytes[i]);
-    const unsigned int b = static_cast<unsigned char>(bytes[i + 1]);
-    return little_endian ? (a | (b << 8)) : ((a << 8) | b);
-  };
-  for (std::size_t i = offset; i < bytes.size(); i += 2) {
-    unsigned int cp = unit_at(i);
-    if (cp >= 0xD800 && cp <= 0xDBFF) {
-      if (i + 3 < bytes.size()) {
-        const unsigned int low = unit_at(i + 2);
-        if (low >= 0xDC00 && low <= 0xDFFF) {
-          cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
-          i += 2;
-          append_utf8(out, cp);
-          continue;
-        }
-      }
-      cp = 0xFFFD;  // unpaired high surrogate
-    } else if (cp >= 0xDC00 && cp <= 0xDFFF) {
-      cp = 0xFFFD;  // unpaired low surrogate
-    }
-    append_utf8(out, cp);
-  }
-  return true;
-}
-
-bool has_prefix(const std::string &bytes, const char *prefix, std::size_t len) { return bytes.size() >= len && bytes.compare(0, len, prefix, len) == 0; }
-
 // "," / ";" / "\t" / "tab" / "|" ... -> the single character.
 bool parse_char_option(const std::string &option, const std::string &value, bool allow_none, char &out, std::string &error) {
   const std::string lower = boost::algorithm::to_lower_copy(value);
@@ -200,7 +149,7 @@ bool parse_char_option(const std::string &option, const std::string &value, bool
     out = '|';
     return true;
   }
-  if (value.size() != 1 || value[0] == '\r' || value[0] == '\n') {
+  if (value.size() != 1) {
     error = "Invalid " + option + ": '" + value + "' (expected a single character" + (allow_none ? ", or none" : "") + ")";
     return false;
   }
@@ -238,13 +187,17 @@ struct filter_obj {
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
-    registry_.add_int_var("row", parsers::where::type_int, [](auto obj) { return obj->get_row(); }, "Number of the data row (1 is the first row after the header)")
+    registry_
+        .add_int_var(
+            "row", parsers::where::type_int, [](auto obj) { return obj->get_row(); }, "Number of the data row (1 is the first row after the header)")
         .no_perf();
     registry_
-        .add_int_var("field_count", parsers::where::type_int, [](auto obj) { return obj->get_field_count(); },
-                     "Number of fields on this row; a row with fewer fields than declared columns has the missing ones empty")
+        .add_int_var(
+            "field_count", parsers::where::type_int, [](auto obj) { return obj->get_field_count(); },
+            "Number of fields on this row; a row with fewer fields than declared columns has the missing ones empty")
         .no_perf();
-    registry_.add_string_var("values", [](auto obj) { return obj->get_values(); }, "All declared columns of the row as name=value, separated by spaces (the default detail-syntax)");
+    registry_.add_string_var(
+        "values", [](auto obj) { return obj->get_values(); }, "All declared columns of the row as name=value, separated by spaces (the default detail-syntax)");
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
@@ -261,16 +214,13 @@ void register_columns(filter_type &filter, const std::vector<column_spec> &colum
         // An empty or non-numeric cell has no value: it renders as '' and
         // every numeric comparison on it is false, so `x > 5` cannot fire on
         // a blank cell; `x = ''` tests for one.
-        filter.context->registry_.add_optional_int_var(name, [i](auto obj) { return parse_integer(obj->cell(i)); }, "",
-                                                       "Column " + name + " (INTEGER)");
+        filter.context->registry_.add_optional_int_var(name, [i](auto obj) { return parse_integer(obj->cell(i)); }, "", "Column " + name + " (INTEGER)");
         break;
       case column_type::real: {
-        auto var = std::make_shared<parsers::where::filter_variable<std::shared_ptr<filter_obj>>>(name, parsers::where::type_float,
-                                                                                                    "Column " + name + " (REAL)");
+        auto var =
+            std::make_shared<parsers::where::filter_variable<std::shared_ptr<filter_obj>>>(name, parsers::where::type_float, "Column " + name + " (REAL)");
         var->f_function = [i](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return parse_real(o->cell(i)); };
-        var->i_function = [i](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) {
-          return str::to_int64_saturating(parse_real(o->cell(i)));
-        };
+        var->i_function = [i](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return str::to_int64_saturating(parse_real(o->cell(i))); };
         var->s_function = [i](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->cell(i); };
         filter.context->registry_.add(var, false);
         break;
@@ -333,104 +283,34 @@ bool decode_text(const std::string &bytes, const std::string &encoding_in, std::
   std::string encoding = boost::algorithm::to_lower_copy(encoding_in);
   boost::algorithm::erase_all(encoding, "-");
   boost::algorithm::erase_all(encoding, "_");
-  const bool bom8 = has_prefix(bytes, "\xEF\xBB\xBF", 3);
-  const bool bom_le = has_prefix(bytes, "\xFF\xFE", 2);
-  const bool bom_be = has_prefix(bytes, "\xFE\xFF", 2);
+  const utf8::byte_order_mark bom = utf8::detect_bom(bytes);
+  // A mark that agrees with the requested encoding is dropped; any other
+  // leading bytes are data.
+  const auto without = [&](const utf8::byte_order_mark expected) { return bom == expected ? bytes.substr(utf8::bom_size(bom)) : bytes; };
+  const auto utf16 = [&](const utf8::byte_order_mark expected, const bool little_endian) {
+    if (utf8::from_utf16(without(expected), little_endian, out)) return true;
+    error = "The file is not valid UTF-16: it has an odd number of bytes";
+    return false;
+  };
 
   if (encoding.empty() || encoding == "auto") {
-    if (bom_le) return decode_utf16(bytes, 2, true, out, error);
-    if (bom_be) return decode_utf16(bytes, 2, false, out, error);
-    out = bom8 ? bytes.substr(3) : bytes;
+    if (bom == utf8::byte_order_mark::utf16le) return utf16(bom, true);
+    if (bom == utf8::byte_order_mark::utf16be) return utf16(bom, false);
+    out = without(utf8::byte_order_mark::utf8);
     return true;
   }
   if (encoding == "utf8") {
-    out = bom8 ? bytes.substr(3) : bytes;
+    out = without(utf8::byte_order_mark::utf8);
     return true;
   }
-  if (encoding == "utf16le" || encoding == "unicode") return decode_utf16(bytes, bom_le ? 2 : 0, true, out, error);
-  if (encoding == "utf16be") return decode_utf16(bytes, bom_be ? 2 : 0, false, out, error);
+  if (encoding == "utf16le" || encoding == "unicode") return utf16(utf8::byte_order_mark::utf16le, true);
+  if (encoding == "utf16be") return utf16(utf8::byte_order_mark::utf16be, false);
   if (encoding == "latin1" || encoding == "iso88591") {
-    out.clear();
-    out.reserve(bytes.size());
-    for (const char c : bytes) append_utf8(out, static_cast<unsigned char>(c));
+    out = utf8::from_latin1(bytes);
     return true;
   }
   error = "Invalid encoding: '" + encoding_in + "' (expected auto, utf-8, utf-16le, utf-16be or latin1)";
   return false;
-}
-
-bool split_csv(const std::string &text, const char delimiter, const char quote, std::vector<csv_record> &out, std::string &error) {
-  out.clear();
-  csv_record record;
-  std::string field;
-  std::size_t line = 1;
-  record.line = line;
-  bool in_quotes = false;
-  bool quoted_field = false;    // the current field opened with a quote
-  bool record_has_data = false;  // anything (even an empty quoted field) on this record
-  std::size_t quote_line = 0;
-
-  auto end_field = [&]() {
-    record.fields.push_back(field);
-    field.clear();
-    quoted_field = false;
-  };
-  auto end_record = [&]() {
-    if (record_has_data) {
-      end_field();
-      out.push_back(record);
-    }
-    record.fields.clear();
-    field.clear();
-    quoted_field = false;
-    record_has_data = false;
-  };
-
-  for (std::size_t i = 0; i < text.size(); ++i) {
-    const char c = text[i];
-    if (in_quotes) {
-      if (c == quote) {
-        if (i + 1 < text.size() && text[i + 1] == quote) {
-          field += quote;  // "" inside a quoted field is one quote
-          ++i;
-        } else {
-          in_quotes = false;
-        }
-      } else {
-        if (c == '\n' || (c == '\r' && !(i + 1 < text.size() && text[i + 1] == '\n'))) ++line;
-        field += c;
-      }
-      continue;
-    }
-    if (quote != '\0' && c == quote && field.empty() && !quoted_field) {
-      in_quotes = true;
-      quoted_field = true;
-      record_has_data = true;
-      quote_line = line;
-      continue;
-    }
-    if (c == delimiter) {
-      record_has_data = true;
-      end_field();
-      continue;
-    }
-    if (c == '\r' || c == '\n') {
-      if (c == '\r' && i + 1 < text.size() && text[i + 1] == '\n') ++i;
-      end_record();
-      ++line;
-      record.line = line;
-      continue;
-    }
-    // Text after a closing quote ("a"b) is kept as written, as most readers do.
-    field += c;
-    record_has_data = true;
-  }
-  if (in_quotes) {
-    error = "Unterminated quoted field starting on line " + std::to_string(quote_line);
-    return false;
-  }
-  end_record();
-  return true;
 }
 
 // --- the check -------------------------------------------------------------
@@ -481,11 +361,12 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 
   if (source.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No CSV specified (use file=<path>)");
 
-  char delimiter = ',', quote = '"';
+  csv_parser::options format;
   std::string error;
-  if (!parse_char_option("delimiter", delimiter_arg, false, delimiter, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);
-  if (!parse_char_option("quote", quote_arg, true, quote, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);
-  if (quote != '\0' && quote == delimiter) return nscapi::protobuf::functions::set_response_bad(*response, "The quote and the delimiter must differ");
+  if (!parse_char_option("delimiter", delimiter_arg, false, format.delimiter, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);
+  if (!parse_char_option("quote", quote_arg, true, format.quote, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);
+  error = csv_parser::validate(format);
+  if (!error.empty()) return nscapi::protobuf::functions::set_response_bad(*response, error);
   if (skip_lines < 0) return nscapi::protobuf::functions::set_response_bad(*response, "skip-lines must not be negative");
   try {
     const long long parsed = str::format::decode_byte_units(max_size);
@@ -520,8 +401,8 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   if (!decode_text(bytes, encoding, text, error)) return nscapi::protobuf::functions::set_response_bad(*response, error + ": " + source);
   bytes.clear();
 
-  std::vector<csv_record> records;
-  if (!split_csv(text, delimiter, quote, records, error)) return nscapi::protobuf::functions::set_response_bad(*response, error + ": " + source);
+  std::vector<csv_parser::record> records;
+  if (!csv_parser::parse(text, format, records, error)) return nscapi::protobuf::functions::set_response_bad(*response, error + ": " + source);
   text.clear();
 
   std::size_t first = std::min(records.size(), static_cast<std::size_t>(skip_lines));

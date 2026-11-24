@@ -344,6 +344,17 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    csv_parser_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/parsers/csv/csv_parser_test.cpp
+        ${NSCP_INCLUDEDIR}/parsers/csv/csv_parser.hpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     simple_scheduler_test
     SOURCES
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler_test.cpp

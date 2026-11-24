@@ -16,7 +16,7 @@
 namespace check_csv_command {
 
 bool read_local_file(const std::string &path, const std::uint64_t max_bytes, std::string &bytes, std::string &error) {
-  struct stat st {};
+  struct stat st{};
   if (::stat(path.c_str(), &st) != 0) {
     error = "Failed to open " + path + ": " + std::strerror(errno);
     return false;

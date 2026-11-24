@@ -38,23 +38,11 @@ bool columns_from_header(const std::vector<std::string> &header, std::vector<col
 
 // Decode raw file bytes into UTF-8. `encoding` is auto (BOM sniffing: UTF-8,
 // UTF-16LE, UTF-16BE; UTF-8 without one), utf-8, utf-16le, utf-16be or
-// latin1. A leading BOM is always dropped. Implemented here rather than with
-// the platform converters so it behaves the same on every OS.
+// latin1. A BOM matching the encoding is dropped. The byte-level work is
+// utf8::from_utf16 / from_latin1, which behave the same on every OS.
 bool decode_text(const std::string &bytes, const std::string &encoding, std::string &out, std::string &error);
 
-// One parsed record and the (1-based) line of the text it started on.
-struct csv_record {
-  std::vector<std::string> fields;
-  std::size_t line = 0;
-};
-
-// Split text into records, RFC 4180 style: `delimiter` separates fields, a
-// field wrapped in `quote` may contain the delimiter, line breaks and the
-// quote itself (written twice). quote == '\0' disables quoting. CRLF, LF and
-// CR all end a record; empty lines are skipped. A backslash is an ordinary
-// character, so a Windows path in a cell survives as written. Fails on an
-// unterminated quoted field.
-bool split_csv(const std::string &text, char delimiter, char quote, std::vector<csv_record> &out, std::string &error);
+// The CSV itself is split by csv_parser::parse (parsers/csv/csv_parser.hpp).
 
 // Read the raw bytes of `path` (already through the access gate). Returns
 // false with `error` set on failure. Injected so the check can be unit tested
