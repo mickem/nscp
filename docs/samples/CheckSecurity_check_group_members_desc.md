@@ -33,6 +33,13 @@ primary group it is** — membership `getent group` does not show, and an easy
 place to hide an administrator. A user in both places is reported once. Both
 files are world-readable, so no privilege is needed.
 
+Every line of `/etc/group` that grants the membership is read, as the system
+itself does at logon: a group repeated on a second line, and a line with
+another name but the same GID, both add their members. A line for the group
+that cannot be parsed (wrong number of fields, non-numeric GID) is an error
+rather than a "not found", and the default does not skip past a damaged `sudo`
+line to `wheel`.
+
 Without `group=`, the check inspects the first of **`sudo`** (Debian, Ubuntu)
 and **`wheel`** (RHEL, Fedora, SUSE) that exists; a host with neither returns
 UNKNOWN asking for `group=`. An explicit `group=` that does not exist is an

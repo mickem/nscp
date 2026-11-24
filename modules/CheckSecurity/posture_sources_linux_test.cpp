@@ -511,6 +511,46 @@ TEST(group_members_linux, a_member_in_both_places_is_reported_once) {
   EXPECT_EQ("alice", out[0]->member);
 }
 
+TEST(group_members_linux, a_group_split_over_several_lines_lists_every_line) {
+  // initgroups(3) reads every line, so the second one grants membership too.
+  std::string error;
+  std::vector<group_members_filter::filter_obj_ptr> out;
+  group_members_source::members_from("sudo:x:27:alice\nusers:x:100:\nsudo:x:27:mallory,alice\n", member_passwd, "sudo", out, error);
+  ASSERT_TRUE(error.empty()) << error;
+  std::vector<std::string> names;
+  for (const auto &r : out) names.push_back(r->member);
+  EXPECT_EQ((std::vector<std::string>{"alice", "mallory", "carol"}), names);
+}
+
+TEST(group_members_linux, a_differently_named_line_with_the_same_gid_confers_membership) {
+  std::string error;
+  std::vector<group_members_filter::filter_obj_ptr> out;
+  group_members_source::members_from("sudo:x:27:alice\nhelpers:x:27:mallory\nother:x:28:bob\n", member_passwd, "sudo", out, error);
+  ASSERT_TRUE(error.empty()) << error;
+  std::vector<std::string> names;
+  for (const auto &r : out) names.push_back(r->member);
+  EXPECT_EQ((std::vector<std::string>{"alice", "mallory", "carol"}), names);
+  EXPECT_EQ("sudo", out[1]->group);
+}
+
+TEST(group_members_linux, a_malformed_line_is_an_error_not_a_missing_group) {
+  for (const std::string bad : {"sudo:x:27:alice:\n", "sudo:x:abc:alice\n", "sudo:x:27\n"}) {
+    std::string error;
+    std::vector<group_members_filter::filter_obj_ptr> out;
+    group_members_source::members_from(bad + "wheel:x:10:alice\n", member_passwd, "sudo", out, error);
+    EXPECT_TRUE(out.empty()) << bad;
+    EXPECT_NE(error.find("Malformed entry for group sudo"), std::string::npos) << error;
+    // The default must not fall through to wheel and answer for it instead.
+    EXPECT_EQ("sudo", group_members_source::first_existing_group(bad + "wheel:x:10:alice\n", {"sudo", "wheel"})) << bad;
+  }
+  // A damaged line for some other group does not get in the way.
+  std::string error;
+  std::vector<group_members_filter::filter_obj_ptr> out;
+  group_members_source::members_from("adm:x:4:syslog:\nwheel:x:10:alice\n", member_passwd, "wheel", out, error);
+  EXPECT_TRUE(error.empty()) << error;
+  EXPECT_EQ(1u, out.size());
+}
+
 TEST(group_members_linux, a_group_with_only_primary_members_is_not_empty) {
   std::string error;
   const auto rows = members_of("admins", error);

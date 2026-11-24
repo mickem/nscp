@@ -25,10 +25,20 @@ struct group_entry {
   std::vector<std::string> members;
 };
 
+struct group_file {
+  std::vector<group_entry> entries;
+  // The name field of every line that could not be parsed. A damaged line must
+  // not make its group read as absent: the check would then answer for another
+  // group (the next default candidate) or report "not found" for one that is
+  // there.
+  std::set<std::string> malformed;
+};
+
 // The /etc/group entries (name:password:gid:member,member,...). Comments,
-// blank, NIS compat (+/-) and malformed lines are skipped.
-std::vector<group_entry> parse_group(const std::string &content) {
-  std::vector<group_entry> out;
+// blank and NIS compat (+/-) lines are skipped; malformed lines are remembered
+// by name.
+group_file parse_group(const std::string &content) {
+  group_file out;
   std::istringstream in(content);
   std::string line;
   while (std::getline(in, line)) {
@@ -42,7 +52,10 @@ std::vector<group_entry> parse_group(const std::string &content) {
       if (colon == std::string::npos) break;
       start = colon + 1;
     }
-    if (f.size() != 4 || f[0].empty() || f[2].empty() || f[2].size() > 18) continue;
+    if (f.size() != 4 || f[0].empty() || f[2].empty() || f[2].size() > 18) {
+      out.malformed.insert(f[0]);
+      continue;
+    }
     group_entry g;
     g.name = f[0];
     g.gid = 0;
@@ -54,7 +67,10 @@ std::vector<group_entry> parse_group(const std::string &content) {
       }
       g.gid = g.gid * 10 + (c - '0');
     }
-    if (!numeric) continue;
+    if (!numeric) {
+      out.malformed.insert(f[0]);
+      continue;
+    }
     std::string::size_type ms = 0;
     while (ms <= f[3].size() && !f[3].empty()) {
       const std::string::size_type comma = f[3].find(',', ms);
@@ -63,7 +79,7 @@ std::vector<group_entry> parse_group(const std::string &content) {
       if (comma == std::string::npos) break;
       ms = comma + 1;
     }
-    out.push_back(g);
+    out.entries.push_back(g);
   }
   return out;
 }
@@ -71,9 +87,13 @@ std::vector<group_entry> parse_group(const std::string &content) {
 }  // namespace
 
 std::string first_existing_group(const std::string &group_content, const std::vector<std::string> &candidates) {
-  const std::vector<group_entry> groups = parse_group(group_content);
+  // A candidate whose line is malformed still counts as existing, so that
+  // members_from() reports the damage instead of the next candidate quietly
+  // standing in for it.
+  const group_file groups = parse_group(group_content);
   for (const std::string &c : candidates) {
-    for (const group_entry &g : groups) {
+    if (groups.malformed.count(c) != 0) return c;
+    for (const group_entry &g : groups.entries) {
       if (g.name == c) return c;
     }
   }
@@ -86,15 +106,20 @@ void members_from(const std::string &group_content, const std::string &passwd_co
     error = "No default administrators group on this host (neither sudo nor wheel exists in /etc/group); pass group=<name>";
     return;
   }
-  const std::vector<group_entry> groups = parse_group(group_content);
-  const group_entry *entry = nullptr;
-  for (const group_entry &g : groups) {
-    if (g.name == group) {
-      entry = &g;
-      break;
-    }
+  const group_file groups = parse_group(group_content);
+  if (groups.malformed.count(group) != 0) {
+    error = "Malformed entry for group " + group + " in /etc/group (expected name:password:gid:members); its members cannot be listed";
+    return;
   }
-  if (entry == nullptr) {
+  // A group can be spread over several lines, and the files backend of
+  // initgroups(3) grants membership from every one of them, not only the first
+  // that getgrnam() returns. It grants by gid, so a line with another name but
+  // the same gid confers the same membership. All of them are read here.
+  std::set<long long> gids;
+  for (const group_entry &g : groups.entries) {
+    if (g.name == group) gids.insert(g.gid);
+  }
+  if (gids.empty()) {
     error = "Local group not found: " + group;
     return;
   }
@@ -119,9 +144,12 @@ void members_from(const std::string &group_content, const std::string &passwd_co
     }
     out.push_back(o);
   };
-  for (const std::string &m : entry->members) add(m);
+  for (const group_entry &g : groups.entries) {
+    if (gids.count(g.gid) == 0) continue;
+    for (const std::string &m : g.members) add(m);
+  }
   for (const local_accounts_source::passwd_entry &p : passwd) {
-    if (p.gid == entry->gid) add(p.name);
+    if (gids.count(p.gid) != 0) add(p.name);
   }
 }
 
