@@ -1,16 +1,15 @@
 # Host Security Posture Monitoring
 
 **Goal:** Monitor a host's security posture — certificate expiry and TLS hygiene,
-interactive logon sessions, Secure Boot, local accounts, and (on Windows) the
-firewall, antivirus, disk encryption and network-profile state — using the
-`CheckSecurity` module.
+interactive logon sessions, Secure Boot, local accounts and administrator group
+membership, and (on Windows) the firewall, antivirus, disk encryption and
+network-profile state — using the `CheckSecurity` module.
 
-`check_certificate`, `check_users`, `check_secureboot` and
-`check_local_accounts` work on **Windows and Linux**; the remaining checks
+`check_certificate`, `check_users`, `check_secureboot`, `check_local_accounts`
+and `check_group_members` work on **Windows and Linux**; the remaining checks
 (`check_firewall`, `check_antivirus`, `check_bitlocker`, `check_nla`,
-`check_activation`, `check_file_security`, `check_group_members`) are
-**Windows-only** and report a clear "not supported" on other platforms rather
-than a false OK.
+`check_activation`, `check_file_security`) are **Windows-only** and report a
+clear "not supported" on other platforms rather than a false OK.
 
 ---
 
@@ -80,10 +79,10 @@ check_users "filter=session_type = 'remote'" "crit=count > 0" ; Linux ssh
 
 ---
 
-## Secure Boot and Local Accounts (Windows and Linux)
+## Secure Boot, Local Accounts and Admin Groups (Windows and Linux)
 
-These read the Windows registry and SAM on Windows, and the UEFI variables and
-`/etc/passwd` + `/etc/shadow` on Linux.
+These three read the Windows registry, SAM and local groups on Windows, and the
+UEFI variables, `/etc/passwd` + `/etc/shadow` and `/etc/group` on Linux.
 
 ### UEFI Secure Boot
 
@@ -112,6 +111,17 @@ On Linux the password state lives in `/etc/shadow`, which the unprivileged
 `nsclient` user cannot read: the check is then UNKNOWN until the agent can read
 it (Debian: add `nsclient` to the `shadow` group) or `allow-unreadable-shadow`
 is passed, which keeps only the `/etc/passwd` keywords meaningful.
+
+### Administrator group membership
+
+`check_group_members` lists a local group (default `Administrators` on Windows,
+`sudo` or `wheel` on Linux) and is critical on any member not on the
+`expected=` allow-list:
+
+```
+check_group_members expected=Administrator "expected=Domain Admins"
+check_group_members expected=root expected=deploy        ; Linux
+```
 
 ---
 
@@ -225,6 +235,7 @@ alias_cert       = check_certificate file=/etc/ssl/certs recursive=true "crit=ex
 alias_users      = check_users "crit=count > 10"
 alias_secureboot = check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
 alias_accounts   = check_local_accounts "crit=(enabled = 1 and password_required = 0) or is_extra_uid0 = 1"
+alias_sudoers    = check_group_members expected=root expected=deploy
 ```
 
 Each alias is then callable by name over NRPE

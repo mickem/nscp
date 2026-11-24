@@ -67,8 +67,9 @@ source_fixture<group_members_filter::filter_obj> group_member_rows;
 source_fixture<users_filter::filter_obj> user_rows;
 
 // The group check_group_members was asked about, so the option plumbing can be
-// asserted on rather than assumed.
+// asserted on rather than assumed, and the platform default it falls back to.
 std::string requested_group;
+std::string platform_default_group = "Administrators";
 
 std::string join_lines(const PB::Commands::QueryResponseMessage::Response &r) {
   std::string out;
@@ -140,6 +141,7 @@ void gather(std::vector<local_accounts_filter::filter_obj_ptr> &out, std::string
 }  // namespace local_accounts_source
 
 namespace group_members_source {
+std::string default_group() { return platform_default_group; }
 void gather(const std::string &group, std::vector<group_members_filter::filter_obj_ptr> &out, std::string &error) {
   requested_group = group;
   error = group_member_rows.error;
@@ -170,6 +172,7 @@ class posture_command : public ::testing::Test {
     group_member_rows.reset();
     user_rows.reset();
     requested_group.clear();
+    platform_default_group = "Administrators";
   }
 };
 
@@ -905,6 +908,18 @@ TEST(check_group_members_allow_list, an_empty_list_matches_nothing) {
   EXPECT_FALSE(group_members_filter::is_expected(member, {}));
 }
 
+TEST(check_group_members_allow_list, linux_names_match_exactly) {
+  // On Linux "Root" and "root" are different accounts: a look-alike added to
+  // sudo must read as drift, not as the allowed account.
+  group_members_filter::filter_obj member;
+  member.member = "Root";
+  member.name = "Root";
+  member.case_sensitive = true;
+
+  EXPECT_FALSE(group_members_filter::is_expected(member, {"root"}));
+  EXPECT_TRUE(group_members_filter::is_expected(member, {"Root"}));
+}
+
 namespace {
 
 std::shared_ptr<group_members_filter::filter_obj> group_member(const std::string &domain, const std::string &name, const std::string &type = "user") {
@@ -925,6 +940,23 @@ TEST_F(posture_command, group_members_defaults_to_the_administrators_group) {
   check_group_members_command::check(request_for("check_group_members", {}), &response);
 
   EXPECT_EQ(requested_group, "Administrators");
+}
+
+TEST_F(posture_command, group_members_defaults_to_whatever_the_platform_names) {
+  // Linux: the first of sudo and wheel that exists.
+  platform_default_group = "wheel";
+  PB::Commands::QueryResponseMessage::Response response;
+  check_group_members_command::check(request_for("check_group_members", {}), &response);
+
+  EXPECT_EQ(requested_group, "wheel");
+}
+
+TEST_F(posture_command, group_members_an_explicit_group_wins_over_the_platform_default) {
+  platform_default_group = "sudo";
+  PB::Commands::QueryResponseMessage::Response response;
+  check_group_members_command::check(request_for("check_group_members", {"group=adm"}), &response);
+
+  EXPECT_EQ(requested_group, "adm");
 }
 
 TEST_F(posture_command, group_members_passes_the_requested_group_through) {

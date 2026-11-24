@@ -15,7 +15,7 @@ namespace group_members_filter {
 
 bool is_expected(const filter_obj &m, const std::vector<std::string> &allow) {
   for (const std::string &a : allow) {
-    if (boost::iequals(a, m.member) || boost::iequals(a, m.name)) return true;
+    if (m.case_sensitive ? (a == m.member || a == m.name) : (boost::iequals(a, m.member) || boost::iequals(a, m.name))) return true;
   }
   return false;
 }
@@ -23,11 +23,13 @@ bool is_expected(const filter_obj &m, const std::vector<std::string> &allow) {
 using parsers::where::type_bool;
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("group", &filter_obj::get_group, "The local group being checked")
-      .add_string_var("member", &filter_obj::get_member, "Member as 'DOMAIN\\name'")
+      .add_string_var("member", &filter_obj::get_member, "Member as 'DOMAIN\\name' (Windows) or the bare user name (Linux)")
       .add_string_var("name", &filter_obj::get_name, "Member name component")
-      .add_string_var("domain", &filter_obj::get_domain, "Member domain component (BUILTIN, machine, AD domain, ...)")
-      .add_string_var("sid", &filter_obj::get_sid, "Member SID")
-      .add_string_var("type", &filter_obj::get_type, "Member type: user, group, wellknown, alias, deleted, unknown");
+      .add_string_var("domain", &filter_obj::get_domain, "Member domain component (BUILTIN, machine, AD domain, ...); empty on Linux")
+      .add_string_var("sid", &filter_obj::get_sid, "Member SID; on Linux the numeric UID, empty for a listed name with no /etc/passwd entry")
+      .add_string_var("type", &filter_obj::get_type,
+                      "Member type: user, group, wellknown, alias, deleted, unknown. On Linux 'user' for an account in /etc/passwd and "
+                      "'unknown' for a listed name that is not one (a directory user, or a stale entry)");
   registry_.add_int_var("expected", type_bool, &filter_obj::get_expected, "True if the member is on the expected= allow-list (or no list was given)");
 }
 }  // namespace group_members_filter
@@ -38,7 +40,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   modern_filter::data_container data;
   modern_filter::cli_helper<group_members_filter::filter> filter_helper(request, response, data);
 
-  std::string group = "Administrators";
+  std::string group;
   std::vector<std::string> allow;
 
   group_members_filter::filter filter;
@@ -52,15 +54,19 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   // clang-format off
   filter_helper.get_desc().add_options()
-    ("group", po::value<std::string>(&group), "Local group to inspect (default: Administrators)")
+    ("group", po::value<std::string>(&group),
+     "Local group to inspect (default: Administrators on Windows; on Linux the first of sudo and wheel that exists)")
     ("expected", po::value<std::vector<std::string>>(&allow),
-     "An allowed member (repeatable), matched against 'DOMAIN\\name' or the bare name. Any member NOT on this list is CRITICAL. "
+     "An allowed member (repeatable), matched against 'DOMAIN\\name' or the bare name (case-insensitively on Windows, exactly on Linux). "
+     "Any member NOT on this list is CRITICAL. "
      "When omitted, all members are listed instead.")
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
+
+  if (group.empty()) group = group_members_source::default_group();
 
   std::vector<group_members_filter::filter_obj_ptr> members;
   std::string error;

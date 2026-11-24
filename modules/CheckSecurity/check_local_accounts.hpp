@@ -139,7 +139,7 @@ void build_accounts(const std::vector<passwd_entry> &passwd, const std::vector<s
 void gather_from(const std::string &passwd_path, const std::string &shadow_path, long long now, std::vector<local_accounts_filter::filter_obj_ptr> &out,
                  std::string &error);
 // Read a whole file; false with `error` (path and strerror) when it cannot be
-// read.
+// read. Shared with check_group_members.
 bool read_text_file(const std::string &path, std::string &content, std::string &error);
 }  // namespace local_accounts_source
 

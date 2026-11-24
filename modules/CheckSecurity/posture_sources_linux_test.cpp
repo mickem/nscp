@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// The Linux readers behind check_secureboot and check_local_accounts, against
-// fixtures: efivars byte layouts in a temporary directory tree, and
-// passwd/shadow content as strings. The command bodies themselves are covered by
-// check_posture_commands_test.cpp.
+// The Linux readers behind check_secureboot, check_local_accounts and
+// check_group_members, against fixtures: efivars byte layouts in a temporary
+// directory tree, and passwd/shadow/group content as strings. The command
+// bodies themselves are covered by check_posture_commands_test.cpp.
 
 #include <gtest/gtest.h>
 #include <sys/stat.h>
@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "check_group_members.hpp"
 #include "check_local_accounts.hpp"
 #include "check_secureboot.hpp"
 
@@ -441,5 +442,121 @@ TEST(local_accounts_linux, gather_from_reads_the_files_and_reports_an_unreadable
   out.clear();
   local_accounts_source::gather_from(t.path() + "/nope", t.path() + "/shadow", now, out, error);
   EXPECT_TRUE(out.empty());
+  EXPECT_NE(error.find("Cannot read"), std::string::npos) << error;
+}
+
+// ---------------------------------------------------------------------------
+// check_group_members
+// ---------------------------------------------------------------------------
+
+namespace {
+
+const std::string group_fixture =
+    "root:x:0:\n"
+    "adm:x:4:syslog,alice\n"
+    "wheel:x:10:alice\n"
+    "sudo:x:27:alice,ghost,Alice\n"
+    "users:x:100:\n"
+    "admins:x:1010:\n"
+    "+:::\n";
+
+const std::string member_passwd =
+    "root:x:0:0:root:/root:/bin/bash\n"
+    "alice:x:1000:1000::/home/alice:/bin/bash\n"
+    "Alice:x:1001:1001::/home/Alice:/bin/bash\n"
+    "carol:x:1002:27::/home/carol:/bin/bash\n"
+    "dave:x:1003:1010::/home/dave:/bin/bash\n";
+
+std::vector<group_members_filter::filter_obj_ptr> members_of(const std::string &group, std::string &error) {
+  std::vector<group_members_filter::filter_obj_ptr> out;
+  group_members_source::members_from(group_fixture, member_passwd, group, out, error);
+  return out;
+}
+
+}  // namespace
+
+TEST(group_members_linux, the_default_group_is_the_first_of_sudo_and_wheel) {
+  EXPECT_EQ("sudo", group_members_source::first_existing_group(group_fixture, {"sudo", "wheel"}));
+  EXPECT_EQ("wheel", group_members_source::first_existing_group("root:x:0:\nwheel:x:10:alice\n", {"sudo", "wheel"}));
+  EXPECT_EQ("", group_members_source::first_existing_group("root:x:0:\n", {"sudo", "wheel"}));
+}
+
+TEST(group_members_linux, listed_and_primary_members_are_both_reported) {
+  std::string error;
+  const auto rows = members_of("sudo", error);
+  ASSERT_TRUE(error.empty()) << error;
+  std::vector<std::string> names;
+  for (const auto &r : rows) names.push_back(r->member);
+  // Listed first, in file order; then carol, whose primary gid is 27.
+  EXPECT_EQ((std::vector<std::string>{"alice", "ghost", "Alice", "carol"}), names);
+
+  EXPECT_EQ("sudo", rows[0]->group);
+  EXPECT_EQ("alice", rows[0]->name);
+  EXPECT_EQ("", rows[0]->domain);
+  EXPECT_EQ("1000", rows[0]->sid);
+  EXPECT_EQ("user", rows[0]->type);
+  EXPECT_TRUE(rows[0]->case_sensitive);
+  // A listed name with no local account: a directory user or a stale entry.
+  EXPECT_EQ("unknown", rows[1]->type);
+  EXPECT_EQ("", rows[1]->sid);
+  EXPECT_EQ("1002", rows[3]->sid);
+}
+
+TEST(group_members_linux, a_member_in_both_places_is_reported_once) {
+  std::string error;
+  std::vector<group_members_filter::filter_obj_ptr> out;
+  group_members_source::members_from("staff:x:50:alice\n", "alice:x:1000:50::/home/alice:/bin/bash\n", "staff", out, error);
+  ASSERT_TRUE(error.empty()) << error;
+  ASSERT_EQ(1u, out.size());
+  EXPECT_EQ("alice", out[0]->member);
+}
+
+TEST(group_members_linux, a_group_with_only_primary_members_is_not_empty) {
+  std::string error;
+  const auto rows = members_of("admins", error);
+  ASSERT_TRUE(error.empty()) << error;
+  ASSERT_EQ(1u, rows.size());
+  EXPECT_EQ("dave", rows[0]->member);
+}
+
+TEST(group_members_linux, an_empty_group_has_no_rows) {
+  std::string error;
+  EXPECT_TRUE(members_of("users", error).empty());
+  EXPECT_TRUE(error.empty()) << error;
+}
+
+TEST(group_members_linux, an_unknown_group_is_an_error) {
+  std::string error;
+  EXPECT_TRUE(members_of("Administrators", error).empty());
+  EXPECT_EQ("Local group not found: Administrators", error);
+}
+
+TEST(group_members_linux, no_default_group_is_an_error_that_says_what_to_do) {
+  std::string error;
+  EXPECT_TRUE(members_of("", error).empty());
+  EXPECT_NE(error.find("pass group="), std::string::npos) << error;
+}
+
+TEST(group_members_linux, the_allow_list_is_case_sensitive_on_linux) {
+  std::string error;
+  const auto rows = members_of("sudo", error);
+  ASSERT_EQ(4u, rows.size());
+  EXPECT_TRUE(group_members_filter::is_expected(*rows[0], {"alice"}));
+  EXPECT_FALSE(group_members_filter::is_expected(*rows[2], {"alice"}));  // "Alice" is another account
+}
+
+TEST(group_members_linux, gather_from_reads_the_files) {
+  temp_dir t;
+  t.write("group", group_fixture);
+  t.write("passwd", member_passwd);
+  std::vector<group_members_filter::filter_obj_ptr> out;
+  std::string error;
+  group_members_source::gather_from(t.path() + "/group", t.path() + "/passwd", "wheel", out, error);
+  ASSERT_TRUE(error.empty()) << error;
+  ASSERT_EQ(1u, out.size());
+  EXPECT_EQ("alice", out[0]->member);
+
+  out.clear();
+  group_members_source::gather_from(t.path() + "/nope", t.path() + "/passwd", "wheel", out, error);
   EXPECT_NE(error.find("Cannot read"), std::string::npos) << error;
 }

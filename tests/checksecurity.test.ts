@@ -7,12 +7,12 @@
  * REST-based suites, no login), so it runs anywhere the binary builds.
  *
  * check_certificate is cross-platform (OpenSSL file parsing); the certificate
- * fixtures are generated with controlled validity windows. check_secureboot
- * and check_local_accounts read local files on Linux (efivars, /etc/passwd +
- * /etc/shadow) and are asserted against what this host's own files say; macOS
- * stubs them. check_firewall, the Windows certificate store and the remaining
- * posture checks are Windows-only, so here we assert the "not supported on
- * this platform" behaviour.
+ * fixtures are generated with controlled validity windows. check_secureboot,
+ * check_local_accounts and check_group_members read local files on Linux
+ * (efivars, /etc/passwd + /etc/shadow, /etc/group) and are asserted against
+ * what this host's own files say; macOS stubs them. check_firewall, the Windows
+ * certificate store and the remaining posture checks are Windows-only, so here
+ * we assert the "not supported on this platform" behaviour.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -151,7 +151,6 @@ describeOnUnix("CheckSecurity", () => {
     ["check_antivirus"],
     ["check_bitlocker"],
     ["check_defender"],
-    ["check_group_members"],
     ["check_activation"],
     ["check_file_security"],
     ["check_firewall_rules"],
@@ -160,9 +159,9 @@ describeOnUnix("CheckSecurity", () => {
     expect(out).toMatch(/not supported on this platform/i);
   });
 
-  // check_secureboot and check_local_accounts have Linux sources (see the
-  // "CheckSecurity (Linux posture)" suite) but no Darwin reader.
-  itOnDarwin.each([["check_secureboot"], ["check_local_accounts"]])(
+  // check_secureboot, check_local_accounts and check_group_members have Linux
+  // sources (see the "CheckSecurity (Linux posture)" suite) but no Darwin reader.
+  itOnDarwin.each([["check_secureboot"], ["check_local_accounts"], ["check_group_members"]])(
     "%s reports not-supported on macOS",
     async (cmd) => {
       const out = await query(cmd, []);
@@ -171,12 +170,12 @@ describeOnUnix("CheckSecurity", () => {
   );
 });
 
-// ── Linux posture checks: efivars, /etc/passwd + /etc/shadow ──────────────────
+// ── Linux posture checks: efivars, /etc/passwd + /etc/shadow, /etc/group ──────
 //
-// The answers depend on the host (UEFI or BIOS, root or not), so each case reads
-// the same files the check does and asserts the documented contract for what it
-// finds, with thresholds pinned so the status does not depend on the host's
-// posture.
+// The answers depend on the host (UEFI or BIOS, root or not, which admin group
+// exists), so each case reads the same files the check does and asserts the
+// documented contract for what it finds, with thresholds pinned so the status
+// does not depend on the host's posture.
 
 describeOnLinux("CheckSecurity (Linux posture)", () => {
   let nscp: NscpInstance;
@@ -198,6 +197,15 @@ describeOnLinux("CheckSecurity (Linux posture)", () => {
     } catch {
       return false;
     }
+  }
+
+  /** Group names in /etc/group, in file order. */
+  function localGroups(): string[] {
+    return fs
+      .readFileSync("/etc/group", "utf8")
+      .split("\n")
+      .filter((l) => l && !l.startsWith("#") && !l.startsWith("+") && !l.startsWith("-"))
+      .map((l) => l.split(":")[0]);
   }
 
   beforeAll(() => {
@@ -317,6 +325,51 @@ describeOnLinux("CheckSecurity (Linux posture)", () => {
       "ok-syntax=${status}: N=${count}",
     ]);
     expect(out).toMatch(new RegExp(`^${extra > 0 ? "CRITICAL" : "OK"}: N=${extra + 1}\\b`, "m"));
+  });
+
+  // --- check_group_members ---------------------------------------------------
+
+  it("check_group_members defaults to the first of sudo and wheel", async () => {
+    const groups = localGroups();
+    const expected = ["sudo", "wheel"].find((g) => groups.includes(g));
+    const out = await query("check_group_members", [
+      "top-syntax=${status}: group=${list}",
+      "detail-syntax=${group}",
+      "empty-syntax=%(status): empty",
+    ]);
+    if (expected) {
+      expect(out).toMatch(new RegExp(`^OK: (group=${expected}\\b|empty)`, "m"));
+    } else {
+      expect(out).toMatch(/No default administrators group on this host .* pass group=<name>/);
+    }
+  });
+
+  it("check_group_members includes primary-group members", async () => {
+    // root's primary gid is 0, so the root group always lists root even when
+    // its member field in /etc/group is empty.
+    const out = await query("check_group_members", [
+      "group=root",
+      "top-syntax=${status}: ${list}",
+      "detail-syntax=${group}/${member} [${type}] sid=${sid} domain='${domain}'",
+    ]);
+    expect(out).toMatch(/^OK: .*root\/root \[user\] sid=0 domain=''/m);
+  });
+
+  it("check_group_members flags drift against an exact allow-list", async () => {
+    // Linux names are case-sensitive: "ROOT" does not excuse root.
+    const drift = await query("check_group_members", ["group=root", "expected=ROOT"]);
+    expect(drift).toMatch(/^CRITICAL: .*root \(user\)/m);
+    const clean = await query("check_group_members", [
+      "group=root",
+      "expected=root",
+      "filter=member = 'root'",
+    ]);
+    expect(clean).toMatch(/^OK/m);
+  });
+
+  it("check_group_members reports a missing group", async () => {
+    const out = await query("check_group_members", ["group=NSCP_NoSuchGroup_zzz"]);
+    expect(out).toMatch(/Local group not found: NSCP_NoSuchGroup_zzz/);
   });
 });
 
