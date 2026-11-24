@@ -1,10 +1,10 @@
-# The unit test covers dhcp_filter.cpp and check_dhcp.cpp, which are
-# platform-neutral: the records, the helpers and the two checks driven over
-# canned data carry no dhcpsapi or PDH. So it is registered on every platform -
-# from CMakeLists.txt with the module on Windows, and from module.cmake
-# everywhere else, where the module itself is not built - which puts it in
-# front of the Linux and sanitizer jobs too. Included, not add_subdirectory'd,
-# so paths are relative to this file.
+# The DHCP checks are platform-neutral apart from dhcp_source_win.cpp: the
+# records, the helpers and both checks driven over canned data carry no
+# dhcpsapi or PDH. So their unit test is registered on every platform - from
+# CMakeLists.txt with the module on Windows, and from module.cmake everywhere
+# else, where the module itself is not built - which puts it in front of the
+# Linux and sanitizer jobs too. Included, not add_subdirectory'd, so paths are
+# relative to this file.
 NSCP_CREATE_TEST(
     check_dhcp_test
     SOURCES

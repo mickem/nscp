@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// Pure-logic tests for CheckDHCP: the address and state helpers, the scope
+// Pure-logic tests for the CheckWindowsApps DHCP Server checks: the address and state helpers, the scope
 // and server records, and both checks run end to end over canned data with
 // REST-style key=value arguments.
 

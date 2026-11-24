@@ -4,10 +4,12 @@
 #include "CheckWindowsApps.h"
 
 #include "check_cluster.hpp"
+#include "check_dhcp.hpp"
 #include "check_iis_checks.hpp"
 #include "check_nps.hpp"
 #include "check_rds_licenses.hpp"
 #include "check_rds_sessions.hpp"
+#include "dhcp_source.hpp"
 
 void CheckWindowsApps::check_nps_auth(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_nps::check_nps_auth(request, response);
@@ -17,6 +19,13 @@ void CheckWindowsApps::check_nps_accounting(const PB::Commands::QueryRequestMess
 }
 void CheckWindowsApps::check_nps_counters(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_nps::check_nps_counters(request, response);
+}
+
+void CheckWindowsApps::check_dhcp_scopes(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_dhcp::check_dhcp_scopes(request, response, dhcp_source::fetch_scopes);
+}
+void CheckWindowsApps::check_dhcp_server(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_dhcp::check_dhcp_server(request, response, dhcp_source::fetch_counters);
 }
 
 bool CheckWindowsApps::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) { return true; }

@@ -9,7 +9,7 @@
 
 #include "dhcp_filter.hpp"
 
-// The Windows readers behind the CheckDHCP checks (dhcp_source_win.cpp). Both
+// The Windows readers behind the DHCP Server checks (dhcp_source_win.cpp). Both
 // read the DHCP server on this host and have the shape of the fetchers in
 // check_dhcp.hpp.
 namespace dhcp_source {

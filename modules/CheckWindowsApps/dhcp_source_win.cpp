@@ -96,6 +96,34 @@ struct mib_info_holder {
   }
 };
 
+// dhcpsapi.dll is delay-loaded (see CMakeLists.txt): nothing maps it until
+// the first DHCP call, and if the helper cannot find it then, it raises a
+// structured exception rather than returning an error. So map it here first,
+// by absolute System32 path (neither the working directory nor PATH may
+// supply it), and report a missing DLL as a plain failure. Once loaded, the
+// helper resolves its imports against this module instead of searching for
+// it. The module stays mapped for the life of the process, as a delay-loaded
+// DLL does anyway.
+struct dhcpsapi_load {
+  HMODULE module;
+  DWORD error;
+};
+
+dhcpsapi_load load_dhcpsapi() {
+  wchar_t directory[MAX_PATH + 1] = {};
+  const UINT length = GetSystemDirectoryW(directory, MAX_PATH + 1);
+  if (length == 0 || length > MAX_PATH) return {nullptr, GetLastError()};
+  const HMODULE module = LoadLibraryW((std::wstring(directory) + L"\\dhcpsapi.dll").c_str());
+  return {module, module == nullptr ? GetLastError() : static_cast<DWORD>(ERROR_SUCCESS)};
+}
+
+bool ensure_dhcpsapi(std::string &error) {
+  static const dhcpsapi_load loaded = load_dhcpsapi();
+  if (loaded.module != nullptr) return true;
+  error = "The DHCP Server Management API (dhcpsapi.dll) is not available on this host: " + win32_error(loaded.error);
+  return false;
+}
+
 bool enum_subnets(std::vector<DHCP_IP_ADDRESS> &subnets, std::string &error) {
   DHCP_RESUME_HANDLE resume = 0;
   for (;;) {
@@ -141,6 +169,7 @@ bool read_scope_stats(std::map<DHCP_IP_ADDRESS, dhcp_filter::scope_stats> &stats
 }  // namespace
 
 bool fetch_scopes(std::vector<dhcp_filter::scope_obj_ptr> &out, std::string &error) {
+  if (!ensure_dhcpsapi(error)) return false;
   std::vector<DHCP_IP_ADDRESS> subnets;
   if (!enum_subnets(subnets, error)) return false;
 

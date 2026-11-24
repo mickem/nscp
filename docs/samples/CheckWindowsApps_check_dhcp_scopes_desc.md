@@ -24,7 +24,9 @@ exclusions, which is `in_use + free`. A scope whose whole range is excluded has
 
 **No-DHCP-server contract:** on a host without the DHCP Server role (or with
 the service stopped) the check returns **UNKNOWN** with "DHCP Server service is
-not running or not installed on this host". A server with no enabled scopes is
+not running or not installed on this host". `dhcpsapi.dll` is delay-loaded,
+so the other `CheckWindowsApps` checks never need it; should it be missing, the
+check returns **UNKNOWN** saying so rather than failing the module. A server with no enabled scopes is
 also **UNKNOWN** ("No enabled DHCP scopes found") — a check for exhaustion on a
 server that leases nothing is pointed at the wrong host. Pass `empty-state=ok`
 where that is expected.

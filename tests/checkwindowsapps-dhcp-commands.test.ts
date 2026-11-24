@@ -1,7 +1,8 @@
 /**
- * Exercises the CheckDHCP module end-to-end against the real nscp binary.
+ * Exercises the CheckWindowsApps DHCP Server checks end-to-end against the
+ * real nscp binary.
  *
- * Each case runs a one-shot client query — `nscp client --module CheckDHCP
+ * Each case runs a one-shot client query — `nscp client --module CheckWindowsApps
  * --boot --query <cmd> ...` — which loads the module, runs the check and
  * prints the Nagios-style result line. No server/port/docker needed, and the
  * `k=v` tokens exercise the same REST-style argument parsing as the web API.
@@ -22,11 +23,11 @@ const onWindows = process.platform === "win32" ? describe : describe.skip;
 const ARGUMENT_ERROR =
   /does not take any arguments|unknown option|invalid expression|error parsing/i;
 
-onWindows("CheckDHCP", () => {
+onWindows("CheckWindowsApps DHCP", () => {
   let nscp: NscpInstance;
 
   /**
-   * Run a CheckDHCP query and return the combined output and the exit code,
+   * Run a DHCP query and return the combined output and the exit code,
    * which is the Nagios status (0 OK / 1 WARNING / 2 CRITICAL / 3 UNKNOWN).
    */
   async function queryWithCode(
@@ -34,7 +35,7 @@ onWindows("CheckDHCP", () => {
     args: string[] = [],
   ): Promise<{ out: string; code: number }> {
     const r = await nscp.run(
-      ["client", "--module", "CheckDHCP", "--boot", "--query", command, ...args],
+      ["client", "--module", "CheckWindowsApps", "--boot", "--query", command, ...args],
       {
         allowFailure: true,
       },
@@ -58,7 +59,7 @@ onWindows("CheckDHCP", () => {
     // of "<subnet>/<prefix> (<name>): N% used", or "No enabled DHCP scopes
     // found". Anything else: the service is not there to ask.
     expect(out).toMatch(
-      /scopes are below their thresholds|\d+\.\d+\.\d+\.\d+\/\d+ \(.*\): [\d.]+% used|No enabled DHCP scopes found|DHCP Server service is not running or not installed on this host/,
+      /scopes are below their thresholds|\d+\.\d+\.\d+\.\d+\/\d+ \(.*\): [\d.]+% used|No enabled DHCP scopes found|DHCP Server service is not running or not installed on this host|dhcpsapi\.dll\) is not available/,
     );
     expect(out).not.toMatch(ARGUMENT_ERROR);
   });
@@ -80,7 +81,11 @@ onWindows("CheckDHCP", () => {
     // empty-state only covers a server with no scopes; a server that cannot be
     // asked must never read as healthy.
     const { out, code } = await queryWithCode("check_dhcp_scopes", ["empty-state=ok"]);
-    if (/DHCP Server service is not running or not installed/.test(out)) {
+    if (
+      /DHCP Server service is not running or not installed|dhcpsapi\.dll\) is not available/.test(
+        out,
+      )
+    ) {
       expect(code).toBe(3);
     } else {
       expect(out).not.toMatch(ARGUMENT_ERROR);

@@ -11,7 +11,7 @@
 
 #include "dhcp_filter.hpp"
 
-// The CheckDHCP checks, platform-neutral: the data comes in through a fetcher
+// The DHCP Server checks of CheckWindowsApps, platform-neutral: the data comes in through a fetcher
 // so the module wires in the Windows readers (dhcp_source_win.cpp) and the
 // unit test wires in canned data, and both run the same option parsing,
 // thresholds and rendering.

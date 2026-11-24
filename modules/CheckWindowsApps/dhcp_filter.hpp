@@ -10,7 +10,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <string>
 
-// The records the CheckDHCP checks evaluate, and the pure helpers that build
+// The records the DHCP Server checks evaluate, and the pure helpers that build
 // them. Nothing here touches dhcpsapi or PDH: the Windows readers
 // (dhcp_source_win.cpp) fill in the raw numbers and everything derived from
 // them is computed here, so the unit test covers it on every platform.
