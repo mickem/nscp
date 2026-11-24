@@ -29,6 +29,11 @@ struct where_grammar : qi::grammar<std::string::const_iterator, node_type(), cha
   // The unit after a number: a run of letters ("5m", "500ms", "10GB") or "%".
   qi::rule<iterator_type, std::string()> unit_suffix;
   qi::rule<iterator_type, operators(), charset::space_type> op, bitop;
+  // The word keywords. Each matches only as a whole word (case-insensitive,
+  // not followed by a letter, digit or '_'), so a variable whose name starts
+  // with one - notice, order, android, index, next, likes - stays a variable.
+  // No skipper: an implied lexeme, pre-skipped by the calling rule.
+  qi::rule<iterator_type> word_end, kw_not, kw_and, kw_or, kw_in, kw_like, kw_regexp, kw_le, kw_lt, kw_eq, kw_ne, kw_ge, kw_gt;
 };
 }  // namespace where
 }  // namespace parsers
