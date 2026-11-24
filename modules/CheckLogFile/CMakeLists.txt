@@ -20,6 +20,14 @@ set(SRCS
     ${NSCP_ERROR_CPP}
 )
 
+# The file reader: on Windows CreateFileW with impersonation refused and only
+# disk files accepted (log_file.hpp says why), elsewhere a std::filebuf.
+if(WIN32)
+    set(SRCS ${SRCS} log_file_win.cpp)
+else()
+    set(SRCS ${SRCS} log_file_unix.cpp)
+endif()
+
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
 # check_csv's file reader is the one per-OS piece: CreateFileW on Windows
@@ -35,6 +43,8 @@ if(WIN32)
         ${SRCS}
         "${TARGET}.h"
         check_csv.hpp
+        log_file.hpp
+        device_streambuf.hpp
         realtime_thread.hpp
         realtime_data.hpp
         filter.hpp

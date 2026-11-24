@@ -42,7 +42,7 @@ void real_time_thread::thread_proc() {
     data.set_read_from_start(object->read_from_start);
     for (const std::string &file : object->files) {
       boost::filesystem::path path = file;
-      data.add_file(path);
+      data.add_file(file);
 #ifdef WIN32
       if (boost::filesystem::is_directory(path)) {
         logs.push_back(path.string());
