@@ -35,6 +35,7 @@
 #include "check_shadowcopy.hpp"
 #include "check_share.hpp"
 #include "check_single_file.hpp"
+#include "check_smart.hpp"
 #include "check_smb_client.hpp"
 #include "check_storagepool.hpp"
 #include "check_uncpath.hpp"
@@ -365,6 +366,14 @@ void CheckDisk::check_smb_client(const PB::Commands::QueryRequestMessage::Reques
     smb_client_check::check::check_smb_client(request, response);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to check SMB client shares: " + std::string(e.what()));
+  }
+}
+
+void CheckDisk::check_smart(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    smart_check::check_smart(request, response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to read SMART data: " + std::string(e.what()));
   }
 }
 

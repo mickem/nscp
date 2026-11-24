@@ -23,11 +23,13 @@ set(SRCS
     check_shadowcopy.cpp
     check_share.cpp
     check_smb_client.cpp
+    check_smart.cpp
     collector_thread.cpp
     filter.cpp
     growth_spots.cpp
     largest_files_scan.cpp
     ntfs_mft.cpp
+    smart_data.cpp
     storage_facts.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
@@ -45,6 +47,7 @@ if(WIN32)
         growth_spots_win.cpp
         largest_files_source_win.cpp
         smb_client_source_win.cpp
+        smart_source_win.cpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
         # The PDH stack, for check_smb_client's counter set.
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
@@ -71,12 +74,14 @@ if(WIN32)
         check_shadowcopy.hpp
         check_share.hpp
         check_smb_client.hpp
+        check_smart.hpp
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
         growth_spots.hpp
         largest_files_scan.hpp
         ntfs_mft.hpp
+        smart_data.hpp
         storage_facts.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
@@ -99,7 +104,7 @@ else()
         smb_client_source_unix.cpp
     )
     # The Linux readers: mounts through mntent(3), block-device statistics from
-    # /proc/diskstats. Darwin has neither (getmntinfo(3) and IOKit spell the
+    # /proc/diskstats, SMART through SG_IO / the NVMe admin ioctl. Darwin has neither (getmntinfo(3) and IOKit spell the
     # same thing), which is why module.cmake skips the module there. A port
     # adds check_drive_darwin.cpp / check_disk_io_darwin.cpp in an
     # elseif(APPLE) branch of this if, and moves check_mount.cpp's inline
@@ -109,6 +114,7 @@ else()
         check_drive_linux.cpp
         check_disk_io_linux.cpp
         growth_spots_linux.cpp
+        smart_source_linux.cpp
     )
 endif()
 
@@ -171,6 +177,7 @@ if(WIN32)
             check_shadowcopy_test.cpp
             check_share_test.cpp
             check_smb_client_test.cpp
+            check_smart_test.cpp
             collector_thread_test.cpp
             file_finder_filter_test.cpp
             storage_facts_test.cpp
@@ -192,6 +199,9 @@ if(WIN32)
             check_share.cpp
             # Without its source: the test drives check_smb_client_from().
             check_smb_client.cpp
+            check_smart.cpp
+            smart_data.cpp
+            smart_source_win.cpp
             collector_thread.cpp
             file_finder_win.cpp
             filter.cpp
@@ -286,6 +296,13 @@ else()
             check_smb_client.cpp
             check_smb_client_test.cpp
             smb_client_source_unix.cpp
+            # check_smart: the decoders and the check run over canned
+            # drives; smart_source_linux.cpp only needs to link (no disk is
+            # touched unless a test calls read_drives()).
+            check_smart.cpp
+            check_smart_test.cpp
+            smart_data.cpp
+            smart_source_linux.cpp
             check_storagepool.cpp
             check_storagepool_test.cpp
             check_uncpath.cpp

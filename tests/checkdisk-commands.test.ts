@@ -545,6 +545,25 @@ describeWithModules("CheckDisk")("CheckDisk commands", () => {
     expect([OK, CRITICAL]).toContain(q.result);
   });
 
+  // --- check_smart (Windows) -------------------------------------------------
+
+  it("check_smart runs and reports a valid SMART state per drive (Windows)", async () => {
+    if (!onWindows) return;
+    // CI runners have virtual disks; with the thresholds pinned the result is
+    // OK whatever the drives are, and every drive lands in a documented state.
+    const q = await executeQuery(key, "check_smart", {
+      filter: "none",
+      warning: "none",
+      critical: "none",
+      "empty-state": "ok",
+      "top-syntax": "${list}",
+      "detail-syntax": "${drive}=${smart_state}",
+    });
+    expect(q.result).toBe(OK);
+    const rows = messageOf(q).match(/PhysicalDrive\d+=\w+/g) ?? [];
+    for (const row of rows) expect(row).toMatch(/=(available|unsupported|denied|error)$/);
+  });
+
   it("check_shadowcopy accepts the copies keyword and its deprecated count alias (Windows)", async () => {
     if (!onWindows) return;
     // `count` was renamed to `copies` (the old name clashes with the generic
