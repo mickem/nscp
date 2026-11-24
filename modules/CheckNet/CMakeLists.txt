@@ -21,6 +21,7 @@ set(SRCS
     check_http_json.cpp
     check_webserver.cpp
     check_webserver_parse.cpp
+    check_jvm_parse.cpp
     check_nsclient_web_online.cpp
     check_nsclient_web_online_parse.cpp
     check_connections.cpp
@@ -47,6 +48,7 @@ if(WIN32)
         check_http_internal.hpp
         check_webserver.h
         check_webserver_internal.hpp
+        check_jvm_internal.hpp
         check_nsclient_web_online.h
         check_connections.h
         check_ntp_offset.h
@@ -116,6 +118,7 @@ NSCP_CREATE_TEST(
         check_http_json_test.cpp
         check_http_json.cpp
         check_webserver_test.cpp
+        check_jvm_test.cpp
         check_tcp_test.cpp
         check_tcp.cpp
         check_http_test.cpp
@@ -130,6 +133,7 @@ NSCP_CREATE_TEST(
         check_starttls.cpp
         check_net_cert.cpp
         check_webserver_parse.cpp
+        check_jvm_parse.cpp
         filter.cpp
         check_nsclient_web_online_parse.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp

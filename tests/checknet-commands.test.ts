@@ -2158,6 +2158,173 @@ describe("CheckNet commands", () => {
     expect(messageOf(q)).toMatch(/parse_error/);
   });
 
+  // A scripted Jolokia agent: answers each read of a bulk POST from a table of
+  // MBean values, in request order, the way the real agent does, and keeps
+  // the last request so a test can assert what the check asked for.
+  const JOLOKIA_MBEANS: Record<string, unknown> = {
+    "java.lang:type=Memory": {
+      HeapMemoryUsage: { init: 268435456, committed: 536870912, max: 1073741824, used: 268435456 },
+      NonHeapMemoryUsage: { init: 7667712, committed: 62914560, max: -1, used: 58720256 },
+    },
+    "java.lang:type=Threading": { ThreadCount: 42, DaemonThreadCount: 30, PeakThreadCount: 45 },
+    "java.lang:type=Runtime": {
+      Uptime: 3723000,
+      VmName: "OpenJDK 64-Bit Server VM",
+      VmVendor: "Eclipse Adoptium",
+      VmVersion: "21.0.5+11-LTS",
+      SpecVersion: "21",
+    },
+    "java.lang:type=ClassLoading": { LoadedClassCount: 8123 },
+    "java.lang:type=GarbageCollector,name=*": {
+      "java.lang:name=G1 Young Generation,type=GarbageCollector": {
+        CollectionCount: 17,
+        CollectionTime: 120,
+      },
+      "java.lang:name=G1 Old Generation,type=GarbageCollector": {
+        CollectionCount: 1,
+        CollectionTime: 80,
+      },
+    },
+    "Catalina:type=Manager,host=localhost,context=/app": { activeSessions: 118 },
+  };
+
+  function startJolokia(): Promise<Listener & { lastRequest: () => unknown[] | undefined }> {
+    let last: unknown[] | undefined;
+    return startHttp((req, res) => {
+      if (req.method !== "POST") {
+        res.statusCode = 405;
+        res.end("{}");
+        return;
+      }
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        const reads = JSON.parse(body) as { mbean: string; attribute: string | string[] }[];
+        last = reads;
+        const answers = reads.map((r) => {
+          const bean = JOLOKIA_MBEANS[r.mbean] as Record<string, unknown> | undefined;
+          if (!bean) {
+            return {
+              request: r,
+              error_type: "javax.management.InstanceNotFoundException",
+              error: `javax.management.InstanceNotFoundException : ${r.mbean}`,
+              status: 404,
+            };
+          }
+          const value =
+            Array.isArray(r.attribute) || r.mbean.includes("*") ? bean : bean[r.attribute];
+          return { request: r, value, status: 200, timestamp: 1732450000 };
+        });
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify(answers));
+      });
+    }).then((l) => ({ ...l, lastRequest: () => last }));
+  }
+
+  it("check_jvm reads heap, threads and GC from a Jolokia bulk POST", async () => {
+    const s = await startJolokia();
+    const q = await executeQuery(key, "check_jvm", { url: `http://127.0.0.1:${s.port}/jolokia/` });
+    expect(q.result).toBe(OK);
+    // 256 MiB of a 1 GiB maximum heap.
+    expect(messageOf(q)).toMatch(
+      /ok: heap 256MB of 1GB \(25(\.0+)?%\), 42 threads, 18 collections/,
+    );
+    expect(perfValue(q, "127.0.0.1_heap_used")).toBe(268435456);
+    expect(perfValue(q, "127.0.0.1_threads")).toBe(42);
+    expect(perfValue(q, "127.0.0.1_gc_count")).toBe(18);
+    expect(perfValue(q, "127.0.0.1_gc_time")).toBe(200);
+    const mbeans = (s.lastRequest() ?? []).map((r) => (r as { mbean: string }).mbean);
+    expect(mbeans).toContain("java.lang:type=Memory");
+    expect(mbeans).toContain("java.lang:type=GarbageCollector,name=*");
+  });
+
+  it("check_jvm applies heap thresholds, including the percent shorthand", async () => {
+    const s = await startJolokia();
+    const url = `http://127.0.0.1:${s.port}/jolokia/`;
+    expect((await executeQuery(key, "check_jvm", { url, warning: "heap_usage > 20" })).result).toBe(
+      WARNING,
+    );
+    expect(
+      (await executeQuery(key, "check_jvm", { url, critical: "heap_used > 200M" })).result,
+    ).toBe(CRITICAL);
+    expect((await executeQuery(key, "check_jvm", { url, warning: "uptime < 2h" })).result).toBe(
+      WARNING,
+    );
+    expect((await executeQuery(key, "check_jvm", { url, w: "20", c: "30" })).result).toBe(WARNING);
+  });
+
+  it("check_jvm exposes an MBean attribute as a keyword (escaped / in the name)", async () => {
+    const s = await startJolokia();
+    const q = await executeQuery(key, "check_jvm", {
+      url: `http://127.0.0.1:${s.port}/jolokia/`,
+      attribute: "sessions=Catalina:type=Manager,host=localhost,context=!/app/activeSessions",
+      warning: "sessions > 100",
+    });
+    expect(q.result).toBe(WARNING);
+    expect(perfValue(q, "127.0.0.1_sessions")).toBe(118);
+    const custom = (s.lastRequest() ?? []).find((r) =>
+      (r as { mbean: string }).mbean.startsWith("Catalina:"),
+    ) as { mbean: string; attribute: string } | undefined;
+    expect(custom).toEqual(
+      expect.objectContaining({
+        mbean: "Catalina:type=Manager,host=localhost,context=/app",
+        attribute: "activeSessions",
+      }),
+    );
+  });
+
+  it("check_jvm goes CRITICAL naming the MBean Jolokia could not read", async () => {
+    const s = await startJolokia();
+    const q = await executeQuery(key, "check_jvm", {
+      url: `http://127.0.0.1:${s.port}/jolokia/`,
+      attribute: "x=com.example:type=Missing/Value",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(
+      /error: x: com\.example:type=Missing: javax\.management\.InstanceNotFoundException/,
+    );
+  });
+
+  it("check_jvm reports parse_error when the endpoint is not Jolokia", async () => {
+    const s = await startHttp((_req, res) => res.end("<html>Welcome to Tomcat</html>"));
+    const q = await executeQuery(key, "check_jvm", { url: `http://127.0.0.1:${s.port}/jolokia/` });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/parse_error/);
+  });
+
+  it("check_jvm surfaces a top-level Jolokia error answered with HTTP 200", async () => {
+    // Jolokia's access policy answers a denied request with 200 and an error
+    // object rather than an HTTP error code.
+    const s = await startHttp((_req, res) =>
+      res.end(
+        JSON.stringify({
+          error_type: "java.lang.Exception",
+          error: "java.lang.Exception : Origin http://x is not allowed",
+          status: 403,
+        }),
+      ),
+    );
+    const q = await executeQuery(key, "check_jvm", { url: `http://127.0.0.1:${s.port}/jolokia/` });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/error: java\.lang\.Exception : Origin http:\/\/x is not allowed/);
+  });
+
+  it("check_jvm rejects a malformed or clashing attribute alias", async () => {
+    const url = "http://127.0.0.1:1/jolokia/";
+    let q = await executeQuery(key, "check_jvm", {
+      url,
+      attribute: "java.lang:type=Memory/HeapMemoryUsage",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/Invalid attribute/);
+    q = await executeQuery(key, "check_jvm", {
+      url,
+      attribute: "threads=java.lang:type=Threading/ThreadCount",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/already a keyword/);
+  });
+
   it("status-page checks report invalid_url for a malformed port instead of throwing", async () => {
     // ":" with nothing after it used to hit an unguarded std::stoll and escape
     // the check as a generic module exception; ":8o80" silently parsed as 8.
