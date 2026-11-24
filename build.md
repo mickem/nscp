@@ -21,14 +21,36 @@ If you want to produce debug builds and/or w32 some adjustments will be required
 
 You need the following tools installed on your machine and in your path:
 
-* Visual Studio (Community Edition is fine)
-    * In addition, you need to enable the following modules (to get support for XP) in the installer
-        * Microsoft.VisualStudio.Component.VC.v141.x86.x64
+* Visual Studio 2022 (Community Edition is fine)
+    * In addition, you need to enable the following components in the installer:
+        * Microsoft.VisualStudio.Component.VC.v141.x86.x64 (the v141 toolset)
         * Microsoft.VisualStudio.Component.VC.v141.ATL
-        * Microsoft.VisualStudio.Component.WinXP
+        * Microsoft.VisualStudio.Component.WinXP (only for the XP-compatible
+          [Win32 static build](#win32-version-static-link))
 * CMake
 * 7zip
 * Perl (I use strawberry perl)
+
+### Compiler and toolset
+
+The code is C++17. What matters is the MSVC **toolset**, not the Visual Studio
+version: Visual Studio installs older toolsets as optional components, so the
+v141 (Visual Studio 2017) compiler can be installed into Visual Studio 2017,
+2019 or 2022. CI is pinned to the `windows-2022` runner image because the
+newer Visual Studio 2026 image ships none of v141, v141_xp or the Windows 8.1
+SDK. These are the toolsets the pipelines use:
+
+| Build                                    | Toolset                        | `vcvarsall` version | Workflow                     |
+|------------------------------------------|--------------------------------|---------------------|------------------------------|
+| x64 / x86                                | `v141`                         | `14.1`              | `build-windows.yml`          |
+| ARM64                                    | `v143` (v141 cannot target it) | `14.4`              | `build-windows.yml`          |
+| Legacy XP (x86 / x64, static runtime)    | `v141_xp` + Windows 8.1 SDK    | `14.1`              | `build-windows-legacy.yml`   |
+
+All of them use the `"Visual Studio 17"` (Visual Studio 2022) CMake generator.
+Every dependency is built with the same toolset as the code that links it:
+static libraries built with a newer toolset than the one linking them are not
+supported. The instructions below cover x64 with `v141` and the XP-compatible
+Win32 build with `v141_xp`; for ARM64 see `build-windows.yml`.
 
 ## Dependencies
 
@@ -49,7 +71,7 @@ and its location is pointed to from `build.cmake`.
 
 | Dependency                                                                                     | Used for                                     | Debian/Ubuntu package                           | Windows                                                      |
 |------------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------|--------------------------------------------------------------|
-| C++17 toolchain                                                                                | compiling                                    | `build-essential`                               | Visual Studio (v141_xp toolset)                              |
+| C++17 toolchain                                                                                | compiling                                    | `build-essential`                               | Visual Studio 2022 (v141 toolset, see [Compiler and toolset](#compiler-and-toolset)) |
 | CMake ≥ 3.10                                                                                   | build system                                 | `cmake`                                         | CMake                                                        |
 | Boost (system, filesystem, thread, regex, date_time, program_options, chrono, json, container) | core runtime, filtering, JSON, threading     | `libboost-all-dev`                              | built from source                                            |
 | Protocol Buffers (library + `protoc`)                                                          | every cross-module message                   | `libprotobuf-dev`, `protobuf-compiler`          | built from source                                            |
@@ -178,8 +200,8 @@ To make things smooth we will define a few environment variables we can use:
 set SOURCE_ROOT=FOLDER WHERE YOU CLONED THE GIT REPO
 set BUILD_FOLDER=WHERE TO BUILD EVERYTHING, NORMALLY AN EMPTY FOLDER
 set NSCP_VERSION=NORMALLY READ FROM GIT
-# Ensure we configure Visual Studio to use 14.16 (v141_xp) which is the toolset which support building XP binaries
-"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.16
+# Set up the v141 (14.1) toolset environment, the one the x64 release build uses
+"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.1
 mkdir %BUILD_FOLDER%
 mkdir %BUILD_FOLDER%\nscp
 ```
@@ -188,7 +210,7 @@ mkdir %BUILD_FOLDER%\nscp
 
 #### Open SSL
 
-Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
+Run the following commands in the command prompt set up under Environment above (x64, v141):
 
 ```commandline
 SET OPENSSL_VERSION=3.5.9
@@ -226,7 +248,7 @@ nmake
 
 #### Boost
 
-Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
+Run the following commands in the command prompt set up under Environment above (x64, v141):
 
 ```commandline
 SET BOOST_VERSION=1.86.0
@@ -256,7 +278,7 @@ curl -L https://github.com/protocolbuffers/protobuf/releases/download/v%PROTOBUF
 cd %BUILD_FOLDER%\protobuf-%PROTOBUF_VERSION%
 mkdir build
 cd %BUILD_FOLDER%\protobuf-%PROTOBUF_VERSION%\build
-cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -T v141_xp -A x64 ..
+cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -T v141 -A x64 ..
 
 msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=x64
 msbuild libprotobuf.vcxproj /p:Configuration=Debug /p:Platform=x64
@@ -401,7 +423,7 @@ leaves `CheckMySQL` out entirely.
 cd %BUILD_FOLDER%
 mkdir installer_lib
 cd installer_lib 
-cmake %SOURCE_ROOT%/installer_lib -T v141 -G "Visual Studio 18" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION%-static -DBUILD_VERSION=%NSCP_VERSION% 
+cmake %SOURCE_ROOT%/installer_lib -T v141 -G "Visual Studio 17" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION%-static -DBUILD_VERSION=%NSCP_VERSION% 
 msbuild installer_lib.sln /p:Configuration=Release /p:Platform=x64
 ```
 
@@ -454,11 +476,16 @@ SET(MARIADB_ROOT_DIR "BUILD_FOLDER/mariadb-connector-c-VERSION/install")
 cd %BUILD_FOLDER%
 mkdir nscp
 cd nscp
-cmake %SOURCE_ROOT% -T v141_xp -G "Visual Studio 17" -A x64 -DBUILD_VERSION=%NSCP_VERSION%
+cmake %SOURCE_ROOT% -T v141 -G "Visual Studio 17" -A x64 -DBUILD_VERSION=%NSCP_VERSION%
 msbuild nscp.sln /p:Configuration=Release /p:Platform=x64
 ```
 
 ## Win32 version (static link)
+
+This is the XP-compatible build the legacy packages are made with
+(`build-windows-legacy.yml`): the `v141_xp` toolset, the Windows 8.1 SDK and a
+statically linked runtime. The regular x86 release package is built like the
+x64 one above, with `v141` and `-A Win32`.
 
 ### Environment
 
@@ -468,15 +495,15 @@ To make things smooth we will define a few environment variables we can use:
 set SOURCE_ROOT=FOLDER WHERE YOU CLONED THE GIT REPO
 set BUILD_FOLDER=WHERE TO BUILD EVERYTHING, NORMALLY AN EMPTY FOLDER
 set NSCP_VERSION=NORMALLY READ FROM GIT
-# Ensure we configure Visual Studio to use 14.16 (v141_xp) which is the toolset which support building XP binaries
-"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x86 -vcvars_ver=14.16
+# Set up the v141 (14.1) toolset environment; the build itself targets v141_xp, the XP-compatible variant
+"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x86 -vcvars_ver=14.1
 ```
 
 ### Libraries
 
 #### Open SSL
 
-Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
+Run the following commands in the command prompt set up under Environment above (x86, v141_xp):
 
 ```commandline
 SET OPENSSL_VERSION=3.5.9
@@ -493,7 +520,7 @@ cd ..
 
 #### Boost
 
-Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
+Run the following commands in the command prompt set up under Environment above (x86, v141_xp):
 
 ```commandline
 SET BOOST_VERSION=1.83.0
@@ -591,7 +618,7 @@ cd %BUILD_FOLDER%
 mkdir installer_lib
 cd installer_lib 
 cmake %SOURCE_ROOT%/installer_lib -T v141_xp -G "Visual Studio 17" -A Win32 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION% -DBUILD_VERSION=%NSCP_VERSION% 
-msbuild installer_lib.sln /p:Configuration=Release /p:Platform=x64
+msbuild installer_lib.sln /p:Configuration=Release /p:Platform=Win32
 ```
 
 ### Build google test
