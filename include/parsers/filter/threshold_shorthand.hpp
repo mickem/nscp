@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <sstream>
+#include <str/ascii.hpp>
 #include <string>
 #include <vector>
 
@@ -79,8 +80,8 @@ inline std::string trim(const std::string &s) {
 }
 
 inline char lower(const char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c; }
-inline bool is_digit(const char c) { return c >= '0' && c <= '9'; }
-inline bool is_alpha(const char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+using str::ascii::is_alpha;
+using str::ascii::is_digit;
 
 // A number with an optional unit suffix: 80, 80%, -5, 1.5, 2d, 10GB, 500ms.
 inline bool is_value(const std::string &s) {
