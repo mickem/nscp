@@ -19,5 +19,9 @@ void check_phpfpm_status(const std::string &default_ca_file, const PB::Commands:
                          PB::Commands::QueryResponseMessage::Response *response);
 void check_tomcat_status(const std::string &default_ca_file, const PB::Commands::QueryRequestMessage::Request &request,
                          PB::Commands::QueryResponseMessage::Response *response);
+// JVM heap, threads, garbage collection and arbitrary MBean attributes read
+// over JMX through a Jolokia agent (HTTP+JSON).
+void check_jvm(const std::string &default_ca_file, const PB::Commands::QueryRequestMessage::Request &request,
+               PB::Commands::QueryResponseMessage::Response *response);
 
 }  // namespace check_net
