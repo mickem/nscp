@@ -21,6 +21,7 @@ set(SRCS
     check_http_json.cpp
     check_webserver.cpp
     check_webserver_parse.cpp
+    check_jvm.cpp
     check_jvm_parse.cpp
     check_nsclient_web_online.cpp
     check_nsclient_web_online_parse.cpp
@@ -48,6 +49,7 @@ if(WIN32)
         check_http_internal.hpp
         check_webserver.h
         check_webserver_internal.hpp
+        check_webserver_common.hpp
         check_jvm_internal.hpp
         check_nsclient_web_online.h
         check_connections.h
@@ -124,6 +126,7 @@ NSCP_CREATE_TEST(
         check_http_test.cpp
         check_http.cpp
         check_webserver.cpp
+        check_jvm.cpp
         check_nsclient_web_online.cpp
         check_dns_test.cpp
         check_dns.cpp
