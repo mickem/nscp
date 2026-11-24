@@ -106,6 +106,10 @@ goes through the same gate: whatever `check_logfile` may read, `check_csv` may
 read, and nothing else. A CSV export you want checked is allowed, or named
 under `[/settings/logfile/files]`, exactly like a log file.
 
+`check_csv` holds the whole file in memory, so `[/settings/logfile]` also takes
+`max csv size` (default `64m`): the largest file it reads, whatever `max-size=`
+a caller passes.
+
 Allow-list entries come in three shapes:
 
 | Entry | Matches |

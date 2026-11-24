@@ -575,6 +575,18 @@ describeWithModules("CheckLogFile")("CheckLogFile check_logfile", () => {
       expect(messageOf(r)).toMatch(/2 rows: bj\u00f6rk=1, ek=3/);
     });
 
+    it("refuses a file over max-size and a max-size that is not a size", async () => {
+      let r = await executeQuery(key, "check_csv", { file: updates, columns: "a", "max-size": "10" });
+      expect(r.result).toBe(UNKNOWN);
+      expect(messageOf(r)).toMatch(/larger than max-size \(10 bytes\)/);
+      r = await executeQuery(key, "check_csv", { file: updates, columns: "a", "max-size": "1.5m" });
+      expect(r.result).toBe(UNKNOWN);
+      expect(messageOf(r)).toMatch(/Invalid max-size/);
+      // 0 is the agent's ceiling ('max csv size', 64m by default), not no limit.
+      r = await executeQuery(key, "check_csv", { file: updates, header: "true", "max-size": "0" });
+      expect(r.result).toBe(OK);
+    });
+
     it("reports a missing file and missing columns as UNKNOWN", async () => {
       let r = await executeQuery(key, "check_csv", {
         file: path.join(scratch, "nope.csv"),

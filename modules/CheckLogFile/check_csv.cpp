@@ -4,6 +4,7 @@
 #include "check_csv.hpp"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 #include <cerrno>
 #include <cmath>
@@ -318,10 +319,44 @@ bool decode_text(const std::string &bytes, const std::string &encoding_in, std::
   return false;
 }
 
+// --- the size limit --------------------------------------------------------
+
+bool parse_size(const std::string &value_in, std::uint64_t &bytes, std::string &error) {
+  const std::string value = boost::algorithm::trim_copy(value_in);
+  const std::string::size_type digits = value.find_first_not_of("0123456789");
+  const std::string unit = digits == std::string::npos ? "" : boost::algorithm::trim_copy(value.substr(digits));
+  long long factor = 1;
+  if (value.empty() || digits == 0 || (!unit.empty() && !str::format::byte_unit_factor(unit, factor))) {
+    error = "'" + value_in + "' is not a size (expected a byte count, optionally suffixed k, m or g)";
+    return false;
+  }
+  try {
+    const long long number = boost::lexical_cast<long long>(value.substr(0, digits));
+    bytes = static_cast<std::uint64_t>(str::format::mul_checked(number, factor, "size"));
+  } catch (const std::exception &) {
+    error = "'" + value_in + "' is too large a size";
+    return false;
+  }
+  return true;
+}
+
+bool effective_max_bytes(const std::string &requested, const std::uint64_t ceiling, std::uint64_t &max_bytes, bool &capped, std::string &error) {
+  std::uint64_t asked = 0;
+  if (!parse_size(requested, asked, error)) {
+    error = "Invalid max-size: " + error;
+    return false;
+  }
+  // "No limit" from the caller is as much as the operator allows, and so is
+  // anything above that.
+  capped = ceiling > 0 && (asked == 0 || asked > ceiling);
+  max_bytes = capped ? ceiling : asked;
+  return true;
+}
+
 // --- the check -------------------------------------------------------------
 
 void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                const check::access::path_policy &access, const read_function &read) {
+                const check::access::path_policy &access, const std::uint64_t max_bytes_ceiling, const read_function &read) {
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
   std::string source, columns_arg, delimiter_arg, quote_arg, encoding, max_size;
@@ -359,7 +394,8 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
       "Lines to drop from the top of the file before it is parsed, such as the '#TYPE' line Export-Csv writes on Windows PowerShell 5 or a "
       "report title. Every line counts, blank ones included, and nothing in a skipped line is interpreted: a quote there does not open a field.")
     ("max-size", po::value<std::string>(&max_size)->default_value("16m"),
-      "Refuse a file larger than this, in bytes optionally suffixed k/m/g. The whole file is read into memory.")
+      "Refuse a file larger than this, in bytes optionally suffixed k/m/g. The whole file is read into memory. A value above 'max csv size' in "
+      "[/settings/logfile] (64m unless configured), or 0, means that setting's value.")
     ;
   // clang-format on
 
@@ -375,13 +411,11 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   if (!error.empty()) return nscapi::protobuf::functions::set_response_bad(*response, error);
   if (skip_lines < 0) return nscapi::protobuf::functions::set_response_bad(*response, "skip-lines must not be negative");
   format.skip_lines = static_cast<std::size_t>(skip_lines);
-  try {
-    const long long parsed = str::format::decode_byte_units(max_size);
-    if (parsed < 0) return nscapi::protobuf::functions::set_response_bad(*response, "Invalid max-size: " + max_size + " (must not be negative)");
-    max_bytes = static_cast<std::uint64_t>(parsed);
-  } catch (const std::exception &) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid max-size: " + max_size + " (expected a byte count, optionally suffixed k/m/g)");
-  }
+  bool capped = false;
+  if (!effective_max_bytes(max_size, max_bytes_ceiling, max_bytes, capped, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);
+  // Where the limit that refused a file is the operator's rather than the
+  // caller's, say so: raising max-size= would not help.
+  const std::string too_large_hint = capped ? " (the limit is 'max csv size' in [/settings/logfile])" : "";
 
   std::vector<column_spec> columns;
   if (!columns_arg.empty() && !parse_columns(columns_arg, columns, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);
@@ -399,9 +433,13 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   }
 
   std::string bytes;
-  if (!read(source, max_bytes, bytes, error)) return nscapi::protobuf::functions::set_response_bad(*response, error);
+  if (!read(source, max_bytes, bytes, error)) {
+    if (error.find("larger than max-size") != std::string::npos) error += too_large_hint;
+    return nscapi::protobuf::functions::set_response_bad(*response, error);
+  }
   if (max_bytes > 0 && bytes.size() > max_bytes) {
-    return nscapi::protobuf::functions::set_response_bad(*response, "CSV is larger than max-size (" + max_size + "): " + source);
+    return nscapi::protobuf::functions::set_response_bad(*response,
+                                                         "CSV is larger than max-size (" + std::to_string(max_bytes) + " bytes): " + source + too_large_hint);
   }
 
   std::string text;
@@ -438,8 +476,8 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 }
 
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-           const check::access::path_policy &access) {
-  check_with(request, response, access, &read_local_file);
+           const check::access::path_policy &access, const std::uint64_t max_bytes_ceiling) {
+  check_with(request, response, access, max_bytes_ceiling, &read_local_file);
 }
 
 }  // namespace check_csv_command

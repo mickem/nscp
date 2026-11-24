@@ -70,6 +70,7 @@ struct fake_source {
 struct runner {
   fake_source source;
   check::access::path_policy access{"file", "files", "/settings/logfile"};
+  std::uint64_t ceiling = 64ull * 1024 * 1024;  // the default `max csv size`
   PB::Commands::QueryResponseMessage::Response response;
 
   PB::Common::ResultCode run(const std::vector<std::string> &args) {
@@ -77,7 +78,7 @@ struct runner {
     PB::Commands::QueryRequestMessage::Request request;
     request.set_command("check_csv");
     for (const std::string &a : args) request.add_arguments(a);
-    check_with(request, &response, access, source.fn());
+    check_with(request, &response, access, ceiling, source.fn());
     return response.result();
   }
   std::string message() const { return join_lines(response); }
@@ -90,6 +91,102 @@ const char *kUpdates =
     "srv3,12,3.75\r\n";
 
 }  // namespace
+
+// --- the size limit --------------------------------------------------------
+
+TEST(CheckCsvSize, ParsesByteCountsAndUnits) {
+  std::uint64_t bytes = 0;
+  std::string error;
+  ASSERT_TRUE(parse_size("0", bytes, error)) << error;
+  EXPECT_EQ(0u, bytes);
+  ASSERT_TRUE(parse_size("512", bytes, error)) << error;
+  EXPECT_EQ(512u, bytes);
+  ASSERT_TRUE(parse_size("16m", bytes, error)) << error;
+  EXPECT_EQ(16ull * 1024 * 1024, bytes);
+  ASSERT_TRUE(parse_size(" 2 GiB ", bytes, error)) << error;
+  EXPECT_EQ(2ull * 1024 * 1024 * 1024, bytes);
+  ASSERT_TRUE(parse_size("1kb", bytes, error)) << error;
+  EXPECT_EQ(1024u, bytes);
+}
+
+TEST(CheckCsvSize, RefusesWhatIsNotASize) {
+  std::uint64_t bytes = 0;
+  // A typo must not be read as a handful of bytes: "1.5m" used to be 1 byte.
+  for (const char *bad : {"", "m", "-5", "1.5m", "16x", "16 megs", "99999999999999999999", "9999999999999999g"}) {
+    std::string error;
+    EXPECT_FALSE(parse_size(bad, bytes, error)) << bad;
+    EXPECT_FALSE(error.empty()) << bad;
+  }
+}
+
+TEST(CheckCsvSize, TheCeilingBoundsWhatACallerMayAsk) {
+  std::uint64_t max_bytes = 0;
+  bool capped = true;
+  std::string error;
+  // Below or at the ceiling: the caller's value.
+  ASSERT_TRUE(effective_max_bytes("1k", 4096, max_bytes, capped, error)) << error;
+  EXPECT_EQ(1024u, max_bytes);
+  EXPECT_FALSE(capped);
+  ASSERT_TRUE(effective_max_bytes("4k", 4096, max_bytes, capped, error)) << error;
+  EXPECT_EQ(4096u, max_bytes);
+  EXPECT_FALSE(capped);
+  // "No limit" is the ceiling, not unlimited.
+  ASSERT_TRUE(effective_max_bytes("0", 4096, max_bytes, capped, error)) << error;
+  EXPECT_EQ(4096u, max_bytes);
+  EXPECT_TRUE(capped);
+  // So is anything above it.
+  ASSERT_TRUE(effective_max_bytes("8k", 4096, max_bytes, capped, error)) << error;
+  EXPECT_EQ(4096u, max_bytes);
+  EXPECT_TRUE(capped);
+  // Without a ceiling the caller decides, unlimited included.
+  ASSERT_TRUE(effective_max_bytes("8k", 0, max_bytes, capped, error)) << error;
+  EXPECT_EQ(8192u, max_bytes);
+  EXPECT_FALSE(capped);
+  ASSERT_TRUE(effective_max_bytes("0", 0, max_bytes, capped, error)) << error;
+  EXPECT_EQ(0u, max_bytes);
+  EXPECT_FALSE(capped);
+  EXPECT_FALSE(effective_max_bytes("lots", 4096, max_bytes, capped, error));
+  EXPECT_NE(std::string::npos, error.find("Invalid max-size")) << error;
+}
+
+TEST(CheckCsv, MaxSizeCannotBeRaisedPastTheCeiling) {
+  runner r;
+  r.ceiling = 1024;
+  r.source.files["/x.csv"] = "a\n1\n";
+  // The default max-size (16m) is above this ceiling: the ceiling wins, and
+  // the check still runs.
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.run({"file=/x.csv", "columns=a"})) << r.message();
+  EXPECT_EQ(1024u, r.source.last_max_bytes);
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.run({"file=/x.csv", "columns=a", "max-size=1g"})) << r.message();
+  EXPECT_EQ(1024u, r.source.last_max_bytes);
+  // max-size=0 does not switch the limit off.
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.run({"file=/x.csv", "columns=a", "max-size=0"})) << r.message();
+  EXPECT_EQ(1024u, r.source.last_max_bytes);
+  // Below the ceiling the caller's value is used.
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.run({"file=/x.csv", "columns=a", "max-size=512"})) << r.message();
+  EXPECT_EQ(512u, r.source.last_max_bytes);
+}
+
+TEST(CheckCsv, AFileOverTheCeilingNamesTheSetting) {
+  runner r;
+  r.ceiling = 4;
+  r.source.files["/x.csv"] = "a\n1\n2\n3\n";
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.run({"file=/x.csv", "columns=a", "max-size=0"}));
+  EXPECT_NE(std::string::npos, r.message().find("larger than max-size (4 bytes)")) << r.message();
+  EXPECT_NE(std::string::npos, r.message().find("max csv size")) << r.message();
+  // The caller's own limit does not blame the setting.
+  r.ceiling = 1024;
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.run({"file=/x.csv", "columns=a", "max-size=4"}));
+  EXPECT_EQ(std::string::npos, r.message().find("max csv size")) << r.message();
+}
+
+TEST(CheckCsv, MaxSizeTyposAreRefused) {
+  runner r;
+  r.source.files["/x.csv"] = "a\n1\n";
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.run({"file=/x.csv", "columns=a", "max-size=1.5m"}));
+  EXPECT_NE(std::string::npos, r.message().find("Invalid max-size")) << r.message();
+  EXPECT_TRUE(r.source.last_source.empty());
+}
 
 // --- columns ---------------------------------------------------------------
 

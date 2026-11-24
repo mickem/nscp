@@ -62,6 +62,10 @@ called `Count` or `Status` is fine.
   size the file reports, and only a regular file is read: a device
   (`/dev/zero`), a FIFO or a Windows named pipe is refused rather than read
   until memory runs out or the other end writes.
+* `max-size` is the caller's to pass, so the agent has a ceiling of its own
+  that a caller cannot raise: `max csv size` in `[/settings/logfile]` (default
+  `64m`). A `max-size` above it, or `max-size=0`, means the ceiling. Raise the
+  setting to read a larger export; `max csv size = 0` removes the ceiling.
 * Numbers are read with `.` as the decimal separator (and no thousands
   separator), as CSV exports write them, whatever the host's locale is.
 

@@ -89,7 +89,13 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
                   "An entry naming a directory (or a path which does not exist yet) allows every file beneath it at any depth; an entry naming an existing "
                   "file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory "
                   "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so "
-                  "a link planted inside an allowed directory does not widen it.");
+                  "a link planted inside an allowed directory does not widen it.")
+
+      .add_string("max csv size", sh::string_fun_key([this](const auto &value) { set_csv_max_size(value); }, check_csv_command::kDefaultMaxCsvSize),
+                  "LARGEST CSV FILE",
+                  "The largest file check_csv reads, as a byte count with an optional k, m or g unit (`512k`, `64m`). check_csv holds the whole file in "
+                  "memory, and the max-size option that bounds it is the caller's to pass, so this is the ceiling a caller cannot raise: a max-size above "
+                  "it, or max-size=0, means this value. 0 removes the ceiling. A value which cannot be read is logged and the default used.");
 
   settings.register_all();
   settings.notify();
@@ -491,5 +497,15 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 }
 
 void CheckLogFile::check_csv(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_csv_command::check(request, response, file_access_);
+  check_csv_command::check(request, response, file_access_, csv_max_bytes_.load());
+}
+
+void CheckLogFile::set_csv_max_size(const std::string &value) {
+  std::uint64_t bytes = 0;
+  std::string error;
+  if (!check_csv_command::parse_size(value, bytes, error)) {
+    NSC_LOG_ERROR("Ignoring 'max csv size' in [/settings/logfile]: " + error + "; using the default " + check_csv_command::kDefaultMaxCsvSize + ".");
+    check_csv_command::parse_size(check_csv_command::kDefaultMaxCsvSize, bytes, error);
+  }
+  csv_max_bytes_ = bytes;
 }

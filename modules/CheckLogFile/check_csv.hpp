@@ -55,11 +55,30 @@ typedef std::function<bool(const std::string &path, std::uint64_t max_bytes, std
 // max_bytes (0 = unlimited) before reading it.
 bool read_local_file(const std::string &path, std::uint64_t max_bytes, std::string &bytes, std::string &error);
 
-// Run the check with an injected reader.
+// The default of `max csv size` in [/settings/logfile]: the most a caller's
+// max-size= may ask for.
+constexpr char kDefaultMaxCsvSize[] = "64m";
+
+// A byte count with an optional unit, as max-size= and `max csv size` take it:
+// digits, then nothing, b, or k/m/g/t on their own or followed by b or ib
+// (16m, 16MB, 16MiB - powers of 1024). Returns false with `error` set for
+// anything else, so a typo is reported rather than read as a few bytes.
+bool parse_size(const std::string &value, std::uint64_t &bytes, std::string &error);
+
+// The file size one call may read: what the caller asked for with max-size=,
+// held against the operator's ceiling (`max csv size`). 0 means no limit on
+// either side. A caller asking for more than the ceiling - or for no limit -
+// gets the ceiling, and `capped` says so: the default max-size must keep
+// working on a host whose operator lowered the ceiling below it. Returns false
+// with `error` set when `requested` is not a size.
+bool effective_max_bytes(const std::string &requested, std::uint64_t ceiling, std::uint64_t &max_bytes, bool &capped, std::string &error);
+
+// Run the check with an injected reader. `max_bytes_ceiling` is the parsed
+// `max csv size` (0 = no ceiling).
 void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-                const check::access::path_policy &access, const read_function &read);
+                const check::access::path_policy &access, std::uint64_t max_bytes_ceiling, const read_function &read);
 
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
-           const check::access::path_policy &access);
+           const check::access::path_policy &access, std::uint64_t max_bytes_ceiling);
 
 }  // namespace check_csv_command

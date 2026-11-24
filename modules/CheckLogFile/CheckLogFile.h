@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <atomic>
 #include <check/path_access_policy.hpp>
+#include <cstdint>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <set>
@@ -24,6 +26,10 @@ class CheckLogFile : public nscapi::impl::simple_plugin {
   // `file=` (check_csv): both return contents. Open by default, so an
   // upgrade changes nothing; see docs/docs/concepts/check-access.md.
   check::access::path_policy file_access_;
+  // `max csv size`: the largest file check_csv reads, whatever max-size= a
+  // caller passes (0 = no ceiling). Atomic: a reload rewrites it while checks
+  // run.
+  std::atomic<std::uint64_t> csv_max_bytes_{64ull * 1024 * 1024};
 
  public:
   CheckLogFile() : file_access_("file", "files", "/settings/logfile") {}
@@ -34,4 +40,7 @@ class CheckLogFile : public nscapi::impl::simple_plugin {
   bool unloadModule();
   void check_logfile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_csv(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+
+ private:
+  void set_csv_max_size(const std::string &value);
 };
