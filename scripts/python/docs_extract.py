@@ -42,7 +42,7 @@ DEFAULT_PLATFORM_TAG = 'unix'
 # which platform's pipeline extracted it. Cross-platform "system" modules keep
 # their historical windows/ home; CheckSystemUnix is the only unix-only one.
 # DotnetPlugins is hosted on both platforms since 0.20.0 and lives in generic/.)
-WINDOWS_MODULES = ['NSClientServer', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI', 'CheckWindowsApps', 'CheckHyperV', 'CheckActiveDirectory']
+WINDOWS_MODULES = ['NSClientServer', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI', 'CheckWindowsApps', 'CheckHyperV', 'CheckActiveDirectory', 'CheckDHCP']
 UNIX_MODULES = []
 CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpers', 'CheckLogFile', 'CheckNSCP', 'CheckNet',
                  'CheckSecurity', 'CheckMySQL', 'CheckDocker', 'CheckKubernetes', 'CheckWindowsApps']
