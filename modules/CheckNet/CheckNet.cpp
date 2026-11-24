@@ -178,6 +178,9 @@ void CheckNet::check_phpfpm_status(const PB::Commands::QueryRequestMessage::Requ
 void CheckNet::check_tomcat_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
   check_net::check_tomcat_status(default_ca_, request, response);
 }
+void CheckNet::check_jvm(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_jvm(default_ca_, request, response);
+}
 void CheckNet::check_connections(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_connections(request, response);
 }

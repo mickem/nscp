@@ -43,6 +43,10 @@ struct fetch_options {
   std::string verify_mode = "peer";
   std::string ca_file;
   int timeout = 30;
+  // When set the page is POSTed with this body and Content-Type instead of
+  // fetched with a GET (Jolokia takes its bulk read as a JSON POST).
+  std::string post_body;
+  std::string post_content_type = "application/json";
 };
 
 struct fetch_result {
@@ -56,8 +60,8 @@ struct fetch_result {
   long long port = 0;
 };
 
-// One-shot GET of a status page: no redirects, no body expectations, just
-// {result, code, body}.
+// One-shot GET (or, with fetch_options::post_body, POST) of a status page: no
+// redirects, no body expectations, just {result, code, body}.
 inline fetch_result fetch_status_page(const std::string &url, const fetch_options &opt) {
   fetch_result out;
   check_http_internal::parsed_url u;
@@ -77,6 +81,7 @@ inline fetch_result fetch_status_page(const std::string &url, const fetch_option
     http::request rq("GET", check_http_internal::host_header_value(u.host), u.path);
     rq.add_header("User-Agent", "NSClient++");
     add_basic_auth(rq, opt.username, opt.password);
+    if (!opt.post_body.empty()) rq.add_post_payload(opt.post_content_type, opt.post_body);
 
     const http::response resp = client.fetch(u.host, u.port, rq);
     out.code = resp.status_code_;
