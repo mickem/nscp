@@ -31,6 +31,8 @@ import {
   describeOnWindows,
   describeWithModules,
 } from "@fixtures/index";
+import * as fs from "fs";
+import * as os from "os";
 
 jest.setTimeout(300_000);
 
@@ -862,10 +864,10 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(messageOf(q)).toMatch(/No print jobs queued/i);
   });
 
-  // --- check_pending_reboot (Windows) ----------------------------------------
+  // --- check_pending_reboot (Windows and Linux) -------------------------------
 
-  it("check_pending_reboot returns one aggregate row with perf (Windows)", async () => {
-    if (!onWindows) return; // check_pending_reboot is Windows-only (CheckSystem).
+  it("check_pending_reboot returns one aggregate row with perf", async () => {
+    if (onDarwin) return; // no macOS reader yet: the check reports UNKNOWN there.
     // Pin thresholds off so the result is deterministic regardless of the host's
     // actual reboot state; here we exercise the command and its perfdata.
     const q = await executeQuery(key, "check_pending_reboot", {
@@ -873,7 +875,7 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
       critical: "none",
     });
     expect(q.result).toBe(OK);
-    expect(messageOf(q)).toMatch(/reboot/i);
+    expect(messageOf(q)).toMatch(/No reboot pending|Reboot required: /);
     const perf = perfOf(q);
     expect(perf["reboot_pending"]).toBeDefined();
     expect(perf["reboot_signals"]).toBeDefined();
@@ -897,9 +899,9 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(q.result).toBeLessThanOrEqual(CRITICAL);
   });
 
-  it("check_pending_reboot accepts duration thresholds on age over REST (Windows)", async () => {
-    if (!onWindows) return;
-    // age is optional ('unknown' without a timestamped CBS/WU signal) and
+  it("check_pending_reboot accepts duration thresholds on age over REST", async () => {
+    if (onDarwin) return;
+    // age is optional ('unknown' without a timestamped signal) and
     // duration-typed: `3650d` must parse as ten years, not the number 3650 —
     // a plain type_int keyword would silently read it as seconds and fire.
     // No real host has had a reboot pending for a decade, so the result is a
@@ -911,6 +913,32 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
     expect(messageOf(q)).not.toMatch(/does not take any arguments/);
     expect(messageOf(q)).not.toMatch(/invalid|error/i);
     expect(q.result).toBe(OK);
+  });
+
+  it("check_pending_reboot exposes the Linux signals and the running kernel (Linux)", async () => {
+    if (!onLinux) return; // marker/kernel/running_kernel are the Linux keywords.
+    // The per-cause bool keywords parse in a threshold, and running_kernel is
+    // uname -r. In a container (no kernel package, no /lib/modules for the
+    // host's kernel) kernel must stay 0 - never a false positive.
+    const q = await executeQuery(key, "check_pending_reboot", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax":
+        "signals=${signals} marker=${marker} kernel=${kernel} running=${running_kernel} reasons=${reasons}",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/signals=[0-2] marker=[01] kernel=[01] running=\S+ reasons=/);
+    expect(messageOf(q)).toContain(`running=${os.release()} `);
+    if (
+      !fs.existsSync(`/lib/modules/${os.release()}`) &&
+      !fs.existsSync(`/usr/lib/modules/${os.release()}`)
+    ) {
+      expect(messageOf(q)).toContain("kernel=0");
+    }
+    if (!fs.existsSync("/run/reboot-required") && !fs.existsSync("/run/reboot-needed")) {
+      expect(messageOf(q)).toContain("marker=0");
+    }
   });
 
   // --- check_patch_age (Windows) ---------------------------------------------
