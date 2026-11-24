@@ -229,7 +229,7 @@ describeOnLinux("CheckSecurity (Linux posture)", () => {
       // A UEFI host: a state, or an explicit error when the variables cannot be
       // read - never a guessed "disabled".
       expect(out).toMatch(
-        /^OK: enabled=[01] supported=[01] setup_mode=(0|1|unknown)|Cannot read UEFI variables|Failed to read|Malformed EFI variable/m,
+        /^OK: enabled=[01] supported=[01] setup_mode=(0|1|unknown)|Cannot read UEFI variables|Cannot examine|Failed to read|Malformed EFI variable/m,
       );
     }
   });
@@ -240,7 +240,7 @@ describeOnLinux("CheckSecurity (Linux posture)", () => {
       expect(out).toMatch(/^CRITICAL: secure boot enabled=0 supported=0/m);
     } else {
       expect(out).toMatch(
-        /^(OK|CRITICAL): secure boot|Cannot read UEFI variables|Failed to read|Malformed EFI variable/m,
+        /^(OK|CRITICAL): secure boot|Cannot read UEFI variables|Cannot examine|Failed to read|Malformed EFI variable/m,
       );
     }
   });

@@ -77,6 +77,258 @@ TEST(secureboot_linux, a_truncated_variable_is_an_error_not_a_zero) {
   EXPECT_FALSE(secureboot_source::parse_efivarfs_byte(std::string("\x07\x00\x00\x00", 4), value, error));
   EXPECT_NE(error.find("got 4 byte(s)"), std::string::npos) << error;
   EXPECT_FALSE(secureboot_source::parse_efivarfs_byte("", value, error));
+  EXPECT_NE(error.find("got 0 byte(s)"), std::string::npos) << error;
+  EXPECT_EQ(-1, value);  // a failed parse leaves the value alone
+}
+
+TEST(secureboot_linux, a_variable_longer_than_one_byte_is_not_a_boolean) {
+  // The first data byte of some other variable is not a Secure Boot state.
+  long long value = -1;
+  std::string error;
+  EXPECT_FALSE(secureboot_source::parse_efivarfs_byte(efivar(1) + '\x00', value, error));
+  EXPECT_NE(error.find("got 6 byte(s)"), std::string::npos) << error;
+  EXPECT_FALSE(secureboot_source::parse_efivarfs_byte(std::string(500, '\x01'), value, error));
+  EXPECT_NE(error.find("more than"), std::string::npos) << error;
+  EXPECT_EQ(-1, value);
+}
+
+TEST(secureboot_linux, the_legacy_data_file_is_exactly_the_value_byte) {
+  long long value = -1;
+  std::string error;
+  ASSERT_TRUE(secureboot_source::parse_sysfs_byte(std::string(1, '\x01'), value, error)) << error;
+  EXPECT_EQ(1, value);
+  ASSERT_TRUE(secureboot_source::parse_sysfs_byte(std::string(1, '\x00'), value, error)) << error;
+  EXPECT_EQ(0, value);
+  ASSERT_TRUE(secureboot_source::parse_sysfs_byte(std::string(1, '\xff'), value, error)) << error;
+  EXPECT_EQ(255, value);  // a byte, never sign-extended
+  EXPECT_FALSE(secureboot_source::parse_sysfs_byte("", value, error));
+  EXPECT_FALSE(secureboot_source::parse_sysfs_byte(efivar(1), value, error));  // efivarfs layout in the wrong place
+  EXPECT_NE(error.find("got 5 byte(s)"), std::string::npos) << error;
+}
+
+TEST(secureboot_linux, a_flag_is_zero_or_one_and_nothing_else) {
+  using secureboot_source::flag_state;
+  EXPECT_EQ(flag_state::off, secureboot_source::decode_flag(0).state);
+  EXPECT_EQ(flag_state::on, secureboot_source::decode_flag(1).state);
+  for (const long long odd : {2LL, 255LL, -1LL}) {
+    const auto f = secureboot_source::decode_flag(odd);
+    EXPECT_EQ(flag_state::unreadable, f.state) << odd;
+    EXPECT_NE(f.error.find("unexpected value " + std::to_string(odd)), std::string::npos) << f.error;
+  }
+}
+
+// --- build_state(): the decision, without a filesystem -----------------------
+
+namespace {
+
+secureboot_source::efi_flag flag(const secureboot_source::flag_state state, const std::string &error = "") {
+  secureboot_source::efi_flag f;
+  f.state = state;
+  f.error = error;
+  return f;
+}
+
+}  // namespace
+
+TEST(secureboot_state, secure_boot_on_and_off_are_supported) {
+  using secureboot_source::flag_state;
+  using secureboot_source::variable_listing;
+  secureboot_filter::filter_obj row;
+  std::string error;
+  ASSERT_TRUE(secureboot_source::build_state(flag(flag_state::on), flag(flag_state::off), variable_listing::some, "/efi", row, error));
+  EXPECT_EQ(1, row.supported);
+  EXPECT_EQ(1, row.enabled);
+  EXPECT_EQ(0, row.setup_mode.value());
+
+  ASSERT_TRUE(secureboot_source::build_state(flag(flag_state::off), flag(flag_state::on), variable_listing::some, "/efi", row, error));
+  EXPECT_EQ(1, row.supported);
+  EXPECT_EQ(0, row.enabled);
+  EXPECT_EQ(1, row.setup_mode.value());
+  EXPECT_TRUE(error.empty()) << error;
+}
+
+TEST(secureboot_state, setup_mode_is_auxiliary) {
+  using secureboot_source::flag_state;
+  using secureboot_source::variable_listing;
+  for (const flag_state sm : {flag_state::absent, flag_state::unreadable}) {
+    secureboot_filter::filter_obj row;
+    row.setup_mode = 1;  // must not survive from an earlier use of the row
+    std::string error;
+    ASSERT_TRUE(secureboot_source::build_state(flag(flag_state::on), flag(sm, "boom"), variable_listing::some, "/efi", row, error));
+    EXPECT_EQ(1, row.enabled);
+    EXPECT_FALSE(row.setup_mode);
+    EXPECT_TRUE(error.empty()) << error;
+  }
+}
+
+TEST(secureboot_state, an_unreadable_secure_boot_is_an_error_whatever_else_is_known) {
+  using secureboot_source::flag_state;
+  using secureboot_source::variable_listing;
+  secureboot_filter::filter_obj row;
+  std::string error;
+  EXPECT_FALSE(secureboot_source::build_state(flag(flag_state::unreadable, "why"), flag(flag_state::off), variable_listing::some, "/efi", row, error));
+  EXPECT_EQ("why", error);
+  EXPECT_EQ(0, row.supported);
+  EXPECT_EQ(0, row.enabled);
+}
+
+TEST(secureboot_state, an_absent_secure_boot_depends_on_whether_variables_are_visible) {
+  using secureboot_source::flag_state;
+  using secureboot_source::variable_listing;
+  secureboot_filter::filter_obj row;
+  std::string error;
+  // Other variables are listed: the firmware simply has no Secure Boot.
+  ASSERT_TRUE(secureboot_source::build_state(flag(flag_state::absent), flag(flag_state::absent), variable_listing::some, "/efi", row, error));
+  EXPECT_EQ(0, row.supported);
+  EXPECT_EQ(0, row.enabled);
+  EXPECT_FALSE(row.setup_mode);
+  // Nothing is listed: efivarfs is not mounted, and "not supported" would be a guess.
+  EXPECT_FALSE(secureboot_source::build_state(flag(flag_state::absent), flag(flag_state::absent), variable_listing::none, "/efi", row, error));
+  EXPECT_EQ("Cannot read UEFI variables: /efi/efivars is empty (efivarfs not mounted?)", error);
+  // The listing itself failed (say, permission denied).
+  error.clear();
+  EXPECT_FALSE(secureboot_source::build_state(flag(flag_state::absent), flag(flag_state::absent), variable_listing::failed, "/efi", row, error));
+  EXPECT_NE(error.find("Cannot read UEFI variables"), std::string::npos) << error;
+}
+
+// --- read_flag() and gather_from(), against a fixture tree --------------------
+
+TEST(secureboot_linux, read_flag_tells_absent_from_unreadable) {
+  using secureboot_source::flag_state;
+  temp_dir t;
+  t.mkdir("efivars");
+  t.write("efivars/SecureBoot-" + guid, efivar(1));
+  t.write("efivars/SetupMode-" + guid, efivar(0));
+  t.write("efivars/Truncated-" + guid, std::string("\x07\x00\x00\x00", 4));
+  t.write("efivars/Empty-" + guid, "");  // efivarfs shows a variable being written as a 0-byte file
+  t.write("efivars/Wide-" + guid, efivar(1) + '\x00');
+  t.write("efivars/Odd-" + guid, efivar(2));
+  EXPECT_EQ(flag_state::on, secureboot_source::read_flag(t.path(), "SecureBoot").state);
+  EXPECT_EQ(flag_state::off, secureboot_source::read_flag(t.path(), "SetupMode").state);
+  EXPECT_EQ(flag_state::absent, secureboot_source::read_flag(t.path(), "NoSuchVariable").state);
+  EXPECT_TRUE(secureboot_source::read_flag(t.path(), "NoSuchVariable").error.empty());
+  for (const char *name : {"Truncated", "Empty", "Wide", "Odd"}) {
+    const auto f = secureboot_source::read_flag(t.path(), name);
+    EXPECT_EQ(flag_state::unreadable, f.state) << name;
+    // The message names the file, so the operator can look at it.
+    EXPECT_NE(f.error.find("Malformed EFI variable " + t.path() + "/efivars/" + name + "-" + guid), std::string::npos) << f.error;
+  }
+  EXPECT_NE(secureboot_source::read_flag(t.path(), "Odd").error.find("unexpected value 2"), std::string::npos);
+}
+
+TEST(secureboot_linux, efivarfs_wins_over_the_legacy_interface) {
+  using secureboot_source::flag_state;
+  temp_dir t;
+  t.mkdir("efivars");
+  t.mkdir("vars");
+  t.mkdir("vars/SecureBoot-" + guid);
+  t.write("efivars/SecureBoot-" + guid, efivar(1));
+  t.write("vars/SecureBoot-" + guid + "/data", std::string(1, '\x00'));
+  EXPECT_EQ(flag_state::on, secureboot_source::read_flag(t.path(), "SecureBoot").state);
+
+  // A malformed efivarfs file is an error; it does not fall through to the
+  // legacy file and take a second opinion.
+  t.write("efivars/SecureBoot-" + guid, "");
+  EXPECT_EQ(flag_state::unreadable, secureboot_source::read_flag(t.path(), "SecureBoot").state);
+}
+
+TEST(secureboot_linux, the_legacy_interface_is_validated_too) {
+  using secureboot_source::flag_state;
+  temp_dir t;
+  t.mkdir("vars");
+  for (const char *name : {"Empty", "Wide", "Odd", "Good"}) t.mkdir(std::string("vars/") + name + "-" + guid);
+  t.write("vars/Empty-" + guid + "/data", "");
+  t.write("vars/Wide-" + guid + "/data", std::string(2, '\x01'));
+  t.write("vars/Odd-" + guid + "/data", std::string(1, '\x07'));
+  t.write("vars/Good-" + guid + "/data", std::string(1, '\x00'));
+  EXPECT_EQ(flag_state::unreadable, secureboot_source::read_flag(t.path(), "Empty").state);
+  EXPECT_EQ(flag_state::unreadable, secureboot_source::read_flag(t.path(), "Wide").state);
+  EXPECT_EQ(flag_state::unreadable, secureboot_source::read_flag(t.path(), "Odd").state);
+  EXPECT_EQ(flag_state::off, secureboot_source::read_flag(t.path(), "Good").state);
+  // A variable directory without its data file is absent, not an error.
+  t.mkdir("vars/NoData-" + guid);
+  EXPECT_EQ(flag_state::absent, secureboot_source::read_flag(t.path(), "NoData").state);
+}
+
+TEST(secureboot_linux, an_efi_path_that_is_not_a_directory_is_a_bios_boot) {
+  temp_dir t;
+  t.write("efi", "not a directory");
+  std::string error;
+  const auto rows = read_secureboot(t.path() + "/efi", error);
+  EXPECT_TRUE(error.empty()) << error;
+  ASSERT_EQ(1u, rows.size());
+  EXPECT_EQ(0, rows[0]->supported);
+}
+
+TEST(secureboot_linux, an_unexpected_value_is_an_error_not_disabled) {
+  temp_dir t;
+  t.mkdir("efivars");
+  t.write("efivars/SecureBoot-" + guid, efivar(2));
+  std::string error;
+  const auto rows = read_secureboot(t.path(), error);
+  EXPECT_TRUE(rows.empty());
+  EXPECT_NE(error.find("unexpected value 2 (expected 0 or 1)"), std::string::npos) << error;
+}
+
+TEST(secureboot_linux, an_oversized_variable_is_an_error) {
+  temp_dir t;
+  t.mkdir("efivars");
+  t.write("efivars/SecureBoot-" + guid, std::string(100000, '\x01'));
+  std::string error;
+  const auto rows = read_secureboot(t.path(), error);
+  EXPECT_TRUE(rows.empty());
+  EXPECT_NE(error.find("Malformed EFI variable"), std::string::npos) << error;
+  EXPECT_NE(error.find("more than"), std::string::npos) << error;
+}
+
+TEST(secureboot_linux, a_malformed_setup_mode_leaves_only_that_keyword_unknown) {
+  for (const std::string &setup_mode : {std::string(""), efivar(2), efivar(1) + "x"}) {
+    temp_dir t;
+    t.mkdir("efivars");
+    t.write("efivars/SecureBoot-" + guid, efivar(1));
+    t.write("efivars/SetupMode-" + guid, setup_mode);
+    std::string error;
+    const auto rows = read_secureboot(t.path(), error);
+    ASSERT_TRUE(error.empty()) << error;
+    ASSERT_EQ(1u, rows.size());
+    EXPECT_EQ(1, rows[0]->enabled);
+    EXPECT_FALSE(rows[0]->setup_mode);
+  }
+}
+
+TEST(secureboot_linux, setup_mode_is_read_from_the_legacy_interface_too) {
+  temp_dir t;
+  t.mkdir("vars");
+  t.mkdir("vars/SecureBoot-" + guid);
+  t.mkdir("vars/SetupMode-" + guid);
+  t.write("vars/SecureBoot-" + guid + "/data", std::string(1, '\x00'));
+  t.write("vars/SetupMode-" + guid + "/data", std::string(1, '\x01'));
+  std::string error;
+  const auto rows = read_secureboot(t.path(), error);
+  ASSERT_TRUE(error.empty()) << error;
+  ASSERT_EQ(1u, rows.size());
+  EXPECT_EQ(1, rows[0]->supported);
+  EXPECT_EQ(0, rows[0]->enabled);
+  EXPECT_EQ(1, rows[0]->setup_mode.value());
+}
+
+TEST(secureboot_linux, legacy_firmware_without_secure_boot_is_not_supported) {
+  temp_dir t;
+  t.mkdir("vars");
+  t.mkdir("vars/BootCurrent-" + guid);
+  std::string error;
+  const auto rows = read_secureboot(t.path(), error);
+  ASSERT_TRUE(error.empty()) << error;
+  ASSERT_EQ(1u, rows.size());
+  EXPECT_EQ(0, rows[0]->supported);
+}
+
+TEST(secureboot_linux, an_efi_directory_with_no_variable_interface_is_an_error) {
+  temp_dir t;  // the directory exists (a UEFI boot) but neither efivars nor vars does
+  std::string error;
+  const auto rows = read_secureboot(t.path(), error);
+  EXPECT_TRUE(rows.empty());
+  EXPECT_NE(error.find("Cannot read UEFI variables"), std::string::npos) << error;
 }
 
 TEST(secureboot_linux, no_efi_directory_is_a_legacy_bios_boot) {
