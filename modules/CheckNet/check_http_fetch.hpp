@@ -4,7 +4,7 @@
 #pragma once
 
 #include <bytes/base64.hpp>
-#include <net/http/client.hpp>
+#include <net/http/http_request.hpp>
 #include <string>
 
 #include "check_http_internal.hpp"
@@ -62,36 +62,13 @@ struct fetch_result {
 
 // One-shot GET (or, with fetch_options::post_body, POST) of a status page: no
 // redirects, no body expectations, just {result, code, body}.
-inline fetch_result fetch_status_page(const std::string &url, const fetch_options &opt) {
-  fetch_result out;
-  check_http_internal::parsed_url u;
-  if (!check_http_internal::parse_url(url, u)) {
-    out.result = "invalid_url";
-    return out;
-  }
-  out.host = u.host;
-  try {
-    out.port = std::stoll(u.port);
-    http::http_client_options options(u.protocol, opt.tls_version, opt.verify_mode, opt.ca_file);
-    // add_fetch_options rejects non-positive timeouts; guard the cast anyway
-    // so a future caller cannot turn -1 into a ~136-year unsigned timeout.
-    options.timeout_seconds_ = static_cast<unsigned int>(opt.timeout > 0 ? opt.timeout : 1);
-    http::simple_client client(options);
-
-    http::request rq("GET", check_http_internal::host_header_value(u.host), u.path);
-    rq.add_header("User-Agent", "NSClient++");
-    add_basic_auth(rq, opt.username, opt.password);
-    if (!opt.post_body.empty()) rq.add_post_payload(opt.post_content_type, opt.post_body);
-
-    const http::response resp = client.fetch(u.host, u.port, rq);
-    out.code = resp.status_code_;
-    out.body = resp.payload_;
-    out.result = classify_status(resp.status_code_, 300);
-  } catch (const std::exception &e) {
-    out.result = error_result(e);
-  }
-  return out;
-}
+//
+// Defined out of line in check_http_fetch.cpp on purpose: the HTTP client
+// drags in Boost.Asio, Beast and asio::ssl, which cost roughly 9,000 COFF
+// sections in every translation unit that instantiates it. Each status-page
+// check file is already close to MSVC's per-object section limit (C1128), so
+// only this one file pays for the client.
+fetch_result fetch_status_page(const std::string &url, const fetch_options &opt);
 
 }  // namespace check_http_fetch
 }  // namespace check_net

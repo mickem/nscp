@@ -18,6 +18,7 @@ set(SRCS
     check_domain_parse.cpp
     check_domain_fetch.cpp
     check_http.cpp
+    check_http_fetch.cpp
     check_http_json.cpp
     check_webserver.cpp
     check_webserver_parse.cpp
@@ -125,6 +126,7 @@ NSCP_CREATE_TEST(
         check_tcp.cpp
         check_http_test.cpp
         check_http.cpp
+        check_http_fetch.cpp
         check_webserver.cpp
         check_jvm.cpp
         check_nsclient_web_online.cpp
