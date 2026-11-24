@@ -15,6 +15,10 @@
 		"check_logfile" : { 
 			"alias"		: "CheckLogFile",
 			"description" : "Check for errors in log file or generic pattern matching in text files."
+			},
+		"check_csv" : {
+			"description" : "Read a CSV file and check its rows: the number of rows matching a filter, or the value of a single cell.",
+			"experimental" : true
 			}
 	}
 }

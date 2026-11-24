@@ -20,7 +20,8 @@ class CheckLogFile : public nscapi::impl::simple_plugin {
   // that has aged out (or whose filter was edited) does not keep its row in
   // nsclient.db forever.
   std::set<std::string> persisted_keys_;
-  // Which files a caller may name in `file=`/`files=`. Open by default, so an
+  // Which files a caller may name in `file=`/`files=` (check_logfile) and
+  // `file=` (check_csv): both return contents. Open by default, so an
   // upgrade changes nothing; see docs/docs/concepts/check-access.md.
   check::access::path_policy file_access_;
 
@@ -32,4 +33,5 @@ class CheckLogFile : public nscapi::impl::simple_plugin {
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
   bool unloadModule();
   void check_logfile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_csv(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };
