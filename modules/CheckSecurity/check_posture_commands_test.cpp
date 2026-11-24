@@ -461,6 +461,32 @@ TEST_F(posture_command, secureboot_a_legacy_bios_boot_can_be_excused) {
   EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
 }
 
+TEST_F(posture_command, secureboot_setup_mode_is_unknown_unless_the_source_read_it) {
+  // Windows never reads it; it must render as unknown rather than a fake 0.
+  auto state = secureboot_rows.add();
+  state->enabled = 1;
+  state->supported = 1;
+
+  PB::Commands::QueryResponseMessage::Response response;
+  check_secureboot_command::check(request_for("check_secureboot", {"crit=setup_mode = 1", "detail-syntax=sm=${setup_mode}"}), &response);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("sm=unknown"), std::string::npos) << join_lines(response);
+}
+
+TEST_F(posture_command, secureboot_setup_mode_can_be_alerted_on) {
+  auto state = secureboot_rows.add();
+  state->enabled = 0;
+  state->supported = 1;
+  state->setup_mode = 1;
+
+  PB::Commands::QueryResponseMessage::Response response;
+  check_secureboot_command::check(request_for("check_secureboot", {"crit=setup_mode = 1", "detail-syntax=sm=${setup_mode}"}), &response);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("sm=1"), std::string::npos) << join_lines(response);
+}
+
 // ---------------------------------------------------------------------------
 // check_defender - warning on ageing definitions, critical when protection is
 // off or the definitions are badly stale.

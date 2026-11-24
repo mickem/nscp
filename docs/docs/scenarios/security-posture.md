@@ -1,15 +1,15 @@
 # Host Security Posture Monitoring
 
 **Goal:** Monitor a host's security posture — certificate expiry and TLS hygiene,
-interactive logon sessions, and (on Windows) the firewall, antivirus, disk
-encryption, Secure Boot and network-profile state — using the `CheckSecurity`
-module.
+interactive logon sessions, Secure Boot, and (on Windows) the firewall,
+antivirus, disk encryption and network-profile state — using the
+`CheckSecurity` module.
 
-`check_certificate` and `check_users` work on **Windows and Linux**; the
-remaining checks (`check_firewall`, `check_antivirus`, `check_bitlocker`,
-`check_secureboot`, `check_nla`, `check_activation`, `check_file_security`) are
-**Windows-only** and report a clear
-"not supported" on other platforms rather than a false OK.
+`check_certificate`, `check_users` and `check_secureboot` work on **Windows and
+Linux**; the remaining checks (`check_firewall`, `check_antivirus`,
+`check_bitlocker`, `check_nla`, `check_activation`, `check_file_security`,
+`check_local_accounts`, `check_group_members`) are **Windows-only** and report
+a clear "not supported" on other platforms rather than a false OK.
 
 ---
 
@@ -79,6 +79,26 @@ check_users "filter=session_type = 'remote'" "crit=count > 0" ; Linux ssh
 
 ---
 
+## Secure Boot (Windows and Linux)
+
+`check_secureboot` reads the Windows registry on Windows and the UEFI variables
+on Linux.
+
+### UEFI Secure Boot
+
+`check_secureboot` reports whether Secure Boot is enabled. Use `supported` to
+tell "disabled" from "legacy BIOS" (on Linux: no `/sys/firmware/efi`):
+
+```
+check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
+OK: secure boot is enabled
+```
+
+On Linux `setup_mode = 1` additionally catches firmware with no Platform Key
+enrolled.
+
+---
+
 ## Windows Posture Checks
 
 These read Windows-specific facilities and are **Windows-only**.
@@ -111,16 +131,6 @@ unprotected). Filter to the drives that matter:
 ```
 check_bitlocker "filter=drive = 'C:'" "crit=protected = 0"
 OK: all 1 volume(s) protected
-```
-
-### UEFI Secure Boot
-
-`check_secureboot` reports whether Secure Boot is enabled. Use `supported` to
-tell "disabled" from "legacy BIOS":
-
-```
-check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
-OK: secure boot is enabled
 ```
 
 ### Network Location Awareness
@@ -195,8 +205,9 @@ On a **Linux** host the cross-platform subset applies:
 
 ```ini
 [/settings/check helpers/alias]
-alias_cert  = check_certificate file=/etc/ssl/certs recursive=true "crit=expired = 1 or expires_in < 10"
-alias_users = check_users "crit=count > 10"
+alias_cert       = check_certificate file=/etc/ssl/certs recursive=true "crit=expired = 1 or expires_in < 10"
+alias_users      = check_users "crit=count > 10"
+alias_secureboot = check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
 ```
 
 Each alias is then callable by name over NRPE
