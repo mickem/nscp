@@ -811,6 +811,152 @@ struct optional_int_variable_node : any_node {
 
 //////////////////////////////////////////////////////////////////////////
 
+// An optional, dynamically-typed number: a value read from somewhere the
+// check does not control (a JSON field, an MBean attribute) that may be a
+// number, may be text, or may be absent. Two getters describe it:
+//
+//  - `num` returns the numeric value, or boost::none when there is none (the
+//    value is missing, or it is not numeric). Every numeric comparison runs
+//    in float, so 0.73 < 1 holds, and is sure-false (is_no_value) when there
+//    is no number — a threshold over a missing value does not fire, in either
+//    direction, exactly like optional_int_variable_node.
+//  - `text` returns the value as text, or boost::none when the value is
+//    absent; the node then renders, and compares as a string, as the
+//    registered no-value string (`x = 'missing'` is the presence test).
+//
+// Performance data is float, and emitted only when there is a number.
+template <class TContext>
+struct optional_number_variable_node : any_node {
+  std::string name_;
+  typedef TContext *native_context_type;
+  typedef typename TContext::object_type object_type;
+  typedef boost::function<boost::optional<double>(object_type, evaluation_context)> number_function_type;
+  typedef boost::function<boost::optional<std::string>(object_type, evaluation_context)> text_function_type;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, double> > float_performance_generator;
+
+  number_function_type num_fun;
+  text_function_type text_fun;
+  std::string no_value_;
+  std::list<float_performance_generator> perfgen;
+
+  optional_number_variable_node(const std::string &name, number_function_type num_fun, text_function_type text_fun, const std::string &no_value,
+                                std::list<float_performance_generator> perfgen)
+      : any_node(type_multi), name_(name), num_fun(num_fun), text_fun(text_fun), no_value_(no_value), perfgen(perfgen) {}
+
+  boost::optional<double> number(evaluation_context context) const {
+    native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+    if (native_context == nullptr || !num_fun || !native_context->has_object()) return boost::none;
+    return num_fun(native_context->get_object(), context);
+  }
+  // The rendered/string form: the text if there is one, else the number,
+  // else the no-value string.
+  std::string text(evaluation_context context) const {
+    native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+    if (native_context != nullptr && text_fun && native_context->has_object()) {
+      const boost::optional<std::string> t = text_fun(native_context->get_object(), context);
+      if (t) return t.value();
+    }
+    const boost::optional<double> v = number(context);
+    return v ? str::xtos(v.value()) : no_value_;
+  }
+  bool has_object(evaluation_context context) const {
+    native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+    return native_context != nullptr && native_context->has_object();
+  }
+
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  std::shared_ptr<any_node> evaluate(evaluation_context context) const override {
+    try {
+      if (has_object(context)) {
+        if (is_string()) return factory::create_string(text(context));
+        const boost::optional<double> v = number(context);
+        if (v) return factory::create_float(v.value());
+        // A bare-variable boolean context sees the text, whose is_true() is
+        // false — a missing value never satisfies anything.
+        return factory::create_string(text(context));
+      }
+      context->warn("Failed to evaluate " + name_ + " no object instance");
+    } catch (const std::exception &e) {
+      context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+    }
+    return factory::create_false();
+  }
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return true; }
+  value_container get_value(evaluation_context context, const value_type vt) const override {
+    const bool ti = helpers::type_is_int(vt);
+    const bool tf = helpers::type_is_float(vt);
+    try {
+      if (!has_object(context)) {
+        // Same no-object contract as the other variable nodes: a typed,
+        // unsure default plus a warn (see str_variable_node::get_value).
+        context->warn("Failed to get " + name_ + " no object instance");
+        if (ti) return value_container::create_int(0, true);
+        if (tf) return value_container::create_float(0, true);
+        return value_container::create_string("", true);
+      }
+      if (ti || tf) {
+        const boost::optional<double> v = number(context);
+        if (!v) return value_container::create_no_value();
+        // The value comes from outside: a NaN or anything past the long
+        // long range must saturate, flagged unsure, rather than be cast raw.
+        if (ti) return value_container::create_int(str::to_int64_saturating(v.value()), !str::fits_int64(v.value()));
+        return value_container::create_float(v.value());
+      }
+      if (vt == type_string) return value_container::create_string(text(context));
+    } catch (const std::exception &e) {
+      context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+      return value_container::create_nil();
+    }
+    context->error("Invalid type " + name_ + " we are optional-number but wanted: " + str::xtos(vt));
+    return value_container::create_nil();
+  }
+  std::string to_string(evaluation_context context) const override {
+    if (has_object(context)) return text(context);
+    return name_ + "?";
+  }
+  std::string to_string() const override { return "{optional-number}" + name_; }
+  value_type infer_type(object_converter converter, const value_type suggestion) override {
+    // Numbers are always compared in float, so a fractional value is never
+    // truncated by an integer threshold (0.73 < 1).
+    if (helpers::type_is_int(suggestion) || helpers::type_is_float(suggestion) || suggestion == type_tbd) {
+      set_type(type_float);
+    } else if (suggestion == type_string) {
+      set_type(type_string);
+    }
+    return get_type();
+  }
+  value_type infer_type(object_converter converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override {
+    if (get_type() != type_string) collector.set_candidate_variable(name_);
+    return false;
+  }
+
+  perf_list_type get_performance_data(object_factory context, std::string alias, const node_type warn, const node_type crit, node_type minimum,
+                                      node_type maximum) override {
+    perf_list_type ret;
+    native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+    if (native_context != nullptr && native_context->has_object()) {
+      const boost::optional<double> v = number(context);
+      // No number, no metric: plotting a sentinel would poison the series.
+      if (!v) return ret;
+      boost::optional<double> warn_value;
+      boost::optional<double> crit_value;
+      if (warn) warn_value = warn->get_float_value(context);
+      if (crit) crit_value = crit->get_float_value(context);
+      for (float_performance_generator &p : perfgen) {
+        if (!p->is_configured()) p->configure(name_, context);
+        p->eval(ret, context, alias, v.value(), warn_value, crit_value, native_context->get_object());
+      }
+    }
+    return ret;
+  }
+};
+
+//////////////////////////////////////////////////////////////////////////
+
 struct custom_function_node : any_node {
   typedef boost::function<node_type(value_type, evaluation_context, node_type)> bound_function_type;
 

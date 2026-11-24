@@ -38,6 +38,8 @@ struct filter_variable {
   typedef boost::function<long long(T)> int_fun_type_no_context;
   typedef boost::function<double(T, evaluation_context)> float_fun_type;
   typedef boost::function<boost::optional<long long>(T, evaluation_context)> opt_int_fun_type;
+  typedef boost::function<boost::optional<double>(T, evaluation_context)> opt_number_fun_type;
+  typedef boost::function<boost::optional<std::string>(T, evaluation_context)> opt_text_fun_type;
   str_fun_type s_function;
   int_fun_type i_function;
   float_fun_type f_function;
@@ -46,6 +48,12 @@ struct filter_variable {
   // the plain accessors above. no_value is the string the variable renders
   // (and compares equal to) when the getter returns an empty optional.
   opt_int_fun_type o_function;
+  // Optional, dynamically-typed number: when n_function is set this variable
+  // is created as an optional_number_variable_node (float comparisons and
+  // float perfdata from n_function, text from t_function, no_value when the
+  // text is absent). Takes precedence over every other accessor.
+  opt_number_fun_type n_function;
+  opt_text_fun_type t_function;
   std::string no_value;
   std::list<int_perf_generator_type> int_perf;
   std::list<float_perf_generator_type> float_perf;
@@ -221,6 +229,23 @@ struct function_registry {
                                                        std::string no_value, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->o_function = fun;
+    var->no_value = no_value;
+    add(var, false);
+    return *this;
+  }
+  // An optional, dynamically-typed number (a JSON field, an MBean attribute):
+  // `num` returns the value as a number, or boost::none when it is missing or
+  // not numeric; `text` returns it as text, or boost::none when it is missing.
+  // Numeric comparisons run in float and are false when there is no number;
+  // string comparisons and rendering use the text, or `no_value` when it is
+  // missing (`x = 'missing'` tests for that). Float perfdata, `_<key>` suffix
+  // by default, is emitted only when there is a number; chain
+  // .add_float_perf()/.no_perf() to change that.
+  function_registry<T>& add_optional_number_var(std::string key, std::function<boost::optional<double>(T)> num,
+                                                std::function<boost::optional<std::string>(T)> text, std::string no_value, std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_float, description));
+    var->n_function = [num](auto obj, auto) { return num(obj); };
+    var->t_function = [text](auto obj, auto) { return text(obj); };
     var->no_value = no_value;
     add(var, false);
     return *this;
@@ -558,6 +583,16 @@ struct filter_handler_impl : evaluation_context_impl<TObject> {
     if (registry_.has_variable(name)) {
       std::shared_ptr<filter_variable<object_type>> var = registry_.get_variable(name, human_readable);
       if (var) {
+        // Optional dynamically-typed number (see add_optional_number_var).
+        if (var->n_function) {
+          if (var->float_perf.empty() && var->add_default_perf) {
+            typename filter_variable<object_type>::float_perf_generator_type gen(
+                new simple_number_performance_generator<object_type, double>("", "", "_" + var->name));
+            var->float_perf.push_back(gen);
+          }
+          return node_type(
+              new optional_number_variable_node<filter_handler_impl>(name, var->n_function, var->t_function, var->no_value, var->float_perf));
+        }
         // Optional number: takes precedence over the plain accessors — the
         // node handles numeric + string + rendering + perf-suppression
         // itself (see optional_int_variable_node).

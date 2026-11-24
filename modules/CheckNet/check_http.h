@@ -39,13 +39,18 @@ struct filter_obj {
 
   std::string show() const { return url + " (" + std::to_string(status_code) + ", " + result + ")"; }
 
-  double get_json_number(const std::string &alias) const {
+  // Empty when the path was missing from the response (or null), or when the
+  // value there is not numeric: a threshold on it must not fire.
+  boost::optional<double> get_json_number(const std::string &alias) const {
     const auto it = json_numbers.find(alias);
-    return it != json_numbers.end() ? it->second : 0.0;
+    if (it == json_numbers.end()) return boost::none;
+    return it->second;
   }
-  std::string get_json_string(const std::string &alias) const {
+  // Empty when the path was missing from the response (or null).
+  boost::optional<std::string> get_json_string(const std::string &alias) const {
     const auto it = json_strings.find(alias);
-    return it != json_strings.end() ? it->second : "";
+    if (it == json_strings.end()) return boost::none;
+    return it->second;
   }
 
   std::string get_url() const { return url; }

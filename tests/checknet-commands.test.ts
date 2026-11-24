@@ -1611,6 +1611,53 @@ describe("CheckNet commands", () => {
     expect(messageOf(q)).toMatch(/v=b/);
   });
 
+  // A fractional JSON value used to be graphed through the integer view, so
+  // 0.73 became 0. The perfdata is a float now, under the same label.
+  it("check_http keeps the decimals of a JSON value in its perfdata", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ load: 0.73 }));
+    });
+    const q = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "load:load",
+      warning: "load > 0.5",
+      critical: "load > 0.9",
+    });
+    expect(q.result).toBe(WARNING);
+    expect(perfValue(q, `load_http://127.0.0.1:${s.port}/`)).toBeCloseTo(0.73, 5);
+  });
+
+  // A path missing from the response used to compare as 0, so `x < 1` fired
+  // whenever the field was simply absent. It now has no number: no numeric
+  // threshold matches, it renders as 'missing', and no perfdata is emitted.
+  it("check_http does not fire a numeric threshold on a missing JSON path", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ other: 5 }));
+    });
+    const url = `http://127.0.0.1:${s.port}/`;
+    const q = await executeQuery(key, "check_http", {
+      url,
+      "json-path": "x:data.x",
+      warning: "x < 1",
+      critical: "x < 1",
+      "detail-syntax": "x=${x}",
+      "top-syntax": "${status}: ${list}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/x=missing/);
+    expect(perfValue(q, `x_${url}`)).toBeUndefined();
+
+    // The documented presence test still lets an operator alert on it.
+    const probe = await executeQuery(key, "check_http", {
+      url,
+      "json-path": "x:data.x",
+      critical: "x = 'missing'",
+    });
+    expect(probe.result).toBe(CRITICAL);
+  });
+
   // --- check_dns ------------------------------------------------------------
 
   it("check_dns queries a chosen server over UDP and parses the A record", async () => {

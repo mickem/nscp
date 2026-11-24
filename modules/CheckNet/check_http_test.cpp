@@ -13,6 +13,7 @@
 
 #include <boost/filesystem.hpp>
 #include <chrono>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,8 @@ struct outcome {
   PB::Common::ResultCode code;
   std::string message;
   std::string perf;
+  // Numeric perf values by label, to assert on the value itself.
+  std::map<std::string, double> perf_values;
 };
 
 outcome run(check_fn check, const std::vector<std::string> &args) {
@@ -43,7 +46,11 @@ outcome run(check_fn check, const std::vector<std::string> &args) {
   for (int i = 0; i < response.lines_size(); ++i) {
     if (!r.message.empty()) r.message += "\n";
     r.message += response.lines(i).message();
-    for (int j = 0; j < response.lines(i).perf_size(); ++j) r.perf += response.lines(i).perf(j).alias() + ";";
+    for (int j = 0; j < response.lines(i).perf_size(); ++j) {
+      const PB::Common::PerformanceData &p = response.lines(i).perf(j);
+      r.perf += p.alias() + ";";
+      if (p.has_float_value()) r.perf_values[p.alias()] = p.float_value().value();
+    }
   }
   return r;
 }
@@ -223,6 +230,44 @@ TEST(CheckHttp, JsonPathBecomesAKeyword) {
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
   EXPECT_TRUE(contains(r.message, "jobs=250")) << r.message;
   EXPECT_TRUE(contains(r.perf, "qlen")) << r.perf;
+}
+
+TEST(CheckHttp, JsonPathPerfdataKeepsDecimalsUnderTheAliasPrefixedLabel) {
+  scripted_server server(http_reply(http_response(200, R"({"load":0.73})")));
+  const outcome r = run(&check_net::check_http, {"url=" + base(server) + "/q", "json-path=load:load", "warning=load > 0.5", "critical=load > 0.9"});
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, r.code) << r.message;
+  // The label is unchanged (alias_ + the URL); the value is no longer
+  // truncated to an integer.
+  const auto it = r.perf_values.find("load_" + base(server) + "/q");
+  ASSERT_NE(it, r.perf_values.end()) << r.perf;
+  EXPECT_DOUBLE_EQ(0.73, it->second);
+}
+
+TEST(CheckHttp, JsonPathMissingFromTheResponseNeverMatchesANumber) {
+  scripted_server server(http_reply(http_response(200, R"({"data":{"other":1}})")));
+  // Used to compare as 0, so `x < 1` fired on an absent field.
+  const outcome r = run(&check_net::check_http, {"url=" + base(server) + "/q", "json-path=x:data.x", "warning=x < 1", "critical=x < 1",
+                                                 "top-syntax=${list}", "detail-syntax=x=${x}"});
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.code) << r.message;
+  EXPECT_EQ("x=missing", r.message);
+  EXPECT_FALSE(contains(r.perf, "x_")) << r.perf;
+}
+
+TEST(CheckHttp, JsonPathMissingCanBeTestedForExplicitly) {
+  scripted_server server(http_reply(http_response(200, R"({"data":{"other":1}})")));
+  const outcome missing = run(&check_net::check_http, {"url=" + base(server) + "/q", "json-path=x:data.x", "critical=x = 'missing'"});
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, missing.code) << missing.message;
+}
+
+TEST(CheckHttp, JsonPathTextValueNeverMatchesANumberButComparesAsText) {
+  scripted_server server(http_reply(http_response(200, R"({"st":"busy"})")));
+  const outcome numeric = run(&check_net::check_http, {"url=" + base(server) + "/q", "json-path=st:st", "critical=st < 1"});
+  EXPECT_EQ(PB::Common::ResultCode::OK, numeric.code) << numeric.message;
+  EXPECT_FALSE(contains(numeric.perf, "st_")) << numeric.perf;
+  // The scripted server answers one request; the second query needs its own.
+  scripted_server server2(http_reply(http_response(200, R"({"st":"busy"})")));
+  const outcome text = run(&check_net::check_http, {"url=" + base(server2) + "/q", "json-path=st:st", "critical=st = 'busy'"});
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, text.code) << text.message;
 }
 
 TEST(CheckHttp, InvalidUrlIsReported) {

@@ -46,6 +46,8 @@ struct data_obj {
   long long zval;        // byte count, registered as type_size
   std::string dval_s;    // dual string/int column (a log column shape)
   long long dval_i;
+  boost::optional<double> nval_n;       // optional number: the numeric value
+  boost::optional<std::string> nval_t;  // optional number: the text (none = missing)
 
   std::string show() const { return name; }
 };
@@ -77,6 +79,7 @@ struct filter_obj_handler : native_context {
     registry_.add_string_var("sval", [](data_ptr o) { return o->sval; }, "String keyword");
     registry_.add_optional_int_var("oval", [](data_ptr o) { return o->oval; }, "unknown", "Optional int keyword").add_int_perf();
     registry_.add_string_var("dval", [](data_ptr o) { return o->dval_s; }, [](data_ptr o) { return o->dval_i; }, "Dual string/int keyword");
+    registry_.add_optional_number_var("nval", [](data_ptr o) { return o->nval_n; }, [](data_ptr o) { return o->nval_t; }, "missing", "Optional number keyword");
     registry_.add_int_var("cust", type_custom_tens, [](data_ptr o) { return o->ival * 10; }, "Custom int keyword with converter (Nu = N*10)").no_perf();
     registry_.add_int_var("quiet", [](data_ptr o) { return o->ival; }, "Int keyword that must not emit perf").no_perf();
     registry_.add_converter(type_custom_tens, &parse_tens);
@@ -88,17 +91,17 @@ typedef modern_filter::modern_filters<data_obj, filter_obj_handler> filter_type;
 
 // The fixed data set. Values are chosen so numeric and lexical orderings
 // disagree wherever the matrix needs to tell them apart:
-//   name  ival  fval   sval     oval     zval  dval
-//   a     1     1.5    alpha    100      512   "7"/7
-//   b     5     5.0    100      (none)   1536  "2"/2
-//   c     10    10.25  90       5        2048  "x"/0
-//   d     50    0.5    beta     0        4096  "30"/30
+//   name  ival  fval   sval     oval     zval  dval    nval
+//   a     1     1.5    alpha    100      512   "7"/7   0.73
+//   b     5     5.0    100      (none)   1536  "2"/2   (missing)
+//   c     10    10.25  90       5        2048  "x"/0   "busy" (not a number)
+//   d     50    0.5    beta     0        4096  "30"/30 12
 std::vector<data_obj> rows() {
   return {
-      {"a", 1, 1.5, "alpha", boost::optional<long long>(100), 512, "7", 7},
-      {"b", 5, 5.0, "100", boost::none, 1536, "2", 2},
-      {"c", 10, 10.25, "90", boost::optional<long long>(5), 2048, "x", 0},
-      {"d", 50, 0.5, "beta", boost::optional<long long>(0), 4096, "30", 30},
+      {"a", 1, 1.5, "alpha", boost::optional<long long>(100), 512, "7", 7, 0.73, std::string("0.73")},
+      {"b", 5, 5.0, "100", boost::none, 1536, "2", 2, boost::none, boost::none},
+      {"c", 10, 10.25, "90", boost::optional<long long>(5), 2048, "x", 0, boost::none, std::string("busy")},
+      {"d", 50, 0.5, "beta", boost::optional<long long>(0), 4096, "30", 30, 12.0, std::string("12")},
   };
 }
 
@@ -447,6 +450,33 @@ TEST(FilterMatrixOptional, QuotedNumberStaysInTheSentinelStringDomain) {
 }
 
 // ============================================================================
+// Optional number keyword: nval = {a:0.73, b:(missing), c:"busy", d:12}
+// ============================================================================
+
+TEST(FilterMatrixOptionalNumber, NumericComparisonsRunInFloatAndSkipNonNumbers) {
+  // b (missing) and c (text) have no number: sure-false against every
+  // number, for every operator. a compares as 0.73, never truncated to 0.
+  run_matrix({
+      {"nval < 1", "a"},
+      {"nval > 1", "d"},
+      {"nval = 0", ""},
+      {"nval != 5", "a, d"},
+      {"nval >= 0.73", "a, d"},
+      {"nval < 0.5", ""},
+      {"nval <= 12", "a, d"},
+  });
+}
+
+TEST(FilterMatrixOptionalNumber, StringComparisonsUseTheTextOrTheNoValueString) {
+  run_matrix({
+      {"nval = 'missing'", "b"},
+      {"nval != 'missing'", "a, c, d"},
+      {"nval = 'busy'", "c"},
+      {"nval = '0.73'", "a"},
+  });
+}
+
+// ============================================================================
 // Dual string/int keyword (log column shape): dval = {a:"7", b:"2", c:"x", d:"30"}
 // with int accessor {a:7, b:2, c:0, d:30}
 // ============================================================================
@@ -598,6 +628,21 @@ TEST(FilterMatrixPerf, OptionalKeywordSuppressesTheValuelessRow) {
   EXPECT_EQ(find_perf(r, "b"), nullptr) << r.message;
 }
 
+TEST(FilterMatrixPerf, OptionalNumberKeepsDecimalsAndSkipsRowsWithoutANumber) {
+  const run_result r = run_query({"warning=nval > 0.5", "critical=none"});
+  ASSERT_TRUE(r.built) << r.message;
+  const PB::Common::PerformanceData *p = find_perf(r, "a_nval");
+  ASSERT_NE(p, nullptr) << r.message;
+  ASSERT_TRUE(p->has_float_value());
+  EXPECT_DOUBLE_EQ(p->float_value().value(), 0.73);
+  ASSERT_TRUE(p->float_value().has_warning());
+  EXPECT_DOUBLE_EQ(p->float_value().warning().value(), 0.5);
+  EXPECT_NE(find_perf(r, "d_nval"), nullptr) << r.message;
+  // Missing (b) and non-numeric (c): no entry rather than a made-up 0.
+  EXPECT_EQ(find_perf(r, "b_nval"), nullptr) << r.message;
+  EXPECT_EQ(find_perf(r, "c_nval"), nullptr) << r.message;
+}
+
 TEST(FilterMatrixPerf, NoPerfKeywordAndStringKeywordEmitNothing) {
   {
     const run_result r = run_query({"warning=quiet > 5", "critical=none"});
@@ -649,6 +694,12 @@ TEST(FilterMatrixSyntax, DetailSyntaxRendersEveryKeywordType) {
   ASSERT_TRUE(r.built) << r.message;
   // Row b renders its valueless optional as the registered no-value string.
   EXPECT_EQ(r.message, "b/5/5/100/unknown/1536/2");
+}
+
+TEST(FilterMatrixSyntax, OptionalNumberRendersTextOrNoValue) {
+  const run_result r = run_query({"warning=none", "critical=none"}, "%(list)", "%(name)=%(nval)");
+  ASSERT_TRUE(r.built) << r.message;
+  EXPECT_EQ(r.message, "a=0.73, b=missing, c=busy, d=12");
 }
 
 TEST(FilterMatrixSyntax, TopSyntaxCountersAndStatus) {

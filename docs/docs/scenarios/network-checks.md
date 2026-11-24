@@ -327,10 +327,15 @@ check_http url=https://api.example.com/health "json-path=err:metrics.error_rate"
 check_http url=https://api.example.com/health "json-path=first:items.0.name" "json-path=cfg:'a.b'.c"
 ```
 
-Numeric values keep full precision (so `err > 0.05` works on `0.06`), string
-values compare and render as strings, and booleans read as `1`/`0`. A path that
-is missing (or a body that is not JSON) leaves the alias empty rather than
-failing the check. Multiple `--json-path` options can be combined with the usual
+Numeric values keep full precision in thresholds and perfdata (so `err > 0.05`
+works on `0.06`, and `0.73` is graphed as `0.73`), string values compare and
+render as strings, and booleans read as `1`/`0`. A path that is missing (or
+`null`, or a body that is not JSON) renders as `missing` rather than failing
+the check, and never matches a numeric threshold in either direction: `qlen <
+1` does not fire on a response without `qlen`, and no perfdata is emitted for
+it. Test for the missing field explicitly with `qlen = 'missing'`. A value that
+is present but not a number (`st` above) likewise never matches a numeric
+threshold. Multiple `--json-path` options can be combined with the usual
 `warning=`/`critical=` boolean expressions.
 
 **Via NRPE:**

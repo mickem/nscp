@@ -278,6 +278,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
     ("json-path", po::value<std::vector<std::string> >(&json_paths_raw),
         "Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). "
         "Numeric segments index arrays; single-quote a segment containing a dot. "
+        "A path missing from the response renders as 'missing' and never matches a numeric threshold; test for it with alias = 'missing'. "
         "Example: --json-path qlen:data.queue.length \"crit=qlen > 100\".")
     ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
     ;
@@ -320,22 +321,20 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   }
 
   // Register each --json-path alias as a filter keyword on this check's own
-  // handler (the context is per-filter, so this is safe). Numeric comparisons
-  // use the float value, string comparisons the raw value; each alias also
-  // becomes a perfdata metric. Must happen before build_filter parses the
-  // warn/crit expressions that reference these aliases.
+  // handler (the context is per-filter, so this is safe). Must happen before
+  // build_filter parses the warn/crit expressions that reference these
+  // aliases. Numeric comparisons run in float and are false when the path is
+  // missing or the value is not a number; string comparisons and rendering
+  // use the extracted text, or "missing" when the path is absent. The float
+  // perfdata keeps the historical `<alias>_<url>` label, so existing graphs
+  // keep their series.
   for (const auto &ap : opt.json_paths) {
     const std::string alias = ap.first;
-    auto var = std::make_shared<parsers::where::filter_variable<std::shared_ptr<filter_obj> > >(alias, parsers::where::type_float, "JSON value at " + ap.second);
-    var->f_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->get_json_number(alias); };
-    var->i_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) {
-      // The value comes from the remote server: a NaN or anything past the
-      // long long range (1e300, a uint64 above LLONG_MAX) must not be cast raw.
-      return str::to_int64_saturating(o->get_json_number(alias));
-    };
-    var->s_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->get_json_string(alias); };
-    f.context->registry_.add(var, false);
-    f.context->registry_.add_int_perf("", alias + "_", "");
+    f.context->registry_
+        .add_optional_number_var(
+            alias, [alias](std::shared_ptr<filter_obj> o) { return o->get_json_number(alias); },
+            [alias](std::shared_ptr<filter_obj> o) { return o->get_json_string(alias); }, "missing", "JSON value at " + ap.second)
+        .add_float_perf("", alias + "_", "");
   }
 
   if (!filter_helper.build_filter(f)) return;
