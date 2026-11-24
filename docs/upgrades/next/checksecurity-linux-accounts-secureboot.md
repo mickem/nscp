@@ -1,5 +1,5 @@
 ---
-icon: "🐧"
+icon: "🐧 🔒"
 modules: [CheckSecurity]
 action: none
 ---
@@ -21,4 +21,6 @@ UNKNOWN until the agent can read it (Debian: add it to the `shadow` group) or
 `allow-unreadable-shadow` is passed. `check_group_members` defaults to the
 first of `sudo` and `wheel` on Linux, includes accounts whose primary group it
 is, and matches `expected=` names case-sensitively there. Windows behaviour is
-unchanged; macOS still reports "not supported".
+unchanged; macOS still reports "not supported". See the
+[security notice](../security/notices.md#linux-posture-and-inventory-checks-expose-account-and-hardware-details)
+for what the checks expose.
