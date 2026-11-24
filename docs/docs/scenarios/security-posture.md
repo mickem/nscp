@@ -1,15 +1,16 @@
 # Host Security Posture Monitoring
 
 **Goal:** Monitor a host's security posture — certificate expiry and TLS hygiene,
-interactive logon sessions, Secure Boot, and (on Windows) the firewall,
-antivirus, disk encryption and network-profile state — using the
+interactive logon sessions, Secure Boot, local accounts, and (on Windows) the
+firewall, antivirus, disk encryption and network-profile state — using the
 `CheckSecurity` module.
 
-`check_certificate`, `check_users` and `check_secureboot` work on **Windows and
-Linux**; the remaining checks (`check_firewall`, `check_antivirus`,
-`check_bitlocker`, `check_nla`, `check_activation`, `check_file_security`,
-`check_local_accounts`, `check_group_members`) are **Windows-only** and report
-a clear "not supported" on other platforms rather than a false OK.
+`check_certificate`, `check_users`, `check_secureboot` and
+`check_local_accounts` work on **Windows and Linux**; the remaining checks
+(`check_firewall`, `check_antivirus`, `check_bitlocker`, `check_nla`,
+`check_activation`, `check_file_security`, `check_group_members`) are
+**Windows-only** and report a clear "not supported" on other platforms rather
+than a false OK.
 
 ---
 
@@ -79,10 +80,10 @@ check_users "filter=session_type = 'remote'" "crit=count > 0" ; Linux ssh
 
 ---
 
-## Secure Boot (Windows and Linux)
+## Secure Boot and Local Accounts (Windows and Linux)
 
-`check_secureboot` reads the Windows registry on Windows and the UEFI variables
-on Linux.
+These read the Windows registry and SAM on Windows, and the UEFI variables and
+`/etc/passwd` + `/etc/shadow` on Linux.
 
 ### UEFI Secure Boot
 
@@ -96,6 +97,21 @@ OK: secure boot is enabled
 
 On Linux `setup_mode = 1` additionally catches firmware with no Platform Key
 enrolled.
+
+### Local accounts
+
+`check_local_accounts` is critical by default when an enabled account needs no
+password. On Linux that means an empty password field; the `*` / `!` system
+accounts are fine. Add a rule for a second superuser:
+
+```
+check_local_accounts "crit=(enabled = 1 and password_required = 0) or is_extra_uid0 = 1"
+```
+
+On Linux the password state lives in `/etc/shadow`, which the unprivileged
+`nsclient` user cannot read: the check is then UNKNOWN until the agent can read
+it (Debian: add `nsclient` to the `shadow` group) or `allow-unreadable-shadow`
+is passed, which keeps only the `/etc/passwd` keywords meaningful.
 
 ---
 
@@ -208,6 +224,7 @@ On a **Linux** host the cross-platform subset applies:
 alias_cert       = check_certificate file=/etc/ssl/certs recursive=true "crit=expired = 1 or expires_in < 10"
 alias_users      = check_users "crit=count > 10"
 alias_secureboot = check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
+alias_accounts   = check_local_accounts "crit=(enabled = 1 and password_required = 0) or is_extra_uid0 = 1"
 ```
 
 Each alias is then callable by name over NRPE

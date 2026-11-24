@@ -31,11 +31,12 @@ set(SRCS
     ${NSCP_ERROR_CPP}
 )
 
-# The Linux readers of the posture checks that have one (check_secureboot).
-# posture_linux.cpp only points them at the live files, so the unit tests link
-# these against fixtures.
+# The Linux readers of the posture checks that have one (check_secureboot,
+# check_local_accounts). posture_linux.cpp only points them at the live files,
+# so the unit tests link these against fixtures.
 set(POSTURE_LINUX_READERS
     secureboot_source_linux.cpp
+    local_accounts_source_linux.cpp
 )
 
 if(WIN32)

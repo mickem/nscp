@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// The Linux reader behind check_secureboot, against fixtures: efivars byte
-// layouts in a temporary directory tree. The command body itself is covered by
+// The Linux readers behind check_secureboot and check_local_accounts, against
+// fixtures: efivars byte layouts in a temporary directory tree, and
+// passwd/shadow content as strings. The command bodies themselves are covered by
 // check_posture_commands_test.cpp.
 
 #include <gtest/gtest.h>
@@ -14,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "check_local_accounts.hpp"
 #include "check_secureboot.hpp"
 
 namespace {
@@ -181,4 +183,263 @@ TEST(secureboot_linux, an_unreadable_variable_is_an_error) {
   const auto rows = read_secureboot(t.path(), error);
   EXPECT_TRUE(rows.empty());
   EXPECT_NE(error.find("Failed to read"), std::string::npos) << error;
+}
+
+// ---------------------------------------------------------------------------
+// check_local_accounts
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// A trimmed stock Debian host, plus the findings the check exists for.
+const std::string passwd_fixture =
+    "root:x:0:0:root:/root:/bin/bash\n"
+    "daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n"
+    "sync:x:4:65534:sync:/bin:/bin/sync\n"
+    "systemd-network:x:998:998:systemd Network Management:/:/usr/sbin/nologin\n"
+    "sshd:x:100:65534::/run/sshd:/usr/sbin/nologin\n"
+    "# a comment\n"
+    "\n"
+    "alice:x:1000:1000:Alice,,,:/home/alice:/bin/bash\n"
+    "bob:x:1001:1001::/home/bob:/bin/zsh\n"
+    "kiosk:x:1002:1002::/home/kiosk:/bin/bash\n"
+    "expired:x:1003:1003::/home/expired:/bin/bash\n"
+    "toor:x:0:0:backdoor:/root:/bin/sh\n"
+    "legacy::1004:1004::/home/legacy:\n"
+    "noshadow:x:1005:1005::/home/noshadow:/bin/bash\n"
+    "+@netgroup::::::\n"
+    "broken:x:notanumber:1:::\n";
+
+// Hashes are fake but shaped like the real thing.
+const std::string shadow_fixture =
+    "root:$y$j9T$abcdefgh$ABCDEFGHIJKLMNOPQRSTUVWXYZ012345678901:19700:0:99999:7:::\n"
+    "daemon:*:19700:0:99999:7:::\n"
+    "sync:*:19700:0:99999:7:::\n"
+    "systemd-network:!*:19700::::::\n"
+    "sshd:!:19700::::::\n"
+    "alice:$6$salt$hashhashhash:19000:0:90:7:::\n"
+    "bob:!$6$salt$hashhashhash:19700:0:99999:7:::\n"
+    "kiosk::19700:0:99999:7:::\n"
+    "expired:$6$salt$hashhashhash:19700:0:99999:7::19000:\n"
+    "toor:$6$salt$hashhashhash:0:0:99999:7:::\n";
+
+const long long now = 20000LL * 86400 + 3600;  // day 20000, 01:00 UTC
+
+std::vector<local_accounts_filter::filter_obj_ptr> build(const bool shadow_readable) {
+  std::size_t skipped = 0;
+  const auto passwd = local_accounts_source::parse_passwd(passwd_fixture, skipped);
+  const auto shadow = local_accounts_source::parse_shadow(shadow_fixture, skipped);
+  std::vector<local_accounts_filter::filter_obj_ptr> out;
+  local_accounts_source::build_accounts(passwd, shadow_readable ? &shadow : nullptr, shadow_readable ? "" : "Cannot read /etc/shadow: Permission denied", now,
+                                        out);
+  return out;
+}
+
+local_accounts_filter::filter_obj_ptr find(const std::vector<local_accounts_filter::filter_obj_ptr> &rows, const std::string &name) {
+  for (const auto &r : rows) {
+    if (r->name == name) return r;
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+TEST(local_accounts_linux, password_fields_are_classified_not_copied) {
+  EXPECT_EQ("empty", local_accounts_source::classify_password(""));
+  EXPECT_EQ("locked", local_accounts_source::classify_password("!"));
+  EXPECT_EQ("locked", local_accounts_source::classify_password("!!"));
+  EXPECT_EQ("locked", local_accounts_source::classify_password("!*"));
+  EXPECT_EQ("locked", local_accounts_source::classify_password("!$6$salt$hash"));
+  EXPECT_EQ("none", local_accounts_source::classify_password("*"));
+  EXPECT_EQ("none", local_accounts_source::classify_password("x"));
+  EXPECT_EQ("set", local_accounts_source::classify_password("$6$salt$hash"));
+  EXPECT_EQ("set", local_accounts_source::classify_password("$y$j9T$salt$hash"));
+  EXPECT_EQ("set", local_accounts_source::classify_password("abJnggxhB/yWI"));  // traditional DES
+}
+
+TEST(local_accounts_linux, nologin_style_shells_are_not_interactive) {
+  EXPECT_FALSE(local_accounts_source::is_interactive_shell("/usr/sbin/nologin"));
+  EXPECT_FALSE(local_accounts_source::is_interactive_shell("/sbin/nologin"));
+  EXPECT_FALSE(local_accounts_source::is_interactive_shell("/bin/false"));
+  EXPECT_FALSE(local_accounts_source::is_interactive_shell("/usr/bin/false"));
+  EXPECT_FALSE(local_accounts_source::is_interactive_shell("/bin/sync"));
+  EXPECT_FALSE(local_accounts_source::is_interactive_shell("/sbin/shutdown"));
+  EXPECT_FALSE(local_accounts_source::is_interactive_shell("/sbin/halt"));
+  EXPECT_TRUE(local_accounts_source::is_interactive_shell("/bin/bash"));
+  EXPECT_TRUE(local_accounts_source::is_interactive_shell("/usr/bin/zsh"));
+  EXPECT_TRUE(local_accounts_source::is_interactive_shell(""));  // login(1) uses /bin/sh
+}
+
+TEST(local_accounts_linux, malformed_and_compat_lines_are_skipped) {
+  std::size_t skipped = 0;
+  const auto passwd = local_accounts_source::parse_passwd(passwd_fixture, skipped);
+  EXPECT_EQ(1u, skipped);  // "broken"; the comment, blank and +@netgroup lines are not entries
+  ASSERT_EQ(12u, passwd.size());
+  EXPECT_EQ("root", passwd[0].name);
+  EXPECT_EQ(0, passwd[0].uid);
+  EXPECT_EQ("/bin/bash", passwd[0].shell);
+
+  const auto shadow = local_accounts_source::parse_shadow("root:*:1:2:3:4:5:6:\nshort:*:1\nwindows:*:1:0:99999:7:::\r\n", skipped);
+  EXPECT_EQ(1u, skipped);
+  ASSERT_EQ(2u, shadow.size());
+  EXPECT_EQ("windows", shadow[1].name);  // a CRLF file still parses
+}
+
+TEST(local_accounts_linux, no_hash_survives_parsing) {
+  std::size_t skipped = 0;
+  const auto shadow = local_accounts_source::parse_shadow(shadow_fixture, skipped);
+  for (const auto &s : shadow) {
+    EXPECT_EQ(s.state.find('$'), std::string::npos) << s.name;
+  }
+  for (const auto &r : build(true)) {
+    EXPECT_EQ(r->password_state.find('$'), std::string::npos) << r->name;
+    EXPECT_EQ(r->sid.find('$'), std::string::npos) << r->name;
+  }
+}
+
+TEST(local_accounts_linux, system_accounts_are_never_passwordless) {
+  // The default critical is `enabled = 1 and password_required = 0`: the
+  // dozens of '*' / '!' system accounts must not trip it.
+  const auto rows = build(true);
+  for (const char *name : {"daemon", "sync", "systemd-network", "sshd"}) {
+    const auto r = find(rows, name);
+    ASSERT_TRUE(r) << name;
+    EXPECT_EQ(1, r->get_enabled().value()) << name;
+    EXPECT_EQ(1, r->get_password_required().value()) << name;
+    EXPECT_EQ(0, r->get_interactive().value()) << name;
+  }
+  EXPECT_EQ("none", find(rows, "daemon")->password_state);
+  EXPECT_EQ(0, find(rows, "daemon")->get_locked().value());
+  EXPECT_EQ("locked", find(rows, "sshd")->password_state);
+  EXPECT_EQ(1, find(rows, "sshd")->get_locked().value());
+}
+
+TEST(local_accounts_linux, root_maps_onto_the_builtin_administrator) {
+  const auto root = find(build(true), "root");
+  ASSERT_TRUE(root);
+  EXPECT_EQ("0", root->sid);
+  EXPECT_EQ(0, root->get_uid().value());
+  EXPECT_EQ(0, root->get_gid().value());
+  EXPECT_EQ("/root", root->home);
+  EXPECT_EQ("/bin/bash", root->shell);
+  EXPECT_EQ(1, root->get_is_builtin_admin());
+  EXPECT_EQ(0, root->get_is_builtin_guest());
+  EXPECT_EQ(0, root->get_is_extra_uid0());
+  EXPECT_EQ("set", root->password_state);
+  EXPECT_EQ(1, root->get_password_required().value());
+  EXPECT_EQ(0, root->get_password_expires().value());  // 99999 = never
+}
+
+TEST(local_accounts_linux, a_second_uid0_account_is_flagged) {
+  const auto toor = find(build(true), "toor");
+  ASSERT_TRUE(toor);
+  EXPECT_EQ(0, toor->get_is_builtin_admin());
+  EXPECT_EQ(1, toor->get_is_extra_uid0());
+  // lastchg 0 forces a change at next logon: not a 1970 change date.
+  EXPECT_FALSE(toor->get_password_changed());
+  EXPECT_FALSE(toor->get_password_age());
+}
+
+TEST(local_accounts_linux, an_empty_password_is_the_critical_finding) {
+  const auto rows = build(true);
+  const auto kiosk = find(rows, "kiosk");
+  ASSERT_TRUE(kiosk);
+  EXPECT_EQ("empty", kiosk->password_state);
+  EXPECT_EQ(0, kiosk->get_password_required().value());
+  EXPECT_EQ(1, kiosk->get_enabled().value());
+
+  // An empty field in passwd itself (no shadow indirection) counts too, and
+  // needs no shadow access to see.
+  for (const bool readable : {true, false}) {
+    const auto legacy = find(build(readable), "legacy");
+    ASSERT_TRUE(legacy);
+    EXPECT_EQ("empty", legacy->password_state);
+    EXPECT_EQ(0, legacy->get_password_required().value());
+    EXPECT_EQ(1, legacy->get_enabled().value());
+    EXPECT_EQ(1, legacy->get_interactive().value());  // empty shell = /bin/sh
+    EXPECT_TRUE(legacy->shadow_error.empty());
+  }
+}
+
+TEST(local_accounts_linux, a_locked_password_is_locked_but_still_enabled) {
+  // usermod -L stops password logons only; an SSH key still works, so the
+  // account is not "disabled".
+  const auto bob = find(build(true), "bob");
+  ASSERT_TRUE(bob);
+  EXPECT_EQ(1, bob->get_locked().value());
+  EXPECT_EQ(1, bob->get_enabled().value());
+  EXPECT_EQ("locked", bob->password_state);
+}
+
+TEST(local_accounts_linux, an_expired_account_is_disabled) {
+  const auto expired = find(build(true), "expired");
+  ASSERT_TRUE(expired);
+  EXPECT_EQ(1, expired->get_disabled().value());
+  EXPECT_EQ(0, expired->get_enabled().value());
+
+  // Expiry day == today is already expired (pam_unix: today >= expire).
+  std::size_t skipped = 0;
+  const auto passwd = local_accounts_source::parse_passwd("edge:x:2000:2000::/home/edge:/bin/bash\n", skipped);
+  const auto shadow = local_accounts_source::parse_shadow("edge:$6$s$h:19000:0:99999:7::20000:\n", skipped);
+  std::vector<local_accounts_filter::filter_obj_ptr> out;
+  local_accounts_source::build_accounts(passwd, &shadow, "", now, out);
+  ASSERT_EQ(1u, out.size());
+  EXPECT_EQ(1, out[0]->get_disabled().value());
+}
+
+TEST(local_accounts_linux, password_ageing_comes_from_shadow) {
+  const auto alice = find(build(true), "alice");
+  ASSERT_TRUE(alice);
+  EXPECT_EQ(1, alice->get_password_expires().value());  // max 90 days
+  EXPECT_EQ(19000LL * 86400, alice->get_password_changed().value());
+  EXPECT_EQ(now - 19000LL * 86400, alice->get_password_age().value());
+}
+
+TEST(local_accounts_linux, an_unreadable_shadow_leaves_the_flags_unknown) {
+  const auto rows = build(false);
+  const auto root = find(rows, "root");
+  ASSERT_TRUE(root);
+  EXPECT_EQ("unknown", root->password_state);
+  EXPECT_FALSE(root->get_enabled());
+  EXPECT_FALSE(root->get_disabled());
+  EXPECT_FALSE(root->get_locked());
+  EXPECT_FALSE(root->get_password_required());
+  EXPECT_FALSE(root->get_password_expires());
+  EXPECT_FALSE(root->get_password_changed());
+  EXPECT_EQ("Cannot read /etc/shadow: Permission denied", root->shadow_error);
+  // passwd-derived keywords are unaffected.
+  EXPECT_EQ(1, root->get_is_builtin_admin());
+  EXPECT_EQ(1, find(rows, "toor")->get_is_extra_uid0());
+  EXPECT_EQ(0, find(rows, "daemon")->get_interactive().value());
+}
+
+TEST(local_accounts_linux, an_account_missing_from_shadow_is_unknown_but_not_an_error) {
+  const auto r = find(build(true), "noshadow");
+  ASSERT_TRUE(r);
+  EXPECT_EQ("unknown", r->password_state);
+  EXPECT_FALSE(r->get_password_required());
+  EXPECT_TRUE(r->shadow_error.empty());
+}
+
+TEST(local_accounts_linux, gather_from_reads_the_files_and_reports_an_unreadable_passwd) {
+  temp_dir t;
+  t.write("passwd", passwd_fixture);
+  t.write("shadow", shadow_fixture, 0600);
+  std::vector<local_accounts_filter::filter_obj_ptr> out;
+  std::string error;
+  local_accounts_source::gather_from(t.path() + "/passwd", t.path() + "/shadow", now, out, error);
+  ASSERT_TRUE(error.empty()) << error;
+  EXPECT_EQ(12u, out.size());
+  EXPECT_EQ("set", find(out, "root")->password_state);
+
+  // A missing shadow is a per-row contract, a missing passwd fails the check.
+  out.clear();
+  local_accounts_source::gather_from(t.path() + "/passwd", t.path() + "/nope", now, out, error);
+  ASSERT_TRUE(error.empty()) << error;
+  EXPECT_NE(find(out, "root")->shadow_error.find("Cannot read " + t.path() + "/nope"), std::string::npos);
+
+  out.clear();
+  local_accounts_source::gather_from(t.path() + "/nope", t.path() + "/shadow", now, out, error);
+  EXPECT_TRUE(out.empty());
+  EXPECT_NE(error.find("Cannot read"), std::string::npos) << error;
 }
