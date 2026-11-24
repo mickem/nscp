@@ -254,3 +254,33 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# Unit tests for the module class: the settings it registers, the collector
+# lifecycle across load/reload/unload, the no-data answers of the collector
+# backed checks, and facts/diagnostics/metrics with everything off. The stub
+# core (include/nscapi/test_helpers.hpp) stands in for the daemon; dontStart
+# keeps the collector from sampling.
+set(CHECK_SYSTEM_MODULE_TEST_SRCS ${SRCS})
+list(FILTER CHECK_SYSTEM_MODULE_TEST_SRCS EXCLUDE REGEX "/module\\.(cpp|hpp|def|rc)$|\\.h$|\\.hpp$")
+NSCP_CREATE_TEST(
+    check_system_module_test
+    SOURCES
+        check_system_module_test.cpp
+        ${CHECK_SYSTEM_MODULE_TEST_SRCS}
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_JSON_LIBRARY}
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${PLATFORM_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
