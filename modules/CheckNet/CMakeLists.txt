@@ -232,6 +232,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
-if(WIN32)
+if(WIN32 AND TARGET check_net_module_test)
     target_link_libraries(check_net_module_test iphlpapi ws2_32)
-endif(WIN32)
+endif()
