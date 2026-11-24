@@ -4,7 +4,7 @@ The default is critical if Secure Boot is not enabled.
 
 ```
 check_secureboot
-L        cli OK: secure boot is enabled
+L        cli OK: secure boot enabled=1 supported=1
 ```
 
 ```

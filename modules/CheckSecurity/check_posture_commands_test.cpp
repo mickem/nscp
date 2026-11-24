@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 // The command bodies of the eight posture checks whose data acquisition is
-// Windows-only: check_nla, check_antivirus, check_bitlocker, check_secureboot,
-// check_defender, check_local_accounts, check_group_members and check_users.
+// Windows-only or (check_secureboot) Windows and Linux: check_nla,
+// check_antivirus, check_bitlocker, check_secureboot, check_defender,
+// check_local_accounts, check_group_members and check_users.
 //
 // Only the gathering is platform-specific. Everything the command does around
 // it - option parsing, the keyword registry, the default warning/critical

@@ -91,7 +91,7 @@ tell "disabled" from "legacy BIOS" (on Linux: no `/sys/firmware/efi`):
 
 ```
 check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
-OK: secure boot is enabled
+OK: secure boot enabled=1 supported=1
 ```
 
 On Linux `setup_mode = 1` additionally catches firmware with no Platform Key

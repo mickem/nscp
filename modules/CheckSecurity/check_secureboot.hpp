@@ -57,10 +57,11 @@ bool parse_efivarfs_byte(const std::string &content, long long &value, std::stri
 //    Windows, not an error);
 //  - efivarfs (`efi_dir`/efivars) or the legacy sysfs interface
 //    (`efi_dir`/vars/<name>/data) holds the SecureBoot variable: supported=1,
-//    enabled = (value == 1), setup_mode from SetupMode when present;
+//    enabled = (value == 1) unless shim's MokSBStateRT says validation is
+//    disabled, setup_mode from SetupMode when present;
 //  - EFI variables readable but no SecureBoot variable: firmware without Secure
 //    Boot support, supported=0 enabled=0;
-//  - the variables cannot be read at all (efivarfs not mounted, I/O or
+//  - `efi_dir` or the variables cannot be read at all (efivarfs not mounted, I/O or
 //    permission error, malformed content): `error` is set and no row is added,
 //    so the check reports UNKNOWN rather than a made-up "disabled".
 void gather_from(const std::string &efi_dir, std::vector<secureboot_filter::filter_obj_ptr> &out, std::string &error);

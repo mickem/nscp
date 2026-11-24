@@ -15,14 +15,19 @@ On Linux the check reads the UEFI global variable
 `SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c` from efivarfs
 (`/sys/firmware/efi/efivars`; the file is 4 attribute bytes followed by the
 value byte), falling back to the older `/sys/firmware/efi/vars/.../data`
-interface. Both are world-readable, so the agent needs no privilege. The same
-row comes back as on Windows:
+interface. efivarfs is world-readable, so the agent needs no privilege; the
+legacy interface is root-only, and an unprivileged agent that has to fall back
+to it reports UNKNOWN with the permission error. The same row comes back as on
+Windows:
 
 - **No `/sys/firmware/efi`** — the host did not boot through UEFI: a legacy
   BIOS boot, `supported=0 enabled=0`, exactly as on Windows. A container that
   masks `/sys/firmware` (Docker does by default) looks the same; run the agent
   on the host to see the firmware.
 - **The variable is present** — `supported=1`, `enabled=1` when its value is 1.
+  One exception: when shim's `MokSBStateRT` variable is 1 (validation turned
+  off with `mokutil --disable-validation`) the firmware still says 1 but
+  nothing past shim is verified, so the check reports `enabled=0`.
 - **EFI variables are readable but there is no `SecureBoot` variable** —
   UEFI firmware without Secure Boot support: `supported=0 enabled=0`.
 - **The variables cannot be read** (efivarfs is not mounted on

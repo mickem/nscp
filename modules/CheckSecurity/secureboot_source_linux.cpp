@@ -3,8 +3,11 @@
 
 // Linux data source for check_secureboot: the UEFI global variables SecureBoot
 // and SetupMode, read from efivarfs (/sys/firmware/efi/efivars) or, on kernels
-// that predate it, the legacy sysfs interface (/sys/firmware/efi/vars). Both are
-// world-readable for these two variables, so no privilege is needed.
+// that predate it, the legacy sysfs interface (/sys/firmware/efi/vars). efivarfs
+// is world-readable for these variables, so no privilege is needed; the legacy
+// interface is root-only. shim's MokSBStateRT is read as well: it is how
+// `mokutil --disable-validation` turns verification off under a firmware that
+// still says SecureBoot=1.
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -22,6 +25,7 @@ namespace secureboot_source {
 namespace {
 
 const char *const global_guid = "8be4df61-93ca-11d2-aa0d-00e098032b8c";
+const char *const shim_guid = "605dab50-e046-4300-abb6-3dd810dd8b23";
 
 enum class read_result { ok, missing, failed };
 
@@ -54,17 +58,17 @@ read_result read_file(const std::string &path, std::string &content, std::string
   return read_result::ok;
 }
 
-// One EFI global variable. `found` is false when it is absent from both
+// One EFI variable. `found` is false when it is absent from both
 // interfaces; `error` is set when it exists but cannot be read or parsed.
 struct variable {
   bool found = false;
   long long value = 0;
 };
 
-variable read_variable(const std::string &efi_dir, const std::string &name, std::string &error) {
+variable read_variable(const std::string &efi_dir, const std::string &name, std::string &error, const char *const guid = global_guid) {
   variable v;
   std::string content;
-  const std::string efivarfs_path = efi_dir + "/efivars/" + name + "-" + global_guid;
+  const std::string efivarfs_path = efi_dir + "/efivars/" + name + "-" + guid;
   read_result r = read_file(efivarfs_path, content, error);
   if (r == read_result::failed) return v;
   if (r == read_result::ok) {
@@ -76,7 +80,7 @@ variable read_variable(const std::string &efi_dir, const std::string &name, std:
     return v;
   }
   // Legacy sysfs interface: the data file holds the value without attributes.
-  const std::string sysfs_path = efi_dir + "/vars/" + name + "-" + global_guid + "/data";
+  const std::string sysfs_path = efi_dir + "/vars/" + name + "-" + guid + "/data";
   r = read_file(sysfs_path, content, error);
   if (r == read_result::failed) return v;
   if (r == read_result::ok) {
@@ -90,11 +94,18 @@ variable read_variable(const std::string &efi_dir, const std::string &name, std:
   return v;
 }
 
-bool dir_exists(const std::string &path) {
+// `missing` only for ENOENT/ENOTDIR, as in read_file(): running out of file
+// descriptors must not read as "no EFI directory" and so as a legacy BIOS boot.
+read_result open_dir(const std::string &path, std::string &error) {
   const int fd = ::open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-  if (fd < 0) return false;
+  if (fd < 0) {
+    const int e = errno;
+    if (e == ENOENT || e == ENOTDIR) return read_result::missing;
+    error = "Failed to open " + path + ": " + std::strerror(e);
+    return read_result::failed;
+  }
   ::close(fd);
-  return true;
+  return read_result::ok;
 }
 
 // True if either variable interface lists any variable. The efivars directory
@@ -129,7 +140,9 @@ bool parse_efivarfs_byte(const std::string &content, long long &value, std::stri
 
 void gather_from(const std::string &efi_dir, std::vector<secureboot_filter::filter_obj_ptr> &out, std::string &error) {
   auto o = std::make_shared<secureboot_filter::filter_obj>();
-  if (!dir_exists(efi_dir)) {
+  const read_result efi = open_dir(efi_dir, error);
+  if (efi == read_result::failed) return;
+  if (efi == read_result::missing) {
     // Not booted through UEFI: a legacy BIOS boot cannot have Secure Boot.
     out.push_back(o);
     return;
@@ -147,6 +160,15 @@ void gather_from(const std::string &efi_dir, std::vector<secureboot_filter::filt
   }
   o->supported = 1;
   o->enabled = sb.value == 1 ? 1 : 0;
+  if (o->enabled) {
+    // shim sets MokSBStateRT=1 when its validation has been disabled
+    // (mokutil --disable-validation): the firmware still reports SecureBoot=1
+    // but nothing past shim is verified. Absent (no shim) or unreadable leaves
+    // the firmware's answer standing.
+    std::string shim_error;
+    const variable mok = read_variable(efi_dir, "MokSBStateRT", shim_error, shim_guid);
+    if (shim_error.empty() && mok.found && mok.value == 1) o->enabled = 0;
+  }
   std::string setup_error;
   const variable sm = read_variable(efi_dir, "SetupMode", setup_error);
   // SetupMode is auxiliary: an unreadable one leaves the keyword unknown rather

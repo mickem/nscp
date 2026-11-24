@@ -31,7 +31,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // Default: critical if Secure Boot is not enabled.
   filter_helper.add_options("", "enabled = 0", "", filter.get_filter_syntax(), "unknown");
   filter_helper.add_syntax("${status}: ${list}", "secure boot enabled=${enabled} supported=${supported}", "secureboot", "No Secure Boot state",
-                           "${status}: secure boot is enabled");
+                           // No fixed OK text: a threshold that excuses a BIOS boot is OK with Secure Boot off.
+                           "");
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;

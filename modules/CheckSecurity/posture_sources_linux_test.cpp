@@ -115,6 +115,26 @@ TEST(secureboot_linux, disabled_in_setup_mode) {
   EXPECT_EQ(1, rows[0]->setup_mode.value());
 }
 
+TEST(secureboot_linux, shim_with_validation_disabled_is_not_enabled) {
+  // mokutil --disable-validation: the firmware still says SecureBoot=1.
+  const std::string shim = "605dab50-e046-4300-abb6-3dd810dd8b23";
+  temp_dir t;
+  t.mkdir("efivars");
+  t.write("efivars/SecureBoot-" + guid, efivar(1));
+  t.write("efivars/MokSBStateRT-" + shim, efivar(1));
+  std::string error;
+  auto rows = read_secureboot(t.path(), error);
+  ASSERT_TRUE(error.empty()) << error;
+  ASSERT_EQ(1u, rows.size());
+  EXPECT_EQ(1, rows[0]->supported);
+  EXPECT_EQ(0, rows[0]->enabled);
+
+  t.write("efivars/MokSBStateRT-" + shim, efivar(0));
+  rows = read_secureboot(t.path(), error);
+  ASSERT_EQ(1u, rows.size());
+  EXPECT_EQ(1, rows[0]->enabled);
+}
+
 TEST(secureboot_linux, without_setup_mode_the_keyword_is_unknown) {
   temp_dir t;
   t.mkdir("efivars");
