@@ -364,7 +364,7 @@ kernel interfaces rather than portable code:
 | `CheckDisk`       | Enumerates mounts through `<mntent.h>` and reads `/proc/diskstats`       | `check_drivesize`, `check_mount`, `check_disk_io`, `check_disk_health`, and the storage facts. `check_files`, `check_single_file` and `check_disk_write` are portable code, but they ship inside the same module |
 | `CheckLogFile`    | Its real-time mode watches files with `inotify`                          | `check_logfile` (itself portable, but in the same module) and the real-time log filters |
 
-`CheckSystem` is built and carries all 21 of its Linux commands, the host,
+`CheckSystem` is built and carries all 23 of its Linux commands, the host,
 network and software facts, the real-time filters and the system metrics. Its
 data comes from sysctl, the Mach host statistics, libproc, IOKit and
 `launchctl` instead of procfs, and a few values have no Darwin counterpart.
@@ -383,6 +383,7 @@ rather than a zero that was never measured:
 | `check_kernel_stats`          | Only the `threads` row. `type=ctxt` and `type=processes` are UNKNOWN: Darwin keeps no unprivileged count of context switches or forks.                                                                                                   |
 | `check_load`                  | `procs_running` is `unknown`; `procs_total` is the thread count.                                                                                                                                                                         |
 | `check_temperature`, `check_cpu_frequency` | Always UNKNOWN. The sensors and per-core clocks are reachable only through private, version-specific interfaces.                                                                                                               |
+| `check_pending_reboot`, `check_hardware` | Always UNKNOWN: there is no macOS reader for them yet.                                                                                                                                                                                   |
 | `check_memory`                | `cached` counts file-backed and purgeable pages as free. Swap is created on demand, so its total can be 0.                                                                                                                                 |
 
 The process counters are the one gap an operator can close. The launchd job

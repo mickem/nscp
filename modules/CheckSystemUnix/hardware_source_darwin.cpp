@@ -24,10 +24,12 @@
 #include <unistd.h>
 
 #include <cstring>
+#include <stdexcept>
 #include <string>
 
 #include "check_battery.h"
 #include "check_cpu_frequency.h"
+#include "check_hardware.h"
 #include "check_os_version.h"
 #include "check_temperature.h"
 #include "mach_stats_darwin.h"
@@ -250,3 +252,9 @@ host_facts::facts system_facts::gather() {
   if (in.hypervisor.get_value_or(false) && f.virtualization == "none") f.virtualization = "virtual";
   return f;
 }
+
+// No hardware inventory reader on macOS yet (it would be IOKit's
+// IOPlatformExpertDevice for the identity and system_profiler's memory data
+// for the modules); check_hardware reports this error rather than an empty
+// inventory line.
+hardware_check::hardware_info hardware_check::gather_hardware() { throw std::runtime_error("check_hardware is not supported on macOS yet"); }

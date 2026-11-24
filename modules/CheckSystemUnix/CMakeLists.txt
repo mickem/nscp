@@ -20,6 +20,8 @@ set(SRCS
     check_os_updates.cpp
     check_installed_software.cpp
     check_hostname.cpp
+    check_pending_reboot.cpp
+    check_hardware.cpp
     check_kernel_memory.cpp
     check_memory.cpp
     check_cpu.cpp
@@ -68,6 +70,7 @@ if(APPLE)
         mach_stats_darwin.cpp
         interfaces_darwin.cpp
         pressure_source_darwin.cpp
+        reboot_source_darwin.cpp
         process_top_source_darwin.cpp
         diagnostics_source_darwin.cpp
     )
@@ -92,6 +95,7 @@ else()
         hardware_source_linux.cpp
         network_facts_linux.cpp
         pressure_source_linux.cpp
+        reboot_source_linux.cpp
         process_top_source_linux.cpp
         diagnostics_source_linux.cpp
     )
@@ -116,6 +120,8 @@ if(WIN32)
         check_os_updates.h
         check_installed_software.h
         check_hostname.h
+        check_pending_reboot.h
+        check_hardware.h
         check_kernel_memory.h
         check_memory.h
         check_cpu.h
@@ -170,6 +176,10 @@ NSCP_CREATE_TEST(
         check_installed_software.cpp
         check_hostname_test.cpp
         check_hostname.cpp
+        check_pending_reboot_test.cpp
+        check_pending_reboot.cpp
+        check_hardware_test.cpp
+        check_hardware.cpp
         check_kernel_memory_test.cpp
         check_kernel_memory.cpp
         check_os_version_test.cpp

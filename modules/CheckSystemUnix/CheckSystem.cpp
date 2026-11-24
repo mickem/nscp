@@ -25,6 +25,7 @@
 #include "check_cpu.h"
 #include "check_cpu_frequency.h"
 #include "check_cpu_utilization.h"
+#include "check_hardware.h"
 #include "check_hostname.h"
 #include "check_installed_software.h"
 #include "check_kernel_memory.h"
@@ -35,6 +36,7 @@
 #include "check_os_updates.h"
 #include "check_os_version.h"
 #include "check_pagefile.h"
+#include "check_pending_reboot.h"
 #include "check_process.h"
 #include "check_process_history.h"
 #include "check_service.h"
@@ -301,6 +303,12 @@ void CheckSystem::check_installed_software(const PB::Commands::QueryRequestMessa
 }
 void CheckSystem::check_hostname(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   hostname_check::check_hostname(request, response);
+}
+void CheckSystem::check_pending_reboot(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  pending_reboot_check::check_pending_reboot(request, response);
+}
+void CheckSystem::check_hardware(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  hardware_check::check(request, response);
 }
 void CheckSystem::check_kernel_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   kernel_memory_check::check_kernel_memory(request, response);
