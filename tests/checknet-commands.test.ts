@@ -1579,6 +1579,40 @@ describe("CheckNet commands", () => {
     expect(flt.result).toBe(CRITICAL);
   });
 
+  // Regression: a whole-number threshold compared the value as an integer, so
+  // 100.5 was truncated to 100 and `qlen > 100` stayed OK; the perfdata was
+  // truncated the same way.
+  it("check_http keeps the fraction of a JSON decimal against an integer threshold", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end('{"data":{"queue":{"length":100.5}}}');
+    });
+    const q = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "qlen:data.queue.length",
+      critical: "qlen > 100",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(perfValue(q, `qlen_http://127.0.0.1:${s.port}/`)).toBe(100.5);
+  });
+
+  // A path the body does not have is "no value", not 0: `qlen < 5` must not
+  // fire on it, and no metric is plotted for it.
+  it("check_http treats a missing JSON path as no value", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end('{"data":{}}');
+    });
+    const q = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "qlen:data.queue.length",
+      warning: "qlen < 5",
+      critical: "qlen > 100",
+    });
+    expect(q.result).toBe(OK);
+    expect(perfValue(q, `qlen_http://127.0.0.1:${s.port}/`)).toBeUndefined();
+  });
+
   // Regression: the integer view of a JSON value was a raw static_cast of the
   // double, which is undefined for anything past the long long range (and on
   // x86 turns 1e300 into LLONG_MIN, a negative perf value). It saturates now.

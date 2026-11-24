@@ -65,6 +65,14 @@ This turns a health endpoint into a real check rather than a 200-or-not probe:
 check_http url=https://api.example.com/health json-path=qlen:data.queue.length "crit=qlen > 100" "detail-syntax=${url} ${result} qlen=${qlen}"
 ```
 
+Numbers (and booleans, as `1`/`0`) compare as decimals, so `qlen > 100` is
+true for `100.5`, and each numeric alias is graphed as `<alias>_<url>`. A JSON
+string compares as text (`"crit=status != 'ok'"`); arrays and objects are their
+serialized JSON, for `like` and `regexp`. A path that is missing, holds `null`
+or holds no number has no value: it matches no numeric comparison - not even
+`qlen < 5` - and emits no metric. Its text is empty when the path is missing,
+so `"crit=qlen = ''"` catches a field that has disappeared.
+
 ##### Certificate identity and required names
 
 Beyond `ssl_expiry_days`, an https check reports who the certificate is for and

@@ -830,10 +830,13 @@ struct optional_float_variable_node : any_node {
   s_function_type render;
   std::string no_value_;
   std::list<float_performance_generator> perfgen;
+  // When set, an absent value renders through `render` too rather than as
+  // no_value_: the number is optional, the text is not.
+  bool render_no_value_;
 
   optional_float_variable_node(const std::string &name, function_type fun, s_function_type render, const std::string &no_value,
-                               std::list<float_performance_generator> perfgen)
-      : any_node(type_multi), name_(name), fun(fun), render(render), no_value_(no_value), perfgen(perfgen) {}
+                               std::list<float_performance_generator> perfgen, bool render_no_value = false)
+      : any_node(type_multi), name_(name), fun(fun), render(render), no_value_(no_value), perfgen(perfgen), render_no_value_(render_no_value && render) {}
 
   std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
   bool can_evaluate() const override { return true; }
@@ -843,7 +846,7 @@ struct optional_float_variable_node : any_node {
       if (native_context != nullptr) {
         const boost::optional<double> v = fun(native_context->get_object(), context);
         if (v) return factory::create_float(v.value());
-        return factory::create_string(no_value_);
+        return factory::create_string(text_of(native_context, context, v));
       }
       context->warn("Failed to evaluate " + name_ + " no object instance");
     } catch (const std::exception &e) {
@@ -919,7 +922,7 @@ struct optional_float_variable_node : any_node {
     return native_context != nullptr && fun && native_context->has_object() ? native_context : nullptr;
   }
   std::string text_of(native_context_type native_context, evaluation_context context, const boost::optional<double> &v) const {
-    if (!v) return no_value_;
+    if (!v && !render_no_value_) return no_value_;
     if (render) return render(native_context->get_object(), context);
     return str::xtos(v.value());
   }

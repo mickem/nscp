@@ -15,7 +15,6 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <sstream>
-#include <str/saturate.hpp>
 
 #include "check_http_fetch.hpp"
 #include "check_http_internal.hpp"
@@ -321,21 +320,20 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
 
   // Register each --json-path alias as a filter keyword on this check's own
   // handler (the context is per-filter, so this is safe). Numeric comparisons
-  // use the float value, string comparisons the raw value; each alias also
-  // becomes a perfdata metric. Must happen before build_filter parses the
-  // warn/crit expressions that reference these aliases.
+  // are always made on the decimal value - a whole-number threshold
+  // (`qlen > 100`) must not truncate 100.5 to 100 - and string comparisons on
+  // the raw text. A path that is missing, null or not a number has no value:
+  // it matches no numeric comparison and emits no metric, but still renders
+  // (and compares as a string) as its text. Each numeric alias also becomes a
+  // perfdata metric. Must happen before build_filter parses the warn/crit
+  // expressions that reference these aliases.
   for (const auto &ap : opt.json_paths) {
     const std::string alias = ap.first;
-    auto var = std::make_shared<parsers::where::filter_variable<std::shared_ptr<filter_obj> > >(alias, parsers::where::type_float, "JSON value at " + ap.second);
-    var->f_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->get_json_number(alias); };
-    var->i_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) {
-      // The value comes from the remote server: a NaN or anything past the
-      // long long range (1e300, a uint64 above LLONG_MAX) must not be cast raw.
-      return str::to_int64_saturating(o->get_json_number(alias));
-    };
-    var->s_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->get_json_string(alias); };
-    f.context->registry_.add(var, false);
-    f.context->registry_.add_int_perf("", alias + "_", "");
+    f.context->registry_
+        .add_optional_float_var(
+            alias, [alias](std::shared_ptr<filter_obj> o) { return o->get_json_number(alias); },
+            [alias](std::shared_ptr<filter_obj> o) { return o->get_json_string(alias); }, "JSON value at " + ap.second)
+        .add_float_perf("", alias + "_", "");
   }
 
   if (!filter_helper.build_filter(f)) return;

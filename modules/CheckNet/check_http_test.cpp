@@ -13,6 +13,7 @@
 
 #include <boost/filesystem.hpp>
 #include <chrono>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,8 @@ struct outcome {
   PB::Common::ResultCode code;
   std::string message;
   std::string perf;
+  // Each perf entry's numeric value, keyed by alias (float or int value).
+  std::map<std::string, double> perf_values;
 };
 
 outcome run(check_fn check, const std::vector<std::string> &args) {
@@ -43,7 +46,12 @@ outcome run(check_fn check, const std::vector<std::string> &args) {
   for (int i = 0; i < response.lines_size(); ++i) {
     if (!r.message.empty()) r.message += "\n";
     r.message += response.lines(i).message();
-    for (int j = 0; j < response.lines(i).perf_size(); ++j) r.perf += response.lines(i).perf(j).alias() + ";";
+    for (int j = 0; j < response.lines(i).perf_size(); ++j) {
+      const PB::Common::PerformanceData &p = response.lines(i).perf(j);
+      r.perf += p.alias() + ";";
+      // json-path metrics are labelled <alias>_<url>: key them by the alias.
+      if (p.has_float_value()) r.perf_values[p.alias().substr(0, p.alias().find("_http"))] = p.float_value().value();
+    }
   }
   return r;
 }
@@ -223,6 +231,48 @@ TEST(CheckHttp, JsonPathBecomesAKeyword) {
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
   EXPECT_TRUE(contains(r.message, "jobs=250")) << r.message;
   EXPECT_TRUE(contains(r.perf, "qlen")) << r.perf;
+}
+
+TEST(CheckHttp, JsonPathDecimalIsNotTruncatedByAnIntegerThreshold) {
+  // A whole-number threshold must not cut the fraction off: 100.5 > 100.
+  scripted_server server(http_reply(http_response(200, R"({"data":{"queue":{"length":100.5}}})")));
+  const outcome r =
+      run(&check_net::check_http, {"url=" + base(server) + "/q", "json-path=qlen:data.queue.length", "critical=qlen > 100", "detail-syntax=qlen=${qlen}"});
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
+  EXPECT_TRUE(contains(r.message, "qlen=100.5")) << r.message;
+  ASSERT_EQ(1u, r.perf_values.count("qlen")) << r.perf;
+  EXPECT_DOUBLE_EQ(100.5, r.perf_values.at("qlen"));
+}
+
+TEST(CheckHttp, JsonPathDecimalBelowAnIntegerThresholdIsOk) {
+  scripted_server server(http_reply(http_response(200, R"({"data":{"queue":{"length":99.5}}})")));
+  const outcome r = run(&check_net::check_http, {"url=" + base(server) + "/q", "json-path=qlen:data.queue.length", "warning=qlen >= 100", "critical=qlen > 200",
+                                                 "detail-syntax=qlen=${qlen}"});
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.code) << r.message;
+}
+
+TEST(CheckHttp, JsonPathMissingValueHasNoValue) {
+  // A path the body does not have is "no value": it matches no numeric
+  // comparison (not even `< 5`, which a stand-in 0 would) and emits no metric.
+  scripted_server server(http_reply(http_response(200, R"({"data":{}})")));
+  const outcome r = run(&check_net::check_http, {"url=" + base(server) + "/q", "json-path=qlen:data.queue.length", "warning=qlen < 5", "critical=qlen > 100",
+                                                 "detail-syntax=qlen='${qlen}'"});
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.code) << r.message;
+  EXPECT_EQ(0u, r.perf_values.count("qlen")) << r.perf;
+  // Its text is empty, which is how a vanished field is caught.
+  scripted_server again(http_reply(http_response(200, R"({"data":{}})")));
+  const outcome gone = run(&check_net::check_http, {"url=" + base(again) + "/q", "json-path=qlen:data.queue.length", "critical=qlen = ''"});
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, gone.code) << gone.message;
+}
+
+TEST(CheckHttp, JsonPathStringValueStillComparesAndRendersAsText) {
+  // A JSON string is not a number - but it still renders and compares as text.
+  scripted_server server(http_reply(http_response(200, R"({"status":"degraded"})")));
+  const outcome r = run(&check_net::check_http,
+                        {"url=" + base(server) + "/q", "json-path=st:status", "critical=st = 'degraded'", "warning=st > 0", "detail-syntax=st=${st}"});
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
+  EXPECT_TRUE(contains(r.message, "st=degraded")) << r.message;
+  EXPECT_EQ(0u, r.perf_values.count("st")) << r.perf;
 }
 
 TEST(CheckHttp, InvalidUrlIsReported) {
