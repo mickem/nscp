@@ -46,6 +46,87 @@ TEST(ModernFilter, BindsOnlyRequestedValuesUntilHashOutputIsEnabled) {
 }
 
 // ============================================================================
+// function_registry accessor adapters
+// ============================================================================
+
+namespace {
+struct accessor_object {
+  long long number = 7;
+  std::string text = "seven";
+  std::string show() const { return text; }
+  long long get_number() const { return number; }
+  std::string get_text() const { return text; }
+};
+using accessor_ptr = std::shared_ptr<accessor_object>;
+using accessor_registry = parsers::where::function_registry<accessor_ptr>;
+
+std::shared_ptr<parsers::where::filter_variable<accessor_ptr>> variable(const accessor_registry &registry, const std::string &key) {
+  return registry.variables.at(key);
+}
+}  // namespace
+
+TEST(FunctionRegistry, AcceptsEveryAccessorShape) {
+  accessor_registry registry;
+  const long long offset = 100;
+  registry.add_int_var("member", &accessor_object::get_number, "member function pointer")
+      .add_int_var("generic", [](auto o) { return static_cast<int>(o->number); }, "captureless generic lambda returning int")
+      .add_int_var("by_ref", [](const accessor_ptr &o) { return o->number; }, "lambda taking the record by reference")
+      .add_int_var("captured", [offset](auto o) { return o->number + offset; }, "lambda with a capture")
+      .add_string_var("text", &accessor_object::get_text, "member function pointer")
+      .add_float("half", [](auto o) { return o->number / 2.0; }, "float accessor")
+      .add_string_var_w_context(
+          "ctx", [](auto, parsers::where::evaluation_context context) { return std::string(context ? "context" : "none"); }, "context accessor");
+
+  const auto obj = std::make_shared<accessor_object>();
+  const parsers::where::evaluation_context no_context;
+  EXPECT_EQ(variable(registry, "member")->i_function(obj, no_context), 7);
+  EXPECT_EQ(variable(registry, "generic")->i_function(obj, no_context), 7);
+  EXPECT_EQ(variable(registry, "by_ref")->i_function(obj, no_context), 7);
+  EXPECT_EQ(variable(registry, "captured")->i_function(obj, no_context), 107);
+  EXPECT_EQ(variable(registry, "text")->s_function(obj, no_context), "seven");
+  EXPECT_DOUBLE_EQ(variable(registry, "half")->f_function(obj, no_context), 3.5);
+  EXPECT_EQ(variable(registry, "ctx")->s_function(obj, no_context), "none");
+}
+
+TEST(FunctionRegistry, StatefulAccessorKeepsItsState) {
+  accessor_registry registry;
+  registry.add_int_var("calls", [n = 0LL](auto) mutable { return ++n; }, "counts its own calls");
+  const auto obj = std::make_shared<accessor_object>();
+  const auto var = variable(registry, "calls");
+  EXPECT_EQ(var->i_function(obj, {}), 1);
+  EXPECT_EQ(var->i_function(obj, {}), 2);
+}
+
+TEST(FunctionRegistry, ValueTypeIsNotMistakenForAnAccessor) {
+  accessor_registry registry;
+  registry.add_int_var("typed", parsers::where::type_bool, [](auto o) { return o->number; }, "value_type then accessor")
+      .add_int_var("dual", [](auto o) { return o->number; }, [](auto o) { return o->text; }, "number and text accessors");
+  const auto obj = std::make_shared<accessor_object>();
+  EXPECT_EQ(variable(registry, "typed")->type, parsers::where::type_bool);
+  EXPECT_FALSE(variable(registry, "typed")->s_function);
+  EXPECT_EQ(variable(registry, "dual")->type, parsers::where::type_int);
+  EXPECT_EQ(variable(registry, "dual")->i_function(obj, {}), 7);
+  EXPECT_EQ(variable(registry, "dual")->s_function(obj, {}), "seven");
+}
+
+// The point of the adapters: an accessor that decays to a pointer is stored
+// as one shared type, so a check with dozens of keywords instantiates the
+// boost::function machinery once per accessor signature, not once per
+// keyword. A capturing lambda cannot share and gets a type of its own.
+TEST(FunctionRegistry, PointerLikeAccessorsShareOneStoredType) {
+  accessor_registry registry;
+  const long long offset = 1;
+  registry.add_int_var("a", [](auto o) { return o->number; }, "")
+      .add_int_var("b", [](auto o) { return o->number * 2; }, "")
+      .add_int_var("c", &accessor_object::get_number, "")
+      .add_int_var("d", [offset](auto o) { return o->number + offset; }, "");
+  const auto type_of = [&](const char *key) -> const boost::core::typeinfo & { return variable(registry, key)->i_function.target_type(); };
+  EXPECT_EQ(type_of("a"), type_of("b"));
+  EXPECT_NE(type_of("a"), type_of("c"));  // a member pointer is a different signature
+  EXPECT_NE(type_of("a"), type_of("d"));
+}
+
+// ============================================================================
 // match_result tests
 // ============================================================================
 

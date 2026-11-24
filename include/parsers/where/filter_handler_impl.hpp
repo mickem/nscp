@@ -18,6 +18,8 @@
 #include <parsers/where/variable.hpp>
 #include <str/format.hpp>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 namespace parsers {
 namespace where {
@@ -77,6 +79,81 @@ struct filter_function {
   explicit filter_function(const std::string& name) : name(name), type(type_tbd) {}
 };
 
+namespace detail {
+
+// Adapt a registry accessor to the (T, evaluation_context) signature the
+// variable nodes call; see the note on function_registry's adders for why.
+//
+// What a boost::function costs is per *type* stored in it, so the adapter's
+// type must not depend on the keyword. An accessor that is a function or
+// member pointer, or a captureless lambda (which converts to a function
+// pointer: nearly every keyword is `[](auto obj) { return obj->x; }`), is
+// stored as that pointer in a ptr_adapter, whose type depends only on the
+// pointer's signature and is shared by every keyword with the same one. Only
+// a lambda with captures gets an adapter type of its own.
+template <class R, class T, class P, bool WithContext>
+struct ptr_adapter {
+  P p;
+  R operator()(T obj, evaluation_context context) const {
+    if constexpr (WithContext)
+      return std::invoke(p, obj, context);
+    else
+      return std::invoke(p, obj);
+  }
+};
+
+// The function pointer type a captureless callable D converts to when called
+// as D(T) or D(T, evaluation_context); void when it does not convert.
+template <class D, class T, class = void>
+struct plain_ptr {
+  using type = void;
+};
+template <class D, class T>
+struct plain_ptr<D, T, std::enable_if_t<std::is_convertible<D, std::invoke_result_t<D&, T> (*)(T)>::value>> {
+  using type = std::invoke_result_t<D&, T> (*)(T);
+};
+template <class D, class T, class = void>
+struct plain_ptr_ctx {
+  using type = void;
+};
+template <class D, class T>
+struct plain_ptr_ctx<D, T,
+                     std::enable_if_t<std::is_convertible<D, std::invoke_result_t<D&, T, evaluation_context> (*)(T, evaluation_context)>::value>> {
+  using type = std::invoke_result_t<D&, T, evaluation_context> (*)(T, evaluation_context);
+};
+
+template <class R, class T, bool WithContext, class F>
+auto adapt(F&& f) {
+  using D = std::decay_t<F>;
+  using P = typename std::conditional_t<WithContext, plain_ptr_ctx<D, T>, plain_ptr<D, T>>::type;
+  if constexpr (std::is_pointer<D>::value || std::is_member_pointer<D>::value) {
+    return ptr_adapter<R, T, D, WithContext>{f};
+  } else if constexpr (!std::is_void<P>::value) {
+    return ptr_adapter<R, T, P, WithContext>{static_cast<P>(f)};
+  } else if constexpr (WithContext) {
+    // mutable so a stateful accessor behaves as it did behind std::function.
+    // (Two lambdas rather than one with an if constexpr inside: MSVC v141
+    // does not discard a branch nested in a lambda within a template.)
+    return [f = D(std::forward<F>(f))](T obj, evaluation_context context) mutable -> R { return std::invoke(f, obj, context); };
+  } else {
+    return [f = D(std::forward<F>(f))](T obj, evaluation_context) mutable -> R { return std::invoke(f, obj); };
+  }
+}
+template <class R, class T, class F>
+auto no_context(F&& f) {
+  return adapt<R, T, false>(std::forward<F>(f));
+}
+template <class R, class T, class F>
+auto with_context(F&& f) {
+  return adapt<R, T, true>(std::forward<F>(f));
+}
+// Disables an (accessor, accessor) overload when its first accessor is really
+// a value_type, so the (value_type, accessor) overload is chosen instead.
+template <class F>
+using not_value_type = std::enable_if_t<!std::is_convertible<std::decay_t<F>, value_type>::value, int>;
+
+}  // namespace detail
+
 template <class T>
 struct registry_adders_variables_int {
   typedef typename filter_variable<T>::int_perf_generator_type perf_generator_type;
@@ -108,7 +185,7 @@ struct registry_adders_variables_int {
   registry_adders_variables_int& add_int(std::string key, value_type type, typename filter_variable<T>::int_fun_type_no_context i_fun,
                                          std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
-    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    var->i_function = detail::no_context<long long, T>(std::move(i_fun));
     add_variables(var);
     return *this;
   }
@@ -120,7 +197,7 @@ struct registry_adders_variables_int {
   }
   registry_adders_variables_int& add_int(std::string key, typename filter_variable<T>::int_fun_type_no_context i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
-    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    var->i_function = detail::no_context<long long, T>(std::move(i_fun));
     add_variables(var);
     return *this;
   }
@@ -170,30 +247,45 @@ struct function_registry {
   converter_type converters;
   std::shared_ptr<filter_variable<T>> last_variable;
 
-  function_registry<T>& add_int_var(std::string key, std::function<long long(T)> i_fun, std::string description) {
+  // The adders take the accessor as a template parameter and wrap it in one
+  // adapter straight into the variable's boost::function. They used to take a
+  // std::function<R(T)> and wrap that, which type-erased every keyword twice:
+  // a std::function instantiation per accessor (~14 functions, each a COMDAT
+  // with its own .pdata/.xdata/.debug$S) on top of the boost::function one.
+  // Check files with several filters sit close to MSVC's per-object section
+  // limit (C1128), so that cost matters. std::invoke keeps member-function
+  // pointers (&filter_obj::get_x) working.
+  //
+  // The int overloads with two accessors are disabled when the second argument
+  // is a value_type, so add_int_var(key, type, fun, description) never
+  // deduces `type` as an accessor.
+  template <class F>
+  function_registry<T>& add_int_var(std::string key, F&& i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
-    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    var->i_function = detail::no_context<long long, T>(std::forward<F>(i_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_var(std::string key, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun, std::string description) {
+  template <class FI, class FS, detail::not_value_type<FI> = 0>
+  function_registry<T>& add_int_var(std::string key, FI&& i_fun, FS&& s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
-    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
-    var->s_function = [s_fun](auto obj, auto) { return s_fun(obj); };
+    var->i_function = detail::no_context<long long, T>(std::forward<FI>(i_fun));
+    var->s_function = detail::no_context<std::string, T>(std::forward<FS>(s_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_var(std::string key, value_type type, std::function<long long(T)> i_fun, std::string description) {
+  template <class F>
+  function_registry<T>& add_int_var(std::string key, value_type type, F&& i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
-    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
+    var->i_function = detail::no_context<long long, T>(std::forward<F>(i_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_var(std::string key, value_type type, std::function<long long(T)> i_fun, std::function<std::string(T)> s_fun,
-                                    std::string description) {
+  template <class FI, class FS>
+  function_registry<T>& add_int_var(std::string key, value_type type, FI&& i_fun, FS&& s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
-    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
-    var->s_function = [s_fun](auto obj, auto) { return s_fun(obj); };
+    var->i_function = detail::no_context<long long, T>(std::forward<FI>(i_fun));
+    var->s_function = detail::no_context<std::string, T>(std::forward<FS>(s_fun));
     add(var, false);
     return *this;
   }
@@ -202,14 +294,14 @@ struct function_registry {
   // as `no_value` (which is also what it compares equal to as a string, e.g.
   // `jitter = 'unknown'`), every numeric comparison on it is false, and no
   // perfdata is emitted. Chain .add_int_perf()/.no_perf() as usual.
-  function_registry<T>& add_optional_int_var(std::string key, std::function<boost::optional<long long>(T)> fun, std::string no_value,
-                                             std::string description) {
-    return add_optional_int_var(key, type_int, fun, no_value, description);
+  template <class F>
+  function_registry<T>& add_optional_int_var(std::string key, F&& fun, std::string no_value, std::string description) {
+    return add_optional_int_var(key, type_int, std::forward<F>(fun), no_value, description);
   }
-  function_registry<T>& add_optional_int_var(std::string key, value_type type, std::function<boost::optional<long long>(T)> fun, std::string no_value,
-                                             std::string description) {
+  template <class F>
+  function_registry<T>& add_optional_int_var(std::string key, value_type type, F&& fun, std::string no_value, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
-    var->o_function = [fun](auto obj, auto) { return fun(obj); };
+    var->o_function = detail::no_context<boost::optional<long long>, T>(std::forward<F>(fun));
     var->no_value = no_value;
     add(var, false);
     return *this;
@@ -217,71 +309,78 @@ struct function_registry {
   // Context-taking form of add_optional_int_var, for optional values that can
   // only be computed against the evaluation context (e.g. check_drivesize's
   // full_in, which projects from the lazily-fetched current free space).
-  function_registry<T>& add_optional_int_var_w_context(std::string key, value_type type, typename filter_variable<T>::opt_int_fun_type fun,
-                                                       std::string no_value, std::string description) {
+  template <class F>
+  function_registry<T>& add_optional_int_var_w_context(std::string key, value_type type, F&& fun, std::string no_value, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
-    var->o_function = fun;
+    var->o_function = detail::with_context<boost::optional<long long>, T>(std::forward<F>(fun));
     var->no_value = no_value;
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_var_w_context(std::string key, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
+  template <class F>
+  function_registry<T>& add_int_var_w_context(std::string key, F&& i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
-    var->i_function = i_fun;
+    var->i_function = detail::with_context<long long, T>(std::forward<F>(i_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_int_var_w_context(std::string key, value_type type, std::function<long long(T, evaluation_context)> i_fun,
-                                              std::string description) {
+  template <class F>
+  function_registry<T>& add_int_var_w_context(std::string key, value_type type, F&& i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
-    var->i_function = i_fun;
+    var->i_function = detail::with_context<long long, T>(std::forward<F>(i_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_numbers(std::string key, value_type type, std::function<long long(T)> i_fun, std::function<double(T)> f_fun,
-                                    std::string description) {
+  template <class FI, class FF>
+  function_registry<T>& add_numbers(std::string key, value_type type, FI&& i_fun, FF&& f_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
-    var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
-    var->f_function = [f_fun](auto obj, auto) { return f_fun(obj); };
+    var->i_function = detail::no_context<long long, T>(std::forward<FI>(i_fun));
+    var->f_function = detail::no_context<double, T>(std::forward<FF>(f_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_float(std::string key, std::function<double(T)> f_fun, std::string description) {
+  template <class F>
+  function_registry<T>& add_float(std::string key, F&& f_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_float, description));
-    var->f_function = [f_fun](auto obj, auto) { return f_fun(obj); };
+    var->f_function = detail::no_context<double, T>(std::forward<F>(f_fun));
     add(var, false);
     return *this;
   }
 
   registry_adders_variables_int<T> add_int_legacy() { return registry_adders_variables_int<T>(this); }
-  function_registry<T>& add_string_var(std::string key, std::function<std::string(T)> s_fun, std::string description) {
+  template <class F>
+  function_registry<T>& add_string_var(std::string key, F&& s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
-    var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };
+    var->s_function = detail::no_context<std::string, T>(std::forward<F>(s_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_string_var_w_context(std::string key, std::function<std::string(T, evaluation_context)> s_fun, std::string description) {
+  template <class F>
+  function_registry<T>& add_string_var_w_context(std::string key, F&& s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
-    var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj, context); };
+    var->s_function = detail::with_context<std::string, T>(std::forward<F>(s_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_string_var(std::string key, std::function<std::string(T)> s_fun, std::function<long long(T)> i_fun, std::string description) {
+  template <class FS, class FI>
+  function_registry<T>& add_string_var(std::string key, FS&& s_fun, FI&& i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
-    var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };
-    var->i_function = [i_fun](auto obj, auto context) { return i_fun(obj); };
+    var->s_function = detail::no_context<std::string, T>(std::forward<FS>(s_fun));
+    var->i_function = detail::no_context<long long, T>(std::forward<FI>(i_fun));
     add(var, false);
     return *this;
   }
-  function_registry<T>& add_human_string(std::string key, std::function<std::string(T)> s_fun, std::string description) {
+  template <class F>
+  function_registry<T>& add_human_string(std::string key, F&& s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
-    var->s_function = [s_fun](auto obj, auto context) { return s_fun(obj); };
+    var->s_function = detail::no_context<std::string, T>(std::forward<F>(s_fun));
     add(var, true);
     return *this;
   }
-  function_registry<T>& add_human_string_context(std::string key, std::function<std::string(T, evaluation_context)> s_fun, std::string description) {
+  template <class F>
+  function_registry<T>& add_human_string_context(std::string key, F&& s_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_string, description));
-    var->s_function = s_fun;
+    var->s_function = detail::with_context<std::string, T>(std::forward<F>(s_fun));
     add(var, true);
     return *this;
   }
