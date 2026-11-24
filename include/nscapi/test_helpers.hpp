@@ -40,12 +40,14 @@
 #include <NSCAPI.h>
 
 #include <cstring>
+#include <iostream>
 #include <map>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/registry.hpp>
 #include <nscapi/protobuf/settings.hpp>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -72,6 +74,25 @@ struct registered_key {
   bool store_empty = false;
 };
 
+// Captures std::cout for its lifetime - which is where NSC_LOG_ERROR and
+// NSC_LOG_WARNING go in a unit-test build. Declare it as a fixture member (or
+// a local before the call under test) and check contains() afterwards.
+class stdout_capture {
+ public:
+  stdout_capture() : old_(std::cout.rdbuf(buffer_.rdbuf())) {}
+  ~stdout_capture() { std::cout.rdbuf(old_); }
+  stdout_capture(const stdout_capture &) = delete;
+  stdout_capture &operator=(const stdout_capture &) = delete;
+
+  std::string str() const { return buffer_.str(); }
+  bool contains(const std::string &needle) const { return buffer_.str().find(needle) != std::string::npos; }
+  void clear() { buffer_.str(std::string()); }
+
+ private:
+  std::ostringstream buffer_;
+  std::streambuf *old_;
+};
+
 class stub_core {
  public:
   // The stub wired into the core that nscapi::plugin_singleton hands out -
@@ -96,6 +117,30 @@ class stub_core {
     updated_settings_.clear();
     submissions_.clear();
     events_.clear();
+    log_.clear();
+  }
+
+  // ----- what the module logged --------------------------------------------
+
+  // One line logged through the core (NSC_DEBUG_MSG, NSC_LOG_ERROR_EXR,
+  // NSC_LOG_ERROR_STD, ...), as the core received it. The stub reports no log
+  // level, so the wrapper forwards every level, debug included.
+  //
+  // NSC_LOG_ERROR and NSC_LOG_WARNING are the exception: a unit-test build
+  // (NSCAPI_UNIT_TESTS) prints those to std::cout instead of calling the core,
+  // so they never arrive here. Use stdout_capture below to assert on them.
+  struct log_entry {
+    int level;
+    std::string message;
+  };
+  const std::vector<log_entry> &logged() const { return log_; }
+  // Whether any logged line contains `needle` - for asserting on an error
+  // path whose only observable effect is the line it logs.
+  bool has_logged(const std::string &needle) const {
+    for (const log_entry &e : log_) {
+      if (e.message.find(needle) != std::string::npos) return true;
+    }
+    return false;
   }
 
   // ----- what the module submitted -----------------------------------------
@@ -273,6 +318,13 @@ class stub_core {
     return NSCAPI::api_return_codes::isSuccess;
   }
 
+  static void simple_message(const char *, const int level, const char *, int, const char *message) {
+    log_entry e;
+    e.level = level;
+    e.message = message == nullptr ? std::string() : std::string(message);
+    instance().log_.push_back(e);
+  }
+
   static NSCAPI::errorReturn emit_event(const char *request, const int request_len) {
     PB::Commands::EventMessage message;
     message.ParseFromString(std::string(request, static_cast<std::size_t>(request_len)));
@@ -421,8 +473,8 @@ class stub_core {
     if (n == "NSAPIDestroyBuffer") return reinterpret_cast<nscapi::core_api::FUNPTR>(&destroy_buffer);
     if (n == "NSAPINotify") return reinterpret_cast<nscapi::core_api::FUNPTR>(&notify);
     if (n == "NSCAPIEmitEvent") return reinterpret_cast<nscapi::core_api::FUNPTR>(&emit_event);
-    // Everything else (logging above all) stays null, which the wrapper
-    // treats as a no-op.
+    if (n == "NSAPISimpleMessage") return reinterpret_cast<nscapi::core_api::FUNPTR>(&simple_message);
+    // Everything else stays null, which the wrapper treats as a no-op.
     return nullptr;
   }
 
@@ -433,6 +485,7 @@ class stub_core {
   std::vector<registered_key> registered_keys_;
   std::vector<PB::Commands::SubmitRequestMessage> submissions_;
   std::vector<PB::Commands::EventMessage> events_;
+  std::vector<log_entry> log_;
   std::vector<registered_key> updated_settings_;
   std::vector<std::string> registered_paths_;
   // (PB::Registry::ItemType, name) in registration order.
