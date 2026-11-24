@@ -31,8 +31,11 @@
 //
 // Always load with NSCAPI::dontStart: every module that starts a thread, a
 // socket or an interpreter guards it on `mode == NSCAPI::normalStart`, so
-// dontStart parses all the settings without any of that happening. (LUAScript
-// is the one module that does not guard, so it cannot use this yet.)
+// dontStart parses all the settings without any of that happening. (The
+// script modules are the exception: LUAScript runs each configured script's
+// top-level code in an in-process interpreter on any load, since that is how
+// a script registers its functions. Its test points `script root` at a
+// temporary folder holding scripts of its own.)
 //
 // The core entry points are plain C function pointers with no user data, so
 // the stub state is necessarily process-wide; reset() between tests.
