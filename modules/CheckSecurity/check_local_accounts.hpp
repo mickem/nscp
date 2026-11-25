@@ -74,6 +74,7 @@ struct filter_obj {
   boost::optional<long long> password_changed;  // epoch seconds of the last password change
   long long now;                                // epoch seconds the row was gathered (for password_age)
   std::string shadow_error;                     // why the shadow-derived flags are unknown; empty when known
+  std::string shadow_hint;                      // what the operator can do about shadow_error; empty for the default advice
 };
 
 typedef std::shared_ptr<filter_obj> filter_obj_ptr;
@@ -115,34 +116,52 @@ struct shadow_entry {
   std::string state;  // classify_password() of the hash
   long long last_change = -1;
   long long max_days = -1;
+  long long inactive = -1;  // days after the password expires that the account stays usable
   long long expire = -1;
+  std::size_t line = 0;    // line number in the file, for error text
+  bool malformed = false;  // the line named this account but could not be parsed; nothing else is set
 };
 
 // Parse a whole file. Comments, blank lines and NIS compat lines (+/-) are
-// skipped; a malformed line is skipped and counted in `skipped`.
-std::vector<passwd_entry> parse_passwd(const std::string &content, std::size_t &skipped);
-std::vector<shadow_entry> parse_shadow(const std::string &content, std::size_t &skipped);
+// skipped; `skipped` receives the line number of every line that could not be
+// parsed. The forms glibc accepts are accepted: a passwd line needs only its
+// first four fields ("toor::0:0" is an account), a shadow line has nine, eight
+// or five. A malformed shadow line that names an account is still returned,
+// with `malformed` set, so the account reads as unreadable rather than absent.
+std::vector<passwd_entry> parse_passwd(const std::string &content, std::vector<std::size_t> &skipped);
+std::vector<shadow_entry> parse_shadow(const std::string &content, std::vector<std::size_t> &skipped);
 // What a password field allows: "empty" (no password at all: passwordless
 // logon), "locked" (starts with '!': usermod -L / passwd -l, or never set),
 // "none" ('*' or any other value no password can match) or "set" (a crypt
-// hash).
+// hash: "$id$...", DES, bigcrypt or BSDi extended DES).
 std::string classify_password(const std::string &field);
+// True when the passwd password field sends the lookup to /etc/shadow: "x",
+// "##<name>" or the NIS+ marker "*NP*" (what pam_unix treats as shadowed).
+bool defers_to_shadow(const std::string &name, const std::string &password);
 // True for a shell that cannot run an interactive session (nologin, false,
 // true, sync, shutdown, halt). An empty shell is /bin/sh, so interactive.
 bool is_interactive_shell(const std::string &shell);
-// Build the rows. `shadow` is the content of /etc/shadow, or empty with
-// `shadow_error` set when it could not be read. `now` is epoch seconds.
+// Build the rows. `shadow` is the content of /etc/shadow, or null with
+// `shadow_error` set when it could not be read. `now` is epoch seconds. A
+// shadowed account with no entry, or only a malformed one, gets its own
+// `shadow_error`.
 void build_accounts(const std::vector<passwd_entry> &passwd, const std::vector<shadow_entry> *shadow, const std::string &shadow_error, long long now,
                     std::vector<local_accounts_filter::filter_obj_ptr> &out);
-// Read and build from the two files. `error` is set only when the passwd file
-// cannot be read; an unreadable shadow file marks each affected row instead.
+// Read and build from the two files. `error` is set when the passwd file
+// cannot be read or holds a line that cannot be parsed; an unreadable shadow
+// file, or a missing or malformed shadow entry, marks each affected row
+// instead.
 void gather_from(const std::string &passwd_path, const std::string &shadow_path, long long now, std::vector<local_accounts_filter::filter_obj_ptr> &out,
                  std::string &error);
 // Read a whole file; false with `error` (path and strerror) when it cannot be
-// read.
+// read. Shared with check_group_members.
 bool read_text_file(const std::string &path, std::string &content, std::string &error);
 }  // namespace local_accounts_source
 
 namespace check_local_accounts_command {
+// Why the check refuses to answer: the first account whose password and expiry
+// state could not be read, how many more there are, and what to do about it.
+// Empty when every account's state is known.
+std::string unknown_state_error(const std::vector<local_accounts_filter::filter_obj_ptr> &accounts);
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-}
+}  // namespace check_local_accounts_command

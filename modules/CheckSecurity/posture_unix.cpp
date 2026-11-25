@@ -6,9 +6,9 @@
 // security descriptors) with no Linux equivalent, so they report "not
 // supported" rather than pretend.
 //
-// check_secureboot and check_local_accounts have real Linux sources
-// (posture_linux.cpp and the *_source_linux.cpp readers) and macOS stubs
-// (posture_darwin.cpp).
+// check_secureboot, check_local_accounts and check_group_members have real
+// Linux sources (posture_linux.cpp and the *_source_linux.cpp readers) and
+// macOS stubs (posture_darwin.cpp).
 
 #include "check_activation.hpp"
 #include "check_antivirus.hpp"
@@ -16,7 +16,6 @@
 #include "check_defender.hpp"
 #include "check_file_security.hpp"
 #include "check_firewall_rules.hpp"
-#include "check_group_members.hpp"
 #include "check_nla.hpp"
 
 namespace nla_source {
@@ -42,12 +41,6 @@ void gather(std::vector<defender_filter::filter_obj_ptr> & /*out*/, std::string 
   error = "check_defender is not supported on this platform (Windows Microsoft Defender only)";
 }
 }  // namespace defender_source
-
-namespace group_members_source {
-void gather(const std::string & /*group*/, std::vector<group_members_filter::filter_obj_ptr> & /*out*/, std::string &error) {
-  error = "check_group_members is not supported on this platform (Windows local groups only)";
-}
-}  // namespace group_members_source
 
 namespace firewall_rules_source {
 void gather(std::vector<firewall_rules_filter::filter_obj_ptr> & /*out*/, std::string &error) {

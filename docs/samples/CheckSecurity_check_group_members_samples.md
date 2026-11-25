@@ -53,3 +53,39 @@ UNKNOWN: Local group not found: NoSuchGroup
 check_nscp_client --host 192.168.56.103 --command check_group_members --argument "expected=Administrator" --argument "expected=Domain Admins"
 OK: All 2 member(s) are on the expected list.
 ```
+
+**Linux: list the default administrators group (`sudo` here)**
+
+```
+check_group_members
+OK: ubuntu (user)|'ubuntu_expected'=1;;0 'count'=1
+```
+
+**Linux: drift detection — names match exactly**
+
+```
+check_group_members expected=ubuntu
+OK: ubuntu (user)|'ubuntu_expected'=1;;0 'count'=1
+```
+
+```
+check_group_members expected=Ubuntu
+CRITICAL: ubuntu (user)|'ubuntu_expected'=0;;0 'count'=1
+```
+
+**Linux: primary-group members count**
+
+`root` is listed in the `root` group through its primary gid alone (its
+`/etc/group` member list is empty):
+
+```
+check_group_members group=root "top-syntax=%(status): %(list)" "detail-syntax=%(member) [%(type)] uid=%(sid)"
+OK: root [user] uid=0|'root_expected'=1;;0 'count'=1
+```
+
+**Linux: a group that does not exist (UNKNOWN)**
+
+```
+check_group_members group=NSCP_NoSuchGroup_zzz
+Local group not found: NSCP_NoSuchGroup_zzz
+```
