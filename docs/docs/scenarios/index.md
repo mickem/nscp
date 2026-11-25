@@ -78,6 +78,12 @@ direction (active vs. passive) and protocol that matches your setup.
 |-----------------------------------------|-----------------------------------------------------------|
 | [External Scripts](external-scripts.md) | Run your own scripts and batch files as monitoring checks |
 
+### Fleet Management
+
+| Scenario                                                            | Description                                                               |
+|---------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [Configuration Management with NSClient Fleet](fleet-config-management.md) | Run a fleet server, enroll agents, and manage their configuration centrally in layers: a baseline, per-OS and per-role bundles, host overrides, staged rollouts and git-backed configuration |
+
 ---
 
 ## Not sure where to start?

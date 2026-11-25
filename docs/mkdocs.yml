@@ -72,6 +72,7 @@ nav:
       - Checkmk Agent Integration: scenarios/check-mk.md
       - Prometheus Scraping: scenarios/prometheus.md
       - External Scripts: scenarios/external-scripts.md
+      - Configuration Management (Fleet): scenarios/fleet-config-management.md
   - Reference:
       - Reference: reference/index.md
       - Common options: reference/common-options.md
