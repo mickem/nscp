@@ -592,7 +592,7 @@ TEST(CheckCsv, RestrictedAccessRefusesAPathOutsideTheAllowList) {
   EXPECT_TRUE(r.source.last_source.empty()) << "the source must not be read before the gate";
 }
 
-// --- the file readers (csv_source_win.cpp / csv_source_unix.cpp) ----------
+// --- the file reader (read_local_file over safe_file::read_all) -----------
 // These run against the real file system: the reader is the only thing
 // between a caller-supplied path and an unbounded read.
 
@@ -695,8 +695,9 @@ TEST(CheckCsvReader, LimitIsEnforcedWhileReadingAFileThatReportsNoSize) {
 }
 #else
 TEST(CheckCsvReader, NamedPipeIsRefusedWithoutBlocking) {
-  // A client end of a named pipe opens fine, and ReadFile on it then waits for
-  // the server to write: the check would hang.
+  // Connecting to a pipe would hang the check in ReadFile, and is itself the
+  // risk: the pipe's server learns who connected. safe_file refuses the name
+  // before opening anything.
   const std::wstring name = L"\\\\.\\pipe\\nscp-check-csv-test-" + std::to_wstring(GetCurrentProcessId());
   const HANDLE server = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_OUTBOUND, PIPE_TYPE_BYTE | PIPE_WAIT, 1, 0, 0, 0, nullptr);
   ASSERT_NE(INVALID_HANDLE_VALUE, server);
@@ -704,6 +705,6 @@ TEST(CheckCsvReader, NamedPipeIsRefusedWithoutBlocking) {
   const bool read = read_local_file(utf8::cvt<std::string>(name), 1024, bytes, error);
   CloseHandle(server);
   EXPECT_FALSE(read);
-  EXPECT_NE(std::string::npos, error.find("Not a regular file")) << error;
+  EXPECT_NE(std::string::npos, error.find("names a device or a pipe")) << error;
 }
 #endif

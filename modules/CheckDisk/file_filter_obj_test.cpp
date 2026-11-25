@@ -15,6 +15,9 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "filter.hpp"
 
 // nscapi::plugin_singleton is defined once in check_disk_unix_test.cpp for the
@@ -192,6 +195,27 @@ TEST(FilterObjContent, LineCountMissingFileIsZero) {
   auto o = make_obj("/nonexistent-nscp-test-dir", "missing.txt");
   ASSERT_TRUE(o);
   EXPECT_EQ(o->get_line_count(), 0u);
+}
+
+// line_count reads through safe_file: a FIFO is refused on the open
+// descriptor, where the old fopen() blocked until a writer turned up.
+TEST(FilterObjContent, LineCountOfAFifoIsZeroWithoutBlocking) {
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fifo-%%%%-%%%%");
+  boost::filesystem::create_directories(dir);
+  ASSERT_EQ(0, ::mkfifo((dir / "pipe.log").string().c_str(), 0600));
+  auto o = make_obj(dir.string(), "pipe.log");
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_line_count(), 0u);
+  boost::filesystem::remove_all(dir);
+}
+
+// The fgetc loop line_count replaced is kept byte for byte: a CR or an LF
+// ends a line and the byte after it is skipped, so CRLF is one break.
+TEST(FilterObjContent, LineCountKeepsTheCountingRules) {
+  temp_file f("crlf.txt", "one\r\ntwo\rthree\nfour");
+  auto o = make_obj(f.path.parent_path().string(), f.path.filename().string());
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_line_count(), 3u);
 }
 
 TEST(FilterObjVersion, VersionIsEmptyOnUnix) {

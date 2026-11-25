@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <deque>
 #include <error/error.hpp>
+#include <files/device_path.hpp>
 #include <functional>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -244,8 +245,10 @@ class mft_scanner {
   bool is_link(const std::uint8_t f) const { return (f & f_reparse) != 0 && (f & f_reparse_data) == 0; }
 
   bool open(std::string &why) {
+    // SECURITY_IDENTIFICATION as in safe_file: should the root still reach a
+    // pipe, its server cannot act as the agent. Meaningless for a folder.
     handle dir(CreateFileW(long_path(root_).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
-                           FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+                           FILE_FLAG_BACKUP_SEMANTICS | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr));
     if (!dir.ok()) {
       why = "unable to open the folder: " + last_error();
       return false;
@@ -743,6 +746,15 @@ class mft_scanner {
 }  // namespace
 
 scan_result scan(const scan_request &request) {
+  // The root is the caller's: refused by name before GetFileAttributes or the
+  // MFT reader's CreateFileW get to open a pipe or a raw volume through it
+  // (see files/device_path.hpp).
+  if (safe_file::is_win32_device_path(request.root)) {
+    scan_result result;
+    result.root_missing = true;
+    result.error = "Not a folder: " + request.root + " (it names a device or a pipe)";
+    return result;
+  }
   const std::wstring root = normalise(to_wide(request.root));
   const DWORD attributes = GetFileAttributesW(long_path(root).c_str());
   if (attributes == INVALID_FILE_ATTRIBUTES) {

@@ -32,6 +32,8 @@ set(SRCS
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
+    # line_count and the checksum keywords read the file through safe_file.
+    ${NSCP_SAFE_FILE_CPP}
     ${NSCP_INCLUDEDIR}/compat.cpp
 )
 
@@ -195,6 +197,7 @@ if(WIN32)
             collector_thread.cpp
             file_finder_win.cpp
             filter.cpp
+            ${NSCP_SAFE_FILE_CPP}
             filter_win.cpp
             growth_spots.cpp
             growth_spots_win.cpp
@@ -296,6 +299,7 @@ else()
             file_filter_obj_test.cpp
             file_finder_unix.cpp
             filter.cpp
+            ${NSCP_SAFE_FILE_CPP}
             filter_unix.cpp
             storage_facts.cpp
             storage_facts_test.cpp

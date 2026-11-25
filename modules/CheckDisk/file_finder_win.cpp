@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <file_helpers.hpp>
+#include <files/device_path.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/utf8.hpp>
@@ -55,6 +56,16 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   // characters, which caused issue #598 ("File was NOT found! Invalid file
   // specified" for paths like D:/DepotInterface/Reintégrer/).
   const std::wstring wide_dir = utf8::cvt<std::wstring>(dir.string());
+
+  // A path the caller named is checked by name before anything touches it:
+  // GetFileAttributes on `\\.\pipe\x` connects to the pipe, and the
+  // checksum and version keywords would go on to open it (see
+  // files/device_path.hpp). Names found by the walk itself come from a real
+  // directory listing and are never in the device namespace.
+  if (!recursive && safe_file::is_win32_device_path(dir.string())) {
+    context.report_error("Refusing " + dir.string() + ": it names a device or a pipe, not a file or directory");
+    return;
+  }
 
   const DWORD fileAttr = GetFileAttributes(wide_dir.c_str());
   if ((fileAttr == INVALID_FILE_ATTRIBUTES) && (!recursive)) {
@@ -148,6 +159,8 @@ void file_finder::scanner_context::report_debug(const std::string &str) const {
 void file_finder::scanner_context::report_warning(const std::string &msg) { NSC_LOG_ERROR(msg); }
 
 std::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const boost::filesystem::path &path, long long now) {
+  // Refused by name before FindFirstFile, as in recursive_scan.
+  if (safe_file::is_win32_device_path(path.string())) return std::shared_ptr<file_filter::filter_obj>();
   WIN32_FIND_DATA wfd;
   const std::wstring wide_path = utf8::cvt<std::wstring>(path.string());
   const HANDLE hFind = FindFirstFile(wide_path.c_str(), &wfd);

@@ -4,12 +4,12 @@
 #include "realtime_data.hpp"
 
 #include <boost/filesystem.hpp>
+#include <files/safe_file.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/utils.hpp>
 
 #include "file_reader.hpp"
-#include "log_file.hpp"
 
 void runtime_data::touch(boost::posix_time::ptime now) {
   for (file_container &fc : files) {
@@ -100,7 +100,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
     }
 
     std::string open_error;
-    const std::unique_ptr<std::streambuf> file_buf = check_logfile::open_log_file(c.name, open_error);
+    const std::unique_ptr<std::streambuf> file_buf = safe_file::open_stream(c.name, open_error);
     if (file_buf) {
       std::istream file(file_buf.get());
       if (decision.offset > 0) {

@@ -9,6 +9,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
+#include <files/safe_file.hpp>
 #include <locale>
 #include <memory>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -338,6 +339,19 @@ bool parse_size(const std::string &value_in, std::uint64_t &bytes, std::string &
     return false;
   }
   return true;
+}
+
+bool read_local_file(const std::string &path, const std::uint64_t max_bytes, std::string &bytes, std::string &error) {
+  switch (safe_file::read_all(path, max_bytes, bytes, error)) {
+    case safe_file::read_status::ok:
+      return true;
+    case safe_file::read_status::too_large:
+      error = "CSV is larger than max-size (" + std::to_string(max_bytes) + " bytes): " + path;
+      return false;
+    case safe_file::read_status::failed:
+    default:
+      return false;
+  }
 }
 
 bool effective_max_bytes(const std::string &requested, const std::uint64_t ceiling, std::uint64_t &max_bytes, bool &capped, std::string &error) {
