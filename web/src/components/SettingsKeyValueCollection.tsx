@@ -45,9 +45,15 @@ const NO_PRESETS: KeyValueTemplate[] = [];
 interface Props {
   collectionPath: string;
   descriptions: SettingsDescription[];
+  // Expert mode: the module page's presets are not offered.
+  expert?: boolean;
 }
 
-export default function SettingsKeyValueCollection({ collectionPath, descriptions }: Props) {
+export default function SettingsKeyValueCollection({
+  collectionPath,
+  descriptions,
+  expert = false,
+}: Props) {
   const { data: storedSettings } = useGetSettingsQuery();
   const [updateSettings] = useUpdateSettingsMutation();
   const [deleteSettings] = useDeleteSettingsMutation();
@@ -72,8 +78,8 @@ export default function SettingsKeyValueCollection({ collectionPath, description
 
   // Presets come from the module page that owns this collection.
   const templates = useMemo(
-    () => getKeyValueCollectionConfig(collectionPath)?.presets ?? NO_PRESETS,
-    [collectionPath],
+    () => (expert ? NO_PRESETS : (getKeyValueCollectionConfig(collectionPath)?.presets ?? NO_PRESETS)),
+    [collectionPath, expert],
   );
 
   const [adding, setAdding] = useState(false);

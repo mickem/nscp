@@ -54,9 +54,11 @@ interface Props {
   settings: SettingsDescription[];
   // Optional name of a child path that holds the template/sample (default "default").
   templateName?: string;
-  // When true, schema entries flagged is_advanced_key (debug, perf config, etc.)
-  // are rendered alongside the regular fields.
-  showAdvanced?: boolean;
+  // Expert mode: schema entries flagged is_advanced_key (debug, perf config,
+  // etc.) are rendered alongside the regular fields, and the module page's
+  // layout for this collection (tabs, preview column, presets, visibility
+  // rules) is not applied.
+  expert?: boolean;
 }
 
 interface Instance {
@@ -122,7 +124,7 @@ function isFieldVisible(
   if ((key === "counter" || key === "alias") && isTemplate) return false;
   // The default template is the root of the inheritance chain — it has no parent.
   if (key === "parent" && isDefaultTemplate) return false;
-  const own = config?.isFieldVisible?.(key, { fields, isTemplate, showAdvanced });
+  const own = config?.isFieldVisible?.(key, { fields, isTemplate });
   if (own !== undefined) return own;
   // `debug` is rarely toggled at the per-instance level — hide it unless the
   // user has explicitly opted into advanced fields.
@@ -177,8 +179,9 @@ export default function SettingsCollection({
   collectionPath,
   settings,
   templateName = "default",
-  showAdvanced = false,
+  expert = false,
 }: Props) {
+  const showAdvanced = expert;
   const [confirmDelete, setConfirmDelete] = useState<Instance | null>(null);
   const [adding, setAdding] = useState<null | "regular" | "template">(null);
   const [newName, setNewName] = useState("");
@@ -187,8 +190,11 @@ export default function SettingsCollection({
   // writes its `fields` map under the new path instead of the bare seed.
   const [pendingTemplate, setPendingTemplate] = useState<InstanceTemplate | null>(null);
   // What the module page that owns this collection says about it: tabs,
-  // preview column, presets, visibility rules.
-  const config = useMemo(() => getInstanceCollectionConfig(collectionPath), [collectionPath]);
+  // preview column, presets, visibility rules. Not consulted in expert mode.
+  const config = useMemo(
+    () => (expert ? undefined : getInstanceCollectionConfig(collectionPath)),
+    [collectionPath, expert],
+  );
   const factoryTemplates = config?.presets ?? NO_PRESETS;
   const addMenuAnchor = useRef<HTMLDivElement | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);

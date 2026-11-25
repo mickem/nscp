@@ -33,6 +33,27 @@ function documentedPaths(): Set<string> {
   return paths;
 }
 
+// The keys documented under `path`: the entries indented under its `keys:`.
+function documentedKeys(path: string): string[] {
+  // vitest runs with the web/ package root as the working directory.
+  const dir = join(process.cwd(), "..", "docs", "reference");
+  for (const name of readdirSync(dir).filter((n) => n.endsWith(".yaml"))) {
+    const lines = readFileSync(join(dir, name), "utf8").split("\n");
+    const at = lines.indexOf(`    ${path}:`);
+    if (at < 0) continue;
+    const keysAt = lines.findIndex((l, i) => i > at && l === "      keys:");
+    const end = lines.findIndex((l, i) => i > at && /^ {0,4}\S/.test(l));
+    if (keysAt < 0 || (end >= 0 && keysAt > end)) return [];
+    const out: string[] = [];
+    for (let i = keysAt + 1; i < lines.length && /^ {8}/.test(lines[i]); ++i) {
+      const m = lines[i].match(/^ {8}(\S[^:]*):$/);
+      if (m) out.push(m[1]);
+    }
+    return out;
+  }
+  return [];
+}
+
 describe("module page registry", () => {
   it("registers each module once", () => {
     const ids = MODULE_PAGES.map((p) => p.id);
@@ -58,8 +79,35 @@ describe("module page registry", () => {
     expect(missing).toEqual([]);
   });
 
+  it("names only keys the agent registers as handled by a panel", () => {
+    const missing = MODULE_PAGES.flatMap((page) =>
+      Object.entries({ ...page.handledKeys, ...page.expertOnlyKeys }).flatMap(([path, keys]) => {
+        const documented = documentedKeys(path);
+        return keys.filter((k) => !documented.includes(k)).map((k) => `${page.id}: [${path}] ${k}`);
+      }),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it("gives every key of a panel's sections a place", () => {
+    // A panel is the whole page outside expert mode, so a key it neither edits
+    // nor leaves to expert mode on purpose would only be reachable there.
+    const uncovered = MODULE_PAGES.filter((page) => page.Panel).flatMap((page) =>
+      Object.keys(page.handledKeys ?? {}).flatMap((path) => {
+        const covered = new Set([
+          ...(page.handledKeys?.[path] ?? []),
+          ...(page.expertOnlyKeys?.[path] ?? []),
+        ]);
+        return documentedKeys(path)
+          .filter((k) => !covered.has(k))
+          .map((k) => `${page.id}: [${path}] ${k}`);
+      }),
+    );
+    expect(uncovered).toEqual([]);
+  });
+
   it("looks modules up by id", () => {
-    expect(getModulePage("NRPEServer")?.Wizard).toBeDefined();
+    expect(getModulePage("NRPEServer")?.Panel).toBeDefined();
     expect(getModulePage("NoSuchModule")).toBeUndefined();
   });
 
@@ -109,7 +157,7 @@ describe("module page registry", () => {
 });
 
 describe("module page visibility rules", () => {
-  const ctx = { fields: [], isTemplate: false, showAdvanced: false };
+  const ctx = { fields: [], isTemplate: false };
 
   it("shows a counter's buffer size only for the round-robin strategy", () => {
     const rule = getInstanceCollectionConfig("/settings/system/windows/counters")?.isFieldVisible;
@@ -119,9 +167,9 @@ describe("module page visibility rules", () => {
     expect(rule?.("counter", ctx)).toBeUndefined();
   });
 
-  it("hides a WEB user's alias unless advanced fields are on", () => {
+  it("hides a WEB user's alias on the tailored page", () => {
     const rule = getInstanceCollectionConfig("/settings/WEB/server/users")?.isFieldVisible;
     expect(rule?.("alias", ctx)).toBe(false);
-    expect(rule?.("alias", { ...ctx, showAdvanced: true })).toBeUndefined();
+    expect(rule?.("role", ctx)).toBeUndefined();
   });
 });
