@@ -5,6 +5,7 @@
 #include <cctype>
 #include <climits>
 #include <cmath>
+#include <iomanip>
 #include <cstdint>
 #include <locale>
 #include <sstream>
@@ -167,9 +168,10 @@ custom_value to_custom(const json::value &v) {
   } else if (v.is_double()) {
     out.has_number = true;
     out.number = v.as_double();
+    // 15 significant digits: the default 6 renders 1234567.89 as 1.23457e+06.
     std::ostringstream oss;
     oss.imbue(std::locale::classic());
-    oss << v.as_double();
+    oss << std::setprecision(15) << v.as_double();
     out.text = oss.str();
   } else if (v.is_string()) {
     out.text = std::string(v.as_string().c_str());
@@ -290,7 +292,11 @@ bool parse_bulk_response(const std::string &body, const std::vector<jvm_read> &c
   const json::object &classes = entries[3].as_object();
   const json::object &gc = entries[4].as_object();
 
+  // A read counts only when Jolokia answered it with status 200 and a value.
+  const auto succeeded = [](const json::object &entry) { return entry_error(entry).empty() && as_obj(entry.if_contains("value")) != nullptr; };
+
   note_error(out, entry_error(memory));
+  out.memory_read = succeeded(memory);
   if (const json::object *value = as_obj(memory.if_contains("value"))) {
     const json::object *heap = as_obj(value->if_contains("HeapMemoryUsage"));
     out.heap_used = count_ll(heap, "used");
@@ -302,6 +308,7 @@ bool parse_bulk_response(const std::string &body, const std::vector<jvm_read> &c
   }
 
   note_error(out, entry_error(threading));
+  out.threading_read = succeeded(threading);
   if (const json::object *value = as_obj(threading.if_contains("value"))) {
     out.threads = count_ll(value, "ThreadCount");
     out.daemon_threads = count_ll(value, "DaemonThreadCount");
@@ -309,6 +316,7 @@ bool parse_bulk_response(const std::string &body, const std::vector<jvm_read> &c
   }
 
   note_error(out, entry_error(runtime));
+  out.runtime_read = succeeded(runtime);
   if (const json::object *value = as_obj(runtime.if_contains("value"))) {
     out.uptime_ms = count_ll(value, "Uptime");
     out.vm_name = field_str(value, "VmName");
@@ -318,11 +326,13 @@ bool parse_bulk_response(const std::string &body, const std::vector<jvm_read> &c
   }
 
   note_error(out, entry_error(classes));
+  out.classes_read = succeeded(classes);
   if (const json::object *value = as_obj(classes.if_contains("value"))) out.loaded_classes = count_ll(value, "LoadedClassCount");
 
   // A wildcard read answers with an object keyed by each matching MBean's
   // canonical name ("java.lang:name=G1 Young Generation,type=GarbageCollector").
   note_error(out, entry_error(gc));
+  out.gc_read = succeeded(gc);
   if (const json::object *value = as_obj(gc.if_contains("value"))) {
     for (const auto &kv : *value) {
       const std::string mbean(kv.key());

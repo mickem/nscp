@@ -47,9 +47,9 @@ check_jvm attribute=x=com.example:type=Cache/Hits
 CRITICAL: error: x: com.example:type=Cache: javax.management.InstanceNotFoundException : com.example:type=Cache: heap 298MB of 1GB (29.1%), 42 threads, 123 collections|'127.0.0.1_gc_count'=123c '127.0.0.1_gc_time'=834ms '127.0.0.1_heap_usage'=29.1%;80;90 '127.0.0.1_heap_used'=312475648B '127.0.0.1_threads'=42
 ```
 
-**An unreachable agent is CRITICAL, including with a custom `critical` that keeps `result != 'ok'`:**
+**An unreachable agent is CRITICAL, including with a custom `critical` that keeps `result != 'ok'`; its values are unknown and not graphed:**
 
 ```
 check_jvm "attribute=old_gen=java.lang:type=MemoryPool,name=G1 Old Gen/Usage/used" "critical=result != 'ok' or old_gen > 157286400"
-CRITICAL: error: Failed to connect to 127.0.0.1:8778: Connection refused: heap 0B (0%), 0 threads, 0 collections|'127.0.0.1_gc_count'=0c '127.0.0.1_gc_time'=0ms '127.0.0.1_heap_usage'=0%;80 '127.0.0.1_heap_used'=0B '127.0.0.1_threads'=0
+CRITICAL: error: Failed to connect to 127.0.0.1:8778: Connection refused: heap unknown (unknown%), unknown threads, unknown collections
 ```

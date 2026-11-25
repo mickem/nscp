@@ -66,6 +66,18 @@ TEST(CheckJvmParse, ReadsThePlatformMBeans) {
   EXPECT_EQ(s.gc_time(), 129);
   EXPECT_NE(s.collector_names().find("G1 Young Generation"), std::string::npos);
   EXPECT_NEAR(s.heap_usage(), 2.5, 0.001);
+  EXPECT_TRUE(s.memory_read);
+  EXPECT_TRUE(s.threading_read);
+  EXPECT_TRUE(s.runtime_read);
+  EXPECT_TRUE(s.classes_read);
+  EXPECT_TRUE(s.gc_read);
+}
+
+TEST(CheckJvmParse, NothingCountsAsReadBeforeAResponse) {
+  // The state the check is left in when the agent is down or the body is not
+  // Jolokia: every platform keyword must report no value, not 0.
+  const jvm_status s;
+  EXPECT_FALSE(s.memory_read || s.threading_read || s.runtime_read || s.classes_read || s.gc_read);
 }
 
 TEST(CheckJvmParse, HeapUsageFallsBackToCommittedWithoutAMaximum) {
@@ -106,8 +118,10 @@ TEST(CheckJvmParse, AFailedReadIsReportedWithTheOthersIntact) {
   jvm_status s;
   ASSERT_TRUE(parse_bulk_response(body, {}, s));
   EXPECT_EQ(s.error, "java.lang:type=Threading: java.lang.SecurityException : Reading attribute ThreadCount is forbidden");
-  EXPECT_EQ(s.threads, 0);
+  EXPECT_FALSE(s.threading_read);
   EXPECT_EQ(s.heap_used, 104857600);
+  EXPECT_TRUE(s.memory_read);
+  EXPECT_TRUE(s.gc_read);
 }
 
 TEST(CheckJvmParse, ReadsCustomAttributes) {
@@ -162,6 +176,17 @@ TEST(CheckJvmParse, NumericStringsAndBooleansAreNumbers) {
   EXPECT_TRUE(s.custom["flag"].has_number);
   EXPECT_DOUBLE_EQ(s.custom["flag"].number, 1.0);
   EXPECT_EQ(s.custom["flag"].text, "true");
+}
+
+TEST(CheckJvmParse, LargeFractionalValuesRenderWithoutScientificNotation) {
+  std::vector<jvm_read> reads(2);
+  reads[0].alias = "bytes";
+  reads[1].alias = "ratio";
+  jvm_status s;
+  ASSERT_TRUE(parse_bulk_response(with_custom(R"({"value":1234567.89,"status":200},{"value":0.73,"status":200})"), reads, s));
+  EXPECT_EQ(s.custom["bytes"].text, "1234567.89");
+  EXPECT_DOUBLE_EQ(s.custom["bytes"].number, 1234567.89);
+  EXPECT_EQ(s.custom["ratio"].text, "0.73");
 }
 
 TEST(CheckJvmParse, NonFiniteValuesAreNotNumbers) {

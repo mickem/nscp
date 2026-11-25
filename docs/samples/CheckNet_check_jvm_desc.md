@@ -34,12 +34,21 @@ above 90%, or when the agent cannot be reached or any requested read fails
 !!! warning "Keep `result != 'ok'` when you set `critical`"
     A `critical=` expression replaces the default one, including its
     `result != 'ok'`. Leave that out and a crashed JVM or an unreachable agent
-    no longer alerts: the values then read as 0 or as unread, a custom
-    threshold such as `old_gen > 157286400` is not met, and the check returns
-    OK. Write your own condition next to it:
-    `"critical=result != 'ok' or old_gen > 157286400"`. `heap_usage` is relative to the maximum heap (`-Xmx`);
-for a JVM without a defined maximum it falls back to the committed heap.
-`-w` / `-c` set the `heap_usage` bounds directly (`w=75 c=90`).
+    no longer alerts: the values then have no value (`unknown`, or `unread`
+    for an attribute), a custom threshold such as `old_gen > 157286400` is not
+    met, and the check returns OK. Write your own condition next to it:
+    `"critical=result != 'ok' or old_gen > 157286400"`.
+
+`heap_usage` is relative to the maximum heap (`-Xmx`); for a JVM without a
+defined maximum it falls back to the committed heap. `-w` / `-c` set the
+`heap_usage` bounds directly (`w=75 c=90`).
+
+When the agent cannot be reached, or Jolokia answers one of the platform
+reads with an error, the keywords of that read have no value rather than 0:
+they render as `unknown`, satisfy no numeric comparison and are left out of
+the perfdata. A graph then shows a gap instead of an empty heap, and a
+`gc_count` counter is not seen to drop to 0 (which a rate graph would read as
+a JVM restart). The failed read itself sets `result`, which is what alerts.
 
 `heap_used`, `heap_max` and the other byte keywords take size units
 (`heap_used > 2G`), `uptime` and `gc_time` take durations (`uptime < 10m`,
@@ -65,9 +74,11 @@ The alias must start with a letter and use only letters, digits and
 underscores. The words of the filter language (`and`, `or`, `not`, `in`,
 `like`, `regexp`, `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `str`), names starting
 with `not` followed by a letter or digit, the keywords `check_jvm` already has
-and the generic summary names (`count`, `status`, ...) are refused. A `/` inside the MBean
-name is written `!/` (Jolokia's own escape), so Tomcat's
-`Catalina:type=Manager,host=localhost,context=/app` becomes
+and the generic summary names (`count`, `list`, `lines`, `status`, ...) are
+refused.
+
+A `/` inside the MBean name is written `!/` (Jolokia's own escape), so
+Tomcat's `Catalina:type=Manager,host=localhost,context=/app` becomes
 `context=!/app`. The option can be repeated.
 
 A read that Jolokia cannot answer (a missing MBean, an access-policy denial)

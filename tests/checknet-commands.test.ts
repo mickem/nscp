@@ -2367,6 +2367,20 @@ describe("CheckNet commands", () => {
     );
   });
 
+  it("check_jvm leaves the values of an unreachable agent unknown and ungraphed", async () => {
+    const port = await closedPort();
+    const q = await executeQuery(key, "check_jvm", {
+      url: `http://127.0.0.1:${port}/jolokia/`,
+      // Thresholds a stand-in 0 would meet: they must not fire on no data.
+      warning: "threads < 5 or gc_count < 1 or heap_usage < 1",
+      critical: "result != 'ok'",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/heap unknown \(unknown%\), unknown threads, unknown collections/);
+    // No zeros plotted: a gc_count counter dropping to 0 reads as a restart.
+    expect(Object.keys(perfOf(q))).toEqual([]);
+  });
+
   it("check_jvm reports parse_error when the endpoint is not Jolokia", async () => {
     const s = await startHttp((_req, res) => res.end("<html>Welcome to Tomcat</html>"));
     const q = await executeQuery(key, "check_jvm", { url: `http://127.0.0.1:${s.port}/jolokia/` });
@@ -2405,6 +2419,13 @@ describe("CheckNet commands", () => {
     });
     expect(q.result).toBe(UNKNOWN);
     expect(messageOf(q)).toMatch(/already a keyword/);
+    // A generic summary name - including `lines`, which a hand-kept list once
+    // missed - would resolve to the summary in top-syntax.
+    for (const alias of ["count", "lines", "status"]) {
+      q = await executeQuery(key, "check_jvm", { url, attribute: `${alias}=java.lang:type=Threading/ThreadCount` });
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(/generic summary name/);
+    }
     // `in` and a name the grammar would split as `not ice` are refused by
     // name, rather than failing later in an anonymous expression error.
     for (const alias of ["in", "notice"]) {
