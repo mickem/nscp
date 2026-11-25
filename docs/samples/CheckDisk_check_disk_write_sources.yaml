@@ -3,7 +3,7 @@ windows:
   provides: write_time, total_time, size, issues, has_issues
   privilege: conditional
   note: Needs create, write and delete permission in the target folder for the agent's account. Paths are also held against `file access` in `[/settings/disk]`.
-  without: 'The failing step is recorded in `issues` (e.g. "failed to create file: ..."), which is CRITICAL by default.'
+  without: 'The failing step is recorded in `issues` (e.g. "failed to create file: ..."), which is CRITICAL by default. A device or pipe name is not opened at all: "Refusing <path>: it names a device or a pipe, not a file".'
 linux:
 - source: 'Test file at `file=`: exclusive create (`fopen` mode `wbx`), write, `fflush` + `fsync`, read back, `remove`'
   provides: write_time, total_time, size, issues, has_issues

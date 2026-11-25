@@ -1,18 +1,18 @@
 windows:
-- source: The named text file(s), read with `std::ifstream`
+- source: 'The named text file(s), read with `CreateFileW` + `ReadFile`'
   provides: lines and their split columns
   privilege: conditional
   note: The agent's account must be able to read each file. Paths are also held against `file access` in `[/settings/logfile]`.
-  without: '"Failed to open file: <path>"'
+  without: '"Failed to open file: <path>: <reason>". Only a regular file is read: anything else is "Not a regular file: <path>", a device or pipe name is "Refusing to open <path>: it names a device or a pipe, not a file", and a UNC path on a share that is not a file system is "Refusing to open <path>: its share is not a file system".'
 - source: Agent storage (`logfile.bookmarks` context)
   provides: the resume position for `bookmark=`
   privilege: none
 linux:
-- source: The named text file(s), read with `std::ifstream`
+- source: 'The named text file(s), read with `open` + `read`'
   provides: lines and their split columns
   privilege: conditional
   note: The agent's account must be able to read each file. Paths are also held against `file access` in `[/settings/logfile]`.
-  without: '"Failed to open file: <path>"'
+  without: '"Failed to open file: <path>: <reason>". Only a regular file is read: a FIFO or a device is "Not a regular file: <path>".'
 - source: Agent storage (`logfile.bookmarks` context)
   provides: the resume position for `bookmark=`
   privilege: none
