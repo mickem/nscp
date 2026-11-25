@@ -7,12 +7,12 @@ all:
   - Credentials for HTTP Basic authentication (`username=` / `password=`) when the endpoint requires them
   - OpenSSL in the build for an `https://` URL; certificates verified against `${ca-path}` by default (`ca=` overrides)
   without: >-
-    No HTTP response (connection refused, timeout, DNS failure, invalid URL):
-    UNKNOWN with `<url>: <error>` and no perfdata. A non-2xx answer sets
-    `result` to `http_<code>`, a top-level Jolokia error (e.g. an access-policy
-    denial) to `error: <message>`, a failed MBean read to
-    `error: <mbean>: <message>` and a body that is not the expected bulk
-    response to `parse_error`, all critical under the default thresholds.
+    No JVM data means UNKNOWN with `<url>: <error>` and no perfdata: no HTTP
+    response (connection refused, timeout, DNS failure, invalid URL), a non-2xx
+    answer (`http_<code>`), a top-level Jolokia error such as an access-policy
+    denial (`error: <message>`), a body that is not the expected bulk response
+    (`parse_error`), or a failed read of one of these platform MBeans
+    (`error: <mbean>: <message>`).
 - source: 'One more read in the same bulk POST per `attribute=alias=mbean/attribute[/path]`'
   provides: a keyword per alias (number, string or JSON text), with float perfdata for numeric values
   privilege: none
