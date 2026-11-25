@@ -395,15 +395,26 @@ namespace {
 
 std::wstring pipe_name(const wchar_t *tag) { return L"\\\\.\\pipe\\nscp-safe-file-test-" + std::wstring(tag) + L"-" + std::to_wstring(GetCurrentProcessId()); }
 
+// What a pipe's server was given when it tried to act as the client.
+struct granted {
+  // The impersonation level of the token it got; -1 when
+  // ImpersonateNamedPipeClient refused, -3 when it succeeded with a token the
+  // server may not even open (the anonymous level), -2 when there was no pipe.
+  int level;
+  // The Win32 error behind a negative level.
+  DWORD error;
+};
+
 // Create a pipe server, let `connect` open the client end and keep it open,
-// then impersonate that client and return the impersonation level the client
-// granted. -1 when the server could not impersonate at all.
+// then impersonate that client and say what the client granted. With
+// `read_first` the server first reads the byte the client is expected to have
+// written.
 template <class Connect>
-int impersonation_level_granted(const std::wstring &name, Connect connect) {
+granted impersonation_granted(const std::wstring &name, Connect connect, const bool read_first = false) {
   const HANDLE server = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, nullptr);
   EXPECT_NE(INVALID_HANDLE_VALUE, server) << GetLastError();
-  if (server == INVALID_HANDLE_VALUE) return -2;
-  int level = -1;
+  if (server == INVALID_HANDLE_VALUE) return granted{-2, GetLastError()};
+  granted result{-1, 0};
   {
     // A freshly created instance is listening, so the client connects at once
     // and ConnectNamedPipe reports ERROR_PIPE_CONNECTED instead of waiting.
@@ -411,19 +422,34 @@ int impersonation_level_granted(const std::wstring &name, Connect connect) {
     const BOOL connected = ConnectNamedPipe(server, nullptr);
     const DWORD err = GetLastError();
     EXPECT_TRUE(connected || err == ERROR_PIPE_CONNECTED) << err;
+    if (read_first) {
+      char byte = 0;
+      DWORD got = 0;
+      EXPECT_TRUE(ReadFile(server, &byte, 1, &got, nullptr)) << GetLastError();
+      EXPECT_EQ(1u, got);
+    }
     if (ImpersonateNamedPipeClient(server)) {
       HANDLE token = nullptr;
       if (OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, TRUE, &token)) {
         SECURITY_IMPERSONATION_LEVEL lvl;
         DWORD len = 0;
-        if (GetTokenInformation(token, TokenImpersonationLevel, &lvl, sizeof(lvl), &len)) level = static_cast<int>(lvl);
+        if (GetTokenInformation(token, TokenImpersonationLevel, &lvl, sizeof(lvl), &len)) {
+          result.level = static_cast<int>(lvl);
+        } else {
+          result.error = GetLastError();
+        }
         CloseHandle(token);
+      } else {
+        result.level = -3;
+        result.error = GetLastError();
       }
       RevertToSelf();
+    } else {
+      result.error = GetLastError();
     }
   }
   CloseHandle(server);
-  return level;
+  return result;
 }
 
 struct handle_holder {
@@ -437,27 +463,50 @@ struct handle_holder {
 
 }  // namespace
 
-// The exposure this reader closes: std::ifstream, which check_logfile used
-// before, opens a named pipe with no quality-of-service flags, and the pipe's
-// server can then act as the agent's account.
-TEST(SafeFileWin, IfstreamGrantsAPipeServerImpersonation) {
-  const int level = impersonation_level_granted(pipe_name(L"ifstream"), [](const std::string &path) {
+// What a pipe's server gets from an open that asks for nothing in particular,
+// which is how std::ifstream - what check_logfile used before - opens one.
+//
+// With no quality-of-service flags Windows tracks the client's identity
+// dynamically: it is taken from the client each time the client writes, and
+// until something the client wrote has been read there is no identity for the
+// server to assume. A check which only reads never writes, so the server of a
+// local pipe is refused (ERROR_CANNOT_IMPERSONATE) ...
+TEST(SafeFileWin, AnIfstreamThatOnlyReadsCannotBeImpersonatedYet) {
+  const granted g = impersonation_granted(pipe_name(L"ifstream"), [](const std::string &path) {
     std::unique_ptr<std::ifstream> f(new std::ifstream(utf8::cvt<std::wstring>(path).c_str(), std::ios::in | std::ios::binary));
     EXPECT_TRUE(f->is_open());
     return f;
   });
-  EXPECT_EQ(static_cast<int>(SecurityImpersonation), level);
+  EXPECT_EQ(-1, g.level) << "error " << g.error;
+  EXPECT_EQ(static_cast<DWORD>(ERROR_CANNOT_IMPERSONATE), g.error);
+}
+
+// ... but the moment such a client writes a byte the server may act as it in
+// full. That is what an open with no flags is worth, and why nothing a caller
+// names is opened that way - check_disk_write, for one, writes.
+TEST(SafeFileWin, ADefaultOpenThatWritesGrantsImpersonation) {
+  const granted g = impersonation_granted(
+      pipe_name(L"writer"),
+      [](const std::string &path) {
+        handle_holder h(CreateFileW(utf8::cvt<std::wstring>(path).c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
+        EXPECT_NE(INVALID_HANDLE_VALUE, h.h) << GetLastError();
+        DWORD written = 0;
+        EXPECT_TRUE(WriteFile(h.h, "x", 1, &written, nullptr)) << GetLastError();
+        return h;
+      },
+      true);
+  EXPECT_EQ(static_cast<int>(SecurityImpersonation), g.level) << "error " << g.error;
 }
 
 TEST(SafeFileWin, PipeServerOnlyLearnsWhoConnected) {
-  const int level = impersonation_level_granted(pipe_name(L"reader"), [](const std::string &path) {
+  const granted g = impersonation_granted(pipe_name(L"reader"), [](const std::string &path) {
     handle_holder h(safe_file::detail::create_for_read(path));
     EXPECT_NE(INVALID_HANDLE_VALUE, h.h) << GetLastError();
     return h;
   });
   // ImpersonateNamedPipeClient succeeds, but with a token that can only be
   // queried: it cannot open or touch anything as the agent.
-  EXPECT_EQ(static_cast<int>(SecurityIdentification), level);
+  EXPECT_EQ(static_cast<int>(SecurityIdentification), g.level) << "error " << g.error;
 }
 
 TEST(SafeFileWin, NamedPipeIsRefused) {
