@@ -252,6 +252,8 @@ TEST(SafeFilePosix, DirectoryIsRefused) {
   EXPECT_EQ("Not a regular file: /", error);
 }
 
+#ifdef __linux__
+// procfs is Linux-only: macOS has no /proc.
 TEST(SafeFilePosix, LimitIsEnforcedWhileReadingAFileThatReportsNoSize) {
   // A /proc file is a regular file whose size reads as 0 while it has
   // content: only the per-chunk check can stop it.
@@ -263,6 +265,7 @@ TEST(SafeFilePosix, LimitIsEnforcedWhileReadingAFileThatReportsNoSize) {
   ASSERT_EQ(read_status::ok, read_all("/proc/self/status", 0, out, error)) << error;
   EXPECT_FALSE(out.empty());
 }
+#endif
 
 TEST(SafeFilePosix, WindowsDeviceNamesAreOrdinaryNamesHere) {
   // `\\.\pipe\x` is a file name like any other on POSIX: it is not
