@@ -45,29 +45,21 @@ unsigned long file_filter::filter_obj::get_line_count() {
   // Opened through safe_file: the path may be one a caller named, so a FIFO,
   // a device or a pipe is refused rather than read (or blocked on).
   //
-  // The count is the one the old fgetc loop produced: a CR or an LF ends a
-  // line, and the byte after it is skipped unexamined - so CRLF is one line
-  // break, and so (as before) is LFLF.
-  unsigned long count = 0;
+  // The count is the one the old fgetc loop produced, text-mode translation
+  // on Windows included (see line_counter).
+#ifdef WIN32
+  line_counter counter(true);
+#else
+  line_counter counter(false);
+#endif
   safe_file::file f;
   std::string error;
   if (f.open((path / filename).string(), error)) {
     std::array<char, 65536> buf{};
-    bool skip = false;
     std::size_t got = 0;
-    while (f.read(buf.data(), buf.size(), got) && got > 0) {
-      for (std::size_t i = 0; i < got; ++i) {
-        if (skip) {
-          skip = false;
-          continue;
-        }
-        if (buf[i] == '\r' || buf[i] == '\n') {
-          count++;
-          skip = true;
-        }
-      }
-    }
+    while (f.read(buf.data(), buf.size(), got) && got > 0) counter.feed(buf.data(), got);
   }
+  const unsigned long count = counter.finish();
   cached_count = count;
   return count;
 }
