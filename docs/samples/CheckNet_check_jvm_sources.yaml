@@ -1,0 +1,24 @@
+all:
+- source: 'HTTP POST of one Jolokia bulk read request, JSON (default `http://127.0.0.1:8778/jolokia/`): `java.lang:type=Memory` (`HeapMemoryUsage`, `NonHeapMemoryUsage`), `java.lang:type=Threading` (`ThreadCount`, `DaemonThreadCount`, `PeakThreadCount`), `java.lang:type=Runtime` (`Uptime`, `VmName`, `VmVendor`, `VmVersion`, `SpecVersion`), `java.lang:type=ClassLoading` (`LoadedClassCount`) and `java.lang:type=GarbageCollector,name=*` (`CollectionCount`, `CollectionTime`)'
+  provides: heap, non-heap, thread, class, uptime, VM identity and garbage collection keywords
+  privilege: none
+  requires:
+  - A Jolokia agent (JVM agent or WAR) attached to the application and reachable from the agent
+  - Credentials for HTTP Basic authentication (`username=` / `password=`) when the endpoint requires them
+  - OpenSSL in the build for an `https://` URL; certificates verified against `${ca-path}` by default (`ca=` overrides)
+  without: >-
+    No HTTP response (connection refused, timeout, DNS failure, invalid URL):
+    UNKNOWN with `<url>: <error>` and no perfdata. A non-2xx answer sets
+    `result` to `http_<code>`, a top-level Jolokia error (e.g. an access-policy
+    denial) to `error: <message>`, a failed MBean read to
+    `error: <mbean>: <message>` and a body that is not the expected bulk
+    response to `parse_error`, all critical under the default thresholds.
+- source: 'One more read in the same bulk POST per `attribute=alias=mbean/attribute[/path]`'
+  provides: a keyword per alias (number, string or JSON text), with float perfdata for numeric values
+  privilege: none
+  requires:
+  - The MBean registered in the JVM and readable through the Jolokia agent's access policy
+  without: >-
+    The first failed read sets `result` to `error: <alias>: <mbean>: <message>`
+    (critical under the default thresholds) and leaves that alias `unread`, so
+    a numeric threshold over it is false; the other reads are still reported.
