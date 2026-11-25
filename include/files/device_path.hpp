@@ -148,6 +148,43 @@ inline bool unc_share_root(const std::string &path, std::string &root) {
   return true;
 }
 
+// A folder and a file mask as one search string: `C:\logs` and `*.log` give
+// `C:\logs\*.log`. A folder which already ends in a separator gets no second
+// one - `\` (the root of the current drive) and `evil\share\*` must give
+// `\evil\share\*`, a folder on that drive, and not `\\evil\share\*`, which
+// is a share on a server called evil.
+inline std::string join_mask(const std::string &root, const std::string &mask) {
+  if (!root.empty() && (root.back() == '\\' || root.back() == '/')) return root + mask;
+  return root + "\\" + mask;
+}
+
+// True when join_mask(root, mask) names somewhere `root` alone does not:
+// another server or share, or a device.
+//
+// A directory scan on Windows hands FindFirstFile the folder with the file
+// mask appended. A "mask" which carries separators is a path, and the join
+// can then land outside everything the root was checked for: the root `\`
+// and the mask `\evil\share\*` join to `\\evil\share\*`, a server nobody held
+// against `remote hosts`, and `\` with `\.\pipe\x` joins to the pipe
+// namespace. The root is what the access policy saw, so the joined string
+// has to still be on it.
+inline bool mask_leaves_root(const std::string &root, const std::string &mask) {
+  const std::string joined = join_mask(root, mask);
+  if (is_win32_device_path(joined) && !is_win32_device_path(root)) return true;
+  std::string root_share, joined_share, host;
+  const bool root_on_share = unc_share_root(root, root_share);
+  if (unc_share_root(joined, joined_share)) {
+    if (!root_on_share) return true;
+    if (root_share.size() != joined_share.size()) return true;
+    for (std::size_t i = 0; i < root_share.size(); ++i) {
+      if (std::toupper(static_cast<unsigned char>(root_share[i])) != std::toupper(static_cast<unsigned char>(joined_share[i]))) return true;
+    }
+    return false;
+  }
+  // No share in the joined string: it may still have gained a server.
+  return unc_host(joined, host) && !unc_host(root, host);
+}
+
 // is_win32_device_path() on Windows, false elsewhere.
 inline bool refused_by_name(const std::string &path) {
 #ifdef _WIN32

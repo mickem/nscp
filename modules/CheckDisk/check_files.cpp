@@ -5,6 +5,7 @@
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <files/device_path.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -92,6 +93,20 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
         *response, "Refusing pattern '" + context.pattern +
                        "': it must be a file mask, not a path, while 'file access' is restricted (see [/settings/disk] in the configuration)");
   }
+
+#ifdef WIN32
+  // And whatever the mode, the scanner's search string - the root with the
+  // pattern appended - has to still be on the root that was just checked.
+  // `path=\ pattern=\evil\share\*` joins to `\\evil\share\*`: a server which
+  // was never held against 'remote hosts', and with `\.\pipe\x` a pipe which
+  // was never held against the device check.
+  for (const std::string &path : file_list) {
+    if (safe_file::mask_leaves_root(path, context.pattern)) {
+      return nscapi::protobuf::functions::set_response_bad(
+          *response, "Refusing pattern '" + context.pattern + "': appended to '" + path + "' it names another server, share or device, not files in that folder");
+    }
+  }
+#endif
 
   if (!filter_helper.build_filter(filter)) return;
 
