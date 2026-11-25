@@ -7,15 +7,24 @@
  * REST-based suites, no login), so it runs anywhere the binary builds.
  *
  * check_certificate is cross-platform (OpenSSL file parsing); the certificate
- * fixtures are generated with controlled validity windows. check_firewall and
- * the Windows certificate store are Windows-only, so here we assert the
- * "not supported on this platform" behaviour.
+ * fixtures are generated with controlled validity windows. check_secureboot
+ * reads the UEFI variables on Linux and is asserted against what this host's
+ * firmware interface says; macOS stubs it. check_firewall, the Windows
+ * certificate store and the remaining posture checks are Windows-only, so here
+ * we assert the "not supported on this platform" behaviour.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { NscpInstance, generateCertChain, describeOnWindows, describeOnUnix } from "@fixtures/index";
+import {
+  NscpInstance,
+  generateCertChain,
+  describeOnWindows,
+  describeOnUnix,
+  describeOnLinux,
+  itOnDarwin,
+} from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
@@ -140,7 +149,6 @@ describeOnUnix("CheckSecurity", () => {
     ["check_nla"],
     ["check_antivirus"],
     ["check_bitlocker"],
-    ["check_secureboot"],
     ["check_defender"],
     ["check_local_accounts"],
     ["check_group_members"],
@@ -150,6 +158,70 @@ describeOnUnix("CheckSecurity", () => {
   ])("%s reports not-supported on this platform", async (cmd) => {
     const out = await query(cmd, []);
     expect(out).toMatch(/not supported on this platform/i);
+  });
+
+  // check_secureboot has a Linux source (see the "CheckSecurity (Linux posture)"
+  // suite) but no Darwin reader.
+  itOnDarwin.each([["check_secureboot"]])("%s reports not-supported on macOS", async (cmd) => {
+    const out = await query(cmd, []);
+    expect(out).toMatch(/not supported on this platform/i);
+  });
+});
+
+// ── Linux posture checks: efivars ─────────────────────────────────────────────
+//
+// The answers depend on the host (UEFI or BIOS), so each case reads the same
+// files the check does and asserts the documented contract for what it finds,
+// with thresholds pinned so the status does not depend on the host's posture.
+
+describeOnLinux("CheckSecurity (Linux posture)", () => {
+  let nscp: NscpInstance;
+
+  async function query(command: string, args: string[] = []): Promise<string> {
+    const r = await nscp.run(
+      ["client", "--module", "CheckSecurity", "--boot", "--query", command, ...args],
+      {
+        allowFailure: true,
+      },
+    );
+    return r.all ?? `${r.stdout}\n${r.stderr}`;
+  }
+
+  beforeAll(() => {
+    nscp = new NscpInstance();
+  });
+
+  // --- check_secureboot ------------------------------------------------------
+
+  it("check_secureboot reports the UEFI Secure Boot state", async () => {
+    const out = await query("check_secureboot", [
+      "warning=none",
+      "critical=none",
+      "top-syntax=${status}: ${list}",
+      "detail-syntax=enabled=${enabled} supported=${supported} setup_mode=${setup_mode}",
+    ]);
+    if (!fs.existsSync("/sys/firmware/efi")) {
+      // Documented: no EFI directory is a legacy BIOS boot (or a container that
+      // masks /sys/firmware), not an error.
+      expect(out).toMatch(/^OK: enabled=0 supported=0 setup_mode=unknown/m);
+    } else {
+      // A UEFI host: a state, or an explicit error when the variables cannot be
+      // read - never a guessed "disabled".
+      expect(out).toMatch(
+        /^OK: enabled=[01] supported=[01] setup_mode=(0|1|unknown)|Cannot read UEFI variables|Failed to read|Malformed EFI variable/m,
+      );
+    }
+  });
+
+  it("check_secureboot defaults to critical unless Secure Boot is on", async () => {
+    const out = await query("check_secureboot", []);
+    if (!fs.existsSync("/sys/firmware/efi")) {
+      expect(out).toMatch(/^CRITICAL: secure boot enabled=0 supported=0/m);
+    } else {
+      expect(out).toMatch(
+        /^(OK|CRITICAL): secure boot|Cannot read UEFI variables|Failed to read|Malformed EFI variable/m,
+      );
+    }
   });
 });
 

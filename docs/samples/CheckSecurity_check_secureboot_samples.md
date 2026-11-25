@@ -23,9 +23,32 @@ check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
 L        cli WARNING: secure boot enabled=0 supported=0
 ```
 
-**On non-Windows platforms**
+**Linux: a legacy BIOS boot (or a container without `/sys/firmware`)**
+
+With no `/sys/firmware/efi` the host has no Secure Boot to enable, so the
+default critical trips; exempt it with `supported`, as on Windows:
 
 ```
 check_secureboot
-L        cli UNKNOWN: check_secureboot is not supported on this platform (Windows/UEFI only)
+CRITICAL: secure boot enabled=0 supported=0|'secureboot_enabled'=0;;0
 ```
+
+```
+check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
+WARNING: secure boot enabled=0 supported=0|'secureboot_enabled'=0;;0 'secureboot_supported'=0;0;1
+```
+
+**Linux: alert on firmware left in Setup Mode**
+
+`setup_mode` is read from the UEFI `SetupMode` variable; it is `unknown` where
+it cannot be known (here a BIOS boot, and always on Windows):
+
+```
+check_secureboot "crit=setup_mode = 1" "detail-syntax=enabled=${enabled} supported=${supported} setup_mode=${setup_mode}"
+OK: enabled=0 supported=0 setup_mode=unknown
+```
+
+**On macOS**
+
+There is no Darwin reader yet: the check returns UNKNOWN with
+`check_secureboot is not supported on this platform (Windows and Linux UEFI only)`.

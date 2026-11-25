@@ -31,6 +31,13 @@ set(SRCS
     ${NSCP_ERROR_CPP}
 )
 
+# The Linux readers of the posture checks that have one (check_secureboot).
+# posture_linux.cpp only points them at the live files, so the unit tests link
+# these against fixtures.
+set(POSTURE_LINUX_READERS
+    secureboot_source_linux.cpp
+)
+
 if(WIN32)
     set(SRCS
         ${SRCS}
@@ -63,12 +70,22 @@ if(WIN32)
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}
     )
+elseif(APPLE)
+    set(SRCS
+        ${SRCS}
+        check_firewall_unix.cpp
+        check_users_unix.cpp
+        posture_unix.cpp
+        posture_darwin.cpp
+    )
 else()
     set(SRCS
         ${SRCS}
         check_firewall_unix.cpp
         check_users_unix.cpp
         posture_unix.cpp
+        posture_linux.cpp
+        ${POSTURE_LINUX_READERS}
     )
 endif()
 
@@ -142,9 +159,16 @@ NSCP_CREATE_TEST(
 # acquisition is Windows), so these unit tests build everywhere. The command
 # tests stand in for the platform sources, which is what lets the *matched* half
 # of these checks - thresholds, rendering, perf data - run off Windows at all.
+# On Linux the target also covers the readers in POSTURE_LINUX_READERS,
+# against fixtures.
+set(POSTURE_TEST_PLATFORM_SOURCES)
+if(NOT WIN32 AND NOT APPLE)
+    set(POSTURE_TEST_PLATFORM_SOURCES posture_sources_linux_test.cpp ${POSTURE_LINUX_READERS})
+endif()
 NSCP_CREATE_TEST(
     check_posture_test
     SOURCES
+        ${POSTURE_TEST_PLATFORM_SOURCES}
         check_activation_test.cpp
         check_file_security_test.cpp
         check_firewall_rules_test.cpp

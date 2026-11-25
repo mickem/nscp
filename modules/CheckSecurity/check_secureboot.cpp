@@ -13,6 +13,11 @@ using parsers::where::type_bool;
 filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("enabled", type_bool, &filter_obj::get_enabled, "True if UEFI Secure Boot is enabled")
       .add_int_var("supported", type_bool, &filter_obj::get_supported, "True if the platform reports a Secure Boot state (UEFI); false on legacy BIOS boots");
+  registry_.add_optional_int_var(
+      "setup_mode", type_bool, [](auto obj) { return obj->get_setup_mode(); }, "unknown",
+      "True if the UEFI firmware is in Setup Mode (no Platform Key enrolled: Secure Boot is not enforced and keys can be "
+      "enrolled without authentication). Read on Linux; 'unknown' on Windows, on legacy BIOS boots and when the firmware "
+      "does not expose it");
 }
 }  // namespace secureboot_filter
 

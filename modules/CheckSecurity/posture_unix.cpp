@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 // Unix stubs for the Windows-only posture checks. Each models a Windows-specific
-// facility (network profiles, Security Center, BitLocker, UEFI Secure Boot,
-// Software Licensing, NT security descriptors) with no Linux equivalent, so they
-// report "not supported" rather than pretend.
+// facility (network profiles, Security Center, BitLocker, Software Licensing, NT
+// security descriptors) with no Linux equivalent, so they report "not
+// supported" rather than pretend.
+//
+// check_secureboot has a real Linux source (posture_linux.cpp and the
+// *_source_linux.cpp readers) and a macOS stub (posture_darwin.cpp).
 
 #include "check_activation.hpp"
 #include "check_antivirus.hpp"
@@ -15,7 +18,6 @@
 #include "check_group_members.hpp"
 #include "check_local_accounts.hpp"
 #include "check_nla.hpp"
-#include "check_secureboot.hpp"
 
 namespace nla_source {
 void gather(std::vector<nla_filter::filter_obj_ptr> & /*out*/, std::string &error) {
@@ -34,12 +36,6 @@ void gather(std::vector<bitlocker_filter::filter_obj_ptr> & /*out*/, std::string
   error = "check_bitlocker is not supported on this platform (Windows BitLocker only)";
 }
 }  // namespace bitlocker_source
-
-namespace secureboot_source {
-void gather(std::vector<secureboot_filter::filter_obj_ptr> & /*out*/, std::string &error) {
-  error = "check_secureboot is not supported on this platform (Windows/UEFI only)";
-}
-}  // namespace secureboot_source
 
 namespace defender_source {
 void gather(std::vector<defender_filter::filter_obj_ptr> & /*out*/, std::string &error) {
