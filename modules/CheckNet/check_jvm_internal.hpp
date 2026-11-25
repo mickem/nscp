@@ -56,15 +56,6 @@ struct jvm_status {
   std::string spec_version;
   std::vector<jvm_collector> collectors;
   std::map<std::string, custom_value> custom;
-  // Whether each platform read succeeded. A keyword whose read did not (the
-  // agent is down, or Jolokia answered that read with an error) has no value
-  // rather than a stand-in 0, so it neither meets a threshold nor is graphed
-  // - a gc_count dropping to 0 would read as a JVM restart in a rate graph.
-  bool memory_read = false;
-  bool threading_read = false;
-  bool runtime_read = false;
-  bool classes_read = false;
-  bool gc_read = false;
   // The first sub-request Jolokia answered with an error, rendered as
   // "<mbean>: <message>"; empty when every read succeeded.
   std::string error;

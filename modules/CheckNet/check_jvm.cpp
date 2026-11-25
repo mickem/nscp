@@ -37,18 +37,8 @@ struct filter_obj : status_obj {
 
   std::string show() const { return host + " (" + result + ")"; }
 
-  // A platform value is only there when its read succeeded: with the agent
-  // down, or the read answered with an error, the keyword has no value (it
-  // renders `unknown`, meets no numeric threshold and is not graphed) instead
-  // of a 0 that would plot as an empty heap or, for gc_count, a JVM restart.
-  template <class TValue>
-  static boost::optional<TValue> when(const bool read, const TValue value) {
-    if (!read) return boost::none;
-    return value;
-  }
-
+  double heap_usage() const { return s.heap_usage(); }
   std::string heap_human(parsers::where::evaluation_context context) const {
-    if (!s.memory_read) return unknown_value;
     const std::string used = str::format::format_byte_units(static_cast<double>(s.heap_used), context->get_number_format());
     if (s.heap_max <= 0) return used;
     return used + " of " + str::format::format_byte_units(static_cast<double>(s.heap_max), context->get_number_format());
@@ -65,13 +55,11 @@ struct filter_obj : status_obj {
     return it == s.custom.end() ? unread_value : it->second.text;
   }
   static constexpr const char *unread_value = "unread";
-  static constexpr const char *unknown_value = "unknown";
 };
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
-    const std::string unknown = filter_obj::unknown_value;
     register_status_vars(registry_);
     registry_.add_string_var("vm_name", [](auto obj) { return obj->s.vm_name; }, "Name of the JVM implementation (e.g. OpenJDK 64-Bit Server VM)");
     registry_.add_string_var("vm_vendor", [](auto obj) { return obj->s.vm_vendor; }, "Vendor of the JVM implementation");
@@ -79,68 +67,52 @@ struct filter_obj_handler : public native_context {
     registry_.add_string_var("spec_version", [](auto obj) { return obj->s.spec_version; }, "Java specification version the JVM implements (e.g. 21, or 1.8 for Java 8)");
     registry_.add_string_var("collectors", [](auto obj) { return obj->s.collector_names(); }, "Names of the garbage collectors, comma separated");
     registry_.add_string_var_w_context("heap", [](auto obj, auto context) { return obj->heap_human(context); },
-                                       "Heap in use as human readable text, e.g. 512MB of 4GB, or unknown when the heap could not be read (display only; "
-                                       "threshold on heap_used or heap_usage)");
-    // The numeric keywords below are unknown when their read failed: they
-    // render as `unknown`, meet no numeric threshold and are not graphed.
+                                       "Heap in use as human readable text, e.g. 512MB of 4GB (display only; threshold on heap_used or heap_usage)");
     registry_
-        .add_optional_int_var("heap_used", parsers::where::type_size, [](auto obj) { return filter_obj::when(obj->s.memory_read, obj->s.heap_used); }, unknown,
-                              "Heap in use in bytes (takes size units, e.g. heap_used > 2G)")
+        .add_int_var("heap_used", parsers::where::type_size, [](auto obj) { return obj->s.heap_used; },
+                     "Heap in use in bytes (takes size units, e.g. heap_used > 2G)")
         .add_int_perf("B", "", "_heap_used");
     registry_
-        .add_optional_int_var("heap_committed", parsers::where::type_size,
-                              [](auto obj) { return filter_obj::when(obj->s.memory_read, obj->s.heap_committed); }, unknown,
-                              "Heap the JVM has committed (reserved from the OS) in bytes")
+        .add_int_var("heap_committed", parsers::where::type_size, [](auto obj) { return obj->s.heap_committed; },
+                     "Heap the JVM has committed (reserved from the OS) in bytes")
         .add_int_perf("B", "", "_heap_committed");
     registry_
-        .add_optional_int_var("heap_max", parsers::where::type_size, [](auto obj) { return filter_obj::when(obj->s.memory_read, obj->s.heap_max); }, unknown,
-                              "Maximum heap size in bytes (-Xmx); -1 when the JVM has no defined maximum")
+        .add_int_var("heap_max", parsers::where::type_size, [](auto obj) { return obj->s.heap_max; },
+                     "Maximum heap size in bytes (-Xmx); -1 when the JVM has no defined maximum")
         .add_int_perf("B", "", "_heap_max");
     registry_
-        .add_optional_number_var(
-            "heap_usage", [](auto obj) { return filter_obj::when(obj->s.memory_read, obj->s.heap_usage()); }, nullptr, unknown,
-            "Heap in use as a percentage of the maximum heap (of the committed heap when there is no maximum)")
+        .add_float("heap_usage", [](auto obj) { return obj->heap_usage(); },
+                   "Heap in use as a percentage of the maximum heap (of the committed heap when there is no maximum)")
         .add_float_perf("%", "", "_heap_usage");
     registry_
-        .add_optional_int_var("nonheap_used", parsers::where::type_size,
-                              [](auto obj) { return filter_obj::when(obj->s.memory_read, obj->s.nonheap_used); }, unknown,
-                              "Non-heap memory (metaspace, code cache) in use in bytes")
+        .add_int_var("nonheap_used", parsers::where::type_size, [](auto obj) { return obj->s.nonheap_used; },
+                     "Non-heap memory (metaspace, code cache) in use in bytes")
         .add_int_perf("B", "", "_nonheap_used");
     registry_
-        .add_optional_int_var("nonheap_committed", parsers::where::type_size,
-                              [](auto obj) { return filter_obj::when(obj->s.memory_read, obj->s.nonheap_committed); }, unknown,
-                              "Non-heap memory the JVM has committed in bytes")
+        .add_int_var("nonheap_committed", parsers::where::type_size, [](auto obj) { return obj->s.nonheap_committed; },
+                     "Non-heap memory the JVM has committed in bytes")
         .add_int_perf("B", "", "_nonheap_committed");
-    registry_
-        .add_optional_int_var("threads", [](auto obj) { return filter_obj::when(obj->s.threading_read, obj->s.threads); }, unknown,
-                              "Live threads (daemon and non-daemon)")
+    registry_.add_int_var("threads", parsers::where::type_int, [](auto obj) { return obj->s.threads; }, "Live threads (daemon and non-daemon)")
         .add_int_perf("", "", "_threads");
-    registry_
-        .add_optional_int_var("daemon_threads", [](auto obj) { return filter_obj::when(obj->s.threading_read, obj->s.daemon_threads); }, unknown,
-                              "Live daemon threads")
+    registry_.add_int_var("daemon_threads", parsers::where::type_int, [](auto obj) { return obj->s.daemon_threads; }, "Live daemon threads")
         .add_int_perf("", "", "_daemon_threads");
-    registry_
-        .add_optional_int_var("peak_threads", [](auto obj) { return filter_obj::when(obj->s.threading_read, obj->s.peak_threads); }, unknown,
-                              "Highest number of live threads since the JVM started")
+    registry_.add_int_var("peak_threads", parsers::where::type_int, [](auto obj) { return obj->s.peak_threads; }, "Highest number of live threads since the JVM started")
         .add_int_perf("", "", "_peak_threads");
-    registry_
-        .add_optional_int_var("loaded_classes", [](auto obj) { return filter_obj::when(obj->s.classes_read, obj->s.loaded_classes); }, unknown,
-                              "Classes currently loaded")
+    registry_.add_int_var("loaded_classes", parsers::where::type_int, [](auto obj) { return obj->s.loaded_classes; }, "Classes currently loaded")
         .add_int_perf("", "", "_loaded_classes");
     registry_
-        .add_optional_int_var("gc_count", [](auto obj) { return filter_obj::when(obj->s.gc_read, obj->s.gc_count()); }, unknown,
-                              "Garbage collections since the JVM started, summed over all collectors")
+        .add_int_var("gc_count", parsers::where::type_int, [](auto obj) { return obj->s.gc_count(); },
+                     "Garbage collections since the JVM started, summed over all collectors")
         .add_int_perf("c", "", "_gc_count");
     registry_
-        .add_optional_int_var("gc_time", duration_keyword::type_milliseconds, [](auto obj) { return filter_obj::when(obj->s.gc_read, obj->s.gc_time()); },
-                              unknown,
-                              "Time spent in garbage collection since the JVM started in ms, summed over all collectors; takes durations, e.g. gc_time > 10m")
+        .add_int_var("gc_time", duration_keyword::type_milliseconds, [](auto obj) { return obj->s.gc_time(); },
+                     "Time spent in garbage collection since the JVM started in ms, summed over all collectors; takes durations, e.g. gc_time > 10m")
         .add_int_perf("ms", "", "_gc_time");
     registry_.add_converter(duration_keyword::type_milliseconds, &duration_keyword::parse_duration_ms<std::shared_ptr<filter_obj> >);
     registry_
-        .add_optional_int_var("uptime", parsers::where::type_custom_int_1,
-                              [](auto obj) { return filter_obj::when(obj->s.runtime_read, obj->s.uptime_ms / 1000); }, unknown,
-                              "Time since the JVM started in seconds; takes durations, e.g. uptime < 10m")
+        .add_int_var(
+            "uptime", parsers::where::type_custom_int_1, [](auto obj) { return obj->s.uptime_ms / 1000; },
+            "Time since the JVM started in seconds; takes durations, e.g. uptime < 10m")
         .add_int_perf("s", "", "_uptime");
     registry_.add_converter(parsers::where::type_custom_int_1, &duration_keyword::parse_duration<std::shared_ptr<filter_obj> >);
   }
@@ -220,6 +192,12 @@ void check_jvm(const std::string &default_ca_file, const PB::Commands::QueryRequ
   // with its own status, so one missing MBean does not hide the others.
   opt.post_body = check_jvm_internal::build_bulk_request(reads);
   const fetch_result r = fetch_status_page(url, opt);
+  // No HTTP response at all (connection refused, timeout, DNS failure, or a
+  // URL that could not be parsed): there is no JVM state to report, so the
+  // check is UNKNOWN with no perfdata rather than a record of zeros. An HTTP
+  // error or a Jolokia error means the server answered; those stay records,
+  // with `result` set, for the thresholds to judge.
+  if (r.code == 0) return nscapi::protobuf::functions::set_response_bad(*response, url + ": " + r.result);
   auto obj = std::make_shared<filter_obj>();
   fill_status(*obj, url, r);
   if (obj->result == "ok") {

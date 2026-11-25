@@ -2367,18 +2367,34 @@ describe("CheckNet commands", () => {
     );
   });
 
-  it("check_jvm leaves the values of an unreachable agent unknown and ungraphed", async () => {
+  it("check_jvm is UNKNOWN with no perfdata when the agent cannot be reached", async () => {
     const port = await closedPort();
-    const q = await executeQuery(key, "check_jvm", {
-      url: `http://127.0.0.1:${port}/jolokia/`,
-      // Thresholds a stand-in 0 would meet: they must not fire on no data.
-      warning: "threads < 5 or gc_count < 1 or heap_usage < 1",
-      critical: "result != 'ok'",
+    const url = `http://127.0.0.1:${port}/jolokia/`;
+    // Also with a custom critical: there is no JVM state to judge at all.
+    const variants: Record<string, string>[] = [{}, { critical: "result != 'ok' or heap_usage > 50" }];
+    for (const extra of variants) {
+      const q = await executeQuery(key, "check_jvm", { url, ...extra });
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(/error: Failed to connect/);
+      expect(Object.keys(perfOf(q))).toEqual([]);
+    }
+  });
+
+  it("check_jvm is UNKNOWN for a URL it cannot parse", async () => {
+    const q = await executeQuery(key, "check_jvm", { url: "http://127.0.0.1:8o80/jolokia/" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/invalid_url/);
+  });
+
+  it("check_jvm stays CRITICAL when the server answers with an HTTP error", async () => {
+    // Reachable but refusing: that is a result for the thresholds, not UNKNOWN.
+    const s = await startHttp((_req, res) => {
+      res.statusCode = 401;
+      res.end("unauthorized");
     });
+    const q = await executeQuery(key, "check_jvm", { url: `http://127.0.0.1:${s.port}/jolokia/` });
     expect(q.result).toBe(CRITICAL);
-    expect(messageOf(q)).toMatch(/heap unknown \(unknown%\), unknown threads, unknown collections/);
-    // No zeros plotted: a gc_count counter dropping to 0 reads as a restart.
-    expect(Object.keys(perfOf(q))).toEqual([]);
+    expect(messageOf(q)).toMatch(/http_401/);
   });
 
   it("check_jvm reports parse_error when the endpoint is not Jolokia", async () => {

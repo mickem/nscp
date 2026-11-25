@@ -28,27 +28,26 @@ more than read metrics.
 #### Thresholds
 
 By default the check goes **warning** above 80% heap usage and **critical**
-above 90%, or when the agent cannot be reached or any requested read fails
-(`result != 'ok'`).
+above 90%, or when the agent answers with an HTTP error or any requested read
+fails (`result != 'ok'`).
+
+When the agent cannot be reached at all - connection refused, a timeout, a
+name that does not resolve, or a URL that cannot be parsed - there is no JVM
+state to judge: the check returns **UNKNOWN** with the error and no
+performance data, whatever the thresholds say.
 
 !!! warning "Keep `result != 'ok'` when you set `critical`"
     A `critical=` expression replaces the default one, including its
-    `result != 'ok'`. Leave that out and a crashed JVM or an unreachable agent
-    no longer alerts: the values then have no value (`unknown`, or `unread`
-    for an attribute), a custom threshold such as `old_gen > 157286400` is not
-    met, and the check returns OK. Write your own condition next to it:
+    `result != 'ok'`. Leave that out and an agent that answers with an error
+    (`http_401`, `parse_error`, an MBean Jolokia cannot read) no longer
+    alerts: the values then read as 0 or as `unread`, a custom threshold such
+    as `old_gen > 157286400` is not met, and the check returns OK. Write your
+    own condition next to it:
     `"critical=result != 'ok' or old_gen > 157286400"`.
 
 `heap_usage` is relative to the maximum heap (`-Xmx`); for a JVM without a
 defined maximum it falls back to the committed heap. `-w` / `-c` set the
 `heap_usage` bounds directly (`w=75 c=90`).
-
-When the agent cannot be reached, or Jolokia answers one of the platform
-reads with an error, the keywords of that read have no value rather than 0:
-they render as `unknown`, satisfy no numeric comparison and are left out of
-the perfdata. A graph then shows a gap instead of an empty heap, and a
-`gc_count` counter is not seen to drop to 0 (which a rate graph would read as
-a JVM restart). The failed read itself sets `result`, which is what alerts.
 
 `heap_used`, `heap_max` and the other byte keywords take size units
 (`heap_used > 2G`), `uptime` and `gc_time` take durations (`uptime < 10m`,
