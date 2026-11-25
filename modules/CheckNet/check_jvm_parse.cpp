@@ -71,10 +71,6 @@ bool is_grammar_word(const std::string &s) {
   for (const char c : s) lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   for (const char *w : words)
     if (lower == w) return true;
-  // The grammar matches `not` without a word boundary, so `notice > 1` reads
-  // as `not (ice > 1)`. `not_after` survives only because `_after` cannot
-  // start a variable name; anything else after the `not` would be split off.
-  if (lower.size() > 3 && lower.compare(0, 3, "not") == 0 && lower[3] != '_') return true;
   return false;
 }
 
@@ -226,7 +222,7 @@ bool parse_read_spec(const std::string &spec, jvm_read &out, std::string &error)
     return false;
   }
   if (is_grammar_word(out.alias)) {
-    error = "alias " + out.alias + " is, or starts like, a word of the filter language (and, or, not, in, like, ...)";
+    error = "alias " + out.alias + " is a word of the filter language (and, or, not, in, like, ...)";
     return false;
   }
   const std::vector<std::string> parts = split_escaped(spec.substr(eq + 1));

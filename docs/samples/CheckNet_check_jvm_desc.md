@@ -71,9 +71,8 @@ still sets `result` (below), which is what alerts on it.
 
 The alias must start with a letter and use only letters, digits and
 underscores. The words of the filter language (`and`, `or`, `not`, `in`,
-`like`, `regexp`, `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `str`), names starting
-with `not` followed by a letter or digit, the keywords `check_jvm` already has
-and the generic summary names (`count`, `list`, `lines`, `status`, ...) are
+`like`, `regexp`, `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `str`), the keywords
+`check_jvm` already has and the generic summary names (`count`, `list`, `lines`, `status`, ...) are
 refused.
 
 A `/` inside the MBean name is written `!/` (Jolokia's own escape), so

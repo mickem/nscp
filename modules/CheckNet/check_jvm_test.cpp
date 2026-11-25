@@ -242,13 +242,11 @@ TEST(CheckJvmReadSpec, RejectsAliasesSpelledLikeFilterWords) {
     EXPECT_FALSE(parse_read_spec(std::string(word) + "=d:k=v/Attr", r, error)) << word;
     EXPECT_NE(error.find("word of the filter language"), std::string::npos) << error;
   }
-  // `not` is matched without a word boundary: `notice > 1` would parse as
-  // `not (ice > 1)`, so an alias starting with it is refused too - unless an
-  // underscore follows, which cannot start a name (`not_after` parses).
-  EXPECT_FALSE(parse_read_spec("notice=d:k=v/Attr", r, error));
-  EXPECT_FALSE(parse_read_spec("Nothing=d:k=v/Attr", r, error));
+  // The words only matter on their own: a longer name that starts with one
+  // is an ordinary keyword (the grammar matches `not` as a whole word).
+  EXPECT_TRUE(parse_read_spec("notice=d:k=v/Attr", r, error)) << error;
+  EXPECT_TRUE(parse_read_spec("Nothing=d:k=v/Attr", r, error)) << error;
   EXPECT_TRUE(parse_read_spec("not_after=d:k=v/Attr", r, error)) << error;
-  // Other words only matter on their own.
   EXPECT_TRUE(parse_read_spec("index=d:k=v/Attr", r, error)) << error;
   EXPECT_TRUE(parse_read_spec("order=d:k=v/Attr", r, error)) << error;
   EXPECT_TRUE(parse_read_spec("android=d:k=v/Attr", r, error)) << error;

@@ -2442,13 +2442,11 @@ describe("CheckNet commands", () => {
       expect(q.result).toBe(UNKNOWN);
       expect(messageOf(q)).toMatch(/generic summary name/);
     }
-    // `in` and a name the grammar would split as `not ice` are refused by
-    // name, rather than failing later in an anonymous expression error.
-    for (const alias of ["in", "notice"]) {
-      q = await executeQuery(key, "check_jvm", { url, attribute: `${alias}=java.lang:type=Threading/ThreadCount` });
-      expect(q.result).toBe(UNKNOWN);
-      expect(messageOf(q)).toMatch(new RegExp(`alias ${alias} is, or starts like, a word of the filter language`));
-    }
+    // A filter-language word is refused by name, rather than failing later in
+    // an anonymous expression error.
+    q = await executeQuery(key, "check_jvm", { url, attribute: "in=java.lang:type=Threading/ThreadCount" });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/alias in is a word of the filter language/);
   });
 
   it("status-page checks report invalid_url for a malformed port instead of throwing", async () => {
