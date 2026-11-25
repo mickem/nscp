@@ -7,9 +7,10 @@
  * REST-based suites, no login), so it runs anywhere the binary builds.
  *
  * check_certificate is cross-platform (OpenSSL file parsing); the certificate
- * fixtures are generated with controlled validity windows. check_secureboot
- * reads the UEFI variables on Linux and is asserted against what this host's
- * firmware interface says; macOS stubs it. check_firewall, the Windows
+ * fixtures are generated with controlled validity windows. check_secureboot,
+ * check_local_accounts and check_group_members read local files on Linux
+ * (efivars, /etc/passwd + /etc/shadow, /etc/group) and are asserted against
+ * what this host's own files say; macOS stubs them. check_firewall, the Windows
  * certificate store and the remaining posture checks are Windows-only, so here
  * we assert the "not supported on this platform" behaviour.
  */
@@ -150,8 +151,6 @@ describeOnUnix("CheckSecurity", () => {
     ["check_antivirus"],
     ["check_bitlocker"],
     ["check_defender"],
-    ["check_local_accounts"],
-    ["check_group_members"],
     ["check_activation"],
     ["check_file_security"],
     ["check_firewall_rules"],
@@ -160,19 +159,23 @@ describeOnUnix("CheckSecurity", () => {
     expect(out).toMatch(/not supported on this platform/i);
   });
 
-  // check_secureboot has a Linux source (see the "CheckSecurity (Linux posture)"
-  // suite) but no Darwin reader.
-  itOnDarwin.each([["check_secureboot"]])("%s reports not-supported on macOS", async (cmd) => {
-    const out = await query(cmd, []);
-    expect(out).toMatch(/not supported on this platform/i);
-  });
+  // check_secureboot, check_local_accounts and check_group_members have Linux
+  // sources (see the "CheckSecurity (Linux posture)" suite) but no Darwin reader.
+  itOnDarwin.each([["check_secureboot"], ["check_local_accounts"], ["check_group_members"]])(
+    "%s reports not-supported on macOS",
+    async (cmd) => {
+      const out = await query(cmd, []);
+      expect(out).toMatch(/not supported on this platform/i);
+    },
+  );
 });
 
-// ── Linux posture checks: efivars ─────────────────────────────────────────────
+// ── Linux posture checks: efivars, /etc/passwd + /etc/shadow, /etc/group ──────
 //
-// The answers depend on the host (UEFI or BIOS), so each case reads the same
-// files the check does and asserts the documented contract for what it finds,
-// with thresholds pinned so the status does not depend on the host's posture.
+// The answers depend on the host (UEFI or BIOS, root or not, which admin group
+// exists), so each case reads the same files the check does and asserts the
+// documented contract for what it finds, with thresholds pinned so the status
+// does not depend on the host's posture.
 
 describeOnLinux("CheckSecurity (Linux posture)", () => {
   let nscp: NscpInstance;
@@ -185,6 +188,24 @@ describeOnLinux("CheckSecurity (Linux posture)", () => {
       },
     );
     return r.all ?? `${r.stdout}\n${r.stderr}`;
+  }
+
+  function readable(file: string): boolean {
+    try {
+      fs.accessSync(file, fs.constants.R_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Group names in /etc/group, in file order. */
+  function localGroups(): string[] {
+    return fs
+      .readFileSync("/etc/group", "utf8")
+      .split("\n")
+      .filter((l) => l && !l.startsWith("#") && !l.startsWith("+") && !l.startsWith("-"))
+      .map((l) => l.split(":")[0]);
   }
 
   beforeAll(() => {
@@ -208,7 +229,7 @@ describeOnLinux("CheckSecurity (Linux posture)", () => {
       // A UEFI host: a state, or an explicit error when the variables cannot be
       // read - never a guessed "disabled".
       expect(out).toMatch(
-        /^OK: enabled=[01] supported=[01] setup_mode=(0|1|unknown)|Cannot read UEFI variables|Failed to read|Malformed EFI variable/m,
+        /^OK: enabled=[01] supported=[01] setup_mode=(0|1|unknown)|Cannot read UEFI variables|Cannot examine|Failed to read|Malformed EFI variable/m,
       );
     }
   });
@@ -219,9 +240,140 @@ describeOnLinux("CheckSecurity (Linux posture)", () => {
       expect(out).toMatch(/^CRITICAL: secure boot enabled=0 supported=0/m);
     } else {
       expect(out).toMatch(
-        /^(OK|CRITICAL): secure boot|Cannot read UEFI variables|Failed to read|Malformed EFI variable/m,
+        /^(OK|CRITICAL): secure boot|Cannot read UEFI variables|Cannot examine|Failed to read|Malformed EFI variable/m,
       );
     }
+  });
+
+  // --- check_local_accounts --------------------------------------------------
+
+  it("check_local_accounts maps root onto the built-in administrator", async () => {
+    // allow-unreadable-shadow=true is the REST-style valued boolean (the
+    // bool_switch trap) and keeps this independent of whether we are root.
+    const out = await query("check_local_accounts", [
+      "allow-unreadable-shadow=true",
+      "filter=name = 'root'",
+      "warning=none",
+      "critical=none",
+      "top-syntax=${status}: ${list}",
+      "detail-syntax=${name} sid=${sid} uid=${uid} gid=${gid} admin=${is_builtin_admin} extra=${is_extra_uid0} guest=${is_builtin_guest}",
+    ]);
+    expect(out).toMatch(/^OK: root sid=0 uid=0 gid=0 admin=1 extra=0 guest=0/m);
+  });
+
+  it("check_local_accounts flags no system account as passwordless by default", async () => {
+    // nologin-style accounts with '*' or '!' hashes require a password (none can
+    // match), so they never meet the default critical. Pinned: only accounts
+    // that cannot log on interactively, default thresholds.
+    const out = await query("check_local_accounts", [
+      "allow-unreadable-shadow",
+      "filter=interactive = 0 and password_state != 'empty'",
+    ]);
+    expect(out).not.toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_local_accounts honours the /etc/shadow contract", async () => {
+    const out = await query("check_local_accounts", [
+      "filter=name = 'root'",
+      "warning=none",
+      "critical=none",
+      "top-syntax=${status}: ${list}",
+      "detail-syntax=${name} pw=${password_state} req=${password_required} enabled=${enabled}",
+    ]);
+    if (readable("/etc/shadow")) {
+      // A shadowed account with no usable shadow entry (pwck would say so) is
+      // refused like an unreadable file, whatever the filter selects.
+      expect(out).toMatch(
+        /^OK: root pw=(set|empty|locked|none) req=[01] enabled=[01]|(No|Unparseable) entry for account '.*' in \/etc\/shadow.* - password and expiry state is unknown/m,
+      );
+    } else {
+      // Unprivileged agent: UNKNOWN with the reason, never a made-up OK.
+      expect(out).toMatch(/Cannot read \/etc\/shadow: .* - password and expiry state is unknown/);
+      expect(out).not.toMatch(/^OK/m);
+      const accepted = await query("check_local_accounts", [
+        "allow-unreadable-shadow=true",
+        "filter=name = 'root'",
+        "top-syntax=${status}: ${list}",
+        "detail-syntax=${name} pw=${password_state} req=${password_required} enabled=${enabled}",
+      ]);
+      expect(accepted).toMatch(/^OK: root pw=unknown req=unknown enabled=unknown/m);
+    }
+  });
+
+  it("check_local_accounts never prints a password hash", async () => {
+    const out = await query("check_local_accounts", [
+      "allow-unreadable-shadow",
+      "warning=none",
+      "critical=none",
+      "top-syntax=${status}: ${list}",
+      "detail-syntax=${name}:${password_state}:${sid}:${shell}",
+    ]);
+    expect(out).toMatch(/^OK: /m);
+    expect(out).not.toMatch(/\$(1|2[aby]?|5|6|y|gy|7)\$/);
+  });
+
+  it("check_local_accounts flags extra UID 0 accounts", async () => {
+    const extra = fs
+      .readFileSync("/etc/passwd", "utf8")
+      .split("\n")
+      .filter(
+        (l) => l.split(":")[2] === "0" && l.split(":")[0] !== "root" && !l.startsWith("#"),
+      ).length;
+    const out = await query("check_local_accounts", [
+      "allow-unreadable-shadow",
+      "filter=uid = 0",
+      "warning=none",
+      "critical=is_extra_uid0 = 1",
+      "top-syntax=${status}: N=${count}",
+      "ok-syntax=${status}: N=${count}",
+    ]);
+    expect(out).toMatch(new RegExp(`^${extra > 0 ? "CRITICAL" : "OK"}: N=${extra + 1}\\b`, "m"));
+  });
+
+  // --- check_group_members ---------------------------------------------------
+
+  it("check_group_members defaults to the first of sudo and wheel", async () => {
+    const groups = localGroups();
+    const expected = ["sudo", "wheel"].find((g) => groups.includes(g));
+    const out = await query("check_group_members", [
+      "top-syntax=${status}: group=${list}",
+      "detail-syntax=${group}",
+      "empty-syntax=%(status): empty",
+    ]);
+    if (expected) {
+      expect(out).toMatch(new RegExp(`^OK: (group=${expected}\\b|empty)`, "m"));
+    } else {
+      expect(out).toMatch(/No default administrators group on this host .* pass group=<name>/);
+    }
+  });
+
+  it("check_group_members includes primary-group members", async () => {
+    // root's primary gid is 0, so the root group always lists root even when
+    // its member field in /etc/group is empty.
+    const out = await query("check_group_members", [
+      "group=root",
+      "top-syntax=${status}: ${list}",
+      "detail-syntax=${group}/${member} [${type}] sid=${sid} domain='${domain}'",
+    ]);
+    expect(out).toMatch(/^OK: .*root\/root \[user\] sid=0 domain=''/m);
+  });
+
+  it("check_group_members flags drift against an exact allow-list", async () => {
+    // Linux names are case-sensitive: "ROOT" does not excuse root.
+    const drift = await query("check_group_members", ["group=root", "expected=ROOT"]);
+    expect(drift).toMatch(/^CRITICAL: .*root \(user\)/m);
+    const clean = await query("check_group_members", [
+      "group=root",
+      "expected=root",
+      "filter=member = 'root'",
+    ]);
+    expect(clean).toMatch(/^OK/m);
+  });
+
+  it("check_group_members reports a missing group", async () => {
+    const out = await query("check_group_members", ["group=NSCP_NoSuchGroup_zzz"]);
+    expect(out).toMatch(/Local group not found: NSCP_NoSuchGroup_zzz/);
   });
 });
 
