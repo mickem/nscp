@@ -18,6 +18,8 @@ interface Props {
   // nothing the tailored page does not anticipate is out of reach. Widgets
   // that only change how a value is typed (dropdowns, pickers) still apply.
   expert?: boolean;
+  // Switches the page to expert mode; handed to the module's panel.
+  onExpertMode?: () => void;
 }
 
 // Collection roots are path-only entries (key === "") explicitly flagged
@@ -40,7 +42,15 @@ function keyValuePathsOf(moduleId: string): string[] {
     .map(([path]) => path);
 }
 
-export default function ModuleSettings({ settings, moduleId, expert = false }: Props) {
+const NO_OP = () => {};
+
+export default function ModuleSettings({
+  settings,
+  moduleId,
+  expert = false,
+  onExpertMode = NO_OP,
+}: Props) {
+  const page = getModulePage(moduleId);
   const { data: allDescriptions } = useGetSettingsDescriptionsQuery();
 
   const collectionRoots = useMemo(
@@ -67,43 +77,39 @@ export default function ModuleSettings({ settings, moduleId, expert = false }: P
       const config = getCollectionConfig(p);
       const gate = config?.kind === "instances" ? config.gate : undefined;
       if (!gate) return true;
-      const entry = allDescriptions.find(
-        (s) => s.path === gate.path && s.key === gate.key,
-      );
+      const entry = allDescriptions.find((s) => s.path === gate.path && s.key === gate.key);
       return isBoolTrue(entry?.value || entry?.default_value);
     });
   }, [collectionPaths, allDescriptions, expert]);
 
-  // Drop collection-related entries from the flat list so they don't render twice.
+  // Drop collection-related entries from the flat list so they don't render
+  // twice, and the keys the module's panel edits (outside expert mode).
   const flatSettings = useMemo(() => {
     const kvSet = new Set(kvPaths);
     const prefixes = collectionPaths.map((p) => p + "/");
+    const handled = expert ? undefined : page?.handledKeys;
     return settings.filter(
       (s) =>
         !collectionPaths.includes(s.path) &&
         !prefixes.some((p) => s.path.startsWith(p)) &&
-        !kvSet.has(s.path),
+        !kvSet.has(s.path) &&
+        !handled?.[s.path]?.includes(s.key),
     );
-  }, [settings, collectionPaths, kvPaths]);
+  }, [settings, collectionPaths, kvPaths, expert, page]);
 
   // Only entries with a real key produce a visible row in SettingsList;
   // section-header entries (key === "") alone would render an empty card.
   const hasFlatKeys = flatSettings.some((s) => s.key !== "");
 
-  const Wizard = expert ? undefined : getModulePage(moduleId)?.Wizard;
+  const Panel = expert ? undefined : page?.Panel;
 
-  if (
-    !Wizard &&
-    !hasFlatKeys &&
-    visibleCollectionPaths.length === 0 &&
-    kvPaths.length === 0
-  ) {
+  if (!Panel && !hasFlatKeys && visibleCollectionPaths.length === 0 && kvPaths.length === 0) {
     return null;
   }
 
   return (
     <Stack spacing={3}>
-      {Wizard && <Wizard />}
+      {Panel && <Panel onExpertMode={onExpertMode} />}
       {hasFlatKeys && <SettingsList settings={flatSettings} flat />}
       {visibleCollectionPaths.map((path) => (
         <SettingsCollection

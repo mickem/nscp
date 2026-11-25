@@ -58,8 +58,31 @@ describe("module page registry", () => {
     expect(missing).toEqual([]);
   });
 
+  it("names only keys the agent registers as handled by a panel", () => {
+    // vitest runs with the web/ package root as the working directory.
+    const dir = join(process.cwd(), "..", "docs", "reference");
+    const text = readdirSync(dir)
+      .filter((n) => n.endsWith(".yaml"))
+      .map((n) => readFileSync(join(dir, n), "utf8"))
+      .join("\n");
+    const missing = MODULE_PAGES.flatMap((page) =>
+      Object.entries(page.handledKeys ?? {}).flatMap(([path, keys]) => {
+        // The keys of a path are listed, indented, under it.
+        const at = text.indexOf(`    ${path}:\n`);
+        const block = at < 0 ? "" : text.slice(at, text.indexOf("\n    /", at + 1));
+        return keys
+          .filter(
+            (k) =>
+              !new RegExp(`^ {8}${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:$`, "m").test(block),
+          )
+          .map((k) => `${page.id}: [${path}] ${k}`);
+      }),
+    );
+    expect(missing).toEqual([]);
+  });
+
   it("looks modules up by id", () => {
-    expect(getModulePage("NRPEServer")?.Wizard).toBeDefined();
+    expect(getModulePage("NRPEServer")?.Panel).toBeDefined();
     expect(getModulePage("NoSuchModule")).toBeUndefined();
   });
 

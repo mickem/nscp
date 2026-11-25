@@ -71,24 +71,19 @@ export default function Module() {
   const myQueries = queries?.filter(
     (query) => query.plugin === id && !isLegacyCheckAlias(query.name),
   );
-  const myAliases = aliases?.filter((alias) => alias.plugin === id && !isLegacyCheckAlias(alias.name));
+  const myAliases = aliases?.filter(
+    (alias) => alias.plugin === id && !isLegacyCheckAlias(alias.name),
+  );
   const relevantSettings =
     settings?.filter(
       (setting) =>
-        (expert || !setting.is_advanced_key) &&
-        !setting.is_sample_key &&
-        !setting.is_template_key,
+        (expert || !setting.is_advanced_key) && !setting.is_sample_key && !setting.is_template_key,
     ) || [];
   const mySettings = relevantSettings.filter((setting) => setting.plugins.includes(id));
 
   const onRefresh = () => {
     dispatch(
-      nsclientApi.util.invalidateTags([
-        "Module",
-        "Queries",
-        "Aliases",
-        "SettingsDescriptions",
-      ]),
+      nsclientApi.util.invalidateTags(["Module", "Queries", "Aliases", "SettingsDescriptions"]),
     );
   };
 
@@ -198,7 +193,10 @@ export default function Module() {
         </CardActions>
       </Card>
       {!module?.loaded && (
-        <NscpAlert severity="warning" text="Cannot show queries and settings for unloaded modules." />
+        <NscpAlert
+          severity="warning"
+          text="Cannot show queries and settings for unloaded modules."
+        />
       )}
 
       {myQueries && myQueries.length > 0 && (
@@ -265,7 +263,12 @@ export default function Module() {
           text="This module has no tailored settings page yet, so every setting it registers is shown as the schema describes it, advanced ones included."
         />
       )}
-      <ModuleSettings settings={mySettings} moduleId={id} expert={expert} />
+      <ModuleSettings
+        settings={mySettings}
+        moduleId={id}
+        expert={expert}
+        onExpertMode={() => setExpert(true)}
+      />
     </Stack>
   );
 }

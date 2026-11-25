@@ -103,11 +103,35 @@ export interface HiddenCollectionConfig {
 export type CollectionConfig =
   InstanceCollectionConfig | KeyValueCollectionConfig | HiddenCollectionConfig;
 
+// What a module's page is given by the module page around it.
+export interface ModulePanelProps {
+  // Switches the module page to expert mode, where every key can be edited.
+  // A tailored control that cannot represent the stored keys links here.
+  onExpertMode: () => void;
+}
+
+// What a module is for, so a setup wizard can map "which monitoring tools do
+// you use" onto modules without a table of its own.
+export interface ModulePurpose {
+  // Monitoring tools the module talks to ("Nagios", "Icinga", ...).
+  tools: string[];
+  // The protocol, as the tools' users call it ("NRPE", "NSCA", ...).
+  transport: string;
+  // Active: the monitoring server asks the agent. Passive: the agent submits.
+  direction: "active" | "passive";
+  platforms: Array<"windows" | "linux" | "macos">;
+}
+
 export interface ModulePage {
   // Module id as the backend reports it ("NRPEServer", "CheckSystemUnix").
   id: string;
-  // Guided setup rendered above the module's settings.
-  Wizard?: ComponentType;
+  // The tailored part of the page, rendered above the generic settings.
+  Panel?: ComponentType<ModulePanelProps>;
+  // Keys the panel edits, by exact section path. The generic list below the
+  // panel leaves them out so nothing is edited in two places; expert mode
+  // shows them as usual.
+  handledKeys?: Record<string, string[]>;
+  purpose?: ModulePurpose;
   // Collections the module owns, keyed by exact collection path.
   collections?: Record<string, CollectionConfig>;
   // Widgets for keys of plain sections, keyed by exact section path.
