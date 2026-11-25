@@ -1624,9 +1624,10 @@ describe("CheckNet commands", () => {
     expect(probe.result).toBe(CRITICAL);
   });
 
-  // Regression: the integer view of a JSON value was a raw static_cast of the
-  // double, which is undefined for anything past the long long range (and on
-  // x86 turns 1e300 into LLONG_MIN, a negative perf value). It saturates now.
+  // The value is the remote server's, so it is bounded to the 64-bit integer
+  // range: 1e300 still trips the threshold, but is not plotted raw. (It was
+  // once a raw static_cast to long long - undefined past that range, and on
+  // x86 LLONG_MIN, a negative perf value.)
   it("check_http saturates a JSON number beyond the integer range", async () => {
     const s = await startHttp((_req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -1640,6 +1641,7 @@ describe("CheckNet commands", () => {
     });
     expect(q.result).toBe(CRITICAL);
     expect(perfValue(q, `big_http://127.0.0.1:${s.port}/`)).toBeGreaterThanOrEqual(9e18);
+    expect(perfValue(q, `big_http://127.0.0.1:${s.port}/`)).toBeLessThanOrEqual(9.3e18);
   });
 
   it("check_http indexes into JSON arrays and quotes dotted keys", async () => {

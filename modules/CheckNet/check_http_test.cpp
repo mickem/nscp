@@ -276,6 +276,19 @@ TEST(CheckHttp, JsonPathStringValueStillComparesAndRendersAsText) {
   EXPECT_EQ(0u, r.perf_values.count("st")) << r.perf;
 }
 
+TEST(CheckHttp, JsonPathHugeValueIsBoundedInThePerfdata) {
+  // The value is the remote server's: 1e300 still trips the threshold, but the
+  // metric is bounded to the 64-bit integer range rather than plotted raw.
+  scripted_server server(http_reply(http_response(200, R"({"big":1e300,"low":-1e300})")));
+  const outcome r = run(&check_net::check_http,
+                        {"url=" + base(server) + "/q", "json-path=big:big", "json-path=low:low", "warning=low > 0", "critical=big > 100"});
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
+  ASSERT_EQ(1u, r.perf_values.count("big")) << r.perf;
+  EXPECT_DOUBLE_EQ(9223372036854775807.0, r.perf_values.at("big"));
+  ASSERT_EQ(1u, r.perf_values.count("low")) << r.perf;
+  EXPECT_DOUBLE_EQ(-9223372036854775807.0, r.perf_values.at("low"));
+}
+
 TEST(CheckHttp, InvalidUrlIsReported) {
   const outcome r = run(&check_net::check_http, {"url=not a url", "detail-syntax=${result}"});
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;

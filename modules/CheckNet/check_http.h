@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <boost/optional.hpp>
+#include <cmath>
 #include <map>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -41,10 +43,17 @@ struct filter_obj {
 
   // Empty when the path is missing, null, or holds a string, array or object:
   // that is "no value", not 0, so `alias < 5` cannot fire on it.
+  //
+  // The number comes from the remote server, so it is bounded to the 64-bit
+  // integer range before it is compared or graphed: 1e300 (or the infinity an
+  // overflowing exponent parses to) still trips `alias > 100`, but must not
+  // reach the perfdata as a 300-digit value or as "inf". The fraction of an
+  // in-range value is untouched.
   boost::optional<double> get_json_number(const std::string &alias) const {
     const auto it = json_numbers.find(alias);
-    if (it == json_numbers.end()) return boost::none;
-    return it->second;
+    if (it == json_numbers.end() || std::isnan(it->second)) return boost::none;
+    const double limit = 9223372036854775807.0;
+    return std::max(-limit, std::min(limit, it->second));
   }
   // The text a json-path alias renders and compares as: the extracted value,
   // or "missing" when the path is missing or null (or the body is not JSON),
