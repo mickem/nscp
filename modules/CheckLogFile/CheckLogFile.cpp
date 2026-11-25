@@ -92,6 +92,14 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
                   "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so "
                   "a link planted inside an allowed directory does not widen it.")
 
+      .add_string("remote hosts", sh::string_fun_key([this](const auto& value) { file_access_.set_remote_hosts(value); }, "*"), "REMOTE HOSTS",
+                  "Comma separated list of the servers a caller may name in a UNC path (\\\\server\\share\\file.log) given to check_logfile or check_csv: "
+                  "* (the default) is any server, which is how every earlier release behaved, and none is no server at all.\n"
+                  "Reading a file on a share makes the agent log on to that server with its own account, so a caller who may name any server can "
+                  "point that logon at a machine of their choosing. A server is matched by the name the caller used, ignoring case: fs01 and "
+                  "fs01.example.com are two entries. It applies whatever 'file access' is set to, except that a file defined in "
+                  "[/settings/logfile/files] is always read. Windows only.")
+
       .add_string("max csv size", sh::string_fun_key([this](const auto &value) { set_csv_max_size(value); }, check_csv_command::kDefaultMaxCsvSize),
                   "LARGEST CSV FILE",
                   "The largest file check_csv reads, as a byte count with an optional k, m or g unit (`512k`, `64m`). check_csv holds the whole file in "

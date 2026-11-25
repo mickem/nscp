@@ -22,20 +22,52 @@ inline std::string element(const std::string &path, std::size_t from) {
   return path.substr(from, end == std::string::npos ? std::string::npos : end - from);
 }
 
-// `\\host\share\...` (the leading `\\` already stripped): a share named pipe
-// or mailslot is not a file system, whichever host serves it.
-inline bool is_ipc_share(const std::string &rest) {
-  const std::size_t sep = rest.find('\\');
-  if (sep == std::string::npos) return false;
-  const std::string share = element(rest, sep + 1);
-  return iequals(share, "pipe") || iequals(share, "mailslot");
+// Fold a path into the one spelling the checks below compare: `/` becomes `\`
+// and a run of separators becomes one (two at the very start, where they mean
+// a UNC or device prefix). Win32 accepts all of those spellings for the same
+// object, so a check which only knew `\\host\pipe\x` would wave
+// `\\host\\pipe\x` through.
+inline std::string fold_separators(const std::string &path) {
+  std::string out;
+  out.reserve(path.size());
+  for (const char raw : path) {
+    const char c = raw == '/' ? '\\' : raw;
+    if (c == '\\' && out.size() >= 2 && out.back() == '\\') continue;
+    out += c;
+  }
+  return out;
 }
 
+// The server and share of a folded UNC path (`\\host\share\...` or
+// `\\?\UNC\host\share\...`), and the length of the prefix in front of the
+// server. False for anything else, the device prefixes `\\.\` and `\\?\`
+// included.
+inline bool split_unc(const std::string &folded, std::size_t &prefix, std::string &host, std::string &share) {
+  if (folded.size() > 8 && folded.compare(0, 4, "\\\\?\\") == 0 && iequals(folded.substr(4, 4), "UNC\\")) {
+    prefix = 8;
+  } else if (folded.compare(0, 2, "\\\\") == 0 && folded.compare(0, 4, "\\\\?\\") != 0 && folded.compare(0, 4, "\\\\.\\") != 0) {
+    prefix = 2;
+  } else {
+    return false;
+  }
+  host = element(folded, prefix);
+  if (host.empty() || host == "." || host == "?") return false;
+  const std::size_t after_host = prefix + host.size();
+  share = after_host < folded.size() ? element(folded, after_host + 1) : std::string();
+  return true;
+}
+
+// A share which is not a file system, whichever host serves it: a named pipe
+// is `\\host\pipe\x`, and that is only the redirector's alias for a file on
+// the IPC$ share, so `\\host\IPC$\x` connects to the same pipe.
+inline bool is_ipc_share_name(const std::string &share) { return iequals(share, "pipe") || iequals(share, "mailslot") || iequals(share, "IPC$"); }
+
 // The names Win32 maps to a device in any directory (`C:\logs\con.txt` is the
-// console on most Windows versions): the part before the first period, with
-// trailing spaces dropped, as Win32 drops them.
+// console on most Windows versions): the part before the first period or
+// colon (`COM1:` and `NUL:` are the devices too), with trailing spaces
+// dropped, as Win32 drops them.
 inline bool is_dos_device_name(const std::string &name) {
-  std::string base = name.substr(0, name.find('.'));
+  std::string base = name.substr(0, name.find_first_of(".:"));
   while (!base.empty() && (base.back() == ' ')) base.pop_back();
   static const char *const fixed[] = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "CLOCK$"};
   for (const char *n : fixed) {
@@ -64,30 +96,56 @@ inline bool is_dos_device_name(const std::string &name) {
 // Purely lexical and portable, so it is tested on every platform, but only
 // meaningful on Windows: on POSIX `\\.\pipe\x` is an odd file name and
 // refused_by_name() says no. `/` and `\` are both separators here.
-inline bool is_win32_device_path(std::string path) {
-  for (char &c : path) {
-    if (c == '/') c = '\\';
-  }
+inline bool is_win32_device_path(const std::string &raw) {
+  const std::string path = detail::fold_separators(raw);
   if (path.compare(0, 4, "\\??\\") == 0) return true;   // the NT object namespace
   if (path.compare(0, 4, "\\\\.\\") == 0) return true;  // the Win32 device namespace
-  if (path.compare(0, 4, "\\\\?\\") == 0) {
+  std::size_t prefix = 0;
+  std::string host, share;
+  const bool unc = detail::split_unc(path, prefix, host, share);
+  if (unc && detail::is_ipc_share_name(share)) return true;
+  if (!unc && path.compare(0, 4, "\\\\?\\") == 0) {
     // The long-path prefix: fine in front of a drive path (\\?\C:\x) or a
-    // share (\\?\UNC\host\share\x), and the device namespace otherwise
-    // (\\?\C: is the volume, \\?\GLOBALROOT\..., \\?\Volume{...}, \\?\pipe\x).
+    // share (\\?\UNC\host\share\x, handled above), and the device namespace
+    // otherwise (\\?\C: is the volume, \\?\GLOBALROOT\..., \\?\Volume{...},
+    // \\?\pipe\x).
     const std::string rest = path.substr(4);
     if (rest.size() >= 3 && std::isalpha(static_cast<unsigned char>(rest[0])) && rest[1] == ':' && rest[2] == '\\') {
       return detail::is_dos_device_name(rest.substr(rest.find_last_of('\\') + 1));
     }
-    if (rest.size() > 4 && detail::iequals(rest.substr(0, 4), "UNC\\")) return detail::is_ipc_share(rest.substr(4));
     return true;
   }
-  if (path.compare(0, 2, "\\\\") == 0 && detail::is_ipc_share(path.substr(2))) return true;
   // A bare drive (`C:`) is the current directory on that drive, not a device;
   // only the last element can be a DOS device name that matters.
   const std::size_t last = path.find_last_of('\\');
   std::string name = last == std::string::npos ? path : path.substr(last + 1);
   if (name.size() >= 2 && name[1] == ':' && last == std::string::npos) name = name.substr(2);
   return detail::is_dos_device_name(name);
+}
+
+// The server a UNC path names (`\\fs01\logs\app.log`, `//fs01/logs/app.log`,
+// `\\?\UNC\fs01\logs\app.log` all say fs01), or false when the path is not
+// one. Opening such a path makes the agent authenticate to that server with
+// its own account, so which servers a caller may name is a policy decision
+// (check::access::path_policy, `remote hosts`). Lexical and portable like
+// is_win32_device_path(), and like it only meaningful on Windows.
+inline bool unc_host(const std::string &path, std::string &host) {
+  std::size_t prefix = 0;
+  std::string share;
+  return detail::split_unc(detail::fold_separators(path), prefix, host, share);
+}
+
+// The root of the share a UNC path is on, with its trailing separator
+// (`\\fs01\logs\`), or false when the path is not a UNC path with a share.
+// The root has an empty name on the share, so opening it asks the server what
+// the share is without opening anything a caller named on it.
+inline bool unc_share_root(const std::string &path, std::string &root) {
+  const std::string folded = detail::fold_separators(path);
+  std::size_t prefix = 0;
+  std::string host, share;
+  if (!detail::split_unc(folded, prefix, host, share) || share.empty()) return false;
+  root = folded.substr(0, prefix) + host + "\\" + share + "\\";
+  return true;
 }
 
 // is_win32_device_path() on Windows, false elsewhere.

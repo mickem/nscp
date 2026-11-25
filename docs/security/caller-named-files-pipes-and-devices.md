@@ -12,7 +12,8 @@ file=`, and in CheckDisk the `md5`/`sha1`/`sha256`/
 target of `check_disk_write`. On Windows, a name in the device namespace was
 opened like any other path:
 
-- **A named pipe** (`\\.\pipe\<name>`, `\\host\pipe\<name>`). `check_logfile`
+- **A named pipe** (`\\.\pipe\<name>`, `\\host\pipe\<name>`, or the same pipe
+  as a file on the `IPC$` share, `\\host\IPC$\<name>`). `check_logfile`
   opened files with the C++ runtime's `std::ifstream`, and the CheckDisk
   keywords with `fopen` and `GetFileVersionInfo`. These connect to a pipe
   without quality-of-service flags, which grants the pipe's server the right
@@ -43,11 +44,19 @@ All of these, and `check_csv`, now go through one reader for caller-named files,
 
 - refuses, by name and before anything is opened, paths in the Windows device
   namespace - `\\.\…`, `\\?\…` other than a drive or share path, `\\<host>\pipe\…`,
-  `\\<host>\mailslot\…` and the DOS device names (`CON`, `NUL`, `COM1`, …) in
-  any directory - with `Refusing to open <path>: it names a device or a pipe,
-  not a file`;
-- opens with `SECURITY_IDENTIFICATION`, so a pipe reached some other way (a
-  link) still cannot impersonate the agent;
+  `\\<host>\mailslot\…`, `\\<host>\IPC$\…` and the DOS device names (`CON`,
+  `NUL`, `COM1`, `COM1:`, …) in any directory - with `Refusing to open <path>:
+  it names a device or a pipe, not a file`. `/` and `\`, and a run of either,
+  are read as Windows reads them, so `//host//pipe/x` is the same name;
+- opens with `SECURITY_IDENTIFICATION`, so a local pipe reached some other way
+  (a link) still cannot impersonate the agent. Windows ignores that flag for a
+  pipe reached over the network, so it is not what protects a UNC path;
+- for a UNC path, examines the share before opening anything on it: the root
+  of the share is opened (which reaches no pipe, whatever the share is) and
+  only a share that is a file system is read from. Where the agent's account
+  may not open the root, the server is asked for the share's type. A share
+  that is not a file system is refused with `Refusing to open <path>: its
+  share is not a file system`, and one that cannot be examined is not opened;
 - reads only a regular file, examined on the open handle, and refuses anything
   else with `Not a regular file: <path>`. On Linux and macOS this means
   `check_logfile` now refuses a FIFO (which used to hang the check) and a
@@ -57,6 +66,27 @@ All of these, and `check_csv`, now go through one reader for caller-named files,
   still read, and on Windows passes a UTF-8 file name as UTF-16, so
   `check_logfile` now opens names outside the ANSI code page.
 
+#### Which servers a caller may name
+
+Reading a file on a share is a network logon: the agent authenticates to the
+server in the path with its own account, which for a service running as
+`SYSTEM` is the machine account. A caller who may name any path may therefore
+name any server, and have the agent log on to a machine of the caller's
+choosing. This is not new and it is not closed by default, because checking
+files on a file server is a legitimate and common use - but it can now be
+narrowed. `remote hosts` in `[/settings/logfile]` and `[/settings/disk]` lists
+the servers a caller may name in a UNC path:
+
+```ini
+[/settings/logfile]
+remote hosts = fs01, fs02.example.com
+```
+
+`*` (the default) is any server and `none` is no server. It holds whatever
+`file access` is set to; a file defined under `[/settings/logfile/files]` or
+`[/settings/disk/files]` is the operator's own and is always used. See
+[Restricting what a check may read](../concepts/check-access.md#which-servers-a-caller-may-name).
+
 The `allowed` mode of `file access` refuses device names before it resolves
 them. `check_files`, `check_single_file` and `check_largest_files` refuse such
 a path as they would a missing one, and `check_disk_write` refuses it outright.
@@ -64,3 +94,5 @@ a path as they would a missing one, and `check_disk_write` refuses it outright.
 **What to do:** upgrade. Until then, on Windows hosts where callers may pass
 arguments, set `file access = predefined` in `[/settings/logfile]` and
 `[/settings/disk]`, or do not let callers pass arguments to these checks.
+After upgrading, on those hosts, set `remote hosts` to the file servers your
+checks actually read from, or to `none` if they read local files only.
