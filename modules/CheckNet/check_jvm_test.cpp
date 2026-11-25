@@ -5,6 +5,8 @@
 
 #include <boost/json.hpp>
 
+#include <climits>
+
 #include "check_jvm_internal.hpp"
 
 using namespace check_net::check_jvm_internal;
@@ -133,6 +135,22 @@ TEST(CheckJvmParse, ReadsCustomAttributes) {
   EXPECT_EQ(s.error.rfind("missing: Catalina:type=Manager,context=/nope,host=localhost: javax.management.InstanceNotFoundException", 0), 0u) << s.error;
 }
 
+TEST(CheckJvmParse, OutOfRangeValuesSaturateInsteadOfOverflowing) {
+  // The agent is remote: a huge number, as JSON or as a numeric string, must
+  // clamp rather than be cast to long long (undefined behaviour).
+  std::string body = kBulk;
+  const std::string threading_ok = R"("ThreadCount":42,"DaemonThreadCount":30,"PeakThreadCount":45)";
+  const auto pos = body.find(threading_ok);
+  ASSERT_NE(pos, std::string::npos);
+  body.replace(pos, threading_ok.size(), R"("ThreadCount":"1e300","DaemonThreadCount":1e300,"PeakThreadCount":"-1e300")");
+  jvm_status s;
+  ASSERT_TRUE(parse_bulk_response(body, {}, s));
+  EXPECT_EQ(s.threads, LLONG_MAX);
+  EXPECT_EQ(s.daemon_threads, LLONG_MAX);
+  // A negative value is the JMX "unknown" for a count: it reads as 0.
+  EXPECT_EQ(s.peak_threads, 0);
+}
+
 TEST(CheckJvmParse, NumericStringsAndBooleansAreNumbers) {
   std::vector<jvm_read> reads(2);
   reads[0].alias = "rate";
@@ -144,6 +162,17 @@ TEST(CheckJvmParse, NumericStringsAndBooleansAreNumbers) {
   EXPECT_TRUE(s.custom["flag"].has_number);
   EXPECT_DOUBLE_EQ(s.custom["flag"].number, 1.0);
   EXPECT_EQ(s.custom["flag"].text, "true");
+}
+
+TEST(CheckJvmParse, NonFiniteValuesAreNotNumbers) {
+  std::vector<jvm_read> reads(2);
+  reads[0].alias = "big";
+  reads[1].alias = "huge";
+  jvm_status s;
+  ASSERT_TRUE(parse_bulk_response(with_custom(R"({"value":"1e400","status":200},{"value":1e400,"status":200})"), reads, s));
+  EXPECT_FALSE(s.custom["big"].has_number);
+  EXPECT_EQ(s.custom["big"].text, "1e400");
+  EXPECT_FALSE(s.custom["huge"].has_number);
 }
 
 TEST(CheckJvmParse, TopLevelErrorIsRecognised) {
@@ -189,6 +218,29 @@ TEST(CheckJvmReadSpec, RejectsMalformedSpecs) {
   EXPECT_FALSE(parse_read_spec("x=d:k=v", r, error));
   EXPECT_FALSE(parse_read_spec("x=d:k=v/", r, error));
   EXPECT_FALSE(parse_read_spec("x=nodomain/Attr", r, error));
+  // The filter grammar's variable names start with a letter.
+  EXPECT_FALSE(parse_read_spec("_x=d:k=v/Attr", r, error));
+}
+
+TEST(CheckJvmReadSpec, RejectsAliasesSpelledLikeFilterWords) {
+  // These parse as operators, so a keyword by that name could never be used;
+  // say so up front instead of failing later with an anonymous parse error.
+  jvm_read r;
+  std::string error;
+  for (const char *word : {"in", "and", "OR", "Not", "like", "regexp", "eq", "ne", "lt", "le", "gt", "ge", "str"}) {
+    EXPECT_FALSE(parse_read_spec(std::string(word) + "=d:k=v/Attr", r, error)) << word;
+    EXPECT_NE(error.find("word of the filter language"), std::string::npos) << error;
+  }
+  // `not` is matched without a word boundary: `notice > 1` would parse as
+  // `not (ice > 1)`, so an alias starting with it is refused too - unless an
+  // underscore follows, which cannot start a name (`not_after` parses).
+  EXPECT_FALSE(parse_read_spec("notice=d:k=v/Attr", r, error));
+  EXPECT_FALSE(parse_read_spec("Nothing=d:k=v/Attr", r, error));
+  EXPECT_TRUE(parse_read_spec("not_after=d:k=v/Attr", r, error)) << error;
+  // Other words only matter on their own.
+  EXPECT_TRUE(parse_read_spec("index=d:k=v/Attr", r, error)) << error;
+  EXPECT_TRUE(parse_read_spec("order=d:k=v/Attr", r, error)) << error;
+  EXPECT_TRUE(parse_read_spec("android=d:k=v/Attr", r, error)) << error;
 }
 
 TEST(CheckJvmRequest, BuildsTheBulkRead) {

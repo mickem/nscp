@@ -13,7 +13,6 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
-#include <str/saturate.hpp>
 
 #include "check_http_fetch.hpp"
 #include "check_jvm_internal.hpp"
@@ -451,14 +450,18 @@ struct filter_obj : status_obj {
     if (s.heap_max <= 0) return used;
     return used + " of " + str::format::format_byte_units(static_cast<double>(s.heap_max), context->get_number_format());
   }
-  double custom_number(const std::string &alias) const {
+  // Empty for an attribute that was not read or is not a number, so a
+  // threshold over it is false rather than tested against a stand-in 0.
+  boost::optional<double> custom_number(const std::string &alias) const {
     const auto it = s.custom.find(alias);
-    return (it == s.custom.end() || !it->second.has_number) ? 0.0 : it->second.number;
+    if (it == s.custom.end() || !it->second.has_number) return boost::none;
+    return it->second.number;
   }
   std::string custom_text(const std::string &alias) const {
     const auto it = s.custom.find(alias);
-    return it == s.custom.end() ? "" : it->second.text;
+    return it == s.custom.end() ? unread_value : it->second.text;
   }
+  static constexpr const char *unread_value = "unread";
 };
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
@@ -578,22 +581,19 @@ void check_jvm(const std::string &default_ca_file, const PB::Commands::QueryRequ
     reads.push_back(r);
   }
 
-  // Each alias becomes a keyword on this check's own handler, the same way
-  // check_http registers its --json-path aliases: numeric comparisons use the
-  // number, string comparisons the raw value, and the alias is perfdata.
-  // Registered before build_filter parses the expressions that use them.
+  // Each alias becomes an optional number on this check's own handler:
+  // numeric comparisons use the value with its decimals and are false when
+  // the attribute was not read or is not a number, string comparisons and
+  // rendering use the raw value ("unread" when there is none), and a numeric
+  // value is float perfdata (<host>_<alias>). Registered before build_filter
+  // parses the expressions that use them.
   for (const jvm_read &r : reads) {
     const std::string alias = r.alias;
     std::string description = "MBean attribute " + r.mbean + "/" + r.attribute;
     if (!r.path.empty()) description += "/" + r.path;
-    auto var = std::make_shared<parsers::where::filter_variable<std::shared_ptr<filter_obj> > >(alias, parsers::where::type_float, description);
-    var->f_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->custom_number(alias); };
-    // The value comes from the remote JVM: a NaN or anything past the long
-    // long range must not be cast raw.
-    var->i_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return str::to_int64_saturating(o->custom_number(alias)); };
-    var->s_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->custom_text(alias); };
-    f.context->registry_.add(var, false);
-    f.context->registry_.add_int_perf("", "", "_" + alias);
+    f.context->registry_.add_optional_float_var(
+        alias, [alias](std::shared_ptr<filter_obj> o) { return o->custom_number(alias); },
+        [alias](std::shared_ptr<filter_obj> o) { return o->custom_text(alias); }, description);
   }
 
   if (!filter_helper.build_filter(f)) return;

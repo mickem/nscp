@@ -2231,6 +2231,7 @@ describe("CheckNet commands", () => {
       },
     },
     "Catalina:type=Manager,host=localhost,context=/app": { activeSessions: 118 },
+    "java.lang:type=OperatingSystem": { ProcessCpuLoad: 0.73, Name: "Linux" },
   };
 
   function startJolokia(): Promise<Listener & { lastRequest: () => unknown[] | undefined }> {
@@ -2318,6 +2319,42 @@ describe("CheckNet commands", () => {
     );
   });
 
+  it("check_jvm keeps the decimals of an attribute in thresholds and perfdata", async () => {
+    const s = await startJolokia();
+    const q = await executeQuery(key, "check_jvm", {
+      url: `http://127.0.0.1:${s.port}/jolokia/`,
+      attribute: "cpu=java.lang:type=OperatingSystem/ProcessCpuLoad",
+      warning: "cpu > 0.5",
+    });
+    // Truncated to an integer, 0.73 would be 0 and not exceed 0.5.
+    expect(q.result).toBe(WARNING);
+    expect(perfValue(q, "127.0.0.1_cpu")).toBeCloseTo(0.73, 3);
+  });
+
+  it("check_jvm does not read an unread attribute as 0", async () => {
+    const s = await startJolokia();
+    const q = await executeQuery(key, "check_jvm", {
+      url: `http://127.0.0.1:${s.port}/jolokia/`,
+      attribute: "hits=com.example:type=Gone/Hits",
+      warning: "hits < 1",
+      critical: "none",
+      "detail-syntax": "hits=${hits}",
+    });
+    // A stand-in 0 would satisfy `hits < 1`; an unread value satisfies nothing.
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/hits=unread/);
+    expect(Object.keys(perfOf(q))).not.toContain("127.0.0.1_hits");
+  });
+
+  it("check_jvm compares a string attribute as text", async () => {
+    const s = await startJolokia();
+    const url = `http://127.0.0.1:${s.port}/jolokia/`;
+    const attribute = "os=java.lang:type=OperatingSystem/Name";
+    expect((await executeQuery(key, "check_jvm", { url, attribute, warning: "os = 'Linux'" })).result).toBe(WARNING);
+    // Not a number: no numeric comparison holds, in either direction.
+    expect((await executeQuery(key, "check_jvm", { url, attribute, warning: "os > 0 or os <= 0" })).result).toBe(OK);
+  });
+
   it("check_jvm goes CRITICAL naming the MBean Jolokia could not read", async () => {
     const s = await startJolokia();
     const q = await executeQuery(key, "check_jvm", {
@@ -2368,6 +2405,13 @@ describe("CheckNet commands", () => {
     });
     expect(q.result).toBe(UNKNOWN);
     expect(messageOf(q)).toMatch(/already a keyword/);
+    // `in` and a name the grammar would split as `not ice` are refused by
+    // name, rather than failing later in an anonymous expression error.
+    for (const alias of ["in", "notice"]) {
+      q = await executeQuery(key, "check_jvm", { url, attribute: `${alias}=java.lang:type=Threading/ThreadCount` });
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(new RegExp(`alias ${alias} is, or starts like, a word of the filter language`));
+    }
   });
 
   it("status-page checks report invalid_url for a malformed port instead of throwing", async () => {

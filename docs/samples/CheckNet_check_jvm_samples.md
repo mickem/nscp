@@ -26,23 +26,30 @@ check_jvm "attribute=sessions=Catalina:type=Manager,host=localhost,context=!/app
 WARNING: 118 sessions, heap 298MB of 1GB|'127.0.0.1_gc_count'=123c '127.0.0.1_gc_time'=834ms '127.0.0.1_heap_usage'=29.1%;;90 '127.0.0.1_heap_used'=312475648B '127.0.0.1_sessions'=118;100 '127.0.0.1_threads'=42
 ```
 
-**Read one field of a composite attribute (the old generation's usage) with an inner path:**
+**Read one field of a composite attribute (the old generation's usage) with an inner path. Keep `result != 'ok'` in your own `critical`, or a JVM that is down reads as OK:**
 
 ```
-check_jvm "attribute=old_gen=java.lang:type=MemoryPool,name=G1 Old Gen/Usage/used" "critical=old_gen > 157286400"
+check_jvm "attribute=old_gen=java.lang:type=MemoryPool,name=G1 Old Gen/Usage/used" "critical=result != 'ok' or old_gen > 157286400"
 CRITICAL: ok: heap 298MB of 1GB (29.1%), 42 threads, 123 collections|'127.0.0.1_gc_count'=123c '127.0.0.1_gc_time'=834ms '127.0.0.1_heap_usage'=29.1%;80 '127.0.0.1_heap_used'=312475648B '127.0.0.1_old_gen'=201326592;;157286400 '127.0.0.1_threads'=42
 ```
 
-**An MBean the agent cannot find is CRITICAL and named in the message:**
+**A fractional attribute keeps its decimals in thresholds and perfdata (process CPU load, 0.0-1.0):**
+
+```
+check_jvm attribute=cpu=java.lang:type=OperatingSystem/ProcessCpuLoad "warning=cpu > 0.5"
+WARNING: ok: heap 298MB of 1GB (29.1%), 42 threads, 123 collections|'127.0.0.1_cpu'=0.72999;0.5 '127.0.0.1_gc_count'=123c '127.0.0.1_gc_time'=834ms '127.0.0.1_heap_usage'=29.1%;;90 '127.0.0.1_heap_used'=312475648B '127.0.0.1_threads'=42
+```
+
+**An MBean the agent cannot find is CRITICAL and named in the message; the unread attribute is not graphed:**
 
 ```
 check_jvm attribute=x=com.example:type=Cache/Hits
 CRITICAL: error: x: com.example:type=Cache: javax.management.InstanceNotFoundException : com.example:type=Cache: heap 298MB of 1GB (29.1%), 42 threads, 123 collections|'127.0.0.1_gc_count'=123c '127.0.0.1_gc_time'=834ms '127.0.0.1_heap_usage'=29.1%;80;90 '127.0.0.1_heap_used'=312475648B '127.0.0.1_threads'=42
 ```
 
-**An unreachable agent is CRITICAL:**
+**An unreachable agent is CRITICAL, including with a custom `critical` that keeps `result != 'ok'`:**
 
 ```
-check_jvm url=http://127.0.0.1:8778/jolokia/
-CRITICAL: error: Failed to connect to 127.0.0.1:8778: Connection refused: heap 0B (0%), 0 threads, 0 collections|'127.0.0.1_gc_count'=0c '127.0.0.1_gc_time'=0ms '127.0.0.1_heap_usage'=0%;80;90 '127.0.0.1_heap_used'=0B '127.0.0.1_threads'=0
+check_jvm "attribute=old_gen=java.lang:type=MemoryPool,name=G1 Old Gen/Usage/used" "critical=result != 'ok' or old_gen > 157286400"
+CRITICAL: error: Failed to connect to 127.0.0.1:8778: Connection refused: heap 0B (0%), 0 threads, 0 collections|'127.0.0.1_gc_count'=0c '127.0.0.1_gc_time'=0ms '127.0.0.1_heap_usage'=0%;80 '127.0.0.1_heap_used'=0B '127.0.0.1_threads'=0
 ```

@@ -9,6 +9,8 @@
 #include <locale>
 #include <sstream>
 
+#include <str/saturate.hpp>
+
 #include "check_jvm_internal.hpp"
 
 namespace json = boost::json;
@@ -50,12 +52,29 @@ double jvm_status::heap_usage() const {
 
 namespace {
 
+// The filter grammar's variable names: a letter, then letters, digits and
+// underscores (a leading underscore does not parse).
 bool is_identifier(const std::string &s) {
   if (s.empty()) return false;
-  if (!(std::isalpha(static_cast<unsigned char>(s[0])) || s[0] == '_')) return false;
+  if (!std::isalpha(static_cast<unsigned char>(s[0]))) return false;
   for (const char c : s)
     if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_')) return false;
   return true;
+}
+
+// Words the filter grammar matches case-insensitively as operators; an alias
+// spelled like one parses as the operator, not as the keyword.
+bool is_grammar_word(const std::string &s) {
+  static const char *const words[] = {"and", "or", "not", "in", "like", "regexp", "eq", "ne", "lt", "le", "gt", "ge", "str"};
+  std::string lower;
+  for (const char c : s) lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  for (const char *w : words)
+    if (lower == w) return true;
+  // The grammar matches `not` without a word boundary, so `notice > 1` reads
+  // as `not (ice > 1)`. `not_after` survives only because `_after` cannot
+  // start a variable name; anything else after the `not` would be split off.
+  if (lower.size() > 3 && lower.compare(0, 3, "not") == 0 && lower[3] != '_') return true;
+  return false;
 }
 
 // Split on '/' that is not escaped as '!/'. Escapes are kept in the segments;
@@ -103,16 +122,12 @@ long long as_ll(const json::value *v) {
     const auto u = v->as_uint64();
     return u > static_cast<std::uint64_t>(LLONG_MAX) ? LLONG_MAX : static_cast<long long>(u);
   }
-  if (v->is_double()) {
-    const double d = v->as_double();
-    if (!(d == d)) return -1;
-    if (d >= static_cast<double>(LLONG_MAX)) return LLONG_MAX;
-    if (d <= static_cast<double>(LLONG_MIN)) return LLONG_MIN;
-    return static_cast<long long>(d);
-  }
+  // Both come from the remote agent: a NaN or anything past the long long
+  // range (1e300, as a number or as the string "1e300") must not be cast raw.
+  if (v->is_double()) return std::isnan(v->as_double()) ? -1 : str::to_int64_saturating(v->as_double());
   if (v->is_string()) {
     double d = 0;
-    if (parse_number(std::string(v->as_string().c_str()), d)) return static_cast<long long>(d);
+    if (parse_number(std::string(v->as_string().c_str()), d) && !std::isnan(d)) return str::to_int64_saturating(d);
   }
   return -1;
 }
@@ -164,6 +179,9 @@ custom_value to_custom(const json::value &v) {
   } else {
     out.text = json::serialize(v);
   }
+  // A value past the double range (1e400) parses as infinity: keep its text
+  // but do not compare or graph it as a number.
+  if (out.has_number && !std::isfinite(out.number)) out.has_number = false;
   return out;
 }
 
@@ -202,7 +220,11 @@ bool parse_read_spec(const std::string &spec, jvm_read &out, std::string &error)
   }
   out.alias = spec.substr(0, eq);
   if (!is_identifier(out.alias)) {
-    error = "alias must be letters, digits and underscores (not starting with a digit): " + out.alias;
+    error = "alias must start with a letter and contain only letters, digits and underscores: " + out.alias;
+    return false;
+  }
+  if (is_grammar_word(out.alias)) {
+    error = "alias " + out.alias + " is, or starts like, a word of the filter language (and, or, not, in, like, ...)";
     return false;
   }
   const std::vector<std::string> parts = split_escaped(spec.substr(eq + 1));
