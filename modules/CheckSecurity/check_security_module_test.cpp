@@ -72,8 +72,12 @@ TEST_F(CheckSecurityModule, CheckCertificateReportsAMissingFile) {
 }
 
 TEST_F(CheckSecurityModule, ChecksThatReadTheHostAreDispatched) {
-  for (const auto &c :
-       std::vector<std::pair<check_fn, std::string> >{{&CheckSecurity::check_users, "check_users"}, {&CheckSecurity::check_firewall, "check_firewall"}}) {
+  std::vector<std::pair<check_fn, std::string> > checks = {{&CheckSecurity::check_users, "check_users"}, {&CheckSecurity::check_firewall, "check_firewall"}};
+#if defined(WIN32) || defined(__linux__)
+  // Secure Boot has a reader on Windows and on Linux (efivarfs).
+  checks.push_back({&CheckSecurity::check_secureboot, "check_secureboot"});
+#endif
+  for (const auto &c : checks) {
     const response_type r = run(c.first, c.second, {"no-such-option=1"});
     EXPECT_EQ(r.result(), PB::Common::ResultCode::UNKNOWN) << c.second;
     EXPECT_NE(message_of(r).find("no-such-option"), std::string::npos) << c.second << ": " << message_of(r);
@@ -84,17 +88,20 @@ TEST_F(CheckSecurityModule, ChecksThatReadTheHostAreDispatched) {
 // Off Windows these checks have nothing to read and say so, rather than
 // reporting an empty (and therefore OK) result.
 TEST_F(CheckSecurityModule, WindowsOnlyChecksSayTheyAreNotSupported) {
-  const std::vector<std::pair<check_fn, std::string> > checks = {
+  std::vector<std::pair<check_fn, std::string> > checks = {
       {&CheckSecurity::check_nla, "check_nla"},
       {&CheckSecurity::check_antivirus, "check_antivirus"},
       {&CheckSecurity::check_bitlocker, "check_bitlocker"},
-      {&CheckSecurity::check_secureboot, "check_secureboot"},
       {&CheckSecurity::check_defender, "check_defender"},
       {&CheckSecurity::check_local_accounts, "check_local_accounts"},
       {&CheckSecurity::check_group_members, "check_group_members"},
       {&CheckSecurity::check_firewall_rules, "check_firewall_rules"},
       {&CheckSecurity::check_activation, "check_activation"},
   };
+#ifndef __linux__
+  // Linux reads Secure Boot from efivarfs; the other POSIX platforms have no reader.
+  checks.push_back({&CheckSecurity::check_secureboot, "check_secureboot"});
+#endif
   for (const auto &c : checks) {
     const response_type r = run(c.first, c.second);
     EXPECT_EQ(r.result(), PB::Common::ResultCode::UNKNOWN) << c.second;
