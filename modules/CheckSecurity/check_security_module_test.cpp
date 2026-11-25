@@ -8,8 +8,10 @@
 // the dispatch. It is shown with answers that do not depend on the host: on
 // POSIX the Windows-only checks answer that they are not supported (the
 // documented contract there), check_certificate is pointed at a file that
-// does not exist, and the two checks that do read this host (check_users,
-// check_firewall) are given an option they reject before reading anything.
+// does not exist, and the checks that do read this host (check_users,
+// check_firewall, and on Linux check_secureboot, check_local_accounts and
+// check_group_members) are given an option they reject before reading
+// anything.
 
 #include "CheckSecurity.h"
 
@@ -74,8 +76,11 @@ TEST_F(CheckSecurityModule, CheckCertificateReportsAMissingFile) {
 TEST_F(CheckSecurityModule, ChecksThatReadTheHostAreDispatched) {
   std::vector<std::pair<check_fn, std::string> > checks = {{&CheckSecurity::check_users, "check_users"}, {&CheckSecurity::check_firewall, "check_firewall"}};
 #if defined(WIN32) || defined(__linux__)
-  // Secure Boot has a reader on Windows and on Linux (efivarfs).
+  // Secure Boot has a reader on Windows and on Linux (efivarfs), local
+  // accounts and group members on Windows and on Linux (passwd, shadow, group).
   checks.push_back({&CheckSecurity::check_secureboot, "check_secureboot"});
+  checks.push_back({&CheckSecurity::check_local_accounts, "check_local_accounts"});
+  checks.push_back({&CheckSecurity::check_group_members, "check_group_members"});
 #endif
   for (const auto &c : checks) {
     const response_type r = run(c.first, c.second, {"no-such-option=1"});
@@ -93,14 +98,15 @@ TEST_F(CheckSecurityModule, WindowsOnlyChecksSayTheyAreNotSupported) {
       {&CheckSecurity::check_antivirus, "check_antivirus"},
       {&CheckSecurity::check_bitlocker, "check_bitlocker"},
       {&CheckSecurity::check_defender, "check_defender"},
-      {&CheckSecurity::check_local_accounts, "check_local_accounts"},
-      {&CheckSecurity::check_group_members, "check_group_members"},
       {&CheckSecurity::check_firewall_rules, "check_firewall_rules"},
       {&CheckSecurity::check_activation, "check_activation"},
   };
 #ifndef __linux__
-  // Linux reads Secure Boot from efivarfs; the other POSIX platforms have no reader.
+  // Linux reads Secure Boot from efivarfs, and accounts and groups from
+  // passwd, shadow and group; the other POSIX platforms have no reader.
   checks.push_back({&CheckSecurity::check_secureboot, "check_secureboot"});
+  checks.push_back({&CheckSecurity::check_local_accounts, "check_local_accounts"});
+  checks.push_back({&CheckSecurity::check_group_members, "check_group_members"});
 #endif
   for (const auto &c : checks) {
     const response_type r = run(c.first, c.second);
