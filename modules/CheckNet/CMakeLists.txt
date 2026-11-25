@@ -185,3 +185,53 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# Unit tests for the module class: loadModuleEx, check_ping's own argument
+# validation, and that every dispatch method reaches its check. Every request
+# is refused before anything is sent, so the test never touches the network.
+NSCP_CREATE_TEST(
+    check_net_module_test
+    SOURCES
+        check_net_module_test.cpp
+        "${TARGET}.cpp"
+        filter.cpp
+        check_tcp.cpp
+        check_starttls.cpp
+        check_net_cert.cpp
+        check_dns.cpp
+        check_domain.cpp
+        check_domain_parse.cpp
+        check_domain_fetch.cpp
+        check_http.cpp
+        check_http_json.cpp
+        check_webserver.cpp
+        check_webserver_parse.cpp
+        check_nsclient_web_online.cpp
+        check_nsclient_web_online_parse.cpp
+        check_connections.cpp
+        check_ntp_offset.cpp
+        check_radius.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_FILTER_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        nscp_net
+        ${Boost_JSON_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${CHECK_NET_TEST_SSL_LIBRARIES}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+if(WIN32 AND TARGET check_net_module_test)
+    target_link_libraries(check_net_module_test iphlpapi ws2_32)
+endif()

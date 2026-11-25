@@ -86,3 +86,34 @@ NSCP_CREATE_TEST(
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/mongoose-cpp
 )
+
+# Unit tests for the module class itself: the settings it registers, the
+# configurations the listener refuses to start on, and `nscp ncpa token`. The
+# stub core (include/nscapi/test_helpers.hpp) stands in for the daemon, and no
+# test binds the port: every load that would start the listener is refused
+# before it does.
+NSCP_CREATE_TEST(
+    ncpa_module_test
+    SOURCES
+        ncpa_module_test.cpp
+        "${TARGET}.cpp"
+        ncpa_controller.cpp
+        ncpa_protocol.cpp
+        ncpa_sources.cpp
+        ${NSCP_INCLUDEDIR}/nscp/password_hash.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_JSON_LIBRARY}
+        nscp_net
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${EXTRA_LIBS}
+        nscp_mongoose
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/mongoose-cpp
+)

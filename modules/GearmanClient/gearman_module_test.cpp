@@ -13,6 +13,9 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/filesystem.hpp>
+#include <fstream>
+#include <map>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/test_helpers.hpp>
 #include <string>
@@ -150,4 +153,187 @@ TEST_F(GearmanModule, ReloadingDoesNotDuplicateTheChannel) {
   ASSERT_TRUE(module_.loadModuleEx("", NSCAPI::dontStart));
   EXPECT_TRUE(core().has_channel("GEARMAN"));
   EXPECT_TRUE(module_.unloadModule());
+}
+
+// ============================================================================
+// Which worker configurations are refused, and why
+// ============================================================================
+//
+// Each of these loads with dontStart, which builds and validates the worker
+// configuration exactly as a start does and then stops short of the pool. The
+// only observable effect of a refusal is the line it logs.
+
+namespace {
+
+const char *const kWorker = "/settings/gearman/worker";
+
+class GearmanWorkerConfig : public GearmanModule {
+ protected:
+  // A complete, valid worker configuration, which each test then breaks.
+  void valid() {
+    core().set_setting(kWorker, "server", "127.0.0.1:4730");
+    core().set_setting(kWorker, "key", "secret");
+    core().set_setting(kWorker, "hostgroups", "windows");
+  }
+  bool logged(const std::string &needle) const { return nscapi::test_helpers::stub_core::instance().has_logged(needle) || out_.contains(needle); }
+
+  nscapi::test_helpers::stdout_capture out_;
+};
+
+}  // namespace
+
+TEST_F(GearmanWorkerConfig, AValidConfigurationIsAccepted) {
+  valid();
+  ASSERT_TRUE(load());
+  EXPECT_FALSE(logged("gearman: no job server")) << out_.str();
+  EXPECT_FALSE(logged("Refusing")) << out_.str();
+  EXPECT_FALSE(logged("no queue to answer"));
+}
+
+TEST_F(GearmanWorkerConfig, QueuesWithoutAServerAreRefused) {
+  core().set_setting(kWorker, "hostgroups", "windows");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: no job server configured. Set /settings/gearman/worker/server"));
+}
+
+TEST_F(GearmanWorkerConfig, AnUnreadableServerListIsRefused) {
+  valid();
+  core().set_setting(kWorker, "server", "[::1");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: could not read the server list: Unterminated IPv6 address in server list: [::1"));
+}
+
+TEST_F(GearmanWorkerConfig, AnEmptyServerListIsRefused) {
+  valid();
+  core().set_setting(kWorker, "server", " , ");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: the server list is empty."));
+}
+
+TEST_F(GearmanWorkerConfig, EncryptionWithoutAKeyIsRefused) {
+  valid();
+  core().set_setting(kWorker, "key", "");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: encryption is on but no key is set."));
+}
+
+TEST_F(GearmanWorkerConfig, AnUnreadableKeyFileIsRefused) {
+  valid();
+  core().set_setting(kWorker, "key", "");
+  core().set_setting(kWorker, "key file", "/nonexistent-nscp-test/gearman.key");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: could not read the key file: /nonexistent-nscp-test/gearman.key"));
+}
+
+TEST_F(GearmanWorkerConfig, AKeyFileSuppliesTheKey) {
+  const boost::filesystem::path file = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("gearman-key-%%%%-%%%%");
+  std::ofstream(file.string().c_str()) << "secret-from-file  \n";
+#ifndef WIN32
+  boost::filesystem::permissions(file, boost::filesystem::owner_read | boost::filesystem::owner_write);
+#endif
+  valid();
+  core().set_setting(kWorker, "key", "");
+  core().set_setting(kWorker, "key file", file.string());
+
+  ASSERT_TRUE(load());
+  EXPECT_FALSE(logged("no key is set"));
+  EXPECT_FALSE(logged("readable by more than its owner"));
+  boost::system::error_code ec;
+  boost::filesystem::remove(file, ec);
+}
+
+#ifndef WIN32
+// Anyone who can read the key can queue a check on every queue this agent
+// answers, so a world-readable key file is called out.
+TEST_F(GearmanWorkerConfig, AKeyFileReadableByOthersIsReported) {
+  const boost::filesystem::path file = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("gearman-key-%%%%-%%%%");
+  std::ofstream(file.string().c_str()) << "secret\n";
+  boost::filesystem::permissions(file, boost::filesystem::owner_read | boost::filesystem::owner_write | boost::filesystem::others_read);
+  valid();
+  core().set_setting(kWorker, "key", "");
+  core().set_setting(kWorker, "key file", file.string());
+
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("is readable by more than its owner"));
+  boost::system::error_code ec;
+  boost::filesystem::remove(file, ec);
+}
+#endif
+
+TEST_F(GearmanWorkerConfig, UnencryptedWithoutInsecureIsRefused) {
+  valid();
+  core().set_setting(kWorker, "encryption", "false");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: encryption is off but 'insecure' is not set."));
+}
+
+TEST_F(GearmanWorkerConfig, UnencryptedWithInsecureIsAcceptedLoudly) {
+  valid();
+  core().set_setting(kWorker, "encryption", "false");
+  core().set_setting(kWorker, "insecure", "true");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: running with encryption disabled."));
+  EXPECT_FALSE(logged("'insecure' is not set"));
+}
+
+TEST_F(GearmanWorkerConfig, AServerWithNoQueueIsRefused) {
+  valid();
+  core().set_setting(kWorker, "hostgroups", "");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: no queue to answer."));
+}
+
+// The generic queues alone are a queue.
+TEST_F(GearmanWorkerConfig, SharedQueuesAreAQueue) {
+  valid();
+  core().set_setting(kWorker, "hostgroups", "");
+  core().set_setting(kWorker, "allow shared queues", "true");
+  ASSERT_TRUE(load());
+  EXPECT_FALSE(logged("no queue to answer"));
+}
+
+TEST_F(GearmanWorkerConfig, ProxyModeSaysWhatItRuns) {
+  valid();
+  core().set_setting(kWorker, "mode", "Proxy");
+  core().set_setting(kWorker, "servicegroups", "db");
+  core().set_setting(kWorker, "host names", "other-name");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: running in proxy mode: every check on hostgroup_windows, servicegroup_db is executed here"));
+  EXPECT_TRUE(logged("'host names' is set but has no effect in proxy mode"));
+}
+
+TEST_F(GearmanWorkerConfig, AnUnknownModeIsRefused) {
+  valid();
+  core().set_setting(kWorker, "mode", "relay");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("gearman: unknown mode 'relay'"));
+}
+
+// ============================================================================
+// Metrics, and the submit half without targets
+// ============================================================================
+
+TEST_F(GearmanModule, MetricsBeforeAnyJobSayNoneHasArrived) {
+  ASSERT_TRUE(load());
+
+  PB::Metrics::MetricsMessage::Response response;
+  module_.fetchMetrics(&response);
+  ASSERT_EQ(response.bundles_size(), 1);
+  const PB::Metrics::MetricsBundle &bundle = response.bundles(0);
+  EXPECT_EQ(bundle.key(), "gearman");
+  std::map<std::string, double> values;
+  for (const PB::Metrics::Metric &m : bundle.value()) values[m.key()] = m.has_gauge_value() ? m.gauge_value().value() : m.counter_value().value();
+  EXPECT_EQ(values["worker.jobs"], 0);
+  EXPECT_EQ(values["worker.errors"], 0);
+  EXPECT_EQ(values["worker.connected"], 0);
+  EXPECT_EQ(values["worker.last_job_age"], -1) << "no job yet is -1, not 0";
+}
+
+TEST_F(GearmanModule, CommandLineExecOutsideTheModuleIsNotClaimed) {
+  ASSERT_TRUE(load());
+
+  PB::Commands::ExecuteRequestMessage request;
+  request.add_payload()->set_command("submit_gearman");
+  PB::Commands::ExecuteResponseMessage response;
+  EXPECT_FALSE(module_.commandLineExec(NSCAPI::target_any, request, response));
 }

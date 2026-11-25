@@ -236,3 +236,32 @@ if(NOT WIN32)
         target_link_libraries(check_security_test ${OPENSSL_LIBRARIES})
     endif()
 endif()
+
+# Unit tests for the module class: that it loads and that every dispatch
+# method reaches its check, shown with answers that do not depend on the
+# host. The stub core (include/nscapi/test_helpers.hpp) stands in for the
+# daemon.
+set(CHECK_SECURITY_MODULE_TEST_SRCS ${SRCS})
+list(FILTER CHECK_SECURITY_MODULE_TEST_SRCS EXCLUDE REGEX "/module\\.(cpp|hpp|def|rc)$|\\.h$|\\.hpp$")
+NSCP_CREATE_TEST(
+    check_security_module_test
+    SOURCES
+        check_security_module_test.cpp
+        ${CHECK_SECURITY_MODULE_TEST_SRCS}
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${OPENSSL_INCLUDE_DIR}
+)

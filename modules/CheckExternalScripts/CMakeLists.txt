@@ -120,3 +120,40 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# Unit tests for the module class: the settings it registers, the default
+# wrappings and aliases, and query_fallback's dispatch and argument policy.
+# The stub core (include/nscapi/test_helpers.hpp) answers the queries aliases
+# run; the few tests that start a script use /bin/sh and are POSIX only.
+if(WIN32)
+    set(EXTSCR_PROCESS_SRCS
+        ${NSCP_INCLUDEDIR}/process/execute_process_w32.cpp
+        ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
+        ${NSCP_INCLUDEDIR}/win/sysinfo/win_sysinfo.cpp
+    )
+else()
+    set(EXTSCR_PROCESS_SRCS ${NSCP_INCLUDEDIR}/process/execute_process_unix.cpp)
+endif()
+NSCP_CREATE_TEST(
+    check_external_scripts_module_test
+    SOURCES
+        check_external_scripts_module_test.cpp
+        "${TARGET}.cpp"
+        extscr_cli.cpp
+        script_provider.cpp
+        ${EXTSCR_PROCESS_SRCS}
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_ERROR_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_JSON_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
