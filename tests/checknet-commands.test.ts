@@ -1608,9 +1608,20 @@ describe("CheckNet commands", () => {
       "json-path": "qlen:data.queue.length",
       warning: "qlen < 5",
       critical: "qlen > 100",
+      "detail-syntax": "qlen=${qlen}",
+      "top-syntax": "${list}",
     });
     expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/qlen=missing/);
     expect(perfValue(q, `qlen_http://127.0.0.1:${s.port}/`)).toBeUndefined();
+
+    // The documented presence test lets an operator alert on it.
+    const probe = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "qlen:data.queue.length",
+      critical: "qlen = 'missing'",
+    });
+    expect(probe.result).toBe(CRITICAL);
   });
 
   // Regression: the integer view of a JSON value was a raw static_cast of the

@@ -70,8 +70,9 @@ true for `100.5`, and each numeric alias is graphed as `<alias>_<url>`. A JSON
 string compares as text (`"crit=status != 'ok'"`); arrays and objects are their
 serialized JSON, for `like` and `regexp`. A path that is missing, holds `null`
 or holds no number has no value: it matches no numeric comparison - not even
-`qlen < 5` - and emits no metric. Its text is empty when the path is missing,
-so `"crit=qlen = ''"` catches a field that has disappeared.
+`qlen < 5` - and emits no metric. When the path is missing or `null` (or the
+body is not JSON) it renders as `missing`, so `"crit=qlen = 'missing'"` catches
+a field that has disappeared.
 
 ##### Certificate identity and required names
 

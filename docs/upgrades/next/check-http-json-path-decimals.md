@@ -12,6 +12,7 @@ its fraction. A path that is missing from the body, holds `null`, a string, an
 array or an object - or a body that is not JSON at all - used to read as `0`:
 `warn=qlen < 5` fired on it and a `0` was plotted. It now matches no numeric
 comparison and emits no metric; it still renders (and compares as a string) as
-its text, so `st = 'degraded'` works as before. If you relied on a missing value
-counting as `0` (for example `crit=qlen < 1` to catch a vanished field), test
-for the empty text instead: `crit=qlen = ''`.
+its text, so `st = 'degraded'` works as before, and a missing or `null` path
+renders as `missing`. If you relied on a missing value counting as `0` (for
+example `crit=qlen < 1` to catch a vanished field), test for it instead:
+`crit=qlen = 'missing'`.

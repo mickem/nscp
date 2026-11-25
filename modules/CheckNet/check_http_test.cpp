@@ -258,10 +258,11 @@ TEST(CheckHttp, JsonPathMissingValueHasNoValue) {
   const outcome r = run(&check_net::check_http, {"url=" + base(server) + "/q", "json-path=qlen:data.queue.length", "warning=qlen < 5", "critical=qlen > 100",
                                                  "detail-syntax=qlen='${qlen}'"});
   EXPECT_EQ(PB::Common::ResultCode::OK, r.code) << r.message;
+  EXPECT_TRUE(contains(r.message, "qlen='missing'")) << r.message;
   EXPECT_EQ(0u, r.perf_values.count("qlen")) << r.perf;
-  // Its text is empty, which is how a vanished field is caught.
+  // It renders as "missing", which is how a vanished field is caught.
   scripted_server again(http_reply(http_response(200, R"({"data":{}})")));
-  const outcome gone = run(&check_net::check_http, {"url=" + base(again) + "/q", "json-path=qlen:data.queue.length", "critical=qlen = ''"});
+  const outcome gone = run(&check_net::check_http, {"url=" + base(again) + "/q", "json-path=qlen:data.queue.length", "critical=qlen = 'missing'"});
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, gone.code) << gone.message;
 }
 

@@ -46,9 +46,12 @@ struct filter_obj {
     if (it == json_numbers.end()) return boost::none;
     return it->second;
   }
+  // The text a json-path alias renders and compares as: the extracted value,
+  // or "missing" when the path is missing or null (or the body is not JSON),
+  // so `alias = 'missing'` catches a field that has disappeared.
   std::string get_json_string(const std::string &alias) const {
     const auto it = json_strings.find(alias);
-    return it != json_strings.end() ? it->second : "";
+    return it != json_strings.end() ? it->second : "missing";
   }
 
   std::string get_url() const { return url; }

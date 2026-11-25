@@ -277,6 +277,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
     ("json-path", po::value<std::vector<std::string> >(&json_paths_raw),
         "Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). "
         "Numeric segments index arrays; single-quote a segment containing a dot. "
+        "A path missing from the response renders as 'missing' and matches no numeric threshold; test for it with alias = 'missing'. "
         "Example: --json-path qlen:data.queue.length \"crit=qlen > 100\".")
     ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
     ;
@@ -324,9 +325,10 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   // (`qlen > 100`) must not truncate 100.5 to 100 - and string comparisons on
   // the raw text. A path that is missing, null or not a number has no value:
   // it matches no numeric comparison and emits no metric, but still renders
-  // (and compares as a string) as its text. Each numeric alias also becomes a
-  // perfdata metric. Must happen before build_filter parses the warn/crit
-  // expressions that reference these aliases.
+  // (and compares as a string) as its text - "missing" when the path is
+  // absent. Each numeric alias also becomes a perfdata metric. Must happen
+  // before build_filter parses the warn/crit expressions that reference these
+  // aliases.
   for (const auto &ap : opt.json_paths) {
     const std::string alias = ap.first;
     f.context->registry_
