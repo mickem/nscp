@@ -1,0 +1,4 @@
+linux:
+- source: '`/proc/mounts` (fallback `/etc/mtab`) via `getmntent`'
+  provides: mount point, device, fstype, options
+  privilege: none

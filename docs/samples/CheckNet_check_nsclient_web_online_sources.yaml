@@ -1,0 +1,8 @@
+all:
+- source: HTTPS request to a remote NSClient++ REST API (`/api/v1/info`, or `/api/v1/queries/<command>/commands/execute`)
+  provides: reachability, or the remote check's result
+  privilege: none
+  requires:
+  - Remote NSClient++ with the web server enabled and reachable
+  - The remote agent's API password or user credentials
+  - OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca=` overrides)

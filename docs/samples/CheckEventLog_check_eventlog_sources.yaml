@@ -1,0 +1,11 @@
+windows:
+- source: Windows Event Log API (`EvtQuery`/`EvtNext`/`EvtRender`, `EvtFormatMessage`)
+  provides: events of the channels named in `file=`
+  privilege: conditional
+  note: 'Depends on the channel: Application and System are readable without elevation, the Security channel needs Administrator/LocalSystem (`SeSecurityPrivilege`). Channels are also held against `log access` in `[/settings/eventlog]`.'
+  without: 'The check fails with "Failed to open <channel>: <error>" (or "Channel <channel> not found").'
+  requires:
+  - Windows Event Log (`EventLog`) service
+- source: Legacy `OpenEventLog`/`ReadEventLog`
+  provides: events, when the Vista+ `wevtapi` functions are unavailable
+  without: '"Could not open the ''<log>'' event log: <error>"'

@@ -1,0 +1,6 @@
+all:
+- source: HTTP GET of the PHP-FPM pool status page (default `http://127.0.0.1/status`)
+  provides: pool process and queue keywords
+  privilege: none
+  requires:
+  - '`pm.status_path` enabled in the pool and routed by the web server'

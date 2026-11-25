@@ -1,0 +1,17 @@
+windows:
+- source: 'NTFS Master File Table: raw volume handle (`CreateFileW` on `\\?\Volume{...}`) and `FSCTL_GET_NTFS_VOLUME_DATA`'
+  provides: file and folder sizes with `method=auto` (default) or `method=mft`
+  privilege: elevated
+  note: Only for a folder on a local NTFS volume; the legacy XP build has no MFT reader.
+  without: '`auto` falls back to the directory walk; `method=mft` fails with "Unable to read the MFT for <path>: ..." (opening the volume "needs administrator rights").'
+- source: Directory walk with `FindFirstFileEx`
+  provides: file and folder sizes on ReFS/FAT/exFAT, network shares, unelevated runs, or `method=walk`
+  privilege: conditional
+  note: Needs list access to the folders walked. Name-surrogate reparse points (links, junctions) are not followed. Paths are also held against `file access` in `[/settings/disk]`.
+  without: '"Unable to read folder <path>: <error>" when the root cannot be opened.'
+linux:
+- source: Directory walk with `fts(3)` (`FTS_PHYSICAL`, `FTS_XDEV`)
+  provides: file and folder sizes
+  privilege: conditional
+  note: Needs search and list access to the folders walked; stays on the root's filesystem and does not follow symbolic links. Paths are also held against `file access` in `[/settings/disk]`.
+  without: '"Unable to read folder <path>: <error>" when the root cannot be read.'

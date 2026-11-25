@@ -1,0 +1,26 @@
+windows:
+- source: '`FindFirstFile` on the named file'
+  provides: name, path, size, times, attributes
+  privilege: conditional
+  note: Needs access to the file's folder for the agent's account. Paths are also held against `file access` in `[/settings/disk]`.
+  without: '"File not found: <path>" (or OK with `ignore-missing=true`).'
+- source: File contents (`fopen`)
+  provides: line_count, md5/sha1/sha256/sha384/sha512 checksums
+  privilege: conditional
+  note: Needs read access to the file; only read when one of these keywords is used.
+  requires:
+  - OpenSSL in the build for the checksum keywords (they are empty otherwise)
+- source: '`GetFileVersionInfo`'
+  provides: version
+linux:
+- source: '`stat` on the named file (follows a symbolic link)'
+  provides: name, path, size, times
+  privilege: conditional
+  note: Needs search access to the file's folders for the agent's account. Paths are also held against `file access` in `[/settings/disk]`.
+  without: '"File not found: <path>" (or OK with `ignore-missing=true`).'
+- source: File contents (`fopen`)
+  provides: line_count, md5/sha1/sha256/sha384/sha512 checksums
+  privilege: conditional
+  note: Needs read access to the file; only read when one of these keywords is used. `version` is always empty on Linux.
+  requires:
+  - OpenSSL in the build for the checksum keywords (they are empty otherwise)

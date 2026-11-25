@@ -1,0 +1,11 @@
+all:
+- source: RADIUS Status-Server or Access-Request over UDP to `host` (default port 1812)
+  provides: result, reply, time
+  privilege: none
+  requires:
+  - Network reachability of the RADIUS server
+  - The agent registered as a RADIUS client with the shared secret
+- source: '`secret-file` and `password-file` on local disk'
+  provides: shared secret and test password
+  privilege: conditional
+  note: The agent's account must be able to read both files.

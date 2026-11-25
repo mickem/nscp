@@ -1,0 +1,7 @@
+all:
+- source: HTTP GET of the Tomcat manager status page, XML (default `http://127.0.0.1:8080/manager/status`)
+  provides: JVM memory, connector thread and request keywords
+  privilege: none
+  requires:
+  - Tomcat manager application deployed
+  - An account with the `manager-status` (or `manager-gui`) role

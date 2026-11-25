@@ -1,0 +1,11 @@
+windows:
+- source: IP Helper API `GetExtendedTcpTable` / `GetExtendedUdpTable` (IPv4 and IPv6)
+  provides: connection counts per protocol and TCP state
+  privilege: none
+  without: '"Failed to enumerate connections via iphlpapi"'
+linux:
+- source: '`/proc/net/tcp`, `/proc/net/tcp6`, `/proc/net/udp`, `/proc/net/udp6`'
+  provides: connection counts per protocol and TCP state
+  privilege: none
+  note: Counts the agent's own network namespace.
+  without: '"Failed to read /proc/net/{tcp,tcp6,udp,udp6}" when all four are empty or unreadable.'

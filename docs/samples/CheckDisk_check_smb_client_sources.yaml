@@ -1,0 +1,6 @@
+windows:
+- source: PDH counter set `SMB Client Shares`, sampled twice one second apart
+  provides: per-share latency, credit stalls, queue length, request rates
+  without: 'UNKNOWN: "The SMB Client Shares performance counters are not available - they need Windows 8 / Windows Server 2012 or later (...)"'
+  requires:
+  - Windows 8 / Windows Server 2012 or later

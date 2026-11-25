@@ -1,0 +1,11 @@
+windows:
+- source: Task Scheduler 2.0 COM API (`ITaskService::Connect`, `ITaskFolder::GetTasks`)
+  provides: tasks of `folder=` with their status, last/next run time and exit code
+  privilege: conditional
+  note: Only tasks and folders the agent's account may read are returned; LocalSystem sees them all. `computer=` connects to a remote Task Scheduler.
+  without: '"Failed to connect to task service on <computer>: <error>" or "Failed to get root folder <folder>: <error>"'
+  requires:
+  - Task Scheduler (`Schedule`) service
+  - RPC reachability of the remote host when `computer=` is used
+- source: Legacy Task Scheduler 1.0 COM API (`ITaskScheduler`)
+  provides: tasks, when `force-old=true` or the 2.0 API class is not registered
