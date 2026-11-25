@@ -1,0 +1,7 @@
+windows:
+  - source: 'PDH counter object `DHCP Server` (Packets Received/sec, Duplicates Dropped/sec, Packets Expired/sec, Discovers/sec, Offers/sec, Requests/sec, Informs/sec, Acks/sec, Nacks/sec, Declines/sec, Releases/sec, Active Queue Length, Conflict Check Queue Length)'
+    provides: packets_received, duplicates_dropped, packets_expired, discovers, offers, requests, informs, acks, nacks, declines, releases, active_queue, conflict_queue
+    note: 'Sampled twice, one second apart, so the per-second rates carry real values. A counter this Windows version does not have reads 0, as long as one counter of the object resolves.'
+    requires:
+      - DHCP Server role (it installs the counter object)
+    without: 'UNKNOWN "DHCP Server performance counters are not available - is the DHCP Server role installed on this host? (...)"'
