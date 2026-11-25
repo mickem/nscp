@@ -72,8 +72,9 @@ still sets `result` (below), which is what alerts on it.
 The alias must start with a letter and use only letters, digits and
 underscores. The words of the filter language (`and`, `or`, `not`, `in`,
 `like`, `regexp`, `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `str`), the keywords
-`check_jvm` already has and the generic summary names (`count`, `list`, `lines`, `status`, ...) are
-refused.
+`check_jvm` already has and the generic summary names (`count`, `list`,
+`lines`, `status`, ...) are refused; a name that merely contains one of those
+words (`notice`, `order`) is fine.
 
 A `/` inside the MBean name is written `!/` (Jolokia's own escape), so
 Tomcat's `Catalina:type=Manager,host=localhost,context=/app` becomes

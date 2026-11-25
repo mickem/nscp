@@ -2346,6 +2346,18 @@ describe("CheckNet commands", () => {
     expect(Object.keys(perfOf(q))).not.toContain("127.0.0.1_hits");
   });
 
+  it("check_jvm accepts an alias that starts with a filter word", async () => {
+    // `notice` used to parse as `not ice`; it is an ordinary keyword now.
+    const s = await startJolokia();
+    const q = await executeQuery(key, "check_jvm", {
+      url: `http://127.0.0.1:${s.port}/jolokia/`,
+      attribute: "notice=java.lang:type=OperatingSystem/ProcessCpuLoad",
+      warning: "notice > 0.5",
+    });
+    expect(q.result).toBe(WARNING);
+    expect(perfValue(q, "127.0.0.1_notice")).toBeCloseTo(0.73, 3);
+  });
+
   it("check_jvm compares a string attribute as text", async () => {
     const s = await startJolokia();
     const url = `http://127.0.0.1:${s.port}/jolokia/`;
@@ -2442,11 +2454,13 @@ describe("CheckNet commands", () => {
       expect(q.result).toBe(UNKNOWN);
       expect(messageOf(q)).toMatch(/generic summary name/);
     }
-    // A filter-language word is refused by name, rather than failing later in
-    // an anonymous expression error.
-    q = await executeQuery(key, "check_jvm", { url, attribute: "in=java.lang:type=Threading/ThreadCount" });
-    expect(q.result).toBe(UNKNOWN);
-    expect(messageOf(q)).toMatch(/alias in is a word of the filter language/);
+    // A filter-language word is refused by name, rather than failing later
+    // in an anonymous expression error.
+    for (const alias of ["in", "AND"]) {
+      q = await executeQuery(key, "check_jvm", { url, attribute: `${alias}=java.lang:type=Threading/ThreadCount` });
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(new RegExp(`alias ${alias} is a word of the filter language`));
+    }
   });
 
   it("status-page checks report invalid_url for a malformed port instead of throwing", async () => {

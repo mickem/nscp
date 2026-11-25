@@ -178,3 +178,12 @@ TEST_F(CheckNetModule, WebServerStatusChecksAreDispatched) {
     EXPECT_NE(message_of(*r).find("no-such-option"), std::string::npos) << message_of(*r);
   }
 }
+
+// check_jvm validates its attribute= aliases before the fetch, so a refused
+// alias shows the dispatch without a request being sent.
+TEST_F(CheckNetModule, CheckJvmIsDispatched) {
+  response_type r;
+  module_.check_jvm(make_request("check_jvm", {"attribute=in=java.lang:type=Threading/ThreadCount"}), &r);
+  EXPECT_EQ(r.result(), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(message_of(r).find("Invalid attribute: alias in"), std::string::npos) << message_of(r);
+}

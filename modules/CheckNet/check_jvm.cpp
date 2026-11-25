@@ -167,7 +167,7 @@ void check_jvm(const std::string &default_ca_file, const PB::Commands::QueryRequ
     reads.push_back(r);
   }
 
-  // Each alias becomes an optional number on this check's own handler:
+  // Each alias becomes an optional decimal on this check's own handler:
   // numeric comparisons use the value with its decimals and are false when
   // the attribute was not read or is not a number, string comparisons and
   // rendering use the raw value ("unread" when there is none), and a numeric
