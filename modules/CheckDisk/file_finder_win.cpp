@@ -113,7 +113,9 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     }
     return;
   }
-  std::string file_pattern = dir.string() + "\\" + context.pattern;
+  // Joined without doubling a separator the folder already ends in: `\` and
+  // a pattern must not become `\\pattern`, which names a server.
+  std::string file_pattern = safe_file::join_mask(dir.string(), context.pattern);
   HANDLE hFind = FindFirstFile(utf8::cvt<std::wstring>(file_pattern).c_str(), &wfd);
   if (hFind != INVALID_HANDLE_VALUE) {
     do {
@@ -133,7 +135,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     } while (FindNextFile(hFind, &wfd));
     FindClose(hFind);
   }
-  std::string dir_pattern = dir.string() + "\\*.*";
+  std::string dir_pattern = safe_file::join_mask(dir.string(), "*.*");
   // if (context.debug) context.report_debug("File pattern: " + dir_pattern);
   hFind = FindFirstFile(utf8::cvt<std::wstring>(dir_pattern).c_str(), &wfd);
   if (hFind != INVALID_HANDLE_VALUE) {

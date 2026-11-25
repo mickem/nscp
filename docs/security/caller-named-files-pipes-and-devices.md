@@ -87,6 +87,13 @@ remote hosts = fs01, fs02.example.com
 `[/settings/disk/files]` is the operator's own and is always used. See
 [Restricting what a check may read](../concepts/check-access.md#which-servers-a-caller-may-name).
 
+`check_files` appends its `pattern` to the folder it scans, and outside the
+restricted modes a pattern may carry separators. The joined search string is
+now held to the root that was checked: a pattern which would turn the root
+into another server, another share or a device (`path=\ pattern=\server\share\*`)
+is refused with `Refusing pattern …`, and a root ending in a separator is no
+longer joined with a second one.
+
 The `allowed` mode of `file access` refuses device names before it resolves
 them. `check_files`, `check_single_file` and `check_largest_files` refuse such
 a path as they would a missing one, and `check_disk_write` refuses it outright.

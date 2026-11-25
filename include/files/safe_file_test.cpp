@@ -352,6 +352,29 @@ TEST(DevicePath, UncShareRootIsTheShareWithATrailingSeparator) {
   EXPECT_FALSE(safe_file::unc_share_root("C:\\logs\\app.log", root));
 }
 
+// check_files appends its pattern to the folder it scans. A pattern with
+// separators can make the two join to a place the folder was never checked
+// for.
+TEST(DevicePath, AMaskThatJoinsToAnotherServerShareOrDeviceLeavesTheRoot) {
+  const struct {
+    const char *root;
+    const char *mask;
+  } leaves[] = {{"\\", "\\evil\\share\\*"},       {"/", "/evil/share/*"}, {"", "\\evil\\share\\*"}, {"\\", "\\.\\pipe\\x"}, {"\\", "\\localhost\\IPC$\\x"},
+                {"\\", "\\?\\C:"},                 {"\\\\fs01", "other\\*"}, {"C:\\logs", "nul"},     {"\\\\fs01\\", "IPC$\\x"}};
+  for (const auto &c : leaves) EXPECT_TRUE(safe_file::mask_leaves_root(c.root, c.mask)) << c.root << " + " << c.mask;
+  const struct {
+    const char *root;
+    const char *mask;
+  } stays[] = {{"C:\\logs", "*.*"},       {"C:\\logs", "*.log"},          {"C:\\logs", "sub\\*.log"}, {"C:\\", "*.*"}, {"C:", "*.log"},
+               {"\\\\fs01\\logs", "*.log"}, {"\\\\FS01\\Logs\\app", "sub\\*"}, {"//fs01/logs/", "*.*"},   {"\\", "*.log"}, {"\\logs", "*.log"},
+               // The root of the current drive and a sub-path stay on that drive.
+               {"\\", "evil\\share\\*"},      {"/", "evil/share/*"},            {"C:\\", "evil\\share\\*"}};
+  EXPECT_EQ("\\evil\\share\\*", safe_file::join_mask("\\", "evil\\share\\*"));
+  EXPECT_EQ("C:\\logs\\*.log", safe_file::join_mask("C:\\logs", "*.log"));
+  EXPECT_EQ("C:/logs/*.log", safe_file::join_mask("C:/logs/", "*.log"));
+  for (const auto &c : stays) EXPECT_FALSE(safe_file::mask_leaves_root(c.root, c.mask)) << c.root << " + " << c.mask;
+}
+
 TEST(DevicePath, DosDeviceNamesAreDevicesInAnyDirectory) {
   for (const char *p :
        {"CON", "con.txt", "C:\\logs\\nul", "C:\\logs\\COM1.log", "C:\\logs\\lpt9", "C:\\logs\\CONIN$", "C:\\logs\\aux .txt", "C:nul", "\\\\?\\C:\\logs\\con"}) {

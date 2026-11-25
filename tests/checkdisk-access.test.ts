@@ -17,7 +17,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { NscpInstance, itOnUnix, describeWithModules } from "@fixtures/index";
+import { NscpInstance, itOnUnix, itOnWindows, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -274,6 +274,38 @@ describeWithModules("CheckDisk")("CheckDisk file access modes", () => {
       expect(code).toBe(UNKNOWN);
       expect(out).toMatch(/expected any, allowed or predefined/);
       await setAccess("any");
+    });
+  });
+
+  // --- the pattern cannot carry the scan to another server or a device --------
+  //
+  // The Windows scanner appends `pattern` to the folder it walks. In `any`
+  // mode a pattern may carry separators, so the joined search string - not
+  // only the root - has to stay on the root that was checked: `\` joined with
+  // `\server\share\*` is a share on a server 'remote hosts' never saw.
+  describe("pattern joined to the root", () => {
+    afterAll(() => setAccess("any"));
+
+    itOnWindows("refuses a pattern which turns the root into another server or a pipe", async () => {
+      await nscp.configure({
+        "/settings/disk": { "file access": "any", "allowed files": "-", "remote hosts": "none" },
+      });
+      for (const pattern of ["\\nscp-it-evil\\share\\*", "/nscp-it-evil/share/*", "\\.\\pipe\\*", "\\localhost\\IPC$\\x"]) {
+        const { out, code } = await query("check_files", ["path=\\", `pattern=${pattern}`]);
+        expect(code).toBe(UNKNOWN);
+        expect(out).toMatch(/Refusing pattern/);
+      }
+      // A UNC root is still held against 'remote hosts' itself.
+      const direct = await query("check_files", ["path=\\\\nscp-it-evil\\share", "pattern=*"]);
+      expect(direct.code).toBe(UNKNOWN);
+      expect(direct.out).toMatch(/is not in 'remote hosts'/);
+      await nscp.configure({ "/settings/disk": { "remote hosts": "*" } });
+    });
+
+    itOnWindows("still scans a sub-folder named in the pattern", async () => {
+      await setAccess("any");
+      const { out } = await query("check_files", [`path=${allowedDir}`, "pattern=sub\\*.*", "empty-state=ok"]);
+      expect(out).not.toMatch(/Refusing pattern/);
     });
   });
 });
