@@ -208,6 +208,11 @@ void note_error(jvm_status &out, const std::string &error) {
   if (out.error.empty() && !error.empty()) out.error = error;
 }
 
+void note_platform_error(jvm_status &out, const std::string &error) {
+  note_error(out, error);
+  if (out.platform_error.empty() && !error.empty()) out.platform_error = error;
+}
+
 }  // namespace
 
 bool parse_read_spec(const std::string &spec, jvm_read &out, std::string &error) {
@@ -288,7 +293,7 @@ bool parse_bulk_response(const std::string &body, const std::vector<jvm_read> &c
   const json::object &classes = entries[3].as_object();
   const json::object &gc = entries[4].as_object();
 
-  note_error(out, entry_error(memory));
+  note_platform_error(out, entry_error(memory));
   if (const json::object *value = as_obj(memory.if_contains("value"))) {
     const json::object *heap = as_obj(value->if_contains("HeapMemoryUsage"));
     out.heap_used = count_ll(heap, "used");
@@ -299,14 +304,14 @@ bool parse_bulk_response(const std::string &body, const std::vector<jvm_read> &c
     out.nonheap_committed = count_ll(nonheap, "committed");
   }
 
-  note_error(out, entry_error(threading));
+  note_platform_error(out, entry_error(threading));
   if (const json::object *value = as_obj(threading.if_contains("value"))) {
     out.threads = count_ll(value, "ThreadCount");
     out.daemon_threads = count_ll(value, "DaemonThreadCount");
     out.peak_threads = count_ll(value, "PeakThreadCount");
   }
 
-  note_error(out, entry_error(runtime));
+  note_platform_error(out, entry_error(runtime));
   if (const json::object *value = as_obj(runtime.if_contains("value"))) {
     out.uptime_ms = count_ll(value, "Uptime");
     out.vm_name = field_str(value, "VmName");
@@ -315,12 +320,12 @@ bool parse_bulk_response(const std::string &body, const std::vector<jvm_read> &c
     out.spec_version = field_str(value, "SpecVersion");
   }
 
-  note_error(out, entry_error(classes));
+  note_platform_error(out, entry_error(classes));
   if (const json::object *value = as_obj(classes.if_contains("value"))) out.loaded_classes = count_ll(value, "LoadedClassCount");
 
   // A wildcard read answers with an object keyed by each matching MBean's
   // canonical name ("java.lang:name=G1 Young Generation,type=GarbageCollector").
-  note_error(out, entry_error(gc));
+  note_platform_error(out, entry_error(gc));
   if (const json::object *value = as_obj(gc.if_contains("value"))) {
     for (const auto &kv : *value) {
       const std::string mbean(kv.key());

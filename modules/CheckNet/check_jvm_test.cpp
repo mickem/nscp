@@ -106,6 +106,8 @@ TEST(CheckJvmParse, AFailedReadIsReportedWithTheOthersIntact) {
   jvm_status s;
   ASSERT_TRUE(parse_bulk_response(body, {}, s));
   EXPECT_EQ(s.error, "java.lang:type=Threading: java.lang.SecurityException : Reading attribute ThreadCount is forbidden");
+  // A platform read: the check has no JVM state to report and goes UNKNOWN.
+  EXPECT_EQ(s.platform_error, s.error);
   EXPECT_EQ(s.threads, 0);
   EXPECT_EQ(s.heap_used, 104857600);
 }
@@ -133,6 +135,8 @@ TEST(CheckJvmParse, ReadsCustomAttributes) {
   EXPECT_EQ(s.custom["usage"].text, R"({"used":5,"max":10})");
   EXPECT_EQ(s.custom.count("missing"), 0u);
   EXPECT_EQ(s.error.rfind("missing: Catalina:type=Manager,context=/nope,host=localhost: javax.management.InstanceNotFoundException", 0), 0u) << s.error;
+  // A custom attribute: the platform values are intact, so it is no platform error.
+  EXPECT_EQ(s.platform_error, "");
 }
 
 TEST(CheckJvmParse, OutOfRangeValuesSaturateInsteadOfOverflowing) {

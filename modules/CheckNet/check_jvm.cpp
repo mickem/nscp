@@ -192,24 +192,24 @@ void check_jvm(const std::string &default_ca_file, const PB::Commands::QueryRequ
   // with its own status, so one missing MBean does not hide the others.
   opt.post_body = check_jvm_internal::build_bulk_request(reads);
   const fetch_result r = fetch_status_page(url, opt);
-  // No HTTP response at all (connection refused, timeout, DNS failure, or a
-  // URL that could not be parsed): there is no JVM state to report, so the
-  // check is UNKNOWN with no perfdata rather than a record of zeros. An HTTP
-  // error or a Jolokia error means the server answered; those stay records,
-  // with `result` set, for the thresholds to judge.
-  if (r.code == 0) return nscapi::protobuf::functions::set_response_bad(*response, url + ": " + r.result);
+  // No JVM state to report means UNKNOWN with no perfdata, never a record of
+  // stand-in zeros: a gc_count that drops to 0 graphs as a counter reset, and
+  // a "below" threshold such as `threads < 5` would fire on it. That covers
+  // no HTTP response at all (connection refused, timeout, DNS failure, a URL
+  // that could not be parsed), an HTTP error (http_401), a body that is not
+  // Jolokia (parse_error), a top-level Jolokia error, and a failed platform
+  // read. Only a failed custom attribute= read, with the platform reads
+  // intact, is still a record: its `result` carries the error for the
+  // thresholds, and the unread attribute itself is not graphed.
+  const auto unknown = [&](const std::string &why) { nscapi::protobuf::functions::set_response_bad(*response, url + ": " + why); };
+  if (r.result != "ok") return unknown(r.result);
+  const std::string agent_error = check_jvm_internal::top_level_error(r.body);
+  if (!agent_error.empty()) return unknown("error: " + agent_error);
   auto obj = std::make_shared<filter_obj>();
   fill_status(*obj, url, r);
-  if (obj->result == "ok") {
-    const std::string agent_error = check_jvm_internal::top_level_error(r.body);
-    if (!agent_error.empty()) {
-      obj->result = "error: " + agent_error;
-    } else if (!check_jvm_internal::parse_bulk_response(r.body, reads, obj->s)) {
-      obj->result = "parse_error";
-    } else if (!obj->s.error.empty()) {
-      obj->result = "error: " + obj->s.error;
-    }
-  }
+  if (!check_jvm_internal::parse_bulk_response(r.body, reads, obj->s)) return unknown("parse_error");
+  if (!obj->s.platform_error.empty()) return unknown("error: " + obj->s.platform_error);
+  if (!obj->s.error.empty()) obj->result = "error: " + obj->s.error;
   f.match(obj);
 
   filter_helper.post_process(f);

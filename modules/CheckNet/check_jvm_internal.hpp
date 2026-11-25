@@ -59,6 +59,10 @@ struct jvm_status {
   // The first sub-request Jolokia answered with an error, rendered as
   // "<mbean>: <message>"; empty when every read succeeded.
   std::string error;
+  // The first of the platform reads (memory, threading, runtime, class
+  // loading, garbage collectors) that failed, in the same form; empty when
+  // they all succeeded. Without them the check has no JVM state to report.
+  std::string platform_error;
 
   long long gc_count() const;
   long long gc_time() const;

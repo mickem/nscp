@@ -28,19 +28,29 @@ more than read metrics.
 #### Thresholds
 
 By default the check goes **warning** above 80% heap usage and **critical**
-above 90%, or when the agent answers with an HTTP error or any requested read
-fails (`result != 'ok'`).
+above 90%, or when an `attribute=` read fails (`result != 'ok'`).
 
-When the agent cannot be reached at all - connection refused, a timeout, a
-name that does not resolve, or a URL that cannot be parsed - there is no JVM
-state to judge: the check returns **UNKNOWN** with the error and no
-performance data, whatever the thresholds say.
+When the check gets no JVM data, it returns **UNKNOWN** with the error as the
+message and no performance data, whatever the thresholds say. That is the
+case when:
+
+* the agent cannot be reached: connection refused, a timeout, a name that
+  does not resolve, or a URL that cannot be parsed;
+* the server answers with an HTTP error, such as `http_401` for missing
+  credentials;
+* the answer is not from Jolokia (`parse_error`), or Jolokia refuses the
+  whole request (an access-policy denial);
+* Jolokia cannot answer one of the platform reads (memory, threads, runtime,
+  class loading, garbage collectors).
+
+Reporting stand-in zeros instead would graph a `gc_count` counter dropping
+to 0, which reads as a JVM restart, and fire a "below" threshold such as
+`threads < 5`.
 
 !!! warning "Keep `result != 'ok'` when you set `critical`"
     A `critical=` expression replaces the default one, including its
-    `result != 'ok'`. Leave that out and an agent that answers with an error
-    (`http_401`, `parse_error`, an MBean Jolokia cannot read) no longer
-    alerts: the values then read as 0 or as `unread`, a custom threshold such
+    `result != 'ok'`. Leave that out and an `attribute=` that Jolokia cannot
+    read no longer alerts: the attribute is `unread`, a custom threshold such
     as `old_gen > 157286400` is not met, and the check returns OK. Write your
     own condition next to it:
     `"critical=result != 'ok' or old_gen > 157286400"`.
@@ -80,6 +90,6 @@ A `/` inside the MBean name is written `!/` (Jolokia's own escape), so
 Tomcat's `Catalina:type=Manager,host=localhost,context=/app` becomes
 `context=!/app`. The option can be repeated.
 
-A read that Jolokia cannot answer (a missing MBean, an access-policy denial)
-sets `result` to `error: <alias>: <mbean>: <message>` while the other values
-are still reported.
+An `attribute=` read that Jolokia cannot answer (a missing MBean, an
+access-policy denial) sets `result` to `error: <alias>: <mbean>: <message>`,
+and the platform values are still reported and graphed.

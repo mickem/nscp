@@ -2234,7 +2234,7 @@ describe("CheckNet commands", () => {
     "java.lang:type=OperatingSystem": { ProcessCpuLoad: 0.73, Name: "Linux" },
   };
 
-  function startJolokia(): Promise<Listener & { lastRequest: () => unknown[] | undefined }> {
+  function startJolokia(missing: string[] = []): Promise<Listener & { lastRequest: () => unknown[] | undefined }> {
     let last: unknown[] | undefined;
     return startHttp((req, res) => {
       if (req.method !== "POST") {
@@ -2248,7 +2248,9 @@ describe("CheckNet commands", () => {
         const reads = JSON.parse(body) as { mbean: string; attribute: string | string[] }[];
         last = reads;
         const answers = reads.map((r) => {
-          const bean = JOLOKIA_MBEANS[r.mbean] as Record<string, unknown> | undefined;
+          const bean = missing.includes(r.mbean)
+            ? undefined
+            : (JOLOKIA_MBEANS[r.mbean] as Record<string, unknown> | undefined);
           if (!bean) {
             return {
               request: r,
@@ -2367,6 +2369,19 @@ describe("CheckNet commands", () => {
     expect((await executeQuery(key, "check_jvm", { url, attribute, warning: "os > 0 or os <= 0" })).result).toBe(OK);
   });
 
+  it("check_jvm is UNKNOWN with no perfdata when a platform read fails", async () => {
+    // Without Threading the record would carry threads=0 and gc_count would
+    // still graph; neither may happen on a read that did not return data.
+    const s = await startJolokia(["java.lang:type=Threading"]);
+    const q = await executeQuery(key, "check_jvm", {
+      url: `http://127.0.0.1:${s.port}/jolokia/`,
+      warning: "threads < 5",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/error: java\.lang:type=Threading: javax\.management\.InstanceNotFoundException/);
+    expect(Object.keys(perfOf(q))).toEqual([]);
+  });
+
   it("check_jvm goes CRITICAL naming the MBean Jolokia could not read", async () => {
     const s = await startJolokia();
     const q = await executeQuery(key, "check_jvm", {
@@ -2377,6 +2392,8 @@ describe("CheckNet commands", () => {
     expect(messageOf(q)).toMatch(
       /error: x: com\.example:type=Missing: javax\.management\.InstanceNotFoundException/,
     );
+    // The platform values were read, so they are still reported and graphed.
+    expect(perfValue(q, "127.0.0.1_threads")).toBe(42);
   });
 
   it("check_jvm is UNKNOWN with no perfdata when the agent cannot be reached", async () => {
@@ -2398,22 +2415,28 @@ describe("CheckNet commands", () => {
     expect(messageOf(q)).toMatch(/invalid_url/);
   });
 
-  it("check_jvm stays CRITICAL when the server answers with an HTTP error", async () => {
-    // Reachable but refusing: that is a result for the thresholds, not UNKNOWN.
+  it("check_jvm is UNKNOWN with no perfdata when the server answers with an HTTP error", async () => {
+    // Reachable but refusing: no JVM values were read, so there is nothing to
+    // judge or graph - not even with a "below" threshold a 0 would meet.
     const s = await startHttp((_req, res) => {
       res.statusCode = 401;
       res.end("unauthorized");
     });
-    const q = await executeQuery(key, "check_jvm", { url: `http://127.0.0.1:${s.port}/jolokia/` });
-    expect(q.result).toBe(CRITICAL);
+    const q = await executeQuery(key, "check_jvm", {
+      url: `http://127.0.0.1:${s.port}/jolokia/`,
+      warning: "threads < 5",
+    });
+    expect(q.result).toBe(UNKNOWN);
     expect(messageOf(q)).toMatch(/http_401/);
+    expect(Object.keys(perfOf(q))).toEqual([]);
   });
 
   it("check_jvm reports parse_error when the endpoint is not Jolokia", async () => {
     const s = await startHttp((_req, res) => res.end("<html>Welcome to Tomcat</html>"));
     const q = await executeQuery(key, "check_jvm", { url: `http://127.0.0.1:${s.port}/jolokia/` });
-    expect(q.result).toBe(CRITICAL);
+    expect(q.result).toBe(UNKNOWN);
     expect(messageOf(q)).toMatch(/parse_error/);
+    expect(Object.keys(perfOf(q))).toEqual([]);
   });
 
   it("check_jvm surfaces a top-level Jolokia error answered with HTTP 200", async () => {
@@ -2429,8 +2452,9 @@ describe("CheckNet commands", () => {
       ),
     );
     const q = await executeQuery(key, "check_jvm", { url: `http://127.0.0.1:${s.port}/jolokia/` });
-    expect(q.result).toBe(CRITICAL);
+    expect(q.result).toBe(UNKNOWN);
     expect(messageOf(q)).toMatch(/error: java\.lang\.Exception : Origin http:\/\/x is not allowed/);
+    expect(Object.keys(perfOf(q))).toEqual([]);
   });
 
   it("check_jvm rejects a malformed or clashing attribute alias", async () => {
