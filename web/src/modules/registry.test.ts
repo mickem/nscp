@@ -109,7 +109,7 @@ describe("module page registry", () => {
 });
 
 describe("module page visibility rules", () => {
-  const ctx = { fields: [], isTemplate: false, showAdvanced: false };
+  const ctx = { fields: [], isTemplate: false };
 
   it("shows a counter's buffer size only for the round-robin strategy", () => {
     const rule = getInstanceCollectionConfig("/settings/system/windows/counters")?.isFieldVisible;
@@ -119,9 +119,9 @@ describe("module page visibility rules", () => {
     expect(rule?.("counter", ctx)).toBeUndefined();
   });
 
-  it("hides a WEB user's alias unless advanced fields are on", () => {
+  it("hides a WEB user's alias on the tailored page", () => {
     const rule = getInstanceCollectionConfig("/settings/WEB/server/users")?.isFieldVisible;
     expect(rule?.("alias", ctx)).toBe(false);
-    expect(rule?.("alias", { ...ctx, showAdvanced: true })).toBeUndefined();
+    expect(rule?.("role", ctx)).toBeUndefined();
   });
 });

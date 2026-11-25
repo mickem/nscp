@@ -42,7 +42,13 @@ function serve(descriptions: SettingsDescription[], stored: Settings[] = []) {
 describe("ModuleSettings", () => {
   it("gives the Linux real-time collections the Windows layout and presets", async () => {
     serve(
-      [collection("/settings/system/unix/real-time/cpu", "Realtime cpu filters", "CheckSystemUnix")],
+      [
+        collection(
+          "/settings/system/unix/real-time/cpu",
+          "Realtime cpu filters",
+          "CheckSystemUnix",
+        ),
+      ],
       [{ path: "/settings/system/unix/real-time/cpu/cpu_high", key: "time", value: "5m" }],
     );
     renderWithProviders(<ModuleSettings settings={[]} moduleId="CheckSystemUnix" />, {
@@ -101,5 +107,71 @@ describe("ModuleSettings", () => {
       preloadedState: authenticatedState,
     });
     expect(await screen.findByText("Real-time filters")).toBeInTheDocument();
+  });
+
+  describe("expert mode", () => {
+    it("leaves out the wizard", async () => {
+      serve([
+        description({
+          path: "/settings/NRPE/server",
+          key: "port",
+          title: "PORT",
+          plugins: ["NRPEServer"],
+        }),
+      ]);
+      renderWithProviders(<ModuleSettings settings={[]} moduleId="NRPEServer" expert />, {
+        preloadedState: authenticatedState,
+      });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(screen.queryByText(/insecure/i)).not.toBeInTheDocument();
+    });
+
+    it("drops the preview column and presets but keeps the collection", async () => {
+      serve(
+        [
+          collection(
+            "/settings/system/unix/real-time/cpu",
+            "Realtime cpu filters",
+            "CheckSystemUnix",
+          ),
+        ],
+        [{ path: "/settings/system/unix/real-time/cpu/cpu_high", key: "time", value: "5m" }],
+      );
+      renderWithProviders(<ModuleSettings settings={[]} moduleId="CheckSystemUnix" expert />, {
+        preloadedState: authenticatedState,
+      });
+      const card = (await screen.findByText("Realtime cpu filters")).closest(".MuiCard-root");
+      expect(await within(card as HTMLElement).findByText("cpu_high")).toBeInTheDocument();
+      expect(within(card as HTMLElement).queryByText("Time")).not.toBeInTheDocument();
+      expect(within(card as HTMLElement).queryByLabelText("add from template")).toBeNull();
+    });
+
+    it("shows a gated collection even while its gate is off", async () => {
+      serve([
+        collection("/settings/eventlog/real-time/filters", "Real-time filters", "CheckEventLog"),
+        description({
+          path: "/settings/eventlog/real-time",
+          key: "enabled",
+          type: "bool",
+          value: "false",
+        }),
+      ]);
+      renderWithProviders(<ModuleSettings settings={[]} moduleId="CheckEventLog" expert />, {
+        preloadedState: authenticatedState,
+      });
+      expect(await screen.findByText("Real-time filters")).toBeInTheDocument();
+    });
+
+    it("still hides a collection whose semantics are not object instances", async () => {
+      serve([
+        collection("/settings/system/windows/real-time/checks", "Legacy checks", "CheckSystem"),
+        collection("/settings/system/windows/real-time/cpu", "Realtime cpu filters", "CheckSystem"),
+      ]);
+      renderWithProviders(<ModuleSettings settings={[]} moduleId="CheckSystem" expert />, {
+        preloadedState: authenticatedState,
+      });
+      expect(await screen.findByText("Realtime cpu filters")).toBeInTheDocument();
+      expect(screen.queryByText("Legacy checks")).not.toBeInTheDocument();
+    });
   });
 });

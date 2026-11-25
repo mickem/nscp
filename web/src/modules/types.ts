@@ -67,7 +67,6 @@ export interface FieldVisibilityContext {
   // The fields of the instance being edited, with their current values.
   fields: SettingsDescription[];
   isTemplate: boolean;
-  showAdvanced: boolean;
 }
 
 // A path-only setting (key === "") whose children are object instances, each
@@ -85,7 +84,8 @@ export interface InstanceCollectionConfig {
   // Widgets for the keys of every instance (the `default` template included).
   fields?: FieldWidgets;
   // Module-specific visibility rule, consulted after the generic ones.
-  // Return undefined to fall through to the generic rules.
+  // Return undefined to fall through to the generic rules. Expert mode skips
+  // it, so a field hidden here is still reachable there.
   isFieldVisible?: (key: string, ctx: FieldVisibilityContext) => boolean | undefined;
 }
 

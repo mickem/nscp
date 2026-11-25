@@ -12,9 +12,12 @@ interface Props {
   settings: SettingsDescription[];
   // Module id — used to find collections owned by this module in the full settings list.
   moduleId: string;
-  // Forwarded to SettingsCollection so advanced fields (debug, perf config…)
-  // appear inside the per-instance editor when the module page toggle is on.
-  showAdvanced?: boolean;
+  // Expert mode: the generic schema-driven form of every key the module owns.
+  // Advanced keys are shown, and the module page's layout (wizard, tabs,
+  // preview columns, presets, visibility rules, gates) is left out, so
+  // nothing the tailored page does not anticipate is out of reach. Widgets
+  // that only change how a value is typed (dropdowns, pickers) still apply.
+  expert?: boolean;
 }
 
 // Collection roots are path-only entries (key === "") explicitly flagged
@@ -37,7 +40,7 @@ function keyValuePathsOf(moduleId: string): string[] {
     .map(([path]) => path);
 }
 
-export default function ModuleSettings({ settings, moduleId, showAdvanced = false }: Props) {
+export default function ModuleSettings({ settings, moduleId, expert = false }: Props) {
   const { data: allDescriptions } = useGetSettingsDescriptionsQuery();
 
   const collectionRoots = useMemo(
@@ -56,9 +59,10 @@ export default function ModuleSettings({ settings, moduleId, showAdvanced = fals
 
   // Apply the module page's gates: a gated collection only renders when its
   // gate setting is on. Hidden collections are still excluded from the flat list (their
-  // child keys aren't relevant when the parent is off either).
+  // child keys aren't relevant when the parent is off either). Expert mode
+  // shows every collection.
   const visibleCollectionPaths = useMemo(() => {
-    if (!allDescriptions) return collectionPaths;
+    if (!allDescriptions || expert) return collectionPaths;
     return collectionPaths.filter((p) => {
       const config = getCollectionConfig(p);
       const gate = config?.kind === "instances" ? config.gate : undefined;
@@ -68,7 +72,7 @@ export default function ModuleSettings({ settings, moduleId, showAdvanced = fals
       );
       return isBoolTrue(entry?.value || entry?.default_value);
     });
-  }, [collectionPaths, allDescriptions]);
+  }, [collectionPaths, allDescriptions, expert]);
 
   // Drop collection-related entries from the flat list so they don't render twice.
   const flatSettings = useMemo(() => {
@@ -86,7 +90,7 @@ export default function ModuleSettings({ settings, moduleId, showAdvanced = fals
   // section-header entries (key === "") alone would render an empty card.
   const hasFlatKeys = flatSettings.some((s) => s.key !== "");
 
-  const Wizard = getModulePage(moduleId)?.Wizard;
+  const Wizard = expert ? undefined : getModulePage(moduleId)?.Wizard;
 
   if (
     !Wizard &&
@@ -106,7 +110,7 @@ export default function ModuleSettings({ settings, moduleId, showAdvanced = fals
           key={path}
           collectionPath={path}
           settings={allDescriptions ?? []}
-          showAdvanced={showAdvanced}
+          expert={expert}
         />
       ))}
       {kvPaths.map((path) => (
@@ -114,6 +118,7 @@ export default function ModuleSettings({ settings, moduleId, showAdvanced = fals
           key={path}
           collectionPath={path}
           descriptions={allDescriptions ?? []}
+          expert={expert}
         />
       ))}
     </Stack>

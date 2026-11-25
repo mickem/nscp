@@ -11,9 +11,8 @@ const WEBServer: ModulePage = {
       kind: "instances",
       fields: { role: { kind: "role" } },
       // `alias` is an advanced authentication mechanism — keep it out of the
-      // way unless the user has opted into advanced fields.
-      isFieldVisible: (key, { showAdvanced }) =>
-        key === "alias" && !showAdvanced ? false : undefined,
+      // way on the tailored page; expert mode shows it.
+      isFieldVisible: (key) => (key === "alias" ? false : undefined),
     },
   },
 };

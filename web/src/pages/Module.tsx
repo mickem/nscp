@@ -33,6 +33,11 @@ import ModuleSettings from "../components/ModuleSettings.tsx";
 import NscpAlert from "../components/atoms/NscpAlert.tsx";
 import Trail from "../components/atoms/Trail.tsx";
 import ExperimentalChip, { EXPERIMENTAL_TOOLTIP } from "../components/atoms/ExperimentalChip.tsx";
+import { getModulePage } from "../modules/registry.ts";
+
+const EXPERT_TOOLTIP =
+  "Show every setting the module registers, advanced ones included, as the schema describes it, " +
+  "without the tailored layout.";
 
 export default function Module() {
   const { id = "" } = useParams();
@@ -47,7 +52,12 @@ export default function Module() {
   const [enableModule] = useEnableModuleMutation();
   const [disableModule] = useDisableModuleMutation();
   const [busy, setBusy] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  // Expert mode is chosen per module: on by default only for a module that
+  // has no tailored page, where the generic form is all there is.
+  const hasPage = getModulePage(id) !== undefined;
+  const [expertByModule, setExpertByModule] = useState<Record<string, boolean>>({});
+  const expert = expertByModule[id] ?? !hasPage;
+  const setExpert = (on: boolean) => setExpertByModule((m) => ({ ...m, [id]: on }));
   const hideDefaults = useAppSelector((state) => state.dashboard.hideDefaults);
 
   const isFetching =
@@ -65,7 +75,7 @@ export default function Module() {
   const relevantSettings =
     settings?.filter(
       (setting) =>
-        (showAdvanced || !setting.is_advanced_key) &&
+        (expert || !setting.is_advanced_key) &&
         !setting.is_sample_key &&
         !setting.is_template_key,
     ) || [];
@@ -121,16 +131,14 @@ export default function Module() {
       <Toolbar>
         <Trail trail={[{ link: "/modules", title: "Modules" }]} title={module?.title || id} />
         <Spacing />
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={showAdvanced}
-              onChange={(e) => setShowAdvanced(e.target.checked)}
-            />
-          }
-          label="Show advanced"
-        />
+        <Tooltip title={EXPERT_TOOLTIP} arrow describeChild>
+          <FormControlLabel
+            control={
+              <Switch size="small" checked={expert} onChange={(e) => setExpert(e.target.checked)} />
+            }
+            label="Expert mode"
+          />
+        </Tooltip>
         <FormControlLabel
           control={
             <Switch
@@ -243,7 +251,21 @@ export default function Module() {
           </CardContent>
         </Card>
       )}
-      <ModuleSettings settings={mySettings} moduleId={id} showAdvanced={showAdvanced} />
+      {module?.loaded && expert && hasPage && (
+        <NscpAlert
+          severity="info"
+          text="Expert mode: every setting this module registers, advanced ones included, without the tailored layout."
+          actionTitle="Back to the tailored page"
+          onClick={() => setExpert(false)}
+        />
+      )}
+      {module?.loaded && expert && !hasPage && (
+        <NscpAlert
+          severity="info"
+          text="This module has no tailored settings page yet, so every setting it registers is shown as the schema describes it, advanced ones included."
+        />
+      )}
+      <ModuleSettings settings={mySettings} moduleId={id} expert={expert} />
     </Stack>
   );
 }
