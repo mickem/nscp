@@ -401,16 +401,27 @@ void hardware_info::recompute() {
   modules = static_cast<long long>(module_details.size());
   long long total = 0;
   long long slowest = 0;
+  // A sum is only the installed memory when every populated module says how
+  // large it is; one module of unknown size (0xFFFF) makes it a partial read.
+  bool sizes_known = !module_details.empty();
   module_list.clear();
   for (const memory_module &m : module_details) {
-    total += m.capacity;
+    if (m.capacity > 0) {
+      total += m.capacity;
+    } else {
+      sizes_known = false;
+    }
     if (m.speed > 0 && (slowest == 0 || m.speed < slowest)) slowest = m.speed;
     if (!module_list.empty()) module_list += "; ";
     module_list += m.locator.empty() ? "?" : m.locator;
-    module_list += ": " + str::format::format_byte_units(m.capacity);
+    module_list += ": " + (m.capacity > 0 ? str::format::format_byte_units(m.capacity) : std::string("unknown"));
     if (m.speed > 0) module_list += "@" + str::xtos(m.speed) + "MHz";
   }
-  memory = total;
+  if (sizes_known) {
+    memory = total;
+  } else {
+    memory = boost::none;
+  }
   if (slowest > 0) {
     memory_speed = slowest;
   } else {
@@ -497,8 +508,14 @@ hardware_info gather_hardware_from(const std::string &root) {
     boost::optional<smbios_entry_point> ep;
     if (read_bounded(tables + "/smbios_entry_point", kMaxEntryPointBytes, ep_bytes, nullptr)) ep = parse_smbios_entry_point(ep_bytes);
     const smbios_inventory inv = parse_smbios_table(table, ep);
-    if (inv.truncated) add_error(out.gather_errors, "SMBIOS table: malformed or truncated after " + str::xtos(inv.structures) + " structure(s)");
-    if (inv.structures > 0) {
+    if (inv.truncated) {
+      // What was walked before the damage is a partial inventory: a module
+      // count that is short by the DIMMs behind it would trip `modules < 8`
+      // on a healthy host. Refuse the whole read instead.
+      const std::string what = "SMBIOS table is malformed or truncated after " + str::xtos(inv.structures) + " structure(s)";
+      add_error(out.gather_errors, what);
+      out.unavailable = "Cannot read the hardware inventory: the " + what + "; not reporting a partial inventory";
+    } else if (inv.structures > 0) {
       out.smbios_ok = true;
       // The sysfs copies win where both exist; the table fills the gaps.
       if (out.vendor.empty()) out.vendor = inv.vendor;
@@ -508,11 +525,17 @@ hardware_info gather_hardware_from(const std::string &root) {
       if (out.chassis_type == 0) out.chassis_type = inv.chassis_type;
       if (out.chassis_serial.empty()) out.chassis_serial = inv.chassis_serial;
       if (out.asset_tag.empty()) out.asset_tag = inv.asset_tag;
-      if (inv.device_records > 0 || inv.have_arrays) {
+      if (!inv.modules.empty()) {
         out.module_details = inv.modules;
         out.recompute();
         out.slots = inv.have_arrays && inv.slots > 0 ? inv.slots : inv.device_records;
-        out.memory_source = "smbios";
+        // recompute() leaves memory unset when a module does not say its size.
+        if (out.memory) out.memory_source = "smbios";
+      } else if (inv.device_records > 0 || inv.have_arrays) {
+        // Sockets but not one populated module: a running host has memory, so
+        // the table does not describe it. The memory keywords stay unknown
+        // rather than claiming 0 modules and 0 bytes.
+        add_error(out.gather_errors, "SMBIOS table: no populated memory device");
       }
     }
   } else {
@@ -521,9 +544,11 @@ hardware_info gather_hardware_from(const std::string &root) {
 
   if (out.chassis_type > 0) out.chassis = chassis_type_to_string(out.chassis_type);
 
+  if (!out.dmi_ok && !out.smbios_ok && out.unavailable.empty()) out.unavailable = no_dmi_message;
+
   if (!out.memory) {
-    // Without the SMBIOS table, the memory the kernel manages in hotplug
-    // blocks is the closest unprivileged answer to "installed memory".
+    // Without a module total from the SMBIOS table, the memory the kernel
+    // manages in hotplug blocks is the closest answer to "installed memory".
     const std::string mem = root + "/sys/devices/system/memory";
     std::string block_raw;
     if (read_bounded(mem + "/block_size_bytes", 64, block_raw, nullptr)) {
@@ -556,11 +581,6 @@ hardware_info gather_hardware_from(const std::string &root) {
 }
 
 void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const hardware_info &info) {
-  if (!info.dmi_ok && !info.smbios_ok) {
-    // No identity source at all: an inventory row of empty strings would be a
-    // misleading OK.
-    return nscapi::protobuf::functions::set_response_bad(*response, no_dmi_message);
-  }
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
@@ -575,6 +595,15 @@ void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
+
+  // Only after the options are parsed, so that `help` and a mistyped argument
+  // are answered on a host with nothing to inventory too.
+  if (!info.unavailable.empty()) return nscapi::protobuf::functions::set_response_bad(*response, info.unavailable);
+  if (!info.dmi_ok && !info.smbios_ok) {
+    // No identity source at all: an inventory row of empty strings would be a
+    // misleading OK.
+    return nscapi::protobuf::functions::set_response_bad(*response, no_dmi_message);
+  }
 
   const std::shared_ptr<hardware_info> record(new hardware_info(info));
   filter.match(record);

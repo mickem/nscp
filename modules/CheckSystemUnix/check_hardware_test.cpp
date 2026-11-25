@@ -505,7 +505,101 @@ TEST(CheckHardwareUnix, GatherTableWithoutMemoryDevicesFallsBack) {
   EXPECT_EQ(h.memory.value(), 16LL * 0x8000000);
 }
 
+TEST(CheckHardwareUnix, GatherTruncatedTableIsUnknownNotPartial) {
+  // The table breaks inside the second module: one DIMM of two was walked.
+  // Reporting modules=1 would trip `modules < 2` on a healthy host, so the
+  // check refuses the read and says why.
+  const std::string full = server_table();
+  const std::size_t second_module =
+      (type1("Dell Inc.", "PowerEdge R760", "ABC1234") + type3(23, "CHS0001", "ASSET-42") + type16(3, 4) + type16(4, 1) +
+       type17(0x7FFF, 4800, 4800, "A1", "M321R4GA3BB6-CQKET", 0x28, 32768))
+          .size();
+  FakeRoot fs;
+  fs.standard_dmi();
+  fs.write("sys/firmware/dmi/tables/DMI", full.substr(0, second_module + 0x28 + 3));
+  fs.memory_blocks("8000000", 4, 0);
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_TRUE(h.dmi_ok);
+  EXPECT_FALSE(h.smbios_ok);
+  EXPECT_FALSE(h.modules);
+  EXPECT_NE(h.unavailable.find("malformed or truncated after 5 structure(s)"), std::string::npos) << h.unavailable;
+  PB::Commands::QueryResponseMessage::Response r;
+  EXPECT_EQ(run_check(h, {"crit=modules < 2"}, r), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_EQ(join_lines(r), h.unavailable);
+}
+
+TEST(CheckHardwareUnix, GatherAllSocketsEmptyIsNotZeroMemory) {
+  // Arrays and sockets but no populated module: the table does not describe
+  // the memory this host runs on. Unknown counts and the kernel's total, not
+  // modules=0 and 0 bytes.
+  FakeRoot fs;
+  fs.standard_dmi();
+  fs.write("sys/firmware/dmi/tables/DMI", type1("Dell Inc.", "PowerEdge R760", "ABC1234") + type16(3, 2) + type17(0, 0, 0, "A1", "NO DIMM") +
+                                              type17(0, 0, 0, "A2", "NO DIMM") + end_of_table());
+  fs.memory_blocks("8000000", 16, 0);
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_TRUE(h.smbios_ok);
+  EXPECT_TRUE(h.unavailable.empty());
+  EXPECT_FALSE(h.modules);
+  EXPECT_FALSE(h.slots);
+  EXPECT_EQ(h.memory.value(), 16LL * 0x8000000);
+  EXPECT_EQ(h.memory_source, "sysfs");
+  PB::Commands::QueryResponseMessage::Response r;
+  EXPECT_EQ(run_check(h, {"warn=memory < 1G or modules < 1"}, r), PB::Common::ResultCode::OK);
+}
+
+TEST(CheckHardwareUnix, GatherUnknownModuleSizeDoesNotUndercountMemory) {
+  // One module of two does not say its size (0xFFFF): the sum would be half
+  // the installed memory. The module count is still right; memory comes from
+  // the kernel, or is unknown when the kernel has no memory blocks either.
+  const std::string table = type16(3, 2) + type17(16384, 4800, 4800, "A1", "") + type17(0xFFFF, 4800, 4800, "A2", "") + end_of_table();
+  {
+    FakeRoot fs;
+    fs.standard_dmi();
+    fs.write("sys/firmware/dmi/tables/DMI", table);
+    fs.memory_blocks("8000000", 256, 0);
+    const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+    EXPECT_EQ(h.modules.value(), 2);
+    EXPECT_EQ(h.slots.value(), 2);
+    EXPECT_EQ(h.memory.value(), 256LL * 0x8000000);
+    EXPECT_EQ(h.memory_source, "sysfs");
+    EXPECT_EQ(h.module_list, "A1: 16GB@4800MHz; A2: unknown@4800MHz");
+  }
+  {
+    FakeRoot fs;
+    fs.standard_dmi();
+    fs.write("sys/firmware/dmi/tables/DMI", table);
+    const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+    EXPECT_EQ(h.modules.value(), 2);
+    EXPECT_FALSE(h.memory);
+    EXPECT_EQ(h.memory_source, "none");
+    PB::Commands::QueryResponseMessage::Response r;
+    EXPECT_EQ(run_check(h, {"warn=memory < 64G"}, r), PB::Common::ResultCode::OK);
+    EXPECT_FALSE(has_perf(r, "hardware_memory"));
+  }
+}
+
 // --- the check ----------------------------------------------------------------------------
+
+TEST(CheckHardwareUnix, HelpAndBadArgumentsAreAnsweredWithoutAnInventory) {
+  // The no-data result must not swallow `help` or an argument error: on a
+  // host without DMI (and on macOS) the options are still parsed first.
+  FakeRoot fs;
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_EQ(h.unavailable, hardware_check::no_dmi_message);
+  PB::Commands::QueryResponseMessage::Response help;
+  run_check(h, {"help"}, help);
+  EXPECT_NE(join_lines(help).find("detail-syntax"), std::string::npos) << join_lines(help);
+  EXPECT_EQ(join_lines(help).find("No hardware inventory available"), std::string::npos);
+  PB::Commands::QueryResponseMessage::Response bad;
+  EXPECT_EQ(run_check(h, {"no-such-option=1"}, bad), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(join_lines(bad).find("no-such-option"), std::string::npos) << join_lines(bad);
+  hardware_info unsupported;
+  unsupported.unavailable = "check_hardware is not supported on macOS yet";
+  PB::Commands::QueryResponseMessage::Response r;
+  EXPECT_EQ(run_check(unsupported, {}, r), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_EQ(join_lines(r), "check_hardware is not supported on macOS yet");
+}
 
 TEST(CheckHardwareUnix, RendersInventoryLine) {
   FakeRoot fs;

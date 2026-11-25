@@ -24,7 +24,6 @@
 #include <unistd.h>
 
 #include <cstring>
-#include <stdexcept>
 #include <string>
 
 #include "check_battery.h"
@@ -255,6 +254,11 @@ host_facts::facts system_facts::gather() {
 
 // No hardware inventory reader on macOS yet (it would be IOKit's
 // IOPlatformExpertDevice for the identity and system_profiler's memory data
-// for the modules); check_hardware reports this error rather than an empty
-// inventory line.
-hardware_check::hardware_info hardware_check::gather_hardware() { throw std::runtime_error("check_hardware is not supported on macOS yet"); }
+// for the modules); check_hardware reports this rather than an empty
+// inventory line. It is returned, not thrown, so that the check still parses
+// its options first and `help` works here too.
+hardware_check::hardware_info hardware_check::gather_hardware() {
+  hardware_info out;
+  out.unavailable = "check_hardware is not supported on macOS yet";
+  return out;
+}

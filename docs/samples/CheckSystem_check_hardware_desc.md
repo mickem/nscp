@@ -71,9 +71,29 @@ data ...` rather than an inventory line of empty strings. A hypervisor that
 publishes the system record but no memory devices (some QEMU/KVM
 configurations) gives a normal inventory line with `modules` `unknown`.
 
+**A partial read is not reported as an inventory.** The check answers
+`unknown`, or UNKNOWN, where it could not read the whole picture, rather than a
+number that is short:
+
+- A malformed or truncated SMBIOS table makes the check UNKNOWN (`Cannot read
+  the hardware inventory: the SMBIOS table is malformed or truncated after N
+  structure(s) ...`). The modules read before the damage are not counted: a
+  count that is short by the DIMMs behind it would trip `modules < 8` on a
+  healthy host.
+- A table that lists memory sockets but not one populated module does not
+  describe the memory the host is running on. `modules`, `slots` and
+  `memory_speed` are then `unknown` and `memory` comes from the kernel
+  (`memory_source` `sysfs`), never 0 modules and 0 bytes.
+- A module that does not report its size appears as `unknown` in
+  `module_list` and is still counted in `modules`, but `memory` is no longer
+  the sum of the others: it comes from the kernel, or is `unknown` when the
+  kernel exposes no memory blocks either.
+
+`help` and argument errors are answered before any of this, so they work on a
+host with no inventory too.
+
 The SMBIOS table is firmware-supplied data and is parsed defensively: every
-structure, string and field offset is bounds-checked, and a malformed or
-truncated table keeps what was read before the damage. Strings are reduced to
+structure, string and field offset is bounds-checked. Strings are reduced to
 printable ASCII.
 
 ##### macOS
