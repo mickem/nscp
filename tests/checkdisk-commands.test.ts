@@ -597,6 +597,54 @@ describeWithModules("CheckDisk")("CheckDisk commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  // --- check_smb_client (Windows) ---------------------------------------------
+
+  it("check_smb_client reads the SMB Client Shares counters (Windows)", async () => {
+    if (!onWindows) return; // The counter set is a Windows one.
+    // Touch an administrative share over loopback first so the SMB client has
+    // at least one share open; the check must work whether or not the runner
+    // allows that. Thresholds are off and the empty state OK, so the result is
+    // deterministic: either the share rows or "No SMB client shares in use".
+    try {
+      fs.readdirSync("\\\\localhost\\C$\\Windows");
+    } catch {
+      // No loopback SMB on this runner: the empty state is checked instead.
+    }
+    const q = await executeQuery(key, "check_smb_client", {
+      warning: "none",
+      critical: "none",
+      "empty-state": "ok",
+      filter: "none",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(
+      /No SMB client shares in use|\\\\[^\\]+\\\S.*: read [\d.]+ms, write [\d.]+ms, [\d.]+ credit stalls\/s, queue \d+/,
+    );
+  });
+
+  it("check_smb_client accepts thresholds on its keywords over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // Every keyword has to parse: an unknown one would make the check UNKNOWN.
+    // No share reaches these bounds, so the result is OK whatever is open.
+    const q = await executeQuery(key, "check_smb_client", {
+      warning: "read_latency > 999999 or write_latency > 999999 or credit_stalls > 999999 or queue_length > 999999",
+      critical: "latency > 999999 or avg_queue_length > 999999 or total_latency > 999999",
+      "empty-state": "ok",
+    });
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_smb_client empty-state=critical is honoured (Windows)", async () => {
+    if (!onWindows) return;
+    // A filter that matches nothing lands in the empty state.
+    const q = await executeQuery(key, "check_smb_client", {
+      filter: "server = 'nscp-no-such-server-zzz'",
+      "empty-state": "critical",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/No SMB client shares in use/);
+  });
+
   // --- check_uncpath (§3.1, Windows) ----------------------------------------
 
   it("check_uncpath without a path is reported as an error (Windows)", async () => {
