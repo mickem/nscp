@@ -37,6 +37,10 @@ class ElasticModule : public ::testing::Test {
 
   bool load(const NSCAPI::moduleLoadMode mode = NSCAPI::dontStart) { return module_.loadModuleEx("", mode); }
 
+  // NSC_LOG_ERROR goes to stdout in a unit-test build, the rest to the core.
+  bool logged(const std::string &needle) const { return out_.contains(needle) || nscapi::test_helpers::stub_core::instance().has_logged(needle); }
+
+  nscapi::test_helpers::stdout_capture out_;
   ElasticClient module_;
 };
 
@@ -141,3 +145,114 @@ TEST_F(ElasticModule, UnloadStopsTheSubmitPaths) {
 }
 
 TEST_F(ElasticModule, UnloadWithoutLoadIsSafe) { EXPECT_TRUE(module_.unloadModule()); }
+
+// ============================================================================
+// Settings checked at load
+// ============================================================================
+
+TEST_F(ElasticModule, ANegativeTimeoutFallsBackToThirtySeconds) {
+  core().set_setting("timeout", "-5");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("Invalid elastic timeout (negative): -5, using 30 seconds"));
+}
+
+// Credentials over https with verification off go to whichever server
+// answers: said once, at load.
+TEST_F(ElasticModule, CredentialsWithoutCertificateVerificationAreCalledOut) {
+  core().set_setting("address", "https://elastic.example.invalid:9200/_bulk");
+  core().set_setting("api key", "k");
+  core().set_setting("verify mode", "none");
+  ASSERT_TRUE(load());
+  EXPECT_TRUE(logged("TLS certificate verification is disabled for elastic.example.invalid (verify mode: none)"));
+}
+
+TEST_F(ElasticModule, VerificationOnIsNotCalledOut) {
+  core().set_setting("address", "https://elastic.example.invalid:9200/_bulk");
+  core().set_setting("user", "u");
+  ASSERT_TRUE(load());
+  EXPECT_FALSE(logged("TLS certificate verification is disabled"));
+}
+
+// ============================================================================
+// The submit paths, against an address that has no host
+// ============================================================================
+//
+// A started module builds the bulk payload and parses the address before it
+// connects; an address with no host is reported and nothing is sent, which is
+// what lets each path be driven here without a server.
+
+namespace {
+const char *const kNoHost = "not a url";
+}  // namespace
+
+TEST_F(ElasticModule, AStartedModuleReportsAnAddressWithoutAHost) {
+  core().set_setting("address", kNoHost);
+  ASSERT_TRUE(load(NSCAPI::normalStart));
+
+  PB::Commands::EventMessage event;
+  PB::Commands::EventMessage::Request *line = event.add_payload();
+  PB::Common::KeyValue *kv = line->add_data();
+  kv->set_key("message");
+  kv->set_value("disk full");
+  kv = line->add_data();
+  kv->set_key("written_str");
+  kv->set_value("2026-01-01T00:00:00");
+  module_.onEvent(event, "");
+
+  EXPECT_TRUE(logged(std::string("Invalid elastic address: ") + kNoHost));
+}
+
+TEST_F(ElasticModule, MetricsAreSubmittedOnceStarted) {
+  core().set_setting("address", kNoHost);
+  ASSERT_TRUE(load(NSCAPI::reloadStart));
+
+  PB::Metrics::MetricsMessage metrics;
+  PB::Metrics::MetricsBundle *bundle = metrics.add_payload()->add_bundles();
+  bundle->set_key("system");
+  PB::Metrics::Metric *m = bundle->add_value();
+  m->set_key("cpu.total");
+  m->mutable_gauge_value()->set_value(12);
+  m = bundle->add_value();
+  m->set_key("os.name");
+  m->mutable_string_value()->set_value("linux");
+  PB::Metrics::MetricsBundle *child = bundle->add_children();
+  child->set_key("mem");
+  child->add_value()->set_key("used");
+  child->mutable_value(0)->mutable_gauge_value()->set_value(0.5);
+  module_.submitMetrics(metrics);
+
+  EXPECT_TRUE(logged(std::string("Invalid elastic address: ") + kNoHost));
+}
+
+TEST_F(ElasticModule, LogMessagesAreSubmittedOnceStarted) {
+  core().set_setting("address", kNoHost);
+  ASSERT_TRUE(load(NSCAPI::normalStart));
+
+  PB::Log::LogEntry::Entry entry;
+  entry.set_sender("core");
+  entry.set_message("hello");
+  module_.handleLogMessage(entry);
+  EXPECT_TRUE(logged(std::string("Invalid elastic address: ") + kNoHost));
+}
+
+// A failure to send one of its own log lines must not log an error, which
+// would be forwarded here again, for ever.
+TEST_F(ElasticModule, ItsOwnLogMessagesNeverLogASendFailure) {
+  core().set_setting("address", kNoHost);
+  ASSERT_TRUE(load(NSCAPI::normalStart));
+
+  PB::Log::LogEntry::Entry entry;
+  entry.set_sender("elastic");
+  entry.set_message("hello");
+  module_.handleLogMessage(entry);
+  EXPECT_FALSE(logged("Invalid elastic address"));
+}
+
+TEST_F(ElasticModule, NothingIsSubmittedWithoutAnAddress) {
+  ASSERT_TRUE(load(NSCAPI::normalStart));
+
+  PB::Commands::EventMessage event;
+  event.add_payload()->add_data()->set_key("message");
+  module_.onEvent(event, "");
+  EXPECT_FALSE(logged("Invalid elastic address"));
+}

@@ -56,3 +56,27 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/Scheduler
 )
+
+# Unit tests for the module class: the settings it registers, which schedules
+# it accepts, and run_schedules end to end (query through the core, report
+# filter, submission). The stub core (include/nscapi/test_helpers.hpp) stands
+# in for the daemon; dontStart keeps the scheduler's worker threads stopped.
+NSCP_CREATE_TEST(
+    scheduler_module_test
+    SOURCES
+        scheduler_module_test.cpp
+        "${TARGET}.cpp"
+        schedules_handler.cpp
+        ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_CHRONO_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

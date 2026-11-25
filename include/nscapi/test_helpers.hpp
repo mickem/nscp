@@ -31,8 +31,11 @@
 //
 // Always load with NSCAPI::dontStart: every module that starts a thread, a
 // socket or an interpreter guards it on `mode == NSCAPI::normalStart`, so
-// dontStart parses all the settings without any of that happening. (LUAScript
-// is the one module that does not guard, so it cannot use this yet.)
+// dontStart parses all the settings without any of that happening. (The
+// script modules are the exception: LUAScript runs each configured script's
+// top-level code in an in-process interpreter on any load, since that is how
+// a script registers its functions. Its test points `script root` at a
+// temporary folder holding scripts of its own.)
 //
 // The core entry points are plain C function pointers with no user data, so
 // the stub state is necessarily process-wide; reset() between tests.
@@ -40,12 +43,15 @@
 #include <NSCAPI.h>
 
 #include <cstring>
+#include <functional>
+#include <iostream>
 #include <map>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/registry.hpp>
 #include <nscapi/protobuf/settings.hpp>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -72,6 +78,25 @@ struct registered_key {
   bool store_empty = false;
 };
 
+// Captures std::cout for its lifetime - which is where NSC_LOG_ERROR and
+// NSC_LOG_WARNING go in a unit-test build. Declare it as a fixture member (or
+// a local before the call under test) and check contains() afterwards.
+class stdout_capture {
+ public:
+  stdout_capture() : old_(std::cout.rdbuf(buffer_.rdbuf())) {}
+  ~stdout_capture() { std::cout.rdbuf(old_); }
+  stdout_capture(const stdout_capture &) = delete;
+  stdout_capture &operator=(const stdout_capture &) = delete;
+
+  std::string str() const { return buffer_.str(); }
+  bool contains(const std::string &needle) const { return buffer_.str().find(needle) != std::string::npos; }
+  void clear() { buffer_.str(std::string()); }
+
+ private:
+  std::ostringstream buffer_;
+  std::streambuf *old_;
+};
+
 class stub_core {
  public:
   // The stub wired into the core that nscapi::plugin_singleton hands out -
@@ -96,6 +121,66 @@ class stub_core {
     updated_settings_.clear();
     submissions_.clear();
     events_.clear();
+    log_.clear();
+    queries_.clear();
+    query_answers_.clear();
+    query_handler_ = nullptr;
+    paths_.clear();
+  }
+
+  // What a ${...} path token expands to (core expand_path, which is also how
+  // a module finds ${base-path}). Tokens nothing was configured for are left
+  // as they are, so a test that does not care sees the literal token.
+  void set_path(const std::string &token, const std::string &value) { paths_[token] = value; }
+
+  // ----- queries the module runs through the core --------------------------
+
+  // A module that runs another command (Scheduler, the script modules, the
+  // NRPE server, ...) does it through core_helper::simple_query*, which lands
+  // in NSAPIInject. Each request is recorded here, and answered from what the
+  // test configured: a command nothing was configured for fails the call with
+  // an empty response, which is how the real core reports a command that does
+  // not exist.
+  const std::vector<PB::Commands::QueryRequestMessage> &queries() const { return queries_; }
+  // Answer every query for `command` with one payload of this status and text.
+  void set_query_result(const std::string &command, const PB::Common::ResultCode code, const std::string &message) {
+    PB::Commands::QueryResponseMessage::Response payload;
+    payload.set_command(command);
+    payload.set_result(code);
+    payload.add_lines()->set_message(message);
+    PB::Commands::QueryResponseMessage reply;
+    reply.add_payload()->CopyFrom(payload);
+    query_answers_[command] = reply;
+  }
+  // Answer every query for `command` with this whole message (header
+  // metadata included, for the markers the core stamps on a denial).
+  void set_query_response(const std::string &command, const PB::Commands::QueryResponseMessage &reply) { query_answers_[command] = reply; }
+  // Full control: return false to fail the call. Takes precedence over the
+  // per-command answers.
+  typedef std::function<bool(const PB::Commands::QueryRequestMessage &, PB::Commands::QueryResponseMessage &)> query_handler;
+  void set_query_handler(query_handler handler) { query_handler_ = std::move(handler); }
+
+  // ----- what the module logged --------------------------------------------
+
+  // One line logged through the core (NSC_DEBUG_MSG, NSC_LOG_ERROR_EXR,
+  // NSC_LOG_ERROR_STD, ...), as the core received it. The stub reports no log
+  // level, so the wrapper forwards every level, debug included.
+  //
+  // NSC_LOG_ERROR and NSC_LOG_WARNING are the exception: a unit-test build
+  // (NSCAPI_UNIT_TESTS) prints those to std::cout instead of calling the core,
+  // so they never arrive here. Use stdout_capture below to assert on them.
+  struct log_entry {
+    int level;
+    std::string message;
+  };
+  const std::vector<log_entry> &logged() const { return log_; }
+  // Whether any logged line contains `needle` - for asserting on an error
+  // path whose only observable effect is the line it logs.
+  bool has_logged(const std::string &needle) const {
+    for (const log_entry &e : log_) {
+      if (e.message.find(needle) != std::string::npos) return true;
+    }
+    return false;
   }
 
   // ----- what the module submitted -----------------------------------------
@@ -273,6 +358,38 @@ class stub_core {
     return NSCAPI::api_return_codes::isSuccess;
   }
 
+  static NSCAPI::errorReturn inject(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+    stub_core &self = instance();
+    PB::Commands::QueryRequestMessage req;
+    req.ParseFromArray(request, static_cast<int>(request_len));
+    self.queries_.push_back(req);
+    PB::Commands::QueryResponseMessage reply;
+    bool ok = false;
+    if (self.query_handler_) {
+      ok = self.query_handler_(req, reply);
+    } else if (req.payload_size() > 0) {
+      std::map<std::string, PB::Commands::QueryResponseMessage>::const_iterator it = self.query_answers_.find(req.payload(0).command());
+      if (it != self.query_answers_.end()) {
+        reply = it->second;
+        ok = true;
+      }
+    }
+    if (!ok) {
+      *response = nullptr;
+      *response_len = 0;
+      return NSCAPI::api_return_codes::hasFailed;
+    }
+    write_response(reply.SerializeAsString(), response, response_len);
+    return NSCAPI::api_return_codes::isSuccess;
+  }
+
+  static void simple_message(const char *, const int level, const char *, int, const char *message) {
+    log_entry e;
+    e.level = level;
+    e.message = message == nullptr ? std::string() : std::string(message);
+    instance().log_.push_back(e);
+  }
+
   static NSCAPI::errorReturn emit_event(const char *request, const int request_len) {
     PB::Commands::EventMessage message;
     message.ParseFromString(std::string(request, static_cast<std::size_t>(request_len)));
@@ -388,10 +505,18 @@ class stub_core {
     return NSCAPI::api_return_codes::isSuccess;
   }
 
-  // ${base-path} and friends expand to themselves: a test that cares about a
-  // path passes an absolute one.
+  // ${base-path} and friends expand to what set_path() configured, and to
+  // themselves otherwise: a test that cares about a path passes an absolute
+  // one or configures the token.
   static NSCAPI::errorReturn expand_path(const char *value, char *buffer, const unsigned int buf_len) {
-    const std::string in(value == nullptr ? "" : value);
+    std::string in(value == nullptr ? "" : value);
+    for (const std::pair<const std::string, std::string> &p : instance().paths_) {
+      std::string::size_type pos = 0;
+      while ((pos = in.find(p.first, pos)) != std::string::npos) {
+        in.replace(pos, p.first.size(), p.second);
+        pos += p.second.size();
+      }
+    }
     if (in.size() >= buf_len) return NSCAPI::api_return_codes::hasFailed;
     std::memcpy(buffer, in.data(), in.size());
     buffer[in.size()] = '\0';
@@ -421,8 +546,9 @@ class stub_core {
     if (n == "NSAPIDestroyBuffer") return reinterpret_cast<nscapi::core_api::FUNPTR>(&destroy_buffer);
     if (n == "NSAPINotify") return reinterpret_cast<nscapi::core_api::FUNPTR>(&notify);
     if (n == "NSCAPIEmitEvent") return reinterpret_cast<nscapi::core_api::FUNPTR>(&emit_event);
-    // Everything else (logging above all) stays null, which the wrapper
-    // treats as a no-op.
+    if (n == "NSAPIInject") return reinterpret_cast<nscapi::core_api::FUNPTR>(&inject);
+    if (n == "NSAPISimpleMessage") return reinterpret_cast<nscapi::core_api::FUNPTR>(&simple_message);
+    // Everything else stays null, which the wrapper treats as a no-op.
     return nullptr;
   }
 
@@ -433,6 +559,11 @@ class stub_core {
   std::vector<registered_key> registered_keys_;
   std::vector<PB::Commands::SubmitRequestMessage> submissions_;
   std::vector<PB::Commands::EventMessage> events_;
+  std::vector<log_entry> log_;
+  std::vector<PB::Commands::QueryRequestMessage> queries_;
+  std::map<std::string, PB::Commands::QueryResponseMessage> query_answers_;
+  query_handler query_handler_;
+  std::map<std::string, std::string> paths_;
   std::vector<registered_key> updated_settings_;
   std::vector<std::string> registered_paths_;
   // (PB::Registry::ItemType, name) in registration order.

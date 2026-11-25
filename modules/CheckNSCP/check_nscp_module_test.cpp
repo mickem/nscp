@@ -259,3 +259,57 @@ TEST_F(CheckNscpModule, UpdateCheckRejectsBadOptionsBeforeQuerying) {
 }
 
 TEST_F(CheckNscpModule, UnloadIsSafe) { EXPECT_TRUE(module_.unloadModule()); }
+
+// ============================================================================
+// check_nscp_version: keywords and a version that does not parse
+// ============================================================================
+
+TEST_F(CheckNscpModule, VersionCheckWithoutARunningVersionIsUnknown) {
+  ASSERT_TRUE(load());
+
+  PB::Commands::QueryResponseMessage::Response response;
+  module_.check_nscp_version(request("check_nscp_version"), &response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_EQ(join_lines(response).find("Failed to parse version"), 0u) << join_lines(response);
+}
+
+TEST_F(CheckNscpModule, VersionCheckExposesTheVersionComponents) {
+  core().set_application_version("0.10.5.2020 2026-01-01");
+  ASSERT_TRUE(load());
+
+  PB::Commands::QueryResponseMessage::Response response;
+  module_.check_nscp_version(request("check_nscp_version", {"warning=minor < 11", "detail-syntax=%(release).%(major).%(minor).%(build)"}), &response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::WARNING) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("0.10.5.2020"), std::string::npos) << join_lines(response);
+}
+
+// ============================================================================
+// check_nscp_update: a lookup that fails before any connection
+// ============================================================================
+
+// A URL with no host is reported as the lookup error, not as "no update":
+// the status stays OK (nothing is known to be newer) and the message says why.
+TEST_F(CheckNscpModule, AnUpdateUrlWithoutAHostIsReported) {
+  core().set_application_version("0.10.5.2020 2026-01-01");
+  core().set_setting("/settings/nscp/check/update", "url", "not a url");
+  ASSERT_TRUE(load());
+
+  PB::Commands::QueryResponseMessage::Response response;
+  module_.check_nscp_update(request("check_nscp_update", {"detail-syntax=%(error)|%(update_available)|%(latest_version)"}), &response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_EQ(join_lines(response), "OK: invalid update URL: not a url|0|");
+}
+
+// The failed lookup is cached like a successful one, so a broken URL is not
+// retried on every check.
+TEST_F(CheckNscpModule, AFailedUpdateLookupIsServedFromTheCache) {
+  core().set_application_version("0.10.5.2020 2026-01-01");
+  core().set_setting("/settings/nscp/check/update", "url", "not a url");
+  ASSERT_TRUE(load());
+
+  PB::Commands::QueryResponseMessage::Response first, second;
+  module_.check_nscp_update(request("check_nscp_update", {"detail-syntax=%(error)"}), &first);
+  module_.check_nscp_update(request("check_nscp_update", {"detail-syntax=%(error)"}), &second);
+  EXPECT_EQ(join_lines(first), "OK: invalid update URL: not a url");
+  EXPECT_EQ(join_lines(second), join_lines(first));
+}
