@@ -811,6 +811,122 @@ struct optional_int_variable_node : any_node {
 
 //////////////////////////////////////////////////////////////////////////
 
+// The float twin of optional_int_variable_node: a decimal that can be absent
+// (an empty or non-numeric CSV cell). It always compares as a float - a bare
+// integer threshold (`load > 3`) is widened rather than truncating the value
+// to 3 - an absent value is "no value" (false against every number, no
+// perfdata), and when a string accessor is given the value renders as that
+// text, so it is shown exactly as the source wrote it.
+template <class TContext>
+struct optional_float_variable_node : any_node {
+  std::string name_;
+  typedef TContext *native_context_type;
+  typedef typename TContext::object_type object_type;
+  typedef boost::function<boost::optional<double>(object_type, evaluation_context)> function_type;
+  typedef typename TContext::bound_string_type s_function_type;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, double> > float_performance_generator;
+
+  function_type fun;
+  s_function_type render;
+  std::string no_value_;
+  std::list<float_performance_generator> perfgen;
+
+  optional_float_variable_node(const std::string &name, function_type fun, s_function_type render, const std::string &no_value,
+                               std::list<float_performance_generator> perfgen)
+      : any_node(type_multi), name_(name), fun(fun), render(render), no_value_(no_value), perfgen(perfgen) {}
+
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  std::shared_ptr<any_node> evaluate(evaluation_context context) const override {
+    try {
+      const native_context_type native_context = object_context(context);
+      if (native_context != nullptr) {
+        const boost::optional<double> v = fun(native_context->get_object(), context);
+        if (v) return factory::create_float(v.value());
+        return factory::create_string(no_value_);
+      }
+      context->warn("Failed to evaluate " + name_ + " no object instance");
+    } catch (const std::exception &e) {
+      context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+    }
+    return factory::create_false();
+  }
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return true; }
+  value_container get_value(evaluation_context context, const value_type vt) const override {
+    try {
+      const native_context_type native_context = object_context(context);
+      if (native_context == nullptr) {
+        context->warn("Failed to get " + name_ + " no object instance");
+        if (helpers::type_is_int(vt)) return value_container::create_int(0, true);
+        if (helpers::type_is_float(vt)) return value_container::create_float(0, true);
+        return value_container::create_string("", true);
+      }
+      const boost::optional<double> v = fun(native_context->get_object(), context);
+      if (vt == type_string) return value_container::create_string(text_of(native_context, context, v));
+      if (!v) return value_container::create_no_value();
+      // Casting a NaN or an out-of-range double to long long is UB: saturate
+      // and flag the value as unsure, as float_variable_node does.
+      if (helpers::type_is_int(vt)) return value_container::create_int(str::to_int64_saturating(v.value()), !str::fits_int64(v.value()));
+      return value_container::create_float(v.value());
+    } catch (const std::exception &e) {
+      context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+      return value_container::create_nil();
+    }
+  }
+  std::string to_string(evaluation_context context) const override {
+    const native_context_type native_context = object_context(context);
+    if (native_context == nullptr) return name_ + "?";
+    return text_of(native_context, context, fun(native_context->get_object(), context));
+  }
+  std::string to_string() const override { return "{optional-float}" + name_; }
+  // Every numeric comparison is a float comparison; a string probe
+  // (`load = 'n/a'`) stays in the string domain.
+  value_type infer_type(object_converter converter, const value_type suggestion) override {
+    set_type(suggestion == type_string ? type_string : type_float);
+    return get_type();
+  }
+  value_type infer_type(object_converter converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override {
+    collector.set_candidate_variable(name_);
+    return false;
+  }
+
+  perf_list_type get_performance_data(object_factory context, std::string alias, const node_type warn, const node_type crit, node_type minimum,
+                                      node_type maximum) override {
+    perf_list_type ret;
+    const native_context_type native_context = object_context(context);
+    if (native_context == nullptr) return ret;
+    const boost::optional<double> v = fun(native_context->get_object(), context);
+    // No value, no metric: plotting a sentinel would poison the series.
+    if (!v) return ret;
+    boost::optional<double> warn_value;
+    boost::optional<double> crit_value;
+    if (warn) warn_value = warn->get_float_value(context);
+    if (crit) crit_value = crit->get_float_value(context);
+    for (const float_performance_generator &p : perfgen) {
+      if (!p->is_configured()) p->configure(name_, context);
+      p->eval(ret, context, alias, v.value(), warn_value, crit_value, native_context->get_object());
+    }
+    return ret;
+  }
+
+ private:
+  // The native context when it holds an object to read, else null.
+  native_context_type object_context(evaluation_context context) const {
+    const native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+    return native_context != nullptr && fun && native_context->has_object() ? native_context : nullptr;
+  }
+  std::string text_of(native_context_type native_context, evaluation_context context, const boost::optional<double> &v) const {
+    if (!v) return no_value_;
+    if (render) return render(native_context->get_object(), context);
+    return str::xtos(v.value());
+  }
+};
+
+//////////////////////////////////////////////////////////////////////////
+
 struct custom_function_node : any_node {
   typedef boost::function<node_type(value_type, evaluation_context, node_type)> bound_function_type;
 

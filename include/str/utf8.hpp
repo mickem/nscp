@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #pragma once
+#include <cstddef>
 #include <string>
 
 namespace utf8 {
@@ -65,6 +66,29 @@ bool is_valid(std::string const& str);
  */
 std::string make_valid(std::string const& str);
 inline std::string to_encoding(std::string const& str, const std::string& encoding) { return to_encoding(cvt<std::wstring>(str), encoding); }
+
+// Byte-level decoders for text read from a file or the wire, where the
+// encoding is a property of the data rather than of the platform. Unlike
+// from_encoding() they behave identically everywhere: they do not go through
+// wchar_t (UTF-16 on Windows, UTF-32 elsewhere), iconv or the Windows code
+// pages, which on Windows do not take UTF-16 or Latin-1 at all.
+
+/** The byte-order mark a buffer starts with, if any. */
+enum class byte_order_mark { none, utf8, utf16le, utf16be };
+byte_order_mark detect_bom(std::string const& bytes);
+/** Number of bytes the mark occupies (0, 2 or 3). */
+std::size_t bom_size(byte_order_mark bom);
+
+/**
+ * Decodes UTF-16 bytes into UTF-8. A byte-order mark is not consumed (strip it
+ * first, see detect_bom()). Surrogate pairs are combined and an unpaired
+ * surrogate becomes U+FFFD. Returns false, leaving `out` empty, when the byte
+ * count is odd.
+ */
+bool from_utf16(std::string const& bytes, bool little_endian, std::string& out);
+
+/** Decodes ISO-8859-1 (Latin-1) bytes into UTF-8: every byte is the code point of the same value. */
+std::string from_latin1(std::string const& bytes);
 }  // namespace utf8
 /*
 namespace boost {

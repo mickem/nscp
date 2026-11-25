@@ -6,7 +6,7 @@ the first place*:
 
 | Check | Argument | What it reaches |
 |-------|----------|-----------------|
-| `check_logfile` | `file=` | any file the agent can open, returned through the `line` and `columnN` keywords |
+| `check_logfile`, `check_csv` | `file=` | any file the agent can open, returned through the `line` and `columnN` keywords (`check_logfile`) or the declared columns (`check_csv`) |
 | `check_wmi` | `query=` | any WMI class, including the filesystem via `CIM_DataFile` and `Win32_Directory` |
 | `check_pdh` (`check_counter`) | `counter=` | any performance object on the machine |
 | `check_files`, `check_single_file` | `path=`, `file=` | any directory tree the agent can read: every name, size and timestamp, plus a checksum of any file |
@@ -38,7 +38,7 @@ Each module has one mode setting and, where it applies, one allow list:
 
 | Check | Section | Mode setting | Allow list |
 |-------|---------|--------------|------------|
-| `check_logfile` | `[/settings/logfile]` | `file access` | `allowed files` |
+| `check_logfile`, `check_csv` | `[/settings/logfile]` | `file access` | `allowed files` |
 | `check_wmi` | `[/settings/wmi]` | `query access` | `allowed classes`, `allowed namespaces` |
 | `check_pdh` | `[/settings/system/windows]` | `counter access` | `allowed counters` |
 | `check_files`, `check_single_file`, `check_largest_files`, `check_disk_write` | `[/settings/disk]` | `file access` | `allowed files` |
@@ -83,7 +83,7 @@ It also means a predefined value is trusted as written. A predefined WMI query
 is not parsed and is not held against `allowed classes`; you configured it, so
 you have vouched for it.
 
-## check_logfile
+## check_logfile and check_csv
 
 ```ini
 [/settings/logfile]
@@ -100,6 +100,15 @@ iis = C:/inetpub/logs/LogFiles/W3SVC1/u_ex.log
 
 With the section above and `file access = predefined`, the monitoring server
 runs `check_logfile file=app` and nothing else.
+
+`check_csv` is in the same module and reads file contents the same way, so it
+goes through the same gate: whatever `check_logfile` may read, `check_csv` may
+read, and nothing else. A CSV export you want checked is allowed, or named
+under `[/settings/logfile/files]`, exactly like a log file.
+
+`check_csv` holds the whole file in memory, so `[/settings/logfile]` also takes
+`max csv size` (default `64m`): the largest file it reads, whatever `max-size=`
+a caller passes.
 
 Allow-list entries come in three shapes:
 

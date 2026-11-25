@@ -38,6 +38,7 @@ struct filter_variable {
   typedef boost::function<long long(T)> int_fun_type_no_context;
   typedef boost::function<double(T, evaluation_context)> float_fun_type;
   typedef boost::function<boost::optional<long long>(T, evaluation_context)> opt_int_fun_type;
+  typedef boost::function<boost::optional<double>(T, evaluation_context)> opt_float_fun_type;
   str_fun_type s_function;
   int_fun_type i_function;
   float_fun_type f_function;
@@ -46,6 +47,9 @@ struct filter_variable {
   // the plain accessors above. no_value is the string the variable renders
   // (and compares equal to) when the getter returns an empty optional.
   opt_int_fun_type o_function;
+  // The float twin (optional_float_variable_node); s_function, when also set,
+  // is what a present value renders as.
+  opt_float_fun_type of_function;
   std::string no_value;
   std::list<int_perf_generator_type> int_perf;
   std::list<float_perf_generator_type> float_perf;
@@ -221,6 +225,19 @@ struct function_registry {
                                                        std::string no_value, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->o_function = fun;
+    var->no_value = no_value;
+    add(var, false);
+    return *this;
+  }
+  // An optional decimal: like add_optional_int_var, but compared as a float
+  // (so `x > 3` does not truncate 3.75 to 3) with float perfdata. `render`,
+  // when given, is the text a present value renders as (e.g. the source text,
+  // which a double would reformat).
+  function_registry<T>& add_optional_float_var(std::string key, std::function<boost::optional<double>(T)> fun, std::function<std::string(T)> render,
+                                               std::string no_value, std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_float, description));
+    var->of_function = [fun](auto obj, auto) { return fun(obj); };
+    if (render) var->s_function = [render](auto obj, auto) { return render(obj); };
     var->no_value = no_value;
     add(var, false);
     return *this;
@@ -561,6 +578,14 @@ struct filter_handler_impl : evaluation_context_impl<TObject> {
         // Optional number: takes precedence over the plain accessors — the
         // node handles numeric + string + rendering + perf-suppression
         // itself (see optional_int_variable_node).
+        if (var->of_function) {
+          if (var->float_perf.empty() && var->add_default_perf) {
+            typename filter_variable<object_type>::float_perf_generator_type gen(
+                new simple_number_performance_generator<object_type, double>("", "", "_" + var->name));
+            var->float_perf.push_back(gen);
+          }
+          return node_type(new optional_float_variable_node<filter_handler_impl>(name, var->of_function, var->s_function, var->no_value, var->float_perf));
+        }
         if (var->o_function) {
           if (var->int_perf.empty() && var->add_default_perf) {
             typename filter_variable<object_type>::int_perf_generator_type gen(

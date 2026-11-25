@@ -1033,3 +1033,28 @@ TEST(WhereParser, FullPipelineLogicalAnd) {
   EXPECT_FALSE(ctx->has_error());
   EXPECT_TRUE(result.is_true());
 }
+
+// ======================================================================
+// Word boundaries: `not` is a word, not a prefix
+// ======================================================================
+
+// A keyword that merely starts with "not" (a CSV column NotAfter, a field
+// notes) is an identifier. Matched as a prefix, `NotAfter = 5` used to parse
+// as `not (After = 5)` - at the start of a filter and after and/or alike.
+TEST(WhereParser, IdentifierStartingWithNotIsNotTheNotOperator) {
+  for (const char *expr : {"NotAfter = 5", "notes = 5", "NOTICE = 5", "not_after = 5", "1 = 1 and notes = 5", "1 = 2 or Nothing = 5"}) {
+    parser p;
+    ASSERT_TRUE(p.parse(make_factory(), expr)) << expr << ": " << p.rest;
+    EXPECT_TRUE(p.rest.empty()) << expr;
+    EXPECT_EQ(std::string::npos, p.result_as_tree().find("not")) << expr << " -> " << p.result_as_tree();
+  }
+}
+
+TEST(WhereParser, NotStillNegatesAsAWord) {
+  for (const char *expr : {"not 1 = 2", "NOT 1 = 2", "not(1 = 2)", "not (1 = 2)", "1 = 1 and not 1 = 2"}) {
+    parser p;
+    ASSERT_TRUE(p.parse(make_factory(), expr)) << expr << ": " << p.rest;
+    EXPECT_TRUE(p.rest.empty()) << expr;
+    EXPECT_NE(std::string::npos, p.result_as_tree().find("not")) << expr << " -> " << p.result_as_tree();
+  }
+}

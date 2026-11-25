@@ -318,3 +318,68 @@ std::string utf8::make_valid(std::string const &str) {
   if (run_start != std::string::npos) out += decode_invalid_run(str.substr(run_start));
   return out;
 }
+
+namespace {
+void append_code_point(std::string &out, const unsigned int cp) {
+  if (cp < 0x80) {
+    out += static_cast<char>(cp);
+  } else if (cp < 0x800) {
+    out += static_cast<char>(0xC0 | (cp >> 6));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  } else if (cp < 0x10000) {
+    out += static_cast<char>(0xE0 | (cp >> 12));
+    out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  } else {
+    out += static_cast<char>(0xF0 | (cp >> 18));
+    out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+    out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  }
+}
+
+bool is_high_surrogate(const unsigned int unit) { return unit >= 0xD800 && unit <= 0xDBFF; }
+bool is_low_surrogate(const unsigned int unit) { return unit >= 0xDC00 && unit <= 0xDFFF; }
+}  // namespace
+
+utf8::byte_order_mark utf8::detect_bom(std::string const &bytes) {
+  if (bytes.size() >= 3 && bytes.compare(0, 3, "\xEF\xBB\xBF") == 0) return byte_order_mark::utf8;
+  if (bytes.size() >= 2 && bytes.compare(0, 2, "\xFF\xFE") == 0) return byte_order_mark::utf16le;
+  if (bytes.size() >= 2 && bytes.compare(0, 2, "\xFE\xFF") == 0) return byte_order_mark::utf16be;
+  return byte_order_mark::none;
+}
+
+std::size_t utf8::bom_size(const byte_order_mark bom) {
+  if (bom == byte_order_mark::none) return 0;
+  return bom == byte_order_mark::utf8 ? 3 : 2;
+}
+
+bool utf8::from_utf16(std::string const &bytes, const bool little_endian, std::string &out) {
+  out.clear();
+  if (bytes.size() % 2 != 0) return false;
+  out.reserve(bytes.size() / 2);
+  const auto unit_at = [&](const std::size_t i) -> unsigned int {
+    const unsigned int a = static_cast<unsigned char>(bytes[i]);
+    const unsigned int b = static_cast<unsigned char>(bytes[i + 1]);
+    return little_endian ? (a | (b << 8)) : ((a << 8) | b);
+  };
+  for (std::size_t i = 0; i < bytes.size(); i += 2) {
+    const unsigned int unit = unit_at(i);
+    const unsigned int next = i + 3 < bytes.size() ? unit_at(i + 2) : 0;
+    if (is_high_surrogate(unit) && is_low_surrogate(next)) {
+      append_code_point(out, 0x10000 + ((unit - 0xD800) << 10) + (next - 0xDC00));
+      i += 2;
+      continue;
+    }
+    // A surrogate that is not half of a pair has no code point of its own.
+    append_code_point(out, is_high_surrogate(unit) || is_low_surrogate(unit) ? 0xFFFD : unit);
+  }
+  return true;
+}
+
+std::string utf8::from_latin1(std::string const &bytes) {
+  std::string out;
+  out.reserve(bytes.size() + bytes.size() / 4);
+  for (const char c : bytes) append_code_point(out, static_cast<unsigned char>(c));
+  return out;
+}
