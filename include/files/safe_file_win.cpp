@@ -180,8 +180,22 @@ bool file::open(const std::string &path, std::string &error) {
   // directory cannot be opened without FILE_FLAG_BACKUP_SEMANTICS, but check
   // the attributes anyway: a raw volume reached through a link would report
   // FILE_TYPE_DISK too, and has no file information to give.
+  //
+  // Not every file system answers GetFileInformationByHandle, though, and a
+  // file on one that does not is still a file. So a failure there is only a
+  // refusal when the handle will not give a size either - which a file on
+  // any file system does, and a volume opened raw does not.
   BY_HANDLE_FILE_INFORMATION info;
-  if (GetFileType(h) != FILE_TYPE_DISK || !GetFileInformationByHandle(h, &info) || (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+  bool regular = GetFileType(h) == FILE_TYPE_DISK;
+  if (regular) {
+    if (GetFileInformationByHandle(h, &info)) {
+      regular = (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+    } else {
+      LARGE_INTEGER size;
+      regular = GetFileSizeEx(h, &size) != 0;
+    }
+  }
+  if (!regular) {
     error = "Not a regular file: " + shown;
     close();
     return false;

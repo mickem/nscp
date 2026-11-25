@@ -30,6 +30,71 @@ struct file_object_exception : std::exception {
 // so the where-engine, derived fields and field registration are identical on
 // both platforms; only the platform builders and the (Windows-only) version
 // lookup differ.
+// The line_count keyword's counting rule, fed the file a chunk at a time.
+//
+// It is the rule of the fgetc loop this replaced, kept so the number a check
+// has alerted on for years does not move: a CR or an LF ends a line and the
+// character after it is skipped unexamined, so CRLF is one line break - and
+// so is LFLF.
+//
+// `text_mode` reproduces what that loop was given on Windows, where the file
+// was opened with fopen(..., "r"): the C runtime turned CRLF into LF and
+// stopped at a Ctrl-Z before the loop saw anything. That changes the count
+// (`a\r\n\r\nb` is LFLF there, one break, and two breaks read as bytes), so
+// it is part of the rule on that platform and not of the other.
+struct line_counter {
+  explicit line_counter(const bool text_mode) : text_mode_(text_mode) {}
+
+  void feed(const char *data, const std::size_t size) {
+    for (std::size_t i = 0; i < size && !ended_; ++i) {
+      const char c = data[i];
+      if (!text_mode_) {
+        take(c);
+        continue;
+      }
+      if (pending_cr_) {
+        pending_cr_ = false;
+        // CRLF reaches the loop as LF alone; a CR on its own stays a CR.
+        if (c != '\n') take('\r');
+      }
+      if (c == '\x1a') {
+        ended_ = true;
+      } else if (c == '\r') {
+        pending_cr_ = true;
+      } else {
+        take(c);
+      }
+    }
+  }
+
+  // The count once the whole file has been fed.
+  unsigned long finish() {
+    if (pending_cr_) {
+      pending_cr_ = false;
+      take('\r');
+    }
+    return count_;
+  }
+
+ private:
+  void take(const char c) {
+    if (skip_) {
+      skip_ = false;
+      return;
+    }
+    if (c == '\r' || c == '\n') {
+      ++count_;
+      skip_ = true;
+    }
+  }
+
+  bool text_mode_;
+  bool pending_cr_ = false;
+  bool ended_ = false;
+  bool skip_ = false;
+  unsigned long count_ = 0;
+};
+
 struct filter_obj {
   filter_obj()
       : ullSize(0),

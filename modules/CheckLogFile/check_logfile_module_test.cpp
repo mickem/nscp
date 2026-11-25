@@ -162,7 +162,8 @@ TEST_F(CheckLogFileModule, AMissingFileIsReported) {
 
   const response_type r = check({"file=" + f});
   EXPECT_EQ(r.result(), PB::Common::ResultCode::UNKNOWN);
-  EXPECT_EQ(message_of(r), "Failed to open file: " + f);
+  // The path, then the reason the OS gave for it.
+  EXPECT_EQ(message_of(r).rfind("Failed to open file: " + f + ": ", 0), 0u) << message_of(r);
 }
 
 // ============================================================================
