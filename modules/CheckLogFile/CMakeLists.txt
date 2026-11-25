@@ -98,7 +98,7 @@ NSCP_CREATE_TEST(
         filter.cpp
         bookmarks.cpp
         check_csv.cpp
-        ${CHECK_CSV_TEST_SOURCE}
+        ${NSCP_SAFE_FILE_CPP}
         ${NSCP_DEF_PLUGIN_CPP}
         ${NSCP_FILTER_CPP}
         ${NSCP_ERROR_CPP}
