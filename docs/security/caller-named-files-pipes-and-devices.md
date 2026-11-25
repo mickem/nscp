@@ -61,7 +61,7 @@ All of these, and `check_csv`, now go through one reader for caller-named files,
   else with `Not a regular file: <path>`. On Linux and macOS this means
   `check_logfile` now refuses a FIFO (which used to hang the check) and a
   character device such as `/dev/zero` (which it used to read up to
-  `max-size`;
+  `max-size`);
 - opens with every share flag, so a log the writing program holds open is
   still read, and on Windows passes a UTF-8 file name as UTF-16, so
   `check_logfile` now opens names outside the ANSI code page.
