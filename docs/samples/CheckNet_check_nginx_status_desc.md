@@ -14,9 +14,11 @@ location /nginx_status {
 }
 ```
 
-The check emits a single record. By default it goes **critical** when the
-endpoint cannot be fetched or does not look like a stub_status page
-(`result != 'ok'`); connection thresholds are opt-in.
+The check emits a single record; connection thresholds are opt-in.
+If the endpoint cannot be fetched (`invalid_url`, `http_<code>`, `error: ...`)
+or does not look like a stub_status page, there is no data to judge: the check
+returns **UNKNOWN** with `<url>: <reason>` as the message and no performance
+data, so a graph shows a gap rather than a drop to zero.
 
 `accepts`, `handled`, `requests` and `dropped` are cumulative since NGINX
 started, so `dropped > 0` stays raised until the next restart once a drop has

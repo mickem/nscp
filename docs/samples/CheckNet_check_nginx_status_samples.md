@@ -19,9 +19,9 @@ check_nginx_status url=http://127.0.0.1/nginx_status "warning=dropped > 0"
 WARNING: ok: 291 active (6 reading, 179 writing, 106 waiting)|'127.0.0.1_active'=291;0;0 '127.0.0.1_dropped'=2c;0;0
 ```
 
-**A server that is down is CRITICAL by default:**
+**A server that is down is UNKNOWN, without performance data:**
 
 ```
 check_nginx_status url=http://127.0.0.1:81/nginx_status
-CRITICAL: error: Failed to connect to 127.0.0.1:81: No connection could be made because the target machine actively refused it: 0 active (0 reading, 0 writing, 0 waiting)|'127.0.0.1_active'=0;0;0
+UNKNOWN: http://127.0.0.1:81/nginx_status: error: Failed to connect to 127.0.0.1:81: No connection could be made because the target machine actively refused it
 ```

@@ -26,9 +26,9 @@ check_tomcat_status url=http://127.0.0.1:8080/manager/status username=tomcat pas
 OK: http-nio-8080 ok: 4/200 threads busy, ajp-nio-8009 ok: 0/100 threads busy|'http-nio-8080_memory_free'=1734127416B;0;100000000 ...
 ```
 
-**Missing or wrong manager credentials are CRITICAL:**
+**Missing or wrong manager credentials are UNKNOWN, without performance data:**
 
 ```
 check_tomcat_status url=http://127.0.0.1:8080/manager/status
-CRITICAL:  http_401: 0/0 threads busy|'_thread_usage'=0%;75;90 '_threads_busy'=0;0;0
+UNKNOWN: http://127.0.0.1:8080/manager/status: http_401
 ```

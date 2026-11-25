@@ -2092,13 +2092,14 @@ describe("CheckNet commands", () => {
     expect(q.result).toBe(WARNING);
   });
 
-  it("check_apache_status reports parse_error for a non-status body", async () => {
+  it("check_apache_status is UNKNOWN with parse_error and no perfdata for a non-status body", async () => {
     const s = await startHttp((_req, res) => res.end("<html>not a status page</html>"));
     const q = await executeQuery(key, "check_apache_status", {
       url: `http://127.0.0.1:${s.port}/server-status`,
     });
-    expect(q.result).toBe(CRITICAL);
-    expect(messageOf(q)).toMatch(/parse_error/);
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toBe(`http://127.0.0.1:${s.port}/server-status: parse_error`);
+    expect(Object.keys(perfOf(q))).toEqual([]);
   });
 
   it("check_nginx_status parses stub_status", async () => {
@@ -2121,13 +2122,31 @@ describe("CheckNet commands", () => {
     expect(q.result).toBe(WARNING);
   });
 
-  it("check_nginx_status goes CRITICAL when the endpoint is unreachable", async () => {
+  it("check_nginx_status is UNKNOWN without perfdata when the endpoint is unreachable", async () => {
+    // No data is UNKNOWN, not a record of zeros: a zero `active` would graph
+    // as a drop and trip any "below" threshold.
     const port = await closedPort();
     const q = await executeQuery(key, "check_nginx_status", {
       url: `http://127.0.0.1:${port}/nginx_status`,
     });
-    expect(q.result).toBe(CRITICAL);
-    expect(messageOf(q)).toMatch(/error/);
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(new RegExp(`^http://127\\.0\\.0\\.1:${port}/nginx_status: error`));
+    expect(Object.keys(perfOf(q))).toEqual([]);
+  });
+
+  it("check_phpfpm_status is UNKNOWN without perfdata on an HTTP error", async () => {
+    const s = await startHttp((_req, res) => {
+      res.statusCode = 404;
+      res.end("not found");
+    });
+    const q = await executeQuery(key, "check_phpfpm_status", {
+      url: `http://127.0.0.1:${s.port}/status`,
+      // A "below" threshold that a stand-in 0 would have tripped.
+      warning: "idle_processes < 5",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toBe(`http://127.0.0.1:${s.port}/status: http_404`);
+    expect(Object.keys(perfOf(q))).toEqual([]);
   });
 
   it("check_phpfpm_status parses the FPM status page", async () => {
@@ -2170,7 +2189,7 @@ describe("CheckNet commands", () => {
     expect(perfValue(q, "http-nio-8080_threads_busy")).toBe(4);
   });
 
-  it("check_tomcat_status goes CRITICAL without credentials", async () => {
+  it("check_tomcat_status is UNKNOWN without perfdata without credentials", async () => {
     const s = await startHttp((_req, res) => {
       res.statusCode = 401;
       res.end("unauthorized");
@@ -2178,8 +2197,9 @@ describe("CheckNet commands", () => {
     const q = await executeQuery(key, "check_tomcat_status", {
       url: `http://127.0.0.1:${s.port}/manager/status`,
     });
-    expect(q.result).toBe(CRITICAL);
-    expect(messageOf(q)).toMatch(/http_401/);
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toBe(`http://127.0.0.1:${s.port}/manager/status: http_401`);
+    expect(Object.keys(perfOf(q))).toEqual([]);
   });
 
   it("check_tomcat_status applies per-connector thresholds", async () => {
@@ -2199,8 +2219,9 @@ describe("CheckNet commands", () => {
     const q = await executeQuery(key, "check_tomcat_status", {
       url: `http://127.0.0.1:${s.port}/manager/status`,
     });
-    expect(q.result).toBe(CRITICAL);
-    expect(messageOf(q)).toMatch(/parse_error/);
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/parse_error: no <connector> elements/);
+    expect(Object.keys(perfOf(q))).toEqual([]);
   });
 
   // A scripted Jolokia agent: answers each read of a bulk POST from a table of
@@ -2492,8 +2513,9 @@ describe("CheckNet commands", () => {
     // the check as a generic module exception; ":8o80" silently parsed as 8.
     for (const url of ["http://127.0.0.1:/server-status", "http://127.0.0.1:8o80/server-status"]) {
       const q = await executeQuery(key, "check_apache_status", { url });
-      expect(q.result).toBe(CRITICAL);
+      expect(q.result).toBe(UNKNOWN);
       expect(messageOf(q)).toMatch(/invalid_url/);
+      expect(Object.keys(perfOf(q))).toEqual([]);
     }
   });
 
