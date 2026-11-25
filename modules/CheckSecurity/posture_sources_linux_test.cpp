@@ -686,6 +686,24 @@ TEST(local_accounts_linux, shadow_lines_glibc_rejects_are_malformed_and_carry_no
   }
 }
 
+TEST(local_accounts_linux, a_shadow_day_count_beyond_an_int_is_malformed) {
+  // glibc stores the day counts through an int, and password_changed is the
+  // count times 86400: a larger value is refused rather than overflowed.
+  std::vector<std::size_t> skipped;
+  const auto shadow = local_accounts_source::parse_shadow(
+      "ok:$6$a$b:2147483647:0:2147483647:7:2147483647:2147483647:\n"
+      "lastchg:$6$a$b:2147483648:0:99999:7:::\n"
+      "huge:$6$a$b:9223372036854775807:0:99999:7:::\n"
+      "max:$6$a$b:19000:0:2147483648:7:::\n"
+      "expire:$6$a$b:19000:0:99999:7::2147483648:\n",
+      skipped);
+  EXPECT_EQ((std::vector<std::size_t>{2, 3, 4, 5}), skipped);
+  ASSERT_EQ(5u, shadow.size());
+  EXPECT_FALSE(shadow[0].malformed);
+  EXPECT_EQ(2147483647LL, shadow[0].last_change);
+  for (std::size_t i = 1; i < shadow.size(); ++i) EXPECT_TRUE(shadow[i].malformed) << shadow[i].name;
+}
+
 TEST(local_accounts_linux, a_malformed_shadow_entry_is_unknown_and_says_which_line) {
   std::vector<std::size_t> skipped;
   const auto passwd = local_accounts_source::parse_passwd("bad:x:2000:2000::/home/bad:/bin/bash\ngood:x:2001:2001::/home/good:/bin/bash\n", skipped);
@@ -793,8 +811,10 @@ TEST(local_accounts_linux, inactivity_needs_every_field_it_is_computed_from) {
   EXPECT_EQ(0, account_with_shadow("u:$6$s$h:0:0:90:7:30::")->get_disabled().value());         // change forced at next logon
   EXPECT_EQ(0, account_with_shadow("u:$6$s$h:20001:0:90:7:30::")->get_disabled().value());     // changed "tomorrow": clock skew
   EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0:99999:7:30::")->get_disabled().value());  // 99999 + 30 days is centuries away
-  // Values that would overflow when added are "never", not a wrapped date.
-  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0:9223372036854775807:7:30::")->get_disabled().value());
+  // The largest day count a line may hold is "never", not a wrapped date.
+  // (Anything larger makes the line unparseable: see
+  // a_shadow_day_count_beyond_an_int_is_malformed.)
+  EXPECT_EQ(0, account_with_shadow("u:$6$s$h:19000:0:2147483647:7:2147483647::")->get_disabled().value());
   // The expiry date still disables on its own.
   EXPECT_EQ(1, account_with_shadow("u:$6$s$h:19000:0:99999:7::19999:")->get_disabled().value());
 }
@@ -1064,12 +1084,25 @@ TEST(group_members_linux, a_malformed_line_is_an_error_not_a_missing_group) {
     // The default must not fall through to wheel and answer for it instead.
     EXPECT_EQ("sudo", group_members_source::first_existing_group(bad + "wheel:x:10:alice\n", {"sudo", "wheel"})) << bad;
   }
-  // A damaged line for some other group does not get in the way.
+}
+
+TEST(group_members_linux, a_malformed_line_for_another_group_is_an_error_too) {
+  // Membership is granted by gid, so a damaged line under another name - or
+  // under none - may be one the system reads as granting this group. Listing
+  // the members that could be read would hide the ones on it.
+  for (const std::string bad : {"admins:x:27:mallory:junk\n", ":x:27:mallory\n", "adm:x:abc:syslog\n", "adm:x\n"}) {
+    std::string error;
+    std::vector<group_members_filter::filter_obj_ptr> out;
+    group_members_source::members_from("sudo:x:27:alice\n" + bad, member_passwd, "sudo", out, error);
+    EXPECT_TRUE(out.empty()) << bad;
+    EXPECT_NE(error.find("1 unparseable line(s) in /etc/group (line 2)"), std::string::npos) << bad << error;
+    EXPECT_NE(error.find("grpck"), std::string::npos) << error;
+  }
+  // The damage is reported rather than a "not found" for a group that may be on it.
   std::string error;
   std::vector<group_members_filter::filter_obj_ptr> out;
-  group_members_source::members_from("adm:x:4:syslog:\nwheel:x:10:alice\n", member_passwd, "wheel", out, error);
-  EXPECT_TRUE(error.empty()) << error;
-  EXPECT_EQ(1u, out.size());
+  group_members_source::members_from("root:x:0:\n:x:27:mallory\n", member_passwd, "sudo", out, error);
+  EXPECT_NE(error.find("unparseable line(s) in /etc/group"), std::string::npos) << error;
 }
 
 TEST(group_members_linux, a_group_line_without_a_member_field_is_an_empty_group) {

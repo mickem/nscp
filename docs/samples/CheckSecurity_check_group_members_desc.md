@@ -38,8 +38,11 @@ itself does at logon: a group repeated on a second line, and a line with
 another name but the same GID, both add their members. A line for the group
 that cannot be parsed (too many or too few fields, non-numeric GID) is an
 error rather than a "not found", and the default does not skip past a damaged
-`sudo` line to `wheel`. So is a `/etc/passwd` line that cannot be parsed,
-since it may be an account whose primary group this is.
+`sudo` line to `wheel`. So is **any other** `/etc/group` line that cannot be
+parsed, since the system may read it as granting the group through its GID
+(`grpck` finds it), and a `/etc/passwd` line that cannot be parsed, since it
+may be an account whose primary group this is. The check then returns
+**UNKNOWN** naming the line numbers rather than the members it could read.
 
 Without `group=`, the check inspects the first of **`sudo`** (Debian, Ubuntu)
 and **`wheel`** (RHEL, Fedora, SUSE) that exists; a host with neither returns

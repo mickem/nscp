@@ -32,6 +32,10 @@ struct group_file {
   // group (the next default candidate) or report "not found" for one that is
   // there.
   std::set<std::string> malformed;
+  // The line number of every one of them, whatever it names. Membership is
+  // granted by gid, so a damaged line under another name (or none) may still
+  // be one the system reads as granting the group being checked.
+  std::vector<std::size_t> unparsed;
 };
 
 // The /etc/group entries (name:password:gid:member,member,...). Comments,
@@ -40,11 +44,12 @@ struct group_file {
 // ("sudo:x:27" is a group with no listed members).
 group_file parse_group(const std::string &content) {
   group_file out;
-  account_files::for_each_entry(content, [&](const std::string &line, std::size_t) {
+  account_files::for_each_entry(content, [&](const std::string &line, const std::size_t number) {
     const std::vector<std::string> f = account_files::split_fields(line);
     group_entry g;
     if (f.size() < 3 || f.size() > 4 || f[0].empty() || !account_files::parse_number(f[2], g.gid) || g.gid < 0) {
       out.malformed.insert(f[0]);
+      out.unparsed.push_back(number);
       return;
     }
     g.name = f[0];
@@ -83,6 +88,13 @@ void members_from(const std::string &group_content, const std::string &passwd_co
   const group_file groups = parse_group(group_content);
   if (groups.malformed.count(group) != 0) {
     error = "Malformed entry for group " + group + " in /etc/group (expected name:password:gid:members); its members cannot be listed";
+    return;
+  }
+  // Any other line that cannot be parsed may grant this group through its gid:
+  // listing the members that could be read would hide the ones on it.
+  if (!groups.unparsed.empty()) {
+    error = account_files::unparsed_lines_error("/etc/group", groups.unparsed) + ": a line that cannot be parsed may grant group " + group +
+            " through its gid, so its members cannot be listed; repair the file (see grpck)";
     return;
   }
   // A group can be spread over several lines, and the files backend of

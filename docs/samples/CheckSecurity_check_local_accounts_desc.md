@@ -87,7 +87,7 @@ cannot, instead of answering for whatever is left:
   parsed makes the check **UNKNOWN**, naming the line number: it may be an
   account the system honours.
 - A shadowed account with **no entry in `/etc/shadow`, or one that cannot be
-  parsed**, has a password state nobody read. The check returns **UNKNOWN**
+  parsed** (a day count beyond what the system itself can store included), has a password state nobody read. The check returns **UNKNOWN**
   (`No entry for account 'bob' in /etc/shadow - password and expiry state is
   unknown; ...`) just as for an unreadable file, and `allow-unreadable-shadow`
   accepts that gap too. `pwck` reports and repairs both.

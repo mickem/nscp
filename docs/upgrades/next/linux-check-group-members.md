@@ -8,8 +8,9 @@ supported" off Windows. It reads `/etc/group` and `/etc/passwd` (local files
 only), defaults to the first of `sudo` and `wheel`, includes accounts whose
 primary group it is (from every line that grants the group, by name or by
 GID), and matches `expected=` names case-sensitively there. A `group=` that
-does not exist is an error, as on Windows, and so is a line for the group
-that cannot be parsed. Windows behaviour is
-unchanged; macOS still reports "not supported". See the
+does not exist is an error, as on Windows, and so is any `/etc/group` or
+`/etc/passwd` line that cannot be parsed (`grpck` and `pwck` find them): the
+check is UNKNOWN rather than answering with the members it could read.
+Windows behaviour is unchanged; macOS still reports "not supported". See the
 [security notice](../security/notices.md#linux-account-checks-expose-the-local-account-list-and-password-state)
 for what the check exposes.

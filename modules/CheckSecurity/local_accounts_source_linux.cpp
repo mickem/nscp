@@ -48,12 +48,22 @@ bool is_crypt_alphabet(const std::string &text, const std::string::size_type fro
   return true;
 }
 
+// A day count of a shadow line: a number or empty. glibc stores these through
+// an int, so a larger value is not what the system acts on - and it would
+// overflow once turned into seconds. Such a line is unparseable, not clamped.
+bool parse_days(const std::string &field, long long &value) {
+  long long parsed = -1;
+  if (!parse_number(field, parsed) || parsed > (std::numeric_limits<int>::max)()) return false;
+  value = parsed;
+  return true;
+}
+
 // The numeric fields of a shadow line whose trailing fields are already padded
 // out. Every one of them must be a number or empty, as glibc requires.
 bool parse_shadow_numbers(const std::vector<std::string> &f, shadow_entry &e) {
   long long ignored = -1;
-  return parse_number(f[2], e.last_change) && parse_number(f[3], ignored) && parse_number(f[4], e.max_days) && parse_number(f[5], ignored) &&
-         parse_number(f[6], e.inactive) && parse_number(f[7], e.expire) && parse_number(f[8], ignored);
+  return parse_days(f[2], e.last_change) && parse_days(f[3], ignored) && parse_days(f[4], e.max_days) && parse_days(f[5], ignored) &&
+         parse_days(f[6], e.inactive) && parse_days(f[7], e.expire) && parse_number(f[8], ignored);
 }
 
 // True once PAM refuses the account whatever the credential: its expiry date
