@@ -1,17 +1,4 @@
-import {
-  Box,
-  Chip,
-  Divider,
-  Link,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from "@mui/material";
+import { Box, Chip, Divider, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import Paper from "@mui/material/Paper";
 import licenseData from "../generated/licenses.json";
 
@@ -58,8 +45,8 @@ export default function About() {
             Third-party components
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            This web UI bundles {packages.length} open-source components, listed below for
-            attribution. They remain under their respective licenses.
+            This web UI bundles {packages.length} open-source components, listed below for attribution. They remain under
+            their respective licenses.
           </Typography>
 
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mb: 2 }}>

@@ -47,9 +47,7 @@ describe("Facts", () => {
 
     const gathered = screen.getAllByText(/^gathered /);
     expect(gathered).toHaveLength(2);
-    gathered.forEach((node) =>
-      expect(node.textContent).toContain(new Date("2026-09-23T08:00:00Z").toLocaleString()),
-    );
+    gathered.forEach((node) => expect(node.textContent).toContain(new Date("2026-09-23T08:00:00Z").toLocaleString()));
   });
 
   it("falls back to the round time for a set that did not say when it read", async () => {
@@ -59,9 +57,7 @@ describe("Facts", () => {
 
     await waitFor(() => expect(screen.getByText("os")).toBeInTheDocument());
     const gathered = screen.getAllByText(/^gathered /);
-    gathered.forEach((node) =>
-      expect(node.textContent).toContain(new Date("2026-09-23T10:00:00Z").toLocaleString()),
-    );
+    gathered.forEach((node) => expect(node.textContent).toContain(new Date("2026-09-23T10:00:00Z").toLocaleString()));
   });
 
   it("offers the switches when nothing is collected", async () => {
@@ -70,13 +66,7 @@ describe("Facts", () => {
     // step is on the page, which is why the empty state points at it rather
     // than quoting an ini section to go and edit.
     installFetchMock({
-      "/api/v2/facts": envelope({
-        revision: 0,
-        collected: "",
-        found: false,
-        enabled: [],
-        facts: {},
-      }),
+      "/api/v2/facts": envelope({ revision: 0, collected: "", found: false, enabled: [], facts: {} }),
       "/api/v2/settings/descriptions": jsonResponse([
         {
           path: "/settings/system/windows/facts",

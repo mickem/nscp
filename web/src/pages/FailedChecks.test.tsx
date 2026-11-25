@@ -20,26 +20,11 @@ const ENTRIES = [
     lines: [
       {
         message: "CRITICAL C: 92% used",
-        perf: {
-          "C: used %": {
-            value: 92,
-            unit: "%",
-            warning: 80,
-            critical: "@90:100",
-            minimum: 0,
-            maximum: 100,
-          },
-        },
+        perf: { "C: used %": { value: 92, unit: "%", warning: 80, critical: "@90:100", minimum: 0, maximum: 100 } },
       },
     ],
     arguments: ["drive=C:", "password=***"],
-    context: {
-      state: "captured",
-      snapshot_id: 7,
-      captured_at: 1760000055,
-      age_at_failure: 5,
-      size: 2048,
-    },
+    context: { state: "captured", snapshot_id: 7, captured_at: 1760000055, age_at_failure: 5, size: 2048 },
   },
   {
     index: 1,
@@ -55,13 +40,7 @@ const ENTRIES = [
     message: "WARNING: 5m: 85%",
     lines: [{ message: "WARNING: 5m: 85%", perf: {} }],
     arguments: [],
-    context: {
-      state: "evicted",
-      snapshot_id: 6,
-      captured_at: 1759999995,
-      age_at_failure: 5,
-      size: 2048,
-    },
+    context: { state: "evicted", snapshot_id: 6, captured_at: 1759999995, age_at_failure: 5, size: 2048 },
   },
 ];
 
@@ -80,13 +59,7 @@ const CONTEXT = {
   },
 };
 
-const DIAGNOSTICS_REF = {
-  state: "captured",
-  snapshot_id: 8,
-  captured_at: 1760000057,
-  age_at_failure: 3,
-  size: 900,
-};
+const DIAGNOSTICS_REF = { state: "captured", snapshot_id: 8, captured_at: 1760000057, age_at_failure: 3, size: 900 };
 
 const DIAGNOSTICS_CONTEXT = {
   ...DIAGNOSTICS_REF,
@@ -193,9 +166,7 @@ describe("FailedChecks", () => {
     expect(screen.getByText(/metrics captured \(2\.0 KiB of 4\.0 MiB\)/)).toBeInTheDocument();
     // Nothing is fetched for a row nobody opened.
     const contextCalls = () =>
-      fetchMock.mock.calls.filter((c) =>
-        new URL((c[0] as Request).url).pathname.endsWith("/context"),
-      );
+      fetchMock.mock.calls.filter((c) => new URL((c[0] as Request).url).pathname.endsWith("/context"));
     expect(contextCalls()).toHaveLength(0);
 
     await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
@@ -248,9 +219,7 @@ describe("FailedChecks", () => {
     await waitFor(() => expect(screen.getByText("check_cpu")).toBeInTheDocument());
     await userEvent.click(screen.getAllByRole("button", { name: "expand" })[1]);
     expect(screen.getByText("evicted")).toBeInTheDocument();
-    expect(
-      screen.getByText(/released to stay within the metrics context budget/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/released to stay within the metrics context budget/)).toBeInTheDocument();
   });
 
   it("points at the setting when metrics are not captured", async () => {
@@ -267,26 +236,18 @@ describe("FailedChecks", () => {
   it("shows the diagnostics the failure was recorded with, failures.recent first", async () => {
     const withDiagnostics = ENTRIES.map((e) => ({ ...e, diagnostics: DIAGNOSTICS_REF }));
     const fetchMock = installFetchMock({
-      "/api/v2/failures": envelope({
-        capture_diagnostics: true,
-        diagnostics_rows: 10,
-        entries: withDiagnostics,
-      }),
+      "/api/v2/failures": envelope({ capture_diagnostics: true, diagnostics_rows: 10, entries: withDiagnostics }),
       "/api/v2/failures/2/context": jsonResponse({ ...CONTEXT, diagnostics: DIAGNOSTICS_CONTEXT }),
     });
     renderWithProviders(<FailedChecks />);
 
     await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
-    expect(
-      screen.getByText(/diagnostics captured \(up to 10 rows per table\)/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/diagnostics captured \(up to 10 rows per table\)/)).toBeInTheDocument();
     await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
 
     expect(await screen.findByText("Diagnostics at the time")).toBeInTheDocument();
     expect(screen.getByText(/snapshot #8, 3s before the failure/)).toBeInTheDocument();
-    const headings = (await screen.findAllByRole("heading", { level: 3 })).map(
-      (h) => h.textContent,
-    );
+    const headings = (await screen.findAllByRole("heading", { level: 3 })).map((h) => h.textContent);
     expect(headings).toEqual(["failures.recent", "processes.top_cpu", "services.problems"]);
     const cpu = screen.getByRole("table", { name: "processes.top_cpu rows" });
     expect(within(cpu).getByText("acme-indexer.exe")).toBeInTheDocument();
@@ -303,24 +264,16 @@ describe("FailedChecks", () => {
   });
 
   it("fetches the diagnostics even when the metrics were not captured", async () => {
-    const entries = [
-      { ...ENTRIES[0], context: { state: "disabled" }, diagnostics: DIAGNOSTICS_REF },
-    ];
+    const entries = [{ ...ENTRIES[0], context: { state: "disabled" }, diagnostics: DIAGNOSTICS_REF }];
     installFetchMock({
       "/api/v2/failures": envelope({ capture_metrics: false, capture_diagnostics: true, entries }),
-      "/api/v2/failures/2/context": jsonResponse({
-        ...CONTEXT,
-        metrics: undefined,
-        diagnostics: DIAGNOSTICS_CONTEXT,
-      }),
+      "/api/v2/failures/2/context": jsonResponse({ ...CONTEXT, metrics: undefined, diagnostics: DIAGNOSTICS_CONTEXT }),
     });
     renderWithProviders(<FailedChecks />);
 
     await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
     await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
-    expect(
-      await screen.findByRole("table", { name: "processes.top_cpu rows" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "processes.top_cpu rows" })).toBeInTheDocument();
     expect(screen.queryByRole("table", { name: "metrics at the time" })).not.toBeInTheDocument();
   });
 
@@ -330,9 +283,7 @@ describe("FailedChecks", () => {
     ["none", /Diagnostics no diagnostics had been collected yet/],
   ])("says why an entry has no diagnostics (%s) instead of fetching them", async (state, text) => {
     const entries = [{ ...ENTRIES[1], diagnostics: { state } }];
-    const fetchMock = installFetchMock({
-      "/api/v2/failures": envelope({ capture_diagnostics: true, entries }),
-    });
+    const fetchMock = installFetchMock({ "/api/v2/failures": envelope({ capture_diagnostics: true, entries }) });
     renderWithProviders(<FailedChecks />);
 
     await waitFor(() => expect(screen.getByText("check_cpu")).toBeInTheDocument());
@@ -340,32 +291,20 @@ describe("FailedChecks", () => {
     expect(screen.getByText(text)).toBeInTheDocument();
     // The chip beside the heading (the metrics context of this entry may carry the same one).
     expect(screen.getAllByText(state.replace("_", " ")).length).toBeGreaterThan(0);
-    expect(
-      fetchMock.mock.calls.some((c) =>
-        new URL((c[0] as Request).url).pathname.endsWith("/context"),
-      ),
-    ).toBe(false);
+    expect(fetchMock.mock.calls.some((c) => new URL((c[0] as Request).url).pathname.endsWith("/context"))).toBe(false);
   });
 
   it("points at the setting when diagnostics are not captured", async () => {
-    const entries = ENTRIES.map((e) => ({
-      ...e,
-      context: { state: "disabled" },
-      diagnostics: { state: "disabled" },
-    }));
+    const entries = ENTRIES.map((e) => ({ ...e, context: { state: "disabled" }, diagnostics: { state: "disabled" } }));
     installFetchMock({
       "/api/v2/failures": envelope({ capture_metrics: false, capture_diagnostics: false, entries }),
     });
     renderWithProviders(<FailedChecks />);
 
     await waitFor(() => expect(screen.getByText("check_drivesize")).toBeInTheDocument());
-    expect(
-      screen.getByText(/diagnostics not captured \(capture diagnostics = false/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/diagnostics not captured \(capture diagnostics = false/)).toBeInTheDocument();
     await userEvent.click(screen.getAllByRole("button", { name: "expand" })[0]);
-    expect(
-      screen.getByText(/Diagnostics not captured \(capture diagnostics = false/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Diagnostics not captured \(capture diagnostics = false/)).toBeInTheDocument();
   });
 
   it("shows no diagnostics section for an agent that predates them", async () => {
@@ -397,11 +336,7 @@ describe("FailedChecks", () => {
       return copy;
     });
     installFetchMock({
-      "/api/v2/failures": envelope({
-        arguments_recorded: false,
-        arguments_mode: "none",
-        entries: stripped,
-      }),
+      "/api/v2/failures": envelope({ arguments_recorded: false, arguments_mode: "none", entries: stripped }),
     });
     renderWithProviders(<FailedChecks />);
 
@@ -431,13 +366,7 @@ describe("FailedChecks", () => {
 
   it("explains a switched-off log", async () => {
     installFetchMock({
-      "/api/v2/failures": envelope({
-        enabled: false,
-        count: 0,
-        entries: [],
-        max_entries: 0,
-        statuses: "",
-      }),
+      "/api/v2/failures": envelope({ enabled: false, count: 0, entries: [], max_entries: 0, statuses: "" }),
     });
     renderWithProviders(<FailedChecks />);
 

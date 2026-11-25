@@ -43,11 +43,7 @@ export default function Facts() {
                 snapshot it took earlier. Each card carries the age that
                 actually matters, so this one says "checked". */}
             <Tooltip title="When the agent last asked its modules for facts" placement="bottom">
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`checked ${timeLabel(facts.collected)}`}
-              />
+              <Chip size="small" variant="outlined" label={`checked ${timeLabel(facts.collected)}`} />
             </Tooltip>
           </>
         )}
@@ -83,8 +79,7 @@ export default function Facts() {
 
       {sets.length === 0 && (
         <Alert severity="info" sx={{ mx: 2, mb: 2 }}>
-          No facts collected. A fact set is enabled in the module that produces it — turn one on
-          below.
+          No facts collected. A fact set is enabled in the module that produces it — turn one on below.
         </Alert>
       )}
 
@@ -108,9 +103,7 @@ export default function Facts() {
                 <Typography variant="h6" component="div">
                   {name}
                 </Typography>
-                {facts?.errors?.[name] !== undefined && (
-                  <Chip size="small" color="warning" label="stale" />
-                )}
+                {facts?.errors?.[name] !== undefined && <Chip size="small" color="warning" label="stale" />}
                 <Spacing />
                 {/* The age of these values, not of the round that carried
                     them. Falls back to the round for a producer that does

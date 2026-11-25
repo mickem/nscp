@@ -1,16 +1,7 @@
 ﻿import { useGetMetricsQuery } from "../api/api.ts";
 import { parseMetrics } from "../metric_parser.ts";
 import { useMemo } from "react";
-import {
-  Box,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-  Tooltip,
-} from "@mui/material";
+import { Box, CircularProgress, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
 import CpuWidget from "../components/CpuWidget.tsx";
@@ -50,11 +41,7 @@ function formatXValue(value: number) {
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   const refreshRate = useAppSelector((state) => state.dashboard.refreshRate);
-  const {
-    data: metrics,
-    fulfilledTimeStamp,
-    isLoading,
-  } = useGetMetricsQuery(undefined, {
+  const { data: metrics, fulfilledTimeStamp, isLoading } = useGetMetricsQuery(undefined, {
     pollingInterval: refreshRate || undefined,
   });
 
@@ -75,7 +62,8 @@ export default function Dashboard() {
 
   // Minimum sensible polling interval (ms) – no point polling faster than the server updates
   const maxRefreshMs = useMemo(
-    () => Math.max(serverIntervals.workersRefresh, serverIntervals.systemRefresh) * 1000,
+    () =>
+      Math.max(serverIntervals.workersRefresh, serverIntervals.systemRefresh) * 1000,
     [serverIntervals],
   );
 
@@ -92,20 +80,13 @@ export default function Dashboard() {
     (m) => m.key === "system.cpu.total.kernel" || m.key === "system.cpu.total.user",
   );
   const hasMemData = result.metrics.some(
-    (m) =>
-      m.key === "system.mem.physical.used" &&
-      result.metrics.some((n) => n.key === "system.mem.physical.total"),
+    (m) => m.key === "system.mem.physical.used" && result.metrics.some((n) => n.key === "system.mem.physical.total"),
   );
-  const hasNetworkData = result.metrics.some(
-    (m) => m.type === "network" && m.metric === "NetConnectionID",
-  );
+  const hasNetworkData = result.metrics.some((m) => m.type === "network" && m.metric === "NetConnectionID");
   const hasDiskIoData = result.metrics.some((m) => m.module === "disk" && m.type === "io");
   const hasDiskFreeData = result.metrics.some((m) => m.module === "disk" && m.type === "free");
   const hasSystemInfoData = result.metrics.some(
-    (m) =>
-      m.key.startsWith("system.uptime") ||
-      m.key.startsWith("system.metrics") ||
-      m.key.startsWith("workers."),
+    (m) => m.key.startsWith("system.uptime") || m.key.startsWith("system.metrics") || m.key.startsWith("workers."),
   );
 
   const handleRefreshRateChange = (event: SelectChangeEvent<number>) => {

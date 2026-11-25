@@ -2,12 +2,7 @@ import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Diagnostics from "./Diagnostics";
-import {
-  authenticatedState,
-  installFetchMock,
-  jsonResponse,
-  renderWithProviders,
-} from "../test/test-utils";
+import { authenticatedState, installFetchMock, jsonResponse, renderWithProviders } from "../test/test-utils";
 
 const SUMMARY = {
   enabled: true,
@@ -98,9 +93,7 @@ describe("Diagnostics", () => {
     const fetchMock = installFetchMock(routes());
     renderWithProviders(<Diagnostics />, { preloadedState: authenticatedState });
 
-    expect(
-      await screen.findByRole("table", { name: "processes.top_cpu rows" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "processes.top_cpu rows" })).toBeInTheDocument();
     expect(screen.getByText("snapshot #812")).toBeInTheDocument();
     const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     expect(headings).toEqual(["failures.recent", "eventlog.errors", "processes.top_cpu"]);
@@ -109,9 +102,7 @@ describe("Diagnostics", () => {
     expect(within(cpu).getByText("87.5 %")).toBeInTheDocument();
     expect(screen.getByText("showing the first 1")).toBeInTheDocument();
     await waitFor(() =>
-      expect(
-        screen.getByText("Could not be collected: The subscription could not be created"),
-      ).toBeInTheDocument(),
+      expect(screen.getByText("Could not be collected: The subscription could not be created")).toBeInTheDocument(),
     );
     await waitFor(() => expect(screen.getByText(/No rows/)).toBeInTheDocument());
 
@@ -169,9 +160,7 @@ describe("Diagnostics", () => {
     expect(await screen.findByLabelText("Core: capture diagnostics")).not.toBeChecked();
     expect(screen.getByText(/Diagnostics are switched off/)).toBeInTheDocument();
     expect(screen.getByText(/with the switches below/)).toBeInTheDocument();
-    expect(
-      screen.queryByText(/\[\/settings\/system\/windows\/diagnostics\]/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/\[\/settings\/system\/windows\/diagnostics\]/)).not.toBeInTheDocument();
   });
 
   it("does not offer the switches to a role that may not read diagnostics", async () => {
@@ -204,21 +193,15 @@ describe("Diagnostics", () => {
   it("says a section left the snapshot when it 404s between the list and the read", async () => {
     installFetchMock({
       ...routes(),
-      "/api/v2/diagnostics/processes.top_cpu": new Response("Diagnostics section not found", {
-        status: 404,
-      }),
+      "/api/v2/diagnostics/processes.top_cpu": new Response("Diagnostics section not found", { status: 404 }),
     });
     renderWithProviders(<Diagnostics />, { preloadedState: authenticatedState });
 
-    expect(
-      await screen.findByText("Could not be collected: no longer in the latest snapshot"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Could not be collected: no longer in the latest snapshot")).toBeInTheDocument();
   });
 
   it("explains a missing grant instead of logging the user out", async () => {
-    installFetchMock({
-      "/api/v2/diagnostics": new Response("403 You're not allowed", { status: 403 }),
-    });
+    installFetchMock({ "/api/v2/diagnostics": new Response("403 You're not allowed", { status: 403 }) });
     const { store } = renderWithProviders(<Diagnostics />, { preloadedState: authenticatedState });
 
     expect(await screen.findByText(/needs the/)).toBeInTheDocument();
@@ -234,9 +217,7 @@ describe("Diagnostics", () => {
 
     await screen.findByRole("table", { name: "processes.top_cpu rows" });
     const lists = () =>
-      fetchMock.mock.calls.filter(
-        (c) => new URL((c[0] as Request).url).pathname === "/api/v2/diagnostics",
-      ).length;
+      fetchMock.mock.calls.filter((c) => new URL((c[0] as Request).url).pathname === "/api/v2/diagnostics").length;
     expect(lists()).toBe(1);
     // The refresh button is the toolbar's only icon button.
     const buttons = screen.getAllByRole("button");

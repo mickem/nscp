@@ -26,7 +26,12 @@ import { Toolbar } from "../components/atoms/Toolbar.tsx";
 import { Spacing } from "../components/atoms/Spacing.tsx";
 import { RefreshButton } from "../components/atoms/RefreshButton.tsx";
 import { useAppDispatch } from "../store/store.ts";
-import { EventEntry, nsclientApi, useClearEventsMutation, useGetEventsQuery } from "../api/api.ts";
+import {
+  EventEntry,
+  nsclientApi,
+  useClearEventsMutation,
+  useGetEventsQuery,
+} from "../api/api.ts";
 import FilterField from "../components/atoms/FilterField.tsx";
 import Trail from "../components/atoms/Trail.tsx";
 
@@ -114,7 +119,10 @@ export default function Events() {
     });
   }, [parsed, needle]);
 
-  const sorted = useMemo(() => [...filtered].sort((a, b) => b.index - a.index), [filtered]);
+  const sorted = useMemo(
+    () => [...filtered].sort((a, b) => b.index - a.index),
+    [filtered],
+  );
 
   return (
     <Stack direction="column">
@@ -172,7 +180,9 @@ export default function Events() {
               <TableRow>
                 <TableCell colSpan={6}>
                   <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
-                    {needle ? `No events match “${filter}”.` : "No events recorded."}
+                    {needle
+                      ? `No events match “${filter}”.`
+                      : "No events recorded."}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -227,7 +237,9 @@ function EventRow({ event, isOpen, onToggle, dataPairs }: EventRowProps) {
           </IconButton>
         </TableCell>
         <TableCell>{event.index}</TableCell>
-        <TableCell sx={{ fontFamily: "monospace", whiteSpace: "nowrap" }}>{event.date}</TableCell>
+        <TableCell sx={{ fontFamily: "monospace", whiteSpace: "nowrap" }}>
+          {event.date}
+        </TableCell>
         <TableCell sx={{ fontFamily: "monospace" }}>{event.type}</TableCell>
         <TableCell sx={{ fontFamily: "monospace" }}>{event.key}</TableCell>
         <TableCell>

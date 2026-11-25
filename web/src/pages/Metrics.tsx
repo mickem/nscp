@@ -75,9 +75,7 @@ function groupMetrics(metrics: Metric[], metadata: Metadata): MetricGroup[] {
   for (const group of sorted) {
     group.metrics.sort((a, b) => a.metric.localeCompare(b.metric));
     const first = Object.entries(metadata?.[group.metrics[0].key]?.labels ?? {});
-    group.labels = first.filter(([k, v]) =>
-      group.metrics.every((m) => metadata?.[m.key]?.labels?.[k] === v),
-    );
+    group.labels = first.filter(([k, v]) => group.metrics.every((m) => metadata?.[m.key]?.labels?.[k] === v));
   }
   return sorted;
 }
@@ -131,8 +129,7 @@ export default function Metrics() {
 
   // A module that is no longer published (a script was unloaded) drops its
   // selection instead of leaving an empty table behind a toggle that is gone.
-  const selectedModule =
-    pickedModule !== null && result.modules.includes(pickedModule) ? pickedModule : null;
+  const selectedModule = pickedModule !== null && result.modules.includes(pickedModule) ? pickedModule : null;
 
   const typesByModule = useMemo(() => {
     const map: Record<string, Set<string>> = {};
@@ -141,9 +138,7 @@ export default function Metrics() {
       if (!map[m.module]) map[m.module] = new Set();
       map[m.module].add(m.type);
     }
-    return Object.fromEntries(
-      Object.entries(map).map(([k, v]) => [k, [...v].sort((a, b) => a.localeCompare(b))]),
-    );
+    return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, [...v].sort((a, b) => a.localeCompare(b))]));
   }, [result.metrics]);
 
   const moduleTypes = selectedModule !== null ? (typesByModule[selectedModule] ?? []) : [];
@@ -165,8 +160,8 @@ export default function Metrics() {
       if (!needle) return true;
       const meta = metadata?.[m.key];
       const labels = Object.entries(meta?.labels ?? {}).map(([k, v]) => `${k}=${v}`);
-      return [m.key, moduleLabel(m.module), meta?.help, meta?.unit, meta?.type, ...labels].some(
-        (f) => (f ?? "").toLowerCase().includes(needle),
+      return [m.key, moduleLabel(m.module), meta?.help, meta?.unit, meta?.type, ...labels].some((f) =>
+        (f ?? "").toLowerCase().includes(needle),
       );
     });
   }, [result.metrics, metadata, selectedModule, selectedType, needle]);
@@ -176,10 +171,7 @@ export default function Metrics() {
     dispatch(nsclientApi.util.invalidateTags(["Metrics"]));
   };
 
-  const groups = useMemo(
-    () => groupMetrics(filteredMetrics, metadata),
-    [filteredMetrics, metadata],
-  );
+  const groups = useMemo(() => groupMetrics(filteredMetrics, metadata), [filteredMetrics, metadata]);
 
   return (
     <Stack direction="column">
@@ -193,11 +185,7 @@ export default function Metrics() {
           sx={{ "& .MuiToggleButton-root": { px: 1, py: 0.5 } }}
         >
           {result.modules.map((m) => (
-            <ToggleButton
-              key={m}
-              value={m}
-              sx={m ? undefined : { fontStyle: "italic", textTransform: "none" }}
-            >
+            <ToggleButton key={m} value={m} sx={m ? undefined : { fontStyle: "italic", textTransform: "none" }}>
               {moduleLabel(m)}
             </ToggleButton>
           ))}
@@ -266,25 +254,13 @@ export default function Metrics() {
           <TableBody>
             {groups.map((group) => (
               <Fragment key={group.id}>
-                <TableRow
-                  data-group={group.path.join(".")}
-                  sx={{ backgroundColor: "action.hover" }}
-                >
+                <TableRow data-group={group.path.join(".")} sx={{ backgroundColor: "action.hover" }}>
                   <TableCell colSpan={4} sx={{ py: 0.75 }}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      useFlexGap
-                      sx={{ alignItems: "center", flexWrap: "wrap" }}
-                    >
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
                       <Typography
                         variant="subtitle2"
                         component="span"
-                        sx={
-                          group.unnamed
-                            ? { fontStyle: "italic", color: "text.secondary" }
-                            : undefined
-                        }
+                        sx={group.unnamed ? { fontStyle: "italic", color: "text.secondary" } : undefined}
                       >
                         {group.path.join(" › ")}
                       </Typography>
@@ -314,18 +290,10 @@ export default function Metrics() {
                       <TableCell title={m.key} sx={{ pl: 4, whiteSpace: "nowrap" }}>
                         {m.metric}
                         {labels.map(([k, v]) => (
-                          <Chip
-                            key={k}
-                            size="small"
-                            variant="outlined"
-                            label={`${k}=${v}`}
-                            sx={{ ml: 1 }}
-                          />
+                          <Chip key={k} size="small" variant="outlined" label={`${k}=${v}`} sx={{ ml: 1 }} />
                         ))}
                       </TableCell>
-                      <TableCell sx={{ color: "text.secondary", width: "100%" }}>
-                        {meta?.help ?? ""}
-                      </TableCell>
+                      <TableCell sx={{ color: "text.secondary", width: "100%" }}>{meta?.help ?? ""}</TableCell>
                       <TableCell
                         align="right"
                         title={shown === raw ? undefined : raw}

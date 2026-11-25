@@ -91,9 +91,7 @@ export default function FailedChecks() {
       await clearFailures().unwrap();
       setExpanded(new Set());
     } catch (err) {
-      setError(
-        `Failed to clear the failed checks: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      setError(`Failed to clear the failed checks: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
@@ -180,17 +178,13 @@ export default function FailedChecks() {
       {data && !data.enabled && (
         <Alert severity="info" sx={{ mb: 2 }}>
           The failed-check log is switched off. Set <code>enabled = true</code> under{" "}
-          <code>[/settings/core/failed checks]</code> to record checks that come back WARNING,
-          CRITICAL or UNKNOWN.
+          <code>[/settings/core/failed checks]</code> to record checks that come back WARNING, CRITICAL or UNKNOWN.
         </Alert>
       )}
       {data && data.enabled && (
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
-          Keeping the last {data.max_entries} checks that came back{" "}
-          {data.statuses.split(",").join(", ") || "non-OK"}
-          {data.dropped > 0
-            ? ` · ${data.dropped} older ${data.dropped === 1 ? "entry" : "entries"} evicted`
-            : ""}
+          Keeping the last {data.max_entries} checks that came back {data.statuses.split(",").join(", ") || "non-OK"}
+          {data.dropped > 0 ? ` · ${data.dropped} older ${data.dropped === 1 ? "entry" : "entries"} evicted` : ""}
           {!data.arguments_recorded
             ? " · arguments not recorded (record arguments = none under [/settings/core/failed checks])"
             : data.arguments_mode === "safe"
@@ -264,30 +258,17 @@ interface FailedCheckRowProps {
 }
 
 function FailedCheckRow({ entry, isOpen, onToggle, argumentsRecorded }: FailedCheckRowProps) {
-  const perf: [string, QueryExecutionResultLinePerf][] = entry.lines.flatMap((l) =>
-    Object.entries(l.perf ?? {}),
-  );
+  const perf: [string, QueryExecutionResultLinePerf][] = entry.lines.flatMap((l) => Object.entries(l.perf ?? {}));
   return (
     <>
-      <TableRow
-        hover
-        sx={{ cursor: "pointer", "& > *": { borderBottom: isOpen ? 0 : undefined } }}
-        onClick={onToggle}
-      >
+      <TableRow hover sx={{ cursor: "pointer", "& > *": { borderBottom: isOpen ? 0 : undefined } }} onClick={onToggle}>
         <TableCell>
           <IconButton size="small" aria-label={isOpen ? "collapse" : "expand"}>
-            {isOpen ? (
-              <KeyboardArrowDownIcon fontSize="small" />
-            ) : (
-              <KeyboardArrowRightIcon fontSize="small" />
-            )}
+            {isOpen ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
           </IconButton>
         </TableCell>
         <TableCell>{entry.index}</TableCell>
-        <TableCell
-          sx={{ fontFamily: "monospace", whiteSpace: "nowrap" }}
-          title={formatAge(entry.age)}
-        >
+        <TableCell sx={{ fontFamily: "monospace", whiteSpace: "nowrap" }} title={formatAge(entry.age)}>
           {entry.date}
         </TableCell>
         <TableCell>
@@ -296,32 +277,19 @@ function FailedCheckRow({ entry, isOpen, onToggle, argumentsRecorded }: FailedCh
         <TableCell sx={{ fontFamily: "monospace" }}>
           {entry.command}
           {entry.depth > 0 && (
-            <Chip
-              size="small"
-              variant="outlined"
-              label="nested"
-              sx={{ ml: 1 }}
-              title="Run by another check"
-            />
+            <Chip size="small" variant="outlined" label="nested" sx={{ ml: 1 }} title="Run by another check" />
           )}
         </TableCell>
         <TableCell>
           <Typography
             variant="body2"
             color={entry.message ? "text.primary" : "text.secondary"}
-            sx={{
-              maxWidth: 600,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
+            sx={{ maxWidth: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
           >
             {entry.message || "—"}
           </Typography>
         </TableCell>
-        <TableCell sx={{ fontFamily: "monospace", whiteSpace: "nowrap" }}>
-          {entry.subject}
-        </TableCell>
+        <TableCell sx={{ fontFamily: "monospace", whiteSpace: "nowrap" }}>{entry.subject}</TableCell>
       </TableRow>
       <TableRow>
         <TableCell colSpan={7} sx={{ pb: 0, pt: 0, border: 0 }}>
@@ -333,11 +301,7 @@ function FailedCheckRow({ entry, isOpen, onToggle, argumentsRecorded }: FailedCh
                 </Typography>
               )}
               {entry.lines.map((line, i) => (
-                <Typography
-                  key={i}
-                  variant="body2"
-                  sx={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}
-                >
+                <Typography key={i} variant="body2" sx={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}>
                   {line.message}
                 </Typography>
               ))}
@@ -369,12 +333,7 @@ function FailedCheckRow({ entry, isOpen, onToggle, argumentsRecorded }: FailedCh
                   </TableBody>
                 </Table>
               )}
-              <Stack
-                direction="row"
-                spacing={1}
-                useFlexGap
-                sx={{ flexWrap: "wrap", alignItems: "center" }}
-              >
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
                 <Typography variant="body2" color="text.secondary">
                   Arguments:
                 </Typography>
@@ -388,13 +347,7 @@ function FailedCheckRow({ entry, isOpen, onToggle, argumentsRecorded }: FailedCh
                   </Typography>
                 ) : (
                   entry.arguments.map((a, i) => (
-                    <Chip
-                      key={i}
-                      size="small"
-                      variant="outlined"
-                      label={a}
-                      sx={{ fontFamily: "monospace" }}
-                    />
+                    <Chip key={i} size="small" variant="outlined" label={a} sx={{ fontFamily: "monospace" }} />
                   ))
                 )}
               </Stack>
@@ -410,8 +363,7 @@ function FailedCheckRow({ entry, isOpen, onToggle, argumentsRecorded }: FailedCh
 
 /** Why an entry has no snapshot to show, keyed by its context state. */
 const CONTEXT_STATE_TEXT: Record<Exclude<FailedCheckContextState, "captured">, string> = {
-  disabled:
-    "not captured (capture metrics = false under [/settings/core/failed checks] when this was recorded)",
+  disabled: "not captured (capture metrics = false under [/settings/core/failed checks] when this was recorded)",
   evicted: "released to stay within the metrics context budget",
   too_large: "larger than max context size, not kept",
   none: "no snapshot had been collected yet",
@@ -429,16 +381,10 @@ function ContextPanel({ entry }: { entry: FailedCheck }) {
         <Typography variant="subtitle2">System at the time</Typography>
         {state === "captured" ? (
           <Typography variant="body2" color="text.secondary">
-            snapshot #{entry.context.snapshot_id}, {entry.context.age_at_failure ?? 0}s before the
-            failure
+            snapshot #{entry.context.snapshot_id}, {entry.context.age_at_failure ?? 0}s before the failure
           </Typography>
         ) : (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={state.replace("_", " ")}
-            title={CONTEXT_STATE_TEXT[state]}
-          />
+          <Chip size="small" variant="outlined" label={state.replace("_", " ")} title={CONTEXT_STATE_TEXT[state]} />
         )}
       </Stack>
       {state === "captured" ? (
@@ -522,8 +468,7 @@ function ContextTable({ index }: { index: number }) {
 
 /** Why an entry has no diagnostics to show, keyed by its diagnostics state. */
 const DIAGNOSTICS_STATE_TEXT: Record<Exclude<FailedCheckContextState, "captured">, string> = {
-  disabled:
-    "not captured (capture diagnostics = false under [/settings/core/failed checks] when this was recorded)",
+  disabled: "not captured (capture diagnostics = false under [/settings/core/failed checks] when this was recorded)",
   evicted: "released to stay within the metrics context budget, which diagnostics share",
   too_large: "larger than max context size, not kept",
   none: "no diagnostics had been collected yet",
@@ -545,16 +490,10 @@ function DiagnosticsPanel({ entry }: { entry: FailedCheck }) {
         <Typography variant="subtitle2">Diagnostics at the time</Typography>
         {state === "captured" ? (
           <Typography variant="body2" color="text.secondary">
-            snapshot #{entry.diagnostics.snapshot_id}, {entry.diagnostics.age_at_failure ?? 0}s
-            before the failure
+            snapshot #{entry.diagnostics.snapshot_id}, {entry.diagnostics.age_at_failure ?? 0}s before the failure
           </Typography>
         ) : (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={state.replace("_", " ")}
-            title={DIAGNOSTICS_STATE_TEXT[state]}
-          />
+          <Chip size="small" variant="outlined" label={state.replace("_", " ")} title={DIAGNOSTICS_STATE_TEXT[state]} />
         )}
       </Stack>
       {state === "captured" ? (
@@ -620,13 +559,10 @@ function PrunedNote({ pruned }: { pruned: FailedCheckContextPruned }) {
   if (pruned.duplicates > 0) parts.push(`${pruned.duplicates} duplicate`);
   if (pruned.excluded > 0) parts.push(`${pruned.excluded} excluded`);
   const collapsed = Object.entries(pruned.collapsed);
-  const how = [pruned.rules, ...(pruned.patterns ?? []).map((p) => `"${p}"`)]
-    .filter((x) => x)
-    .join(", ");
+  const how = [pruned.rules, ...(pruned.patterns ?? []).map((p) => `"${p}"`)].filter((x) => x).join(", ");
   return (
     <Typography variant="body2" color="text.secondary" component="div">
-      Pruned ({how}):{" "}
-      {parts.length > 0 ? `${parts.join(", ")} values left out.` : "nothing to leave out."}
+      Pruned ({how}): {parts.length > 0 ? `${parts.join(", ")} values left out.` : "nothing to leave out."}
       {collapsed.length > 0 && (
         <Box component="ul" sx={{ m: 0, pl: 3 }} aria-label="collapsed instances">
           {collapsed.map(([dropped, kept]) => (
