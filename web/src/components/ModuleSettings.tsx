@@ -2,18 +2,10 @@ import { SettingsDescription, useGetSettingsDescriptionsQuery } from "../api/api
 import { Stack } from "@mui/material";
 import SettingsList from "./SettingsList.tsx";
 import SettingsCollection from "./SettingsCollection.tsx";
-import SettingsKeyValueCollection, {
-  KEY_VALUE_COLLECTION_PATHS,
-} from "./SettingsKeyValueCollection.tsx";
-import NrpeServerWizard from "./NrpeServerWizard.tsx";
-import { ReactElement, useMemo } from "react";
+import SettingsKeyValueCollection from "./SettingsKeyValueCollection.tsx";
+import { useMemo } from "react";
 import { isBoolTrue } from "../common/settings.ts";
-
-// Module-specific setup wizards that should render above the regular
-// settings sections. Keyed by the module id we get in props.
-const MODULE_WIZARDS: Record<string, () => ReactElement> = {
-  NRPEServer: () => <NrpeServerWizard />,
-};
+import { getCollectionConfig, getModulePage } from "../modules/registry.ts";
 
 interface Props {
   // The (already module-filtered, non-template) settings used for the flat list.
@@ -25,50 +17,25 @@ interface Props {
   showAdvanced?: boolean;
 }
 
-// Legacy collection roots that should never render via the new editor —
-// they're either superseded by other config or have non-object semantics.
-const LEGACY_COLLECTION_PATHS = new Set<string>([
-  "/settings/system/windows/real-time/checks",
-]);
-
 // Collection roots are path-only entries (key === "") explicitly flagged
 // by the backend with `is_object: true` (e.g. "PDH Counters", "External scripts").
-// Paths registered as flat key/value collections are handled by their own
-// widget instead, so we filter them out here even if the backend tags them
-// as objects.
-const KEY_VALUE_PATHS_SET = new Set<string>(KEY_VALUE_COLLECTION_PATHS);
-
+// A module page can declare one of them a key/value collection (rendered by
+// its own widget) or hidden (superseded config), so those are left out here
+// even though the backend tags them as objects.
 function findCollectionRoots(all: SettingsDescription[], moduleId: string): SettingsDescription[] {
-  return all.filter(
-    (s) =>
-      s.key === "" &&
-      s.is_object &&
-      s.plugins.includes(moduleId) &&
-      !LEGACY_COLLECTION_PATHS.has(s.path) &&
-      !KEY_VALUE_PATHS_SET.has(s.path),
-  );
+  return all.filter((s) => {
+    if (s.key !== "" || !s.is_object || !s.plugins.includes(moduleId)) return false;
+    const kind = getCollectionConfig(s.path)?.kind;
+    return kind !== "hidden" && kind !== "keyValue";
+  });
 }
 
-// Collections whose visibility depends on a sibling toggle being on. Keeps
-// the editor focused: if real-time event-log polling is off, the per-filter
-// editor below it is dead config and just adds noise.
-interface CollectionGate {
-  collectionPath: string;
-  gatePath: string;
-  gateKey: string;
+// The key/value collections a module page declares.
+function keyValuePathsOf(moduleId: string): string[] {
+  return Object.entries(getModulePage(moduleId)?.collections ?? {})
+    .filter(([, c]) => c.kind === "keyValue")
+    .map(([path]) => path);
 }
-const GATED_COLLECTIONS: CollectionGate[] = [
-  {
-    collectionPath: "/settings/eventlog/real-time/filters",
-    gatePath: "/settings/eventlog/real-time",
-    gateKey: "enabled",
-  },
-  {
-    collectionPath: "/settings/logfile/real-time/checks",
-    gatePath: "/settings/logfile/real-time",
-    gateKey: "enabled",
-  },
-];
 
 export default function ModuleSettings({ settings, moduleId, showAdvanced = false }: Props) {
   const { data: allDescriptions } = useGetSettingsDescriptionsQuery();
@@ -84,19 +51,20 @@ export default function ModuleSettings({ settings, moduleId, showAdvanced = fals
   // how SettingsCollection scopes itself.
   const kvPaths = useMemo(() => {
     const pathsInModule = new Set(settings.map((s) => s.path));
-    return KEY_VALUE_COLLECTION_PATHS.filter((p) => pathsInModule.has(p));
-  }, [settings]);
+    return keyValuePathsOf(moduleId).filter((p) => pathsInModule.has(p));
+  }, [settings, moduleId]);
 
-  // Apply gating rules: a gated collection only renders when its gate setting
-  // is on. Hidden collections are still excluded from the flat list (their
+  // Apply the module page's gates: a gated collection only renders when its
+  // gate setting is on. Hidden collections are still excluded from the flat list (their
   // child keys aren't relevant when the parent is off either).
   const visibleCollectionPaths = useMemo(() => {
     if (!allDescriptions) return collectionPaths;
     return collectionPaths.filter((p) => {
-      const gate = GATED_COLLECTIONS.find((g) => g.collectionPath === p);
+      const config = getCollectionConfig(p);
+      const gate = config?.kind === "instances" ? config.gate : undefined;
       if (!gate) return true;
       const entry = allDescriptions.find(
-        (s) => s.path === gate.gatePath && s.key === gate.gateKey,
+        (s) => s.path === gate.path && s.key === gate.key,
       );
       return isBoolTrue(entry?.value || entry?.default_value);
     });
@@ -118,10 +86,10 @@ export default function ModuleSettings({ settings, moduleId, showAdvanced = fals
   // section-header entries (key === "") alone would render an empty card.
   const hasFlatKeys = flatSettings.some((s) => s.key !== "");
 
-  const renderWizard = MODULE_WIZARDS[moduleId];
+  const Wizard = getModulePage(moduleId)?.Wizard;
 
   if (
-    !renderWizard &&
+    !Wizard &&
     !hasFlatKeys &&
     visibleCollectionPaths.length === 0 &&
     kvPaths.length === 0
@@ -131,7 +99,7 @@ export default function ModuleSettings({ settings, moduleId, showAdvanced = fals
 
   return (
     <Stack spacing={3}>
-      {renderWizard && renderWizard()}
+      {Wizard && <Wizard />}
       {hasFlatKeys && <SettingsList settings={flatSettings} flat />}
       {visibleCollectionPaths.map((path) => (
         <SettingsCollection
