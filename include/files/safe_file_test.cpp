@@ -42,7 +42,8 @@ struct memory_device {
   int reads = 0;
   bool read(char *buf, std::size_t len, std::size_t &got) {
     ++reads;
-    got = std::min(len, data.size() - std::min(pos, data.size()));
+    // Parenthesised: <windows.h> defines min() as a macro.
+    got = (std::min)(len, data.size() - (std::min)(pos, data.size()));
     if (got > 0) data.copy(buf, got, pos);
     pos += got;
     return true;
@@ -252,6 +253,8 @@ TEST(SafeFilePosix, DirectoryIsRefused) {
   EXPECT_EQ("Not a regular file: /", error);
 }
 
+#ifdef __linux__
+// procfs is Linux-only: macOS has no /proc.
 TEST(SafeFilePosix, LimitIsEnforcedWhileReadingAFileThatReportsNoSize) {
   // A /proc file is a regular file whose size reads as 0 while it has
   // content: only the per-chunk check can stop it.
@@ -263,6 +266,7 @@ TEST(SafeFilePosix, LimitIsEnforcedWhileReadingAFileThatReportsNoSize) {
   ASSERT_EQ(read_status::ok, read_all("/proc/self/status", 0, out, error)) << error;
   EXPECT_FALSE(out.empty());
 }
+#endif
 
 TEST(SafeFilePosix, WindowsDeviceNamesAreOrdinaryNamesHere) {
   // `\\.\pipe\x` is a file name like any other on POSIX: it is not
