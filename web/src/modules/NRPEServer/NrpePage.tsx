@@ -386,13 +386,13 @@ export default function NrpePage({ onExpertMode }: ModulePanelProps) {
               onChange={(args) => edit({ args: args as ArgumentsMode })}
               disabled={busy}
             />
-            <Explainer to="/modules/CheckExternalScripts" linkText="Open External scripts">
+            <Explainer to="/modules/CheckHelpers" linkText="Open Check helpers">
               The safe way to vary a check per host or service is to keep arguments off and give
-              each variant a name: an alias in External scripts with the arguments fixed, such as{" "}
+              each variant a name: an alias in Check helpers with the arguments fixed, such as{" "}
               <code>alias_cpu = check_cpu &quot;warn=load &gt; 80%&quot;</code>, which the
-              monitoring server then calls without arguments. Whether your scripts accept arguments
-              at all is External scripts&apos; own <code>allow arguments</code>, which the last two
-              choices set.
+              monitoring server then calls without arguments. Check helpers gives you aliases
+              without enabling External scripts, which runs programs and has its own{" "}
+              <code>allow arguments</code> for what reaches them, set by the last two choices.
             </Explainer>
             {draft.args !== "none" && (
               <FormControlLabel

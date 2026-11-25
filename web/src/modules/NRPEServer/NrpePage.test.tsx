@@ -99,9 +99,9 @@ describe("NRPE page", () => {
   it("explains the safe way to vary checks, and flags arguments to scripts", async () => {
     render([]);
     await waitFor(() => expect(radio(/^No arguments/)).toBeChecked());
-    expect(screen.getByRole("link", { name: "Open External scripts" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open Check helpers" })).toHaveAttribute(
       "href",
-      "/modules/CheckExternalScripts",
+      "/modules/CheckHelpers",
     );
     await userEvent.click(radio(/^Arguments for built-in checks and external scripts/));
     expect(screen.getByText("Requests can pass arguments to your scripts")).toBeInTheDocument();
