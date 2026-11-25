@@ -1,10 +1,5 @@
 import Stack from "@mui/material/Stack";
-import {
-  AliasListItem,
-  nsclientApi,
-  useGetAliasesQuery,
-  useGetQueriesQuery,
-} from "../api/api.ts";
+import { AliasListItem, nsclientApi, useGetAliasesQuery, useGetQueriesQuery } from "../api/api.ts";
 import {
   Box,
   Table,

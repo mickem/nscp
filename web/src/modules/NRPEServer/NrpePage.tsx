@@ -24,8 +24,16 @@ import { ReactNode, useMemo, useState } from "react";
 import { useGetSettingsQuery } from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
 import AllowedHostsSection from "../kit/AllowedHostsSection.tsx";
-import { allowedHostsChange, readAllowedHosts } from "../kit/allowedHosts.ts";
-import { describeChange, pendingChanges, SettingChange, useApplyChanges } from "../kit/changes.ts";
+import {
+  applyToStored,
+  describeChange,
+  pendingChanges,
+  readStored,
+  Scope,
+  SettingChange,
+  useApplyChanges,
+} from "../kit/changes.ts";
+import ConfigDialog from "../kit/ConfigDialog.tsx";
 import Explainer from "../kit/Explainer.tsx";
 import ModeSelector from "../kit/ModeSelector.tsx";
 import { CUSTOM, Custom, ModeOption } from "../kit/modes.ts";
@@ -41,9 +49,12 @@ import {
   detectArguments,
   detectSecurity,
   enableNrpe,
-  fieldChange,
+  fieldChanges,
+  fieldInScope,
+  FieldValue,
   identityProblem,
   nastyCharactersChange,
+  nrpeIni,
   NRPE_PATH,
   portChange,
   readField,
@@ -60,6 +71,18 @@ import {
 
 // The keys behind the Advanced section, in the order shown.
 const ADVANCED: Array<{ key: string; label: string; kind: ValueKind; help?: string }> = [
+  {
+    key: "bind to",
+    label: "Bind to address",
+    kind: "text",
+    help: "A local IP address to listen on; empty for all.",
+  },
+  {
+    key: "cache allowed hosts",
+    label: "Cache allowed hosts",
+    kind: "bool",
+    help: "Resolve host names in the allowed-hosts list once; turn off for monitoring servers with dynamic addresses.",
+  },
   {
     key: "payload length",
     label: "Payload length",
@@ -159,7 +182,6 @@ const ARGUMENT_OPTIONS: ModeOption<ArgumentsMode>[] = [
 
 interface Draft {
   port: string;
-  allowedHosts: string;
   security: SecurityMode | Custom;
   files: TlsFiles;
   args: ArgumentsMode;
@@ -182,7 +204,6 @@ export default function NrpePage({ onExpertMode }: ModulePanelProps) {
   const current: Draft = useMemo(
     () => ({
       port: readPort(stored),
-      allowedHosts: readAllowedHosts(stored, NRPE_PATH).value,
       security: detectSecurity(stored),
       files: readTlsFiles(stored),
       args: detectArguments(stored),
@@ -197,21 +218,32 @@ export default function NrpePage({ onExpertMode }: ModulePanelProps) {
   const draft: Draft = { ...current, ...edits };
   const edit = (patch: Partial<Draft>) => setEdits((e) => ({ ...e, ...patch }));
 
-  // Single-value keys the reader changed, by key.
-  const [fieldEdits, setFieldEdits] = useState<Record<string, string>>({});
-  const fieldValue = (key: string) => fieldEdits[key] ?? readField(stored, key).value;
-  const field = (key: string, label: string, kind: ValueKind, help?: ReactNode) => (
-    <ValueField
-      key={key}
-      label={label}
-      kind={kind}
-      help={help}
-      value={fieldValue(key)}
-      inherited={readField(stored, key)}
-      onChange={(v) => setFieldEdits((f) => ({ ...f, [key]: v }))}
-      disabled={busy}
-    />
-  );
+  // Single-value keys the reader changed, by key: the value and, for a key
+  // that can inherit, whether it is kept in the shared section or locally.
+  const [fieldEdits, setFieldEdits] = useState<Record<string, FieldValue>>({});
+  const fieldState = (key: string): FieldValue => fieldEdits[key] ?? readField(stored, key);
+  const fieldValue = (key: string) => fieldState(key).value;
+  const setField = (key: string, next: FieldValue) => setFieldEdits((f) => ({ ...f, [key]: next }));
+  const setValue = (key: string, value: string) => setField(key, { ...fieldState(key), value });
+  const setScope = (key: string, scope: Scope) =>
+    setField(key, { scope, value: fieldInScope(stored, key, scope, fieldValue(key)) });
+  const field = (key: string, label: string, kind: ValueKind, help?: ReactNode) => {
+    const state = fieldState(key);
+    return (
+      <ValueField
+        key={key}
+        label={label}
+        kind={kind}
+        help={help}
+        value={state.value}
+        onChange={(v) => setValue(key, v)}
+        scope={state.scope}
+        onScopeChange={state.scope ? (sc) => setScope(key, sc) : undefined}
+        disabled={busy}
+      />
+    );
+  };
+  const [showConfig, setShowConfig] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,17 +257,16 @@ export default function NrpePage({ onExpertMode }: ModulePanelProps) {
     identityProblem(draft.security, fieldValue("client identity source"));
 
   const changes: SettingChange[] = useMemo(() => {
-    const out: SettingChange[] = [
-      portChange(draft.port),
-      allowedHostsChange(stored, NRPE_PATH, draft.allowedHosts),
-    ];
+    const out: SettingChange[] = [portChange(draft.port)];
     if ((touched("security") || touched("files")) && draft.security !== CUSTOM) {
       out.push(...securityChanges(draft.security, draft.files));
     }
     if (touched("args")) out.push(...argumentsChanges(draft.args));
     if (touched("nasty")) out.push(nastyCharactersChange(draft.nasty));
-    for (const [key, value] of Object.entries(fieldEdits))
-      out.push(fieldChange(stored, key, value));
+    for (const [key, next] of Object.entries(fieldEdits)) {
+      const value = key === "allowed hosts" ? { ...next, value: next.value.trim() } : next;
+      out.push(...fieldChanges(stored, key, value));
+    }
     const pending = pendingChanges(stored, out);
     // Configuring NRPE switches it on.
     return pending.length > 0 ? pendingChanges(stored, [...pending, enableNrpe()]) : pending;
@@ -261,7 +292,9 @@ export default function NrpePage({ onExpertMode }: ModulePanelProps) {
   const secRisk = securityRisk(draft.security);
   const tls = draft.security === "two-way-tls" || draft.security === "one-way-tls";
   const versionRisk = tls ? tlsVersionRisk(fieldValue("tls version")) : null;
-  const advancedSet = ADVANCED.filter((a) => readField(stored, a.key).source === "own").length;
+  const advancedSet = ADVANCED.filter(
+    (a) => readStored(stored, NRPE_PATH, a.key) !== undefined,
+  ).length;
   const argRisk = argumentsRisk(draft.args, draft.nasty);
 
   return (
@@ -282,26 +315,15 @@ export default function NrpePage({ onExpertMode }: ModulePanelProps) {
                 sx={{ minWidth: 120 }}
                 disabled={busy}
               />
-              {field(
-                "bind to",
-                "Bind to address",
-                "text",
-                "A local IP address to listen on; empty for all.",
-              )}
               {field("timeout", "Timeout (seconds)", "number")}
             </Stack>
             <AllowedHostsSection
-              value={draft.allowedHosts}
-              inherited={readAllowedHosts(stored, NRPE_PATH)}
-              onChange={(allowedHosts) => edit({ allowedHosts })}
+              value={fieldValue("allowed hosts")}
+              scope={fieldState("allowed hosts").scope ?? "default"}
+              onChange={(v) => setValue("allowed hosts", v)}
+              onScopeChange={(sc) => setScope("allowed hosts", sc)}
               disabled={busy}
             />
-            {field(
-              "cache allowed hosts",
-              "Cache allowed hosts",
-              "bool",
-              "Resolve host names in the list once; turn off for monitoring servers with dynamic addresses.",
-            )}
           </Section>
 
           <Section title="Security">
@@ -331,12 +353,17 @@ export default function NrpePage({ onExpertMode }: ModulePanelProps) {
                   { options: TLS_VERSIONS },
                   "A + allows that version and newer.",
                 )}
-                {field(
-                  "client identity source",
-                  "Client identity",
-                  { options: ["none", "cn"] },
-                  "cn names the caller after its certificate's Common Name, for the permission system. Needs two-way TLS.",
-                )}
+                {/* Only two-way TLS verifies a client certificate to take an
+                    identity from; a value set without it stays visible so it
+                    can be put right. */}
+                {(draft.security === "two-way-tls" ||
+                  fieldValue("client identity source") !== "none") &&
+                  field(
+                    "client identity source",
+                    "Client identity",
+                    { options: ["none", "cn"] },
+                    "cn names the caller after its certificate's Common Name, for the permission system. Needs two-way TLS.",
+                  )}
               </Stack>
             )}
             {versionRisk && <RiskBanner risk={versionRisk} />}
@@ -443,7 +470,20 @@ export default function NrpePage({ onExpertMode }: ModulePanelProps) {
               >
                 Discard
               </Button>
+              <Box sx={{ flexGrow: 1 }} />
+              <Button onClick={() => setShowConfig(true)}>Show config</Button>
             </Stack>
+            <ConfigDialog
+              open={showConfig}
+              onClose={() => setShowConfig(false)}
+              title="NRPE configuration"
+              note={
+                changes.length > 0
+                  ? "Includes the changes not saved yet. Paste it into nsclient.ini on another agent, or into a fleet bundle."
+                  : "Paste it into nsclient.ini on another agent, or into a fleet bundle."
+              }
+              render={(includeDefaults) => nrpeIni(applyToStored(stored, changes), includeDefaults)}
+            />
           </Stack>
         </Stack>
       </CardContent>

@@ -30,15 +30,15 @@ const description = (over: Partial<SettingsDescription>): SettingsDescription =>
 });
 
 // One ordinary and one advanced key for the module under test.
-function serve(moduleId: string, path: string) {
+function serve(moduleId: string, path: string, loaded = true) {
   installFetchMock({
     [`/api/v2/modules/${moduleId}`]: jsonResponse({
       id: moduleId,
       name: moduleId,
       title: moduleId,
       description: "",
-      enabled: true,
-      loaded: true,
+      enabled: loaded,
+      loaded,
       metadata: { alias: "", plugin_id: "0" },
       load_url: "",
       unload_url: "",
@@ -102,5 +102,13 @@ describe("Module page expert mode", () => {
     await userEvent.click(expertSwitch());
     expect(screen.queryByText("ADVANCED KEY")).not.toBeInTheDocument();
     expect(screen.getByText("PLAIN KEY")).toBeInTheDocument();
+  });
+
+  it("shows no settings for a module that is not loaded", async () => {
+    serve("NRPEServer", "/settings/NRPE/server", false);
+    renderModule("NRPEServer");
+    expect(await screen.findByText(/Cannot show queries and settings/)).toBeInTheDocument();
+    expect(screen.queryByText("PLAIN KEY")).not.toBeInTheDocument();
+    expect(screen.queryByText("NRPE server")).not.toBeInTheDocument();
   });
 });

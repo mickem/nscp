@@ -1,6 +1,13 @@
 ﻿import Stack from "@mui/material/Stack";
 import { ModuleListItem, nsclientApi, useGetModulesQuery } from "../api/api.ts";
-import { List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography } from "@mui/material";
+import {
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Typography,
+} from "@mui/material";
 import { useNavigate } from "react-router";
 import { Toolbar } from "../components/atoms/Toolbar.tsx";
 import { Spacing } from "../components/atoms/Spacing.tsx";

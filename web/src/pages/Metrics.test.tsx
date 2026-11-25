@@ -16,7 +16,12 @@ const described = () =>
     },
     metadata: {
       "disk.free.C:.free": { type: "gauge", help: "Free space on the volume", unit: "bytes" },
-      "system.cpu.core 0.idle": { type: "gauge", help: "Idle time", unit: "percent", labels: { core: "0" } },
+      "system.cpu.core 0.idle": {
+        type: "gauge",
+        help: "Idle time",
+        unit: "percent",
+        labels: { core: "0" },
+      },
       "system.cpu.core 0.user": {
         type: "gauge",
         help: "User time",
@@ -30,7 +35,8 @@ const described = () =>
 
 // One row per metric; the rows that head a group are not counted.
 const dataRows = () => [...document.querySelectorAll<HTMLElement>("tr[data-metric]")];
-const groupRow = (path: string) => document.querySelector<HTMLElement>(`tr[data-group="${path}"]`) as HTMLElement;
+const groupRow = (path: string) =>
+  document.querySelector<HTMLElement>(`tr[data-group="${path}"]`) as HTMLElement;
 
 describe("Metrics", () => {
   it("shows what each metric means next to its value", async () => {
@@ -41,7 +47,9 @@ describe("Metrics", () => {
     const row = screen.getByText("Idle time").closest("tr") as HTMLElement;
     expect(within(row).getByText("93 %")).toBeInTheDocument();
     expect(within(row).getByText("gauge")).toBeInTheDocument();
-    expect(within(screen.getByText("jobs").closest("tr") as HTMLElement).getByText("counter")).toBeInTheDocument();
+    expect(
+      within(screen.getByText("jobs").closest("tr") as HTMLElement).getByText("counter"),
+    ).toBeInTheDocument();
   });
 
   it("says the module, type and instance once per group, with the labels the group shares", async () => {
@@ -109,7 +117,9 @@ describe("Metrics", () => {
     renderWithProviders(<Metrics />, { withRouter: false });
 
     await waitFor(() => expect(screen.getByText("world")).toBeInTheDocument());
-    fireEvent.change(screen.getByPlaceholderText("Filter metrics…"), { target: { value: "free space" } });
+    fireEvent.change(screen.getByPlaceholderText("Filter metrics…"), {
+      target: { value: "free space" },
+    });
     await waitFor(() => expect(dataRows()).toHaveLength(1));
     expect(screen.getByText("1/5")).toBeInTheDocument();
   });
@@ -118,7 +128,9 @@ describe("Metrics", () => {
     installFetchMock({ "/api/v2/metrics": new Response("", { status: 200 }) });
     renderWithProviders(<Metrics />, { withRouter: false });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "all modules" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "all modules" })).toBeInTheDocument(),
+    );
     expect(dataRows()).toHaveLength(0);
   });
 });

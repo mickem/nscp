@@ -13,14 +13,15 @@ import {
   Box,
   Card,
   CardActions,
-  CardContent, Chip,
+  CardContent,
+  Chip,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField
+  TextField,
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router";
 import { Toolbar } from "../components/atoms/Toolbar.tsx";
@@ -34,7 +35,9 @@ import Button from "@mui/material/Button";
 import { QueryResultChip } from "../components/atoms/QueryResultChip.tsx";
 import Trail from "../components/atoms/Trail.tsx";
 import ExperimentalChip from "../components/atoms/ExperimentalChip.tsx";
-import SyntaxArgumentsField, { SyntaxArgumentsFieldHandle } from "../components/atoms/SyntaxArgumentsField.tsx";
+import SyntaxArgumentsField, {
+  SyntaxArgumentsFieldHandle,
+} from "../components/atoms/SyntaxArgumentsField.tsx";
 import QueryHelpPanel from "../components/QueryHelpPanel.tsx";
 import { makeVocabulary } from "../common/queryHelp.ts";
 import { contextAt, CursorContext } from "../common/syntax.ts";
@@ -111,7 +114,7 @@ export default function Query() {
   return (
     <Stack direction="column" spacing={3}>
       <Toolbar>
-        <Trail trail={[ { link: '/queries', title: 'Queries'}]} title={query?.name}/>
+        <Trail trail={[{ link: "/queries", title: "Queries" }]} title={query?.name} />
         <Spacing />
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
@@ -122,9 +125,27 @@ export default function Query() {
             {query?.experimental && <ExperimentalChip />}
           </Stack>
           <Typography variant="body2">{query?.description}</Typography>
-          <Typography variant="body2">Check provided by the <Chip label={query?.plugin} size="small" onClick={() => navigate("/modules/" + query?.plugin)}/> module.</Typography>
-          <Stack direction="row" spacing={1} sx={{ width: 1, paddingTop: 3, alignItems: "flex-start" }}>
-            <TextField label="Command" variant="outlined" size="small" value={query?.name || ""} disabled={true} />
+          <Typography variant="body2">
+            Check provided by the{" "}
+            <Chip
+              label={query?.plugin}
+              size="small"
+              onClick={() => navigate("/modules/" + query?.plugin)}
+            />{" "}
+            module.
+          </Typography>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ width: 1, paddingTop: 3, alignItems: "flex-start" }}
+          >
+            <TextField
+              label="Command"
+              variant="outlined"
+              size="small"
+              value={query?.name || ""}
+              disabled={true}
+            />
             <SyntaxArgumentsField
               ref={argumentsRef}
               value={args}
@@ -132,7 +153,7 @@ export default function Query() {
               vocabulary={vocabulary}
               onContextChange={setContext}
               onSubmit={doExecuteQuery}
-              placeholder={"filter=free < 10% \"warning=free < 20%\""}
+              placeholder={'filter=free < 10% "warning=free < 20%"'}
             />
           </Stack>
         </CardContent>

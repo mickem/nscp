@@ -112,25 +112,77 @@ describe("NRPE page", () => {
     ).toBeInTheDocument();
   });
 
-  it("edits the remaining settings too, and says where a value comes from", async () => {
+  it("keeps a shared value in the shared section, and pins it locally on request", async () => {
     const writes = render([{ path: "/settings/default", key: "timeout", value: "60" }]);
     await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
     const timeout = screen.getByLabelText("Timeout (seconds)");
     expect(timeout).toHaveValue("60");
-    expect(screen.getByText(/Inherited from \[\/settings\/default\]/)).toBeInTheDocument();
+    const scope = screen.getByRole("group", { name: "Where Timeout (seconds) is kept" });
+    expect(within(scope).getByRole("button", { name: "Default" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
+    // Edited in the default scope: the shared section changes.
     await userEvent.clear(timeout);
     await userEvent.type(timeout, "15");
+    const pending = () => within(screen.getByRole("list", { name: "Pending changes" }));
+    expect(pending().getByText("[/settings/default] timeout = 15")).toBeInTheDocument();
+
+    // Switched to local: NRPE gets its own value and the shared one is left alone.
+    await userEvent.click(within(scope).getByRole("button", { name: "Local" }));
+    await userEvent.clear(timeout);
+    await userEvent.type(timeout, "20");
+    expect(pending().getByText(`[${NRPE_PATH}] timeout = 20`)).toBeInTheDocument();
+    expect(pending().queryByText(/\[\/settings\/default\] timeout/)).not.toBeInTheDocument();
+
     await userEvent.click(screen.getByText("Advanced"));
     await userEvent.click(screen.getByRole("switch", { name: "Performance data" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(writes).toEqual([
-        `PUT [${NRPE_PATH}] timeout=15`,
+        `PUT [${NRPE_PATH}] timeout=20`,
         `PUT [${NRPE_PATH}] performance data=false`,
         "PUT [/modules] NRPEServer=enabled",
       ]),
     );
+  });
+
+  it("keeps bind to and the host cache under Advanced", async () => {
+    render([]);
+    await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
+    expect(screen.getByLabelText("Bind to address")).not.toBeVisible();
+    await userEvent.click(screen.getByText("Advanced"));
+    await waitFor(() => expect(screen.getByLabelText("Bind to address")).toBeVisible());
+    expect(screen.getByText("Cache allowed hosts")).toBeVisible();
+    // And not in Connection.
+    const connection = screen.getByText("Connection").parentElement as HTMLElement;
+    expect(within(connection).queryByLabelText("Bind to address")).not.toBeInTheDocument();
+  });
+
+  it("offers the client identity only with two-way TLS", async () => {
+    render([]);
+    await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
+    expect(screen.queryByLabelText("Client identity")).not.toBeInTheDocument();
+    await userEvent.click(radio(/^Two-way TLS/));
+    expect(screen.getByLabelText("Client identity")).toBeInTheDocument();
+  });
+
+  it("shows the configuration as an INI fragment, unsaved changes included", async () => {
+    render([nrpe("certificate", "server.pem")]);
+    await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
+    await userEvent.click(radio(/^Two-way TLS/));
+    await userEvent.click(screen.getByRole("button", { name: "Show config" }));
+    const ini = screen.getByLabelText("INI fragment");
+    expect(ini).toHaveTextContent("[/modules] NRPEServer = enabled");
+    expect(ini).toHaveTextContent("verify mode = peer-cert");
+    expect(ini).toHaveTextContent("certificate = server.pem");
+    expect(ini).toHaveTextContent("port = 5666");
+    expect(screen.getByText(/Includes the changes not saved yet/)).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("switch", { name: "Include values left at their default" }),
+    );
+    expect(screen.getByLabelText("INI fragment")).not.toHaveTextContent("port = 5666");
   });
 
   it("will not save a client identity from the certificate without two-way TLS", async () => {

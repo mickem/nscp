@@ -31,9 +31,7 @@ function setup() {
       // Legacy alias form (checkXXX without underscore) must be hidden.
       query("checkcpu", "CheckSystem", "Legacy alias"),
     ]),
-    "/api/v2/aliases": jsonResponse([
-      alias("alias_cpu", "CheckSystem", "Alias for check_cpu"),
-    ]),
+    "/api/v2/aliases": jsonResponse([alias("alias_cpu", "CheckSystem", "Alias for check_cpu")]),
   });
   return renderWithProviders(<Queries />);
 }

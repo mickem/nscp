@@ -136,9 +136,9 @@ export default function Diagnostics() {
 
       {status === 403 && (
         <Alert severity="warning" sx={{ mx: 2, mb: 2 }}>
-          Reading diagnostics needs the <code>diagnostics.list</code> privilege, which your role does not have. No
-          built-in role holds it other than <code>full</code>; add it to a role under{" "}
-          <code>[/settings/WEB/server/roles]</code>.
+          Reading diagnostics needs the <code>diagnostics.list</code> privilege, which your role
+          does not have. No built-in role holds it other than <code>full</code>; add it to a role
+          under <code>[/settings/WEB/server/roles]</code>.
         </Alert>
       )}
       {error !== undefined && status !== 403 && (
@@ -150,10 +150,11 @@ export default function Diagnostics() {
       {data && !data.enabled && (
         <Alert severity="info" sx={{ mx: 2, mb: 2 }}>
           Diagnostics are switched off. Set <code>capture diagnostics = true</code> under{" "}
-          <code>[/settings/core/failed checks]</code> to collect them with every metrics round (or every{" "}
-          <code>diagnostics interval</code> under <code>[/settings/core]</code>), keep them with each failed check and
-          show them here. That alone gives the last failed checks; each other table is switched on under the{" "}
-          <code>diagnostics</code> section of the module that produces it
+          <code>[/settings/core/failed checks]</code> to collect them with every metrics round (or
+          every <code>diagnostics interval</code> under <code>[/settings/core]</code>), keep them
+          with each failed check and show them here. That alone gives the last failed checks; each
+          other table is switched on under the <code>diagnostics</code> section of the module that
+          produces it
           {hasSwitches ? (
             " - all of them with the switches below."
           ) : (
@@ -189,8 +190,8 @@ export default function Diagnostics() {
           )}
           {data.dropped > 0 && (
             <div>
-              {data.dropped} {data.dropped === 1 ? "table was" : "tables were"} dropped: over the 16-table cap or <code>max context size</code>, or a
-              second table of the same name.
+              {data.dropped} {data.dropped === 1 ? "table was" : "tables were"} dropped: over the
+              16-table cap or <code>max context size</code>, or a second table of the same name.
             </div>
           )}
         </Alert>

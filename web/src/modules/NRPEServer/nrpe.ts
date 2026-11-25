@@ -8,13 +8,17 @@
 // certificate and uses SECLEVEL=0 ciphers unless they are set explicitly.
 import { Settings } from "../../api/api.ts";
 import {
+  DEFAULT_SECTION,
   enableModuleChange,
-  Inherited,
-  inheritedChange,
-  readInherited,
+  readScoped,
   readStored,
+  Scope,
+  scopedChanges,
   SettingChange,
+  toIni,
+  valueInScope,
 } from "../kit/changes.ts";
+import { ALLOWED_HOSTS_DEFAULT } from "../kit/allowedHosts.ts";
 import { CUSTOM, Custom } from "../kit/modes.ts";
 import type { Risk } from "../kit/RiskBanner.tsx";
 import type { TlsFiles } from "../kit/TlsSection.tsx";
@@ -248,15 +252,18 @@ export function argumentsRisk(mode: ArgumentsMode, nasty: boolean): Risk | null 
   return null;
 }
 
-// The keys the page edits one value at a time. `inherits` marks the ones the
-// agent reads from [/settings/default] when NRPE's own section leaves them out
-// (add_core_server_opts, and `encoding`).
-export interface NrpeField {
+// Every key of [/settings/NRPE/server]: what the agent uses while it is not
+// stored, and whether it falls back to [/settings/default] first
+// (add_core_server_opts, and `encoding`). Some defaults follow the insecure
+// flag, as in the agent.
+export interface NrpeKey {
   builtIn: (stored: Settings[] | undefined) => string;
   inherits?: boolean;
 }
 const fixed = (v: string) => () => v;
-export const NRPE_FIELDS: Record<string, NrpeField> = {
+
+// The keys the page edits one value at a time.
+export const NRPE_FIELDS: Record<string, NrpeKey> = {
   "bind to": { builtIn: fixed(""), inherits: true },
   "cache allowed hosts": { builtIn: fixed("true"), inherits: true },
   timeout: { builtIn: fixed("30"), inherits: true },
@@ -277,25 +284,82 @@ export const NRPE_FIELDS: Record<string, NrpeField> = {
   "debug verify": { builtIn: fixed("false") },
 };
 
-export function readField(stored: Settings[] | undefined, key: string): Inherited {
-  const field = NRPE_FIELDS[key];
-  return readInherited(stored, NRPE_PATH, key, field.builtIn(stored), field.inherits ?? false);
+// All of them, in the order the INI fragment lists them.
+export const NRPE_KEYS: Record<string, NrpeKey> = {
+  port: { builtIn: fixed(DEFAULT_PORT) },
+  "allowed hosts": { builtIn: fixed(ALLOWED_HOSTS_DEFAULT), inherits: true },
+  "use ssl": { builtIn: fixed("true") },
+  insecure: { builtIn: fixed("false") },
+  "verify mode": { builtIn: fixed("none") },
+  certificate: { builtIn: (stored) => certificateDefault(isInsecureFlag(stored)) },
+  "certificate key": { builtIn: fixed("") },
+  ca: { builtIn: fixed(DEFAULT_CA) },
+  "allowed ciphers": { builtIn: (stored) => ciphersDefault(isInsecureFlag(stored)) },
+  "allow arguments": { builtIn: fixed("false") },
+  "allow nasty characters": { builtIn: fixed("false") },
+  ...NRPE_FIELDS,
+};
+
+// A field's value and, for a key that can inherit, where it is kept.
+export interface FieldValue {
+  value: string;
+  scope?: Scope;
 }
 
-export function fieldChange(
+export function readField(stored: Settings[] | undefined, key: string): FieldValue {
+  const spec = NRPE_KEYS[key];
+  if (spec.inherits) return readScoped(stored, NRPE_PATH, key, spec.builtIn(stored));
+  return { value: readStored(stored, NRPE_PATH, key) ?? spec.builtIn(stored) };
+}
+
+export function fieldChanges(
   stored: Settings[] | undefined,
   key: string,
-  value: string,
-): SettingChange {
-  const field = NRPE_FIELDS[key];
-  return inheritedChange(
-    stored,
-    NRPE_PATH,
-    key,
-    value,
-    field.builtIn(stored),
-    field.inherits ?? false,
-  );
+  next: FieldValue,
+): SettingChange[] {
+  const spec = NRPE_KEYS[key];
+  if (spec.inherits && next.scope) {
+    return scopedChanges(
+      NRPE_PATH,
+      key,
+      { scope: next.scope, value: next.value },
+      spec.builtIn(stored),
+    );
+  }
+  return [{ path: NRPE_PATH, key, value: next.value, defaultValue: spec.builtIn(stored) }];
+}
+
+// The value a field shows when the reader moves it to `scope`.
+export function fieldInScope(
+  stored: Settings[] | undefined,
+  key: string,
+  scope: Scope,
+  shown: string,
+): string {
+  return valueInScope(stored, NRPE_PATH, key, NRPE_KEYS[key].builtIn(stored), scope, shown);
+}
+
+// The NRPE configuration as an INI fragment, to copy to another agent or into
+// a fleet bundle: the module switched on, then every key in the section the
+// agent reads it from. `includeDefaults` adds the keys left at the agent's
+// default, so the fragment also pins them on an agent whose defaults differ.
+export function nrpeIni(stored: Settings[] | undefined, includeDefaults: boolean): string {
+  const own: Array<[string, string]> = [];
+  const shared: Array<[string, string]> = [];
+  for (const [key, spec] of Object.entries(NRPE_KEYS)) {
+    const local = readStored(stored, NRPE_PATH, key);
+    const common = spec.inherits ? readStored(stored, DEFAULT_SECTION, key) : undefined;
+    if (local !== undefined) own.push([key, local]);
+    else if (common !== undefined) shared.push([key, common]);
+    else if (includeDefaults) (spec.inherits ? shared : own).push([key, spec.builtIn(stored)]);
+  }
+  const scripts = readStored(stored, EXTERNAL_SCRIPTS_PATH, "allow arguments");
+  return toIni([
+    ["/modules", [[NRPE_MODULE, "enabled"]]],
+    [DEFAULT_SECTION, shared],
+    [NRPE_PATH, own],
+    [EXTERNAL_SCRIPTS_PATH, scripts !== undefined ? [["allow arguments", scripts]] : []],
+  ]);
 }
 
 // `tls version`: one version, or that version and newer with a `+`.
@@ -339,7 +403,7 @@ export const NRPE_EXPERT_ONLY_KEYS = ["allowed ciphers"];
 
 // Named recipes, for anything that sets NRPE up without rendering this page.
 export const NRPE_RECIPES = {
-  field: fieldChange,
+  field: fieldChanges,
   security: securityChanges,
   arguments: argumentsChanges,
   nastyCharacters: nastyCharactersChange,

@@ -263,12 +263,16 @@ export default function Module() {
           text="This module has no tailored settings page yet, so every setting it registers is shown as the schema describes it, advanced ones included."
         />
       )}
-      <ModuleSettings
-        settings={mySettings}
-        moduleId={id}
-        expert={expert}
-        onExpertMode={() => setExpert(true)}
-      />
+      {/* An unloaded module cannot be configured from here, in either view: its
+          page would read and write settings nothing is using. */}
+      {module?.loaded && (
+        <ModuleSettings
+          settings={mySettings}
+          moduleId={id}
+          expert={expert}
+          onExpertMode={() => setExpert(true)}
+        />
+      )}
     </Stack>
   );
 }

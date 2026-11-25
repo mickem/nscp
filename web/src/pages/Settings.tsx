@@ -66,7 +66,9 @@ export default function Settings() {
     try {
       await settingsCommand({ command: "save" }).unwrap();
     } catch (error) {
-      setError(`Failed to save settings: ${error instanceof Error ? error.message : String(error)}`);
+      setError(
+        `Failed to save settings: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     setBusy(false);
   };
@@ -75,7 +77,9 @@ export default function Settings() {
     try {
       await settingsCommand({ command: "load" }).unwrap();
     } catch (error) {
-      setError(`Failed to load settings: ${error instanceof Error ? error.message : String(error)}`);
+      setError(
+        `Failed to load settings: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     setBusy(false);
   };
@@ -85,7 +89,9 @@ export default function Settings() {
       await settingsCommand({ command: "reload" }).unwrap();
     } catch (error) {
       console.log(error);
-      setError(`Failed to reload settings: ${error instanceof Error ? error.message : String(error)}`);
+      setError(
+        `Failed to reload settings: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     setBusy(false);
   };

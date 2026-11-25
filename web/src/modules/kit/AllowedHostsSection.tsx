@@ -1,33 +1,37 @@
-// The allowed-hosts field of a server module; the reading and writing rules
-// are in allowedHosts.ts.
-import { Stack, TextField } from "@mui/material";
-import { AllowedHosts, DEFAULT_SECTION, isOpenToAll } from "./allowedHosts.ts";
+// The allowed-hosts field of a server module, with where it is kept; the
+// reading and writing rules are in allowedHosts.ts.
+import { Stack } from "@mui/material";
+import { Scope } from "./changes.ts";
+import { isOpenToAll } from "./allowedHosts.ts";
 import RiskBanner from "./RiskBanner.tsx";
+import ValueField from "./ValueField.tsx";
 
 interface Props {
   value: string;
-  inherited: AllowedHosts;
+  scope: Scope;
   onChange: (value: string) => void;
+  onScopeChange: (scope: Scope) => void;
   disabled?: boolean;
 }
 
-export default function AllowedHostsSection({ value, inherited, onChange, disabled }: Props) {
-  const helper =
-    inherited.source === "own"
-      ? "Comma-separated hosts, netmasks (/ syntax) or *."
-      : inherited.source === "default section"
-        ? `Comma-separated hosts, netmasks (/ syntax) or *. Currently inherited from [${DEFAULT_SECTION}]; saving here sets it for this server only.`
-        : "Comma-separated hosts, netmasks (/ syntax) or *. Currently the built-in default.";
+export default function AllowedHostsSection({
+  value,
+  scope,
+  onChange,
+  onScopeChange,
+  disabled,
+}: Props) {
   return (
     <Stack spacing={1}>
-      <TextField
+      <ValueField
         label="Allowed hosts"
+        kind="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        variant="standard"
-        fullWidth
+        onChange={onChange}
+        scope={scope}
+        onScopeChange={onScopeChange}
+        help="Comma-separated hosts, netmasks (/ syntax) or *."
         disabled={disabled}
-        helperText={helper}
       />
       {isOpenToAll(value) && (
         <RiskBanner

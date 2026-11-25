@@ -22,7 +22,7 @@ import { Spacing } from "../components/atoms/Spacing.tsx";
 import { useMemo, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import Button from "@mui/material/Button";
-import DangerousIcon from '@mui/icons-material/Dangerous';
+import DangerousIcon from "@mui/icons-material/Dangerous";
 
 const ICONS = {
   critical: <DangerousIcon fontSize="small" color="error" />,
@@ -64,7 +64,7 @@ export default function Logs() {
     if (level.includes("*")) {
       level = ["debug", "info", "warning", "error", "critical"];
     }
-    setLevel(level)
+    setLevel(level);
     setPage(1);
   };
 

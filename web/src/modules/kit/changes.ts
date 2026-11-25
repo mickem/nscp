@@ -16,6 +16,9 @@ export interface SettingChange {
   // What the agent uses while the key is not stored. Writing exactly this to
   // a key that is not stored changes nothing, so it is left out.
   defaultValue?: string;
+  // Write it even when it matches what is in effect: the reader chose to pin
+  // the value in this section.
+  pin?: boolean;
 }
 
 // The stored value of a key, or undefined when it is not stored. /v2/settings
@@ -42,7 +45,7 @@ export function pendingChanges(
   return [...byKey.values()].filter((c) => {
     const current = readStored(stored, c.path, c.key);
     if (c.value === null) return current !== undefined;
-    if (current === undefined) return c.value !== (c.defaultValue ?? "");
+    if (current === undefined) return c.pin === true || c.value !== (c.defaultValue ?? "");
     return current !== c.value;
   });
 }
@@ -126,4 +129,79 @@ export function inheritedChange(
     value,
     defaultValue: current.source === "own" ? undefined : current.value,
   };
+}
+
+// Where an inheritable key is kept: the shared default section, used by every
+// module that does not set its own, or the module's own section.
+export type Scope = "default" | "local";
+
+export interface ScopedValue {
+  scope: Scope;
+  value: string;
+}
+
+// The scope and value in effect: local when the module stores its own value,
+// otherwise the shared one (or the agent's built-in default).
+export function readScoped(
+  stored: Settings[] | undefined,
+  path: string,
+  key: string,
+  builtIn: string,
+): ScopedValue {
+  const own = readStored(stored, path, key);
+  if (own !== undefined) return { scope: "local", value: own };
+  return { scope: "default", value: readStored(stored, DEFAULT_SECTION, key) ?? builtIn };
+}
+
+// The value a key shows when the reader switches it to `scope`.
+export function valueInScope(
+  stored: Settings[] | undefined,
+  path: string,
+  key: string,
+  builtIn: string,
+  scope: Scope,
+  shown: string,
+): string {
+  if (scope === "default") return readStored(stored, DEFAULT_SECTION, key) ?? builtIn;
+  // Going local starts from the module's own value if it has one, else from
+  // what was shown, so the switch alone pins the value in effect.
+  return readStored(stored, path, key) ?? shown;
+}
+
+// The changes that keep `next` in its scope. Local writes the module's own
+// section; default writes the shared section and drops the module's own value
+// so the shared one applies.
+export function scopedChanges(
+  path: string,
+  key: string,
+  next: ScopedValue,
+  builtIn: string,
+): SettingChange[] {
+  if (next.scope === "local") return [{ path, key, value: next.value, pin: true }];
+  return [
+    { path, key, value: null },
+    { path: DEFAULT_SECTION, key, value: next.value, defaultValue: builtIn },
+  ];
+}
+
+// What the stored settings would be after `changes`: a value replaces, null
+// removes. For previews such as the INI fragment of a page.
+export function applyToStored(
+  stored: Settings[] | undefined,
+  changes: SettingChange[],
+): Settings[] {
+  let out = [...(stored ?? [])];
+  for (const c of changes) {
+    out = out.filter((s) => !(s.path === c.path && s.key === c.key));
+    if (c.value !== null) out.push({ path: c.path, key: c.key, value: c.value });
+  }
+  return out;
+}
+
+// An INI fragment: sections in the order given, keys in the order given.
+export function toIni(sections: Array<[string, Array<[string, string]>]>): string {
+  return sections
+    .filter(([, keys]) => keys.length > 0)
+    .map(([path, keys]) => [`[${path}]`, ...keys.map(([k, v]) => `${k} = ${v}`)].join("\n"))
+    .join("\n\n");
 }

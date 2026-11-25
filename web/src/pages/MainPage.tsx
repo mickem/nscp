@@ -28,7 +28,11 @@ export default function MainPage() {
   return (
     <Box sx={{ display: "flex" }}>
       <AppNavbar handleDrawerToggle={handleDrawerToggle} />
-      <SideBar mobileOpen={mobileOpen} onClose={handleDrawerClose} onTransitionEnd={handleDrawerTransitionEnd} />
+      <SideBar
+        mobileOpen={mobileOpen}
+        onClose={handleDrawerClose}
+        onTransitionEnd={handleDrawerTransitionEnd}
+      />
 
       <Box
         component="main"

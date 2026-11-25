@@ -12,8 +12,9 @@ import {
   EXTERNAL_SCRIPTS_PATH,
   INSECURE_CIPHERS,
   NRPE_PATH,
-  fieldChange,
+  fieldChanges,
   identityProblem,
+  nrpeIni,
   readField,
   readTlsFiles,
   SecurityMode,
@@ -174,18 +175,20 @@ describe("NRPE single-value fields", () => {
     value,
   });
 
-  it("reads a key from NRPE's own section, then the shared one, then the default", () => {
-    expect(readField([], "timeout")).toEqual({ value: "30", source: "built-in" });
+  it("reads an inheritable key with its scope, and a plain key without", () => {
+    expect(readField([], "timeout")).toEqual({ scope: "default", value: "30" });
     expect(readField([shared("timeout", "60")], "timeout")).toEqual({
+      scope: "default",
       value: "60",
-      source: "default section",
     });
     expect(readField([shared("timeout", "60"), nrpe("timeout", "10")], "timeout")).toEqual({
+      scope: "local",
       value: "10",
-      source: "own",
     });
     // Not every key inherits: the payload length is NRPE's own.
-    expect(readField([shared("payload length", "4096")], "payload length").value).toBe("1024");
+    expect(readField([shared("payload length", "4096")], "payload length")).toEqual({
+      value: "1024",
+    });
   });
 
   it("follows the extended-response default that depends on the insecure flag", () => {
@@ -193,11 +196,19 @@ describe("NRPE single-value fields", () => {
     expect(readField([nrpe("insecure", "true")], "extended response").value).toBe("false");
   });
 
-  it("writes only a value that differs from the one in effect, and only to NRPE", () => {
+  it("writes an inheritable key where its scope says, and only when it changes", () => {
     const stored = [shared("timeout", "60")];
-    expect(pendingChanges(stored, [fieldChange(stored, "timeout", "60")])).toEqual([]);
-    expect(pendingChanges(stored, [fieldChange(stored, "timeout", "20")])).toEqual([
-      { path: NRPE_PATH, key: "timeout", value: "20", defaultValue: "60" },
+    expect(
+      pendingChanges(stored, fieldChanges(stored, "timeout", { scope: "default", value: "60" })),
+    ).toEqual([]);
+    expect(
+      pendingChanges(stored, fieldChanges(stored, "timeout", { scope: "default", value: "20" })),
+    ).toEqual([{ path: "/settings/default", key: "timeout", value: "20", defaultValue: "30" }]);
+    expect(
+      pendingChanges(stored, fieldChanges(stored, "timeout", { scope: "local", value: "60" })),
+    ).toEqual([{ path: NRPE_PATH, key: "timeout", value: "60", pin: true }]);
+    expect(pendingChanges([], fieldChanges([], "payload length", { value: "2048" }))).toEqual([
+      { path: NRPE_PATH, key: "payload length", value: "2048", defaultValue: "1024" },
     ]);
   });
 
@@ -208,5 +219,43 @@ describe("NRPE single-value fields", () => {
     expect(identityProblem("one-way-tls", "dn")).toMatch(/not one the agent knows/);
     // A configuration the page does not recognise is the reader's to judge.
     expect(identityProblem(CUSTOM, "cn")).toBeNull();
+  });
+});
+
+describe("NRPE INI fragment", () => {
+  const stored: Settings[] = [
+    { path: "/settings/default", key: "allowed hosts", value: "10.0.0.1" },
+    nrpe("verify mode", "peer-cert"),
+    nrpe("timeout", "10"),
+    { path: EXTERNAL_SCRIPTS_PATH, key: "allow arguments", value: "false" },
+  ];
+
+  it("lists what is stored, each key in the section the agent reads it from", () => {
+    expect(nrpeIni(stored, false)).toBe(
+      [
+        "[/modules]",
+        "NRPEServer = enabled",
+        "",
+        "[/settings/default]",
+        "allowed hosts = 10.0.0.1",
+        "",
+        `[${NRPE_PATH}]`,
+        "verify mode = peer-cert",
+        "timeout = 10",
+        "",
+        "[/settings/external scripts]",
+        "allow arguments = false",
+      ].join("\n"),
+    );
+  });
+
+  it("adds every other key at its default, inheritable ones in the shared section", () => {
+    const ini = nrpeIni(stored, true);
+    expect(ini).toContain("port = 5666");
+    expect(ini).toContain("allowed ciphers = ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+    const shared = ini.slice(ini.indexOf("[/settings/default]"), ini.indexOf(`[${NRPE_PATH}]`));
+    expect(shared).toContain("thread pool = 10");
+    expect(shared).toContain("bind to = ");
+    expect(shared).not.toContain("port =");
   });
 });

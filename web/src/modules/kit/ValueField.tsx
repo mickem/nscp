@@ -1,9 +1,23 @@
 // One setting edited as a single value: text, a number, a switch, or a choice.
 // Controlled: the page owns the value and turns it into a change with its own
-// recipe. Says when a value comes from the shared default section.
-import { FormControlLabel, MenuItem, Stack, Switch, TextField, Typography } from "@mui/material";
+// recipe.
+//
+// A setting the agent can inherit from [/settings/default] also gets a
+// Default / Local switch: Default keeps the value in the shared section, used
+// by every module that does not set its own; Local keeps it in this module's
+// section only.
+import {
+  FormControlLabel,
+  MenuItem,
+  Stack,
+  Switch,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from "@mui/material";
 import { ReactNode } from "react";
-import { DEFAULT_SECTION, Inherited } from "./changes.ts";
+import { DEFAULT_SECTION, Scope } from "./changes.ts";
 
 export type ValueKind = "text" | "number" | "bool" | { options: string[] };
 
@@ -12,18 +26,46 @@ interface Props {
   help?: ReactNode;
   kind: ValueKind;
   value: string;
-  // What the value in effect is and where it comes from, before any edit.
-  inherited?: Inherited;
   onChange: (value: string) => void;
+  // Inheritable settings only: where the value is kept.
+  scope?: Scope;
+  onScopeChange?: (scope: Scope) => void;
   disabled?: boolean;
 }
 
 const isTrue = (v: string) => v.toLowerCase() === "true" || v === "1";
 
-// Only a value inherited from the shared section is worth a note: changing it
-// here overrides it for this module alone.
-function origin(inherited: Inherited | undefined): string | null {
-  return inherited?.source === "default section" ? `Inherited from [${DEFAULT_SECTION}].` : null;
+export function ScopeToggle({
+  label,
+  scope,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  scope: Scope;
+  onChange: (scope: Scope) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <ToggleButtonGroup
+      size="small"
+      exclusive
+      value={scope}
+      onChange={(_, next: Scope | null) => next && onChange(next)}
+      aria-label={`Where ${label} is kept`}
+      disabled={disabled}
+      sx={{ "& .MuiToggleButton-root": { py: 0, px: 1, textTransform: "none", fontSize: 12 } }}
+    >
+      <ToggleButton value="default">Default</ToggleButton>
+      <ToggleButton value="local">Local</ToggleButton>
+    </ToggleButtonGroup>
+  );
+}
+
+function scopeNote(scope: Scope): string {
+  return scope === "default"
+    ? `Shared: kept in [${DEFAULT_SECTION}] and used by every module that does not set its own.`
+    : "Local: kept for this module only.";
 }
 
 export default function ValueField({
@@ -31,22 +73,24 @@ export default function ValueField({
   help,
   kind,
   value,
-  inherited,
   onChange,
+  scope,
+  onScopeChange,
   disabled,
 }: Props) {
-  const from = origin(inherited);
+  const note = scope ? scopeNote(scope) : null;
   const helper =
-    help || from ? (
+    help || note ? (
       <>
         {help}
-        {help && from ? " " : null}
-        {from}
+        {help && note ? " " : null}
+        {note}
       </>
     ) : undefined;
 
+  let control: ReactNode;
   if (kind === "bool") {
-    return (
+    control = (
       <Stack>
         <FormControlLabel
           control={
@@ -66,11 +110,10 @@ export default function ValueField({
         )}
       </Stack>
     );
-  }
-  if (typeof kind === "object") {
+  } else if (typeof kind === "object") {
     // A stored value outside the list is shown as it is, never replaced.
     const options = kind.options.includes(value) ? kind.options : [value, ...kind.options];
-    return (
+    control = (
       <TextField
         select
         label={label}
@@ -88,17 +131,31 @@ export default function ValueField({
         ))}
       </TextField>
     );
+  } else {
+    control = (
+      <TextField
+        label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        variant="standard"
+        fullWidth
+        disabled={disabled}
+        helperText={helper}
+        slotProps={kind === "number" ? { htmlInput: { inputMode: "numeric" } } : undefined}
+      />
+    );
   }
+  if (!scope || !onScopeChange) return control;
   return (
-    <TextField
-      label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      variant="standard"
-      fullWidth
-      disabled={disabled}
-      helperText={helper}
-      slotProps={kind === "number" ? { htmlInput: { inputMode: "numeric" } } : undefined}
-    />
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start", width: "100%" }}>
+      <BoxGrow>{control}</BoxGrow>
+      <Stack sx={{ pt: kind === "bool" ? 0.5 : 2 }}>
+        <ScopeToggle label={label} scope={scope} onChange={onScopeChange} disabled={disabled} />
+      </Stack>
+    </Stack>
   );
+}
+
+function BoxGrow({ children }: { children: ReactNode }) {
+  return <Stack sx={{ flexGrow: 1, minWidth: 0 }}>{children}</Stack>;
 }
