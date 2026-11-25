@@ -44,7 +44,10 @@ struct hardware_info {
   std::vector<memory_module> module_details;
 
   // Memory inventory. Unset when it could not be read, so that `modules < 8`
-  // never fires on an agent that simply may not read the SMBIOS table.
+  // never fires on an agent that simply may not read the SMBIOS table. It is
+  // all or nothing: a malformed table, or one with no populated module, leaves
+  // slots/modules/memory_speed unset, and memory is the SMBIOS sum only when
+  // every module reports its size.
   boost::optional<long long> slots;         // memory sockets (type 16 "Number of Memory Devices", summed)
   boost::optional<long long> modules;       // populated modules
   boost::optional<long long> memory;        // installed memory in bytes
@@ -118,8 +121,8 @@ struct smbios_inventory {
   // Type 16 (system memory arrays only) / type 17.
   bool have_arrays;
   long long slots;                     // sum of "Number of Memory Devices"
-  long long device_records;            // type 17 structures seen (each is one socket)
-  std::vector<memory_module> modules;  // populated ones
+  long long device_records;            // type 17 structures (one per socket), less those of non-system arrays
+  std::vector<memory_module> modules;  // populated ones, same filter
   long long structures;                // structures walked
   bool truncated;                      // the walk stopped at a malformed or cut-off structure
 

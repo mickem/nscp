@@ -505,6 +505,79 @@ TEST(CheckHardwareUnix, GatherTableWithoutMemoryDevicesFallsBack) {
   EXPECT_EQ(h.memory.value(), 16LL * 0x8000000);
 }
 
+TEST(CheckHardwareUnix, DevicesOfNonSystemArraysAreNotModules) {
+  // A flash array (handle 0x20) with one 16 MiB device, described *after* its
+  // device, next to a two-socket system array (handle 0x10).
+  std::string sys_array = type16(3, 2);
+  put16(sys_array, 0x02, 0x10);
+  std::string flash_array = type16(5, 1);
+  put16(flash_array, 0x02, 0x20);
+  std::string dimm1 = type17(8192, 3200, 3200, "DIMM 1", "");
+  put16(dimm1, 0x04, 0x10);
+  std::string dimm2 = type17(0, 0, 0, "DIMM 2", "");
+  put16(dimm2, 0x04, 0x10);
+  std::string rom = type17(16, 0, 0, "SYSTEM ROM", "");
+  put16(rom, 0x04, 0x20);
+  const smbios_inventory inv = parse_smbios_table(sys_array + rom + dimm1 + dimm2 + flash_array + end_of_table(), boost::none);
+  EXPECT_FALSE(inv.truncated);
+  EXPECT_EQ(inv.slots, 2);
+  EXPECT_EQ(inv.device_records, 2);
+  ASSERT_EQ(inv.modules.size(), 1u);
+  EXPECT_EQ(inv.modules[0].locator, "DIMM 1");
+}
+
+TEST(CheckHardwareUnix, GatherTruncatedTableLeavesMemoryInventoryUnknown) {
+  // The walk stops inside the second module: one module of two is not an
+  // inventory, so the counts stay unknown and memory comes from sysfs.
+  FakeRoot fs;
+  fs.standard_dmi();
+  const std::string full = server_table();
+  const std::size_t before_modules = (type1("Dell Inc.", "PowerEdge R760", "ABC1234") + type3(23, "CHS0001", "ASSET-42") + type16(3, 4) + type16(4, 1)).size();
+  const std::size_t first_module = type17(0x7FFF, 4800, 4800, "A1", "M321R4GA3BB6-CQKET", 0x28, 32768).size();
+  fs.write("sys/firmware/dmi/tables/DMI", full.substr(0, before_modules + first_module + 0x28 + 3));
+  fs.memory_blocks("8000000", 8, 0);
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_TRUE(h.smbios_ok);
+  EXPECT_FALSE(h.modules);
+  EXPECT_FALSE(h.slots);
+  EXPECT_FALSE(h.memory_speed);
+  EXPECT_EQ(h.module_list, "");
+  EXPECT_EQ(h.memory.value(), 8LL * 0x8000000);
+  EXPECT_EQ(h.memory_source, "sysfs");
+  EXPECT_NE(h.gather_errors.find("malformed or truncated"), std::string::npos) << h.gather_errors;
+  PB::Commands::QueryResponseMessage::Response r;
+  EXPECT_EQ(run_check(h, {"crit=modules < 8"}, r), PB::Common::ResultCode::OK);
+}
+
+TEST(CheckHardwareUnix, GatherNoPopulatedModuleIsUnknownNotZero) {
+  // An array and sockets but nothing in them: the table does not describe a
+  // running machine, so this is "unknown", never "0 modules, 0B".
+  FakeRoot fs;
+  fs.standard_dmi();
+  fs.write("sys/firmware/dmi/tables/DMI", type16(3, 2) + type17(0, 0, 0, "A1", "") + type17(0, 0, 0, "A2", "") + end_of_table());
+  fs.memory_blocks("8000000", 8, 0);
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_FALSE(h.modules);
+  EXPECT_FALSE(h.slots);
+  EXPECT_EQ(h.memory.value(), 8LL * 0x8000000);
+  EXPECT_EQ(h.memory_source, "sysfs");
+  PB::Commands::QueryResponseMessage::Response r;
+  EXPECT_EQ(run_check(h, {"warn=memory < 512M or modules < 1"}, r), PB::Common::ResultCode::OK);
+}
+
+TEST(CheckHardwareUnix, GatherModuleOfUnknownSizeDoesNotSumMemory) {
+  // The modules are counted, but a sum missing one of them is not the total.
+  FakeRoot fs;
+  fs.standard_dmi();
+  fs.write("sys/firmware/dmi/tables/DMI", type16(3, 2) + type17(8192, 0, 0, "A1", "") + type17(0xFFFF, 0, 0, "A2", "") + end_of_table());
+  fs.memory_blocks("8000000", 128, 0);
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_EQ(h.modules.value(), 2);
+  EXPECT_EQ(h.slots.value(), 2);
+  EXPECT_EQ(h.memory.value(), 128LL * 0x8000000);
+  EXPECT_EQ(h.memory_source, "sysfs");
+}
+
 // --- the check ----------------------------------------------------------------------------
 
 TEST(CheckHardwareUnix, RendersInventoryLine) {

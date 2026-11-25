@@ -47,8 +47,10 @@ memory inventory comes from the raw SMBIOS table,
 `/sys/firmware/dmi/tables/DMI`, parsed directly (memory arrays and memory
 devices, types 16 and 17) — no `dmidecode` is needed. `memory_speed` is the
 configured clock, falling back to the rated speed; `slots` counts the sockets
-of the arrays used for system memory only (not video or flash arrays). The
-UUID is rendered upper case, as Windows and `dmidecode` print it.
+of the arrays used for system memory only (not video or flash arrays), and a
+memory device that belongs to such another array (a system ROM described as a
+flash device, for instance) is not counted as a module. The UUID is rendered
+upper case, as Windows and `dmidecode` print it.
 
 **What an unprivileged agent sees.** The kernel makes `product_uuid`,
 `product_serial`, `chassis_serial` and the SMBIOS table readable by root only.
@@ -72,9 +74,15 @@ publishes the system record but no memory devices (some QEMU/KVM
 configurations) gives a normal inventory line with `modules` `unknown`.
 
 The SMBIOS table is firmware-supplied data and is parsed defensively: every
-structure, string and field offset is bounds-checked, and a malformed or
-truncated table keeps what was read before the damage. Strings are reduced to
-printable ASCII.
+structure, string and field offset is bounds-checked, and strings are reduced
+to printable ASCII. The memory inventory is all or nothing. A malformed or
+truncated table, or one that lists sockets but no populated module, gives the
+same result as an unreadable one: `modules`, `slots` and `memory_speed` are
+`unknown`, `module_list` is empty and `memory` falls back to the kernel's
+total, rather than a partial count that a threshold such as `modules < 8`
+would act on. Likewise `memory` is the sum of the modules only when every
+module reports its size; otherwise it is the kernel's total (`memory_source`
+`sysfs`). The identity fields read before the damage are kept.
 
 ##### macOS
 
