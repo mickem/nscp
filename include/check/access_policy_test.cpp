@@ -879,6 +879,26 @@ TEST_F(path_escape_test, the_filesystem_root_as_an_entry_allows_what_is_below_it
 #endif
 }
 
+// A device-namespace name is refused before the resolver touches it, even
+// under an allow list that covers the whole drive: resolving a named pipe
+// opens it, and the open is what hands its server the agent's token.
+TEST_F(path_escape_test, a_device_or_pipe_name_is_refused_before_it_is_resolved) {
+#ifdef WIN32
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list("C:\\");
+  for (const char *token : {"\\\\.\\pipe\\x", "\\\\localhost\\pipe\\x", "\\\\.\\C:", "C:\\logs\\con.txt"}) {
+    const decision d = p.resolve(token);
+    EXPECT_FALSE(d.allowed) << token;
+    EXPECT_NE(std::string::npos, d.error.find("names a device or a pipe")) << d.error;
+  }
+#else
+  // On POSIX these are ordinary (and here non-existent) file names.
+  const check::access::path_policy p = restricted();
+  EXPECT_EQ(std::string::npos, p.resolve("\\\\.\\pipe\\x").error.find("names a device")) << p.resolve("\\\\.\\pipe\\x").error;
+#endif
+}
+
 // A path handed back must never still carry a `..`: the check opens exactly
 // what resolve() returned, so an element the resolver left behind would be
 // walked after the match had already passed.

@@ -523,6 +523,16 @@ The contents of the allow list are deliberately left out — the caller has no
 business enumerating it. When a check you expected to work is refused, the
 agent log is where to look.
 
+Whatever the mode, a file a caller names is read only if it is a regular
+file. A FIFO, a character device, a named pipe, the console or a raw volume is
+refused, and on Windows a name in the device namespace (`\\.\pipe\x`,
+`\\host\pipe\x`, `\\.\C:`, `CON`) is refused before anything is opened,
+since opening a pipe hands its server the agent's identity:
+
+```
+Refusing to open \\.\pipe\x: it names a device or a pipe, not a file
+```
+
 ## See also
 
 * [Securing NSClient++](../setup/securing.md) — where this fits among the other

@@ -8,6 +8,7 @@
 #include <boost/program_options.hpp>
 #include <cstdint>
 #include <deque>
+#include <files/safe_file.hpp>
 #include <limits>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -23,7 +24,6 @@
 #include "bookmark_state.hpp"
 #include "check_csv.hpp"
 #include "file_reader.hpp"
-#include "log_file.hpp"
 #include "realtime_thread.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -402,7 +402,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 
   for (const std::string &filename : file_list) {
     std::string open_error;
-    const std::unique_ptr<std::streambuf> file_buf = check_logfile::open_log_file(filename, open_error);
+    const std::unique_ptr<std::streambuf> file_buf = safe_file::open_stream(filename, open_error);
     if (!file_buf) {
       return nscapi::protobuf::functions::set_response_bad(*response, open_error);
     }

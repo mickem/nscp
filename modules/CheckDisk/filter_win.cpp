@@ -7,6 +7,7 @@
 
 #include "filter.hpp"
 
+#include <files/device_path.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
@@ -37,6 +38,9 @@ std::string file_filter::filter_obj::get_version(parsers::where::evaluation_cont
     return std::string();
   };
   const std::string fullpath = (path / filename).string();
+  // GetFileVersionInfo opens the file with no say in how: a pipe or a device
+  // must never get that far (see files/device_path.hpp).
+  if (safe_file::is_win32_device_path(fullpath)) return no_version("No version for " + fullpath + ": it names a device or a pipe, not a file");
 
   DWORD dwDummy;
   const DWORD dwFVISize = GetFileVersionInfoSize(utf8::cvt<std::wstring>(fullpath).c_str(), &dwDummy);

@@ -747,18 +747,28 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
-# The log file reader is compiled in for the platform it targets: on Windows
-# that is the CreateFileW reader (with the named-pipe tests in
-# log_file_test.cpp), which needs the error lookup and the UTF-8 conversion.
+# safe_file: the reader every check uses for a file a caller named. On Windows
+# the reader needs the error lookup and the UTF-8 conversion compiled in, and
+# the test adds the named-pipe impersonation cases.
 if(WIN32)
-    set(CHECK_LOGFILE_TEST_READER
-        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/log_file_win.cpp
-        ${NSCP_INCLUDEDIR}/error/error_w32.cpp
-        ${NSCP_INCLUDEDIR}/str/utf8.cpp
-    )
-else()
-    set(CHECK_LOGFILE_TEST_READER ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/log_file_unix.cpp)
+    set(SAFE_FILE_TEST_EXTRA ${NSCP_INCLUDEDIR}/error/error_w32.cpp ${NSCP_INCLUDEDIR}/str/utf8.cpp)
 endif()
+NSCP_CREATE_TEST(
+    safe_file_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/files/safe_file_test.cpp
+        ${NSCP_INCLUDEDIR}/files/safe_file.hpp
+        ${NSCP_INCLUDEDIR}/files/device_path.hpp
+        ${NSCP_INCLUDEDIR}/files/device_streambuf.hpp
+        ${NSCP_SAFE_FILE_CPP}
+        ${SAFE_FILE_TEST_EXTRA}
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile
+)
+
 NSCP_CREATE_TEST(
     check_logfile_test
     SOURCES
@@ -766,10 +776,6 @@ NSCP_CREATE_TEST(
         ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/file_reader.hpp
         ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/bookmark_state_test.cpp
         ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/bookmark_state.hpp
-        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/log_file_test.cpp
-        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/log_file.hpp
-        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/device_streambuf.hpp
-        ${CHECK_LOGFILE_TEST_READER}
     LIBRARIES
         GTest::gtest_main
     INCLUDES

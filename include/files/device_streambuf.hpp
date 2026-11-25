@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace check_logfile {
+namespace safe_file {
 
 // A read-only, seekable std::streambuf over a "device": anything with
 //
@@ -16,14 +16,14 @@ namespace check_logfile {
 //   bool seek(std::uint64_t offset);                           // absolute
 //   bool size(std::uint64_t &out);
 //
-// It exists so check_logfile can read a file through a handle it opened
-// itself (see log_file.hpp) while file_reader.hpp keeps working on a plain
-// std::istream, with the seeking the tail scan and the bookmarks need.
+// safe_file::open_stream() wraps a safe_file::file in it, so a caller which
+// reads with std::istream (check_logfile's file_reader.hpp: the tail scan,
+// capped reads and bookmarks all seek) gets the safe open without a second
+// implementation of the reading.
 //
-// Platform-neutral on purpose: the Windows reader wraps a HANDLE in it, and
-// the unit test drives it over an in-memory device on every OS, which is how
-// the buffer and seek bookkeeping are tested on hosts that never build the
-// Windows reader.
+// Platform-neutral on purpose: the unit test drives it over an in-memory
+// device on every OS, which is how the buffer and seek bookkeeping are tested
+// on hosts that never build the Windows reader.
 template <class Device>
 class device_streambuf : public std::streambuf {
  public:
@@ -90,4 +90,4 @@ class device_streambuf : public std::streambuf {
   std::uint64_t end_pos_ = 0;
 };
 
-}  // namespace check_logfile
+}  // namespace safe_file

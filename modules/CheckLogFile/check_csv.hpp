@@ -49,10 +49,10 @@ bool decode_text(const std::string &bytes, const std::string &encoding, std::str
 // without the file system.
 typedef std::function<bool(const std::string &path, std::uint64_t max_bytes, std::string &bytes, std::string &error)> read_function;
 
-// The local reader (csv_source_win.cpp: CreateFileW, which also takes a UNC
-// path, with every share flag so a file another program has open can still be
-// read; csv_source_unix.cpp: an ifstream). Refuses a file larger than
-// max_bytes (0 = unlimited) before reading it.
+// The local reader: safe_file::read_all (include/files/safe_file.hpp), which
+// reads only a regular file - a UNC path included, with every share flag so
+// a file another program has open can still be read - and enforces
+// max_bytes (0 = unlimited) while reading.
 bool read_local_file(const std::string &path, std::uint64_t max_bytes, std::string &bytes, std::string &error);
 
 // The default of `max csv size` in [/settings/logfile]: the most a caller's

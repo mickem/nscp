@@ -9,6 +9,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <files/device_path.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -244,6 +245,12 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
     const check::access::decision decision = access.resolve(file_path);
     if (!decision.allowed) return nscapi::protobuf::functions::set_response_bad(*response, decision.error);
     file_path = decision.value;
+  }
+
+  // A write to `\\.\pipe\x` or `\\.\PhysicalDrive0` is not a disk write
+  // test, and the open alone can hand a pipe's server the agent's token.
+  if (safe_file::refused_by_name(file_path)) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Refusing " + file_path + ": it names a device or a pipe, not a file");
   }
 
   long long size = 0;

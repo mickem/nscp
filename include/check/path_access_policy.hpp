@@ -5,6 +5,7 @@
 
 #include <boost/filesystem.hpp>
 #include <check/access_policy.hpp>
+#include <files/device_path.hpp>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -169,6 +170,12 @@ class path_policy {
   //   * On Windows, an element ending in a space or a period. Win32 strips
   //     those before the file system sees the name, so `logs\.. ` is one odd
   //     name to the resolver and `logs\..` to the kernel.
+  //   * On Windows, a name in the device namespace (`\\.\pipe\x`,
+  //     `\\host\pipe\x`, `\\.\C:`, `CON`; see files/device_path.hpp).
+  //     Refused before the resolver runs, not after: weakly_canonical opens
+  //     what it resolves, and opening a named pipe hands its server an
+  //     impersonation token for the agent - so a gate that refused the pipe
+  //     only once it had resolved it would already have connected to it.
   static bool resolve_physical(const std::string &token, std::string &resolved, std::string &why) {
     if (token.find('\0') != std::string::npos) {
       why = "it contains a NUL character";
@@ -183,6 +190,10 @@ class path_policy {
     // `logs/../../secret` and walks out of `logs`.
     if (has_element_win32_would_trim(input)) {
       why = "it contains a path element ending in a space or a period, which Windows would silently rewrite";
+      return false;
+    }
+    if (safe_file::is_win32_device_path(input)) {
+      why = "it names a device or a pipe, not a file";
       return false;
     }
 #endif
