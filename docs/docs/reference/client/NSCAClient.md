@@ -73,6 +73,7 @@ when check output contains non-ASCII characters.
 **Jump to section:**
 
 * [Sample Commands](#submit_nsca_samples)
+* [Data sources and privileges](#submit_nsca_sources)
 * [Command-line Arguments](#submit_nsca_options)
 
 
@@ -148,6 +149,18 @@ authentication, no replay protection, no integrity. Wrap the connection in TLS
 (`certificate`, `certificate key`, `ca`, `dh`, `allowed ciphers`) where the
 receiving side supports it, or use [NSCA-ng](NSCANgClient.md) instead.
 
+
+
+<a id="submit_nsca_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                     | Provides                           | Privilege | Requires                                                                                                          | Notes  |
+|----------------------------------------------------------------------------|------------------------------------|-----------|-------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NSCA daemon, NSCA passive-check packet over TCP (default port 5667) | passive host/service check results | none      | An NSCA daemon reachable on `host`/`port`<br>The `password` and `encryption` method configured on the NSCA daemon | note 1 |
+
+1. The packet is obfuscated with the shared `password` and the `encryption` algorithm (must match the server); optional TLS with `ssl`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_nsca_options"></a>

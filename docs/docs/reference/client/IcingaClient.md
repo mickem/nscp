@@ -64,6 +64,7 @@ moved it.
 **Jump to section:**
 
 * [Sample Commands](#submit_icinga_samples)
+* [Data sources and privileges](#submit_icinga_sources)
 * [Command-line Arguments](#submit_icinga_options)
 
 
@@ -140,6 +141,18 @@ submit_icinga host=127.0.0.1 port=15670 command=nightly_backup result=CRITICAL "
 UNKNOWN: Network error: Failed to connect to 127.0.0.1:15670: Connection refused
 ```
 
+
+
+<a id="submit_icinga_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                   | Provides                           | Privilege | Requires                                                                                                                                                                                                                                                                               | Notes  |
+|------------------------------------------------------------------------------------------|------------------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Icinga 2 REST API `POST /v1/actions/process-check-result` over HTTPS (default port 5665) | passive host/service check results | none      | OpenSSL (the module is not built without it)<br>An Icinga 2 API endpoint reachable from the agent<br>An Icinga 2 `ApiUser` (`username`/`password`, sent as HTTP Basic auth) permitted `actions/process-check-result`, plus object query/create permissions when `ensure_objects` is on | note 1 |
+
+1. With `ensure_objects`, the host and service are first looked up with `GET /v1/objects/hosts/...` / `services/...` and created with `PUT` when missing. Where the target carries configured credentials, the request may not change its address, proxy or transport security unless the target sets `allow host override = true`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_icinga_options"></a>

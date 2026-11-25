@@ -1,0 +1,19 @@
+windows:
+  - source: 'PDH `\System\Context Switches/sec`, `\System\System Calls/sec`, `\System\Processes`, `\System\Threads`'
+    provides: the ctxt, syscalls, processes and threads rows
+    note: Read when the check runs, as a one-off PDH query.
+    without: 'UNKNOWN "Failed to sample kernel activity counters: ..."'
+linux:
+  - source: '`/proc/stat` (`ctxt`, `processes`)'
+    provides: the ctxt and processes (fork rate) rows
+    privilege: none
+    note: Read twice, one second apart, when the check runs.
+    without: 'UNKNOWN "Failed to read /proc/stat"'
+  - source: '`/proc/<pid>/task/` directories'
+    provides: the threads row
+    note: Counts the task entries of every process listed in `/proc`.
+macos:
+  - source: '`processor_set_statistics(PROCESSOR_SET_LOAD_INFO)`'
+    provides: the threads row only
+    note: No context-switch or fork counter is read, so the ctxt and processes rows do not exist.
+    without: 'UNKNOWN "Failed to read the thread count: ..."'

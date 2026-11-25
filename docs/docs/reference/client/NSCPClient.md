@@ -94,6 +94,7 @@ password in the clear.
 **Jump to section:**
 
 * [Sample Commands](#check_remote_nscp_samples)
+* [Data sources and privileges](#check_remote_nscp_sources)
 * [Command-line Arguments](#check_remote_nscp_options)
 
 
@@ -165,6 +166,18 @@ check_remote_nscp target=web01 command=check_files "argument=path=C:\logs" "argu
 OK: app-2026-09-01.log, app-2026-09-02.log, app-2026-09-03.log, ... (412 files)
 ```
 
+
+
+<a id="check_remote_nscp_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                 | Provides                                                                            | Privilege | Requires                                                                                                                                                                                                                | Notes  |
+|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NSClient++ REST API `GET /api/v2/queries/{command}/commands/execute` over HTTPS | the remote check's status (from the HTTP status code), message and performance data | none      | A remote NSClient++ with its web server reachable on `host`/`port` (default 8443, TLS with `verify mode = peer`)<br>A remote credential (`password`, sent in the `password` header) whose role grants executing queries | note 1 |
+
+1. Where the target carries configured credentials, the request may not change its address, proxy or transport security unless the target sets `allow host override = true`. *Without it:* A connection error is UNKNOWN `Socket error: ...`; an HTTP status other than 200/202/500 (401, 403, 404, 503) is UNKNOWN.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_remote_nscp_options"></a>
@@ -275,6 +288,7 @@ TLS options.
 **Jump to section:**
 
 * [Sample Commands](#remote_nscp_query_samples)
+* [Data sources and privileges](#remote_nscp_query_sources)
 * [Command-line Arguments](#remote_nscp_query_options)
 
 
@@ -303,6 +317,18 @@ See [`check_remote_nscp`](#check_remote_nscp) for the full set of examples —
 targets, arguments, the password and TLS options, and why NSCP is preferable to
 NRPE when both ends are NSClient++.
 
+
+
+<a id="remote_nscp_query_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                 | Provides                                                                            | Privilege | Requires                                                                                                                                                                                                                | Notes  |
+|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NSClient++ REST API `GET /api/v2/queries/{command}/commands/execute` over HTTPS | the remote check's status (from the HTTP status code), message and performance data | none      | A remote NSClient++ with its web server reachable on `host`/`port` (default 8443, TLS with `verify mode = peer`)<br>A remote credential (`password`, sent in the `password` header) whose role grants executing queries | note 1 |
+
+1. Same request as `check_remote_nscp`. Where the target carries configured credentials, the request may not change its address, proxy or transport security unless the target sets `allow host override = true`. *Without it:* A connection error is UNKNOWN `Socket error: ...`; an HTTP status other than 200/202/500 (401, 403, 404, 503) is UNKNOWN.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="remote_nscp_query_options"></a>
@@ -432,6 +458,7 @@ returns its result, message and performance data alike.
 **Jump to section:**
 
 * [Sample Commands](#remote_nscpforward_samples)
+* [Data sources and privileges](#remote_nscpforward_sources)
 
 
 <a id="remote_nscpforward_samples"></a>
@@ -488,6 +515,18 @@ terminates one connection and opens another, the far end sees the *relay* as the
 client — any password or certificate-based authorisation there applies to the
 relay, not to the original caller.
 
+
+
+<a id="remote_nscpforward_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                | Privilege        | Notes  |
+|-----------------------------------------------------------------------|------------------|--------|
+| None: the name matches no client dispatch rule, so no request is sent | *not determined* | note 1 |
+
+1. The client framework only dispatches `check_*`, `*_query`, `forward_*`, `*_forward`, `exec_*` and `submit_*`. Relaying to a remote agent's REST API works through the module's fallback handler instead. *Without it:* Always fails with `remote_nscpforward not found`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 

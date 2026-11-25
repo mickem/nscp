@@ -1,0 +1,7 @@
+windows:
+  - source: 'PDH counters `Hyper-V Hypervisor Logical Processor` (% Total Run Time, % Guest Run Time, % Hypervisor Run Time, % Idle Time, Context Switches/sec)'
+    provides: 'one row per logical processor (Hv LP <n>) plus a synthetic total'
+    note: 'Sampled twice, one second apart, since these are rates; single-sample=true skips the wait and every rate reads 0.'
+    requires:
+      - Hyper-V role installed and the hypervisor running
+    without: 'The check returns UNKNOWN: "Hyper-V counters (Hyper-V Hypervisor Logical Processor) not available - is the Hyper-V role installed and the hypervisor running on this host? (...)"'

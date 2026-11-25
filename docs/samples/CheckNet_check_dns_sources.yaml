@@ -1,0 +1,31 @@
+windows:
+- source: System resolver (`getaddrinfo` via the asio resolver)
+  provides: A/AAAA lookups without `server=`
+  privilege: none
+- source: DNS query over UDP to `server=`
+  provides: other record types, and any lookup with an explicit server
+  privilege: none
+  note: 'No default nameserver is discovered on Windows: the fallback reads `/etc/resolv.conf`, which does not exist there.'
+  without: A non-A/AAAA query without `server=` fails with "No DNS server configured; specify one with server=<ip>".
+  requires:
+  - Network reachability of the DNS server (UDP 53 by default)
+linux:
+- source: System resolver (`getaddrinfo` via the asio resolver; honours `/etc/hosts` and nsswitch)
+  provides: A/AAAA lookups without `server=`
+  privilege: none
+- source: DNS query over UDP to `server=`, else the first `nameserver` in `/etc/resolv.conf`
+  provides: other record types, and any lookup with an explicit server
+  privilege: none
+  without: '"No DNS server configured; specify one with server=<ip>" when neither is available.'
+  requires:
+  - Network reachability of the DNS server (UDP 53 by default)
+macos:
+- source: System resolver (`getaddrinfo` via the asio resolver)
+  provides: A/AAAA lookups without `server=`
+  privilege: none
+- source: DNS query over UDP to `server=`, else the first `nameserver` in `/etc/resolv.conf`
+  provides: other record types, and any lookup with an explicit server
+  privilege: none
+  without: '"No DNS server configured; specify one with server=<ip>" when neither is available.'
+  requires:
+  - Network reachability of the DNS server (UDP 53 by default)

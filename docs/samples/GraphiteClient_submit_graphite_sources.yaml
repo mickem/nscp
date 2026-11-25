@@ -1,0 +1,8 @@
+all:
+- source: Remote Carbon (Graphite) receiver, plaintext line protocol `<path> <value> <timestamp>` over TCP (default port 2003)
+  provides: check status and performance data as metrics under `status path`/`perf path`
+  privilege: none
+  note: Optional TLS with `ssl = true` (`verify mode` defaults to `peer`).
+  requires:
+  - A Carbon line receiver reachable on `host`/`port`
+  - 'With `ssl`: a CA (`ca`) that verifies the receiver''s certificate'

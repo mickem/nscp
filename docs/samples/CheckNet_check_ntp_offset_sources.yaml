@@ -1,0 +1,6 @@
+all:
+- source: SNTP query over UDP to `server=` (default port 123), compared with the local clock
+  provides: offset, stratum, jitter, root_delay, root_dispersion, time
+  privilege: none
+  requires:
+  - Network reachability of the NTP server (UDP 123 by default)

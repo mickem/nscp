@@ -1,0 +1,20 @@
+windows:
+  - source: '`GetSystemTimes`'
+    provides: the `total` rows
+    privilege: none
+    note: Sampled once a second by the CheckSystem collector into a ring buffer (`default buffer length`, 1h); the check averages the buffer over each `time=` window.
+    without: 'With `disable = cpu` the check returns UNKNOWN "CPU load sampling is disabled ..." rather than frozen values'
+  - source: '`NtQuerySystemInformation(SystemProcessorPerformanceInformation)`'
+    provides: the `core N` rows
+    note: Only read when `fetch core loads` is enabled (the default).
+  - source: 'PDH `\Processor Information(*)\% Processor Utility` and `\Processor Information(*)\% Privileged Utility`'
+    provides: every row, instead of the two sources above
+    note: Only with `use pdh for cpu = true` in `/settings/system/windows`. `warmup-state` is refused in this mode.
+linux:
+  - source: '`/proc/stat` (`cpu` and `cpuN` lines)'
+    privilege: none
+    note: Sampled once a second by the background collector; the check averages its buffer.
+    without: 'A collector that cannot read `/proc/stat` makes the check UNKNOWN (collector failed to sample)'
+macos:
+  - source: '`host_processor_info(PROCESSOR_CPU_LOAD_INFO)`'
+    note: Sampled once a second by the background collector; the check averages its buffer.

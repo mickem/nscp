@@ -1,0 +1,3 @@
+all:
+- source: Agent's in-memory result cache (keys only)
+  privilege: none

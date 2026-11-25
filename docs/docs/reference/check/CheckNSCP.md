@@ -96,6 +96,7 @@ agent that has never crashed.
 **Jump to section:**
 
 * [Sample Commands](#check_nscp_samples)
+* [Data sources and privileges](#check_nscp_sources)
 * [Command-line Arguments](#check_nscp_options)
 * [Filter keywords](#check_nscp_filter_keys)
 
@@ -192,6 +193,19 @@ check_nscp "top-syntax=agent is ${status}"
 agent is OK|'nscp_crashes'=0;0;0 'nscp_errors'=0;0;0
 ```
 
+
+
+<a id="check_nscp_sources"></a>
+#### Data sources and privileges
+
+| Source                                                         | Provides                                  | Privilege        | Notes  |
+|----------------------------------------------------------------|-------------------------------------------|------------------|--------|
+| Crash archive folder (`archive folder` in `[/settings/crash]`) | crashes, last_crash, crash_age            | *not determined* | note 1 |
+| Agent's own log stream and process state                       | errors, last_error, uptime, version, date | none             |        |
+
+1. A missing or unreadable folder counts as no crashes.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nscp_options"></a>
@@ -309,6 +323,7 @@ check_nscp_update "warn=update_available = 1" "crit=error != ''"
 **Jump to section:**
 
 * [Sample Commands](#check_nscp_update_samples)
+* [Data sources and privileges](#check_nscp_update_sources)
 * [Command-line Arguments](#check_nscp_update_options)
 * [Filter keywords](#check_nscp_update_filter_keys)
 
@@ -371,6 +386,17 @@ The GitHub result is cached (24 hours by default) to stay inside the API's rate
 limit, so the check is cheap to schedule often — but can lag a fresh release by
 up to the cache lifetime.
 
+
+
+<a id="check_nscp_update_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                                                 | Provides                                                                | Privilege | Requires                                                                                                                                                                                 |
+|----------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GitHub releases API over HTTPS (default `https://api.github.com/repos/mickem/nscp/releases`), cached for `cache hours` (24 by default) | latest_version, update_available, versions_behind, release date and URL | none      | HTTPS access to `api.github.com` or the configured mirror<br>OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca` in the module settings overrides) |
+| Agent's own version string                                                                                                             | version                                                                 | none      |                                                                                                                                                                                          |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nscp_update_options"></a>
@@ -467,6 +493,7 @@ crashes, logged errors, uptime — see [`check_nscp`](#check_nscp).
 **Jump to section:**
 
 * [Sample Commands](#check_nscp_version_samples)
+* [Data sources and privileges](#check_nscp_version_sources)
 * [Command-line Arguments](#check_nscp_version_options)
 * [Filter keywords](#check_nscp_version_filter_keys)
 
@@ -517,6 +544,16 @@ check_nrpe --host 192.168.56.103 --command check_nscp_version
 OK: 0.18.1 (2026-08-14)
 ```
 
+
+
+<a id="check_nscp_version_sources"></a>
+#### Data sources and privileges
+
+| Source                     | Privilege |
+|----------------------------|-----------|
+| Agent's own version string | none      |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nscp_version_options"></a>

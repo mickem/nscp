@@ -1,0 +1,3 @@
+all:
+- source: Agent's own version string
+  privilege: none

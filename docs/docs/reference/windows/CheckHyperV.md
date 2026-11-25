@@ -69,6 +69,7 @@ virtualisation, storms of timer interrupts) rather than at busy guests.
 **Jump to section:**
 
 * [Sample Commands](#check_hyperv_cpu_samples)
+* [Data sources and privileges](#check_hyperv_cpu_sources)
 * [Command-line Arguments](#check_hyperv_cpu_options)
 * [Filter keywords](#check_hyperv_cpu_filter_keys)
 
@@ -104,6 +105,18 @@ check_hyperv_cpu
 Hyper-V counters (Hyper-V Hypervisor Logical Processor) not available - is the Hyper-V role installed and the hypervisor running on this host? (...)
 ```
 
+
+
+<a id="check_hyperv_cpu_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                             | Provides                                                               | Privilege        | Requires                                          | Notes  |
+|----------|----------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|------------------|---------------------------------------------------|--------|
+| Windows  | PDH counters `Hyper-V Hypervisor Logical Processor` (% Total Run Time, % Guest Run Time, % Hypervisor Run Time, % Idle Time, Context Switches/sec) | one row per logical processor (Hv LP &lt;n&gt;) plus a synthetic total | *not determined* | Hyper-V role installed and the hypervisor running | note 1 |
+
+1. Sampled twice, one second apart, since these are rates; single-sample=true skips the wait and every rate reads 0. *Without it:* The check returns UNKNOWN: "Hyper-V counters (Hyper-V Hypervisor Logical Processor) not available - is the Hyper-V role installed and the hypervisor running on this host? (...)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_hyperv_cpu_options"></a>
@@ -255,6 +268,7 @@ missing VMM module or server is UNKNOWN.
 **Jump to section:**
 
 * [Sample Commands](#check_hyperv_host_samples)
+* [Data sources and privileges](#check_hyperv_host_sources)
 * [Command-line Arguments](#check_hyperv_host_options)
 * [Filter keywords](#check_hyperv_host_filter_keys)
 
@@ -311,6 +325,23 @@ check_hyperv_host
 Hyper-V counters (Hyper-V Virtual Machine Health Summary, Hyper-V Hypervisor) not available - is the Hyper-V role installed and the hypervisor running on this host? (...)
 ```
 
+
+
+<a id="check_hyperv_host_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                                           | Provides                                                                                              | Privilege        | Requires                                                  | Notes  |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|------------------|-----------------------------------------------------------|--------|
+| Windows  | PDH counters `Hyper-V Virtual Machine Health Summary` (Health Ok, Health Critical)                                                                               | health_ok, health_critical, and the VM count that decides whether the VM walk runs                    | none             | Hyper-V role installed and the hypervisor running         | note 1 |
+| Windows  | PDH counters `Hyper-V Hypervisor` (Logical Processors, Virtual Processors, Partitions, Total Pages)                                                              | logical_processors, virtual_processors, partitions, total_pages                                       | *not determined* | Hyper-V role installed and the hypervisor running         | note 2 |
+| Windows  | WMI `root\virtualization\v2` (`Msvm_ComputerSystem`, `Msvm_MemorySettingData`, `Msvm_Memory`, `Msvm_ProcessorSettingData`, `Msvm_Processor` and related classes) | running_vms, vm_vcpus, memory_assigned, cpu_overcommit, memory_overcommit, guests_known, guests_error | elevated         | Hyper-V Virtual Machine Management service (vmms) running | note 3 |
+| Windows  | `GlobalMemoryStatusEx`                                                                                                                                           | physical_memory                                                                                       | none             |                                                           |        |
+
+1. Readable by any account, unlike the WMI namespace; counts only VMs with a running worker process. *Without it:* The check returns UNKNOWN: "Hyper-V counters (Hyper-V Virtual Machine Health Summary, Hyper-V Hypervisor) not available - is the Hyper-V role installed and the hypervisor running on this host? (...)"
+2. *Without it:* Same UNKNOWN as the health summary counters (both are read together)
+3. Local Administrators (elevated) or Hyper-V Administrators; LocalSystem qualifies. Only walked when the health counters count at least one VM, bounded by vm-timeout (default 5 s). *Without it:* The health and capacity keywords still report; the guest keywords stay 0, guests_known = 0 and guests_error explains (VMs hidden from this account, a WMI failure, or a timeout)
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_hyperv_host_options"></a>
@@ -427,6 +458,7 @@ the service instead. A host with the role and no switches reports
 **Jump to section:**
 
 * [Sample Commands](#check_hyperv_switches_samples)
+* [Data sources and privileges](#check_hyperv_switches_sources)
 * [Command-line Arguments](#check_hyperv_switches_options)
 * [Filter keywords](#check_hyperv_switches_filter_keys)
 
@@ -469,6 +501,18 @@ check_hyperv_switches
 Hyper-V virtual switch information not available: the Hyper-V role is not installed on this host (root\virtualization\v2 missing)
 ```
 
+
+
+<a id="check_hyperv_switches_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                          | Provides                                                                                                          | Privilege | Requires                                                                                           | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|-----------|----------------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `root\virtualization\v2`: `Msvm_VirtualEthernetSwitch`, `Msvm_EthernetPortAllocationSettingData`, `Msvm_EthernetSwitchPort` | switch, type (external / internal / private, from what its ports connect to), management_os, state, health, ports | elevated  | Hyper-V role (provides the namespace)<br>Hyper-V Virtual Machine Management service (vmms) running | note 1 |
+
+1. The virtualization namespace is meant for local Administrators or Hyper-V Administrators; LocalSystem qualifies. *Without it:* Without the role: UNKNOWN "Hyper-V virtual switch information not available: the Hyper-V role is not installed on this host (root\virtualization\v2 missing)"; with vmms stopped the message points at the service; any other WMI error is UNKNOWN "Failed to query Hyper-V virtual switches: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_hyperv_switches_options"></a>
@@ -596,6 +640,7 @@ checkpoints and are not counted.
 **Jump to section:**
 
 * [Sample Commands](#check_hyperv_vms_samples)
+* [Data sources and privileges](#check_hyperv_vms_sources)
 * [Command-line Arguments](#check_hyperv_vms_options)
 * [Filter keywords](#check_hyperv_vms_filter_keys)
 
@@ -659,6 +704,20 @@ check_hyperv_vms "critical=name_count > 1" "detail-syntax=${vm} (${id}): ${name_
 CRITICAL: web-01 (1e4f6e3b-0f7c-4a51-9c2e-6f8a0b1c2d3e): 2 VMs share the name, web-01 (9a8b7c6d-5e4f-4321-8765-0fedcba98765): 2 VMs share the name|...
 ```
 
+
+
+<a id="check_hyperv_vms_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                                                                                  | Provides                                                                                                                                  | Privilege | Requires                                                                                           | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|-----------|----------------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `root\virtualization\v2`: `Msvm_ComputerSystem`, `Msvm_HeartbeatComponent`, `Msvm_MemorySettingData`, `Msvm_Memory`, `Msvm_ProcessorSettingData`, `Msvm_Processor`, `Msvm_VirtualSystemSettingData` | every keyword (state, health, operation, uptime, replication, heartbeat, memory, vcpus, cpu_load, snapshots, oldest_snapshot, name_count) | elevated  | Hyper-V role (provides the namespace)<br>Hyper-V Virtual Machine Management service (vmms) running | note 1 |
+| Windows  | PDH counters `Hyper-V Virtual Machine Health Summary` (Health Ok, Health Critical)                                                                                                                      | the VM count used to tell an empty host from VMs hidden by missing rights                                                                 | none      |                                                                                                    | note 2 |
+
+1. Local Administrators with an elevated token, or Hyper-V Administrators; LocalSystem qualifies. Hyper-V does not refuse other callers: it silently returns only the VMs the caller is authorised for. *Without it:* An account that sees no VMs gets UNKNOWN ("... none are visible to this account: run as an elevated administrator or a member of Hyper-V Administrators", or "... cannot tell that there are none"). Without the role: UNKNOWN "... the Hyper-V role is not installed on this host (root\virtualization\v2 missing)"; with vmms stopped the message points at the service.
+2. Readable by any account; counts only VMs with a running worker process. *Without it:* When the counters cannot be read an empty VM list is only trusted from an account that may see every VM
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_hyperv_vms_options"></a>

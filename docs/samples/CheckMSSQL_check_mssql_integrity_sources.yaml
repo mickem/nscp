@@ -1,0 +1,18 @@
+windows:
+  - source: Catalog view `sys.databases` over ODBC/TDS (online databases, tempdb excluded)
+    provides: database list
+    requires:
+      - SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)
+      - Network reachability of the instance named by `server` (default `localhost`)
+      - "Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance"
+  - source: "`msdb.dbo.suspect_pages`"
+    provides: suspect_pages
+    without: If msdb is unreadable (no msdb user, Azure SQL Database), suspect_pages is -1 for every database.
+    requires:
+      - "`SELECT` on `msdb.dbo.suspect_pages`"
+  - source: "`DBCC DBINFO ... WITH TABLERESULTS` per database (field `dbi_dbccLastKnownGood`)"
+    provides: checkdb_age
+    note: Run as one server-side batch; if that is refused, one `DBCC DBINFO` per database is issued instead.
+    without: A database whose DBCC DBINFO is denied or fails reports checkdb_age -2; the default thresholds do not alert on it.
+    requires:
+      - "`sysadmin` server role (for `DBCC DBINFO`)"

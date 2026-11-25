@@ -1,0 +1,26 @@
+windows:
+- source: Directory walk with `FindFirstFile`/`FindNextFile` (`GetFileAttributes` on the start path)
+  provides: file list, name, path, size, creation/access/write times, attributes
+  privilege: conditional
+  note: The agent's account must be able to list each scanned folder. Paths are also held against `file access` in `[/settings/disk]`.
+  without: A start path that does not exist or cannot be read is reported as missing (UNKNOWN unless `ignore-missing=true`).
+- source: File contents (`fopen`)
+  provides: line_count, md5/sha1/sha256/sha384/sha512 checksums
+  privilege: conditional
+  note: Needs read access to each matched file; only read when one of these keywords is used.
+  requires:
+  - OpenSSL in the build for the checksum keywords (they are empty otherwise)
+- source: '`GetFileVersionInfo`'
+  provides: version
+linux:
+- source: Directory walk with `boost::filesystem::directory_iterator` plus `stat`/`lstat`
+  provides: file list, name, path, size, times, type
+  privilege: conditional
+  note: The agent's account must be able to search and list each scanned folder; symbolic links are skipped. Paths are also held against `file access` in `[/settings/disk]`.
+  without: A start path that does not exist or cannot be read is reported as missing (UNKNOWN unless `ignore-missing=true`); a subfolder that cannot be opened is logged and skipped.
+- source: File contents (`fopen`)
+  provides: line_count, md5/sha1/sha256/sha384/sha512 checksums
+  privilege: conditional
+  note: Needs read access to each matched file; only read when one of these keywords is used. `version` is always empty on Linux.
+  requires:
+  - OpenSSL in the build for the checksum keywords (they are empty otherwise)

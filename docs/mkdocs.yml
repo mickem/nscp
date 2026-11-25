@@ -75,6 +75,7 @@ nav:
   - Reference:
       - Reference: reference/index.md
       - Common options: reference/common-options.md
+      - Data sources and privileges: reference/data-sources.md
       - Check commands:
         - CheckDisk: reference/check/CheckDisk.md
         - CheckDocker: reference/check/CheckDocker.md

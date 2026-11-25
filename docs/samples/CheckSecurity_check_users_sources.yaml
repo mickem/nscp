@@ -1,0 +1,14 @@
+windows:
+  - source: 'Remote Desktop Services API (`WTSEnumerateSessionsW`, `WTSQuerySessionInformationW`)'
+    provides: user, client, session_state, and session_type from the client protocol (console / rdp / ica)
+    note: Sessions without a user name (services, the RDP listener) are skipped.
+    without: 'The check returns UNKNOWN: "Failed to enumerate terminal sessions (WTSEnumerateSessions)"'
+linux:
+  - source: 'utmp database via `getutxent()` (`/var/run/utmp`, the source of `who`)'
+    provides: user and client (remote host); every entry is active, console or remote
+    privilege: none
+    note: Only `USER_PROCESS` entries are counted. The utmp file is world-readable.
+macos:
+  - source: 'utmpx database via `getutxent()` (the source of `who`)'
+    provides: user and client (remote host); every entry is active, console or remote
+    note: Same reader as Linux (`check_users_unix.cpp`); only `USER_PROCESS` entries are counted.

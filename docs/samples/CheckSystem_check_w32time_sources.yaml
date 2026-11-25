@@ -1,0 +1,20 @@
+windows:
+  - source: Service Control Manager (the `W32Time` service)
+    provides: installed, running, service_state, start_type
+    without: A service that does not exist or cannot be opened is reported as not installed
+  - source: '`HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters` values `Type`, `NtpServer`'
+    provides: sync_type, peers, peer_count
+  - source: '`HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Config` value `LastKnownGoodTime`'
+    provides: last_sync, last_sync_age
+  - source: '`W32TimeQuerySource` (w32time.dll)'
+    provides: source, source_from, local_clock, and with them synchronized when available
+    privilege: elevated
+    note: Like `w32tm /query /source` this needs privilege; the agent running as a service has it.
+    requires:
+      - the W32Time service running
+    without: An unprivileged caller gets access denied and the check falls back to the configured peers and time_sources
+  - source: 'PDH `\Windows Time Service\Computed Time Offset`, `NTP Roundtrip Delay`, `Clock Frequency Adjustment (PPB)`, `NTP Client Time Source Count`'
+    provides: offset, delay, frequency_adjustment, time_sources
+    requires:
+      - the W32Time service running (it only maintains these counters while it runs)
+    without: The four keywords render unknown, never satisfy a threshold and emit no perfdata

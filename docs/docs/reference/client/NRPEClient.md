@@ -84,6 +84,7 @@ ends are NSClient++, use real certificates and `verify=peer` instead.
 **Jump to section:**
 
 * [Sample Commands](#check_nrpe_samples)
+* [Data sources and privileges](#check_nrpe_sources)
 * [Command-line Arguments](#check_nrpe_options)
 
 
@@ -180,6 +181,18 @@ check_nrpe host=192.168.56.103 command=check_files "argument=path=/var/log" vers
 OK: 412 files found
 ```
 
+
+
+<a id="check_nrpe_sources"></a>
+#### Data sources and privileges
+
+| Source                                                   | Provides                                                  | Privilege | Requires                                                                                                                                                                                                                                                                                                                                                     | Notes  |
+|----------------------------------------------------------|-----------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NRPE server, NRPE v2/v4 query packet over TCP/TLS | the remote command's status, message and performance data | none      | A remote NRPE server (NSClient++ or Nagios `nrpe`) reachable on `host`/`port` (default 5666)<br>Matching protocol `version` (2, the default, or 4) and, for version 2, the server's `payload length` (default 1024)<br>TLS settings matching the server (TLS is on by default with `verify mode = none`; `insecure` enables the legacy anonymous-DH ciphers) | note 1 |
+
+1. Sends `command!arg1!arg2...`; the remote end decides what the command runs. *Without it:* A connection, TLS or packet error is UNKNOWN (`Socket error: ...`, `NRPE Packet error: ...`).
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nrpe_options"></a>
@@ -313,6 +326,7 @@ it and from where.
 **Jump to section:**
 
 * [Sample Commands](#exec_nrpe_samples)
+* [Data sources and privileges](#exec_nrpe_sources)
 * [Command-line Arguments](#exec_nrpe_options)
 
 
@@ -358,6 +372,18 @@ exec_nrpe host=127.0.0.1 port=15667 command=help
 UNKNOWN: Error: Failed to connect to: 127.0.0.1:15667 :Connection refused
 ```
 
+
+
+<a id="exec_nrpe_sources"></a>
+#### Data sources and privileges
+
+| Source                                                   | Provides                                                                | Privilege | Requires                                                                                                                                                                                                                                                                                                                                                     | Notes  |
+|----------------------------------------------------------|-------------------------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NRPE server, NRPE v2/v4 query packet over TCP/TLS | the remote command's status and output, returned as an execution result | none      | A remote NRPE server (NSClient++ or Nagios `nrpe`) reachable on `host`/`port` (default 5666)<br>Matching protocol `version` (2, the default, or 4) and, for version 2, the server's `payload length` (default 1024)<br>TLS settings matching the server (TLS is on by default with `verify mode = none`; `insecure` enables the legacy anonymous-DH ciphers) | note 1 |
+
+1. Sends `command!arg1!arg2...` as an NRPE query; NRPE has no separate execute request. *Without it:* A connection, TLS or packet error is UNKNOWN (`Socket error: ...`, `NRPE Packet error: ...`).
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="exec_nrpe_options"></a>
@@ -496,6 +522,7 @@ Connection and TLS options are the same as for [`check_nrpe`](#check_nrpe).
 **Jump to section:**
 
 * [Sample Commands](#nrpe_forward_samples)
+* [Data sources and privileges](#nrpe_forward_sources)
 * [Command-line Arguments](#nrpe_forward_options)
 
 
@@ -564,6 +591,18 @@ UNKNOWN: Error: Failed to connect to: 10.0.2.50:5666 :Connection refused
 
 
 
+<a id="nrpe_forward_sources"></a>
+#### Data sources and privileges
+
+| Source                                                   | Provides                                                       | Privilege | Requires                                                                                                                                                                                                                                                                                                                                                     | Notes  |
+|----------------------------------------------------------|----------------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NRPE server, NRPE v2/v4 query packet over TCP/TLS | the remote answer to the forwarded request, returned unchanged | none      | A remote NRPE server (NSClient++ or Nagios `nrpe`) reachable on `host`/`port` (default 5666)<br>Matching protocol `version` (2, the default, or 4) and, for version 2, the server's `payload length` (default 1024)<br>TLS settings matching the server (TLS is on by default with `verify mode = none`; `insecure` enables the legacy anonymous-DH ciphers) | note 1 |
+
+1. Each payload of the incoming request is re-sent as `command!arg1!arg2...`, without local option parsing. *Without it:* A connection, TLS or packet error is UNKNOWN (`Socket error: ...`, `NRPE Packet error: ...`).
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="nrpe_forward_options"></a>
 #### Command-line Arguments
 
@@ -598,6 +637,7 @@ versions and payload length, TLS, and batching.
 **Jump to section:**
 
 * [Sample Commands](#nrpe_query_samples)
+* [Data sources and privileges](#nrpe_query_sources)
 * [Command-line Arguments](#nrpe_query_options)
 
 
@@ -624,6 +664,18 @@ WARNING: WARNING C:\: 91.2GB/100GB used
 See [`check_nrpe`](#check_nrpe) for the full set of examples — targets, batching,
 protocol versions, payload length and the TLS failure modes.
 
+
+
+<a id="nrpe_query_sources"></a>
+#### Data sources and privileges
+
+| Source                                                   | Provides                                                  | Privilege | Requires                                                                                                                                                                                                                                                                                                                                                     | Notes  |
+|----------------------------------------------------------|-----------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NRPE server, NRPE v2/v4 query packet over TCP/TLS | the remote command's status, message and performance data | none      | A remote NRPE server (NSClient++ or Nagios `nrpe`) reachable on `host`/`port` (default 5666)<br>Matching protocol `version` (2, the default, or 4) and, for version 2, the server's `payload length` (default 1024)<br>TLS settings matching the server (TLS is on by default with `verify mode = none`; `insecure` enables the legacy anonymous-DH ciphers) | note 1 |
+
+1. Same transport as `check_nrpe`: sends `command!arg1!arg2...`. *Without it:* A connection, TLS or packet error is UNKNOWN (`Socket error: ...`, `NRPE Packet error: ...`).
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="nrpe_query_options"></a>
@@ -754,6 +806,7 @@ may not arrive whole.
 **Jump to section:**
 
 * [Sample Commands](#submit_nrpe_samples)
+* [Data sources and privileges](#submit_nrpe_sources)
 * [Command-line Arguments](#submit_nrpe_options)
 
 
@@ -799,6 +852,18 @@ submit_nrpe host=127.0.0.1 port=15667 command=nightly_backup result=OK "message=
 UNKNOWN: Error: Failed to connect to: 127.0.0.1:15667 :Connection refused
 ```
 
+
+
+<a id="submit_nrpe_sources"></a>
+#### Data sources and privileges
+
+| Source                                                   | Provides                                                                         | Privilege | Requires                                                                                                                                                                                                                                                                                                                                                     | Notes  |
+|----------------------------------------------------------|----------------------------------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NRPE server, NRPE v2/v4 query packet over TCP/TLS | success flag: the submission counts as sent unless the exchange returned UNKNOWN | none      | A remote NRPE server (NSClient++ or Nagios `nrpe`) reachable on `host`/`port` (default 5666)<br>Matching protocol `version` (2, the default, or 4) and, for version 2, the server's `payload length` (default 1024)<br>TLS settings matching the server (TLS is on by default with `verify mode = none`; `insecure` enables the legacy anonymous-DH ciphers) | note 1 |
+
+1. NRPE has no submit request: this sends `command!arg1!arg2...` as an NRPE query, so the result and message given to the command are not transmitted. *Without it:* A connection, TLS or packet error is UNKNOWN (`Socket error: ...`, `NRPE Packet error: ...`).
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_nrpe_options"></a>

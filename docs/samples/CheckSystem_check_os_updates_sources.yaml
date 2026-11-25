@@ -1,0 +1,29 @@
+windows:
+  - source: 'Windows Update Agent API (`IUpdateSearcher::Search`, criteria `IsInstalled=0 and Type=''Software'' and IsHidden=0`)'
+    provides: updates, security, critical, important, defender, rollups, reboot_required, titles
+    note: Run by the CheckSystem auxiliary collector on its own thread, at most once an hour; the search can take minutes and the check answers from the last result. Driver updates are excluded by the criteria.
+    requires:
+      - Windows Update service (`wuauserv`)
+      - reachability of Windows Update or the configured WSUS server
+    without: 'Before the first search completes the record reads "update status pending"; a failed search reads "update query failed: <error>" with update_status = error'
+  - source: '`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired` (existence)'
+    provides: reboot_pending
+    note: Read when the check runs.
+linux:
+  - source: '`apt list --upgradable`, `dnf -q check-update`, `yum -q check-update`, `zypper -q --non-interactive list-updates` or `pacman -Qu`'
+    provides: every keyword; `manager` names the tool used
+    note: Run through the shell when the check runs; the first manager found in `/usr/bin` or `/usr/local/bin` is used (apt, dnf, yum, zypper, pacman). The result reflects the manager's repository metadata, which the check does not refresh itself for apt and pacman.
+    requires:
+      - one of apt-get, dnf, yum, zypper or pacman
+    without: 'No manager found: UNKNOWN "No supported package manager found (apt-get/dnf/yum/zypper/pacman)"'
+macos:
+  - source: '`/Library/Preferences/com.apple.SoftwareUpdate.plist`'
+    provides: every keyword, last_checked
+    note: The default; the list macOS caches at its background check. Instant and offline.
+    without: 'No cached list: UNKNOWN "No cached update list in /Library/Preferences/com.apple.SoftwareUpdate.plist (use live=true to ask the update server)"'
+  - source: '`/usr/sbin/softwareupdate --list`'
+    provides: every keyword
+    note: Only with `live=true`; takes 10 to 60 seconds.
+    requires:
+      - network access to Apple's software update server
+    without: 'UNKNOWN "softwareupdate --list did not finish within 60 seconds" on timeout, or "... failed with exit code N"'

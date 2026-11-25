@@ -1,0 +1,10 @@
+all:
+- source: Kubernetes API `GET /api/v1/nodes` (paged)
+  provides: node Ready and pressure conditions, schedulability, capacity
+  note: The cluster and credentials come only from settings; no check argument selects the server or token.
+  without: No usable configuration is UNKNOWN naming what to set; HTTP 401 is UNKNOWN naming the rejected credential, HTTP 403 is UNKNOWN naming the RBAC rule to grant.
+  requires:
+  - Network reachability of the API server over HTTPS (built with OpenSSL)
+  - 'Cluster configuration under `/settings/kubernetes`, resolved in this order: `api server` plus `token`/`token file`; a kubeconfig in JSON form (`kubectl config view --raw --minify -o json`) with a token, tokenFile or client certificate (exec/auth-provider users are not supported); or, in a pod, `KUBERNETES_SERVICE_HOST` plus the mounted service account token `/var/run/secrets/kubernetes.io/serviceaccount/token`'
+  - Read access, for the agent account, to any token file, kubeconfig or certificate file it is configured with
+  - 'RBAC: `list` on `nodes` (cluster-scoped)'

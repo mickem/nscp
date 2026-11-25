@@ -79,6 +79,7 @@ properly trusted certificate.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_samples)
+* [Data sources and privileges](#check_mssql_sources)
 * [Command-line Arguments](#check_mssql_options)
 * [Filter keywords](#check_mssql_filter_keys)
 
@@ -128,6 +129,18 @@ check_nscp_client --host 192.168.56.103 --command check_mssql --argument "warnin
 OK: DBSRV01: SQL Server 16.0.4265.3 RTM Developer Edition (64-bit), uptime 144s
 ```
 
+
+
+<a id="check_mssql_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                           | Provides                                             | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Notes  |
+|----------|------------------------------------------------------------------|------------------------------------------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | `SERVERPROPERTY(...)` and DMV `sys.dm_os_sys_info` over ODBC/TDS | server_name, version, product_level, edition, uptime | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`VIEW SERVER STATE` (`sys.dm_os_sys_info`) | note 1 |
+
+1. *Without it:* Connection failure is UNKNOWN `Failed to connect to SQL Server '<server>': <ODBC diagnostic>`; a query failure is UNKNOWN `Query failed: ...`
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_options"></a>
@@ -271,6 +284,7 @@ Rights: `VIEW SERVER STATE`.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_availability_groups_samples)
+* [Data sources and privileges](#check_mssql_availability_groups_sources)
 * [Command-line Arguments](#check_mssql_availability_groups_options)
 * [Filter keywords](#check_mssql_availability_groups_filter_keys)
 
@@ -321,6 +335,18 @@ check_mssql_availability_groups empty-state=critical
 CRITICAL: No availability groups found
 ```
 
+
+
+<a id="check_mssql_availability_groups_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                                                       | Provides                                                                    | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Notes  |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Catalog views `sys.availability_groups`, `sys.availability_replicas` and DMVs `sys.dm_hadr_availability_replica_states`, `sys.dm_hadr_database_replica_states` over ODBC/TDS | replica role, connected state, health, sync state, redo and log-send queues | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`VIEW SERVER STATE`<br>Always On availability groups configured on the instance | note 1 |
+
+1. *Without it:* An instance with no availability groups returns OK `No availability groups found`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_availability_groups_options"></a>
@@ -476,6 +502,7 @@ or T-SQL); snapshot-only solutions that bypass it will show as never backed up.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_backup_samples)
+* [Data sources and privileges](#check_mssql_backup_sources)
 * [Command-line Arguments](#check_mssql_backup_options)
 * [Filter keywords](#check_mssql_backup_filter_keys)
 
@@ -539,6 +566,18 @@ check_mssql_backup "filter=name != 'model' and name != 'appdb'"
 OK: All 2 databases have recent backups|'master_full_age'=248s;259200;0 'msdb_full_age'=248s;259200;0
 ```
 
+
+
+<a id="check_mssql_backup_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                    | Provides                                                      | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Notes  |
+|----------|---------------------------------------------------------------------------|---------------------------------------------------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Catalog view `sys.databases` LEFT JOIN `msdb.dbo.backupset` over ODBC/TDS | full_age, diff_age, log_age, recovery_model (tempdb excluded) | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`SELECT` on `msdb.dbo.backupset` (or `sysadmin`) | note 1 |
+
+1. *Without it:* A permission failure on msdb is UNKNOWN `Query failed: ...`
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_backup_options"></a>
@@ -709,6 +748,7 @@ Rights: `VIEW SERVER STATE`.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_blocking_samples)
+* [Data sources and privileges](#check_mssql_blocking_sources)
 * [Command-line Arguments](#check_mssql_blocking_options)
 * [Filter keywords](#check_mssql_blocking_filter_keys)
 
@@ -751,6 +791,16 @@ The blocker in this incident was still actively executing (`blocker_idle = 0`),
 so the orphaned-transaction warning correctly stays quiet while the generic
 `wait_time` critical would still fire at 30 minutes.
 
+
+
+<a id="check_mssql_blocking_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                               | Provides                                                         | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+|----------|----------------------------------------------------------------------|------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Windows  | DMVs `sys.dm_exec_requests` and `sys.dm_exec_sessions` over ODBC/TDS | blocked sessions, blocking session and login, wait time and type | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`VIEW SERVER STATE` |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_blocking_options"></a>
@@ -923,6 +973,7 @@ Rights: `VIEW SERVER STATE`.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_counters_samples)
+* [Data sources and privileges](#check_mssql_counters_sources)
 * [Command-line Arguments](#check_mssql_counters_options)
 * [Filter keywords](#check_mssql_counters_filter_keys)
 
@@ -961,6 +1012,18 @@ check_mssql_counters "warning=lock_waits > 50" "critical=deadlocks > 0.5"
 OK: hit ratio 100%, PLE 4102s, 0 batches/s, 0 compilations/s, 0 lazy writes/s, 0 lock waits/s, 0 deadlocks/s|'mssql_batch_requests'=0;0;0 'mssql_compilations'=0;0;0 'mssql_deadlocks'=0;0;0.5 'mssql_hit_ratio'=100%;0;0 'mssql_lazy_writes'=0;0;0 'mssql_lock_waits'=0;50;0 'mssql_page_life_expectancy'=4102s;0;0 'mssql_recompilations'=0;0;0
 ```
 
+
+
+<a id="check_mssql_counters_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                         | Provides                                                                                            | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Notes  |
+|----------|--------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | DMV `sys.dm_os_performance_counters` over ODBC/TDS, sampled twice in one batch | Buffer Manager, SQL Statistics, Locks and Latches counters (hit ratio, page life expectancy, rates) | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`VIEW SERVER STATE` | note 1 |
+
+1. Read through SQL Server, not through Windows PDH, so no local performance-counter access is involved.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_counters_options"></a>
@@ -1134,6 +1197,7 @@ the per-file volume lookups.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_databases_samples)
+* [Data sources and privileges](#check_mssql_databases_sources)
 * [Command-line Arguments](#check_mssql_databases_options)
 * [Filter keywords](#check_mssql_databases_filter_keys)
 
@@ -1203,6 +1267,22 @@ check_mssql_databases "warning=data_headroom = -1" "critical=none"
 OK: All 5 databases are ONLINE|'appdb_data_headroom'=96468992B;-1;0 'master_data_headroom'=991888719872B;-1;0 'model_data_headroom'=991888719872B;-1;0 'msdb_data_headroom'=991888719872B;-1;0 'tempdb_data_headroom'=991888719872B;-1;0
 ```
 
+
+
+<a id="check_mssql_databases_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                     | Provides                               | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                              | Notes  |
+|----------|------------------------------------------------------------|----------------------------------------|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Catalog view `sys.databases` over ODBC/TDS                 | name, state, recovery_model, read_only | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance |        |
+| Windows  | `DBCC SQLPERF(LOGSPACE)`                                   | log_used_pct                           | *not determined* | `VIEW SERVER STATE`                                                                                                                                                                                                                                                                                                                                                                                                                                   | note 1 |
+| Windows  | Catalog view `sys.master_files` (data and log files)       | data/log size and growth limits        | *not determined* |                                                                                                                                                                                                                                                                                                                                                                                                                                                       |        |
+| Windows  | DMF `sys.dm_os_volume_stats`, joined to `sys.master_files` | data_headroom, log_headroom            | *not determined* | `VIEW SERVER STATE`                                                                                                                                                                                                                                                                                                                                                                                                                                   | note 2 |
+
+1. *Without it:* If the command is denied or fails, log_used_pct is -1 and the check continues.
+2. Only queried when a headroom keyword is used in the filter or thresholds. *Without it:* If the volume query fails, the check falls back to file sizes only and the headroom keywords are -1.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_databases_options"></a>
@@ -1359,6 +1439,7 @@ Rights: `SELECT` on `msdb.dbo.suspect_pages`; `sysadmin` for `checkdb_age`.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_integrity_samples)
+* [Data sources and privileges](#check_mssql_integrity_sources)
 * [Command-line Arguments](#check_mssql_integrity_options)
 * [Filter keywords](#check_mssql_integrity_filter_keys)
 
@@ -1401,6 +1482,21 @@ OK: appdb: age -2 pages -1, master: age -1 pages -1, model: age -2 pages -1, msd
 thresholds, so a least-privilege login degrades quietly rather than alerting or
 turning the whole check UNKNOWN.
 
+
+
+<a id="check_mssql_integrity_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                           | Provides      | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                              | Notes  |
+|----------|----------------------------------------------------------------------------------|---------------|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Catalog view `sys.databases` over ODBC/TDS (online databases, tempdb excluded)   | database list | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance |        |
+| Windows  | `msdb.dbo.suspect_pages`                                                         | suspect_pages | *not determined* | `SELECT` on `msdb.dbo.suspect_pages`                                                                                                                                                                                                                                                                                                                                                                                                                  | note 1 |
+| Windows  | `DBCC DBINFO ... WITH TABLERESULTS` per database (field `dbi_dbccLastKnownGood`) | checkdb_age   | *not determined* | `sysadmin` server role (for `DBCC DBINFO`)                                                                                                                                                                                                                                                                                                                                                                                                            | note 2 |
+
+1. *Without it:* If msdb is unreadable (no msdb user, Azure SQL Database), suspect_pages is -1 for every database.
+2. Run as one server-side batch; if that is refused, one `DBCC DBINFO` per database is issued instead. *Without it:* A database whose DBCC DBINFO is denied or fails reports checkdb_age -2; the default thresholds do not alert on it.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_integrity_options"></a>
@@ -1544,6 +1640,7 @@ with the `Query failed:` prefix and the ODBC diagnostic.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_jobs_samples)
+* [Data sources and privileges](#check_mssql_jobs_sources)
 * [Command-line Arguments](#check_mssql_jobs_options)
 * [Filter keywords](#check_mssql_jobs_filter_keys)
 
@@ -1600,6 +1697,18 @@ check_mssql_jobs
 OK: No enabled SQL Agent jobs found
 ```
 
+
+
+<a id="check_mssql_jobs_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                         | Provides                                                  | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Notes  |
+|----------|------------------------------------------------------------------------------------------------|-----------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | SQL Server Agent tables `msdb.dbo.sysjobs`, `sysjobhistory` and `sysjobactivity` over ODBC/TDS | job name, enabled, last run status and age, running state | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>Membership in the msdb role `SQLAgentReaderRole` (or `sysadmin`)<br>SQL Server Agent for any jobs to exist | note 1 |
+
+1. *Without it:* A permission failure on msdb is UNKNOWN `Query failed: ...`; with no enabled jobs the result is OK `No enabled SQL Agent jobs found`
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_jobs_options"></a>
@@ -1750,6 +1859,7 @@ monitoring login over `sa`.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_query_samples)
+* [Data sources and privileges](#check_mssql_query_sources)
 * [Command-line Arguments](#check_mssql_query_options)
 * [Filter keywords](#check_mssql_query_filter_keys)
 
@@ -1799,6 +1909,18 @@ check_mssql_query "query=DECLARE @i int = 1;"
 UNKNOWN: Query returned no result set (the statement produced no columns)
 ```
 
+
+
+<a id="check_mssql_query_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                               | Provides                                          | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Notes  |
+|----------|------------------------------------------------------|---------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | User-supplied T-SQL (`query`) executed over ODBC/TDS | one row per result row, every column as a keyword | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>Whatever database permissions the query itself needs | note 1 |
+
+1. Runs in the login's default database unless `database` is set; bounded by `query-timeout` (default 30s). *Without it:* A statement that returns no columns is UNKNOWN `Query returned no result set ...`; a SQL error is UNKNOWN `Query failed: ...`
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_query_options"></a>
@@ -1937,6 +2059,7 @@ permission failure on the DMVs themselves surfaces as UNKNOWN with the
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_sessions_samples)
+* [Data sources and privileges](#check_mssql_sessions_sources)
 * [Command-line Arguments](#check_mssql_sessions_options)
 * [Filter keywords](#check_mssql_sessions_filter_keys)
 
@@ -1983,6 +2106,18 @@ check_mssql_sessions "filter=login = 'app'" "warning=sessions > 100"
 OK: appdb/app: 3 sessions (3 running)|'appdb/app_sessions'=3;100;0
 ```
 
+
+
+<a id="check_mssql_sessions_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                  | Provides                                                              | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Notes  |
+|----------|-------------------------------------------------------------------------|-----------------------------------------------------------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | DMVs `sys.dm_exec_sessions` and `sys.dm_exec_connections` over ODBC/TDS | sessions, running, idle, connections, max_idle per database and login | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`VIEW SERVER STATE` to see sessions other than its own | note 1 |
+
+1. *Without it:* Without `VIEW SERVER STATE` only the monitoring session itself is visible.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_sessions_options"></a>
@@ -2135,6 +2270,7 @@ Rights: `VIEW SERVER STATE` (the `volume_free` keyword additionally uses
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_tempdb_samples)
+* [Data sources and privileges](#check_mssql_tempdb_sources)
 * [Command-line Arguments](#check_mssql_tempdb_options)
 * [Filter keywords](#check_mssql_tempdb_filter_keys)
 
@@ -2174,6 +2310,19 @@ check_mssql_tempdb "warning=version_store > 5G"
 OK: tempdb 24% used of 603979776B (version store 0B, user 144310272B, internal 0B)|'tempdb_free'=457900032B;0;0 'tempdb_internal_objects'=0B;0;0 'tempdb_size'=603979776B;0;0 'tempdb_used'=146079744B;0;0 'tempdb_used_pct'=24%;0;0 'tempdb_user_objects'=144310272B;0;0 'tempdb_version_store'=0B;5368709120;0 'tempdb_volume_free'=991714598912B;0;0
 ```
 
+
+
+<a id="check_mssql_tempdb_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                             | Provides                                                  | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Notes  |
+|----------|--------------------------------------------------------------------|-----------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | DMV `tempdb.sys.dm_db_file_space_usage` over ODBC/TDS              | size, free, version_store, user_objects, internal_objects | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`VIEW SERVER STATE` |        |
+| Windows  | DMF `sys.dm_os_volume_stats` joined to `tempdb.sys.database_files` | volume_free                                               | *not determined* | `VIEW SERVER STATE`                                                                                                                                                                                                                                                                                                                                                                                                                                                          | note 1 |
+
+1. *Without it:* If the volume query fails, volume_free is -1 and the check continues.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_tempdb_options"></a>
@@ -2328,6 +2477,7 @@ Rights: `VIEW SERVER STATE`.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_transactions_samples)
+* [Data sources and privileges](#check_mssql_transactions_sources)
 * [Command-line Arguments](#check_mssql_transactions_options)
 * [Filter keywords](#check_mssql_transactions_filter_keys)
 
@@ -2374,6 +2524,18 @@ check_mssql_transactions "warning=none" "critical=is_idle = 1 and transaction_ag
 CRITICAL: 1/2 open transactions (appdb/sa session 54 idle in transaction for 349s)|'54_transaction_age'=349s;0;60 '55_transaction_age'=349s;0;60
 ```
 
+
+
+<a id="check_mssql_transactions_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                      | Provides                                                                    | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | DMVs `sys.dm_tran_session_transactions`, `sys.dm_tran_active_transactions`, `sys.dm_exec_sessions` and `sys.dm_exec_requests` over ODBC/TDS | open user transactions with age, idle flag, current request age and command | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`VIEW SERVER STATE` | note 1 |
+
+1. The check's own session (`@@SPID`) is excluded.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_transactions_options"></a>
@@ -2540,6 +2702,7 @@ Rights: `VIEW SERVER STATE`.
 **Jump to section:**
 
 * [Sample Commands](#check_mssql_waits_samples)
+* [Data sources and privileges](#check_mssql_waits_sources)
 * [Command-line Arguments](#check_mssql_waits_options)
 * [Filter keywords](#check_mssql_waits_filter_keys)
 
@@ -2574,6 +2737,17 @@ check_mssql_waits "warning=io_waits > 500 or log_waits > 200" "critical=io_waits
 OK: 0 runnable tasks on 16 schedulers, 0 queued; waits ms/s: cpu 0, io 0, log 29.8211, lock 0, memory 0, signal 6.45161%|'mssql_cpu_waits'=0;0;0 'mssql_io_waits'=0;500;2000 'mssql_latch_waits'=0;0;0 'mssql_lock_waits'=0;0;0 'mssql_log_waits'=29.82107;200;0 'mssql_memory_waits'=0;0;0 'mssql_network_waits'=0;0;0 'mssql_other_waits'=0.99403;0;0 'mssql_runnable_tasks'=0;0;0 'mssql_signal_wait_pct'=6.45161%;0;0 'mssql_total_waits'=30.8151;0;0 'mssql_work_queue'=0;0;0 'mssql_workers'=45;0;0
 ```
 
+
+
+<a id="check_mssql_waits_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                 | Provides                                          | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+|----------|--------------------------------------------------------|---------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Windows  | DMV `sys.dm_os_schedulers` over ODBC/TDS               | schedulers, runnable_tasks, work_queue, workers   | *not determined* | SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)<br>Network reachability of the instance named by `server` (default `localhost`)<br>Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance<br>`VIEW SERVER STATE` |
+| Windows  | DMV `sys.dm_os_wait_stats`, sampled twice in one batch | wait time per category (ms/s) and signal_wait_pct | *not determined* | `VIEW SERVER STATE`                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mssql_waits_options"></a>

@@ -90,6 +90,7 @@ apart when using `all-products=true`. **Windows only.**
 **Jump to section:**
 
 * [Sample Commands](#check_activation_samples)
+* [Data sources and privileges](#check_activation_sources)
 * [Command-line Arguments](#check_activation_options)
 * [Filter keywords](#check_activation_filter_keys)
 
@@ -162,6 +163,20 @@ check_activation
 L        cli UNKNOWN: check_activation is not supported on this platform (Windows Software Licensing only)
 ```
 
+
+
+<a id="check_activation_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                      | Provides                                                                                                          | Privilege        | Notes  |
+|----------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|------------------|--------|
+| Windows  | WMI `root\CIMV2` `SoftwareLicensingProduct`                 | license_status, grace period, channel, partial key, description, and the genuine state where the class exposes it | *not determined* | note 1 |
+| Windows  | `SLIsGenuineLocal` in `slc.dll` (Software Licensing client) | genuine_state of the Windows product when WMI does not expose `GenuineStatus`                                     | *not determined* | note 2 |
+
+1. Only products with an installed key (`PartialProductKey is not null`), and only the Windows application ID unless `all-products=true`. A local query; nothing contacts Microsoft. *Without it:* The check returns UNKNOWN: "Failed to query the licensing state (SoftwareLicensingProduct): ..."
+2. Loaded at run time and only called when needed; skipped entirely with `skip-genuine=true`. *Without it:* genuine_state stays unknown when `slc.dll` or the export is unavailable or the call fails
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_activation_options"></a>
@@ -267,6 +282,7 @@ threshold: **critical** if any product has `enabled = 0` or `up_to_date = 0`.
 **Jump to section:**
 
 * [Sample Commands](#check_antivirus_samples)
+* [Data sources and privileges](#check_antivirus_sources)
 * [Command-line Arguments](#check_antivirus_options)
 * [Filter keywords](#check_antivirus_filter_keys)
 
@@ -310,6 +326,18 @@ check_antivirus
 L        cli UNKNOWN: check_antivirus is not supported on this platform (Windows Security Center only)
 ```
 
+
+
+<a id="check_antivirus_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                        | Provides                                                                | Privilege        | Requires                                                                           | Notes  |
+|----------|-----------------------------------------------|-------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `root\SecurityCenter2` `AntiVirusProduct` | name, product_state, and enabled / up_to_date decoded from productState | *not determined* | Windows client edition (the Security Center namespace is absent on Windows Server) | note 1 |
+
+1. *Without it:* The check returns UNKNOWN: "Failed to query Security Center: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_antivirus_options"></a>
@@ -381,6 +409,7 @@ elevation, so the agent service must run with sufficient privilege.
 **Jump to section:**
 
 * [Sample Commands](#check_bitlocker_samples)
+* [Data sources and privileges](#check_bitlocker_sources)
 * [Command-line Arguments](#check_bitlocker_options)
 * [Filter keywords](#check_bitlocker_filter_keys)
 
@@ -423,6 +452,18 @@ check_bitlocker
 L        cli UNKNOWN: check_bitlocker is not supported on this platform (Windows BitLocker only)
 ```
 
+
+
+<a id="check_bitlocker_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                        | Provides                            | Privilege | Requires                                                        | Notes  |
+|----------|-------------------------------------------------------------------------------|-------------------------------------|-----------|-----------------------------------------------------------------|--------|
+| Windows  | WMI `root\CIMV2\Security\MicrosoftVolumeEncryption` `Win32_EncryptableVolume` | drive, protection_status, protected | elevated  | BitLocker Drive Encryption feature (provides the WMI namespace) | note 1 |
+
+1. Administrator rights are required to read this class; the default LocalSystem service account has them. *Without it:* The check returns UNKNOWN: "Failed to query BitLocker volumes: ..." (access denied, or the namespace is missing)
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_bitlocker_options"></a>
@@ -514,6 +555,7 @@ a silent OK.
 **Jump to section:**
 
 * [Sample Commands](#check_certificate_samples)
+* [Data sources and privileges](#check_certificate_sources)
 * [Command-line Arguments](#check_certificate_options)
 * [Filter keywords](#check_certificate_filter_keys)
 
@@ -616,6 +658,22 @@ check_certificate store=My
 L        cli UNKNOWN: store= (certificate store) is only supported on Windows; use file= on this platform
 ```
 
+
+
+<a id="check_certificate_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                   | Provides                                                                                   | Privilege        | Notes  |
+|----------|------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|------------------|--------|
+| All      | Certificate files parsed with OpenSSL (PEM bundles, DER, PKCS#12)                        | certificates given with `file=` / `path=` (directories scanned, `recursive=true` descends) | conditional      | note 1 |
+| All      | OpenSSL default trust locations (`X509_STORE_set_default_paths`), or the `ca=` bundle    | trusted                                                                                    | *not determined* | note 2 |
+| Windows  | CryptoAPI system certificate store (`CertOpenStore` `CERT_STORE_PROV_SYSTEM`, read-only) | certificates from `store=` at `location=` LocalMachine (default) or CurrentUser            | *not determined* | note 3 |
+
+1. The agent account needs read access to each file (and to list a scanned directory); a PKCS#12 file also needs `password=`. *Without it:* An unreadable file adds "cannot open &lt;path&gt;"; these errors are only reported when no certificate at all was read, as UNKNOWN "No certificates found: ..."
+2. Used for files and for Windows store certificates alike. On Windows these are the OpenSSL build's default locations, not the Windows Root store. *Without it:* An issuer chain that cannot be resolved reads as trusted = 0
+3. CurrentUser is the store of the account the agent service runs as (LocalSystem by default), not that of a logged-on user. *Without it:* Adds "Failed to open certificate store '&lt;location&gt;\&lt;store&gt;'", reported only when no certificate at all was read (UNKNOWN "No certificates found: ...")
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_certificate_options"></a>
@@ -754,6 +812,7 @@ protecting product.
 **Jump to section:**
 
 * [Sample Commands](#check_defender_samples)
+* [Data sources and privileges](#check_defender_sources)
 * [Command-line Arguments](#check_defender_options)
 * [Filter keywords](#check_defender_filter_keys)
 
@@ -817,6 +876,18 @@ check_nscp_client --host 192.168.56.103 --command check_defender --argument "war
 OK: Defender enabled=1 realtime=1 tamper=1 sig_age=0d sig=1.455.84.0 engine=1.1.26060.3008
 ```
 
+
+
+<a id="check_defender_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                        | Provides                                                                                                            | Privilege        | Requires                                                        | Notes  |
+|----------|---------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|------------------|-----------------------------------------------------------------|--------|
+| Windows  | WMI `root\Microsoft\Windows\Defender` `MSFT_MpComputerStatus` | all keywords (enabled, realtime_enabled, tamper_protection, signature/scan ages, engine/signature/product versions) | *not determined* | Microsoft Defender Antivirus installed and the active antivirus | note 1 |
+
+1. Read with `SELECT *`; a property missing on an older Defender build reads as 0, -1 (ages) or empty instead of failing the row. *Without it:* Any WMI error yields no row, so the check returns its empty state (UNKNOWN by default): "Microsoft Defender status unavailable (not installed or another antivirus is active)" - also when the cause is something else, such as access denied
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_defender_options"></a>
@@ -928,6 +999,7 @@ treated as a finding instead of a pass. **Windows only.**
 **Jump to section:**
 
 * [Sample Commands](#check_file_security_samples)
+* [Data sources and privileges](#check_file_security_sources)
 * [Command-line Arguments](#check_file_security_options)
 * [Filter keywords](#check_file_security_filter_keys)
 
@@ -1031,6 +1103,22 @@ check_file_security "path=/etc/nsclient"
 L        cli UNKNOWN: check_file_security is not supported on this platform (Windows security descriptors only)
 ```
 
+
+
+<a id="check_file_security_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                      | Provides                                                                  | Privilege        | Notes  |
+|----------|---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|------------------|--------|
+| Windows  | `GetNamedSecurityInfoW` (owner and DACL), walked entry by entry with `GetAce`               | exists, is_dir, readable, owner, owner_sid and every write-access keyword | conditional      | note 1 |
+| Windows  | `LookupAccountSidW`                                                                         | owner and trustee names                                                   | *not determined* | note 2 |
+| Windows  | Service Control Manager (`OpenServiceW` with `SERVICE_QUERY_CONFIG`, `QueryServiceConfigW`) | the image path inspected for `service=`                                   | *not determined* | note 3 |
+
+1. The agent account must be allowed to read each path's security descriptor (and reach the path); LocalSystem can on local system paths, but a DACL or share that excludes the agent account makes the path unreadable. *Without it:* The row gets readable = 0 (or exists = 0) with the system error in `error`, which the default critical threshold reports
+2. *Without it:* The SID string is used instead (orphaned or unresolvable SID)
+3. *Without it:* The row is kept with the error ("Service not found: &lt;name&gt;", "Failed to open service ...") instead of being dropped
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_file_security_options"></a>
@@ -1160,6 +1248,7 @@ message rather than pretending to check something equivalent.
 **Jump to section:**
 
 * [Sample Commands](#check_firewall_samples)
+* [Data sources and privileges](#check_firewall_sources)
 * [Command-line Arguments](#check_firewall_options)
 * [Filter keywords](#check_firewall_filter_keys)
 
@@ -1237,6 +1326,20 @@ check_firewall
 L        cli UNKNOWN: check_firewall is not supported on this platform (Windows-only; the Linux firewall model differs)
 ```
 
+
+
+<a id="check_firewall_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                             | Provides                                                                                                            | Privilege        | Notes  |
+|----------|----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|------------------|--------|
+| Windows  | Windows Firewall COM `INetFwPolicy2`                                                               | enabled, inbound, outbound (local store) and active (`CurrentProfileTypes`) per profile                             | *not determined* | note 1 |
+| Windows  | Registry `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall\<Profile>Profile` and `StandardProfile` | Group Policy values (`EnableFirewall`, `DefaultInboundAction`, `DefaultOutboundAction`) overlaid on the local store | none             | note 2 |
+
+1. *Without it:* The check returns UNKNOWN: "Failed to access the Windows firewall policy (INetFwPolicy2)"
+2. The policy keys under HKLM are readable by every local user. `StandardProfile` (legacy ADMX) applies to Private and Public. *Without it:* A missing key or value means not configured by policy; the local store value stands
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_firewall_options"></a>
@@ -1340,6 +1443,7 @@ matched the filter. empty-state is **OK**. **Windows only.**
 **Jump to section:**
 
 * [Sample Commands](#check_firewall_rules_samples)
+* [Data sources and privileges](#check_firewall_rules_sources)
 * [Command-line Arguments](#check_firewall_rules_options)
 * [Filter keywords](#check_firewall_rules_filter_keys)
 
@@ -1427,6 +1531,18 @@ check_firewall_rules
 L        cli UNKNOWN: check_firewall_rules is not supported on this platform (Windows firewall rules only)
 ```
 
+
+
+<a id="check_firewall_rules_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                     | Provides                                                                                                                            | Privilege        | Notes  |
+|----------|------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|------------------|--------|
+| Windows  | Windows Firewall COM `INetFwPolicy2::Rules` (`INetFwRule`) | every keyword (name, group, direction, action, enabled, protocol, ports, addresses, application, service, profiles, edge traversal) | *not determined* | note 1 |
+
+1. One pass over the rules of all profiles, the same store `Get-NetFirewallRule` reads. *Without it:* The check returns UNKNOWN: "Failed to access the Windows firewall policy (INetFwPolicy2)", "Failed to read the Windows firewall rule set (INetFwPolicy2::Rules)" or "Failed to enumerate the Windows firewall rules"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_firewall_rules_options"></a>
@@ -1524,7 +1640,7 @@ Options:
 
 | Option      | Description                                                                                 |
 |-------------|---------------------------------------------------------------------------------------------|
-| `group`     | Local group to inspect (default `Administrators`)                                            |
+| `group`     | Local group to inspect (default `Administrators`; on Linux the first of `sudo`, `wheel`)     |
 | `expected`  | An allowed member (repeatable), matched against `DOMAIN\name` or the bare name               |
 
 Default: **CRITICAL** on drift (`expected = 0`). When no `expected=` list is
@@ -1536,9 +1652,41 @@ reported as an error.
 `DOMAIN\name` (e.g. `BUILTIN\Administrators`, `MYPC\localadmin`) or just the
 name (`Administrator`, `Domain Admins`).
 
+#### On Linux
+
+On Linux the group is looked up in **`/etc/group`** (the local files only; a
+group that exists only in a directory through NSS is "not found"). Its members
+are the users listed in that entry **plus the accounts in `/etc/passwd` whose
+primary group it is** — membership `getent group` does not show, and an easy
+place to hide an administrator. A user in both places is reported once. Both
+files are world-readable, so no privilege is needed.
+
+Every line of `/etc/group` that grants the membership is read, as the system
+itself does at logon: a group repeated on a second line, and a line with
+another name but the same GID, both add their members. A line for the group
+that cannot be parsed (too many or too few fields, non-numeric GID) is an
+error rather than a "not found", and the default does not skip past a damaged
+`sudo` line to `wheel`. So is a `/etc/passwd` line that cannot be parsed,
+since it may be an account whose primary group this is.
+
+Without `group=`, the check inspects the first of **`sudo`** (Debian, Ubuntu)
+and **`wheel`** (RHEL, Fedora, SUSE) that exists; a host with neither returns
+UNKNOWN asking for `group=`. An explicit `group=` that does not exist is an
+error, as on Windows.
+
+Each member's `member` and `name` are the bare user name and `domain` is empty.
+`sid` is the numeric UID, and `type` is `user` for an account in `/etc/passwd`
+or `unknown` for a listed name that is not one (a directory user, or a stale
+entry left behind by a deleted account). Linux user names are case-sensitive,
+so `expected=` entries match **exactly** there: `expected=root` does not excuse
+a look-alike `Root` account.
+
+macOS keeps its groups in Directory Services and reports "not supported".
+
 **Jump to section:**
 
 * [Sample Commands](#check_group_members_samples)
+* [Data sources and privileges](#check_group_members_sources)
 * [Command-line Arguments](#check_group_members_options)
 * [Filter keywords](#check_group_members_filter_keys)
 
@@ -1602,6 +1750,56 @@ check_nscp_client --host 192.168.56.103 --command check_group_members --argument
 OK: All 2 member(s) are on the expected list.
 ```
 
+**Linux: list the default administrators group (`sudo` here)**
+
+```
+check_group_members
+OK: ubuntu (user)|'ubuntu_expected'=1;;0 'count'=1
+```
+
+**Linux: drift detection — names match exactly**
+
+```
+check_group_members expected=ubuntu
+OK: ubuntu (user)|'ubuntu_expected'=1;;0 'count'=1
+```
+
+```
+check_group_members expected=Ubuntu
+CRITICAL: ubuntu (user)|'ubuntu_expected'=0;;0 'count'=1
+```
+
+**Linux: primary-group members count**
+
+`root` is listed in the `root` group through its primary gid alone (its
+`/etc/group` member list is empty):
+
+```
+check_group_members group=root "top-syntax=%(status): %(list)" "detail-syntax=%(member) [%(type)] uid=%(sid)"
+OK: root [user] uid=0|'root_expected'=1;;0 'count'=1
+```
+
+**Linux: a group that does not exist (UNKNOWN)**
+
+```
+check_group_members group=NSCP_NoSuchGroup_zzz
+Local group not found: NSCP_NoSuchGroup_zzz
+```
+
+
+
+<a id="check_group_members_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                              | Provides                                                                                        | Privilege | Notes  |
+|----------|-------------------------------------|-------------------------------------------------------------------------------------------------|-----------|--------|
+| Windows  | `NetLocalGroupGetMembers` (level 2) | member (DOMAIN\name), domain, name, type (SID usage) and sid                                    | none      | note 1 |
+| Linux    | /etc/group and /etc/passwd          | listed members of the group plus the accounts whose primary group it is; sid is the numeric UID | none      | note 2 |
+
+1. Any authenticated user may read local group membership on a workstation or member server; on a domain controller access follows the directory ACLs. The default group= is the English name `Administrators`, so a localized Windows (e.g. Swedish `Administratörer`) needs group= set explicitly. *Without it:* UNKNOWN "Local group not found: &lt;group&gt;", or "Failed to read members of local group '&lt;group&gt;' (status N)"
+2. Both files are world-readable. Local files only; a group known only through NSS is "not found". Without group= the first of sudo and wheel that exists is used. *Without it:* UNKNOWN when the group does not exist, when neither default group exists ("pass group=&lt;name&gt;"), or when a relevant line cannot be parsed
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_group_members_options"></a>
@@ -1692,9 +1890,88 @@ Administrator being enabled (`is_builtin_admin = 1 and enabled = 1`), or
 locked-out accounts (`locked = 1`). `LocalAccount=TRUE` scopes the query to the
 local SAM, so domain accounts are never enumerated.
 
+#### On Linux
+
+On Linux the accounts are the entries of **`/etc/passwd`** — the local files
+only. Accounts that exist only in a directory (LDAP, sssd, winbind through NSS)
+are not enumerated, just as `LocalAccount=TRUE` leaves domain accounts out on
+Windows. Each entry is joined with its **`/etc/shadow`** entry for the password
+and expiry state. The Windows keywords keep their meaning:
+
+- `name` is the login name; `sid` is the numeric UID (Linux has no SIDs).
+- `disabled` is 1 when the account has **expired**: the expiry date in
+  `/etc/shadow` is today or earlier, or the password expired longer ago than
+  the inactivity period allows (maximum age plus inactive days since the last
+  change). PAM then refuses every logon, SSH keys included, which is what a
+  disabled Windows account means. `enabled` is its inverse.
+- `locked` is 1 when the password field starts with `!` (`passwd -l`,
+  `usermod -L`, or an account whose password was never set). A locked password
+  stops password logons only; an SSH key still works, so a locked account stays
+  `enabled`.
+- `password_required` is 0 **only for an empty password field** — an account
+  anyone can log on to without a password, in `/etc/shadow` or directly in
+  `/etc/passwd`. The `*` and `!` fields of the dozens of system accounts on a
+  stock Debian or RHEL host match no password at all, so they count as
+  required and the default critical (`enabled = 1 and password_required = 0`)
+  does not fire on them.
+- `password_expires` is 1 when a maximum password age below 99999 days is set.
+- `is_builtin_admin` is root (UID 0 named `root`). There is no built-in guest
+  account, so `is_builtin_guest` is always 0 and the default warning never
+  fires on Linux.
+
+Linux adds `uid`, `gid`, `home` and `shell`; `interactive` (0 for the
+`nologin`, `false`, `true`, `sync`, `shutdown` and `halt` shells, so
+`interactive = 1` keeps the accounts someone can actually log on to);
+`is_extra_uid0` for a UID 0 account other than root — a second superuser;
+`password_state` (`set` for any crypt hash, `empty`, `locked`, `none` for
+`*`-style fields, or `unknown`); and `password_changed` / `password_age` from the last-change date
+in `/etc/shadow` (day resolution; `unknown` when it is not recorded or a change
+is forced at next logon). These are `unknown` (or empty) on Windows. The check
+never reads out or prints a password hash: only its classification is kept.
+
+#### When `/etc/shadow` cannot be read
+
+`/etc/shadow` is readable only by root (and, on Debian, the `shadow` group),
+and the packaged agent runs as the unprivileged `nsclient` user. Rather than
+pass the default thresholds on values it could not see, the check then returns
+**UNKNOWN**: `Cannot read /etc/shadow: Permission denied - password and expiry
+state is unknown; ...`. Either give the agent read access (on Debian, add
+`nsclient` to the `shadow` group; on RHEL the file is mode 0000, so only root
+can read it) or pass `allow-unreadable-shadow` to accept the gap. With it, the
+shadow-derived keywords (`enabled`, `disabled`, `locked`, `password_required`,
+`password_expires`, `password_state`, `password_changed`, `password_age`) are
+`unknown`, while the `/etc/passwd` keywords (`uid`, `shell`, `interactive`,
+`is_extra_uid0`, ...) still work. An account whose password field is in
+`/etc/passwd` itself rather than `x` (or `##name` / `*NP*`, which defer to
+shadow as well) needs no shadow access at all.
+
+No comparison on an `unknown` value is true: `password_required = 0`,
+`password_required != 1` and `password_required < 1` all stay false. The
+filter has only true and false, though, so a **negated** rule turns that
+around: `crit=not password_required = 1` does match an unknown account. Write
+thresholds on these keywords as positive comparisons.
+
+#### When the files do not add up
+
+The check reads the files the way the system does, and says so when it
+cannot, instead of answering for whatever is left:
+
+- A `/etc/passwd` line needs only its first four fields, so `toor::0:0` is
+  listed (and is a passwordless second root). A line that still cannot be
+  parsed makes the check **UNKNOWN**, naming the line number: it may be an
+  account the system honours.
+- A shadowed account with **no entry in `/etc/shadow`, or one that cannot be
+  parsed**, has a password state nobody read. The check returns **UNKNOWN**
+  (`No entry for account 'bob' in /etc/shadow - password and expiry state is
+  unknown; ...`) just as for an unreadable file, and `allow-unreadable-shadow`
+  accepts that gap too. `pwck` reports and repairs both.
+
+macOS keeps its accounts in Directory Services and reports "not supported".
+
 **Jump to section:**
 
 * [Sample Commands](#check_local_accounts_samples)
+* [Data sources and privileges](#check_local_accounts_sources)
 * [Command-line Arguments](#check_local_accounts_options)
 * [Filter keywords](#check_local_accounts_filter_keys)
 
@@ -1751,6 +2028,74 @@ check_nscp_client --host 192.168.56.103 --command check_local_accounts --argumen
 OK: All 5 local account(s) ok.
 ```
 
+**Linux: the accounts that can log on interactively**
+
+The default thresholds apply; the system accounts with `nologin` shells and
+`*` / `!` password fields are filtered out here, and would be OK anyway:
+
+```
+check_local_accounts "filter=interactive = 1"
+OK: root (enabled=1, pw_req=1, pw_exp=0, locked=0), claude (enabled=1, pw_req=1, pw_exp=0, locked=1), ubuntu (enabled=1, pw_req=1, pw_exp=0, locked=1), postgres (enabled=1, pw_req=1, pw_exp=0, locked=1)|'root_enabled'=1;1;1 'root_is_builtin_guest'=0;1 'root_password_required'=1;;0 'claude_enabled'=1;1;1 'claude_is_builtin_guest'=0;1 'claude_password_required'=1;;0 'ubuntu_enabled'=1;1;1 'ubuntu_is_builtin_guest'=0;1 'ubuntu_password_required'=1;;0 'postgres_enabled'=1;1;1 'postgres_is_builtin_guest'=0;1 'postgres_password_required'=1;;0 'count'=4
+```
+
+**Linux: inventory with the POSIX keywords**
+
+```
+check_local_accounts "filter=interactive = 1" "top-syntax=%(status): %(list)" "detail-syntax=%(name) uid=%(uid) shell=%(shell) pw=%(password_state)" "crit=none" "warn=none"
+OK: root uid=0 shell=/bin/bash pw=none, claude uid=999 shell=/bin/bash pw=locked, ubuntu uid=1000 shell=/bin/bash pw=locked, postgres uid=102 shell=/bin/bash pw=locked|'count'=4
+```
+
+**Linux: a second superuser (UID 0 other than root)**
+
+```
+check_local_accounts "crit=is_extra_uid0 = 1" "filter=uid = 0"
+OK: root (enabled=1, pw_req=1, pw_exp=0, locked=0)|'root_enabled'=1;1 'root_is_builtin_guest'=0;1 'root_is_extra_uid0'=0;;1 'count'=1
+```
+
+**Linux: password age**
+
+`password_age` takes durations; `password_state = 'set'` limits the rule to
+accounts that actually have a password:
+
+```
+check_local_accounts "filter=interactive = 1" "warn=password_state = 'set' and password_age > 90d" "crit=password_state = 'empty'"
+OK: root (enabled=1, pw_req=1, pw_exp=0, locked=0), claude (enabled=1, pw_req=1, pw_exp=0, locked=1), ubuntu (enabled=1, pw_req=1, pw_exp=0, locked=1), postgres (enabled=1, pw_req=1, pw_exp=0, locked=1)|'root_password_age'=382842s;7776000 'claude_password_age'=382842s;7776000 'ubuntu_password_age'=382842s;7776000 'postgres_password_age'=382842s;7776000 'count'=4
+```
+
+**Linux: the agent cannot read `/etc/shadow`**
+
+Run as an unprivileged user, the default check refuses to report OK on
+password state it could not see (UNKNOWN):
+
+```
+check_local_accounts
+Cannot read /etc/shadow: Permission denied - password and expiry state is unknown; run the agent with read access to it or pass allow-unreadable-shadow
+```
+
+Accepting the gap keeps the `/etc/passwd` keywords usable; the shadow-derived
+ones render `unknown`:
+
+```
+check_local_accounts allow-unreadable-shadow=true "filter=uid = 0 or interactive = 1"
+OK: root (enabled=unknown, pw_req=unknown, pw_exp=unknown, locked=unknown), claude (enabled=unknown, pw_req=unknown, pw_exp=unknown, locked=unknown), ubuntu (enabled=unknown, pw_req=unknown, pw_exp=unknown, locked=unknown), postgres (enabled=unknown, pw_req=unknown, pw_exp=unknown, locked=unknown)|'root_is_builtin_guest'=0;1 'claude_is_builtin_guest'=0;1 'ubuntu_is_builtin_guest'=0;1 'postgres_is_builtin_guest'=0;1 'count'=4
+```
+
+
+
+<a id="check_local_accounts_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                     | Provides                                                                                                                                           | Privilege        | Notes  |
+|----------|------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|------------------|--------|
+| Windows  | WMI `root\CIMV2` `Win32_UserAccount` (`LocalAccount=TRUE`) | name, sid (and the RID-based built-in admin/guest flags), disabled, locked, password_expires, password_required                                    | *not determined* | note 1 |
+| Linux    | /etc/passwd                                                | name, sid / uid, gid, home, shell, interactive, is_builtin_admin, is_extra_uid0, and the password state of accounts whose hash is in passwd itself | none             | note 2 |
+| Linux    | /etc/shadow                                                | password_state, enabled / disabled, locked, password_required, password_expires, password_changed, password_age                                    | elevated         | note 3 |
+
+1. Local SAM accounts only; domain accounts are not enumerated. An unreadable flag defaults to 0, and password_required to 1, so it never fakes a passwordless finding. *Without it:* The check returns UNKNOWN: "Failed to query local user accounts: ..."
+2. Local files only; accounts known only through NSS (LDAP, sssd, winbind) are not enumerated. *Without it:* An unreadable file, or any line that cannot be parsed, makes the check UNKNOWN (naming the line numbers)
+3. Readable by root only (mode 0000 on RHEL); on Debian membership of the shadow group (root:shadow 0640) also suffices. The packaged agent runs as the unprivileged nsclient user. Hashes are classified, never kept or printed. *Without it:* UNKNOWN "Cannot read /etc/shadow: Permission denied - password and expiry state is unknown; ...". With allow-unreadable-shadow=true the accounts are reported with the shadow-derived keywords unknown.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_local_accounts_options"></a>
@@ -1828,6 +2173,7 @@ network-profile concept).
 **Jump to section:**
 
 * [Sample Commands](#check_nla_samples)
+* [Data sources and privileges](#check_nla_sources)
 * [Command-line Arguments](#check_nla_options)
 * [Filter keywords](#check_nla_filter_keys)
 
@@ -1866,6 +2212,18 @@ check_nla
 L        cli UNKNOWN: check_nla is not supported on this platform (Windows Network Location Awareness only)
 ```
 
+
+
+<a id="check_nla_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                         | Provides                                                               | Privilege        | Notes  |
+|----------|----------------------------------------------------------------|------------------------------------------------------------------------|------------------|--------|
+| Windows  | Network List Manager COM `INetworkListManager` (`GetNetworks`) | network name, category (public / private / domain) and connected state | *not determined* | note 1 |
+
+1. *Without it:* The check returns UNKNOWN: "Failed to access the Network List Manager (INetworkListManager)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nla_options"></a>
@@ -1930,11 +2288,44 @@ registry value
 
 Default threshold: **critical** if `enabled = 0`. On legacy-BIOS machines the
 value is absent, so both `enabled` and `supported` are 0 — use `supported` to
-tell "off" apart from "not applicable" on mixed fleets. **Windows only.**
+tell "off" apart from "not applicable" on mixed fleets.
+
+#### On Linux
+
+On Linux the check reads the UEFI global variable
+`SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c` from efivarfs
+(`/sys/firmware/efi/efivars`; the file is 4 attribute bytes followed by the
+value byte), falling back to the older `/sys/firmware/efi/vars/.../data`
+interface. Both are world-readable, so the agent needs no privilege. The same
+row comes back as on Windows:
+
+- **No `/sys/firmware/efi`** — the host did not boot through UEFI: a legacy
+  BIOS boot, `supported=0 enabled=0`, exactly as on Windows. A container that
+  masks `/sys/firmware` (Docker does by default) looks the same; run the agent
+  on the host to see the firmware.
+- **The variable is present** — `supported=1`, `enabled=1` when its value is 1
+  and `enabled=0` when it is 0.
+- **EFI variables are readable but there is no `SecureBoot` variable** —
+  UEFI firmware without Secure Boot support: `supported=0 enabled=0`.
+- **The variables cannot be read** (efivarfs is not mounted on
+  `/sys/firmware/efi/efivars`, a permission or I/O error) **or the variable is
+  not a Secure Boot state** (truncated, longer than its one byte, or a value
+  other than 0 and 1) — the check returns **UNKNOWN** with the reason and the
+  file it read, rather than reporting a guessed "disabled".
+
+`setup_mode` reports the `SetupMode` variable: 1 when no Platform Key is
+enrolled, so Secure Boot is not enforced and keys can be enrolled without
+authentication. It is `unknown` on Windows (not read there), on legacy BIOS
+boots and when the firmware does not expose it or exposes something that is
+not a 0/1 byte, and `unknown` never satisfies
+a numeric threshold.
+
+macOS has no UEFI variable interface and reports "not supported".
 
 **Jump to section:**
 
 * [Sample Commands](#check_secureboot_samples)
+* [Data sources and privileges](#check_secureboot_sources)
 * [Command-line Arguments](#check_secureboot_options)
 * [Filter keywords](#check_secureboot_filter_keys)
 
@@ -1967,13 +2358,50 @@ check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
 L        cli WARNING: secure boot enabled=0 supported=0
 ```
 
-**On non-Windows platforms**
+**Linux: a legacy BIOS boot (or a container without `/sys/firmware`)**
+
+With no `/sys/firmware/efi` the host has no Secure Boot to enable, so the
+default critical trips; exempt it with `supported`, as on Windows:
 
 ```
 check_secureboot
-L        cli UNKNOWN: check_secureboot is not supported on this platform (Windows/UEFI only)
+CRITICAL: secure boot enabled=0 supported=0|'secureboot_enabled'=0;;0
 ```
 
+```
+check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
+WARNING: secure boot enabled=0 supported=0|'secureboot_enabled'=0;;0 'secureboot_supported'=0;0;1
+```
+
+**Linux: alert on firmware left in Setup Mode**
+
+`setup_mode` is read from the UEFI `SetupMode` variable; it is `unknown` where
+it cannot be known (here a BIOS boot, and always on Windows):
+
+```
+check_secureboot "crit=setup_mode = 1" "detail-syntax=enabled=${enabled} supported=${supported} setup_mode=${setup_mode}"
+OK: enabled=0 supported=0 setup_mode=unknown
+```
+
+**On macOS**
+
+There is no Darwin reader yet: the check returns UNKNOWN with
+`check_secureboot is not supported on this platform (Windows and Linux UEFI only)`.
+
+
+
+<a id="check_secureboot_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                                          | Provides                       | Privilege        | Requires                                                                                     | Notes  |
+|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|------------------|----------------------------------------------------------------------------------------------|--------|
+| Windows  | Registry `HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State` `UEFISecureBootEnabled`                                                                       | supported, enabled             | *not determined* |                                                                                              | note 1 |
+| Linux    | UEFI variables `SecureBoot` and `SetupMode` in efivarfs (`/sys/firmware/efi/efivars`), falling back to legacy sysfs `/sys/firmware/efi/vars/<name>-<guid>/data` | supported, enabled, setup_mode | none             | efivarfs mounted on /sys/firmware/efi/efivars (or the legacy sysfs interface) on a UEFI boot | note 2 |
+
+1. setup_mode is not read on Windows and stays unknown. *Without it:* A missing or non-DWORD value is read as legacy BIOS: supported = 0, enabled = 0
+2. These two variables are world-readable. A container that masks /sys/firmware sees no UEFI and reports a legacy BIOS boot. *Without it:* No /sys/firmware/efi: supported = 0, enabled = 0 (legacy BIOS). An empty efivars directory, a read error or a malformed variable: UNKNOWN naming the file and the reason, never a guessed "disabled"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_secureboot_options"></a>
@@ -2045,6 +2473,7 @@ Sessions with no user (services, the RDP listener) are not counted.
 **Jump to section:**
 
 * [Sample Commands](#check_users_samples)
+* [Data sources and privileges](#check_users_sources)
 * [Command-line Arguments](#check_users_options)
 * [Filter keywords](#check_users_filter_keys)
 
@@ -2094,6 +2523,22 @@ L        cli OK: mickem@10.0.0.5
 check_users "crit=session_state = 'disconnected'" "detail-syntax=${user} (${session_state})"
 ```
 
+
+
+<a id="check_users_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                               | Provides                                                                                     | Privilege        | Notes  |
+|----------|--------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|------------------|--------|
+| Windows  | Remote Desktop Services API (`WTSEnumerateSessionsW`, `WTSQuerySessionInformationW`) | user, client, session_state, and session_type from the client protocol (console / rdp / ica) | *not determined* | note 1 |
+| Linux    | utmp database via `getutxent()` (`/var/run/utmp`, the source of `who`)               | user and client (remote host); every entry is active, console or remote                      | none             | note 2 |
+| macOS    | utmpx database via `getutxent()` (the source of `who`)                               | user and client (remote host); every entry is active, console or remote                      | *not determined* | note 3 |
+
+1. Sessions without a user name (services, the RDP listener) are skipped. *Without it:* The check returns UNKNOWN: "Failed to enumerate terminal sessions (WTSEnumerateSessions)"
+2. Only `USER_PROCESS` entries are counted. The utmp file is world-readable.
+3. Same reader as Linux (`check_users_unix.cpp`); only `USER_PROCESS` entries are counted.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_users_options"></a>

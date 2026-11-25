@@ -1,0 +1,20 @@
+windows:
+  - source: Catalog view `sys.databases` over ODBC/TDS
+    provides: name, state, recovery_model, read_only
+    requires:
+      - SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)
+      - Network reachability of the instance named by `server` (default `localhost`)
+      - "Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance"
+  - source: "`DBCC SQLPERF(LOGSPACE)`"
+    provides: log_used_pct
+    without: If the command is denied or fails, log_used_pct is -1 and the check continues.
+    requires:
+      - "`VIEW SERVER STATE`"
+  - source: Catalog view `sys.master_files` (data and log files)
+    provides: data/log size and growth limits
+  - source: DMF `sys.dm_os_volume_stats`, joined to `sys.master_files`
+    provides: data_headroom, log_headroom
+    note: Only queried when a headroom keyword is used in the filter or thresholds.
+    without: If the volume query fails, the check falls back to file sizes only and the headroom keywords are -1.
+    requires:
+      - "`VIEW SERVER STATE`"

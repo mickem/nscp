@@ -72,6 +72,7 @@ the check regardless of any `hidden` reference in the filter.
 **Jump to section:**
 
 * [Sample Commands](#check_tasksched_samples)
+* [Data sources and privileges](#check_tasksched_sources)
 * [Command-line Arguments](#check_tasksched_options)
 * [Filter keywords](#check_tasksched_filter_keys)
 
@@ -128,6 +129,19 @@ check_tasksched "filter=title = 'ScheduledDefrag'" "detail-syntax=${uri} hidden=
 OK: \Microsoft\Windows\Defrag\ScheduledDefrag hidden=0
 ```
 
+
+
+<a id="check_tasksched_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                        | Provides                                                               | Privilege        | Requires                                                                                            | Notes  |
+|----------|-------------------------------------------------------------------------------|------------------------------------------------------------------------|------------------|-----------------------------------------------------------------------------------------------------|--------|
+| Windows  | Task Scheduler 2.0 COM API (`ITaskService::Connect`, `ITaskFolder::GetTasks`) | tasks of `folder=` with their status, last/next run time and exit code | conditional      | Task Scheduler (`Schedule`) service<br>RPC reachability of the remote host when `computer=` is used | note 1 |
+| Windows  | Legacy Task Scheduler 1.0 COM API (`ITaskScheduler`)                          | tasks, when `force-old=true` or the 2.0 API class is not registered    | *not determined* |                                                                                                     |        |
+
+1. Only tasks and folders the agent's account may read are returned; LocalSystem sees them all. `computer=` connects to a remote Task Scheduler. *Without it:* "Failed to connect to task service on &lt;computer&gt;: &lt;error&gt;" or "Failed to get root folder &lt;folder&gt;: &lt;error&gt;"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_tasksched_options"></a>

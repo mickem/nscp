@@ -82,6 +82,7 @@ non-cluster host does not prevent its IIS or RDS commands from running.
 **Jump to section:**
 
 * [Sample Commands](#check_cluster_groups_samples)
+* [Data sources and privileges](#check_cluster_groups_sources)
 * [Command-line Arguments](#check_cluster_groups_options)
 * [Filter keywords](#check_cluster_groups_filter_keys)
 
@@ -109,6 +110,18 @@ nscp client --module CheckWindowsApps --boot --query check_cluster_groups
 Failed to query cluster groups: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
 ```
 
+
+
+<a id="check_cluster_groups_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                    | Provides                                | Privilege        | Requires                                                                                                                                                                                                                     | Notes  |
+|----------|-------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Failover Clustering API (`clusapi.dll`): `OpenClusterEx`, `ClusterOpenEnum` / `ClusterEnum`, `OpenClusterGroupEx`, `GetClusterGroupState` | name, owner (current owner node), state | *not determined* | Failover Clustering feature; the agent runs on a cluster member<br>Windows Server 2008 R2 or later<br>Cluster service running on this node<br>read access to the cluster for the agent account (cluster security descriptor) | note 1 |
+
+1. Read-only (GENERIC_READ) calls against the local cluster. `clusapi.dll` is loaded from the system directory on first use only, so the module's other commands work on non-cluster hosts. *Without it:* The check returns UNKNOWN: "Failed to query cluster groups: ..." (e.g. "Failover Clustering API not available (clusapi.dll)" or "OpenClusterEx (local cluster unavailable or inaccessible) (Windows error N)"); an object that cannot be read fails the whole read rather than being skipped
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_cluster_groups_options"></a>
@@ -198,6 +211,7 @@ Schedule retries for transient failures.
 **Jump to section:**
 
 * [Sample Commands](#check_cluster_networks_samples)
+* [Data sources and privileges](#check_cluster_networks_sources)
 * [Command-line Arguments](#check_cluster_networks_options)
 * [Filter keywords](#check_cluster_networks_filter_keys)
 
@@ -224,6 +238,18 @@ nscp client --module CheckWindowsApps --boot --query check_cluster_networks
 Failed to query cluster networks: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
 ```
 
+
+
+<a id="check_cluster_networks_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                        | Provides    | Privilege        | Requires                                                                                                                                                                                                                     | Notes  |
+|----------|-----------------------------------------------------------------------------------------------------------------------------------------------|-------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Failover Clustering API (`clusapi.dll`): `OpenClusterEx`, `ClusterOpenEnum` / `ClusterEnum`, `OpenClusterNetworkEx`, `GetClusterNetworkState` | name, state | *not determined* | Failover Clustering feature; the agent runs on a cluster member<br>Windows Server 2008 R2 or later<br>Cluster service running on this node<br>read access to the cluster for the agent account (cluster security descriptor) | note 1 |
+
+1. Read-only (GENERIC_READ) calls against the local cluster. `clusapi.dll` is loaded from the system directory on first use only, so the module's other commands work on non-cluster hosts. *Without it:* The check returns UNKNOWN: "Failed to query cluster networks: ..." (e.g. "Failover Clustering API not available (clusapi.dll)" or "OpenClusterEx (local cluster unavailable or inaccessible) (Windows error N)"); an object that cannot be read fails the whole read rather than being skipped
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_cluster_networks_options"></a>
@@ -312,6 +338,7 @@ This is current state, not node failure history.
 **Jump to section:**
 
 * [Sample Commands](#check_cluster_nodes_samples)
+* [Data sources and privileges](#check_cluster_nodes_sources)
 * [Command-line Arguments](#check_cluster_nodes_options)
 * [Filter keywords](#check_cluster_nodes_filter_keys)
 
@@ -339,6 +366,18 @@ nscp client --module CheckWindowsApps --boot --query check_cluster_nodes
 Failed to query cluster nodes: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
 ```
 
+
+
+<a id="check_cluster_nodes_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                  | Provides    | Privilege        | Requires                                                                                                                                                                                                                     | Notes  |
+|----------|-----------------------------------------------------------------------------------------------------------------------------------------|-------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Failover Clustering API (`clusapi.dll`): `OpenClusterEx`, `ClusterOpenEnum` / `ClusterEnum`, `OpenClusterNodeEx`, `GetClusterNodeState` | name, state | *not determined* | Failover Clustering feature; the agent runs on a cluster member<br>Windows Server 2008 R2 or later<br>Cluster service running on this node<br>read access to the cluster for the agent account (cluster security descriptor) | note 1 |
+
+1. Read-only (GENERIC_READ) calls against the local cluster. `clusapi.dll` is loaded from the system directory on first use only, so the module's other commands work on non-cluster hosts. *Without it:* The check returns UNKNOWN: "Failed to query cluster nodes: ..." (e.g. "Failover Clustering API not available (clusapi.dll)" or "OpenClusterEx (local cluster unavailable or inaccessible) (Windows error N)"); an object that cannot be read fails the whole read rather than being skipped
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_cluster_nodes_options"></a>
@@ -432,6 +471,7 @@ transitions; no history or transition duration is inferred from one sample.
 **Jump to section:**
 
 * [Sample Commands](#check_cluster_resources_samples)
+* [Data sources and privileges](#check_cluster_resources_sources)
 * [Command-line Arguments](#check_cluster_resources_options)
 * [Filter keywords](#check_cluster_resources_filter_keys)
 
@@ -458,6 +498,18 @@ nscp client --module CheckWindowsApps --boot --query check_cluster_resources
 Failed to query cluster resources: OpenClusterEx (local cluster unavailable or inaccessible) (Windows error 1753): 6d9: Inga fler slutpunkter är tillgängliga från slutpunktsavbildaren.
 ```
 
+
+
+<a id="check_cluster_resources_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                                                                                           | Provides                        | Privilege        | Requires                                                                                                                                                                                                                     | Notes  |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Failover Clustering API (`clusapi.dll`): `OpenClusterEx`, `ClusterOpenEnum` / `ClusterEnum`, `OpenClusterResourceEx`, `GetClusterResourceState`, `ClusterResourceControl` (`CLUSCTL_RESOURCE_GET_RESOURCE_TYPE`) | name, owner, group, type, state | *not determined* | Failover Clustering feature; the agent runs on a cluster member<br>Windows Server 2008 R2 or later<br>Cluster service running on this node<br>read access to the cluster for the agent account (cluster security descriptor) | note 1 |
+
+1. Read-only (GENERIC_READ) calls against the local cluster. `clusapi.dll` is loaded from the system directory on first use only, so the module's other commands work on non-cluster hosts. *Without it:* The check returns UNKNOWN: "Failed to query cluster resources: ..." (e.g. "Failover Clustering API not available (clusapi.dll)" or "OpenClusterEx (local cluster unavailable or inaccessible) (Windows error N)"); an object that cannot be read fails the whole read rather than being skipped
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_cluster_resources_options"></a>
@@ -546,6 +598,7 @@ uptime < 600` is a useful storm signature.
 **Jump to section:**
 
 * [Sample Commands](#check_iis_app_pools_samples)
+* [Data sources and privileges](#check_iis_app_pools_sources)
 * [Command-line Arguments](#check_iis_app_pools_options)
 * [Filter keywords](#check_iis_app_pools_filter_keys)
 
@@ -588,6 +641,20 @@ check_iis_app_pools
 IIS performance counters (APP_POOL_WAS) not available - is the Web Server (IIS) role installed? (Failed to expand path: PDH 0xC0000BB8: c0000bb8: The specified object was not found on the computer.)
 ```
 
+
+
+<a id="check_iis_app_pools_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                         | Provides                                                                            | Privilege        | Requires                                                | Notes  |
+|----------|--------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|------------------|---------------------------------------------------------|--------|
+| Windows  | PDH counters `APP_POOL_WAS` (Current Application Pool State, Current Application Pool Uptime, Total Application Pool Recycles) | name, state, uptime, recycles                                                       | *not determined* | Web Server (IIS) role                                   | note 1 |
+| Windows  | WMI `root\WebAdministration` `ApplicationPool` (`AutoStart`)                                                                   | auto_start, and pools WAS has no counter instance for (reported with state unknown) | *not determined* | IIS Management Scripts and Tools (the IIS WMI provider) | note 2 |
+
+1. *Without it:* The check returns UNKNOWN: "IIS performance counters (APP_POOL_WAS) not available - is the Web Server (IIS) role installed? (...)"
+2. *Without it:* Silently skipped (logged at debug): auto_start is -1 for every pool and never-started pools are not listed, so every non-running pool meets the default critical
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_iis_app_pools_options"></a>
@@ -663,6 +730,7 @@ The defaults track HTTP.sys' default per-queue limit of 1000: **warning** at
 **Jump to section:**
 
 * [Sample Commands](#check_iis_request_queues_samples)
+* [Data sources and privileges](#check_iis_request_queues_sources)
 * [Command-line Arguments](#check_iis_request_queues_options)
 * [Filter keywords](#check_iis_request_queues_filter_keys)
 
@@ -698,6 +766,18 @@ check_iis_request_queues
 IIS performance counters (HTTP Service Request Queues) not available - is the Web Server (IIS) role installed? (Failed to expand path: PDH 0xC0000BB8: c0000bb8: The specified object was not found on the computer.)
 ```
 
+
+
+<a id="check_iis_request_queues_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                           | Provides                              | Privilege        | Notes  |
+|----------|--------------------------------------------------------------------------------------------------|---------------------------------------|------------------|--------|
+| Windows  | PDH counters `HTTP Service Request Queues` (CurrentQueueSize, RejectedRequests, MaxQueueItemAge) | name, queue_length, rejected, max_age | *not determined* | note 1 |
+
+1. The HTTP.sys request queues, normally one per application pool. *Without it:* The check returns UNKNOWN: "IIS performance counters (HTTP Service Request Queues) not available - is the Web Server (IIS) role installed? (...)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_iis_request_queues_options"></a>
@@ -774,6 +854,7 @@ without it `requests_per_sec`/`bytes_per_sec` read 0.
 **Jump to section:**
 
 * [Sample Commands](#check_iis_sites_samples)
+* [Data sources and privileges](#check_iis_sites_sources)
 * [Command-line Arguments](#check_iis_sites_options)
 * [Filter keywords](#check_iis_sites_filter_keys)
 
@@ -816,6 +897,20 @@ check_iis_sites
 IIS performance counters (Web Service) not available - is the Web Server (IIS) role installed? (Failed to expand path: PDH 0xC0000BB8: c0000bb8: The specified object was not found on the computer.)
 ```
 
+
+
+<a id="check_iis_sites_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                       | Provides                                                                                       | Privilege        | Requires                                                | Notes  |
+|----------|--------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|------------------|---------------------------------------------------------|--------|
+| Windows  | PDH counters `Web Service` (Current Connections, Service Uptime, Total Method Requests/sec, Bytes Total/sec) | name, connections, uptime, requests_per_sec, bytes_per_sec; a site with an instance is running | *not determined* | Web Server (IIS) role                                   | note 1 |
+| Windows  | WMI `root\WebAdministration` `Site` (`ServerAutoStart`)                                                      | auto_start, and stopped sites (no counter instance), reported with state stopped               | *not determined* | IIS Management Scripts and Tools (the IIS WMI provider) | note 2 |
+
+1. The rates need a second sample, taken one second later only with averages=true; otherwise they read 0. *Without it:* The check returns UNKNOWN: "IIS performance counters (Web Service) not available - is the Web Server (IIS) role installed? (...)"
+2. *Without it:* Silently skipped (logged at debug): auto_start is -1 and stopped sites are not listed at all
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_iis_sites_options"></a>
@@ -908,6 +1003,7 @@ There are no default thresholds — a sensible starting point is
 **Jump to section:**
 
 * [Sample Commands](#check_iis_worker_processes_samples)
+* [Data sources and privileges](#check_iis_worker_processes_sources)
 * [Command-line Arguments](#check_iis_worker_processes_options)
 * [Filter keywords](#check_iis_worker_processes_filter_keys)
 
@@ -950,6 +1046,18 @@ check_iis_worker_processes
 IIS performance counters (W3SVC_W3WP) not available - is the Web Server (IIS) role installed? (Failed to expand path: PDH 0xC0000BB8: c0000bb8: The specified object was not found on the computer.)
 ```
 
+
+
+<a id="check_iis_worker_processes_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                  | Provides                                                                                                        | Privilege        | Requires              | Notes  |
+|----------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|------------------|-----------------------|--------|
+| Windows  | PDH counters `W3SVC_W3WP` (Active Requests, Total HTTP Requests Served) | instance, pid and pool (split from the &lt;pid&gt;_&lt;pool&gt; instance name), active_requests, total_requests | *not determined* | Web Server (IIS) role | note 1 |
+
+1. *Without it:* A missing counter object returns UNKNOWN: "IIS performance counters (W3SVC_W3WP) not available - is the Web Server (IIS) role installed? (...)"; no running worker is the OK empty state "No IIS worker processes running"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_iis_worker_processes_options"></a>
@@ -1031,6 +1139,7 @@ evaluated by the filter. Custom thresholds replace the defaults.
 **Jump to section:**
 
 * [Sample Commands](#check_nps_accounting_samples)
+* [Data sources and privileges](#check_nps_accounting_sources)
 * [Command-line Arguments](#check_nps_accounting_options)
 * [Filter keywords](#check_nps_accounting_filter_keys)
 
@@ -1061,6 +1170,24 @@ The first command evaluates discarded requests only. The second also checks the
 specified file exists and reports its age/size. The third treats empty or stale
 output as a problem because accounting traffic is expected.
 
+
+
+<a id="check_nps_accounting_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                              | Provides                                   | Privilege        | Requires                                                               | Notes  |
+|----------|-----------------------------------------------------------------------------------------------------|--------------------------------------------|------------------|------------------------------------------------------------------------|--------|
+| Windows  | Service Control Manager: the `IAS` service (`OpenServiceW` with `SERVICE_QUERY_STATUS`)             | presence check for the NPS role            | *not determined* | Network Policy Server role (IAS service installed)                     | note 1 |
+| Windows  | `AuditQuerySystemPolicy` for the Network Policy Server audit subcategory                            | check that NPS failure auditing is enabled | elevated         | Network Policy Server failure auditing enabled (local or group policy) | note 2 |
+| Windows  | Security event log via `EvtQuery` (Microsoft-Windows-Security-Auditing event 6275)                  | accounting_discards                        | elevated         |                                                                        | note 3 |
+| Windows  | The accounting log file named by log-file= (existence, size and last-write time via the filesystem) | log_state, log_size, log_age               | *not determined* |                                                                        | note 4 |
+
+1. *Without it:* UNKNOWN "NPS accounting data unavailable: NPS role is not installed (IAS service missing)"
+2. Querying system audit policy needs SeSecurityPrivilege (Administrators, LocalSystem) or AUDIT_QUERY_SYSTEM_POLICY access. *Without it:* UNKNOWN "NPS accounting data unavailable: Cannot read NPS audit policy: ..." or "... NPS failure auditing is disabled"
+3. Reading the Security log is limited by default to Administrators, LocalSystem and members of Event Log Readers. Shares the max-events limit and 15-second deadline of check_nps_auth. *Without it:* UNKNOWN "NPS accounting data unavailable: Cannot query NPS Security events: ..."
+4. Optional; without log-file= log_state is not_checked and size/age are unknown. The file is only stat-ed, never opened. *Without it:* A missing file sets log_state = missing (critical by default); a filesystem error is UNKNOWN "NPS accounting data unavailable: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nps_accounting_options"></a>
@@ -1197,6 +1324,7 @@ represent every packet received at the UDP listener.
 **Jump to section:**
 
 * [Sample Commands](#check_nps_auth_samples)
+* [Data sources and privileges](#check_nps_auth_sources)
 * [Command-line Arguments](#check_nps_auth_options)
 * [Filter keywords](#check_nps_auth_filter_keys)
 
@@ -1235,6 +1363,22 @@ check_nps_auth "warning=decisions >= min_requests and reject_pct > 15" "critical
 Use the separate IAS service check and certificate check alongside the traffic
 summary. A quiet authentication window alone does not establish service health.
 
+
+
+<a id="check_nps_auth_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                        | Provides                                                                                                  | Privilege        | Requires                                                                           | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------|--------|
+| Windows  | Service Control Manager: the `IAS` service (`OpenServiceW` with `SERVICE_QUERY_STATUS`)                       | presence check for the NPS role                                                                           | *not determined* | Network Policy Server role (IAS service installed)                                 | note 1 |
+| Windows  | `AuditQuerySystemPolicy` for the Network Policy Server audit subcategory                                      | check that NPS success and failure auditing are both enabled                                              | elevated         | Network Policy Server success and failure auditing enabled (local or group policy) | note 2 |
+| Windows  | Security event log via `EvtQuery` / `EvtRender` (Microsoft-Windows-Security-Auditing events 6272, 6273, 6274) | requests, accepted, rejected, discarded, reject_pct, top_reason and the client / policy / reason grouping | elevated         |                                                                                    | note 3 |
+
+1. *Without it:* UNKNOWN "NPS authentication data unavailable: NPS role is not installed (IAS service missing)"
+2. Querying system audit policy needs SeSecurityPrivilege (Administrators, LocalSystem) or AUDIT_QUERY_SYSTEM_POLICY access. *Without it:* UNKNOWN "NPS authentication data unavailable: Cannot read NPS audit policy: ..." or "... NPS success and failure auditing must both be enabled", even with empty-state=ok
+3. Reading the Security log is limited by default to Administrators, LocalSystem and members of Event Log Readers. Fields are read from the event XML, not the localized message. The scan is bounded by max-events and a 15-second deadline. *Without it:* UNKNOWN "NPS authentication data unavailable: Cannot query NPS Security events: ..."; a failed, truncated or over-limit scan is UNKNOWN, never partial counts
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nps_auth_options"></a>
@@ -1369,6 +1513,7 @@ For arbitrary counter paths or long-term collector averages, use CheckSystem's
 **Jump to section:**
 
 * [Sample Commands](#check_nps_counters_samples)
+* [Data sources and privileges](#check_nps_counters_sources)
 * [Command-line Arguments](#check_nps_counters_options)
 * [Filter keywords](#check_nps_counters_filter_keys)
 
@@ -1399,6 +1544,20 @@ threshold. Counter names and available instances depend on the Windows version
 and language. Select individual clients or `_Total` when available, avoiding
 double-counting both in a graph.
 
+
+
+<a id="check_nps_counters_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                             | Provides                                                                             | Privilege        | Requires                                           | Notes  |
+|----------|--------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|------------------|----------------------------------------------------|--------|
+| Windows  | Service Control Manager: the `IAS` service (`OpenServiceW` with `SERVICE_QUERY_STATUS`)                            | presence check for the NPS role                                                      | *not determined* | Network Policy Server role (IAS service installed) | note 1 |
+| Windows  | PDH counter object `NPS Authentication Server` (default) or the one named by object=, e.g. `NPS Accounting Server` | one row per counter and instance (_Total included): object, counter, instance, value | *not determined* |                                                    | note 2 |
+
+1. *Without it:* UNKNOWN "NPS counters unavailable: NPS role is not installed (IAS service missing)"
+2. Counters are enumerated from the installed object and sampled twice, sample-ms apart (default 1000). On a localized Windows pass the localized object name. *Without it:* UNKNOWN "NPS counters unavailable: NPS counter object unavailable: &lt;object&gt;" or a failed-sample error; never zeros
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nps_counters_options"></a>
@@ -1497,6 +1656,7 @@ counters, e.g. `critical=counter like 'Failed' and value > 0`.
 **Jump to section:**
 
 * [Sample Commands](#check_rds_broker_samples)
+* [Data sources and privileges](#check_rds_broker_sources)
 * [Command-line Arguments](#check_rds_broker_options)
 * [Filter keywords](#check_rds_broker_filter_keys)
 
@@ -1532,6 +1692,18 @@ check_rds_broker
 Connection Broker counters (Remote Desktop Connection Broker Counterset) not available - is this host an RD Connection Broker? (Failed to enumerate object: Remote Desktop Connection Broker Counterset)
 ```
 
+
+
+<a id="check_rds_broker_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                           | Provides                                                     | Privilege        | Requires                  | Notes  |
+|----------|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|------------------|---------------------------|--------|
+| Windows  | PDH counter object `Remote Desktop Connection Broker Counterset` (counters enumerated with `PdhEnumObjectItems`) | one row per counter (and instance): counter, instance, value | *not determined* | RD Connection Broker role | note 1 |
+
+1. Counter names are taken from what this broker exposes, since they vary between Windows Server versions. averages=true takes a second sample for rate counters. *Without it:* UNKNOWN "Connection Broker counters (Remote Desktop Connection Broker Counterset) not available - is this host an RD Connection Broker?"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_rds_broker_options"></a>
@@ -1623,6 +1795,7 @@ do) or on `issued` explicitly if you track compliance.
 **Jump to section:**
 
 * [Sample Commands](#check_rds_licenses_samples)
+* [Data sources and privileges](#check_rds_licenses_sources)
 * [Command-line Arguments](#check_rds_licenses_options)
 * [Filter keywords](#check_rds_licenses_filter_keys)
 
@@ -1665,6 +1838,18 @@ check_rds_licenses
 Remote Desktop licensing information not available: the Remote Desktop licensing role is not installed (Win32_TSLicenseKeyPack missing)
 ```
 
+
+
+<a id="check_rds_licenses_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                    | Provides                                                                                                                | Privilege        | Requires                                                                        | Notes  |
+|----------|-------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|------------------|---------------------------------------------------------------------------------|--------|
+| Windows  | WMI `root\cimv2` `Win32_TSLicenseKeyPack` | one row per key pack: id, description (TypeAndModel), product version, key pack type, total_licenses, issued, available | *not determined* | Remote Desktop Licensing role (the class only exists on an RD licensing server) | note 1 |
+
+1. *Without it:* UNKNOWN "Remote Desktop licensing information not available: the Remote Desktop licensing role is not installed (Win32_TSLicenseKeyPack missing)"; any other WMI error is UNKNOWN "Failed to query Win32_TSLicenseKeyPack: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_rds_licenses_options"></a>
@@ -1744,6 +1929,7 @@ role; on other machines the keyword reads 0.
 **Jump to section:**
 
 * [Sample Commands](#check_rds_session_load_samples)
+* [Data sources and privileges](#check_rds_session_load_sources)
 * [Command-line Arguments](#check_rds_session_load_options)
 * [Filter keywords](#check_rds_session_load_filter_keys)
 
@@ -1786,6 +1972,18 @@ check_rds_session_load
 Remote Desktop Services counters (Terminal Services Session) not available - is the role installed on this host? (...)
 ```
 
+
+
+<a id="check_rds_session_load_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                | Provides                                                                                           | Privilege        | Requires                                                     | Notes  |
+|----------|---------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|------------------|--------------------------------------------------------------|--------|
+| Windows  | PDH counters `Terminal Services Session` (% Processor Time, Working Set, Total Bytes) | one row per session instance (console, Services, RDP-Tcp &lt;n&gt;): CPU, working set, total_bytes | *not determined* | RD Session Host role, for the protocol counter (total_bytes) | note 1 |
+
+1. averages=true takes a second sample one second later for CPU. A counter the host lacks is skipped as long as one counter of the object resolves. *Without it:* Without the RD Session Host role total_bytes reads 0; a missing counter object returns UNKNOWN "Remote Desktop Services counters (Terminal Services Session) not available - is the role installed on this host? (...)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_rds_session_load_options"></a>
@@ -1882,6 +2080,7 @@ resource usage see `check_rds_session_load`; for CAL exhaustion see
 **Jump to section:**
 
 * [Sample Commands](#check_rds_sessions_samples)
+* [Data sources and privileges](#check_rds_sessions_sources)
 * [Command-line Arguments](#check_rds_sessions_options)
 * [Filter keywords](#check_rds_sessions_filter_keys)
 
@@ -1917,6 +2116,18 @@ check_rds_sessions
 Remote Desktop Services counters (Terminal Services) not available - is the role installed on this host? (...)
 ```
 
+
+
+<a id="check_rds_sessions_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                | Provides                | Privilege        | Notes  |
+|----------|---------------------------------------------------------------------------------------|-------------------------|------------------|--------|
+| Windows  | PDH counters `Terminal Services` (Active Sessions, Inactive Sessions, Total Sessions) | active, inactive, total | *not determined* | note 1 |
+
+1. The counter object exists on every Windows SKU; the console counts as a session. *Without it:* The check returns UNKNOWN: "Remote Desktop Services counters (Terminal Services) not available - is the role installed on this host? (...)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_rds_sessions_options"></a>

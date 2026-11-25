@@ -1,0 +1,17 @@
+windows:
+  - source: '`DsGetDcNameW` (`DS_KDC_REQUIRED`)'
+    provides: the KDC to probe and the realm, when server= / realm= are not given
+    requires:
+      - domain membership, unless server=, realm= and principal= are all given
+    without: 'UNKNOWN "Failed to locate a KDC (is this machine domain-joined?): ... Specify server=, realm= and principal=."'
+  - source: '`DsRoleGetPrimaryDomainInformation` and `GetComputerNameExW`'
+    provides: 'the default principal: this machine''s account (HOST$) in its joined domain'
+    without: 'For a realm this machine has no account in, UNKNOWN "principal= is required to probe <realm>: ..." before anything is sent'
+  - source: 'Kerberos AS-REQ over TCP to port 88 (port=) on each KDC'
+    provides: responding, time, the KDC answer (AS-REP or KRB-ERROR)
+    privilege: none
+    note: An outbound TCP connection; no credential or password is sent. Name lookups and probes all run under one timeout= deadline.
+    requires:
+      - 'TCP reachability of the KDC on port 88 (or port=)'
+      - DNS resolution of the KDC host names
+    without: 'An unreachable, silent or non-Kerberos KDC gives responding = 0 (CRITICAL by default); an unresolvable host also renders time as unknown'

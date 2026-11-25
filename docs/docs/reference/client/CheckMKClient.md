@@ -66,6 +66,7 @@ agent output *from* this host to a check_mk server.
 **Jump to section:**
 
 * [Sample Commands](#check_mk_query_samples)
+* [Data sources and privileges](#check_mk_query_sources)
 * [Command-line Arguments](#check_mk_query_options)
 
 
@@ -131,6 +132,18 @@ unless you have put TLS in front of it, and configure `ca` / `verify` /
 See also the CheckMKServer module for the passive direction — serving check_mk
 agent output *from* this host.
 
+
+
+<a id="check_mk_query_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                          | Provides                                                                                                                              | Privilege | Requires                                                                                                                                                                                                                                                                                                                                 | Notes  |
+|-----------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote Checkmk agent: TCP connect, read the sectioned agent output until the agent closes (optionally over TLS) | the parsed agent sections, handed to the Lua callback registered for `check_mk` (`default_check_mk.lua` when no script is configured) | none      | A Checkmk agent reachable on `host`/`port` (the connection falls back to 6556 when the address has no port; configured targets default to 5667)<br>Lua (the module is only built when Lua is found)<br>With `ssl`: OpenSSL support and, by default, a CA (`ca`) that verifies the agent's certificate (`verify mode` defaults to `peer`) | note 1 |
+
+1. The result is not taken from the Lua callback: after a successful exchange the response is OK `Data presumably sent successfully`. *Without it:* A connection or TLS failure is UNKNOWN `Socket error: ...`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mk_query_options"></a>

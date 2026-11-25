@@ -128,6 +128,11 @@ jobs:
     - name: Test the merge tool
       run: python build/python/test_docs_merge.py
 
+    - name: Validate the data-source sidecars
+      run: |
+        python build/python/test_docs_sources.py
+        python scripts/python/docs_sources.py --check
+
     - name: Merge the platform slices into docs/reference
       run: |
         python scripts/python/docs_merge.py --reference docs/reference \

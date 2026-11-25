@@ -65,6 +65,7 @@ unsuitable — anyone on the path can both read and inject metrics.
 **Jump to section:**
 
 * [Sample Commands](#submit_graphite_samples)
+* [Data sources and privileges](#submit_graphite_sources)
 * [Command-line Arguments](#submit_graphite_options)
 
 
@@ -147,6 +148,18 @@ send status = false
 Carbon's plaintext protocol acknowledges nothing, so an OK here does not mean
 the metrics were stored — only that the connection was accepted.
 
+
+
+<a id="submit_graphite_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                               | Provides                                                                     | Privilege | Requires                                                                                                              | Notes  |
+|----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------|--------|
+| Remote Carbon (Graphite) receiver, plaintext line protocol `<path> <value> <timestamp>` over TCP (default port 2003) | check status and performance data as metrics under `status path`/`perf path` | none      | A Carbon line receiver reachable on `host`/`port`<br>With `ssl`: a CA (`ca`) that verifies the receiver's certificate | note 1 |
+
+1. Optional TLS with `ssl = true` (`verify mode` defaults to `peer`).
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_graphite_options"></a>

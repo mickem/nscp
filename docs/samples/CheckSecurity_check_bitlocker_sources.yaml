@@ -1,0 +1,8 @@
+windows:
+  - source: 'WMI `root\CIMV2\Security\MicrosoftVolumeEncryption` `Win32_EncryptableVolume`'
+    provides: drive, protection_status, protected
+    privilege: elevated
+    note: Administrator rights are required to read this class; the default LocalSystem service account has them.
+    requires:
+      - BitLocker Drive Encryption feature (provides the WMI namespace)
+    without: 'The check returns UNKNOWN: "Failed to query BitLocker volumes: ..." (access denied, or the namespace is missing)'

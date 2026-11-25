@@ -1,0 +1,3 @@
+all:
+- source: None — returns a fixed WARNING status with the given message
+  privilege: none

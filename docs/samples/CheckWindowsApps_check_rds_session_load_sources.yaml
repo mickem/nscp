@@ -1,0 +1,7 @@
+windows:
+  - source: 'PDH counters `Terminal Services Session` (% Processor Time, Working Set, Total Bytes)'
+    provides: 'one row per session instance (console, Services, RDP-Tcp <n>): CPU, working set, total_bytes'
+    note: 'averages=true takes a second sample one second later for CPU. A counter the host lacks is skipped as long as one counter of the object resolves.'
+    requires:
+      - RD Session Host role, for the protocol counter (total_bytes)
+    without: 'Without the RD Session Host role total_bytes reads 0; a missing counter object returns UNKNOWN "Remote Desktop Services counters (Terminal Services Session) not available - is the role installed on this host? (...)"'

@@ -1,0 +1,12 @@
+windows:
+  - source: DMV `sys.dm_os_schedulers` over ODBC/TDS
+    provides: schedulers, runnable_tasks, work_queue, workers
+    requires:
+      - SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)
+      - Network reachability of the instance named by `server` (default `localhost`)
+      - "Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance"
+      - "`VIEW SERVER STATE`"
+  - source: DMV `sys.dm_os_wait_stats`, sampled twice in one batch
+    provides: wait time per category (ms/s) and signal_wait_pct
+    requires:
+      - "`VIEW SERVER STATE`"

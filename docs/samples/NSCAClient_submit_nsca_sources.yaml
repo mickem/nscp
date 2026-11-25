@@ -1,0 +1,8 @@
+all:
+- source: Remote NSCA daemon, NSCA passive-check packet over TCP (default port 5667)
+  provides: passive host/service check results
+  privilege: none
+  note: The packet is obfuscated with the shared `password` and the `encryption` algorithm (must match the server); optional TLS with `ssl`.
+  requires:
+  - An NSCA daemon reachable on `host`/`port`
+  - The `password` and `encryption` method configured on the NSCA daemon

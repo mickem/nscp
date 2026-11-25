@@ -196,6 +196,7 @@ happens exactly when it would have anyway.
 **Jump to section:**
 
 * [Sample Commands](#run_schedules_samples)
+* [Data sources and privileges](#run_schedules_sources)
 * [Command-line Arguments](#run_schedules_options)
 
 
@@ -273,6 +274,18 @@ check_nscp_client --host 192.168.56.103 --command run_schedules
 OK: Ran 2 schedule(s): cpu, host_check
 ```
 
+
+
+<a id="run_schedules_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                                                | Privilege | Requires                                           | Notes  |
+|---------------------------------------------------------------------------------------------------------------------------------------|-----------|----------------------------------------------------|--------|
+| The Scheduler module's configured schedules: each command is run through the agent and its result submitted on the schedule's channel | none      | A loaded client module for each schedule's channel | note 1 |
+
+1. Each scheduled command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="run_schedules_options"></a>

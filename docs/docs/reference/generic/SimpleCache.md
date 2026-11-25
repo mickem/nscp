@@ -92,6 +92,7 @@ The legacy alias `CheckCache` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_cache_samples)
+* [Data sources and privileges](#check_cache_sources)
 * [Command-line Arguments](#check_cache_options)
 
 
@@ -167,6 +168,18 @@ UNKNOWN: Entry not found
 
 
 
+<a id="check_cache_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                  | Privilege | Notes  |
+|---------------------------------------------------------------------------------------------------------|-----------|--------|
+| Agent's in-memory result cache, filled from results submitted on the module's channel (default `CACHE`) | none      | note 1 |
+
+1. Nothing is persisted; the cache starts empty after a restart.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="check_cache_options"></a>
 #### Command-line Arguments
 
@@ -238,6 +251,7 @@ wire this command up as an alerting check.
 **Jump to section:**
 
 * [Sample Commands](#list_cache_samples)
+* [Data sources and privileges](#list_cache_sources)
 * [Command-line Arguments](#list_cache_options)
 
 
@@ -280,6 +294,16 @@ UNKNOWN: srv01-nightly_backup
 Here the writer's `primary index` includes `${host}` while the reader asked for
 the command name alone.
 
+
+
+<a id="list_cache_sources"></a>
+#### Data sources and privileges
+
+| Source                                     | Privilege |
+|--------------------------------------------|-----------|
+| Agent's in-memory result cache (keys only) | none      |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="list_cache_options"></a>

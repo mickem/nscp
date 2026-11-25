@@ -1,0 +1,7 @@
+all:
+- source: HTTP GET of the Apache mod_status page (`?auto` form; default `http://127.0.0.1/server-status`)
+  provides: workers, requests, traffic and scoreboard keywords
+  privilege: none
+  requires:
+  - Apache `mod_status` enabled and reachable from the agent
+  - '`ExtendedStatus On` for the request/byte counters'

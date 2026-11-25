@@ -1,0 +1,4 @@
+windows:
+  - source: 'Network List Manager COM `INetworkListManager` (`GetNetworks`)'
+    provides: network name, category (public / private / domain) and connected state
+    without: 'The check returns UNKNOWN: "Failed to access the Network List Manager (INetworkListManager)"'

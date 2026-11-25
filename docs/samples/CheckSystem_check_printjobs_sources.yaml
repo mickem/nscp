@@ -1,0 +1,8 @@
+windows:
+  - source: 'WMI `root\CIMV2` `Win32_PrintJob`'
+    provides: one record per job - printer, document, owner, id, job_status and its flags, size, pages, pages_printed, priority, submitted, age
+    note: Read when the check runs; properties drivers do not always populate are read best-effort.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+      - Print Spooler service (`Spooler`)
+    without: 'UNKNOWN "Failed to enumerate print jobs: ..."'

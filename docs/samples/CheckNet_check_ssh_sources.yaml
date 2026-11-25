@@ -1,0 +1,6 @@
+all:
+- source: TCP connection to `host:port` (default 22), reading the SSH identification banner
+  provides: banner, protocol, software, software_version, time
+  privilege: none
+  requires:
+  - Network reachability of the target

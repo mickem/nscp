@@ -1,0 +1,54 @@
+name: Data-source sidecars
+
+# Each check command documents where it reads its data from, and what privilege
+# that needs, in docs/samples/<Module>_<command>_sources.yaml
+# (scripts/python/docs_sources.py holds the schema). The reference is only
+# rendered by the manual "Update reference docs" workflow, so validate the
+# sidecars here on every change: a misspelt key or a sidecar named after a
+# command that does not exist would otherwise only surface there.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/samples/*_sources.yaml'
+      - 'docs/reference/*.yaml'
+      - 'modules/*/module.json'
+      - 'scripts/python/docs_sources.py'
+      - 'scripts/python/docs_generate.py'
+      - 'build/python/test_docs_sources.py'
+      - '.github/workflows/docs-sources.yml'
+  pull_request:
+    paths:
+      - 'docs/samples/*_sources.yaml'
+      - 'docs/reference/*.yaml'
+      - 'modules/*/module.json'
+      - 'scripts/python/docs_sources.py'
+      - 'scripts/python/docs_generate.py'
+      - 'build/python/test_docs_sources.py'
+      - '.github/workflows/docs-sources.yml'
+
+permissions:
+  contents: read
+
+# A new push supersedes this run; do not let it finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Validate and render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+      - name: Install the generator's dependencies
+        run: pip install pyyaml jinja2
+      - name: Validate the sidecars
+        run: python3 scripts/python/docs_sources.py --check
+      - name: Test the rendering
+        run: python3 build/python/test_docs_sources.py
+      - name: Render the reference
+        run: python3 scripts/python/docs_generate.py --input docs --output "$RUNNER_TEMP/docs" --samples docs

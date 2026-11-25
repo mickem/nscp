@@ -1,0 +1,12 @@
+all:
+- source: RDAP over HTTPS (default `https://rdap.org/domain/{domain}`, following redirects and one registrar record)
+  provides: expiration, expiration_type, expires_in, source
+  privilege: none
+  requires:
+  - HTTPS access to the RDAP service
+  - OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca=` overrides)
+- source: WHOIS over TCP to `whois-server` (port 43), only with `whois-fallback=true`
+  provides: expiration when RDAP fails or has none
+  privilege: none
+  requires:
+  - Network reachability of the WHOIS server

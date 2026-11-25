@@ -1,0 +1,6 @@
+windows:
+  - source: PDH (Performance Data Helper) counters named by `counter=`
+    provides: one record per counter, or per instance with instances=true
+    privilege: conditional
+    note: 'The module and the check_pdh reference state that reading performance counters needs membership of the Performance Log Users group (or equivalent rights). A path is read with a one-off query when the check runs (two samples one second apart with averages=true); a name configured under `/settings/system/windows/counters` is answered from the collector''s buffer. Which counters a caller may name is limited by the `counter access` / `allowed counters` settings.'
+    without: 'An access-denied counter fails the check ("Failed to add counter: ..." / "Failed to get value: ..."), or reads 0 with ignore-errors=true'

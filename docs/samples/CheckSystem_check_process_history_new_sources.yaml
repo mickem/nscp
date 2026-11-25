@@ -1,0 +1,23 @@
+windows:
+  - source: The CheckSystem collector's process history (`EnumProcesses` + `OpenProcess`, executable name only)
+    provides: exe, first_seen and the rest of each record first seen inside time=
+    privilege: conditional
+    note: 'The scan enables `SeDebugPrivilege` when the agent holds it (LocalSystem or an administrator); without it a process that cannot be opened even with `PROCESS_QUERY_LIMITED_INFORMATION` is never recorded, so it never counts as new.'
+    requires:
+      - "`process history = true` under `/settings/system/windows`"
+    without: 'With the setting off nothing is recorded and the check answers "OK: No new processes found." (no "not enabled" message on Windows)'
+linux:
+  - source: 'The background collector''s process history (`/proc/<pid>/exe`, else `/proc/<pid>/comm` and `cmdline`)'
+    provides: exe, first_seen and the rest of each record first seen inside time=
+    privilege: conditional
+    note: Reading another user's `/proc/<pid>/exe` needs root; without it the name comes from `comm` (15 characters), extended from argv[0] when that continues the truncated name.
+    requires:
+      - "`process history = true` under `/settings/system/unix`"
+    without: "Setting off: UNKNOWN \"Process history is not enabled (set 'process history = true' under /settings/system/unix)\""
+macos:
+  - source: 'The background collector''s process history (`proc_listpids` + `proc_pidpath`)'
+    provides: exe, first_seen and the rest of each record first seen inside time=
+    privilege: none
+    requires:
+      - "`process history = true` under `/settings/system/unix`"
+    without: "Setting off: UNKNOWN \"Process history is not enabled (set 'process history = true' under /settings/system/unix)\""

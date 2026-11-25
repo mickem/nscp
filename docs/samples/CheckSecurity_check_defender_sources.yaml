@@ -1,0 +1,7 @@
+windows:
+  - source: 'WMI `root\Microsoft\Windows\Defender` `MSFT_MpComputerStatus`'
+    provides: all keywords (enabled, realtime_enabled, tamper_protection, signature/scan ages, engine/signature/product versions)
+    note: 'Read with `SELECT *`; a property missing on an older Defender build reads as 0, -1 (ages) or empty instead of failing the row.'
+    requires:
+      - Microsoft Defender Antivirus installed and the active antivirus
+    without: 'Any WMI error yields no row, so the check returns its empty state (UNKNOWN by default): "Microsoft Defender status unavailable (not installed or another antivirus is active)" - also when the cause is something else, such as access denied'

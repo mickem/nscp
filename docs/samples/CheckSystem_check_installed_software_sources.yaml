@@ -1,0 +1,23 @@
+windows:
+  - source: '`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` (64-bit and 32-bit views)'
+    provides: machine-wide installs (`hive` = machine)
+    note: Read when the check runs. A 32-bit Windows has only the one view.
+  - source: '`HKEY_USERS\<SID>\Software\Microsoft\Windows\CurrentVersion\Uninstall`'
+    provides: per-user installs (`hive` = user)
+    note: Only the user hives that are loaded when the check runs (logged-on users and running service accounts) are under `HKEY_USERS`.
+linux:
+  - source: '`dpkg-query -W`, `rpm -qa` or `pacman -Q`, the first one found'
+    provides: every keyword; `manager` names the tool used
+    note: Run through the shell when the check runs. pacman gives only name and version; dpkg has no install time (the file-list modification time is used).
+    requires:
+      - '`dpkg-query`, `rpm` or `pacman` in `/usr/bin` or `/usr/local/bin`'
+    without: 'No tool: UNKNOWN "No supported package manager found ..."; a failed query: UNKNOWN "Failed to query installed software from <manager> ..."'
+macos:
+  - source: 'Installer receipts in `/var/db/receipts`'
+    provides: '`manager` = pkgutil'
+    note: Read from disk; nothing is run.
+    without: 'No readable receipt at all makes the check UNKNOWN "Failed to query installed software from ..." instead of an empty inventory'
+  - source: 'Application bundles in `/Applications` and `/Applications/Utilities`'
+    provides: '`manager` = bundle'
+  - source: 'Homebrew `Cellar` and `Caskroom` under `/opt/homebrew` and `/usr/local`'
+    provides: '`manager` = homebrew'

@@ -74,6 +74,7 @@ Error messages are meant to be acted on:
 **Jump to section:**
 
 * [Sample Commands](#check_kubernetes_samples)
+* [Data sources and privileges](#check_kubernetes_sources)
 * [Command-line Arguments](#check_kubernetes_options)
 * [Filter keywords](#check_kubernetes_filter_keys)
 
@@ -109,6 +110,18 @@ check_kubernetes
 Failed to connect to Kubernetes API server at 'https://127.0.0.1:1' (settings): Failed to connect to 127.0.0.1:1: Connection refused
 ```
 
+
+
+<a id="check_kubernetes_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                       | Provides                                                        | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Notes  |
+|------------------------------------------------------------------------------|-----------------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Kubernetes API `GET /version`, `GET /readyz` and `GET /api/v1/nodes` (paged) | version, platform, api_ready/readyz, node and ready-node counts | *not determined* | Network reachability of the API server over HTTPS (built with OpenSSL)<br>Cluster configuration under `/settings/kubernetes`, resolved in this order: `api server` plus `token`/`token file`; a kubeconfig in JSON form (`kubectl config view --raw --minify -o json`) with a token, tokenFile or client certificate (exec/auth-provider users are not supported); or, in a pod, `KUBERNETES_SERVICE_HOST` plus the mounted service account token `/var/run/secrets/kubernetes.io/serviceaccount/token`<br>Read access, for the agent account, to any token file, kubeconfig or certificate file it is configured with<br>RBAC: `get` on the non-resource URLs `/version` and `/readyz`, and `list` on `nodes` (cluster-scoped) | note 1 |
+
+1. The cluster and credentials come only from settings; no check argument selects the server or token. *Without it:* No usable configuration is UNKNOWN naming what to set; HTTP 401 is UNKNOWN naming the rejected credential, HTTP 403 is UNKNOWN naming the RBAC rule to grant. A 5xx from `/readyz` is reported as the API server not being ready, not as a connection failure.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_kubernetes_options"></a>
@@ -207,6 +220,7 @@ and `field-selector=` are passed to the API server, e.g.
 **Jump to section:**
 
 * [Sample Commands](#check_nodes_samples)
+* [Data sources and privileges](#check_nodes_sources)
 * [Command-line Arguments](#check_nodes_options)
 * [Filter keywords](#check_nodes_filter_keys)
 
@@ -249,6 +263,18 @@ check_nodes "filter=schedulable = 0" warning=none critical=none "detail-syntax=%
 OK: worker-3=Ready,SchedulingDisabled
 ```
 
+
+
+<a id="check_nodes_sources"></a>
+#### Data sources and privileges
+
+| Source                                     | Provides                                                     | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Notes  |
+|--------------------------------------------|--------------------------------------------------------------|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Kubernetes API `GET /api/v1/nodes` (paged) | node Ready and pressure conditions, schedulability, capacity | *not determined* | Network reachability of the API server over HTTPS (built with OpenSSL)<br>Cluster configuration under `/settings/kubernetes`, resolved in this order: `api server` plus `token`/`token file`; a kubeconfig in JSON form (`kubectl config view --raw --minify -o json`) with a token, tokenFile or client certificate (exec/auth-provider users are not supported); or, in a pod, `KUBERNETES_SERVICE_HOST` plus the mounted service account token `/var/run/secrets/kubernetes.io/serviceaccount/token`<br>Read access, for the agent account, to any token file, kubeconfig or certificate file it is configured with<br>RBAC: `list` on `nodes` (cluster-scoped) | note 1 |
+
+1. The cluster and credentials come only from settings; no check argument selects the server or token. *Without it:* No usable configuration is UNKNOWN naming what to set; HTTP 401 is UNKNOWN naming the rejected credential, HTTP 403 is UNKNOWN naming the RBAC rule to grant.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nodes_options"></a>
@@ -388,6 +414,7 @@ while `terminating` still reports the pending deletion.
 **Jump to section:**
 
 * [Sample Commands](#check_pods_samples)
+* [Data sources and privileges](#check_pods_sources)
 * [Command-line Arguments](#check_pods_options)
 * [Filter keywords](#check_pods_filter_keys)
 
@@ -430,6 +457,18 @@ check_pods namespace=secret
 Kubernetes API server at 'https://127.0.0.1:6443' denied GET /api/v1/namespaces/secret/pods?limit=500 (HTTP 403: pods is forbidden: User "system:serviceaccount:monitoring:nscp" cannot list resource "pods" in API group "" in the namespace "secret"): grant the agent's service account get and list on the resource (see the CheckKubernetes documentation for the ClusterRole)
 ```
 
+
+
+<a id="check_pods_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                       | Provides                                             | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Notes  |
+|----------------------------------------------------------------------------------------------|------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Kubernetes API `GET /api/v1/pods`, or `/api/v1/namespaces/{ns}/pods` per `namespace` (paged) | pod phase, kubectl-style status, readiness, restarts | *not determined* | Network reachability of the API server over HTTPS (built with OpenSSL)<br>Cluster configuration under `/settings/kubernetes`, resolved in this order: `api server` plus `token`/`token file`; a kubeconfig in JSON form (`kubectl config view --raw --minify -o json`) with a token, tokenFile or client certificate (exec/auth-provider users are not supported); or, in a pod, `KUBERNETES_SERVICE_HOST` plus the mounted service account token `/var/run/secrets/kubernetes.io/serviceaccount/token`<br>Read access, for the agent account, to any token file, kubeconfig or certificate file it is configured with<br>RBAC: `list` on `pods` cluster-wide, or in each namespace named with `namespace` | note 1 |
+
+1. The cluster and credentials come only from settings; no check argument selects the server or token. *Without it:* No usable configuration is UNKNOWN naming what to set; HTTP 401 is UNKNOWN naming the rejected credential, HTTP 403 is UNKNOWN naming the RBAC rule to grant.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_pods_options"></a>
@@ -549,6 +588,7 @@ critical.
 **Jump to section:**
 
 * [Sample Commands](#check_workloads_samples)
+* [Data sources and privileges](#check_workloads_sources)
 * [Command-line Arguments](#check_workloads_options)
 * [Filter keywords](#check_workloads_filter_keys)
 
@@ -584,6 +624,18 @@ check_workloads kind=daemonset "detail-syntax=%(kind) %(namespace)/%(name): %(av
 WARNING: DaemonSet monitoring/node-exporter: 3/4 available, 4 updated, 1 missing|'monitoring/node-exporter available'=3;0;0 'monitoring/node-exporter desired'=4;0;0 'monitoring/node-exporter missing'=1;0;0
 ```
 
+
+
+<a id="check_workloads_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                                               | Provides                                                 | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Notes  |
+|--------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Kubernetes API `GET /apis/apps/v1/{deployments,statefulsets,daemonsets}`, or the `/namespaces/{ns}/...` form per `namespace` (paged) | desired, ready, available, updated replicas per workload | *not determined* | Network reachability of the API server over HTTPS (built with OpenSSL)<br>Cluster configuration under `/settings/kubernetes`, resolved in this order: `api server` plus `token`/`token file`; a kubeconfig in JSON form (`kubectl config view --raw --minify -o json`) with a token, tokenFile or client certificate (exec/auth-provider users are not supported); or, in a pod, `KUBERNETES_SERVICE_HOST` plus the mounted service account token `/var/run/secrets/kubernetes.io/serviceaccount/token`<br>Read access, for the agent account, to any token file, kubeconfig or certificate file it is configured with<br>RBAC: `list` on `deployments`, `statefulsets` and `daemonsets` in the `apps` group, cluster-wide or in each namespace named | note 1 |
+
+1. The cluster and credentials come only from settings; no check argument selects the server or token. *Without it:* No usable configuration is UNKNOWN naming what to set; HTTP 401 is UNKNOWN naming the rejected credential, HTTP 403 is UNKNOWN naming the RBAC rule to grant.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_workloads_options"></a>

@@ -1,0 +1,9 @@
+windows:
+  - source: 'WMI `root\CIMV2` `SoftwareLicensingProduct`'
+    provides: license_status, grace period, channel, partial key, description, and the genuine state where the class exposes it
+    note: 'Only products with an installed key (`PartialProductKey is not null`), and only the Windows application ID unless `all-products=true`. A local query; nothing contacts Microsoft.'
+    without: 'The check returns UNKNOWN: "Failed to query the licensing state (SoftwareLicensingProduct): ..."'
+  - source: '`SLIsGenuineLocal` in `slc.dll` (Software Licensing client)'
+    provides: genuine_state of the Windows product when WMI does not expose `GenuineStatus`
+    note: 'Loaded at run time and only called when needed; skipped entirely with `skip-genuine=true`.'
+    without: genuine_state stays unknown when `slc.dll` or the export is unavailable or the call fails

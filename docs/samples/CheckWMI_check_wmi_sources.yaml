@@ -1,0 +1,9 @@
+windows:
+- source: WMI query supplied by the caller (`namespace=`, default `root\cimv2`)
+  provides: one row per result object; every selected column becomes a keyword
+  privilege: conditional
+  note: Depends on the namespace's WMI security and the class queried; a remote `target=` needs an account with remote-WMI rights there. Queries, classes and namespaces are also held against `query access` in `[/settings/wmi]`.
+  without: '"WMIQuery failed: <reason>"'
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service
+  - DCOM/RPC reachability of the target when `target=` is used

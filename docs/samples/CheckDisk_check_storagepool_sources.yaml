@@ -1,0 +1,7 @@
+windows:
+- source: WMI `MSFT_StoragePool` where `IsPrimordial=FALSE` (`root\Microsoft\Windows\Storage`)
+  provides: name, health, capacity, used, read-only, operational status
+  without: 'WMI errors are swallowed: no pools are reported and the check returns its empty state (OK).'
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service
+  - Storage Management WMI provider (`root\Microsoft\Windows\Storage` namespace)

@@ -158,6 +158,7 @@ instead.
 **Jump to section:**
 
 * [Sample Commands](#check_apache_status_samples)
+* [Data sources and privileges](#check_apache_status_sources)
 * [Command-line Arguments](#check_apache_status_options)
 * [Filter keywords](#check_apache_status_filter_keys)
 
@@ -193,6 +194,16 @@ check_apache_status url=http://127.0.0.1/nope
 CRITICAL: http_404: 0 busy and 0 idle workers, 0 req/s, uptime 0s|'127.0.0.1_busy_workers'=0;0;0 '127.0.0.1_idle_workers'=0;0;0 '127.0.0.1_requests_per_sec'=0;0;0
 ```
 
+
+
+<a id="check_apache_status_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                          | Provides                                           | Privilege | Requires                                                                                                      |
+|-------------------------------------------------------------------------------------------------|----------------------------------------------------|-----------|---------------------------------------------------------------------------------------------------------------|
+| HTTP GET of the Apache mod_status page (`?auto` form; default `http://127.0.0.1/server-status`) | workers, requests, traffic and scoreboard keywords | none      | Apache `mod_status` enabled and reachable from the agent<br>`ExtendedStatus On` for the request/byte counters |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_apache_status_options"></a>
@@ -346,6 +357,7 @@ about over the total.
 **Jump to section:**
 
 * [Sample Commands](#check_connections_samples)
+* [Data sources and privileges](#check_connections_sources)
 * [Command-line Arguments](#check_connections_options)
 * [Filter keywords](#check_connections_filter_keys)
 
@@ -406,6 +418,20 @@ OK: total/all: 231|'total_all_close_wait'=0;0;0 'total_all_closing'=0;0;0 'total
 ```
 
 
+
+
+<a id="check_connections_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                      | Provides                                     | Privilege | Notes  |
+|----------|-----------------------------------------------------------------------------|----------------------------------------------|-----------|--------|
+| Windows  | IP Helper API `GetExtendedTcpTable` / `GetExtendedUdpTable` (IPv4 and IPv6) | connection counts per protocol and TCP state | none      | note 1 |
+| Linux    | `/proc/net/tcp`, `/proc/net/tcp6`, `/proc/net/udp`, `/proc/net/udp6`        | connection counts per protocol and TCP state | none      | note 2 |
+
+1. *Without it:* "Failed to enumerate connections via iphlpapi"
+2. Counts the agent's own network namespace. *Without it:* "Failed to read /proc/net/{tcp,tcp6,udp,udp6}" when all four are empty or unreadable.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_connections_options"></a>
@@ -514,6 +540,7 @@ to test one specific family.
 **Jump to section:**
 
 * [Sample Commands](#check_dns_samples)
+* [Data sources and privileges](#check_dns_sources)
 * [Command-line Arguments](#check_dns_options)
 * [Filter keywords](#check_dns_filter_keys)
 
@@ -600,6 +627,24 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 ```
 
 
+
+
+<a id="check_dns_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                   | Provides                                                   | Privilege | Requires                                                   | Notes  |
+|----------|------------------------------------------------------------------------------------------|------------------------------------------------------------|-----------|------------------------------------------------------------|--------|
+| Windows  | System resolver (`getaddrinfo` via the asio resolver)                                    | A/AAAA lookups without `server=`                           | none      |                                                            |        |
+| Windows  | DNS query over UDP to `server=`                                                          | other record types, and any lookup with an explicit server | none      | Network reachability of the DNS server (UDP 53 by default) | note 1 |
+| Linux    | System resolver (`getaddrinfo` via the asio resolver; honours `/etc/hosts` and nsswitch) | A/AAAA lookups without `server=`                           | none      |                                                            |        |
+| Linux    | DNS query over UDP to `server=`, else the first `nameserver` in `/etc/resolv.conf`       | other record types, and any lookup with an explicit server | none      | Network reachability of the DNS server (UDP 53 by default) | note 2 |
+| macOS    | System resolver (`getaddrinfo` via the asio resolver)                                    | A/AAAA lookups without `server=`                           | none      |                                                            |        |
+| macOS    | DNS query over UDP to `server=`, else the first `nameserver` in `/etc/resolv.conf`       | other record types, and any lookup with an explicit server | none      | Network reachability of the DNS server (UDP 53 by default) | note 2 |
+
+1. No default nameserver is discovered on Windows: the fallback reads `/etc/resolv.conf`, which does not exist there. *Without it:* A non-A/AAAA query without `server=` fails with "No DNS server configured; specify one with server=&lt;ip&gt;".
+2. *Without it:* "No DNS server configured; specify one with server=&lt;ip&gt;" when neither is available.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_dns_options"></a>
@@ -797,6 +842,7 @@ requests on every invocation and does not cache responses or retry rate limits.
 **Jump to section:**
 
 * [Sample Commands](#check_domain_samples)
+* [Data sources and privileges](#check_domain_sources)
 * [Command-line Arguments](#check_domain_options)
 * [Filter keywords](#check_domain_filter_keys)
 
@@ -853,6 +899,17 @@ nscp client --module CheckNet --boot --query check_domain domain=https://example
 Domain lookup failed: Invalid domain name; use ASCII or punycode
 ```
 
+
+
+<a id="check_domain_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                     | Provides                                        | Privilege | Requires                                                                                                                                  |
+|------------------------------------------------------------------------------------------------------------|-------------------------------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| RDAP over HTTPS (default `https://rdap.org/domain/{domain}`, following redirects and one registrar record) | expiration, expiration_type, expires_in, source | none      | HTTPS access to the RDAP service<br>OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca=` overrides) |
+| WHOIS over TCP to `whois-server` (port 43), only with `whois-fallback=true`                                | expiration when RDAP fails or has none          | none      | Network reachability of the WHOIS server                                                                                                  |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_domain_options"></a>
@@ -1028,6 +1085,15 @@ This turns a health endpoint into a real check rather than a 200-or-not probe:
 check_http url=https://api.example.com/health json-path=qlen:data.queue.length "crit=qlen > 100" "detail-syntax=${url} ${result} qlen=${qlen}"
 ```
 
+Numbers (and booleans, as `1`/`0`) compare as decimals, so `qlen > 100` is
+true for `100.5`, and each numeric alias is graphed as `<alias>_<url>`. A JSON
+string compares as text (`"crit=status != 'ok'"`); arrays and objects are their
+serialized JSON, for `like` and `regexp`. A path that is missing, holds `null`
+or holds no number has no value: it matches no numeric comparison - not even
+`qlen < 5` - and emits no metric. When the path is missing or `null` (or the
+body is not JSON) it renders as `missing`, so `"crit=qlen = 'missing'"` catches
+a field that has disappeared.
+
 ##### Certificate identity and required names
 
 Beyond `ssl_expiry_days`, an https check reports who the certificate is for and
@@ -1072,6 +1138,7 @@ its own — only a successful request under the default `verify=peer` is that.
 **Jump to section:**
 
 * [Sample Commands](#check_http_samples)
+* [Data sources and privileges](#check_http_sources)
 * [Command-line Arguments](#check_http_options)
 * [Filter keywords](#check_http_filter_keys)
 
@@ -1243,6 +1310,16 @@ check_http url=https://internal.example.com verify=none "detail-syntax=${url} ${
 OK: https://internal.example.com ok verify=unable to get local issuer certificate
 ```
 
+
+
+<a id="check_http_sources"></a>
+#### Data sources and privileges
+
+| Source                       | Provides                                                                  | Privilege | Requires                                                                                                                                    |
+|------------------------------|---------------------------------------------------------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| HTTP/HTTPS request to `url=` | status code, response time, size, body/JSON content, certificate keywords | none      | Network reachability of the target<br>OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca=` overrides) |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_http_options"></a>
@@ -1486,6 +1563,7 @@ than a live gauge.
 **Jump to section:**
 
 * [Sample Commands](#check_nginx_status_samples)
+* [Data sources and privileges](#check_nginx_status_sources)
 * [Command-line Arguments](#check_nginx_status_options)
 * [Filter keywords](#check_nginx_status_filter_keys)
 
@@ -1521,6 +1599,16 @@ check_nginx_status url=http://127.0.0.1:81/nginx_status
 CRITICAL: error: Failed to connect to 127.0.0.1:81: No connection could be made because the target machine actively refused it: 0 active (0 reading, 0 writing, 0 waiting)|'127.0.0.1_active'=0;0;0
 ```
 
+
+
+<a id="check_nginx_status_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                           | Provides                                                      | Privilege | Requires                                                             |
+|----------------------------------------------------------------------------------|---------------------------------------------------------------|-----------|----------------------------------------------------------------------|
+| HTTP GET of the NGINX stub_status page (default `http://127.0.0.1/nginx_status`) | active, reading, writing, waiting, accepts, handled, requests | none      | NGINX `stub_status` location configured and reachable from the agent |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_nginx_status_options"></a>
@@ -1695,6 +1783,7 @@ unauthenticated; it now has to be asked for explicitly.
 **Jump to section:**
 
 * [Sample Commands](#check_nsclient_web_online_samples)
+* [Data sources and privileges](#check_nsclient_web_online_sources)
 
 
 <a id="check_nsclient_web_online_samples"></a>
@@ -1742,6 +1831,16 @@ check_nsclient_web_online url=https://192.168.56.10:9999 password=secret
 CRITICAL: Failed to reach https://192.168.56.10:9999: Connection refused
 ```
 
+
+
+<a id="check_nsclient_web_online_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                          | Provides                                   | Privilege | Requires                                                                                                                                                                                                                    |
+|-----------------------------------------------------------------------------------------------------------------|--------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| HTTPS request to a remote NSClient++ REST API (`/api/v1/info`, or `/api/v1/queries/<command>/commands/execute`) | reachability, or the remote check's result | none      | Remote NSClient++ with the web server enabled and reachable<br>The remote agent's API password or user credentials<br>OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca=` overrides) |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 
@@ -1825,6 +1924,7 @@ WARNING: offset=35ms jitter=70ms|'ntp.example.com_jitter'=70ms;50;200
 **Jump to section:**
 
 * [Sample Commands](#check_ntp_offset_samples)
+* [Data sources and privileges](#check_ntp_offset_sources)
 * [Command-line Arguments](#check_ntp_offset_options)
 * [Filter keywords](#check_ntp_offset_filter_keys)
 
@@ -1902,6 +2002,16 @@ check_ntp_offset server=ntp.example.com "top-syntax=${list}" "detail-syntax=${se
 OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
 ```
 
+
+
+<a id="check_ntp_offset_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                             | Provides                                                   | Privilege | Requires                                                    |
+|------------------------------------------------------------------------------------|------------------------------------------------------------|-----------|-------------------------------------------------------------|
+| SNTP query over UDP to `server=` (default port 123), compared with the local clock | offset, stratum, jitter, root_delay, root_dispersion, time | none      | Network reachability of the NTP server (UDP 123 by default) |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_ntp_offset_options"></a>
@@ -2029,6 +2139,7 @@ stays raised until the counter resets on reload.
 **Jump to section:**
 
 * [Sample Commands](#check_phpfpm_status_samples)
+* [Data sources and privileges](#check_phpfpm_status_sources)
 * [Command-line Arguments](#check_phpfpm_status_options)
 * [Filter keywords](#check_phpfpm_status_filter_keys)
 
@@ -2064,6 +2175,16 @@ check_phpfpm_status url=http://127.0.0.1/status
 CRITICAL: http_404: pool : 0 active, 0 idle, 0 queued|'_active_processes'=0;0;0 '_idle_processes'=0;0;0 '_listen_queue'=0;0;0
 ```
 
+
+
+<a id="check_phpfpm_status_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                       | Provides                        | Privilege | Requires                                                          |
+|------------------------------------------------------------------------------|---------------------------------|-----------|-------------------------------------------------------------------|
+| HTTP GET of the PHP-FPM pool status page (default `http://127.0.0.1/status`) | pool process and queue keywords | none      | `pm.status_path` enabled in the pool and routed by the web server |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_phpfpm_status_options"></a>
@@ -2297,6 +2418,7 @@ outside it is rejected with a message rather than being silently clamped.
 **Jump to section:**
 
 * [Sample Commands](#check_ping_samples)
+* [Data sources and privileges](#check_ping_sources)
 * [Command-line Arguments](#check_ping_options)
 * [Filter keywords](#check_ping_filter_keys)
 
@@ -2377,6 +2499,18 @@ check_ping host=192.168.56.10 size=99999
 Invalid size: 99999 (expected 0-65507)
 ```
 
+
+
+<a id="check_ping_sources"></a>
+#### Data sources and privileges
+
+| Source                                                         | Provides                | Privilege | Requires                                                                | Notes  |
+|----------------------------------------------------------------|-------------------------|-----------|-------------------------------------------------------------------------|--------|
+| ICMP / ICMPv6 echo over a raw socket (`boost::asio::ip::icmp`) | loss, time, jitter, ttl | elevated  | Name resolution of the host<br>ICMP echo allowed between agent and host | note 1 |
+
+1. Administrator or LocalSystem on Windows; root or `CAP_NET_RAW` on Linux (the socket is `SOCK_RAW`, so `net.ipv4.ping_group_range` does not help); root on macOS.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_ping_options"></a>
@@ -2562,6 +2696,7 @@ Protocol references: [RFC 2865](https://www.rfc-editor.org/rfc/rfc2865),
 **Jump to section:**
 
 * [Sample Commands](#check_radius_samples)
+* [Data sources and privileges](#check_radius_sources)
 * [Command-line Arguments](#check_radius_options)
 * [Filter keywords](#check_radius_filter_keys)
 
@@ -2600,6 +2735,19 @@ Use `mode=status` only with a server that supports Status-Server and returns bot
 authenticators. `port=1813` selects the usual accounting endpoint for that mode;
 it does not send Accounting-Start/Stop records.
 
+
+
+<a id="check_radius_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                        | Provides                        | Privilege   | Requires                                                                                                    | Notes  |
+|-------------------------------------------------------------------------------|---------------------------------|-------------|-------------------------------------------------------------------------------------------------------------|--------|
+| RADIUS Status-Server or Access-Request over UDP to `host` (default port 1812) | result, reply, time             | none        | Network reachability of the RADIUS server<br>The agent registered as a RADIUS client with the shared secret |        |
+| `secret-file` and `password-file` on local disk                               | shared secret and test password | conditional |                                                                                                             | note 1 |
+
+1. The agent's account must be able to read both files.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_radius_options"></a>
@@ -2770,6 +2918,7 @@ speaks 2.0 *and* still accepts the insecure SSHv1, which is exactly what
 **Jump to section:**
 
 * [Sample Commands](#check_ssh_samples)
+* [Data sources and privileges](#check_ssh_sources)
 * [Command-line Arguments](#check_ssh_options)
 * [Filter keywords](#check_ssh_filter_keys)
 
@@ -2848,6 +2997,16 @@ check_nscp_client --host 192.168.56.103 --command check_ssh --argument "host=192
 OK: 192.168.56.10:22 ok in 2ms
 ```
 
+
+
+<a id="check_ssh_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                            | Provides                                           | Privilege | Requires                           |
+|-----------------------------------------------------------------------------------|----------------------------------------------------|-----------|------------------------------------|
+| TCP connection to `host:port` (default 22), reading the SSH identification banner | banner, protocol, software, software_version, time | none      | Network reachability of the target |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_ssh_options"></a>
@@ -3255,6 +3414,7 @@ check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/cert
 **Jump to section:**
 
 * [Sample Commands](#check_tcp_samples)
+* [Data sources and privileges](#check_tcp_sources)
 * [Command-line Arguments](#check_tcp_options)
 * [Filter keywords](#check_tcp_filter_keys)
 
@@ -3509,6 +3669,16 @@ OK: 192.168.56.1:22 ok in 2ms|'192.168.56.1_22'=2ms;1000;5000
 
 
 
+<a id="check_tcp_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                      | Provides                                     | Privilege | Requires                                                                                                                                    |
+|-----------------------------------------------------------------------------|----------------------------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| TCP connection to `host:port`, optionally TLS or STARTTLS, then send/expect | connect time, response, certificate keywords | none      | Network reachability of the target<br>OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca=` overrides) |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="check_tcp_options"></a>
 #### Command-line Arguments
 
@@ -3679,6 +3849,7 @@ The JVM heap keywords repeat on every connector record, so combine them with a
 **Jump to section:**
 
 * [Sample Commands](#check_tomcat_status_samples)
+* [Data sources and privileges](#check_tomcat_status_sources)
 * [Command-line Arguments](#check_tomcat_status_options)
 * [Filter keywords](#check_tomcat_status_filter_keys)
 
@@ -3721,6 +3892,16 @@ check_tomcat_status url=http://127.0.0.1:8080/manager/status
 CRITICAL:  http_401: 0/0 threads busy|'_thread_usage'=0%;75;90 '_threads_busy'=0;0;0
 ```
 
+
+
+<a id="check_tomcat_status_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                           | Provides                                          | Privilege | Requires                                                                                            |
+|--------------------------------------------------------------------------------------------------|---------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------|
+| HTTP GET of the Tomcat manager status page, XML (default `http://127.0.0.1:8080/manager/status`) | JVM memory, connector thread and request keywords | none      | Tomcat manager application deployed<br>An account with the `manager-status` (or `manager-gui`) role |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_tomcat_status_options"></a>

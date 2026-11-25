@@ -59,6 +59,7 @@ server with the service account, so anything non-local is refused outright.
 **Jump to section:**
 
 * [Sample Commands](#check_docker_samples)
+* [Data sources and privileges](#check_docker_sources)
 * [Command-line Arguments](#check_docker_options)
 * [Filter keywords](#check_docker_filter_keys)
 
@@ -113,6 +114,22 @@ check_docker host=/var/run/missing.sock
 Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect to /var/run/missing.sock: No such file or directory
 ```
 
+
+
+<a id="check_docker_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                           | Provides                                    | Privilege   | Requires                                                                                                             | Notes  |
+|----------|----------------------------------------------------------------------------------|---------------------------------------------|-------------|----------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Docker Engine API `GET /containers/json` (`?all=true` with `all` or `container`) | container name, image, state, status/health | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 1 |
+| Linux    | Docker Engine API `GET /containers/json` (`?all=true` with `all` or `container`) | container name, image, state, status/health | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 2 |
+| macOS    | Docker Engine API `GET /containers/json` (`?all=true` with `all` or `container`) | container name, image, state, status/health | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 3 |
+
+1. Talks to the local named pipe `\\.\pipe\docker_engine` (or the `endpoint` setting). The agent needs access to that pipe, which a default Docker Engine install grants to Administrators/SYSTEM; an agent running as a less privileged account needs to be granted access (e.g. Docker Desktop's `docker-users` group). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+2. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or membership in the group that owns it (`docker` on a standard install; a rootless or podman socket belongs to its user). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+3. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or the socket owner's account. *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_docker_options"></a>
@@ -305,6 +322,7 @@ responding daemon is OK until you add limits.
 **Jump to section:**
 
 * [Sample Commands](#check_docker_df_samples)
+* [Data sources and privileges](#check_docker_df_sources)
 * [Command-line Arguments](#check_docker_df_options)
 * [Filter keywords](#check_docker_df_filter_keys)
 
@@ -340,6 +358,22 @@ check_docker_df "warning=build_cache_size > 20G" "detail-syntax=build cache %(bu
 OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752766549B;21474836480;0
 ```
 
+
+
+<a id="check_docker_df_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                             | Provides                                                                        | Privilege   | Requires                                                                                                             | Notes  |
+|----------|------------------------------------|---------------------------------------------------------------------------------|-------------|----------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Docker Engine API `GET /system/df` | disk usage and reclaimable space of images, containers, volumes and build cache | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 1 |
+| Linux    | Docker Engine API `GET /system/df` | disk usage and reclaimable space of images, containers, volumes and build cache | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 2 |
+| macOS    | Docker Engine API `GET /system/df` | disk usage and reclaimable space of images, containers, volumes and build cache | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 3 |
+
+1. Talks to the local named pipe `\\.\pipe\docker_engine` (or the `endpoint` setting). The agent needs access to that pipe, which a default Docker Engine install grants to Administrators/SYSTEM; an agent running as a less privileged account needs to be granted access (e.g. Docker Desktop's `docker-users` group). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+2. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or membership in the group that owns it (`docker` on a standard install; a rootless or podman socket belongs to its user). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+3. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or the socket owner's account. *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_docker_df_options"></a>
@@ -506,6 +540,7 @@ Count keywords used in thresholds are emitted as performance data.
 **Jump to section:**
 
 * [Sample Commands](#check_docker_info_samples)
+* [Data sources and privileges](#check_docker_info_sources)
 * [Command-line Arguments](#check_docker_info_options)
 * [Filter keywords](#check_docker_info_filter_keys)
 
@@ -534,6 +569,22 @@ check_docker_info host=/var/run/missing.sock
 Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect to /var/run/missing.sock: No such file or directory
 ```
 
+
+
+<a id="check_docker_info_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                        | Provides                                                                      | Privilege   | Requires                                                                                                             | Notes  |
+|----------|-------------------------------|-------------------------------------------------------------------------------|-------------|----------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Docker Engine API `GET /info` | daemon name and version, running/paused/stopped container counts, image count | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 1 |
+| Linux    | Docker Engine API `GET /info` | daemon name and version, running/paused/stopped container counts, image count | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 2 |
+| macOS    | Docker Engine API `GET /info` | daemon name and version, running/paused/stopped container counts, image count | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 3 |
+
+1. Talks to the local named pipe `\\.\pipe\docker_engine` (or the `endpoint` setting). The agent needs access to that pipe, which a default Docker Engine install grants to Administrators/SYSTEM; an agent running as a less privileged account needs to be granted access (e.g. Docker Desktop's `docker-users` group). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+2. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or membership in the group that owns it (`docker` on a standard install; a rootless or podman socket belongs to its user). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+3. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or the socket owner's account. *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_docker_info_options"></a>
@@ -699,6 +750,7 @@ why the default warning also requires a recent start before it fires.
 **Jump to section:**
 
 * [Sample Commands](#check_docker_restarts_samples)
+* [Data sources and privileges](#check_docker_restarts_sources)
 * [Command-line Arguments](#check_docker_restarts_options)
 * [Filter keywords](#check_docker_restarts_filter_keys)
 
@@ -734,6 +786,22 @@ check_docker_restarts container=app-backend "warning=restart_count > 0 and start
 OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 ```
 
+
+
+<a id="check_docker_restarts_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                      | Provides                              | Privilege   | Requires                                                                                                             | Notes  |
+|----------|-------------------------------------------------------------------------------------------------------------|---------------------------------------|-------------|----------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Docker Engine API `GET /containers/json?all=true`, then `GET /containers/{id}/json` (inspect) per container | restart count, OOM-killed flag, state | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 1 |
+| Linux    | Docker Engine API `GET /containers/json?all=true`, then `GET /containers/{id}/json` (inspect) per container | restart count, OOM-killed flag, state | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 2 |
+| macOS    | Docker Engine API `GET /containers/json?all=true`, then `GET /containers/{id}/json` (inspect) per container | restart count, OOM-killed flag, state | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 3 |
+
+1. Talks to the local named pipe `\\.\pipe\docker_engine` (or the `endpoint` setting). The agent needs access to that pipe, which a default Docker Engine install grants to Administrators/SYSTEM; an agent running as a less privileged account needs to be granted access (e.g. Docker Desktop's `docker-users` group). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+2. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or membership in the group that owns it (`docker` on a standard install; a rootless or podman socket belongs to its user). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+3. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or the socket owner's account. *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_docker_restarts_options"></a>
@@ -904,6 +972,7 @@ otherwise.
 **Jump to section:**
 
 * [Sample Commands](#check_docker_stats_samples)
+* [Data sources and privileges](#check_docker_stats_sources)
 * [Command-line Arguments](#check_docker_stats_options)
 * [Filter keywords](#check_docker_stats_filter_keys)
 
@@ -939,6 +1008,22 @@ check_docker_stats "warning=cpu_pct > 80"
 OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, memory 45.2MB of 256MB (17%)
 ```
 
+
+
+<a id="check_docker_stats_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                         | Provides                                      | Privilege   | Requires                                                                                                             | Notes  |
+|----------|----------------------------------------------------------------------------------------------------------------|-----------------------------------------------|-------------|----------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Docker Engine API `GET /containers/json`, then `GET /containers/{id}/stats?stream=false` per running container | cpu_pct, memory usage and limit per container | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 1 |
+| Linux    | Docker Engine API `GET /containers/json`, then `GET /containers/{id}/stats?stream=false` per running container | cpu_pct, memory usage and limit per container | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 2 |
+| macOS    | Docker Engine API `GET /containers/json`, then `GET /containers/{id}/stats?stream=false` per running container | cpu_pct, memory usage and limit per container | conditional | A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host | note 3 |
+
+1. Talks to the local named pipe `\\.\pipe\docker_engine` (or the `endpoint` setting). The agent needs access to that pipe, which a default Docker Engine install grants to Administrators/SYSTEM; an agent running as a less privileged account needs to be granted access (e.g. Docker Desktop's `docker-users` group). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+2. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or membership in the group that owns it (`docker` on a standard install; a rootless or podman socket belongs to its user). *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+3. Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or the socket owner's account. *Without it:* Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at '<endpoint>': ...`; a non-2xx reply is UNKNOWN `docker daemon at '<endpoint>' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_docker_stats_options"></a>

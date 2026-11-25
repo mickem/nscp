@@ -1,0 +1,9 @@
+windows:
+  - source: 'WMI `root\virtualization\v2`: `Msvm_VirtualEthernetSwitch`, `Msvm_EthernetPortAllocationSettingData`, `Msvm_EthernetSwitchPort`'
+    provides: switch, type (external / internal / private, from what its ports connect to), management_os, state, health, ports
+    privilege: elevated
+    note: The virtualization namespace is meant for local Administrators or Hyper-V Administrators; LocalSystem qualifies.
+    requires:
+      - Hyper-V role (provides the namespace)
+      - Hyper-V Virtual Machine Management service (vmms) running
+    without: 'Without the role: UNKNOWN "Hyper-V virtual switch information not available: the Hyper-V role is not installed on this host (root\virtualization\v2 missing)"; with vmms stopped the message points at the service; any other WMI error is UNKNOWN "Failed to query Hyper-V virtual switches: ..."'

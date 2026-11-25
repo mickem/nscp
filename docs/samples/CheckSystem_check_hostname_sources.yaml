@@ -1,0 +1,27 @@
+windows:
+  - source: '`GetComputerNameExW` (NetBIOS, DNS hostname, DNS domain, fully qualified)'
+    provides: hostname, dns_hostname, domain, fqdn, fqdn_consistent, netbios_matches_dns
+    privilege: none
+  - source: '`NetGetJoinInformation`'
+    provides: join, join_name
+    privilege: none
+linux:
+  - source: '`gethostname()`'
+    provides: hostname
+    privilege: none
+    without: 'UNKNOWN "Failed to read hostname (gethostname failed)"'
+  - source: '`getaddrinfo(AI_CANONNAME)`'
+    provides: fqdn, domain, fqdn_consistent
+    privilege: none
+    requires:
+      - a resolver that knows this host (DNS or `/etc/hosts`) for a real FQDN
+    without: An unresolvable host gets its bare hostname as the FQDN, treated as consistent
+macos:
+  - source: '`gethostname()`'
+    provides: hostname
+    privilege: none
+    without: 'UNKNOWN "Failed to read hostname (gethostname failed)"'
+  - source: '`getaddrinfo(AI_CANONNAME)`'
+    provides: fqdn, domain, fqdn_consistent
+    privilege: none
+    without: An unresolvable host gets its bare hostname as the FQDN, treated as consistent

@@ -1,0 +1,6 @@
+windows:
+  - source: 'WMI `root\cimv2` `Win32_TSLicenseKeyPack`'
+    provides: 'one row per key pack: id, description (TypeAndModel), product version, key pack type, total_licenses, issued, available'
+    requires:
+      - Remote Desktop Licensing role (the class only exists on an RD licensing server)
+    without: 'UNKNOWN "Remote Desktop licensing information not available: the Remote Desktop licensing role is not installed (Win32_TSLicenseKeyPack missing)"; any other WMI error is UNKNOWN "Failed to query Win32_TSLicenseKeyPack: ..."'

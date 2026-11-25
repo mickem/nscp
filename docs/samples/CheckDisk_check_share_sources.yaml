@@ -1,0 +1,6 @@
+windows:
+- source: WMI `Win32_Share` (`root\CIMV2`)
+  provides: name, path, description, type, exists
+  without: 'WMI errors are swallowed: no shares are listed, so every `share=` is reported missing.'
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service

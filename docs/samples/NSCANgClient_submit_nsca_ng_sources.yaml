@@ -1,0 +1,9 @@
+all:
+- source: Remote NSCA-ng server, `MOIN`/`PUSH` of `PROCESS_HOST_CHECK_RESULT` / `PROCESS_SERVICE_CHECK_RESULT` commands over TLS-PSK (default port 5668)
+  provides: passive host/service check results
+  privilege: none
+  note: PSK identity defaults to the sender host name. With `use psk = false` the server certificate is verified instead, and an unverified connection needs `insecure`.
+  requires:
+  - OpenSSL with TLS 1.2 PSK cipher suites (the module is not built without OpenSSL)
+  - An NSCA-ng server reachable on `host`/`port`
+  - A PSK `identity` and `password` authorised on the server

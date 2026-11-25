@@ -61,6 +61,7 @@ one per check.
 **Jump to section:**
 
 * [Sample Commands](#submit_nrdp_samples)
+* [Data sources and privileges](#submit_nrdp_sources)
 * [Command-line Arguments](#submit_nrdp_options)
 
 
@@ -129,6 +130,18 @@ the clear. `verify mode` defaults to `peer` and `tls version` to 1.3; point `ca`
 at the bundle that signs the endpoint's certificate rather than turning
 verification off.
 
+
+
+<a id="submit_nrdp_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                        | Provides                           | Privilege | Requires                                                                                                                                       | Notes  |
+|---------------------------------------------------------------------------------------------------------------|------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NRDP server, HTTP(S) `POST` of `cmd=submitcheck`, `token` and `XMLDATA` (default path `/nrdp/server/`) | passive host/service check results | none      | TinyXML2 (the module is not built without it)<br>An NRDP server reachable from the agent<br>The NRDP security `token` configured on the server | note 1 |
+
+1. Port defaults to 443 for https and 80 for http; an https target verifies the server (`verify mode` defaults to `peer`; turning it off is only logged as a warning). Where the target carries configured credentials, the request may not change its address, proxy or transport security unless the target sets `allow host override = true`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_nrdp_options"></a>

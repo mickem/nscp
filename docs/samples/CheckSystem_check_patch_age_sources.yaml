@@ -1,0 +1,7 @@
+windows:
+  - source: 'WMI `root\CIMV2` `Win32_QuickFixEngineering` (`HotFixID`, `InstalledOn`, `Description`)'
+    provides: every keyword, and the hotfix= presence test
+    note: Read when the check runs. `InstalledOn` is parsed from the class's date string.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+    without: 'UNKNOWN "Failed to enumerate installed hotfixes: ..."'

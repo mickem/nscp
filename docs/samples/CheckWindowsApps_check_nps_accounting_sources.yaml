@@ -1,0 +1,22 @@
+windows:
+  - source: 'Service Control Manager: the `IAS` service (`OpenServiceW` with `SERVICE_QUERY_STATUS`)'
+    provides: presence check for the NPS role
+    requires:
+      - Network Policy Server role (IAS service installed)
+    without: 'UNKNOWN "NPS accounting data unavailable: NPS role is not installed (IAS service missing)"'
+  - source: '`AuditQuerySystemPolicy` for the Network Policy Server audit subcategory'
+    provides: check that NPS failure auditing is enabled
+    privilege: elevated
+    note: 'Querying system audit policy needs SeSecurityPrivilege (Administrators, LocalSystem) or AUDIT_QUERY_SYSTEM_POLICY access.'
+    requires:
+      - Network Policy Server failure auditing enabled (local or group policy)
+    without: 'UNKNOWN "NPS accounting data unavailable: Cannot read NPS audit policy: ..." or "... NPS failure auditing is disabled"'
+  - source: 'Security event log via `EvtQuery` (Microsoft-Windows-Security-Auditing event 6275)'
+    provides: accounting_discards
+    privilege: elevated
+    note: 'Reading the Security log is limited by default to Administrators, LocalSystem and members of Event Log Readers. Shares the max-events limit and 15-second deadline of check_nps_auth.'
+    without: 'UNKNOWN "NPS accounting data unavailable: Cannot query NPS Security events: ..."'
+  - source: 'The accounting log file named by log-file= (existence, size and last-write time via the filesystem)'
+    provides: log_state, log_size, log_age
+    note: 'Optional; without log-file= log_state is not_checked and size/age are unknown. The file is only stat-ed, never opened.'
+    without: 'A missing file sets log_state = missing (critical by default); a filesystem error is UNKNOWN "NPS accounting data unavailable: ..."'
