@@ -5,25 +5,22 @@
 // comes from. Writing goes to the server's own path (allowedHostsChange): a
 // change made on one server's page must not open every other server.
 import { Settings } from "../../api/api.ts";
-import { readStored, SettingChange } from "./changes.ts";
+import {
+  DEFAULT_SECTION,
+  Inherited,
+  inheritedChange,
+  readInherited,
+  SettingChange,
+} from "./changes.ts";
 
-export const DEFAULT_SECTION = "/settings/default";
+export { DEFAULT_SECTION };
 export const ALLOWED_HOSTS_DEFAULT = "127.0.0.1";
 const KEY = "allowed hosts";
 
-export interface AllowedHosts {
-  value: string;
-  // Where the value in effect comes from: the server's own path, the shared
-  // default section, or the agent's built-in default.
-  source: "own" | "default section" | "built-in";
-}
+export type AllowedHosts = Inherited;
 
 export function readAllowedHosts(stored: Settings[] | undefined, path: string): AllowedHosts {
-  const own = readStored(stored, path, KEY);
-  if (own !== undefined) return { value: own, source: "own" };
-  const shared = readStored(stored, DEFAULT_SECTION, KEY);
-  if (shared !== undefined) return { value: shared, source: "default section" };
-  return { value: ALLOWED_HOSTS_DEFAULT, source: "built-in" };
+  return readInherited(stored, path, KEY, ALLOWED_HOSTS_DEFAULT);
 }
 
 export function allowedHostsChange(
@@ -31,14 +28,7 @@ export function allowedHostsChange(
   path: string,
   value: string,
 ): SettingChange {
-  // Unchanged from what is in effect: nothing to write, wherever it came from.
-  const current = readAllowedHosts(stored, path);
-  return {
-    path,
-    key: KEY,
-    value: value.trim(),
-    defaultValue: current.source === "own" ? undefined : current.value,
-  };
+  return inheritedChange(stored, path, KEY, value.trim(), ALLOWED_HOSTS_DEFAULT);
 }
 
 // Entries that let any host in.

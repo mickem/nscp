@@ -82,34 +82,34 @@ export default function ModuleSettings({
     });
   }, [collectionPaths, allDescriptions, expert]);
 
-  // Drop collection-related entries from the flat list so they don't render
-  // twice, and the keys the module's panel edits (outside expert mode).
+  // Drop collection-related entries from the flat list so they don't render twice.
   const flatSettings = useMemo(() => {
     const kvSet = new Set(kvPaths);
     const prefixes = collectionPaths.map((p) => p + "/");
-    const handled = expert ? undefined : page?.handledKeys;
     return settings.filter(
       (s) =>
         !collectionPaths.includes(s.path) &&
         !prefixes.some((p) => s.path.startsWith(p)) &&
-        !kvSet.has(s.path) &&
-        !handled?.[s.path]?.includes(s.key),
+        !kvSet.has(s.path),
     );
-  }, [settings, collectionPaths, kvPaths, expert, page]);
+  }, [settings, collectionPaths, kvPaths]);
 
   // Only entries with a real key produce a visible row in SettingsList;
   // section-header entries (key === "") alone would render an empty card.
   const hasFlatKeys = flatSettings.some((s) => s.key !== "");
 
   const Panel = expert ? undefined : page?.Panel;
+  // A module's own page is the whole page outside expert mode: it covers every
+  // key of its sections, and listing them again below it would edit each in
+  // two places.
+  if (Panel) return <Panel onExpertMode={onExpertMode} />;
 
-  if (!Panel && !hasFlatKeys && visibleCollectionPaths.length === 0 && kvPaths.length === 0) {
+  if (!hasFlatKeys && visibleCollectionPaths.length === 0 && kvPaths.length === 0) {
     return null;
   }
 
   return (
     <Stack spacing={3}>
-      {Panel && <Panel onExpertMode={onExpertMode} />}
       {hasFlatKeys && <SettingsList settings={flatSettings} flat />}
       {visibleCollectionPaths.map((path) => (
         <SettingsCollection

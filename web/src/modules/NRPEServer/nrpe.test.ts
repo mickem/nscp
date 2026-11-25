@@ -12,6 +12,9 @@ import {
   EXTERNAL_SCRIPTS_PATH,
   INSECURE_CIPHERS,
   NRPE_PATH,
+  fieldChange,
+  identityProblem,
+  readField,
   readTlsFiles,
   SecurityMode,
   securityChanges,
@@ -161,5 +164,49 @@ describe("NRPE arguments", () => {
   it("leaves the scripts flag alone when switching arguments off", () => {
     // It also decides what REST and NSCP callers may pass to scripts.
     expect(argumentsChanges("none").map((c) => c.path)).toEqual([NRPE_PATH]);
+  });
+});
+
+describe("NRPE single-value fields", () => {
+  const shared = (key: string, value: string): Settings => ({
+    path: "/settings/default",
+    key,
+    value,
+  });
+
+  it("reads a key from NRPE's own section, then the shared one, then the default", () => {
+    expect(readField([], "timeout")).toEqual({ value: "30", source: "built-in" });
+    expect(readField([shared("timeout", "60")], "timeout")).toEqual({
+      value: "60",
+      source: "default section",
+    });
+    expect(readField([shared("timeout", "60"), nrpe("timeout", "10")], "timeout")).toEqual({
+      value: "10",
+      source: "own",
+    });
+    // Not every key inherits: the payload length is NRPE's own.
+    expect(readField([shared("payload length", "4096")], "payload length").value).toBe("1024");
+  });
+
+  it("follows the extended-response default that depends on the insecure flag", () => {
+    expect(readField([], "extended response").value).toBe("true");
+    expect(readField([nrpe("insecure", "true")], "extended response").value).toBe("false");
+  });
+
+  it("writes only a value that differs from the one in effect, and only to NRPE", () => {
+    const stored = [shared("timeout", "60")];
+    expect(pendingChanges(stored, [fieldChange(stored, "timeout", "60")])).toEqual([]);
+    expect(pendingChanges(stored, [fieldChange(stored, "timeout", "20")])).toEqual([
+      { path: NRPE_PATH, key: "timeout", value: "20", defaultValue: "60" },
+    ]);
+  });
+
+  it("refuses a client identity from the certificate without two-way TLS", () => {
+    expect(identityProblem("two-way-tls", "cn")).toBeNull();
+    expect(identityProblem("one-way-tls", "cn")).toMatch(/two-way TLS/);
+    expect(identityProblem("insecure", "none")).toBeNull();
+    expect(identityProblem("one-way-tls", "dn")).toMatch(/not one the agent knows/);
+    // A configuration the page does not recognise is the reader's to judge.
+    expect(identityProblem(CUSTOM, "cn")).toBeNull();
   });
 });

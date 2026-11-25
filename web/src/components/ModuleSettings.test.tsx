@@ -64,12 +64,19 @@ describe("ModuleSettings", () => {
     expect(screen.getByText("Cpu above 80%")).toBeInTheDocument();
   });
 
-  it("renders the wizard a module page declares", async () => {
-    serve([]);
-    renderWithProviders(<ModuleSettings settings={[]} moduleId="NRPEServer" />, {
+  it("shows only the module's panel, not the generic list, outside expert mode", async () => {
+    const port = description({
+      path: "/settings/NRPE/server",
+      key: "port",
+      title: "PORT NUMBER",
+      plugins: ["NRPEServer"],
+    });
+    serve([port]);
+    renderWithProviders(<ModuleSettings settings={[port]} moduleId="NRPEServer" />, {
       preloadedState: authenticatedState,
     });
     expect(await screen.findByText(/insecure/i)).toBeInTheDocument();
+    expect(screen.queryByText("PORT NUMBER")).not.toBeInTheDocument();
   });
 
   it("hides a collection the module page declares superseded", async () => {
@@ -119,10 +126,22 @@ describe("ModuleSettings", () => {
           plugins: ["NRPEServer"],
         }),
       ]);
-      renderWithProviders(<ModuleSettings settings={[]} moduleId="NRPEServer" expert />, {
-        preloadedState: authenticatedState,
-      });
-      await new Promise((r) => setTimeout(r, 50));
+      renderWithProviders(
+        <ModuleSettings
+          settings={[
+            description({
+              path: "/settings/NRPE/server",
+              key: "port",
+              title: "PORT",
+              plugins: ["NRPEServer"],
+            }),
+          ]}
+          moduleId="NRPEServer"
+          expert
+        />,
+        { preloadedState: authenticatedState },
+      );
+      expect(await screen.findByText("PORT")).toBeInTheDocument();
       expect(screen.queryByText(/insecure/i)).not.toBeInTheDocument();
     });
 

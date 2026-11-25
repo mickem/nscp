@@ -1,7 +1,7 @@
 import type { ModulePage } from "../types.ts";
 import { ASIO_TLS_VERSION_OPTIONS } from "../shared/options.ts";
 import NrpePage from "./NrpePage.tsx";
-import { NRPE_PATH } from "./nrpe.ts";
+import { NRPE_EXPERT_ONLY_KEYS, NRPE_FIELDS, NRPE_PATH } from "./nrpe.ts";
 
 const NRPEServer: ModulePage = {
   id: "NRPEServer",
@@ -12,15 +12,16 @@ const NRPEServer: ModulePage = {
       "allowed hosts",
       "use ssl",
       "insecure",
-      "allowed ciphers",
       "certificate",
       "certificate key",
       "ca",
       "verify mode",
       "allow arguments",
       "allow nasty characters",
+      ...Object.keys(NRPE_FIELDS),
     ],
   },
+  expertOnlyKeys: { [NRPE_PATH]: NRPE_EXPERT_ONLY_KEYS },
   purpose: {
     tools: ["Nagios", "Icinga", "Naemon", "op5"],
     transport: "NRPE",

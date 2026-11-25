@@ -9,8 +9,11 @@ settings back into one of three security modes (two-way TLS, one-way TLS,
 insecure) and one of three argument policies, says plainly when the result is
 insecure, and lists the exact changes before saving them. A configuration that
 matches none of the modes is shown as *Custom* and left alone, with a link to
-expert mode; the old wizard rounded it to the nearest mode instead. Changes
-made on the page also differ from the old wizard in three ways:
+expert mode; the old wizard rounded it to the nearest mode instead. The page
+covers every NRPE setting (the rarely changed ones under *Advanced*), so the
+generic settings list no longer appears below it; expert mode still shows every
+key as the schema describes it. Changes made on the page also differ from the
+old wizard in three ways:
 
 - `allowed hosts` is written to `[/settings/NRPE/server]`, so it no longer
   changes `[/settings/default]` and every other server with it.

@@ -79,3 +79,51 @@ export function isEnabledValue(value: string | undefined): boolean {
   const v = (value ?? "").toLowerCase();
   return v === "enabled" || v === "true" || v === "1";
 }
+
+// Server modules read many keys from their own section first and fall back to
+// /settings/default (add_parent in the agent): bind to, allowed hosts, timeout,
+// thread pool, ...
+export const DEFAULT_SECTION = "/settings/default";
+
+export interface Inherited {
+  value: string;
+  // Where the value in effect comes from: the module's own path, the shared
+  // default section, or the agent's built-in default.
+  source: "own" | "default section" | "built-in";
+}
+
+export function readInherited(
+  stored: Settings[] | undefined,
+  path: string,
+  key: string,
+  builtIn: string,
+  inherits = true,
+): Inherited {
+  const own = readStored(stored, path, key);
+  if (own !== undefined) return { value: own, source: "own" };
+  if (inherits) {
+    const shared = readStored(stored, DEFAULT_SECTION, key);
+    if (shared !== undefined) return { value: shared, source: "default section" };
+  }
+  return { value: builtIn, source: "built-in" };
+}
+
+// A change to `key` on the module's own path. Writing the value already in
+// effect, wherever it comes from, changes nothing and is left out; a module's
+// page never writes the shared section.
+export function inheritedChange(
+  stored: Settings[] | undefined,
+  path: string,
+  key: string,
+  value: string,
+  builtIn: string,
+  inherits = true,
+): SettingChange {
+  const current = readInherited(stored, path, key, builtIn, inherits);
+  return {
+    path,
+    key,
+    value,
+    defaultValue: current.source === "own" ? undefined : current.value,
+  };
+}

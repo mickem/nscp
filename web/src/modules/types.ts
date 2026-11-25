@@ -125,12 +125,15 @@ export interface ModulePurpose {
 export interface ModulePage {
   // Module id as the backend reports it ("NRPEServer", "CheckSystemUnix").
   id: string;
-  // The tailored part of the page, rendered above the generic settings.
+  // The tailored page. When a module has one it is the whole page outside
+  // expert mode, so it must cover every key of its sections: the registry
+  // test holds `handledKeys` plus `expertOnlyKeys` to the reference docs.
   Panel?: ComponentType<ModulePanelProps>;
-  // Keys the panel edits, by exact section path. The generic list below the
-  // panel leaves them out so nothing is edited in two places; expert mode
-  // shows them as usual.
+  // Keys the panel edits, by exact section path.
   handledKeys?: Record<string, string[]>;
+  // Keys of those sections the panel leaves to expert mode on purpose, with
+  // the reason in the module's own code.
+  expertOnlyKeys?: Record<string, string[]>;
   purpose?: ModulePurpose;
   // Collections the module owns, keyed by exact collection path.
   collections?: Record<string, CollectionConfig>;

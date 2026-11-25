@@ -7,7 +7,14 @@
 // defaults that depend on `insecure`: with it on, the agent loads no server
 // certificate and uses SECLEVEL=0 ciphers unless they are set explicitly.
 import { Settings } from "../../api/api.ts";
-import { enableModuleChange, readStored, SettingChange } from "../kit/changes.ts";
+import {
+  enableModuleChange,
+  Inherited,
+  inheritedChange,
+  readInherited,
+  readStored,
+  SettingChange,
+} from "../kit/changes.ts";
 import { CUSTOM, Custom } from "../kit/modes.ts";
 import type { Risk } from "../kit/RiskBanner.tsx";
 import type { TlsFiles } from "../kit/TlsSection.tsx";
@@ -241,8 +248,98 @@ export function argumentsRisk(mode: ArgumentsMode, nasty: boolean): Risk | null 
   return null;
 }
 
+// The keys the page edits one value at a time. `inherits` marks the ones the
+// agent reads from [/settings/default] when NRPE's own section leaves them out
+// (add_core_server_opts, and `encoding`).
+export interface NrpeField {
+  builtIn: (stored: Settings[] | undefined) => string;
+  inherits?: boolean;
+}
+const fixed = (v: string) => () => v;
+export const NRPE_FIELDS: Record<string, NrpeField> = {
+  "bind to": { builtIn: fixed(""), inherits: true },
+  "cache allowed hosts": { builtIn: fixed("true"), inherits: true },
+  timeout: { builtIn: fixed("30"), inherits: true },
+  "thread pool": { builtIn: fixed("10"), inherits: true },
+  "socket queue size": { builtIn: fixed("0"), inherits: true },
+  encoding: { builtIn: fixed(""), inherits: true },
+  "client identity source": { builtIn: fixed("none") },
+  "expose version": { builtIn: fixed("true") },
+  "tls version": { builtIn: fixed("tlsv1.2+") },
+  "payload length": { builtIn: fixed("1024") },
+  // Legacy check_nrpe cannot read more than one packet, so insecure mode turns
+  // it off unless it is set.
+  "extended response": { builtIn: (stored) => (isInsecureFlag(stored) ? "false" : "true") },
+  "performance data": { builtIn: fixed("true") },
+  "certificate format": { builtIn: fixed("PEM") },
+  dh: { builtIn: fixed("${nrpe-dh}/nrpe_dh_2048.pem") },
+  "ssl options": { builtIn: fixed("") },
+  "debug verify": { builtIn: fixed("false") },
+};
+
+export function readField(stored: Settings[] | undefined, key: string): Inherited {
+  const field = NRPE_FIELDS[key];
+  return readInherited(stored, NRPE_PATH, key, field.builtIn(stored), field.inherits ?? false);
+}
+
+export function fieldChange(
+  stored: Settings[] | undefined,
+  key: string,
+  value: string,
+): SettingChange {
+  const field = NRPE_FIELDS[key];
+  return inheritedChange(
+    stored,
+    NRPE_PATH,
+    key,
+    value,
+    field.builtIn(stored),
+    field.inherits ?? false,
+  );
+}
+
+// `tls version`: one version, or that version and newer with a `+`.
+export const TLS_VERSIONS = [
+  "tlsv1.3",
+  "tlsv1.3+",
+  "tlsv1.2",
+  "tlsv1.2+",
+  "tlsv1.1",
+  "tlsv1.1+",
+  "tlsv1.0",
+  "tlsv1.0+",
+];
+
+export function tlsVersionRisk(version: string): Risk | null {
+  if (/^(tlsv1\.[01]|sslv3)/.test(version)) {
+    return {
+      severity: "warning",
+      title: "An outdated TLS version is allowed",
+      reason: `${version} lets clients negotiate a protocol older than TLS 1.2. Use tlsv1.2+ unless a client cannot.`,
+    };
+  }
+  return null;
+}
+
+// `client identity source = cn` takes the caller's identity from its client
+// certificate, so the agent refuses to start NRPE unless one is required and
+// verified (two-way TLS).
+export function identityProblem(mode: SecurityMode | Custom, identity: string): string | null {
+  if (identity === "none") return null;
+  if (identity !== "cn")
+    return `Client identity "${identity}" is not one the agent knows (none or cn).`;
+  if (mode !== "two-way-tls" && mode !== CUSTOM)
+    return "Client identity from the certificate (cn) needs two-way TLS; the agent refuses to start NRPE without it.";
+  return null;
+}
+
+// Keys of [/settings/NRPE/server] only expert mode edits: the security mode
+// owns them, and a value it does not write reads back as Custom.
+export const NRPE_EXPERT_ONLY_KEYS = ["allowed ciphers"];
+
 // Named recipes, for anything that sets NRPE up without rendering this page.
 export const NRPE_RECIPES = {
+  field: fieldChange,
   security: securityChanges,
   arguments: argumentsChanges,
   nastyCharacters: nastyCharactersChange,

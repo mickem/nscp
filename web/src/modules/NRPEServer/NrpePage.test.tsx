@@ -111,4 +111,33 @@ describe("NRPE page", () => {
       pending.getByText("[/settings/external scripts] allow arguments = true"),
     ).toBeInTheDocument();
   });
+
+  it("edits the remaining settings too, and says where a value comes from", async () => {
+    const writes = render([{ path: "/settings/default", key: "timeout", value: "60" }]);
+    await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
+    const timeout = screen.getByLabelText("Timeout (seconds)");
+    expect(timeout).toHaveValue("60");
+    expect(screen.getByText(/Inherited from \[\/settings\/default\]/)).toBeInTheDocument();
+
+    await userEvent.clear(timeout);
+    await userEvent.type(timeout, "15");
+    await userEvent.click(screen.getByText("Advanced"));
+    await userEvent.click(screen.getByRole("switch", { name: "Performance data" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(writes).toEqual([
+        `PUT [${NRPE_PATH}] timeout=15`,
+        `PUT [${NRPE_PATH}] performance data=false`,
+        "PUT [/modules] NRPEServer=enabled",
+      ]),
+    );
+  });
+
+  it("will not save a client identity from the certificate without two-way TLS", async () => {
+    render([nrpe("client identity source", "cn")]);
+    await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
+    await userEvent.type(screen.getByLabelText("Port"), "7");
+    expect(screen.getByText(/needs two-way TLS; the agent refuses/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
 });
