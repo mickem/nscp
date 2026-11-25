@@ -1,0 +1,17 @@
+windows:
+  - source: 'PDH counter sets `GPU Engine` (`Utilization Percentage`) and `GPU Adapter Memory`'
+    provides: utilization, busiest_engine, the per-engine-type keywords, dedicated_used, shared_used, committed
+    note: Read when the check runs; the engine load is two samples one second apart.
+    requires:
+      - Windows 10 1709 / Windows Server 2019 or later
+      - a WDDM display driver
+    without: 'UNKNOWN "GPU performance counters are not available ..." when the counter sets are missing'
+  - source: 'PDH counter sets `GPU Local Adapter Memory` and `GPU Process Memory`'
+    provides: local_used, processes
+    note: Best-effort; a host without them still reports its adapters.
+  - source: 'DXGI (`CreateDXGIFactory1`, `IDXGIAdapter1::GetDesc1`)'
+    provides: name, adapter_type, dedicated_total, shared_total and the percentages, matched on the adapter luid
+    without: 'If DXGI cannot be loaded or an adapter cannot be listed or described the check is UNKNOWN "GPU adapters could not be identified through DXGI ..."'
+  - source: '`HKLM\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\*` value `HardwareInformation.qwMemorySize`'
+    provides: memory totals of 4 GB or more
+    note: Only read by the 32-bit (x86) agent, where DXGI cannot express such a size. Best-effort.

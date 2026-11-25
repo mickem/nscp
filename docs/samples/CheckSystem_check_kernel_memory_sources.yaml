@@ -1,0 +1,18 @@
+windows:
+  - source: 'PDH `\Memory\Pool Paged Bytes`, `\Memory\Pool Nonpaged Bytes`, `\Memory\Cache Bytes`, `\Memory\Page Faults/sec`, `\Memory\Transition Faults/sec`, `\Memory\Page Reads/sec`'
+    note: Read when the check runs, as a one-off PDH query.
+    without: 'UNKNOWN "Failed to sample kernel memory counters: ..."'
+linux:
+  - source: '`/proc/meminfo`'
+    provides: slab, slab_reclaimable, slab_unreclaimable, cache
+    privilege: none
+  - source: '`/proc/vmstat` (`pgfault`, `pgmajfault`)'
+    provides: page_faults_per_sec, major_faults_per_sec
+    privilege: none
+    note: Read twice, about one second apart, when the check runs.
+    without: 'UNKNOWN "Failed to read /proc/vmstat ..."'
+macos:
+  - source: '`host_statistics64(HOST_VM_INFO64)`'
+    provides: wired, compressed, cache, page_faults_per_sec, major_faults_per_sec (pageins)
+    note: Read twice, about one second apart. There is no slab allocator, so the slab keywords are unknown.
+    without: 'UNKNOWN "Failed to read VM statistics: ..."'

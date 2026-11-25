@@ -1,0 +1,24 @@
+windows:
+  - source: '`EnumProcesses` + `OpenProcess` (executable name only), sampled by the CheckSystem collector'
+    provides: exe, running, first_seen, last_seen, times_seen
+    privilege: conditional
+    note: 'The history is kept in memory from the agent''s start and fed by the collector, from the realtime process filters when any are configured. The scan enables `SeDebugPrivilege` when the agent holds it (LocalSystem or an administrator); without it a process that cannot be opened even with `PROCESS_QUERY_LIMITED_INFORMATION` is left out of the history.'
+    requires:
+      - "`process history = true` under `/settings/system/windows`"
+    without: 'With the setting off nothing is recorded and the check reports from an empty history (no "not enabled" message on Windows): every process= name shows times_seen = 0'
+linux:
+  - source: '`/proc/<pid>/exe` link, else `/proc/<pid>/comm` extended from `/proc/<pid>/cmdline`, sampled once a second by the background collector'
+    provides: exe, running, first_seen, last_seen, times_seen
+    privilege: conditional
+    note: Reading another user's `/proc/<pid>/exe` needs root; without it the name comes from `comm` (15 characters), extended from argv[0] when that continues the truncated name.
+    requires:
+      - "`process history = true` under `/settings/system/unix`"
+    without: "Setting off: UNKNOWN \"Process history is not enabled (set 'process history = true' under /settings/system/unix)\""
+macos:
+  - source: '`proc_listpids` + `proc_pidpath`, sampled once a second by the background collector'
+    provides: exe, running, first_seen, last_seen, times_seen
+    privilege: none
+    note: The executable path is readable for every process, whoever owns it.
+    requires:
+      - "`process history = true` under `/settings/system/unix`"
+    without: "Setting off: UNKNOWN \"Process history is not enabled (set 'process history = true' under /settings/system/unix)\""

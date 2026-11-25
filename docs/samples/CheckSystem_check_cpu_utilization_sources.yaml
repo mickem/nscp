@@ -1,0 +1,11 @@
+linux:
+  - source: '`/proc/stat` (aggregate `cpu` line)'
+    provides: user, nice, system, iowait, irq, softirq, steal, guest, idle percentages
+    privilege: none
+    note: Read twice, one second apart, when the check runs; no background collector involved.
+    without: 'UNKNOWN "Failed to read /proc/stat"'
+macos:
+  - source: '`host_processor_info(PROCESSOR_CPU_LOAD_INFO)`'
+    provides: user, nice, system, idle; the Linux-only buckets stay 0
+    note: Read twice, one second apart, when the check runs.
+    without: 'UNKNOWN "Failed to read CPU times (host_processor_info)"'

@@ -1,0 +1,7 @@
+windows:
+  - source: 'WMI `root\CIMV2`: `Win32_ComputerSystemProduct`, `Win32_SystemEnclosure`, `Win32_PhysicalMemory`, `Win32_PhysicalMemoryArray`'
+    provides: vendor, model, UUID and serial; chassis type and asset tag; memory modules; memory slots
+    note: Read when the check runs. Each class is read best-effort.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+    without: 'A class that fails leaves its keywords empty; only when no class answers is the check UNKNOWN "Failed to read hardware inventory from WMI: ..."'

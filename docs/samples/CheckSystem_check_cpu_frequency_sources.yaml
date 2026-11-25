@@ -1,0 +1,18 @@
+windows:
+  - source: 'WMI `root\CIMV2` `Win32_Processor`'
+    provides: one record per socket - frequency, max frequency, load_pct, architecture, cache sizes
+    note: Sampled by the CheckSystem auxiliary collector about every 12 seconds, not when the check runs. `load_pct` reads `no load sample` on a cycle where WMI has no load figure.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+    without: 'If the class is missing the collector logs "Failed to fetch CPU frequency metrics (WMI class not available), disabling..."; with no data the check is UNKNOWN "No CPU frequency data available"'
+linux:
+  - source: '`/sys/devices/system/cpu/cpuN/cpufreq/` (`scaling_cur_freq`, else `cpuinfo_cur_freq`; `cpuinfo_max_freq`, `cpuinfo_min_freq`)'
+    privilege: none
+    note: '`scaling_cur_freq` is world-readable; the fallback `cpuinfo_cur_freq` is root-only on some kernels. A core with no readable current frequency is skipped.'
+    requires:
+      - kernel cpufreq support (often absent in VMs)
+    without: 'No readable core gives UNKNOWN "No CPU frequency data available (no cpufreq support?)"'
+macos:
+  - source: None (no reader on macOS)
+    note: Apple silicon exposes no per-core clock to an unprivileged process.
+    without: 'Always UNKNOWN "No CPU frequency data available (no cpufreq support?)"'

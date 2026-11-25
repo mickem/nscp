@@ -1,0 +1,10 @@
+windows:
+  - source: 'WMI `root\CIMV2` `Win32_Printer`'
+    provides: one record per printer - printer_status, error_state, error, offline and the driver, port, location, share, server, default, shared and network inventory
+    note: Read when the check runs; optional properties are read best-effort.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+      - Print Spooler service (`Spooler`)
+    without: 'A failed query makes the check UNKNOWN "Failed to check print queues: ..."'
+  - source: 'WMI `root\CIMV2` `Win32_PrintJob` (`Name`, `TimeSubmitted`, `StatusMask`)'
+    provides: jobs, oldest_job_age, error_jobs

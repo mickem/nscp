@@ -1,0 +1,30 @@
+windows:
+  - source: '`RtlGetVersion`'
+    provides: version, major, minor, build
+    note: Read once and cached for the life of the agent.
+  - source: '`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` value `UBR` (64-bit view)'
+    provides: ubr, kernel_version
+    note: Absent before Windows 10, where ubr is 0.
+  - source: '`GetNativeSystemInfo`'
+    provides: arch
+    privilege: none
+  - source: 'WMI `root\CIMV2` `Win32_BIOS`'
+    provides: serial, bios_version, manufacturer (inventory only)
+    note: Best-effort.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+    without: The three inventory keywords are empty; the check itself does not fail
+linux:
+  - source: '`uname(2)`'
+    provides: kernel_name, nodename, kernel_release, kernel_version, machine, processor
+    privilege: none
+    without: 'UNKNOWN "Cannot get system name"'
+  - source: '`/etc/os-release`, else `/usr/lib/os-release`'
+    provides: os, distribution, family, distribution_name, version
+    privilege: none
+macos:
+  - source: '`uname(2)`'
+    provides: kernel_name (Darwin), nodename, kernel_release, kernel_version, machine, processor
+    privilege: none
+  - source: '`sysctl kern.osproductversion` and `kern.osversion`'
+    provides: os, version and the build shown in os
