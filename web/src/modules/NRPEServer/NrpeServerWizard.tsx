@@ -2,7 +2,7 @@ import {
   Settings,
   useGetSettingsQuery,
   useUpdateSettingsMutation,
-} from "../api/api.ts";
+} from "../../api/api.ts";
 import {
   Box,
   Button,
@@ -21,7 +21,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
-import NscpAlert from "./atoms/NscpAlert.tsx";
+import NscpAlert from "../../components/atoms/NscpAlert.tsx";
 
 type SecurityMode = "insecure" | "encrypted" | "two-way-tls";
 type ArgsMode = "false" | "safe" | "all";

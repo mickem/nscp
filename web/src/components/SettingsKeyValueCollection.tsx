@@ -37,15 +37,10 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import { getKeyValueTemplates, KeyValueTemplate } from "./keyValueTemplates.ts";
+import type { KeyValueTemplate } from "../modules/types.ts";
+import { getKeyValueCollectionConfig } from "../modules/registry.ts";
 
-// Paths whose entries are flat key/value pairs stored directly under one
-// path (rather than nested object instances with their own sub-schema).
-// Add new paths here as we identify them — keep alphabetical for sanity.
-export const KEY_VALUE_COLLECTION_PATHS: ReadonlyArray<string> = [
-  "/settings/check helpers/alias",
-  "/settings/WEB/server/roles",
-];
+const NO_PRESETS: KeyValueTemplate[] = [];
 
 interface Props {
   collectionPath: string;
@@ -75,7 +70,11 @@ export default function SettingsKeyValueCollection({ collectionPath, description
   }, [storedSettings, collectionPath]);
   const existingKeys = useMemo(() => pairs.map((p) => p.key), [pairs]);
 
-  const templates = useMemo(() => getKeyValueTemplates(collectionPath), [collectionPath]);
+  // Presets come from the module page that owns this collection.
+  const templates = useMemo(
+    () => getKeyValueCollectionConfig(collectionPath)?.presets ?? NO_PRESETS,
+    [collectionPath],
+  );
 
   const [adding, setAdding] = useState(false);
   const [newKey, setNewKey] = useState("");

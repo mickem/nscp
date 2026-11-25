@@ -17,10 +17,7 @@ import { useMemo, useState } from "react";
 import SettingsField from "./atoms/SettingsField.tsx";
 import InstanceNameField from "./atoms/InstanceNameField.tsx";
 
-export interface FieldGroup {
-  name: string;
-  keys: string[]; // ordered keys belonging to this group
-}
+import type { FieldGroup } from "../modules/types.ts";
 
 interface Props {
   open: boolean;

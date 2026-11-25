@@ -26,12 +26,9 @@ import {
 import HelpOutlineIcon from "@mui/icons-material/HelpOutlined";
 import CheckIcon from "@mui/icons-material/Check";
 import { useEffect, useMemo, useState } from "react";
-import {
-  COUNTER_FLAGS_OPTIONS,
-  EnumOption,
-  inferOptionsFromParens,
-  resolveEnumOptions,
-} from "./fieldEnums.ts";
+import { EnumOption, resolveEnumOptions } from "./fieldEnums.ts";
+import { findFieldWidget } from "../../modules/registry.ts";
+import { WEB_ROLES_PATH } from "../../modules/WEBServer/index.ts";
 
 interface Props {
   path: string;
@@ -112,9 +109,12 @@ export default function SettingsField({
     </Tooltip>
   ) : null;
 
+  // A widget declared by the module page that owns this path.
+  const widget = findFieldWidget(path, description.key);
+
   // PDH counter picker — backed by /v1/metadata/counters. List can be very
   // long, so we cap rendered options and rely on the user typing to filter.
-  if (description.key === "counter") {
+  if (widget?.kind === "counter") {
     return (
       <MetadataAutocompleteField
         path={path}
@@ -125,6 +125,14 @@ export default function SettingsField({
         nounPlural="counters"
       />
     );
+  }
+  // A comma-separated combination of fixed values, rendered as switches.
+  if (widget?.kind === "multi") {
+    return <MultiFlagsField path={path} description={description} options={widget.options} />;
+  }
+  // Role picker — populated from the roles defined on the server.
+  if (widget?.kind === "role") {
+    return <RoleSelectField path={path} description={description} />;
   }
   // Channel picker — backed by /v2/metadata/channels/.
   if (description.key === "destination") {
@@ -140,29 +148,6 @@ export default function SettingsField({
     );
   }
 
-  // Multi-select flags field — options taken from the description parenthetical
-  // when present, otherwise the well-known counter flags list.
-  if (description.key === "flags") {
-    const opts = inferOptionsFromParens(description.description) ?? COUNTER_FLAGS_OPTIONS;
-    return <MultiFlagsField path={path} description={description} options={opts} />;
-  }
-
-  // Realtime memory filters accept any combination of memory types as a
-  // comma-separated list, so render the `type` field as switches rather than
-  // a single-select dropdown. CPU still uses single-select.
-  if (
-    description.key === "type" &&
-    /\/system\/windows\/real-time\/memory\//.test(path)
-  ) {
-    return (
-      <MultiFlagsField
-        path={path}
-        description={description}
-        options={["physical", "committed", "virtual"]}
-      />
-    );
-  }
-
   // `verify mode` — accepts free text but exposes the two common picks
   // (`none`, `peer-cert`) as quick options. The schema lets users combine
   // multiple modes as a comma-separated list, so freeSolo > strict enum.
@@ -174,14 +159,6 @@ export default function SettingsField({
         options={["none", "peer-cert"]}
       />
     );
-  }
-
-  // Role field on a WEB user — populate from existing non-template roles.
-  if (
-    description.key === "role" &&
-    /^\/settings\/WEB\/server\/users\/[^/]+$/.test(path)
-  ) {
-    return <RoleSelectField path={path} description={description} />;
   }
 
   if (description.type === "bool") {
@@ -483,7 +460,7 @@ function RoleSelectField({ path, description }: Pick<Props, "path" | "descriptio
 
   const roleNames = useMemo<string[]>(() => {
     if (!storedSettings) return [];
-    const rolesRoot = "/settings/WEB/server/roles";
+    const rolesRoot = WEB_ROLES_PATH;
     const prefix = rolesRoot + "/";
     // First pass: discover candidate role names from pointer entries on the
     // collection root plus any direct child path that holds a stored key.
@@ -574,7 +551,7 @@ function RoleSelectField({ path, description }: Pick<Props, "path" | "descriptio
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25 }}>
           {roleNames.length > 0
             ? `${roleNames.length} role${roleNames.length === 1 ? "" : "s"} available`
-            : "No roles defined under /settings/WEB/server/roles"}
+            : `No roles defined under ${WEB_ROLES_PATH}`}
         </Typography>
       </FormControl>
     </Box>
