@@ -39,13 +39,19 @@ struct filter_obj {
 
   std::string show() const { return url + " (" + std::to_string(status_code) + ", " + result + ")"; }
 
-  double get_json_number(const std::string &alias) const {
+  // Empty when the path is missing, null, or holds a string, array or object:
+  // that is "no value", not 0, so `alias < 5` cannot fire on it.
+  boost::optional<double> get_json_number(const std::string &alias) const {
     const auto it = json_numbers.find(alias);
-    return it != json_numbers.end() ? it->second : 0.0;
+    if (it == json_numbers.end()) return boost::none;
+    return it->second;
   }
+  // The text a json-path alias renders and compares as: the extracted value,
+  // or "missing" when the path is missing or null (or the body is not JSON),
+  // so `alias = 'missing'` catches a field that has disappeared.
   std::string get_json_string(const std::string &alias) const {
     const auto it = json_strings.find(alias);
-    return it != json_strings.end() ? it->second : "";
+    return it != json_strings.end() ? it->second : "missing";
   }
 
   std::string get_url() const { return url; }

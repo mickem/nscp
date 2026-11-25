@@ -51,6 +51,9 @@ struct filter_variable {
   // is what a present value renders as.
   opt_float_fun_type of_function;
   std::string no_value;
+  // optional_float_variable_node only: render an absent value through
+  // s_function as well, instead of as no_value (see add_optional_float_var).
+  bool render_no_value = false;
   std::list<int_perf_generator_type> int_perf;
   std::list<float_perf_generator_type> float_perf;
   bool add_default_perf;
@@ -239,6 +242,19 @@ struct function_registry {
     var->of_function = [fun](auto obj, auto) { return fun(obj); };
     if (render) var->s_function = [render](auto obj, auto) { return render(obj); };
     var->no_value = no_value;
+    add(var, false);
+    return *this;
+  }
+  // An optional decimal whose text is always `render`, present or not: the
+  // number may be absent (no numeric comparison matches, no perfdata) while
+  // the value still has a text form to show and compare as a string, e.g. a
+  // JSON field that holds "degraded" rather than a number.
+  function_registry<T>& add_optional_float_var(std::string key, std::function<boost::optional<double>(T)> fun, std::function<std::string(T)> render,
+                                               std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_float, description));
+    var->of_function = [fun](auto obj, auto) { return fun(obj); };
+    var->s_function = [render](auto obj, auto) { return render(obj); };
+    var->render_no_value = true;
     add(var, false);
     return *this;
   }
@@ -584,7 +600,8 @@ struct filter_handler_impl : evaluation_context_impl<TObject> {
                 new simple_number_performance_generator<object_type, double>("", "", "_" + var->name));
             var->float_perf.push_back(gen);
           }
-          return node_type(new optional_float_variable_node<filter_handler_impl>(name, var->of_function, var->s_function, var->no_value, var->float_perf));
+          return node_type(new optional_float_variable_node<filter_handler_impl>(name, var->of_function, var->s_function, var->no_value, var->float_perf,
+                                                                                 var->render_no_value));
         }
         if (var->o_function) {
           if (var->int_perf.empty() && var->add_default_perf) {

@@ -80,6 +80,8 @@ struct filter_obj_handler : native_context {
     registry_.add_optional_int_var("oval", [](data_ptr o) { return o->oval; }, "unknown", "Optional int keyword").add_int_perf();
     registry_.add_string_var("dval", [](data_ptr o) { return o->dval_s; }, [](data_ptr o) { return o->dval_i; }, "Dual string/int keyword");
     registry_.add_optional_float_var("pval", [](data_ptr o) { return o->pval; }, [](data_ptr o) { return o->pval_s; }, "unknown", "Optional float keyword");
+    // The always-rendered variant (a JSON field): pval's number, sval's text.
+    registry_.add_optional_float_var("tval", [](data_ptr o) { return o->pval; }, [](data_ptr o) { return o->sval; }, "Optional float keyword, always rendered");
     registry_.add_int_var("cust", type_custom_tens, [](data_ptr o) { return o->ival * 10; }, "Custom int keyword with converter (Nu = N*10)").no_perf();
     registry_.add_int_var("quiet", [](data_ptr o) { return o->ival; }, "Int keyword that must not emit perf").no_perf();
     registry_.add_converter(type_custom_tens, &parse_tens);
@@ -516,6 +518,38 @@ TEST(FilterMatrixOptionalFloat, RendersTheSourceTextOrTheNoValueString) {
   const run_result r = run_query({"warning=none", "critical=none"}, "%(list)", "%(name)=%(pval)");
   ASSERT_TRUE(r.built) << r.message;
   EXPECT_EQ(r.message, "a=1.50, b=unknown, c=10.25, d=0");
+}
+
+// Always-rendered optional float: tval's number is pval's ({a:1.5, b:(none),
+// c:10.25, d:0}), its text is sval's ({a:alpha, b:100, c:90, d:beta}) - text
+// that is no number at all, or (b's "100") one that must not be read as one.
+TEST(FilterMatrixOptionalFloatRendered, NumbersComeFromTheValueNeverFromTheText) {
+  run_matrix({
+      {"tval > 1", "a, c"},
+      {"tval > 50", ""},
+      {"tval != 5", "a, c, d"},
+      {"tval < 1", "d"},
+  });
+}
+
+TEST(FilterMatrixOptionalFloatRendered, StringsCompareAgainstTheTextPresentOrNot) {
+  run_matrix({
+      {"tval = '100'", "b"},
+      {"tval = 'alpha'", "a"},
+      {"tval like 'et'", "d"},
+  });
+}
+
+TEST(FilterMatrixOptionalFloatRendered, AnAbsentValueRendersItsTextAndEmitsNoMetric) {
+  const run_result r = run_query({"warning=tval > 1", "critical=none"}, "%(list)", "%(name)=%(tval)");
+  ASSERT_TRUE(r.built) << r.message;
+  EXPECT_EQ(r.message, "a=alpha, b=100, c=90, d=beta");
+  const run_result p = run_query({"warning=tval > 1", "critical=tval > 10"});
+  ASSERT_TRUE(p.built) << p.message;
+  const PB::Common::PerformanceData *c = find_perf(p, "c_tval");
+  ASSERT_NE(c, nullptr) << p.message;
+  EXPECT_DOUBLE_EQ(c->float_value().value(), 10.25);
+  EXPECT_EQ(find_perf(p, "b_tval"), nullptr) << p.message;
 }
 
 // ============================================================================
