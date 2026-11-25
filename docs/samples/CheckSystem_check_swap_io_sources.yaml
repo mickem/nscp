@@ -1,0 +1,23 @@
+windows:
+  - source: 'PDH `\Memory\Pages Input/sec` and `\Memory\Pages Output/sec`'
+    provides: swap_in, swap_out, swap_in_bytes, swap_out_bytes
+    note: Read when the check runs, two samples one second apart; bytes use the page size from `GetSystemInfo`. These are system-wide paging rates, not per-pagefile I/O.
+    without: 'UNKNOWN "Failed to sample paging counters: ..."'
+  - source: '`NtQuerySystemInformation(SystemPageFileInformation)`'
+    provides: swap_count (number of paging files)
+linux:
+  - source: '`/proc/vmstat` (`pswpin`, `pswpout`)'
+    provides: swap_in, swap_out, swap_in_bytes, swap_out_bytes
+    privilege: none
+    note: Read twice, one second apart, when the check runs.
+    without: 'UNKNOWN "Failed to read /proc/vmstat"'
+  - source: '`/proc/swaps`'
+    provides: swap_count
+    privilege: none
+macos:
+  - source: '`host_statistics64(HOST_VM_INFO64)` (`swapins`, `swapouts`)'
+    provides: swap_in, swap_out, swap_in_bytes, swap_out_bytes
+    note: Read twice, about one second apart, when the check runs.
+    without: 'UNKNOWN "Failed to read VM statistics: ..."'
+  - source: '`sysctl vm.swapusage`'
+    provides: swap_count (1 while any swap file exists)

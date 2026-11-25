@@ -1,0 +1,16 @@
+windows:
+  - source: '`GetTickCount64` (`GetTickCount` where it is unavailable)'
+    provides: uptime, boot
+    privilege: none
+    note: Read when the check runs; boot is now minus uptime in the configured timezone.
+linux:
+  - source: '`/proc/uptime`'
+    provides: uptime, boot
+    privilege: none
+    note: Read when the check runs.
+macos:
+  - source: '`sysctl kern.boottime`'
+    provides: uptime, boot
+    privilege: none
+    note: Read when the check runs.
+    without: 'UNKNOWN "Failed to read kern.boottime"'
