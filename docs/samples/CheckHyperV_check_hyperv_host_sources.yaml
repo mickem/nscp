@@ -1,0 +1,23 @@
+windows:
+  - source: 'PDH counters `Hyper-V Virtual Machine Health Summary` (Health Ok, Health Critical)'
+    provides: health_ok, health_critical, and the VM count that decides whether the VM walk runs
+    privilege: none
+    note: Readable by any account, unlike the WMI namespace; counts only VMs with a running worker process.
+    requires:
+      - Hyper-V role installed and the hypervisor running
+    without: 'The check returns UNKNOWN: "Hyper-V counters (Hyper-V Virtual Machine Health Summary, Hyper-V Hypervisor) not available - is the Hyper-V role installed and the hypervisor running on this host? (...)"'
+  - source: 'PDH counters `Hyper-V Hypervisor` (Logical Processors, Virtual Processors, Partitions, Total Pages)'
+    provides: logical_processors, virtual_processors, partitions, total_pages
+    requires:
+      - Hyper-V role installed and the hypervisor running
+    without: Same UNKNOWN as the health summary counters (both are read together)
+  - source: 'WMI `root\virtualization\v2` (`Msvm_ComputerSystem`, `Msvm_MemorySettingData`, `Msvm_Memory`, `Msvm_ProcessorSettingData`, `Msvm_Processor` and related classes)'
+    provides: running_vms, vm_vcpus, memory_assigned, cpu_overcommit, memory_overcommit, guests_known, guests_error
+    privilege: elevated
+    note: 'Local Administrators (elevated) or Hyper-V Administrators; LocalSystem qualifies. Only walked when the health counters count at least one VM, bounded by vm-timeout (default 5 s).'
+    requires:
+      - Hyper-V Virtual Machine Management service (vmms) running
+    without: 'The health and capacity keywords still report; the guest keywords stay 0, guests_known = 0 and guests_error explains (VMs hidden from this account, a WMI failure, or a timeout)'
+  - source: '`GlobalMemoryStatusEx`'
+    provides: physical_memory
+    privilege: none

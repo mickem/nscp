@@ -1,0 +1,10 @@
+all:
+  - source: User-supplied SQL (`query`) over the MySQL client protocol
+    provides: one row per result row, every column as a keyword
+    note: Connects over TCP unless a unix socket path or Windows named pipe is configured in the `socket` setting (not settable per request).
+    without: "No `query` is UNKNOWN `No query specified ...`; a statement producing no columns is UNKNOWN `Query returned no result set ...`; a SQL error is UNKNOWN `Query failed: ...`"
+    requires:
+      - MariaDB Connector/C (libmariadb), linked at build time
+      - Network reachability of `host`:`port` (default `localhost:3306`), or the `socket` setting
+      - "Credentials: `user`/`password` options, or a `defaults file` (`[client]` group) configured under `/settings/mysql`"
+      - Whatever privileges the query itself needs on the server

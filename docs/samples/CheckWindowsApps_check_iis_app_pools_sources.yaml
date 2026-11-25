@@ -1,0 +1,11 @@
+windows:
+  - source: 'PDH counters `APP_POOL_WAS` (Current Application Pool State, Current Application Pool Uptime, Total Application Pool Recycles)'
+    provides: name, state, uptime, recycles
+    requires:
+      - Web Server (IIS) role
+    without: 'The check returns UNKNOWN: "IIS performance counters (APP_POOL_WAS) not available - is the Web Server (IIS) role installed? (...)"'
+  - source: 'WMI `root\WebAdministration` `ApplicationPool` (`AutoStart`)'
+    provides: 'auto_start, and pools WAS has no counter instance for (reported with state unknown)'
+    requires:
+      - IIS Management Scripts and Tools (the IIS WMI provider)
+    without: 'Silently skipped (logged at debug): auto_start is -1 for every pool and never-started pools are not listed, so every non-running pool meets the default critical'

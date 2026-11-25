@@ -1,0 +1,12 @@
+windows:
+  - source: 'PDH counters `Web Service` (Current Connections, Service Uptime, Total Method Requests/sec, Bytes Total/sec)'
+    provides: 'name, connections, uptime, requests_per_sec, bytes_per_sec; a site with an instance is running'
+    note: 'The rates need a second sample, taken one second later only with averages=true; otherwise they read 0.'
+    requires:
+      - Web Server (IIS) role
+    without: 'The check returns UNKNOWN: "IIS performance counters (Web Service) not available - is the Web Server (IIS) role installed? (...)"'
+  - source: 'WMI `root\WebAdministration` `Site` (`ServerAutoStart`)'
+    provides: 'auto_start, and stopped sites (no counter instance), reported with state stopped'
+    requires:
+      - IIS Management Scripts and Tools (the IIS WMI provider)
+    without: 'Silently skipped (logged at debug): auto_start is -1 and stopped sites are not listed at all'

@@ -1,0 +1,18 @@
+windows:
+  - source: 'Service Control Manager: the `IAS` service (`OpenServiceW` with `SERVICE_QUERY_STATUS`)'
+    provides: presence check for the NPS role
+    requires:
+      - Network Policy Server role (IAS service installed)
+    without: 'UNKNOWN "NPS authentication data unavailable: NPS role is not installed (IAS service missing)"'
+  - source: '`AuditQuerySystemPolicy` for the Network Policy Server audit subcategory'
+    provides: check that NPS success and failure auditing are both enabled
+    privilege: elevated
+    note: 'Querying system audit policy needs SeSecurityPrivilege (Administrators, LocalSystem) or AUDIT_QUERY_SYSTEM_POLICY access.'
+    requires:
+      - Network Policy Server success and failure auditing enabled (local or group policy)
+    without: 'UNKNOWN "NPS authentication data unavailable: Cannot read NPS audit policy: ..." or "... NPS success and failure auditing must both be enabled", even with empty-state=ok'
+  - source: 'Security event log via `EvtQuery` / `EvtRender` (Microsoft-Windows-Security-Auditing events 6272, 6273, 6274)'
+    provides: 'requests, accepted, rejected, discarded, reject_pct, top_reason and the client / policy / reason grouping'
+    privilege: elevated
+    note: 'Reading the Security log is limited by default to Administrators, LocalSystem and members of Event Log Readers. Fields are read from the event XML, not the localized message. The scan is bounded by max-events and a 15-second deadline.'
+    without: 'UNKNOWN "NPS authentication data unavailable: Cannot query NPS Security events: ..."; a failed, truncated or over-limit scan is UNKNOWN, never partial counts'

@@ -1,0 +1,10 @@
+all:
+  - source: "MySQL client protocol: `SELECT @@version, @@version_comment, @@max_connections` and `SHOW GLOBAL STATUS` (`Uptime`, `Threads_connected`)"
+    provides: version, flavor, uptime, threads_connected, max_connections, connections_pct
+    note: Connects over TCP unless a unix socket path or Windows named pipe is configured in the `socket` setting (not settable per request).
+    without: "Connection failure is UNKNOWN `Failed to connect to MySQL server '<target>': ...`; a query failure is UNKNOWN `Query failed: ...`"
+    requires:
+      - MariaDB Connector/C (libmariadb), linked at build time
+      - Network reachability of `host`:`port` (default `localhost:3306`), or the `socket` setting
+      - "Credentials: `user`/`password` options, or a `defaults file` (`[client]` group) configured under `/settings/mysql`"
+      - "A server account; `@@` variables and `SHOW GLOBAL STATUS` need no extra grants (`USAGE` suffices)"

@@ -1,0 +1,16 @@
+windows:
+  - source: 'WMI `root\CIMV2` `Win32_UserAccount` (`LocalAccount=TRUE`)'
+    provides: name, sid (and the RID-based built-in admin/guest flags), disabled, locked, password_expires, password_required
+    note: 'Local SAM accounts only; domain accounts are not enumerated. An unreadable flag defaults to 0, and password_required to 1, so it never fakes a passwordless finding.'
+    without: 'The check returns UNKNOWN: "Failed to query local user accounts: ..."'
+linux:
+  - source: /etc/passwd
+    provides: name, sid / uid, gid, home, shell, interactive, is_builtin_admin, is_extra_uid0, and the password state of accounts whose hash is in passwd itself
+    privilege: none
+    note: Local files only; accounts known only through NSS (LDAP, sssd, winbind) are not enumerated.
+    without: 'An unreadable file, or any line that cannot be parsed, makes the check UNKNOWN (naming the line numbers)'
+  - source: /etc/shadow
+    provides: password_state, enabled / disabled, locked, password_required, password_expires, password_changed, password_age
+    privilege: elevated
+    note: 'Readable by root only (mode 0000 on RHEL); on Debian membership of the shadow group (root:shadow 0640) also suffices. The packaged agent runs as the unprivileged nsclient user. Hashes are classified, never kept or printed.'
+    without: 'UNKNOWN "Cannot read /etc/shadow: Permission denied - password and expiry state is unknown; ...". With allow-unreadable-shadow=true the accounts are reported with the shadow-derived keywords unknown.'

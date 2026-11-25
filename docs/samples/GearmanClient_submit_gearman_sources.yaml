@@ -1,0 +1,11 @@
+all:
+- source: Remote gearmand job server, Gearman `SUBMIT_JOB_BG` over TCP (default port 4730) to the result queue (default `check_results`)
+  provides: passive host/service results for a Naemon or Nagios core running Mod-Gearman
+  privilege: none
+  note: The payload is a Mod-Gearman result, AES-256 encrypted with the shared key unless `encryption` is off; the TCP connection itself is not TLS.
+  without: Refused before connecting when no gearmand address is configured, when encryption is on but no `key` is set, when encryption is off without `insecure=true`, or when no host name is known to file the result under.
+  requires:
+  - OpenSSL (the module is not built without it)
+  - A gearmand job server reachable from the agent
+  - The shared `key` from the core's Mod-Gearman `module.conf`
+  - A host name the core knows this machine by (`hostname` setting or `source-host`)

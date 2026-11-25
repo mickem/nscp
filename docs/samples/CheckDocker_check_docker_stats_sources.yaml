@@ -1,0 +1,24 @@
+windows:
+- source: Docker Engine API `GET /containers/json`, then `GET /containers/{id}/stats?stream=false` per running container
+  provides: cpu_pct, memory usage and limit per container
+  privilege: conditional
+  note: Talks to the local named pipe `\\.\pipe\docker_engine` (or the `endpoint` setting). The agent needs access to that pipe, which a default Docker Engine install grants to Administrators/SYSTEM; an agent running as a less privileged account needs to be granted access (e.g. Docker Desktop's `docker-users` group).
+  without: 'Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at ''<endpoint>'': ...`; a non-2xx reply is UNKNOWN `docker daemon at ''<endpoint>'' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.'
+  requires:
+  - A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host
+linux:
+- source: Docker Engine API `GET /containers/json`, then `GET /containers/{id}/stats?stream=false` per running container
+  provides: cpu_pct, memory usage and limit per container
+  privilege: conditional
+  note: 'Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or membership in the group that owns it (`docker` on a standard install; a rootless or podman socket belongs to its user).'
+  without: 'Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at ''<endpoint>'': ...`; a non-2xx reply is UNKNOWN `docker daemon at ''<endpoint>'' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.'
+  requires:
+  - A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host
+macos:
+- source: Docker Engine API `GET /containers/json`, then `GET /containers/{id}/stats?stream=false` per running container
+  provides: cpu_pct, memory usage and limit per container
+  privilege: conditional
+  note: 'Talks to the local unix socket `/var/run/docker.sock` (or the `endpoint` setting). The agent account needs read/write access to the socket: root, or the socket owner''s account.'
+  without: 'Unreachable or inaccessible daemon is UNKNOWN `Failed to connect to docker daemon at ''<endpoint>'': ...`; a non-2xx reply is UNKNOWN `docker daemon at ''<endpoint>'' returned HTTP <code> ...`. A `host=` differing from the configured `endpoint` is refused.'
+  requires:
+  - A running Docker Engine (or another daemon speaking the Docker API, e.g. podman's compatibility socket) on this host

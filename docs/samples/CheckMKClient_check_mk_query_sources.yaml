@@ -1,0 +1,10 @@
+all:
+- source: 'Remote Checkmk agent: TCP connect, read the sectioned agent output until the agent closes (optionally over TLS)'
+  provides: the parsed agent sections, handed to the Lua callback registered for `check_mk` (`default_check_mk.lua` when no script is configured)
+  privilege: none
+  note: 'The result is not taken from the Lua callback: after a successful exchange the response is OK `Data presumably sent successfully`.'
+  without: 'A connection or TLS failure is UNKNOWN `Socket error: ...`.'
+  requires:
+  - A Checkmk agent reachable on `host`/`port` (the connection falls back to 6556 when the address has no port; configured targets default to 5667)
+  - Lua (the module is only built when Lua is found)
+  - 'With `ssl`: OpenSSL support and, by default, a CA (`ca`) that verifies the agent''s certificate (`verify mode` defaults to `peer`)'

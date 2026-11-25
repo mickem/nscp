@@ -1,0 +1,13 @@
+windows:
+  - source: 'Registry `HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State` `UEFISecureBootEnabled`'
+    provides: supported, enabled
+    note: setup_mode is not read on Windows and stays unknown.
+    without: 'A missing or non-DWORD value is read as legacy BIOS: supported = 0, enabled = 0'
+linux:
+  - source: 'UEFI variables `SecureBoot` and `SetupMode` in efivarfs (`/sys/firmware/efi/efivars`), falling back to legacy sysfs `/sys/firmware/efi/vars/<name>-<guid>/data`'
+    provides: supported, enabled, setup_mode
+    privilege: none
+    note: These two variables are world-readable. A container that masks /sys/firmware sees no UEFI and reports a legacy BIOS boot.
+    requires:
+      - efivarfs mounted on /sys/firmware/efi/efivars (or the legacy sysfs interface) on a UEFI boot
+    without: 'No /sys/firmware/efi: supported = 0, enabled = 0 (legacy BIOS). An empty efivars directory, a read error or a malformed variable: UNKNOWN naming the file and the reason, never a guessed "disabled"'

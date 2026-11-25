@@ -1,0 +1,9 @@
+windows:
+  - source: Catalog view `sys.databases` LEFT JOIN `msdb.dbo.backupset` over ODBC/TDS
+    provides: full_age, diff_age, log_age, recovery_model (tempdb excluded)
+    without: "A permission failure on msdb is UNKNOWN `Query failed: ...`"
+    requires:
+      - SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)
+      - Network reachability of the instance named by `server` (default `localhost`)
+      - "Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance"
+      - "`SELECT` on `msdb.dbo.backupset` (or `sysadmin`)"

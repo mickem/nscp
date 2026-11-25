@@ -1,0 +1,7 @@
+windows:
+  - source: 'PDH counter object `Remote Desktop Connection Broker Counterset` (counters enumerated with `PdhEnumObjectItems`)'
+    provides: 'one row per counter (and instance): counter, instance, value'
+    note: Counter names are taken from what this broker exposes, since they vary between Windows Server versions. averages=true takes a second sample for rate counters.
+    requires:
+      - RD Connection Broker role
+    without: 'UNKNOWN "Connection Broker counters (Remote Desktop Connection Broker Counterset) not available - is this host an RD Connection Broker?"'

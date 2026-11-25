@@ -1,0 +1,9 @@
+all:
+- source: Remote NRDP server, HTTP(S) `POST` of `cmd=submitcheck`, `token` and `XMLDATA` (default path `/nrdp/server/`)
+  provides: passive host/service check results
+  privilege: none
+  note: Port defaults to 443 for https and 80 for http; an https target verifies the server (`verify mode` defaults to `peer`; turning it off is only logged as a warning). Where the target carries configured credentials, the request may not change its address, proxy or transport security unless the target sets `allow host override = true`.
+  requires:
+  - TinyXML2 (the module is not built without it)
+  - An NRDP server reachable from the agent
+  - The NRDP security `token` configured on the server

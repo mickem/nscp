@@ -1,0 +1,13 @@
+windows:
+  - source: '`NetGetJoinInformation`'
+    provides: the domain to check when domain= is not given (read from server= when given)
+    without: 'UNKNOWN "<host> is not joined to a domain (...); there is no secure channel to check", or "Failed to read the domain join state ... (and no domain= was given)"'
+  - source: '`I_NetLogonControl2` (netlogon `NETLOGON_CONTROL_TC_VERIFY`, or `TC_QUERY` with verify=false)'
+    provides: domain, dc, error_code, error_message, healthy
+    privilege: elevated
+    note: 'The default verify (TC_VERIFY, which contacts the DC like `nltest /sc_verify`) needs administrator rights on the machine whose channel is checked; the default LocalSystem account has them locally. With server= the rights are checked on that computer.'
+    requires:
+      - Netlogon service running on the checked machine
+      - domain membership of the checked machine (or domain= naming a trusted domain)
+      - 'for server=, RPC connectivity to that computer'
+    without: 'A failed netlogon call (access denied, service stopped, RPC failure) returns UNKNOWN "Failed to query the netlogon service[ on <server>]: ..." rather than a broken-channel CRITICAL'

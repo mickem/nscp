@@ -1,0 +1,12 @@
+windows:
+  - source: '`NetLocalGroupGetMembers` (level 2)'
+    provides: 'member (DOMAIN\name), domain, name, type (SID usage) and sid'
+    privilege: none
+    note: 'Any authenticated user may read local group membership on a workstation or member server; on a domain controller access follows the directory ACLs. The default group= is the English name `Administrators`, so a localized Windows (e.g. Swedish `Administratörer`) needs group= set explicitly.'
+    without: 'UNKNOWN "Local group not found: <group>", or "Failed to read members of local group ''<group>'' (status N)"'
+linux:
+  - source: /etc/group and /etc/passwd
+    provides: listed members of the group plus the accounts whose primary group it is; sid is the numeric UID
+    privilege: none
+    note: 'Both files are world-readable. Local files only; a group known only through NSS is "not found". Without group= the first of sudo and wheel that exists is used.'
+    without: 'UNKNOWN when the group does not exist, when neither default group exists ("pass group=<name>"), or when a relevant line cannot be parsed'

@@ -1,0 +1,5 @@
+windows:
+  - source: 'PDH counters `HTTP Service Request Queues` (CurrentQueueSize, RejectedRequests, MaxQueueItemAge)'
+    provides: name, queue_length, rejected, max_age
+    note: The HTTP.sys request queues, normally one per application pool.
+    without: 'The check returns UNKNOWN: "IIS performance counters (HTTP Service Request Queues) not available - is the Web Server (IIS) role installed? (...)"'

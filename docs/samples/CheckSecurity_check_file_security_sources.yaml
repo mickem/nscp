@@ -1,0 +1,12 @@
+windows:
+  - source: '`GetNamedSecurityInfoW` (owner and DACL), walked entry by entry with `GetAce`'
+    provides: exists, is_dir, readable, owner, owner_sid and every write-access keyword
+    privilege: conditional
+    note: 'The agent account must be allowed to read each path''s security descriptor (and reach the path); LocalSystem can on local system paths, but a DACL or share that excludes the agent account makes the path unreadable.'
+    without: 'The row gets readable = 0 (or exists = 0) with the system error in `error`, which the default critical threshold reports'
+  - source: '`LookupAccountSidW`'
+    provides: owner and trustee names
+    without: The SID string is used instead (orphaned or unresolvable SID)
+  - source: 'Service Control Manager (`OpenServiceW` with `SERVICE_QUERY_CONFIG`, `QueryServiceConfigW`)'
+    provides: 'the image path inspected for `service=`'
+    without: 'The row is kept with the error ("Service not found: <name>", "Failed to open service ...") instead of being dropped'

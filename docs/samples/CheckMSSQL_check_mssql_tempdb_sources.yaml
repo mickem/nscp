@@ -1,0 +1,13 @@
+windows:
+  - source: DMV `tempdb.sys.dm_db_file_space_usage` over ODBC/TDS
+    provides: size, free, version_store, user_objects, internal_objects
+    requires:
+      - SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)
+      - Network reachability of the instance named by `server` (default `localhost`)
+      - "Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance"
+      - "`VIEW SERVER STATE`"
+  - source: DMF `sys.dm_os_volume_stats` joined to `tempdb.sys.database_files`
+    provides: volume_free
+    without: If the volume query fails, volume_free is -1 and the check continues.
+    requires:
+      - "`VIEW SERVER STATE`"

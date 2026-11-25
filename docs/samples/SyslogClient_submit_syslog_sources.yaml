@@ -1,0 +1,8 @@
+all:
+- source: Remote syslog receiver, BSD-style (RFC 3164) message in a UDP datagram over IPv4 (default port 514)
+  provides: check results as syslog records with configurable facility, severity per state, tag and message templates
+  privilege: none
+  note: No TCP or TLS transport; the destination is resolved as IPv4 only.
+  without: 'Fire-and-forget: OK `Data presumably sent successfully` is returned once the datagram is handed to the OS, whether or not anything receives it; a resolution or socket error is UNKNOWN `Socket error: ...`.'
+  requires:
+  - A syslog receiver listening on UDP at `host`/`port`
