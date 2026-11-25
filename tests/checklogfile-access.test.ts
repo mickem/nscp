@@ -21,7 +21,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { NscpInstance, itOnUnix, describeWithModules } from "@fixtures/index";
+import { NscpInstance, itOnUnix, itOnWindows, describeWithModules } from "@fixtures/index";
 
 jest.setTimeout(180_000);
 
@@ -360,6 +360,47 @@ describeWithModules("CheckLogFile")("CheckLogFile file access modes", () => {
       const { out, code } = await csv(secretCsv);
       expect(code).toBe(UNKNOWN);
       expect(out).not.toMatch(/SECRET csv which must not come back/);
+    });
+  });
+
+  // --- remote hosts ----------------------------------------------------------
+  //
+  // Reading a UNC path makes the agent log on to the server it names, so which
+  // servers a caller may name is a setting of its own, whatever the mode. The
+  // refusal comes before anything touches the network, which is what lets
+  // these cases name servers that do not exist.
+  describe("remote hosts", () => {
+    async function setRemoteHosts(hosts: string): Promise<void> {
+      await nscp.configure({
+        "/settings/logfile": { "file access": "any", "allowed files": "-", "remote hosts": hosts },
+      });
+    }
+
+    afterAll(() => setRemoteHosts("*"));
+
+    itOnWindows("refuses a UNC path on a server which is not listed", async () => {
+      await setRemoteHosts("nscp-it-fs01");
+      const { out, code } = await check(["file=\\\\nscp-it-evil\\share\\app.log"]);
+      expect(code).toBe(UNKNOWN);
+      expect(out).toMatch(/the server 'nscp-it-evil' is not in 'remote hosts'/);
+      // A local file is not this setting's business.
+      expect((await check([`file=${secretFile}`])).out).not.toMatch(/remote hosts/);
+    });
+
+    itOnWindows("refuses every UNC path when set to none", async () => {
+      await setRemoteHosts("none");
+      const { out, code } = await check(["file=//nscp-it-fs01/share/app.log"]);
+      expect(code).toBe(UNKNOWN);
+      expect(out).toMatch(/is not in 'remote hosts'/);
+    });
+
+    itOnWindows("lets a listed server through to the open", async () => {
+      await setRemoteHosts("NSCP-IT-FS01");
+      // No such server, so the read fails - but as a failed open, not as a
+      // refusal by this setting.
+      const { out } = await check(["file=\\\\nscp-it-fs01\\share\\app.log"]);
+      expect(out).not.toMatch(/remote hosts/);
+      expect(out).toMatch(/Failed to open file/);
     });
   });
 });

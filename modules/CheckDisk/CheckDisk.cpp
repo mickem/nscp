@@ -136,6 +136,13 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         "file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory "
         "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so a link "
         "planted inside an allowed directory does not widen it.")
+    .add_string("remote hosts", sh::string_fun_key([this](const auto& value) { file_access_.set_remote_hosts(value); }, "*"),
+        "REMOTE HOSTS",
+        "Comma separated list of the servers a caller may name in a UNC path (\\\\server\\share\\folder) given to check_files, check_single_file, "
+        "check_largest_files or check_disk_write: * (the default) is any server, which is how every earlier release behaved, and none is no server at all.\n"
+        "Using a path on a share makes the agent log on to that server with its own account, so a caller who may name any server can point that "
+        "logon at a machine of their choosing. A server is matched by the name the caller used, ignoring case: fs01 and fs01.example.com are two "
+        "entries. It applies whatever 'file access' is set to, except that a path defined in [/settings/disk/files] is always used. Windows only.")
     .add_string("disable", sh::string_key(&fresh->disable_, ""),
         "Disable automatic checks",
         "A comma separated list of checks to disable in the collector: disk_io, disk_free, trend. "

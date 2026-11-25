@@ -287,6 +287,67 @@ TEST(DevicePath, PipeAndMailslotSharesOnAnyHostAreDevices) {
   }
 }
 
+// `\\host\pipe\x` is the redirector's alias for a file on the IPC$ share, so
+// that spelling connects to the same pipe - and over the network the
+// SECURITY_IDENTIFICATION flag is not honoured, so the name is the defence.
+TEST(DevicePath, TheIpcShareIsADeviceHoweverItIsSpelled) {
+  for (const char *p : {"\\\\host\\IPC$\\x", "\\\\localhost\\ipc$\\x", "//127.0.0.1/IPC$/x", "\\\\?\\UNC\\host\\IPC$\\x", "\\\\host\\IPC$"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+}
+
+// Win32 reads a run of separators as one, so the check has to as well.
+TEST(DevicePath, RepeatedSeparatorsDoNotHideADevice) {
+  for (const char *p : {"\\\\host\\\\pipe\\x", "//host//pipe/x", "\\\\host\\/IPC$\\x", "\\\\\\host\\pipe\\x", "\\\\.\\\\pipe\\x", "C:\\logs\\\\con",
+                        "\\\\?\\UNC\\\\host\\pipe\\x"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+  for (const char *p : {"C:\\\\logs\\\\app.log", "\\\\server\\\\share\\\\app.log"}) {
+    EXPECT_FALSE(is_win32_device_path(p)) << p;
+  }
+}
+
+// `COM1:` and `NUL:` are the devices just as `COM1.log` is.
+TEST(DevicePath, DosDeviceNamesWithAColonAreDevices) {
+  for (const char *p : {"C:\\logs\\COM1:", "C:\\logs\\nul:", "con:", "C:\\logs\\aux:x"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+  // A named stream on an ordinary file is not one.
+  EXPECT_FALSE(is_win32_device_path("C:\\logs\\app.log:stream"));
+}
+
+TEST(DevicePath, UncHostIsTheServerOfAUncPath) {
+  const struct {
+    const char *path;
+    const char *host;
+  } cases[] = {{"\\\\fs01\\logs\\app.log", "fs01"},
+               {"//fs01.example.com/logs/app.log", "fs01.example.com"},
+               {"\\\\?\\UNC\\fs01\\logs\\app.log", "fs01"},
+               {"\\\\\\fs01\\logs", "fs01"},
+               {"\\\\10.0.0.1\\c$", "10.0.0.1"},
+               {"\\\\fs01", "fs01"}};
+  for (const auto &c : cases) {
+    std::string host;
+    EXPECT_TRUE(safe_file::unc_host(c.path, host)) << c.path;
+    EXPECT_EQ(c.host, host) << c.path;
+  }
+  for (const char *p : {"C:\\logs\\app.log", "\\\\.\\pipe\\x", "\\\\?\\C:\\logs\\app.log", "\\logs\\app.log", "relative.log", "/var/log/syslog", "\\\\"}) {
+    std::string host;
+    EXPECT_FALSE(safe_file::unc_host(p, host)) << p;
+  }
+}
+
+TEST(DevicePath, UncShareRootIsTheShareWithATrailingSeparator) {
+  std::string root;
+  ASSERT_TRUE(safe_file::unc_share_root("//fs01/logs//app/x.log", root));
+  EXPECT_EQ("\\\\fs01\\logs\\", root);
+  ASSERT_TRUE(safe_file::unc_share_root("\\\\?\\UNC\\fs01\\logs", root));
+  EXPECT_EQ("\\\\?\\UNC\\fs01\\logs\\", root);
+  EXPECT_FALSE(safe_file::unc_share_root("\\\\fs01", root));
+  EXPECT_FALSE(safe_file::unc_share_root("\\\\fs01\\", root));
+  EXPECT_FALSE(safe_file::unc_share_root("C:\\logs\\app.log", root));
+}
+
 TEST(DevicePath, DosDeviceNamesAreDevicesInAnyDirectory) {
   for (const char *p :
        {"CON", "con.txt", "C:\\logs\\nul", "C:\\logs\\COM1.log", "C:\\logs\\lpt9", "C:\\logs\\CONIN$", "C:\\logs\\aux .txt", "C:nul", "\\\\?\\C:\\logs\\con"}) {
@@ -381,6 +442,66 @@ TEST(SafeFileWin, NamedPipeIsRefused) {
   CloseHandle(server);
   EXPECT_FALSE(buf);
   EXPECT_NE(std::string::npos, error.find("names a device or a pipe")) << error;
+}
+
+// The same pipe by its other name: a file on the IPC$ share of this machine.
+// Neither the reader nor the examination of the share may connect to it - a
+// pipe in PIPE_NOWAIT mode says whether a client ever arrived.
+TEST(SafeFileWin, NamedPipeOnTheIpcShareIsNeverConnectedTo) {
+  const std::wstring tag = L"nscp-safe-file-test-ipc-" + std::to_wstring(GetCurrentProcessId());
+  const std::wstring local = L"\\\\.\\pipe\\" + tag;
+  const HANDLE server = CreateNamedPipeW(local.c_str(), PIPE_ACCESS_OUTBOUND, PIPE_TYPE_BYTE | PIPE_NOWAIT, 1, 0, 0, 0, nullptr);
+  ASSERT_NE(INVALID_HANDLE_VALUE, server);
+  const std::string remote = "\\\\localhost\\IPC$\\" + utf8::cvt<std::string>(tag);
+
+  std::string error;
+  EXPECT_FALSE(open_stream(remote, error));
+  EXPECT_NE(std::string::npos, error.find("names a device or a pipe")) << error;
+
+  // Past the name check, as a spelling it does not know would be: the share
+  // is examined through its root, and is not a file system.
+  std::string reason;
+  EXPECT_NE(safe_file::share_state::file_system, safe_file::examine_share(remote, reason));
+  EXPECT_NE(safe_file::share_state::not_remote, safe_file::examine_share(remote, reason));
+
+  EXPECT_FALSE(ConnectNamedPipe(server, nullptr));
+  EXPECT_EQ(static_cast<DWORD>(ERROR_PIPE_LISTENING), GetLastError());
+  CloseHandle(server);
+}
+
+TEST(SafeFileWin, ALocalPathHasNoShareToExamine) {
+  std::string reason;
+  EXPECT_EQ(safe_file::share_state::not_remote, safe_file::examine_share("C:\\Windows\\win.ini", reason));
+  EXPECT_EQ(safe_file::share_state::not_remote, safe_file::examine_share("\\\\?\\C:\\Windows\\win.ini", reason));
+}
+
+// A file share on this machine is a file system and is read through. The
+// administrative share needs an account that may use it; where it may not,
+// the examination must still not call the share a file system by mistake.
+TEST(SafeFileWin, AFileShareIsExaminedAndRead) {
+  wchar_t windows_dir[MAX_PATH];
+  ASSERT_NE(0u, GetWindowsDirectoryW(windows_dir, MAX_PATH));
+  std::string path = utf8::cvt<std::string>(windows_dir);  // C:\Windows
+  ASSERT_GT(path.size(), 2u);
+  path = "\\\\localhost\\" + path.substr(0, 1) + "$" + path.substr(2) + "\\win.ini";
+  std::string reason;
+  const safe_file::share_state state = safe_file::examine_share(path, reason);
+  if (state != safe_file::share_state::file_system) {
+    EXPECT_EQ(safe_file::share_state::unreachable, state) << reason;
+    std::string error;
+    EXPECT_FALSE(open_stream(path, error));
+    return;
+  }
+  std::string error;
+  EXPECT_TRUE(open_stream(path, error)) << error;
+  // And again, from the remembered answer.
+  EXPECT_EQ(safe_file::share_state::file_system, safe_file::examine_share(path, reason));
+}
+
+TEST(SafeFileWin, AShareThatCannotBeExaminedIsNotOpened) {
+  std::string error;
+  EXPECT_FALSE(open_stream("\\\\localhost\\nscp-no-such-share\\x.log", error));
+  EXPECT_NE(std::string::npos, error.find("Failed to open file")) << error;
 }
 
 TEST(SafeFileWin, RawVolumeIsRefused) {

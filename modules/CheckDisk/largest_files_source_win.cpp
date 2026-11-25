@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <deque>
 #include <error/error.hpp>
-#include <files/device_path.hpp>
+#include <files/safe_file.hpp>
 #include <functional>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -754,6 +754,18 @@ scan_result scan(const scan_request &request) {
     result.root_missing = true;
     result.error = "Not a folder: " + request.root + " (it names a device or a pipe)";
     return result;
+  }
+  {
+    // A UNC root only once its share has been seen to be a file system.
+    std::string reason;
+    const safe_file::share_state share = safe_file::examine_share(request.root, reason);
+    if (share == safe_file::share_state::not_file_system || share == safe_file::share_state::unreachable) {
+      scan_result result;
+      result.root_missing = true;
+      result.error = share == safe_file::share_state::unreachable ? "Path not found: " + request.root
+                                                                  : "Not a folder: " + request.root + " (its share is not a file system)";
+      return result;
+    }
   }
   const std::wstring root = normalise(to_wide(request.root));
   const DWORD attributes = GetFileAttributesW(long_path(root).c_str());

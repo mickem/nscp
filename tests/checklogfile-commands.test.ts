@@ -441,7 +441,15 @@ describeWithModules("CheckLogFile")("CheckLogFile check_logfile", () => {
   // opened: connecting to a named pipe hands its server the agent's token,
   // and \\.\C: would read the raw volume.
   itOnWindows("refuses a named pipe and a raw volume by name", async () => {
-    for (const name of ["\\\\.\\pipe\\nscp-it-pipe", "\\\\.\\C:"]) {
+    // The IPC$ spellings are the same pipe reached through the redirector,
+    // where the open's impersonation limit does not apply at all.
+    for (const name of [
+      "\\\\.\\pipe\\nscp-it-pipe",
+      "\\\\.\\C:",
+      "\\\\localhost\\IPC$\\nscp-it-pipe",
+      "//localhost//pipe/nscp-it-pipe",
+      "C:\\Windows\\NUL:",
+    ]) {
       const res = await check(name, {});
       expect(res.result).toBe(UNKNOWN);
       expect(messageOf(res)).toMatch(/names a device or a pipe/);

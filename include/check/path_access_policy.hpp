@@ -76,6 +76,8 @@ class path_policy {
   path_policy(const path_policy &other) : base_(other.base_) {
     std::lock_guard<std::mutex> lock(other.mutex_);
     entries_ = other.entries_;
+    remote_any_ = other.remote_any_;
+    remote_hosts_ = other.remote_hosts_;
   }
   path_policy &operator=(const path_policy &other) {
     if (this == &other) return *this;
@@ -83,6 +85,8 @@ class path_policy {
     base_ = copy.base_;
     std::lock_guard<std::mutex> lock(mutex_);
     entries_.swap(copy.entries_);
+    remote_any_ = copy.remote_any_;
+    remote_hosts_.swap(copy.remote_hosts_);
     return *this;
   }
 
@@ -105,6 +109,55 @@ class path_policy {
     }
     std::lock_guard<std::mutex> lock(mutex_);
     entries_.swap(entries);
+  }
+
+  // Which servers a caller may name in a UNC path (`\\server\share\x`), as a
+  // comma separated list; `*` is any server, and `none` (or an empty list)
+  // is no server at all.
+  //
+  // Opening a UNC path makes the agent log on to the server it names with its
+  // own account (the machine account, for a service running as SYSTEM), so a
+  // caller who may name any server can point that logon at a machine of their
+  // choosing. This is the knob for that, and it is separate from the mode: it
+  // holds in `any` and in `allowed` alike, because an allow list written as
+  // a glob says nothing about servers. A predefined entry is the operator's
+  // own and is not held against it.
+  //
+  // A name is matched exactly, ignoring case: `fs01`, `fs01.corp.example` and
+  // its address are three entries, and a server spelled another way than the
+  // list has it is refused rather than guessed at.
+  void set_remote_hosts(const std::string &value) {
+    std::vector<std::string> hosts;
+    std::vector<std::string> raw;
+    bool any = false;
+    boost::algorithm::split(raw, value, boost::algorithm::is_any_of(","));
+    for (std::string &item : raw) {
+      boost::algorithm::trim(item);
+      boost::algorithm::to_lower(item);
+      if (item.empty() || item == "none") continue;
+      if (item == "*") any = true;
+      hosts.push_back(item);
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    remote_any_ = any;
+    remote_hosts_.swap(hosts);
+  }
+
+  // True, with the reason, when `token` is a UNC path on a server which is
+  // not in `remote hosts`. Lexical and the same on every platform so it can
+  // be tested anywhere; resolve() consults it on Windows only, where such a
+  // path reaches the network.
+  bool refuses_remote(const std::string &token, std::string &why) const {
+    std::string host;
+    if (!safe_file::unc_host(token, host)) return false;
+    boost::algorithm::to_lower(host);
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (remote_any_) return false;
+    for (const std::string &allowed : remote_hosts_) {
+      if (allowed == host) return false;
+    }
+    why = "the server '" + host + "' is not in 'remote hosts'";
+    return true;
   }
 
   // Only the predefined entries are appended to by the settings callbacks;
@@ -347,6 +400,15 @@ class path_policy {
     const std::string config_error = base_.get_config_error();
     if (!config_error.empty()) return decision::refuse(config_error);
 
+#ifdef WIN32
+    {
+      std::string why;
+      if (refuses_remote(token, why)) {
+        return decision::refuse("Refusing file '" + token + "': " + why + " (see [" + base_.get_settings_path() + "] in the configuration)");
+      }
+    }
+#endif
+
     switch (base_.get_mode()) {
       case mode::any:
         return decision::accept(token);
@@ -487,6 +549,10 @@ class path_policy {
   policy base_;
   mutable std::mutex mutex_;
   std::vector<entry> entries_;
+  // `remote hosts`: any server until an operator says otherwise, which is
+  // how every earlier release behaved.
+  bool remote_any_ = true;
+  std::vector<std::string> remote_hosts_;
 };
 
 }  // namespace access

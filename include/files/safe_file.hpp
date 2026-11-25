@@ -24,6 +24,11 @@
 //     name check below does not recognise cannot impersonate the agent, and
 //     names in the device namespace (`\\.\...`, `\\host\pipe\...`, `CON`) are
 //     refused before anything is opened (see device_path.hpp).
+//   * That flag is ignored for a pipe reached over the network redirector
+//     (`\\host\share\...`): there the server decides. So for a UNC path the
+//     share itself is examined first - its root is opened, which connects to
+//     nothing a caller named - and only a share that is a file system is read
+//     from (examine_share() below).
 //   * Every share flag is passed on Windows, so a log the writing program
 //     holds open is read without getting in its way, and the UTF-8 name is
 //     converted to UTF-16, so names outside the ANSI code page work.
@@ -52,6 +57,7 @@ class file {
   //   "Failed to open file: <path>: <reason>"
   //   "Not a regular file: <path>"
   //   "Refusing to open <path>: it names a device or a pipe, not a file"
+  //   "Refusing to open <path>: its share is not a file system"
   bool open(const std::string &path, std::string &error);
   bool is_open() const;
   void close();
@@ -68,6 +74,35 @@ class file {
   int fd_ = -1;
 #endif
 };
+
+// What the share a UNC path is on turned out to be.
+//   not_remote       the path is not a UNC path: nothing was examined
+//   file_system      a disk share: go on and open the file
+//   not_file_system  a pipe or device share: nothing on it may be opened
+//   unreachable      it could not be examined (no such server or share, or
+//                    neither question below was answered): `reason` says why,
+//                    and nothing on it may be opened - a share that will not
+//                    say what it is gets no benefit of the doubt
+enum class share_state { not_remote, file_system, not_file_system, unreachable };
+
+#ifdef _WIN32
+// Examine the share `path` is on before anything named on it is opened.
+//
+// The root of the share (`\\host\share\`) is opened for its attributes and
+// asked what kind of device it is: the root has an empty name, so even on
+// IPC$ that reaches no pipe. Where the account may not open the root - it can
+// hold rights on a folder beneath it only - the server is asked for the
+// share's type instead (NetShareGetInfo). A share seen to be a file system is
+// remembered for a minute, so a scan that hashes ten thousand files on it
+// asks once.
+//
+// file::open() below asks before it opens, and so do the CheckDisk scanners,
+// whose GetFileAttributes and FindFirstFile calls open the path they are
+// given just as CreateFile does.
+share_state examine_share(const std::string &path, std::string &reason);
+#else
+inline share_state examine_share(const std::string &, std::string &) { return share_state::not_remote; }
+#endif
 
 #ifdef _WIN32
 namespace detail {

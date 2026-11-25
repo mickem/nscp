@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <file_helpers.hpp>
-#include <files/device_path.hpp>
+#include <files/safe_file.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/utf8.hpp>
@@ -67,7 +67,21 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     return;
   }
 
-  const DWORD fileAttr = GetFileAttributes(wide_dir.c_str());
+  // And a UNC path only once its share has been seen to be a file system
+  // (safe_file::examine_share). One that cannot be examined is treated as the
+  // missing path it most likely is, without being touched.
+  bool reachable = true;
+  if (!recursive) {
+    std::string reason;
+    const safe_file::share_state share = safe_file::examine_share(dir.string(), reason);
+    if (share == safe_file::share_state::not_file_system) {
+      context.report_error("Refusing " + dir.string() + ": its share is not a file system");
+      return;
+    }
+    reachable = share != safe_file::share_state::unreachable;
+  }
+
+  const DWORD fileAttr = reachable ? GetFileAttributes(wide_dir.c_str()) : INVALID_FILE_ATTRIBUTES;
   if ((fileAttr == INVALID_FILE_ATTRIBUTES) && (!recursive)) {
     // Top-level path supplied by the user does not exist (or is not
     // accessible). Record it so the caller can surface this as an UNKNOWN
@@ -161,6 +175,12 @@ void file_finder::scanner_context::report_warning(const std::string &msg) { NSC_
 std::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const boost::filesystem::path &path, long long now) {
   // Refused by name before FindFirstFile, as in recursive_scan.
   if (safe_file::is_win32_device_path(path.string())) return std::shared_ptr<file_filter::filter_obj>();
+  {
+    // Nor on a share which is not (or cannot be seen to be) a file system.
+    std::string reason;
+    const safe_file::share_state share = safe_file::examine_share(path.string(), reason);
+    if (share == safe_file::share_state::not_file_system || share == safe_file::share_state::unreachable) return std::shared_ptr<file_filter::filter_obj>();
+  }
   WIN32_FIND_DATA wfd;
   const std::wstring wide_path = utf8::cvt<std::wstring>(path.string());
   const HANDLE hFind = FindFirstFile(wide_path.c_str(), &wfd);
