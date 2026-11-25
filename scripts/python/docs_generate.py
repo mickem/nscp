@@ -17,8 +17,12 @@
 #
 # Human-authored samples (docs/samples/*_samples.md, *_desc.md) are read here, as
 # in the original docs.py -- they are platform-neutral and not part of the YAML.
+# So are the data-source sidecars (docs/samples/*_sources.yaml, schema and
+# validation in docs_sources.py), rendered on the command's page and collected
+# on reference/data-sources.md.
 from optparse import OptionParser
 import os
+import re
 import sys
 import glob
 import hashlib
@@ -26,6 +30,8 @@ from functools import reduce
 
 import yaml
 from jinja2 import Environment
+
+import docs_sources
 
 helper = None
 
@@ -151,6 +157,9 @@ query_layout_template = u"""{{intro}}
 {% if has_sample -%}
 * [Sample Commands](#{{"samples"|md_prefix_lnk(query.key)}})
 {% endif -%}
+{% if has_sources -%}
+* [Data sources and privileges](#{{"sources"|md_prefix_lnk(query.key)}})
+{% endif -%}
 {% if has_args -%}
 * [Command-line Arguments](#{{"options"|md_prefix_lnk(query.key)}})
 {% endif -%}
@@ -162,6 +171,12 @@ query_layout_template = u"""{{intro}}
 #### Sample Commands
 
 {{query.sample}}
+{% endif %}
+{% if has_sources %}
+<a id="{{"sources"|md_prefix_lnk(query.key)}}"></a>
+#### Data sources and privileges
+
+{{sources}}
 {% endif %}
 {% if has_args %}
 <a id="{{"options"|md_prefix_lnk(query.key)}}"></a>
@@ -338,7 +353,9 @@ command, in addition to the command specific keywords listed on each command's r
 
 index_template = u"""
 Most check commands share a set of common command-line options and filter keywords, they are
-documented on the [common options](common-options.md) page.
+documented on the [common options](common-options.md) page. Where each check reads its data
+from, and which checks need an elevated agent, is collected on the
+[data sources and privileges](data-sources.md) page.
 
 # Queries
 {% set table = [] -%}
@@ -505,6 +522,159 @@ def availability_note(present, all_present):
     return '*Available on %s only.*\n' % labels
 
 
+# --- Data sources and privileges (docs/samples/*_sources.yaml). -----------------
+# The sidecar is platform-neutral like the other samples (it names its platforms
+# itself), so it renders once per command, outside the per-slice machinery.
+SOURCES_PAGE = 'data-sources.md'
+
+PRIVILEGE_LEGEND = ('*Privilege* is what the account the NSClient++ agent runs as needs, not the '
+                    'caller of the check: *elevated* means Administrator or LocalSystem on Windows '
+                    'and root on Linux and macOS. *Not determined* means nobody has worked it out '
+                    'yet - not that none is needed.')
+
+
+def one_line(value):
+    return ' '.join((value or '').split())
+
+
+CODE_SPAN = re.compile(r'(`+).+?\1')
+
+
+def sources_cell(value):
+    # Table-cell safe: one line, and a pipe cannot end the cell. A pipe inside a
+    # code span already cannot (and a backslash there would show), so only the
+    # text around code spans is escaped.
+    text, out, pos = one_line(value), [], 0
+    for m in CODE_SPAN.finditer(text):
+        out.append(text[pos:m.start()].replace('|', '\\|'))
+        out.append(m.group(0))
+        pos = m.end()
+    out.append(text[pos:].replace('|', '\\|'))
+    return ''.join(out)
+
+
+def privilege_label(value):
+    return value if value else '*%s*' % docs_sources.NOT_DETERMINED
+
+
+def requires_cell(items):
+    return '<br>'.join(sources_cell(i) for i in items or [])
+
+
+def drop_empty_columns(header, rows, keep):
+    # Leave out a column nothing in this table fills (`keep` are always shown).
+    cols = [i for i, h in enumerate(header) if h in keep or any(r[i] for r in rows)]
+    return [header[i] for i in cols], [[r[i] for i in cols] for r in rows]
+
+
+def render_sources_section(data, page_prefix='../'):
+    # Body of a command's "Data sources and privileges" section: one table (the
+    # Platform column only when the sidecar distinguishes platforms at all),
+    # then the prose - the condition of a conditional privilege and what
+    # happens without it - as numbered notes the table points at, since a
+    # paragraph per cell makes the table unreadable.
+    header = ['Platform', 'Source', 'Provides', 'Privilege', 'Requires', 'Notes']
+    rows, notes = [], []
+    for platform, entry in docs_sources.entries(data):
+        text = []
+        if entry.get('note'):
+            text.append(one_line(entry['note']))
+        if entry.get('without'):
+            text.append('*Without it:* %s' % one_line(entry['without']))
+        ref = ''
+        if text:
+            text = ' '.join(text)
+            if text not in notes:
+                notes.append(text)
+            ref = 'note %d' % (notes.index(text) + 1)
+        rows.append([docs_sources.PLATFORM_LABEL[platform],
+                     sources_cell(entry['source']),
+                     sources_cell(entry.get('provides')),
+                     privilege_label(entry.get('privilege')),
+                     requires_cell(entry.get('requires')),
+                     ref])
+    if list(data.keys()) == ['all']:
+        header, rows = header[1:], [r[1:] for r in rows]
+    header, rows = drop_empty_columns(header, rows, ['Platform', 'Source', 'Privilege'])
+    out = [render_rst_table(rows, *header)]
+    for i, text in enumerate(notes, 1):
+        out.append('%d. %s' % (i, text))
+    if notes:
+        out.append('')
+    out.append('%s See also [all checks by privilege](%s%s).' % (PRIVILEGE_LEGEND, page_prefix, SOURCES_PAGE))
+    return '\n'.join(out) + '\n'
+
+
+def platform_cell(platform, command_platforms):
+    # `all` means every platform the command runs on: spell those out, so the
+    # overview never reads as if a Windows-only check also ran on Linux.
+    if platform != 'all':
+        return docs_sources.PLATFORM_LABEL[platform]
+    labels = [PLATFORM_LABEL[p] for p in PLATFORM_ORDER if p in command_platforms]
+    return 'All (%s)' % ', '.join(labels) if labels else 'All'
+
+
+def render_sources_page(documented):
+    # documented: [{module, namespace, command, platforms, data}] sorted for
+    # display. Leads with the checks that need elevation (one row per source,
+    # with the condition), then one row per command and platform.
+    out = ['# Data sources and privileges\n',
+           'Where each check command reads its data from, what privilege that needs and what it '
+           'depends on. The privilege is always that of the account the NSClient++ agent (the '
+           'service) runs as - not the user or monitoring server calling the check: *elevated* '
+           'means Administrator or LocalSystem on Windows and root on Linux and macOS. '
+           '*Not determined* means nobody has worked it out yet, not that none is needed.\n',
+           'Commands that are not listed here have not been documented yet; their absence says '
+           'nothing about the privilege they need. Each command\'s reference page has the full '
+           'table, including what each source provides.\n']
+
+    def link(d):
+        return make_md_link('%s/%s.md#%s' % (d['namespace'], d['module'], make_md_prefix_lnk('sources', d['command'])),
+                            d['command'])
+
+    elevated = []
+    for d in documented:
+        for platform, entry in docs_sources.entries(d['data']):
+            if entry.get('privilege') in ('elevated', 'conditional'):
+                elevated.append([link(d), d['module'], platform_cell(platform, d['platforms']),
+                                 '**%s**' % entry['privilege'], sources_cell(entry['source']),
+                                 sources_cell(entry.get('note'))])
+    out.append('## Checks that need elevation\n')
+    if elevated:
+        out.append('Sources that need an elevated agent always (*elevated*) or only in some setups '
+                   '(*conditional*, with the condition). What a check does without it is on its '
+                   'reference page.\n')
+        header, rows = drop_empty_columns(
+            ['Command', 'Module', 'Platform', 'Privilege', 'Source', 'Condition'], elevated,
+            ['Command', 'Module', 'Platform', 'Privilege', 'Source'])
+        out.append(render_rst_table(rows, *header))
+    else:
+        out.append('None of the documented checks needs an elevated agent.\n')
+
+    out.append('## All documented checks\n')
+    rows = []
+    for d in documented:
+        for platform in docs_sources.PLATFORMS:
+            items = d['data'].get(platform)
+            if not items:
+                continue
+            requires = []
+            for entry in items:
+                for r in entry.get('requires', []):
+                    if r not in requires:
+                        requires.append(r)
+            privilege = docs_sources.rank_privilege([e.get('privilege') for e in items])
+            rows.append([link(d), d['module'], platform_cell(platform, d['platforms']),
+                         privilege_label(privilege), requires_cell(requires) or u'\u2014'])
+    if rows:
+        out.append('One row per command and platform; the privilege is that of the most demanding '
+                   'source.\n')
+        out.append(render_rst_table(rows, 'Command', 'Module', 'Platform', 'Privilege', 'Dependencies'))
+    else:
+        out.append('No command has been documented yet.\n')
+    return '\n'.join(out)
+
+
 # --- Experimental marker. -------------------------------------------------------
 # A module or command whose module.json says "experimental": true is usable but
 # still moving: its options, keywords and output may change. The agent reports
@@ -643,6 +813,9 @@ class DocumentationGenerator(object):
         self.common_page = self.env.from_string(common_page_template)
         self.index = self.env.from_string(index_template)
         self.common = self._load_common()
+        # Commands with a data-source sidecar, collected while the module pages
+        # render and listed on reference/data-sources.md.
+        self.documented = []
 
     def _load_common(self):
         # Canonical descriptions of the shared options/keywords (see
@@ -777,6 +950,11 @@ class DocumentationGenerator(object):
                                          self.common.get('options', {}))
                         for p in qpresent}
             has_sample = bool(prepared[qpresent[0]].get('sample'))
+            sources = docs_sources.load_for(self.sample_folder, module, name)
+            if sources:
+                self.documented.append({'module': module, 'namespace': self._namespace(slices),
+                                        'command': name, 'data': sources,
+                                        'platforms': effective_platforms(qpresent, desc)})
             # Select the platforms to render each section for by whether that
             # platform actually carries the section's data. This skips empty stubs
             # (e.g. a command registered on a platform but with no arguments), which
@@ -801,6 +979,8 @@ class DocumentationGenerator(object):
                 args=args.strip('\n'),
                 filter=filt.strip('\n'),
                 has_sample=has_sample,
+                has_sources=bool(sources),
+                sources=render_sources_section(sources).strip('\n') if sources else '',
                 has_args=bool(apresent),
                 has_fields=bool(fpresent)))
         return '\n'.join(out)
@@ -1020,6 +1200,11 @@ class DocumentationGenerator(object):
         render_template(text, '%s/docs/reference/common-options.md' % output_dir)
         print('Rendered common options page (%d options, %d keywords)' % (len(opts), len(fields)))
 
+    def render_sources_page(self, output_dir):
+        documented = sorted(self.documented, key=lambda d: (d['module'], d['command']))
+        render_template(render_sources_page(documented), '%s/docs/reference/%s' % (output_dir, SOURCES_PAGE))
+        print('Rendered data sources page (%d commands)' % len(documented))
+
     def generate(self, output_dir):
         modules = self.load()
         extracted = [p for p in PLATFORM_ORDER if any(p in slices for slices in modules.values())]
@@ -1029,6 +1214,7 @@ class DocumentationGenerator(object):
             render_template(text, out_path)
             print('Rendered %d of %d [%s -> %s]' % (i, len(modules), module, namespace))
         self.render_common_page(output_dir)
+        self.render_sources_page(output_dir)
 
         index_model = self.build_index_model(modules)
         text = self.index.render(modules=index_model, marker=EXPERIMENTAL_MARKER)
@@ -1044,7 +1230,11 @@ def main(argv):
     (options, args) = parser.parse_args(args=argv)
     yaml_dir = os.path.join(options.input, 'reference')
     sample_folder = options.samples or options.output
-    DocumentationGenerator(yaml_dir, sample_folder).generate(options.output)
+    try:
+        DocumentationGenerator(yaml_dir, sample_folder).generate(options.output)
+    except docs_sources.SourcesError as e:
+        print('error: invalid data-source sidecar (see scripts/python/docs_sources.py):\n%s' % e, file=sys.stderr)
+        return 1
     return 0
 
 

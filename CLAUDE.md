@@ -297,6 +297,25 @@ the helper goes in its `ALLOWED` set with the reason.
 Every new check command needs, under `docs/samples/`:
 - `<Module>_<command>_samples.md` — usage examples with real captured output.
 - `<Module>_<command>_desc.md` — clarifying prose (suffix is `_desc`, not `_docs`).
+- `<Module>_<command>_sources.yaml` — where the check reads its data from, what
+  privilege that needs and what it depends on. Rendered as a "Data sources and
+  privileges" table on the command's page and collected on
+  `reference/data-sources.md`. The top level names platforms (`all` — the same
+  on every platform the check runs on — `windows`, `linux`, `macos`), each a
+  list of entries:
+  `- {source: /sys/class/power_supply, provides: charge, privilege: none}`.
+  `source` is required; `provides`, `note`, `without` (what happens when the
+  privilege or a dependency is missing) are strings and `requires` a list of
+  strings (external tool, service, package, kernel feature, OS version, remote
+  endpoint). `privilege` is `none`, `elevated` or `conditional`, and is about
+  the account the **agent** runs as, never the caller: `elevated` is
+  Administrator/LocalSystem on Windows and root on Unix; `conditional` needs a
+  `note` stating the condition (e.g. only a `/etc/shadow` keyword needs root).
+  Derive every entry from the code, not from what the check ought to need, and
+  **leave `privilege` out rather than guess** — a missing key renders as "not
+  determined", which is honest; a wrong `none` is not. Validate with
+  `python3 scripts/python/docs_sources.py --check` (schema, plus a file name
+  that names no known command); the schema lives in that file.
 
 Headings inside these files must be `####` or deeper: the content is merged
 into the generated reference page below a `### <command>` heading, so anything
