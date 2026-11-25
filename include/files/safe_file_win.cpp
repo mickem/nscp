@@ -128,12 +128,13 @@ void *detail::create_for_read(const std::string &path) {
   return h == INVALID_HANDLE_VALUE ? nullptr : h;
 }
 
-file::file(file &&other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
+file::file(file &&other) noexcept : handle_(other.handle_), read_error_(other.read_error_) { other.handle_ = nullptr; }
 
 file &file::operator=(file &&other) noexcept {
   if (this != &other) {
     close();
     handle_ = other.handle_;
+    read_error_ = other.read_error_;
     other.handle_ = nullptr;
   }
   return *this;
@@ -207,10 +208,15 @@ bool file::read(char *buf, const std::size_t len, std::size_t &got) {
   got = 0;
   const DWORD want = len > 0x40000000 ? 0x40000000 : static_cast<DWORD>(len);
   DWORD n = 0;
-  if (!ReadFile(as_handle(handle_), buf, want, &n, nullptr)) return false;
+  if (!ReadFile(as_handle(handle_), buf, want, &n, nullptr)) {
+    read_error_ = GetLastError();
+    return false;
+  }
   got = n;
   return true;
 }
+
+std::string file::read_error() const { return error::lookup::last_error(static_cast<unsigned long>(read_error_)); }
 
 bool file::seek(const std::uint64_t offset) {
   LARGE_INTEGER li;

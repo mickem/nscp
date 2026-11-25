@@ -762,7 +762,7 @@ scan_result scan(const scan_request &request) {
     if (share == safe_file::share_state::not_file_system || share == safe_file::share_state::unreachable) {
       scan_result result;
       result.root_missing = true;
-      result.error = share == safe_file::share_state::unreachable ? "Path not found: " + request.root
+      result.error = share == safe_file::share_state::unreachable ? "Path not found: " + request.root + " (" + reason + ")"
                                                                   : "Not a folder: " + request.root + " (its share is not a file system)";
       return result;
     }

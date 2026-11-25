@@ -16,12 +16,13 @@
 
 namespace safe_file {
 
-file::file(file &&other) noexcept : fd_(other.fd_) { other.fd_ = -1; }
+file::file(file &&other) noexcept : fd_(other.fd_), read_error_(other.read_error_) { other.fd_ = -1; }
 
 file &file::operator=(file &&other) noexcept {
   if (this != &other) {
     close();
     fd_ = other.fd_;
+    read_error_ = other.read_error_;
     other.fd_ = -1;
   }
   return *this;
@@ -67,11 +68,16 @@ bool file::read(char *buf, const std::size_t len, std::size_t &got) {
   for (;;) {
     const ssize_t n = ::read(fd_, buf, len);
     if (n < 0 && errno == EINTR) continue;
-    if (n < 0) return false;
+    if (n < 0) {
+      read_error_ = static_cast<unsigned long>(errno);
+      return false;
+    }
     got = static_cast<std::size_t>(n);
     return true;
   }
 }
+
+std::string file::read_error() const { return std::strerror(static_cast<int>(read_error_)); }
 
 bool file::seek(const std::uint64_t offset) { return ::lseek(fd_, static_cast<off_t>(offset), SEEK_SET) != static_cast<off_t>(-1); }
 

@@ -25,11 +25,6 @@ struct file_object_exception : std::exception {
   const char* what() const throw() override { return error_.c_str(); }
 };
 
-// A file/dir with timestamps stored as native unix time (seconds since the
-// epoch). The Windows builder (filter_win.cpp) converts FILETIME to unix time
-// so the where-engine, derived fields and field registration are identical on
-// both platforms; only the platform builders and the (Windows-only) version
-// lookup differ.
 // The line_count keyword's counting rule, fed the file a chunk at a time.
 //
 // It is the rule of the fgetc loop this replaced, kept so the number a check
@@ -95,6 +90,11 @@ struct line_counter {
   unsigned long count_ = 0;
 };
 
+// A file/dir with timestamps stored as native unix time (seconds since the
+// epoch). The Windows builder (filter_win.cpp) converts FILETIME to unix time
+// so the where-engine, derived fields and field registration are identical on
+// both platforms; only the platform builders and the (Windows-only) version
+// lookup differ.
 struct filter_obj {
   filter_obj()
       : ullSize(0),

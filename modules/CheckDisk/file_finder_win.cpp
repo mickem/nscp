@@ -71,6 +71,8 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   // (safe_file::examine_share). One that cannot be examined is treated as the
   // missing path it most likely is, without being touched.
   bool reachable = true;
+  // Why the share could not be examined, for the log: " (<reason>)" or empty.
+  std::string unreachable;
   if (!recursive) {
     std::string reason;
     const safe_file::share_state share = safe_file::examine_share(dir.string(), reason);
@@ -79,6 +81,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
       return;
     }
     reachable = share != safe_file::share_state::unreachable;
+    if (!reachable && !reason.empty()) unreachable = " (" + reason + ")";
   }
 
   const DWORD fileAttr = reachable ? GetFileAttributes(wide_dir.c_str()) : INVALID_FILE_ATTRIBUTES;
@@ -88,9 +91,9 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     // result instead of silently returning "No files found" (issue #613).
     context.missing_paths.push_back(dir.string());
     if (context.ignore_missing)
-      context.report_debug("Ignoring missing path: " + dir.string());
+      context.report_debug("Ignoring missing path: " + dir.string() + unreachable);
     else
-      context.report_error("Invalid file specified: " + dir.string());
+      context.report_error("Invalid file specified: " + dir.string() + unreachable);
     return;
   } else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
     context.report_warning("Invalid file specified: " + dir.string());

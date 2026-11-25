@@ -67,12 +67,17 @@ class file {
   bool seek(std::uint64_t offset);
   bool size(std::uint64_t &out);
 
+  // Why the last read() returned false, in the words of the OS.
+  std::string read_error() const;
+
  private:
 #ifdef _WIN32
   void *handle_ = nullptr;  // a HANDLE; nullptr when closed
 #else
   int fd_ = -1;
 #endif
+  // The OS error code of the last failed read(); 0 when none has failed.
+  unsigned long read_error_ = 0;
 };
 
 // What the share a UNC path is on turned out to be.
@@ -142,7 +147,7 @@ inline read_status read_all(const std::string &path, const std::uint64_t max_byt
   for (;;) {
     std::size_t got = 0;
     if (!f.read(buffer, sizeof(buffer), got)) {
-      error = "Failed to read " + path;
+      error = "Failed to read " + path + ": " + f.read_error();
       return read_status::failed;
     }
     if (got == 0) return read_status::ok;
