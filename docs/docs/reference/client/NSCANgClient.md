@@ -122,6 +122,7 @@ destination.
 **Jump to section:**
 
 * [Sample Commands](#submit_nsca_ng_samples)
+* [Data sources and privileges](#submit_nsca_ng_sources)
 * [Command-line Arguments](#submit_nsca_ng_options)
 
 
@@ -225,6 +226,18 @@ Handlers defined under `[/settings/NSCA-NG/client/handlers]` are registered
 automatically as `submit_<alias>` commands, so a relay with several destinations
 does not need a module instance per destination.
 
+
+
+<a id="submit_nsca_ng_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                                                         | Provides                           | Privilege | Requires                                                                                                                                                                                     | Notes  |
+|------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote NSCA-ng server, `MOIN`/`PUSH` of `PROCESS_HOST_CHECK_RESULT` / `PROCESS_SERVICE_CHECK_RESULT` commands over TLS-PSK (default port 5668) | passive host/service check results | none      | OpenSSL with TLS 1.2 PSK cipher suites (the module is not built without OpenSSL)<br>An NSCA-ng server reachable on `host`/`port`<br>A PSK `identity` and `password` authorised on the server | note 1 |
+
+1. PSK identity defaults to the sender host name. With `use psk = false` the server certificate is verified instead, and an unverified connection needs `insecure`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_nsca_ng_options"></a>

@@ -173,11 +173,9 @@ def _expand_queries(data):
     return names
 
 
-def known_commands(reference_dir=REFERENCE_DIR, modules_dir=MODULES_DIR):
-    """{module: set(commands)} from the extracted reference (docs/reference/*.yaml)
-    and the modules' own module.json, so a command added since the last extraction
-    is known too. module.json is keyed by the module name it declares, which is
-    how CheckSystemUnix documents its commands under CheckSystem."""
+def reference_commands(reference_dir=REFERENCE_DIR):
+    """{module: set(commands)} from the extracted reference alone - what the
+    generator can render a page for."""
     known = {}
     for path in glob.glob(os.path.join(reference_dir, '*.yaml')):
         if os.path.basename(path) == 'common-options.yaml':
@@ -186,6 +184,15 @@ def known_commands(reference_dir=REFERENCE_DIR, modules_dir=MODULES_DIR):
             data = yaml.safe_load(f) or {}
         module = os.path.splitext(os.path.basename(path))[0]
         known.setdefault(module, set()).update(_expand_queries(data))
+    return known
+
+
+def known_commands(reference_dir=REFERENCE_DIR, modules_dir=MODULES_DIR):
+    """{module: set(commands)} from the extracted reference (docs/reference/*.yaml)
+    and the modules' own module.json, so a command added since the last extraction
+    is known too. module.json is keyed by the module name it declares, which is
+    how CheckSystemUnix documents its commands under CheckSystem."""
+    known = reference_commands(reference_dir)
     for path in glob.glob(os.path.join(modules_dir, '*', 'module.json')):
         try:
             with io.open(path, encoding='utf-8') as f:
@@ -198,10 +205,23 @@ def known_commands(reference_dir=REFERENCE_DIR, modules_dir=MODULES_DIR):
     return known
 
 
+def unrendered(samples_dir=SAMPLES_DIR, reference_dir=REFERENCE_DIR):
+    """Sidecars of commands the extracted reference does not hold yet. They are
+    valid but show up nowhere until docs/reference is re-extracted."""
+    rendered = reference_commands(reference_dir)
+    names = []
+    for path in sorted(glob.glob(os.path.join(samples_dir, '*' + SUFFIX))):
+        parsed = parse_filename(path)
+        if parsed and parsed[0] in rendered and parsed[1] not in rendered[parsed[0]]:
+            names.append(os.path.basename(path))
+    return names
+
+
 def check(samples_dir=SAMPLES_DIR, reference_dir=REFERENCE_DIR, modules_dir=MODULES_DIR):
     """(errors, count): every problem in every sidecar under samples_dir."""
     errors = []
     known = known_commands(reference_dir, modules_dir)
+    rendered = reference_commands(reference_dir)
     paths = sorted(glob.glob(os.path.join(samples_dir, '*' + SUFFIX)))
     for path in paths:
         name = os.path.basename(path)
@@ -214,6 +234,11 @@ def check(samples_dir=SAMPLES_DIR, reference_dir=REFERENCE_DIR, modules_dir=MODU
                 errors.append('%s: no module named %s (in docs/reference or modules/*/module.json)' % (name, module))
             elif command not in known[module]:
                 errors.append('%s: %s has no command named %s' % (name, module, command))
+            elif module not in rendered:
+                # A stale extraction misses a command; a module with no
+                # reference file at all is one the extractor does not document.
+                errors.append('%s: %s has no docs/reference/%s.yaml, so the sidecar is never rendered'
+                              % (name, module, module))
         try:
             load_file(path)
         except SourcesError as e:
@@ -236,6 +261,9 @@ def main(argv):
     if errors:
         print('%d data-source sidecars, %d errors' % (count, len(errors)), file=sys.stderr)
         return 1
+    for name in unrendered(args.samples, args.reference):
+        print('warning: %s: the command is not in docs/reference yet, so it is not rendered until the '
+              'reference is re-extracted' % name, file=sys.stderr)
     print('%d data-source sidecars: OK' % count, file=sys.stderr)
     return 0
 

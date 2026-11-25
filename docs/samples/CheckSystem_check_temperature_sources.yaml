@@ -23,7 +23,3 @@ linux:
     requires:
       - a loaded kernel sensor driver (thermal or hwmon); VMs and cloud instances usually have none
     without: 'No readable sensor gives UNKNOWN "No temperature sensors found"'
-macos:
-  - source: None (no reader on macOS)
-    note: The SMC sensors are only reachable through undocumented interfaces.
-    without: 'Always UNKNOWN "No temperature sensors found"'

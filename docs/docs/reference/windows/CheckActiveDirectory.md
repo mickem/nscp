@@ -82,6 +82,7 @@ that the previous read has not returned instead of starting another thread.
 **Jump to section:**
 
 * [Sample Commands](#check_ad_replication_samples)
+* [Data sources and privileges](#check_ad_replication_sources)
 * [Command-line Arguments](#check_ad_replication_options)
 * [Filter keywords](#check_ad_replication_filter_keys)
 
@@ -138,6 +139,22 @@ check_ad_replication
 No replication partners found (single domain controller?)
 ```
 
+
+
+<a id="check_ad_replication_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                   | Provides                                                                                                            | Privilege        | Requires                                                                                                                                                     | Notes  |
+|----------|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | Directory replication API (`DsBindW`, `DsReplicaGetInfoW` with `DS_REPL_INFO_NEIGHBORS`) | one row per inbound link - naming context, source DSA, last attempt, last success, last error, consecutive failures | *not determined* | Active Directory Domain Services (the target must be a domain controller)<br>for server=, TCP 135 (RPC endpoint mapper) and the dynamic RPC range to that DC | note 1 |
+| Windows  | `DsRoleGetPrimaryDomainInformation` (machine role)                                       | whether a failed bind means "not a domain controller"                                                               | *not determined* |                                                                                                                                                              | note 2 |
+| Windows  | TCP connect to port 135 on server=                                                       | reachability pre-check for a remote DC                                                                              | *not determined* |                                                                                                                                                              | note 3 |
+
+1. The same data `repadmin /showrepl` reads. The target is always named explicitly (the local DNS host name by default), since replication state is per DC. The whole read runs on a worker bounded by timeout=. *Without it:* A failed bind or read returns UNKNOWN with the Win32 error ("Failed to bind to the directory service on &lt;dc&gt;: ..."; access denied lands here too). No answer within timeout= is UNKNOWN "No answer from the directory service on &lt;dc&gt; within &lt;n&gt;ms".
+2. *Without it:* On a host whose role is not a DC the failure is reported as UNKNOWN "Not a domain controller: ..."; if the role cannot be read the plain failure is reported
+3. *Without it:* UNKNOWN "Cannot reach the RPC endpoint mapper on &lt;server&gt; (port 135): ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_ad_replication_options"></a>
@@ -279,6 +296,7 @@ another.
 **Jump to section:**
 
 * [Sample Commands](#check_kdc_samples)
+* [Data sources and privileges](#check_kdc_sources)
 * [Command-line Arguments](#check_kdc_options)
 * [Filter keywords](#check_kdc_filter_keys)
 
@@ -346,6 +364,22 @@ check_kdc
 Failed to locate a KDC (is this machine domain-joined?): 54b: The specified domain either does not exist or could not be contacted. Specify server=, realm= and principal=.
 ```
 
+
+
+<a id="check_kdc_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                       | Provides                                                                   | Privilege        | Requires                                                                                  | Notes  |
+|----------|--------------------------------------------------------------|----------------------------------------------------------------------------|------------------|-------------------------------------------------------------------------------------------|--------|
+| Windows  | `DsGetDcNameW` (`DS_KDC_REQUIRED`)                           | the KDC to probe and the realm, when server= / realm= are not given        | *not determined* | domain membership, unless server=, realm= and principal= are all given                    | note 1 |
+| Windows  | `DsRoleGetPrimaryDomainInformation` and `GetComputerNameExW` | the default principal: this machine's account (HOST$) in its joined domain | *not determined* |                                                                                           | note 2 |
+| Windows  | Kerberos AS-REQ over TCP to port 88 (port=) on each KDC      | responding, time, the KDC answer (AS-REP or KRB-ERROR)                     | none             | TCP reachability of the KDC on port 88 (or port=)<br>DNS resolution of the KDC host names | note 3 |
+
+1. *Without it:* UNKNOWN "Failed to locate a KDC (is this machine domain-joined?): ... Specify server=, realm= and principal=."
+2. *Without it:* For a realm this machine has no account in, UNKNOWN "principal= is required to probe &lt;realm&gt;: ..." before anything is sent
+3. An outbound TCP connection; no credential or password is sent. Name lookups and probes all run under one timeout= deadline. *Without it:* An unreachable, silent or non-Kerberos KDC gives responding = 0 (CRITICAL by default); an unresolvable host also renders time as unknown
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_kdc_options"></a>
@@ -471,6 +505,7 @@ unprivileged user yields that UNKNOWN.
 **Jump to section:**
 
 * [Sample Commands](#check_secure_channel_samples)
+* [Data sources and privileges](#check_secure_channel_sources)
 * [Command-line Arguments](#check_secure_channel_options)
 * [Filter keywords](#check_secure_channel_filter_keys)
 
@@ -520,6 +555,20 @@ check_secure_channel
 This machine is not joined to a domain (workgroup WORKGROUP); there is no secure channel to check
 ```
 
+
+
+<a id="check_secure_channel_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                        | Provides                                                                     | Privilege        | Requires                                                                                                                                                                           | Notes  |
+|----------|-----------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | `NetGetJoinInformation`                                                                       | the domain to check when domain= is not given (read from server= when given) | *not determined* |                                                                                                                                                                                    | note 1 |
+| Windows  | `I_NetLogonControl2` (netlogon `NETLOGON_CONTROL_TC_VERIFY`, or `TC_QUERY` with verify=false) | domain, dc, error_code, error_message, healthy                               | elevated         | Netlogon service running on the checked machine<br>domain membership of the checked machine (or domain= naming a trusted domain)<br>for server=, RPC connectivity to that computer | note 2 |
+
+1. *Without it:* UNKNOWN "&lt;host&gt; is not joined to a domain (...); there is no secure channel to check", or "Failed to read the domain join state ... (and no domain= was given)"
+2. The default verify (TC_VERIFY, which contacts the DC like `nltest /sc_verify`) needs administrator rights on the machine whose channel is checked; the default LocalSystem account has them locally. With server= the rights are checked on that computer. *Without it:* A failed netlogon call (access denied, service stopped, RPC failure) returns UNKNOWN "Failed to query the netlogon service[ on &lt;server&gt;]: ..." rather than a broken-channel CRITICAL
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_secure_channel_options"></a>

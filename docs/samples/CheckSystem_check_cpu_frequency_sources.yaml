@@ -7,12 +7,8 @@ windows:
     without: 'If the class is missing the collector logs "Failed to fetch CPU frequency metrics (WMI class not available), disabling..."; with no data the check is UNKNOWN "No CPU frequency data available"'
 linux:
   - source: '`/sys/devices/system/cpu/cpuN/cpufreq/` (`scaling_cur_freq`, else `cpuinfo_cur_freq`; `cpuinfo_max_freq`, `cpuinfo_min_freq`)'
-    privilege: none
-    note: '`scaling_cur_freq` is world-readable; the fallback `cpuinfo_cur_freq` is root-only on some kernels. A core with no readable current frequency is skipped.'
+    privilege: conditional
+    note: 'None where `scaling_cur_freq` exists, which is world-readable. Root only where the kernel exposes just the fallback `cpuinfo_cur_freq`, which is root-only on some kernels. A core with no readable current frequency is skipped.'
     requires:
       - kernel cpufreq support (often absent in VMs)
     without: 'No readable core gives UNKNOWN "No CPU frequency data available (no cpufreq support?)"'
-macos:
-  - source: None (no reader on macOS)
-    note: Apple silicon exposes no per-core clock to an unprivileged process.
-    without: 'Always UNKNOWN "No CPU frequency data available (no cpufreq support?)"'

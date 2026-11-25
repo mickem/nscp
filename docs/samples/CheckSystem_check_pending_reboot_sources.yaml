@@ -22,6 +22,3 @@ linux:
     without: 'kernel = unknown, and unless another signal fired the check is UNKNOWN "Cannot tell whether a reboot is pending: ...; run the agent with read access to it or pass allow-unreadable"'
   - source: '`/run/systemd/container`, `/run/.containerenv`, `/.dockerenv`, `/proc/vz`, `/proc/1/environ`, `/proc/self/mountinfo`'
     provides: container detection, which suppresses the kernel signal
-macos:
-  - source: None (no reader on macOS)
-    without: 'Always UNKNOWN "Failed to read pending-reboot state: check_pending_reboot is not supported on macOS yet"'

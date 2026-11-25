@@ -540,17 +540,28 @@ def one_line(value):
 CODE_SPAN = re.compile(r'(`+).+?\1')
 
 
-def sources_cell(value):
-    # Table-cell safe: one line, and a pipe cannot end the cell. A pipe inside a
-    # code span already cannot (and a backslash there would show), so only the
-    # text around code spans is escaped.
-    text, out, pos = one_line(value), [], 0
+def outside_code_spans(text, escape):
+    # Apply `escape` to the text around code spans, which markdown leaves alone.
+    out, pos = [], 0
     for m in CODE_SPAN.finditer(text):
-        out.append(text[pos:m.start()].replace('|', '\\|'))
+        out.append(escape(text[pos:m.start()]))
         out.append(m.group(0))
         pos = m.end()
-    out.append(text[pos:].replace('|', '\\|'))
+    out.append(escape(text[pos:]))
     return ''.join(out)
+
+
+def sources_text(value):
+    # One line of prose from a sidecar. Markdown passes raw HTML through, so a
+    # placeholder quoted from an error message ("Failed to open <path>") would
+    # be swallowed as an unknown tag unless the angle brackets are escaped.
+    return outside_code_spans(one_line(value), lambda t: t.replace('<', '&lt;').replace('>', '&gt;'))
+
+
+def sources_cell(value):
+    # Table-cell safe on top of that: a pipe cannot end the cell. A pipe inside
+    # a code span already cannot (and a backslash there would show).
+    return outside_code_spans(sources_text(value), lambda t: t.replace('|', '\\|'))
 
 
 def privilege_label(value):
@@ -578,9 +589,9 @@ def render_sources_section(data, page_prefix='../'):
     for platform, entry in docs_sources.entries(data):
         text = []
         if entry.get('note'):
-            text.append(one_line(entry['note']))
+            text.append(sources_text(entry['note']))
         if entry.get('without'):
-            text.append('*Without it:* %s' % one_line(entry['without']))
+            text.append('*Without it:* %s' % sources_text(entry['without']))
         ref = ''
         if text:
             text = ' '.join(text)
@@ -612,6 +623,21 @@ def platform_cell(platform, command_platforms):
         return docs_sources.PLATFORM_LABEL[platform]
     labels = [PLATFORM_LABEL[p] for p in PLATFORM_ORDER if p in command_platforms]
     return 'All (%s)' % ', '.join(labels) if labels else 'All'
+
+
+def overview_platforms(data, command_platforms):
+    # (platform, sources) rows of one command on the overview. A sidecar that
+    # only has `all` is one row. One that mixes `all` with platform keys gets a
+    # row per platform, each including the shared sources - otherwise the `all`
+    # row and the platform row state two different privileges for one platform.
+    shared = data.get('all', [])
+    named = [p for p in docs_sources.PLATFORMS if p != 'all' and p in data]
+    if not named:
+        return [('all', shared)]
+    if shared:
+        on = [p for p, s in docs_sources.PLATFORM_SLICE.items() if s in command_platforms]
+        named = [p for p in docs_sources.PLATFORMS if p != 'all' and (p in named or p in on)]
+    return [(p, shared + data.get(p, [])) for p in named]
 
 
 def render_sources_page(documented):
@@ -654,10 +680,7 @@ def render_sources_page(documented):
     out.append('## All documented checks\n')
     rows = []
     for d in documented:
-        for platform in docs_sources.PLATFORMS:
-            items = d['data'].get(platform)
-            if not items:
-                continue
+        for platform, items in overview_platforms(d['data'], d['platforms']):
             requires = []
             for entry in items:
                 for r in entry.get('requires', []):

@@ -199,6 +199,22 @@ class CheckTest(unittest.TestCase):
         self.tree.sidecar('CheckSample_check_new_sources.yaml', VALID)
         self.assertEqual(self.tree.check(), ([], 1))
 
+    def test_command_missing_from_reference_is_reported_not_refused(self):
+        # Valid, but the generator has no page to put it on until re-extraction.
+        self.tree.module_json('CheckSampleUnix', 'CheckSample', {'check_new': 'New check'})
+        self.tree.sidecar('CheckSample_check_new_sources.yaml', VALID)
+        self.tree.sidecar('CheckSample_check_both_sources.yaml', VALID)
+        self.assertEqual(docs_sources.unrendered(self.tree.samples, self.tree.reference),
+                         ['CheckSample_check_new_sources.yaml'])
+
+    def test_module_without_reference_is_never_rendered(self):
+        # The extractor does not document this module at all, so the sidecar
+        # could never appear anywhere.
+        self.tree.module_json('CheckHidden', 'CheckHidden', {'check_x': 'X'})
+        self.tree.sidecar('CheckHidden_check_x_sources.yaml', VALID)
+        errors, _ = self.tree.check()
+        self.assertIn('never rendered', errors[0])
+
     def test_schema_errors_are_named_per_file(self):
         self.tree.sidecar('CheckSample_check_both_sources.yaml', {'all': [{'source': 'x', 'privilege': 'root'}]})
         self.tree.sidecar('CheckSample_check_win_sources.yaml', 'all: [unclosed\n')
@@ -266,6 +282,41 @@ class RenderTest(unittest.TestCase):
         self.tree.sidecar('CheckSample_check_both_sources.yaml', {'all': [{'source': 'a | b `x | y`'}]})
         body = section(self.tree.page(self.tree.generate(), 'check/CheckSample.md'), 'check_both')
         self.assertIn('a \\| b `x | y`', body)
+
+    def test_placeholders_survive(self):
+        # Markdown passes raw HTML through, so "<path>" outside a code span
+        # would vanish as an unknown tag.
+        self.tree.sidecar('CheckSample_check_both_sources.yaml', {'all': [
+            {'source': 'file <path> and `<kept>`', 'privilege': 'conditional',
+             'note': 'needs <group>', 'without': 'says "Failed to open <path>: <error>"',
+             'requires': ['access to <dir>']}]})
+        out = self.tree.generate()
+        body = section(self.tree.page(out, 'check/CheckSample.md'), 'check_both')
+        self.assertIn('file &lt;path&gt; and `<kept>`', body)
+        self.assertIn('needs &lt;group&gt;', body)
+        self.assertIn('Failed to open &lt;path&gt;: &lt;error&gt;', body)
+        self.assertIn('access to &lt;dir&gt;', body)
+        overview = self.tree.page(out, 'data-sources.md')
+        self.assertNotIn('<path>', overview)
+        self.assertNotIn('<group>', overview)
+        self.assertNotIn('<dir>', overview)
+
+    def test_overview_folds_all_into_each_platform(self):
+        # `all` next to a platform key: one row per platform with the shared
+        # sources counted in, not an "All" row contradicting the platform row.
+        self.tree.sidecar('CheckSample_check_both_sources.yaml', {
+            'all': [{'source': 'files', 'privilege': 'conditional', 'note': 'readable', 'requires': ['openssl']}],
+            'windows': [{'source': 'store', 'requires': ['crypt32']}]})
+        overview = self.tree.page(self.tree.generate(), 'data-sources.md')
+        rows = [l for l in overview[overview.index('## All documented checks'):].splitlines() if 'check_both' in l]
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all('| All' not in r for r in rows))
+        win = [r for r in rows if 'Windows' in r][0]
+        linux = [r for r in rows if 'Linux' in r][0]
+        self.assertIn('conditional', win)
+        self.assertIn('openssl<br>crypt32', win)
+        self.assertIn('conditional', linux)
+        self.assertNotIn('crypt32', linux)
 
     def test_overview_page(self):
         self.tree.sidecar('CheckSample_check_both_sources.yaml', VALID)

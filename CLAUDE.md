@@ -315,7 +315,13 @@ Every new check command needs, under `docs/samples/`:
   **leave `privilege` out rather than guess** — a missing key renders as "not
   determined", which is honest; a wrong `none` is not. Validate with
   `python3 scripts/python/docs_sources.py --check` (schema, plus a file name
-  that names no known command); the schema lives in that file.
+  that names no known command); the schema lives in that file. List only the
+  platforms the check has a data source on: one that is compiled there but
+  always answers "not supported" gets no entry, or the overview shows it as a
+  platform whose privilege nobody worked out. The check warns about a sidecar
+  whose command is not in `docs/reference/*.yaml` yet — it renders nowhere
+  until the reference is re-extracted — and refuses one for a module the
+  extractor does not document at all.
 
 Headings inside these files must be `####` or deeper: the content is merged
 into the generated reference page below a `### <command>` heading, so anything

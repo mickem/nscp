@@ -1,4 +1,0 @@
-all:
-- source: None — dereferences a null pointer to crash the agent
-  privilege: none
-  note: Only in builds made with `-DBUILD_TESTING_MODULES=ON`.

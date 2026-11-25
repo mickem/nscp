@@ -83,6 +83,7 @@ The legacy alias `CheckAlwaysCRITICAL` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_always_critical_samples)
+* [Data sources and privileges](#check_always_critical_sources)
 * [Command-line Arguments](#check_always_critical_options)
 
 
@@ -128,6 +129,18 @@ CRITICAL: WARNING /opt/claude-code: 202.746MB/229.949MB used
 
 
 
+<a id="check_always_critical_sources"></a>
+#### Data sources and privileges
+
+| Source                                                   | Privilege | Notes  |
+|----------------------------------------------------------|-----------|--------|
+| The wrapped command's result (status forced to CRITICAL) | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="check_always_critical_options"></a>
 #### Command-line Arguments
 
@@ -164,6 +177,7 @@ The legacy alias `CheckAlwaysOK` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_always_ok_samples)
+* [Data sources and privileges](#check_always_ok_sources)
 * [Command-line Arguments](#check_always_ok_options)
 
 
@@ -209,6 +223,18 @@ OK: WARNING /opt/claude-code: 202.746MB/229.949MB used
 
 
 
+<a id="check_always_ok_sources"></a>
+#### Data sources and privileges
+
+| Source                                             | Privilege | Notes  |
+|----------------------------------------------------|-----------|--------|
+| The wrapped command's result (status forced to OK) | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="check_always_ok_options"></a>
 #### Command-line Arguments
 
@@ -245,6 +271,7 @@ The legacy alias `CheckAlwaysWARNING` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_always_warning_samples)
+* [Data sources and privileges](#check_always_warning_sources)
 * [Command-line Arguments](#check_always_warning_options)
 
 
@@ -288,6 +315,18 @@ check_nrpe --host 192.168.56.103 --command check_always_warning --arguments chec
 WARNING: WARNING /opt/claude-code: 202.746MB/229.949MB used
 ```
 
+
+
+<a id="check_always_warning_sources"></a>
+#### Data sources and privileges
+
+| Source                                                  | Privilege | Notes  |
+|---------------------------------------------------------|-----------|--------|
+| The wrapped command's result (status forced to WARNING) | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_always_warning_options"></a>
@@ -358,6 +397,7 @@ for example over the REST API as shown in the samples.
 **Jump to section:**
 
 * [Sample Commands](#check_and_forward_samples)
+* [Data sources and privileges](#check_and_forward_sources)
 * [Command-line Arguments](#check_and_forward_options)
 
 
@@ -472,6 +512,18 @@ check_cpu OK OK: CPU load is ok.
 
 
 
+<a id="check_and_forward_sources"></a>
+#### Data sources and privileges
+
+| Source                                                               | Privilege | Requires                                                           | Notes  |
+|----------------------------------------------------------------------|-----------|--------------------------------------------------------------------|--------|
+| The wrapped command's result, submitted on `channel=` (default NSCA) | none      | A loaded client module for the channel (NSCA, NRDP, Graphite, ...) | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply. *Without it:* "Failed to submit to: &lt;channel&gt;" when no module handles the channel.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="check_and_forward_options"></a>
 #### Command-line Arguments
 
@@ -525,6 +577,7 @@ The legacy alias `CheckCRITICAL` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_critical_samples)
+* [Data sources and privileges](#check_critical_sources)
 * [Command-line Arguments](#check_critical_options)
 
 
@@ -555,6 +608,16 @@ check_nrpe --host 192.168.56.103 --command check_critical --arguments "message=T
 CRITICAL: TODO: implement backup verification
 ```
 
+
+
+<a id="check_critical_sources"></a>
+#### Data sources and privileges
+
+| Source                                                        | Privilege |
+|---------------------------------------------------------------|-----------|
+| None — returns a fixed CRITICAL status with the given message | none      |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_critical_options"></a>
@@ -607,6 +670,7 @@ The legacy alias `CheckMultiple` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_multi_samples)
+* [Data sources and privileges](#check_multi_sources)
 * [Command-line Arguments](#check_multi_options)
 
 
@@ -663,6 +727,18 @@ check_nrpe --host 192.168.56.103 --command check_multi --arguments "command=chec
 WARNING: WARNING /opt/claude-code: 202.746MB/229.949MB used, uptime: 5d 03:14h
 ```
 
+
+
+<a id="check_multi_sources"></a>
+#### Data sources and privileges
+
+| Source                                            | Privilege | Notes  |
+|---------------------------------------------------|-----------|--------|
+| The wrapped commands' results (worst status wins) | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_multi_options"></a>
@@ -743,6 +819,7 @@ outright and no mapping is applied.
 **Jump to section:**
 
 * [Sample Commands](#check_negate_samples)
+* [Data sources and privileges](#check_negate_sources)
 * [Command-line Arguments](#check_negate_options)
 
 
@@ -816,6 +893,18 @@ WARNING: WARNING /opt/claude-code: 202.746MB/229.949MB used
 
 
 
+<a id="check_negate_sources"></a>
+#### Data sources and privileges
+
+| Source                                         | Privilege | Notes  |
+|------------------------------------------------|-----------|--------|
+| The wrapped command's result (status remapped) | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="check_negate_options"></a>
 #### Command-line Arguments
 
@@ -866,6 +955,7 @@ The legacy alias `CheckOK` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_ok_samples)
+* [Data sources and privileges](#check_ok_sources)
 * [Command-line Arguments](#check_ok_options)
 
 
@@ -897,6 +987,16 @@ check_nrpe --host 192.168.56.103 --command check_ok
 OK: No message
 ```
 
+
+
+<a id="check_ok_sources"></a>
+#### Data sources and privileges
+
+| Source                                                  | Privilege |
+|---------------------------------------------------------|-----------|
+| None — returns a fixed OK status with the given message | none      |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_ok_options"></a>
@@ -951,6 +1051,7 @@ deadline, so it cannot be used to make a timeout look like a success.
 **Jump to section:**
 
 * [Sample Commands](#check_timeout_samples)
+* [Data sources and privileges](#check_timeout_sources)
 * [Command-line Arguments](#check_timeout_options)
 
 
@@ -1007,6 +1108,18 @@ UNKNOWN: Thread failed to return within given timeout
 
 
 
+<a id="check_timeout_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                 | Privilege | Notes  |
+|------------------------------------------------------------------------|-----------|--------|
+| The wrapped command's result, run on a worker thread with a time limit | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="check_timeout_options"></a>
 #### Command-line Arguments
 
@@ -1055,6 +1168,7 @@ The legacy alias `CheckVersion` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_version_samples)
+* [Data sources and privileges](#check_version_sources)
 * [Command-line Arguments](#check_version_options)
 
 
@@ -1092,6 +1206,16 @@ OK: 0.18.1 (2026-08-14)
 
 
 
+<a id="check_version_sources"></a>
+#### Data sources and privileges
+
+| Source                     | Privilege |
+|----------------------------|-----------|
+| Agent's own version string | none      |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="check_version_options"></a>
 #### Command-line Arguments
 
@@ -1117,6 +1241,7 @@ The legacy alias `CheckWARNING` is accepted for backwards compatibility.
 **Jump to section:**
 
 * [Sample Commands](#check_warning_samples)
+* [Data sources and privileges](#check_warning_sources)
 * [Command-line Arguments](#check_warning_options)
 
 
@@ -1148,6 +1273,16 @@ check_nrpe --host 192.168.56.103 --command check_warning --arguments "message=st
 WARNING: state test
 ```
 
+
+
+<a id="check_warning_sources"></a>
+#### Data sources and privileges
+
+| Source                                                       | Privilege |
+|--------------------------------------------------------------|-----------|
+| None — returns a fixed WARNING status with the given message | none      |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_warning_options"></a>
@@ -1202,6 +1337,7 @@ L        cli  Performance data: 'clion64.exe ws_size'=3.30852GB;3;5 'Rider.Backe
 **Jump to section:**
 
 * [Sample Commands](#filter_perf_samples)
+* [Data sources and privileges](#filter_perf_sources)
 * [Command-line Arguments](#filter_perf_options)
 
 
@@ -1272,6 +1408,18 @@ keep their original position.
 
 
 
+<a id="filter_perf_sources"></a>
+#### Data sources and privileges
+
+| Source                                 | Privilege | Notes  |
+|----------------------------------------|-----------|--------|
+| The wrapped command's performance data | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
+
+
 <a id="filter_perf_options"></a>
 #### Command-line Arguments
 
@@ -1340,6 +1488,7 @@ the perf data itself.
 **Jump to section:**
 
 * [Sample Commands](#render_perf_samples)
+* [Data sources and privileges](#render_perf_sources)
 * [Command-line Arguments](#render_perf_options)
 * [Filter keywords](#render_perf_filter_keys)
 
@@ -1406,6 +1555,18 @@ UNKNOWN: No message
 UNKNOWN: UNKNOWN:
 ```
 
+
+
+<a id="render_perf_sources"></a>
+#### Data sources and privileges
+
+| Source                                 | Privilege | Notes  |
+|----------------------------------------|-----------|--------|
+| The wrapped command's performance data | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="render_perf_options"></a>
@@ -1531,6 +1692,7 @@ message, and [`filter_perf`](#filter_perf), which sorts and trims it.
 **Jump to section:**
 
 * [Sample Commands](#xform_perf_samples)
+* [Data sources and privileges](#xform_perf_sources)
 * [Command-line Arguments](#xform_perf_options)
 
 
@@ -1582,6 +1744,18 @@ UNKNOWN: WARNING /opt/claude-code: 202.746MB/229.949MB used
 UNKNOWN: Invalid mode specified	...
 ```
 
+
+
+<a id="xform_perf_sources"></a>
+#### Data sources and privileges
+
+| Source                                 | Privilege | Notes  |
+|----------------------------------------|-----------|--------|
+| The wrapped command's performance data | none      | note 1 |
+
+1. The wrapped command runs with the caller's grants; its own data sources and privileges apply.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="xform_perf_options"></a>

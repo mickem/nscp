@@ -96,6 +96,7 @@ only wants the worker does the reverse.
 **Jump to section:**
 
 * [Sample Commands](#submit_gearman_samples)
+* [Data sources and privileges](#submit_gearman_sources)
 * [Command-line Arguments](#submit_gearman_options)
 
 
@@ -207,6 +208,18 @@ the `key` against the core's `module.conf`, the `queue` against its
 `result_queue`, and `hostname` against the `host_name` in the core's object
 configuration.
 
+
+
+<a id="submit_gearman_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                                         | Provides                                                                     | Privilege | Requires                                                                                                                                                                                                                                         | Notes  |
+|--------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote gearmand job server, Gearman `SUBMIT_JOB_BG` over TCP (default port 4730) to the result queue (default `check_results`) | passive host/service results for a Naemon or Nagios core running Mod-Gearman | none      | OpenSSL (the module is not built without it)<br>A gearmand job server reachable from the agent<br>The shared `key` from the core's Mod-Gearman `module.conf`<br>A host name the core knows this machine by (`hostname` setting or `source-host`) | note 1 |
+
+1. The payload is a Mod-Gearman result, AES-256 encrypted with the shared key unless `encryption` is off; the TCP connection itself is not TLS. *Without it:* Refused before connecting when no gearmand address is configured, when encryption is on but no `key` is set, when encryption is off without `insecure=true`, or when no host name is known to file the result under.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_gearman_options"></a>
