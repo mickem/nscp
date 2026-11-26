@@ -1,0 +1,10 @@
+windows:
+  - source: 'Failover Clustering API (`clusapi.dll`): `OpenClusterEx`, `ClusterOpenEnum` / `ClusterEnum`, `OpenClusterResourceEx`, `GetClusterResourceState`, `ClusterResourceControl` (`CLUSCTL_RESOURCE_GET_RESOURCE_TYPE`)'
+    provides: name, owner, group, type, state
+    note: 'Read-only (GENERIC_READ) calls against the local cluster. `clusapi.dll` is loaded from the system directory on first use only, so the module''s other commands work on non-cluster hosts.'
+    requires:
+      - Failover Clustering feature; the agent runs on a cluster member
+      - Windows Server 2008 R2 or later
+      - Cluster service running on this node
+      - read access to the cluster for the agent account (cluster security descriptor)
+    without: 'The check returns UNKNOWN: "Failed to query cluster resources: ..." (e.g. "Failover Clustering API not available (clusapi.dll)" or "OpenClusterEx (local cluster unavailable or inaccessible) (Windows error N)"); an object that cannot be read fails the whole read rather than being skipped'

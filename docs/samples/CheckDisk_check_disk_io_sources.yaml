@@ -1,0 +1,11 @@
+windows:
+- source: WMI `Win32_PerfFormattedData_PerfDisk_LogicalDisk` and `Win32_PerfRawData_PerfDisk_LogicalDisk` (`root\CIMV2`), sampled by the CheckDisk background collector
+  provides: per logical disk throughput, IOPS, queue length, busy/idle time, split I/O, latency
+  without: Returns "Collector not started" when the module's collector is not running.
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service
+linux:
+- source: '`/proc/diskstats`, sampled by the CheckDisk background collector'
+  provides: per block device throughput, IOPS, queue length, busy time, latency
+  privilege: none
+  without: Returns "Collector not started" when the module's collector is not running.

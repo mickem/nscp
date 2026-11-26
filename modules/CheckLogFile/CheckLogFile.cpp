@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "bookmark_state.hpp"
+#include "check_csv.hpp"
 #include "file_reader.hpp"
 #include "realtime_thread.hpp"
 
@@ -66,7 +67,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   // clang-format off
   settings.alias().add_path_to_settings()
     ("files", sh::fun_values_path([this](const auto& key, const auto& value) { file_access_.add_predefined(key, value); }),
-      "PREDEFINED LOG FILES", "Log files which check_logfile may read by name, as <name> = <path>.\n"
+      "PREDEFINED LOG FILES", "Log files (and CSV files) which check_logfile and check_csv may read by name, as <name> = <path>.\n"
       "A name defined here can be used as file=<name> in any access mode, and is the only thing accepted when "
       "'file access' is set to predefined.")
     ;
@@ -76,18 +77,25 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
       .add_key_to_settings()
 
       .add_string("file access", sh::string_fun_key([this](const auto& value) { file_access_.set_mode(value); }, "any"), "FILE ACCESS MODE",
-                  "Which files a caller may ask check_logfile to read: any (the default - any path the caller names, which is how every earlier release "
-                  "behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the [/settings/logfile/files] section).\n"
-                  "check_logfile reads the file it is given with the privileges of the agent, so on a host where callers may pass arguments (NRPE with "
-                  "'allow arguments', or the REST API) this decides how much of the machine a check can read. See the 'Restricting what a check may read' "
-                  "section of the documentation.")
+                  "Which files a caller may ask check_logfile and check_csv to read: any (the default - any path the caller names, which is how every "
+                  "earlier release behaved), allowed (only paths matching 'allowed files') or predefined (only names defined in the "
+                  "[/settings/logfile/files] section).\n"
+                  "Both read the file they are given with the privileges of the agent and return its contents, so on a host where callers may pass "
+                  "arguments (NRPE with 'allow arguments', or the REST API) this decides how much of the machine a check can read. See the 'Restricting "
+                  "what a check may read' section of the documentation.")
 
       .add_string("allowed files", sh::string_fun_key([this](const auto& value) { file_access_.set_allow_list(value); }, ""), "ALLOWED LOG FILES",
-                  "Comma separated list of files check_logfile may read when 'file access' is set to allowed.\n"
+                  "Comma separated list of files check_logfile and check_csv may read when 'file access' is set to allowed.\n"
                   "An entry naming a directory (or a path which does not exist yet) allows every file beneath it at any depth; an entry naming an existing "
                   "file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory "
                   "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so "
-                  "a link planted inside an allowed directory does not widen it.");
+                  "a link planted inside an allowed directory does not widen it.")
+
+      .add_string("max csv size", sh::string_fun_key([this](const auto &value) { set_csv_max_size(value); }, check_csv_command::kDefaultMaxCsvSize),
+                  "LARGEST CSV FILE",
+                  "The largest file check_csv reads, as a byte count with an optional k, m or g unit (`512k`, `64m`). check_csv holds the whole file in "
+                  "memory, and the max-size option that bounds it is the caller's to pass, so this is the ceiling a caller cannot raise: a max-size above "
+                  "it, or max-size=0, means this value. 0 removes the ceiling. A value which cannot be read is logged and the default used.");
 
   settings.register_all();
   settings.notify();
@@ -486,4 +494,18 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
     bookmarks_.add(p.first, p.second);
   }
   filter_helper.post_process(filter);
+}
+
+void CheckLogFile::check_csv(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_csv_command::check(request, response, file_access_, csv_max_bytes_.load());
+}
+
+void CheckLogFile::set_csv_max_size(const std::string &value) {
+  std::uint64_t bytes = 0;
+  std::string error;
+  if (!check_csv_command::parse_size(value, bytes, error)) {
+    NSC_LOG_ERROR("Ignoring 'max csv size' in [/settings/logfile]: " + error + "; using the default " + check_csv_command::kDefaultMaxCsvSize + ".");
+    check_csv_command::parse_size(check_csv_command::kDefaultMaxCsvSize, bytes, error);
+  }
+  csv_max_bytes_ = bytes;
 }

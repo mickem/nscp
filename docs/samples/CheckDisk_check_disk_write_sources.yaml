@@ -1,0 +1,12 @@
+windows:
+- source: 'Test file at `file=`: exclusive create (`_sopen_s` with `_O_EXCL`), write, flush and `_commit`, read back, delete'
+  provides: write_time, total_time, size, issues, has_issues
+  privilege: conditional
+  note: Needs create, write and delete permission in the target folder for the agent's account. Paths are also held against `file access` in `[/settings/disk]`.
+  without: 'The failing step is recorded in `issues` (e.g. "failed to create file: ..."), which is CRITICAL by default.'
+linux:
+- source: 'Test file at `file=`: exclusive create (`fopen` mode `wbx`), write, `fflush` + `fsync`, read back, `remove`'
+  provides: write_time, total_time, size, issues, has_issues
+  privilege: conditional
+  note: Needs create, write and delete permission in the target directory for the agent's account. Paths are also held against `file access` in `[/settings/disk]`.
+  without: 'The failing step is recorded in `issues` (e.g. "failed to create file: ..."), which is CRITICAL by default.'

@@ -1,0 +1,29 @@
+windows:
+  - source: '`GetSystemPowerStatus`'
+    provides: power_source, battery_status, battery_present, charge, time_remaining
+    privilege: none
+    note: Sampled by the CheckSystem auxiliary collector about every 12 seconds, not when the check runs. Reports a single battery named `system`.
+    without: 'If the call fails the battery collector logs "Failed to fetch battery status, disabling: ..." and stops collecting until the module is reloaded'
+  - source: 'WMI `root\WMI`: `BatteryStatus`, `BatteryStaticData`, `BatteryFullChargedCapacity`'
+    provides: charge_rate, discharge_rate, remaining_capacity, design_capacity, full_capacity, health
+    note: Applied to the first battery only. Each class is read best-effort and WMI errors are ignored.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+      - a battery driver that publishes the `root\WMI` battery classes
+    without: The capacity and rate keywords stay unset; the charge and power-source keywords still work
+linux:
+  - source: '`/sys/class/power_supply/*` (`type`, `online` and the battery attributes)'
+    provides: every keyword; a `Mains` entry sets power_source
+    privilege: none
+    requires:
+      - a kernel ACPI or platform power-supply driver that populates sysfs
+    without: 'No battery entry gives zero records and the empty state (WARNING "No battery found" by default)'
+macos:
+  - source: 'IOKit power sources (`IOPSCopyPowerSourcesInfo`)'
+    provides: charge, power_source, battery_status, time_remaining, battery_present
+    privilege: none
+    note: Internal batteries and UPS power sources are reported.
+  - source: 'IOKit registry entry `AppleSmartBattery`'
+    provides: design_capacity, full_capacity, remaining_capacity, charge_rate, discharge_rate
+    privilege: none
+    without: 'A Mac without a battery (desktop, VM) gives zero records and the empty state (WARNING "No battery found" by default)'

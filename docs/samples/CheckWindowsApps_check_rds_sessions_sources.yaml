@@ -1,0 +1,5 @@
+windows:
+  - source: 'PDH counters `Terminal Services` (Active Sessions, Inactive Sessions, Total Sessions)'
+    provides: active, inactive, total
+    note: The counter object exists on every Windows SKU; the console counts as a session.
+    without: 'The check returns UNKNOWN: "Remote Desktop Services counters (Terminal Services) not available - is the role installed on this host? (...)"'

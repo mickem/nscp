@@ -83,6 +83,7 @@ attaching it to a small number of deliberately chosen checks.
 **Jump to section:**
 
 * [Sample Commands](#submit_smtp_samples)
+* [Data sources and privileges](#submit_smtp_sources)
 * [Command-line Arguments](#submit_smtp_options)
 
 
@@ -175,6 +176,18 @@ authenticating; `tls` (alias `ssl`, port 465) is TLS from the first byte;
 `ehlo-hostname` overrides the name announced in EHLO, which some servers check
 against forward/reverse DNS before accepting mail.
 
+
+
+<a id="submit_smtp_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                                | Provides                                                      | Privilege | Requires                                                                                                                                                                                                                                                              | Notes  |
+|-----------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Remote SMTP submission server, ESMTP over TCP (default port 587) with STARTTLS, or implicit TLS with `security = tls` | check results delivered as e-mail to the configured recipient | none      | OpenSSL (the module is not built without it)<br>An SMTP relay or submission server reachable on `host`/`port`<br>A mailbox `username`/`password` when the server requires authentication<br>A CA that verifies the server certificate (unless `insecure-skip-verify`) | note 1 |
+
+1. When `username` is set it authenticates with AUTH PLAIN or AUTH LOGIN. Where the target carries configured credentials, the request may not change its address, proxy or transport security unless the target sets `allow host override = true`. Recipient and sender likewise cannot be changed by the request unless `allow recipient override = true`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_smtp_options"></a>

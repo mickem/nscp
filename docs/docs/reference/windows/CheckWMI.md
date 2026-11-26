@@ -89,6 +89,7 @@ unhealthy host; keep queries narrow and consider wrapping slow ones in
 **Jump to section:**
 
 * [Sample Commands](#check_wmi_samples)
+* [Data sources and privileges](#check_wmi_sources)
 * [Command-line Arguments](#check_wmi_options)
 * [Filter keywords](#check_wmi_filter_keys)
 
@@ -142,6 +143,18 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 ```
 
 
+
+
+<a id="check_wmi_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                | Provides                                                           | Privilege   | Requires                                                                                                             | Notes  |
+|----------|-----------------------------------------------------------------------|--------------------------------------------------------------------|-------------|----------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI query supplied by the caller (`namespace=`, default `root\cimv2`) | one row per result object; every selected column becomes a keyword | conditional | Windows Management Instrumentation (`Winmgmt`) service<br>DCOM/RPC reachability of the target when `target=` is used | note 1 |
+
+1. Depends on the namespace's WMI security and the class queried; a remote `target=` needs an account with remote-WMI rights there. Queries, classes and namespaces are also held against `query access` in `[/settings/wmi]`. *Without it:* "WMIQuery failed: &lt;reason&gt;"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_wmi_options"></a>

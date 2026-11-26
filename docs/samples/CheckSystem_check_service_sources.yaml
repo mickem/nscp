@@ -1,0 +1,29 @@
+windows:
+  - source: 'Service Control Manager: `OpenSCManager(SC_MANAGER_ENUMERATE_SERVICE)`, `EnumServicesStatusEx`, `QueryServiceConfig`, `QueryServiceConfig2` (delayed start, triggers), `QueryServiceStatusEx`'
+    provides: name, desc, state, start_type, delayed, is_trigger, triggers, pid, exit_code, classification, state_is_ok, state_is_perfect
+    note: Read when the check runs. computer= opens the SCM of a remote machine instead.
+    requires:
+      - for computer=, network access to the remote SCM and rights there for the agent's account
+linux:
+  - source: '`systemctl list-units --type=service --all`, `systemctl show` (and `systemctl is-enabled` for a check by name)'
+    provides: name, desc, active, sub_state, start_type, preset, pid, state, tasks (cgroup `TasksCurrent`)
+    privilege: none
+    note: Run when the check runs; `service=*` uses one batched `systemctl show`.
+    requires:
+      - systemd and `systemctl` on the PATH
+  - source: '`/proc/<pid>/status` and `/proc/<pid>/stat` of the main process, `/proc/stat`, `/proc/uptime`'
+    provides: rss, vms, cpu, created, age, has_metrics
+    privilege: none
+    note: Only for running units with a main PID.
+macos:
+  - source: '`launchctl print system`, `launchctl print-disabled system`, `launchctl print system/<label>`'
+    provides: name, active, sub_state, start_type, pid, state
+    note: Run when the check runs; start_type and the non-zero exit test need a check by name.
+  - source: '`sysctl KERN_PROC` (start time)'
+    provides: created, age
+    privilege: none
+  - source: '`proc_pidinfo(PROC_PIDTASKINFO)` of the job''s process'
+    provides: rss, vms, cpu, tasks, has_metrics
+    privilege: conditional
+    note: macOS answers only for the caller's own processes unless it runs as root; the agent runs unprivileged.
+    without: For other jobs rss, vms, cpu and tasks read 0 and has_metrics is false

@@ -301,4 +301,65 @@ describeWithModules("CheckLogFile")("CheckLogFile file access modes", () => {
       await setAccess("any");
     });
   });
+
+  // --- check_csv shares the gate: its columns return contents too ------------
+
+  describe("check_csv", () => {
+    let allowedCsv: string;
+    let secretCsv: string;
+
+    async function csv(file: string): Promise<{ out: string; code: number }> {
+      const r = await nscp.run(
+        [
+          "client",
+          "--module",
+          "CheckLogFile",
+          "--boot",
+          "--query",
+          "check_csv",
+          `file=${file}`,
+          "columns=a",
+          "warning=a like 'SECRET'",
+          "detail-syntax=%(a)",
+        ],
+        { allowFailure: true },
+      );
+      return { out: r.all ?? `${r.stdout}\n${r.stderr}`, code: r.exitCode };
+    }
+
+    beforeAll(() => {
+      allowedCsv = path.join(allowedDir, "inventory.csv");
+      secretCsv = path.join(secretDir, "inventory.csv");
+      fs.writeFileSync(allowedCsv, "SECRET in an allowed csv\n");
+      fs.writeFileSync(secretCsv, "SECRET csv which must not come back\n");
+    });
+
+    afterAll(() => setAccess("any"));
+
+    it("reads any file while access is any", async () => {
+      await setAccess("any");
+      const { out } = await csv(secretCsv);
+      expect(out).toMatch(/SECRET csv which must not come back/);
+    });
+
+    it("reads an allowed file and refuses one outside the list", async () => {
+      await setAccess("allowed", allowedDir);
+      expect((await csv(allowedCsv)).out).toMatch(/SECRET in an allowed csv/);
+      const { out, code } = await csv(secretCsv);
+      expect(code).toBe(UNKNOWN);
+      expect(out).toMatch(/Refusing file/);
+      expect(out).not.toMatch(/SECRET csv which must not come back/);
+    });
+
+    it("accepts only a configured name in predefined mode", async () => {
+      await nscp.configure({
+        "/settings/logfile": { "file access": "predefined", "allowed files": "-" },
+        "/settings/logfile/files": { inventory: allowedCsv },
+      });
+      expect((await csv("inventory")).out).toMatch(/SECRET in an allowed csv/);
+      const { out, code } = await csv(secretCsv);
+      expect(code).toBe(UNKNOWN);
+      expect(out).not.toMatch(/SECRET csv which must not come back/);
+    });
+  });
 });

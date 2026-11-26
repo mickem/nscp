@@ -1,0 +1,12 @@
+windows:
+  - source: '`RegOpenKeyExW` + `RegQueryInfoKeyW` / `RegEnumKeyExW` on the named keys'
+    provides: exists, written, age, value_count, subkey_count, class, and the recursive walk
+    privilege: conditional
+    note: 'Only for keys whose ACL does not grant the agent''s account read access, e.g. `HKLM\SECURITY` and `HKLM\SAM\SAM`, which only SYSTEM may read. `HKCU` is the hive of the account the agent runs as, not of a logged-on user. Keys a caller may name can be restricted by the module''s registry access settings.'
+    without: A key the agent cannot open reads as exists = 0, the same as a missing key (CRITICAL by default)
+  - source: '`RegConnectRegistryW` (computer=)'
+    provides: the same keywords for a remote machine
+    requires:
+      - Remote Registry service running on the target
+      - read rights on the target's registry for the agent's account
+    without: The connection error is returned as UNKNOWN

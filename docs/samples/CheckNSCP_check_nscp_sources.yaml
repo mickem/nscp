@@ -1,0 +1,7 @@
+all:
+- source: Crash archive folder (`archive folder` in `[/settings/crash]`)
+  provides: crashes, last_crash, crash_age
+  note: A missing or unreadable folder counts as no crashes.
+- source: Agent's own log stream and process state
+  provides: errors, last_error, uptime, version, date
+  privilege: none

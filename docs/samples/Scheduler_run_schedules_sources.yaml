@@ -1,0 +1,6 @@
+all:
+- source: 'The Scheduler module''s configured schedules: each command is run through the agent and its result submitted on the schedule''s channel'
+  privilege: none
+  note: Each scheduled command runs with the caller's grants; its own data sources and privileges apply.
+  requires:
+  - A loaded client module for each schedule's channel

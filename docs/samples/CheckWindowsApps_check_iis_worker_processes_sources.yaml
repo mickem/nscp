@@ -1,0 +1,6 @@
+windows:
+  - source: 'PDH counters `W3SVC_W3WP` (Active Requests, Total HTTP Requests Served)'
+    provides: 'instance, pid and pool (split from the <pid>_<pool> instance name), active_requests, total_requests'
+    requires:
+      - Web Server (IIS) role
+    without: 'A missing counter object returns UNKNOWN: "IIS performance counters (W3SVC_W3WP) not available - is the Web Server (IIS) role installed? (...)"; no running worker is the OK empty state "No IIS worker processes running"'

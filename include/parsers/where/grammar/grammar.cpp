@@ -110,22 +110,22 @@ where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_t
   // clang-format off
 			expression
 				= and_expr[qi::_val = qi::_1]
-				>> *(charset::no_case["or"] >> and_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_or, qi::_val, qi::_1)]
+				>> *(kw_or >> and_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_or, qi::_val, qi::_1)]
 				;
 			and_expr
 				= not_expr[qi::_val = qi::_1]
-				>> *(charset::no_case["and"] >> not_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_and, qi::_val, qi::_1)]
+				>> *(kw_and >> not_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, op_and, qi::_val, qi::_1)]
 				;
 			not_expr
-				= charset::no_case["not"] >> cond_expr[qi::_val = phoenix::bind(&factory::create_un_op, op_not, qi::_1)]
+				= kw_not >> cond_expr[qi::_val = phoenix::bind(&factory::create_un_op, op_not, qi::_1)]
 				| cond_expr[qi::_val = qi::_1]
 				;
 
 			cond_expr
 				= (identifier_expr >> op >> identifier_expr)[qi::_val = phoenix::bind(&factory::create_bin_op, qi::_2, qi::_1, qi::_3)]
-				| (identifier_expr >> charset::no_case["not in"]
+				| (identifier_expr >> kw_not >> kw_in
 					>> '(' >> list_expr >> ')')[qi::_val = phoenix::bind(&factory::create_bin_op, op_nin, qi::_1, qi::_2)]
-				| (identifier_expr >> charset::no_case["in"]
+				| (identifier_expr >> kw_in
 					>> '(' >> list_expr >> ')')[qi::_val = phoenix::bind(&factory::create_bin_op, op_in, qi::_1, qi::_2)]
 				| ('(' >> expression >> ')')[qi::_val = qi::_1]
 				| (identifier_expr)[qi::_val = qi::_1]
@@ -167,17 +167,36 @@ where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_t
 				| qi::lit("!=")[qi::_val = op_ne]
 				| qi::lit(">=")[qi::_val = op_ge]
 				| qi::lit(">")[qi::_val = op_gt]
-				| charset::no_case[qi::lit("le")][qi::_val = op_le]
-				| charset::no_case[qi::lit("lt")][qi::_val = op_lt]
-				| charset::no_case[qi::lit("eq")][qi::_val = op_eq]
-				| charset::no_case[qi::lit("ne")][qi::_val = op_ne]
-				| charset::no_case[qi::lit("ge")][qi::_val = op_ge]
-				| charset::no_case[qi::lit("gt")][qi::_val = op_gt]
-				| charset::no_case[qi::lit("like")][qi::_val = op_like]
-				| charset::no_case[qi::lit("regexp")][qi::_val = op_regexp]
-				| charset::no_case[qi::lit("not like")][qi::_val = op_not_like]
-				| charset::no_case[qi::lit("not regexp")][qi::_val = op_not_regexp]
+				| kw_le[qi::_val = op_le]
+				| kw_lt[qi::_val = op_lt]
+				| kw_eq[qi::_val = op_eq]
+				| kw_ne[qi::_val = op_ne]
+				| kw_ge[qi::_val = op_ge]
+				| kw_gt[qi::_val = op_gt]
+				| kw_like[qi::_val = op_like]
+				| kw_regexp[qi::_val = op_regexp]
+				| (kw_not >> kw_like)[qi::_val = op_not_like]
+				| (kw_not >> kw_regexp)[qi::_val = op_not_regexp]
 				;
+
+			// A keyword is a whole word: without the trailing check, "notice > 1"
+			// parsed as "not (ice > 1)", "a > 1 order > 2" as "a > 1 or (der > 2)"
+			// and "x next" as "x ne xt". Only a letter, digit or '_' continues a
+			// word - exactly what variable_name accepts after its first letter -
+			// so "not(x > 1)", "(a)and(b)" and "x in(1,2)" still split.
+			word_end = !(charset::alnum | charset::char_('_'));
+			kw_not = charset::no_case[qi::lit("not")] >> word_end;
+			kw_and = charset::no_case[qi::lit("and")] >> word_end;
+			kw_or = charset::no_case[qi::lit("or")] >> word_end;
+			kw_in = charset::no_case[qi::lit("in")] >> word_end;
+			kw_like = charset::no_case[qi::lit("like")] >> word_end;
+			kw_regexp = charset::no_case[qi::lit("regexp")] >> word_end;
+			kw_le = charset::no_case[qi::lit("le")] >> word_end;
+			kw_lt = charset::no_case[qi::lit("lt")] >> word_end;
+			kw_eq = charset::no_case[qi::lit("eq")] >> word_end;
+			kw_ne = charset::no_case[qi::lit("ne")] >> word_end;
+			kw_ge = charset::no_case[qi::lit("ge")] >> word_end;
+			kw_gt = charset::no_case[qi::lit("gt")] >> word_end;
 
 			bitop = qi::lit("&")[qi::_val = op_binand]
 				| qi::lit("|")[qi::_val = op_binor]

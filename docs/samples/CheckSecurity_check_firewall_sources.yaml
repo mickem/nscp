@@ -1,0 +1,9 @@
+windows:
+  - source: 'Windows Firewall COM `INetFwPolicy2`'
+    provides: 'enabled, inbound, outbound (local store) and active (`CurrentProfileTypes`) per profile'
+    without: 'The check returns UNKNOWN: "Failed to access the Windows firewall policy (INetFwPolicy2)"'
+  - source: 'Registry `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall\<Profile>Profile` and `StandardProfile`'
+    provides: 'Group Policy values (`EnableFirewall`, `DefaultInboundAction`, `DefaultOutboundAction`) overlaid on the local store'
+    privilege: none
+    note: 'The policy keys under HKLM are readable by every local user. `StandardProfile` (legacy ADMX) applies to Private and Public.'
+    without: A missing key or value means not configured by policy; the local store value stands

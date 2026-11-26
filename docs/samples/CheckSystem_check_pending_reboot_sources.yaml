@@ -1,0 +1,24 @@
+windows:
+  - source: '`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending` (existence, last-write time)'
+    provides: servicing, written, age
+    note: All registry reads use the 64-bit view.
+  - source: '`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired` (existence, last-write time)'
+    provides: windows_update, written, age
+  - source: '`HKLM\SYSTEM\CurrentControlSet\Control\Session Manager` value `PendingFileRenameOperations`'
+    provides: file_rename
+  - source: '`HKLM\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName` vs `ComputerName\ComputerName`'
+    provides: computer_rename
+  - source: '`HKLM\SYSTEM\CurrentControlSet\Services\Netlogon` values `JoinDomain`, `AvoidSpnSet`'
+    provides: domain_join
+linux:
+  - source: '`/run/reboot-required` (and `/var/run`), `/run/reboot-required.pkgs`, `/run/reboot-needed`'
+    provides: marker, packages, written, age
+    note: Plain file-system reads; no package manager or helper is run.
+    without: 'A marker that cannot be looked up is `unknown`'
+  - source: '`uname(2)` release vs `/lib/modules/*`, `/usr/lib/modules/*` and their kernel images (`/lib/modules/<release>/vmlinuz` or `/boot/vmlinuz-<release>`)'
+    provides: kernel, running_kernel, newest_kernel, written, age
+    privilege: conditional
+    note: 'Only where a modules directory or `/boot` is not readable by the agent''s account. The images are in the world-readable modules directories on the RHEL family, Fedora and Arch, and `/boot` is world-readable by default on Debian and Ubuntu.'
+    without: 'kernel = unknown, and unless another signal fired the check is UNKNOWN "Cannot tell whether a reboot is pending: ...; run the agent with read access to it or pass allow-unreadable"'
+  - source: '`/run/systemd/container`, `/run/.containerenv`, `/.dockerenv`, `/proc/vz`, `/proc/1/environ`, `/proc/self/mountinfo`'
+    provides: container detection, which suppresses the kernel signal

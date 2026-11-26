@@ -1,0 +1,10 @@
+all:
+- source: GitHub releases API over HTTPS (default `https://api.github.com/repos/mickem/nscp/releases`), cached for `cache hours` (24 by default)
+  provides: latest_version, update_available, versions_behind, release date and URL
+  privilege: none
+  requires:
+  - HTTPS access to `api.github.com` or the configured mirror
+  - OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca` in the module settings overrides)
+- source: Agent's own version string
+  provides: version
+  privilege: none

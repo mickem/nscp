@@ -204,6 +204,7 @@ every run.
 **Jump to section:**
 
 * [Sample Commands](#check_logfile_samples)
+* [Data sources and privileges](#check_logfile_sources)
 * [Command-line Arguments](#check_logfile_options)
 * [Filter keywords](#check_logfile_filter_keys)
 
@@ -348,6 +349,21 @@ check_logfile file=/var/log/app.log "filter=column1 like 'ERROR'" "warning=count
 UNKNOWN: Nothing found|'count'=0;0;0
 ```
 
+
+
+<a id="check_logfile_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                            | Provides                            | Privilege   | Notes  |
+|----------|---------------------------------------------------|-------------------------------------|-------------|--------|
+| Windows  | The named text file(s), read with `std::ifstream` | lines and their split columns       | conditional | note 1 |
+| Windows  | Agent storage (`logfile.bookmarks` context)       | the resume position for `bookmark=` | none        |        |
+| Linux    | The named text file(s), read with `std::ifstream` | lines and their split columns       | conditional | note 1 |
+| Linux    | Agent storage (`logfile.bookmarks` context)       | the resume position for `bookmark=` | none        |        |
+
+1. The agent's account must be able to read each file. Paths are also held against `file access` in `[/settings/logfile]`. *Without it:* "Failed to open file: &lt;path&gt;"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_logfile_options"></a>

@@ -22,18 +22,21 @@ row comes back as on Windows:
   BIOS boot, `supported=0 enabled=0`, exactly as on Windows. A container that
   masks `/sys/firmware` (Docker does by default) looks the same; run the agent
   on the host to see the firmware.
-- **The variable is present** — `supported=1`, `enabled=1` when its value is 1.
+- **The variable is present** — `supported=1`, `enabled=1` when its value is 1
+  and `enabled=0` when it is 0.
 - **EFI variables are readable but there is no `SecureBoot` variable** —
   UEFI firmware without Secure Boot support: `supported=0 enabled=0`.
 - **The variables cannot be read** (efivarfs is not mounted on
-  `/sys/firmware/efi/efivars`, an I/O error, or a truncated variable) — the
-  check returns **UNKNOWN** with the reason rather than reporting a guessed
-  "disabled".
+  `/sys/firmware/efi/efivars`, a permission or I/O error) **or the variable is
+  not a Secure Boot state** (truncated, longer than its one byte, or a value
+  other than 0 and 1) — the check returns **UNKNOWN** with the reason and the
+  file it read, rather than reporting a guessed "disabled".
 
 `setup_mode` reports the `SetupMode` variable: 1 when no Platform Key is
 enrolled, so Secure Boot is not enforced and keys can be enrolled without
 authentication. It is `unknown` on Windows (not read there), on legacy BIOS
-boots and when the firmware does not expose it, and `unknown` never satisfies
+boots and when the firmware does not expose it or exposes something that is
+not a 0/1 byte, and `unknown` never satisfies
 a numeric threshold.
 
 macOS has no UEFI variable interface and reports "not supported".

@@ -1,0 +1,30 @@
+windows:
+  - source: 'WMI `root\CIMV2` `Win32_PerfRawData_Tcpip_NetworkInterface` (`mode=interface`) or `Win32_PerfRawData_Tcpip_NetworkAdapter` (`mode=adapter`)'
+    provides: received, sent, throughput, packet, error and discard rates
+    note: Sampled by the CheckSystem auxiliary collector about every 12 seconds; rates are computed from the cumulative raw counters.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+      - WMI Performance Adapter service (`wmiApSrv`), which maintains the `Win32_PerfRawData` classes
+    without: 'If the class is missing the collector logs "Failed to fetch network metrics, disabling..." and stops collecting'
+  - source: 'WMI `root\CIMV2` `Win32_NetworkAdapter` (`PhysicalAdapter=True`)'
+    provides: MAC, speed, speed_bps, enabled, net_connection_id and the usage_* percentages
+    note: Team aggregates have no row here, so these keywords are empty for them.
+  - source: 'WMI `root\StandardCimv2` `MSFT_NetLbfoTeamMember`'
+    provides: team, team_status
+    note: Best-effort; disables itself when the LBFO provider is absent (client SKUs, older Windows).
+linux:
+  - source: '`/proc/net/dev`'
+    provides: byte, packet and error counters and the rates derived from them
+    privilege: none
+    note: Sampled once a second by the background collector.
+  - source: '`/sys/class/net/<name>/` (`operstate`, `address`, `speed`)'
+    provides: status, MAC, speed
+    privilege: none
+    note: Best-effort; virtual interfaces often report no speed.
+macos:
+  - source: '`sysctl` `NET_RT_IFLIST2` (64-bit interface counters)'
+    provides: byte, packet and error counters, MAC, link speed
+    note: Sampled once a second by the background collector.
+    without: 'The collector fails to sample with "sysctl NET_RT_IFLIST2 failed: ..."'
+  - source: '`ioctl(SIOCGIFMEDIA)` per interface, else the `IFF_UP` / `IFF_RUNNING` flags'
+    provides: status

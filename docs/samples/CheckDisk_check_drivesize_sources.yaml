@@ -1,0 +1,26 @@
+windows:
+- source: 'Volume enumeration: `GetLogicalDriveStrings`, `FindFirstVolume`/`FindNextVolume`, `GetVolumePathNamesForVolumeName`, `GetVolumeInformation`'
+  provides: drive list, letter, id, name, file system, `GetDriveType` type
+- source: '`DeviceIoControl` (`IOCTL_STORAGE_GET_HOTPLUG_INFO`, `IOCTL_STORAGE_GET_MEDIA_TYPES_EX`) on the volume'
+  provides: media type, removable, hotplug, mounted, readable, writable, erasable flags
+  note: The volume is opened with no access rights requested (device query only).
+- source: '`GetDiskFreeSpaceEx`'
+  provides: size, free, used, user_free and their percentages
+  privilege: conditional
+  note: Needs read access to the volume root; `ERROR_ACCESS_DENIED` is handled as its own case.
+  without: A volume that answers access denied is marked not readable/writable and drops out of the default filter; the other drives are still checked.
+- source: CheckDisk background collector (used-space history)
+  provides: full_in, rate, trend_span, trend_samples, used_change_1h, used_change_24h
+  without: The keywords have no value (`never`/`unknown`) when the collector is not running or `disk_free`/`trend` is in its `disable` list.
+linux:
+- source: '`/proc/mounts` (fallback `/etc/mtab`) via `getmntent_r`'
+  provides: drive list, device, mount point, file system, type
+  privilege: none
+  note: Pseudo and image filesystems (proc, sysfs, tmpfs, overlay, squashfs, ...) are skipped when enumerating all drives.
+- source: '`statvfs`'
+  provides: size, free, used, user_free, inode counts, writable
+  privilege: none
+  without: A mount `statvfs` cannot reach reports zero sizes and is marked not readable/writable; a `drive=` path that fails `statvfs` is reported as not found.
+- source: CheckDisk background collector (used-space history)
+  provides: full_in, rate, trend_span, trend_samples, used_change_1h, used_change_24h
+  without: The keywords have no value (`never`/`unknown`) when the collector is not running or `disk_free`/`trend` is in its `disable` list.

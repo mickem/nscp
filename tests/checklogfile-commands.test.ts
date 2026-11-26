@@ -17,12 +17,14 @@ import * as os from "os";
 import * as path from "path";
 
 import {
+  CRITICAL,
   NscpInstance,
   OK,
   UNKNOWN,
   WARNING,
   executeQuery,
   messageOf,
+  perfOf,
   setupQueryNscp,
   describeWithModules,
 } from "@fixtures/index";
@@ -479,5 +481,122 @@ describeWithModules("CheckLogFile")("CheckLogFile check_logfile", () => {
     const done = await check(file, { bookmark, "max-size": "1m" });
     expect(done.result).toBe(OK);
     expect(messageOf(done)).toMatch(/Nothing found/i);
+  });
+
+  // --- check_csv --------------------------------------------------------------
+  // Over REST on purpose: header= is a valued boolean (header=true), which is
+  // the token shape po::bool_switch rejects and only REST sends.
+
+  describe("check_csv", () => {
+    let updates: string;
+    let psExport: string;
+
+    beforeAll(() => {
+      updates = path.join(scratch, "updates.csv");
+      fs.writeFileSync(
+        updates,
+        "Hostname,WaitingUpdates,Load\r\nsrv1,0,0.25\r\nsrv2,7,1.5\r\nsrv3,12,3.75\r\n",
+      );
+      // What Export-Csv -Encoding Unicode writes on Windows PowerShell 5: a
+      // UTF-16LE byte-order mark, a #TYPE line, every field quoted.
+      psExport = path.join(scratch, "export.csv");
+      const ps =
+        '#TYPE System.Management.Automation.PSCustomObject\r\n"Name","Count"\r\n"bj\u00f6rk","1"\r\n"ek","3"\r\n';
+      fs.writeFileSync(
+        psExport,
+        Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(ps, "utf16le")]),
+      );
+    });
+
+    it("goes critical when rows match the filter (row-count mode)", async () => {
+      const r = await executeQuery(key, "check_csv", {
+        file: updates,
+        header: "true",
+        columns: "Hostname TEXT, WaitingUpdates INTEGER, Load REAL",
+        filter: "WaitingUpdates > 5",
+        critical: "count > 0",
+        "detail-syntax": "%(Hostname)=%(WaitingUpdates)",
+      });
+      expect(r.result).toBe(CRITICAL);
+      expect(messageOf(r)).toMatch(/srv2=7, srv3=12/);
+    });
+
+    it("is OK when nothing matches", async () => {
+      const r = await executeQuery(key, "check_csv", {
+        file: updates,
+        header: "true",
+        filter: "Hostname = 'nope'",
+        critical: "count > 0",
+      });
+      expect(r.result).toBe(OK);
+      expect(messageOf(r)).toMatch(/No rows matched the filter/);
+    });
+
+    it("thresholds a single cell (single-value mode) with perfdata", async () => {
+      const r = await executeQuery(key, "check_csv", {
+        file: updates,
+        header: "true",
+        columns: "Hostname TEXT, WaitingUpdates INTEGER",
+        filter: "Hostname = 'srv2'",
+        warning: "WaitingUpdates > 5",
+        critical: "WaitingUpdates > 10",
+        "detail-syntax": "%(Hostname): %(WaitingUpdates) updates",
+        "perf-syntax": "%(Hostname)",
+      });
+      expect(r.result).toBe(WARNING);
+      expect(messageOf(r)).toMatch(/srv2: 7 updates/);
+      expect(Object.keys(perfOf(r))).toEqual(["srv2_WaitingUpdates"]);
+    });
+
+    it("compares REAL columns as numbers", async () => {
+      const r = await executeQuery(key, "check_csv", {
+        file: updates,
+        header: "true",
+        columns: "Hostname, WaitingUpdates INTEGER, Load REAL",
+        critical: "Load > 3.5",
+        "detail-syntax": "%(Hostname)",
+      });
+      expect(r.result).toBe(CRITICAL);
+      expect(messageOf(r)).toMatch(/srv3/);
+      expect(messageOf(r)).not.toMatch(/srv2/);
+    });
+
+    it("reads a UTF-16LE PowerShell export with a #TYPE line", async () => {
+      const r = await executeQuery(key, "check_csv", {
+        file: psExport,
+        "skip-lines": "1",
+        header: "true",
+        columns: "Name, Count INTEGER",
+        warning: "Count > 2",
+        "top-syntax": "%(status): %(count) rows: %(list)",
+        "detail-syntax": "%(Name)=%(Count)",
+      });
+      expect(r.result).toBe(WARNING);
+      expect(messageOf(r)).toMatch(/2 rows: bj\u00f6rk=1, ek=3/);
+    });
+
+    it("refuses a file over max-size and a max-size that is not a size", async () => {
+      let r = await executeQuery(key, "check_csv", { file: updates, columns: "a", "max-size": "10" });
+      expect(r.result).toBe(UNKNOWN);
+      expect(messageOf(r)).toMatch(/larger than max-size \(10 bytes\)/);
+      r = await executeQuery(key, "check_csv", { file: updates, columns: "a", "max-size": "1.5m" });
+      expect(r.result).toBe(UNKNOWN);
+      expect(messageOf(r)).toMatch(/Invalid max-size/);
+      // 0 is the agent's ceiling ('max csv size', 64m by default), not no limit.
+      r = await executeQuery(key, "check_csv", { file: updates, header: "true", "max-size": "0" });
+      expect(r.result).toBe(OK);
+    });
+
+    it("reports a missing file and missing columns as UNKNOWN", async () => {
+      let r = await executeQuery(key, "check_csv", {
+        file: path.join(scratch, "nope.csv"),
+        columns: "a",
+      });
+      expect(r.result).toBe(UNKNOWN);
+      expect(messageOf(r)).toMatch(/Failed to open/);
+      r = await executeQuery(key, "check_csv", { file: updates });
+      expect(r.result).toBe(UNKNOWN);
+      expect(messageOf(r)).toMatch(/No columns declared/);
+    });
   });
 });

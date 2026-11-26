@@ -1,0 +1,25 @@
+windows:
+  - source: 'WMI `root\WMI` `MSAcpi_ThermalZoneTemperature`'
+    provides: name, temperature, active, throttle_reasons
+    note: The primary source. Sampled by the CheckSystem auxiliary collector about every 12 seconds, not when the check runs.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+      - an ACPI thermal zone driver
+    without: A missing class, no zones, or an access-denied answer switches the collector to the fallback below for the rest of the run
+  - source: 'WMI `root\CIMV2` `Win32_PerfFormattedData_Counters_ThermalZoneInformation`'
+    provides: name, temperature, throttle_reasons
+    note: The fallback.
+    requires:
+      - Windows 10 / Windows Server 2016 or later
+    without: 'With neither source the collector logs "... neither ACPI nor performance counter source available), disabling..." and the check is UNKNOWN "No temperature sensors found"'
+linux:
+  - source: '`/sys/class/thermal/thermal_zone*/` (`temp`, `type`)'
+    provides: thermal zone records
+    privilege: none
+    note: Read when the check runs.
+  - source: '`/sys/class/hwmon/hwmon*/` (`name`, `temp*_input`, `temp*_label`)'
+    provides: hwmon sensor records
+    privilege: none
+    requires:
+      - a loaded kernel sensor driver (thermal or hwmon); VMs and cloud instances usually have none
+    without: 'No readable sensor gives UNKNOWN "No temperature sensors found"'

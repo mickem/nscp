@@ -17,6 +17,7 @@
 		"check_storagepool"	: { "description" : "Check Storage Spaces pool health and capacity. Windows only.", "experimental" : true },
 		"check_shadowcopy"	: { "description" : "Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume. Windows only.", "experimental" : true },
 		"check_share"		: { "description" : "Check Windows SMB shares: list them, or verify that specific required shares exist. Windows only.", "experimental" : true },
+		"check_smb_client"	: { "description" : "Check the SMB client side of remote shares: read/write latency, credit stalls and queued requests per share, from the SMB Client Shares performance counters. Windows only.", "experimental" : true },
 		"check_mount"		: { "description" : "Check that a filesystem is mounted with the expected fstype and options.", "experimental" : true },
 		"check_largest_files"	: { "description" : "Find the largest files (or folders) beneath a folder. Reads the NTFS Master File Table on Windows when it can.", "experimental" : true },
 		"checkFiles"		: "Legacy version of check_drivesize",

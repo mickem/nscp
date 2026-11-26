@@ -89,6 +89,7 @@ Notes:
 **Jump to section:**
 
 * [Sample Commands](#check_mysql_samples)
+* [Data sources and privileges](#check_mysql_sources)
 * [Command-line Arguments](#check_mysql_options)
 * [Filter keywords](#check_mysql_filter_keys)
 
@@ -143,6 +144,18 @@ check_mysql host=db1 user=monitor password=secret plugin-dir=C:\Program Files\Ma
 OK: mysql 8.4.11, uptime 1011s, connections 1/151 (0%)
 ```
 
+
+
+<a id="check_mysql_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                                                                   | Provides                                                                     | Privilege        | Requires                                                                                                                                                                                                                                                                                                                                                                       | Notes  |
+|------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| MySQL client protocol: `SELECT @@version, @@version_comment, @@max_connections` and `SHOW GLOBAL STATUS` (`Uptime`, `Threads_connected`) | version, flavor, uptime, threads_connected, max_connections, connections_pct | *not determined* | MariaDB Connector/C (libmariadb), linked at build time<br>Network reachability of `host`:`port` (default `localhost:3306`), or the `socket` setting<br>Credentials: `user`/`password` options, or a `defaults file` (`[client]` group) configured under `/settings/mysql`<br>A server account; `@@` variables and `SHOW GLOBAL STATUS` need no extra grants (`USAGE` suffices) | note 1 |
+
+1. Connects over TCP unless a unix socket path or Windows named pipe is configured in the `socket` setting (not settable per request). *Without it:* Connection failure is UNKNOWN `Failed to connect to MySQL server '<target>': ...`; a query failure is UNKNOWN `Query failed: ...`
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mysql_options"></a>
@@ -284,6 +297,7 @@ Notes:
 **Jump to section:**
 
 * [Sample Commands](#check_mysql_query_samples)
+* [Data sources and privileges](#check_mysql_query_sources)
 * [Command-line Arguments](#check_mysql_query_options)
 * [Filter keywords](#check_mysql_query_filter_keys)
 
@@ -326,6 +340,18 @@ check_mysql_query host=127.0.0.1 user=monitor password=secret
 No query specified (use query=<SQL>)
 ```
 
+
+
+<a id="check_mysql_query_sources"></a>
+#### Data sources and privileges
+
+| Source                                                     | Provides                                          | Privilege        | Requires                                                                                                                                                                                                                                                                                                                              | Notes  |
+|------------------------------------------------------------|---------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| User-supplied SQL (`query`) over the MySQL client protocol | one row per result row, every column as a keyword | *not determined* | MariaDB Connector/C (libmariadb), linked at build time<br>Network reachability of `host`:`port` (default `localhost:3306`), or the `socket` setting<br>Credentials: `user`/`password` options, or a `defaults file` (`[client]` group) configured under `/settings/mysql`<br>Whatever privileges the query itself needs on the server | note 1 |
+
+1. Connects over TCP unless a unix socket path or Windows named pipe is configured in the `socket` setting (not settable per request). *Without it:* No `query` is UNKNOWN `No query specified ...`; a statement producing no columns is UNKNOWN `Query returned no result set ...`; a SQL error is UNKNOWN `Query failed: ...`
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mysql_query_options"></a>

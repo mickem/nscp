@@ -243,6 +243,7 @@ events. Without a bookmark the check falls back to the time-window `scan-range`
 **Jump to section:**
 
 * [Sample Commands](#check_eventlog_samples)
+* [Data sources and privileges](#check_eventlog_sources)
 * [Command-line Arguments](#check_eventlog_options)
 * [Filter keywords](#check_eventlog_filter_keys)
 
@@ -342,6 +343,20 @@ check_nrpe --host 192.168.56.103 --command check_eventlog --arguments "file=Syst
 OK: Event log seems fine
 ```
 
+
+
+<a id="check_eventlog_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                       | Provides                                                    | Privilege        | Requires                               | Notes  |
+|----------|------------------------------------------------------------------------------|-------------------------------------------------------------|------------------|----------------------------------------|--------|
+| Windows  | Windows Event Log API (`EvtQuery`/`EvtNext`/`EvtRender`, `EvtFormatMessage`) | events of the channels named in `file=`                     | conditional      | Windows Event Log (`EventLog`) service | note 1 |
+| Windows  | Legacy `OpenEventLog`/`ReadEventLog`                                         | events, when the Vista+ `wevtapi` functions are unavailable | *not determined* |                                        | note 2 |
+
+1. Depends on the channel: Application and System are readable without elevation, the Security channel needs Administrator/LocalSystem (`SeSecurityPrivilege`). Channels are also held against `log access` in `[/settings/eventlog]`. *Without it:* The check fails with "Failed to open &lt;channel&gt;: &lt;error&gt;" (or "Channel &lt;channel&gt; not found").
+2. *Without it:* "Could not open the '&lt;log&gt;' event log: &lt;error&gt;"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_eventlog_options"></a>

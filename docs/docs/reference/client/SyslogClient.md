@@ -92,6 +92,7 @@ through a transport that acknowledges, such as
 **Jump to section:**
 
 * [Sample Commands](#submit_syslog_samples)
+* [Data sources and privileges](#submit_syslog_sources)
 * [Command-line Arguments](#submit_syslog_options)
 
 
@@ -189,6 +190,18 @@ submit_syslog host=192.0.2.1 port=514 command=check_ok result=OK "message=nobody
 OK: Data presumably sent successfully
 ```
 
+
+
+<a id="submit_syslog_sources"></a>
+#### Data sources and privileges
+
+| Source                                                                                              | Provides                                                                                                  | Privilege | Requires                                            | Notes  |
+|-----------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|-----------|-----------------------------------------------------|--------|
+| Remote syslog receiver, BSD-style (RFC 3164) message in a UDP datagram over IPv4 (default port 514) | check results as syslog records with configurable facility, severity per state, tag and message templates | none      | A syslog receiver listening on UDP at `host`/`port` | note 1 |
+
+1. No TCP or TLS transport; the destination is resolved as IPv4 only. *Without it:* Fire-and-forget: OK `Data presumably sent successfully` is returned once the datagram is handed to the OS, whether or not anything receives it; a resolution or socket error is UNKNOWN `Socket error: ...`.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="submit_syslog_options"></a>

@@ -1,0 +1,6 @@
+all:
+- source: HTTP GET of the NGINX stub_status page (default `http://127.0.0.1/nginx_status`)
+  provides: active, reading, writing, waiting, accepts, handled, requests
+  privilege: none
+  requires:
+  - NGINX `stub_status` location configured and reachable from the agent

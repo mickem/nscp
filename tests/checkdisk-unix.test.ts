@@ -667,4 +667,23 @@ describeOnLinux("CheckDisk (Unix)", () => {
     ]);
     expect(out).toMatch(/Unknown byte unit: ZB/);
   });
+
+  // --- check_smb_client (Windows counter set) ---------------------------------
+
+  it("check_smb_client reports itself unavailable rather than an empty, healthy set", async () => {
+    // The SMB Client Shares counter set is a Windows one. An OK with no shares
+    // would tell a Linux host's operator its mounts are fine; UNKNOWN says the
+    // check cannot see them.
+    const { out, code } = await queryWithCode("check_smb_client", ["warning=none", "critical=none"]);
+    expect(code).toBe(3);
+    expect(out).toMatch(/only available on Windows/);
+  });
+
+  it("check_smb_client still rejects a bad option before saying so", async () => {
+    // The options are parsed before the source is asked, so a typo is
+    // reported as such and not hidden behind the platform message.
+    const { out, code } = await queryWithCode("check_smb_client", ["warning=no_such_keyword > 1"]);
+    expect(code).toBe(3);
+    expect(out).not.toMatch(/only available on Windows/);
+  });
 });

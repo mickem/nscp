@@ -1,0 +1,30 @@
+windows:
+  - source: 'WMI `root\CIMV2`: `Win32_ComputerSystemProduct`, `Win32_SystemEnclosure`, `Win32_PhysicalMemory`, `Win32_PhysicalMemoryArray`'
+    provides: vendor, model, UUID and serial; chassis type and asset tag; memory modules; memory slots
+    note: Read when the check runs. Each class is read best-effort.
+    requires:
+      - Windows Management Instrumentation service (`Winmgmt`)
+    without: 'A class that fails leaves its keywords empty; only when no class answers is the check UNKNOWN "Failed to read hardware inventory from WMI: ..."'
+linux:
+  - source: '`/sys/class/dmi/id/`: `sys_vendor`, `product_name`, `chassis_type`, `chassis_asset_tag`'
+    provides: vendor, model, chassis_type, chassis, asset_tag
+    privilege: none
+    note: The kernel's world-readable copies of the SMBIOS system and chassis records. Read when the check runs.
+    requires:
+      - firmware that publishes SMBIOS/DMI data (containers and microVMs usually expose none)
+    without: 'With neither `/sys/class/dmi/id` nor the SMBIOS table the check is UNKNOWN "No hardware inventory available: this host exposes no DMI/SMBIOS data ..."; with only the table, it fills these keywords'
+  - source: '`/sys/class/dmi/id/`: `product_uuid`, `product_serial`, `chassis_serial`'
+    provides: uuid, serial, chassis_serial
+    privilege: elevated
+    note: The kernel makes these attributes readable by root only (mode 0400).
+    without: 'uuid, serial and chassis_serial are empty strings; the check still runs and reports no error for them'
+  - source: '`/sys/firmware/dmi/tables/DMI` and `/sys/firmware/dmi/tables/smbios_entry_point`'
+    provides: modules, slots, memory_speed, module_list, memory (memory_source = smbios); any identity keyword the `dmi/id` attributes left empty
+    privilege: elevated
+    note: The raw SMBIOS table (types 1, 3, 16 and 17), root-only (mode 0400), parsed in-process; `dmidecode` is not run.
+    without: 'modules, slots and memory_speed are `unknown` and module_list is empty; memory falls back to the kernel memory blocks'
+  - source: '`/sys/devices/system/memory/block_size_bytes` and `memory*/online`'
+    provides: memory (memory_source = sysfs), counted in online memory blocks
+    privilege: none
+    note: Only read when the SMBIOS table gave no memory devices (unreadable, missing, or a hypervisor that publishes none).
+    without: 'memory is `unknown` and memory_source is `none`'

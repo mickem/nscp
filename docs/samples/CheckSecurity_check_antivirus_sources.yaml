@@ -1,0 +1,6 @@
+windows:
+  - source: 'WMI `root\SecurityCenter2` `AntiVirusProduct`'
+    provides: name, product_state, and enabled / up_to_date decoded from productState
+    requires:
+      - Windows client edition (the Security Center namespace is absent on Windows Server)
+    without: 'The check returns UNKNOWN: "Failed to query Security Center: ..."'

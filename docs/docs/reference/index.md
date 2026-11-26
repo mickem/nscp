@@ -1,6 +1,8 @@
 
 Most check commands share a set of common command-line options and filter keywords, they are
-documented on the [common options](common-options.md) page.
+documented on the [common options](common-options.md) page. Where each check reads its data
+from, and which checks need an elevated agent, is collected on the
+[data sources and privileges](data-sources.md) page.
 
 # Queries
 | Module               | Command                                                                                                   | OS                                                      | Description                                                                                                                                                                                              |

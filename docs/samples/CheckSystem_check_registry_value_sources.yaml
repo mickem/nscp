@@ -1,0 +1,12 @@
+windows:
+  - source: '`RegOpenKeyExW` + `RegQueryValueExW` / `RegEnumValueW` on the named keys'
+    provides: exists, type, string_value, int_value, size, and the key's written time
+    privilege: conditional
+    note: 'Only for keys whose ACL does not grant the agent''s account read access, e.g. `HKLM\SECURITY` and `HKLM\SAM\SAM`, which only SYSTEM may read. `HKCU` is the hive of the account the agent runs as, not of a logged-on user. Keys a caller may name can be restricted by the module''s registry access settings.'
+    without: A named value in a key the agent cannot open reads as exists = 0, the same as a missing value (CRITICAL by default); enumerating such a key (no value= or value=*) gives no records and the empty state (UNKNOWN)
+  - source: '`RegConnectRegistryW` (computer=)'
+    provides: the same keywords for a remote machine
+    requires:
+      - Remote Registry service running on the target
+      - read rights on the target's registry for the agent's account
+    without: The connection error is returned as UNKNOWN

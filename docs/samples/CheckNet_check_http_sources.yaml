@@ -1,0 +1,7 @@
+all:
+- source: HTTP/HTTPS request to `url=`
+  provides: status code, response time, size, body/JSON content, certificate keywords
+  privilege: none
+  requires:
+  - Network reachability of the target
+  - OpenSSL in the build for TLS; certificates verified against `${ca-path}` by default (`ca=` overrides)

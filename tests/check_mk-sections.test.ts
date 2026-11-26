@@ -72,11 +72,18 @@ describeIf(!onDarwin && moduleBuiltHere("CheckDisk"))("check_mk agent system sec
     await nscp.waitForPort(PORT, { timeoutMs: 30_000 });
     // The dump leaves <<<mem>>> out until that first round has run, so fetch
     // until it is there rather than guess how long a loaded runner takes.
+    // The OS label lines need the same wait: CheckMKServer starts serving
+    // before CheckSystem has finished loading, and a dump taken in between
+    // has no check_os_version to ask - the script then sends OSType alone
+    // and tries again on the next fetch. On Linux <<<mem>>> is read straight
+    // from /proc, so it is there on that first fetch and alone does not wait.
+    const osReady = (s: Map<string, string[]>) =>
+      (s.get("check_mk") ?? []).some((l) => l.startsWith("OSName: "));
     const deadline = Date.now() + 60_000;
     for (;;) {
       dump = await fetchDump(PORT);
       sections = parseSections(dump);
-      if (sections.has("mem") || Date.now() > deadline) break;
+      if ((sections.has("mem") && osReady(sections)) || Date.now() > deadline) break;
       await new Promise((r) => setTimeout(r, 1_000));
     }
   });

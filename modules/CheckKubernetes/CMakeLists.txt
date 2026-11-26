@@ -121,4 +121,36 @@ NSCP_CREATE_TEST(
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+# Unit tests for the module class: the settings it registers and that every
+# dispatch method resolves the cluster from them, shown with configurations
+# refused before any connection is made. The stub core
+# (include/nscapi/test_helpers.hpp) stands in for the daemon.
+NSCP_CREATE_TEST(
+    check_kubernetes_module_test
+    SOURCES
+        check_kubernetes_module_test.cpp
+        "${TARGET}.cpp"
+        check_cluster.cpp
+        check_pods.cpp
+        check_nodes.cpp
+        check_workloads.cpp
+        ${NSCP_DEF_PLUGIN_CPP}
+        ${NSCP_FILTER_CPP}
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_JSON_LIBRARY}
+        nscp_net
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

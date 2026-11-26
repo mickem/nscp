@@ -1,0 +1,10 @@
+windows:
+  - source: 'Service Control Manager: the `IAS` service (`OpenServiceW` with `SERVICE_QUERY_STATUS`)'
+    provides: presence check for the NPS role
+    requires:
+      - Network Policy Server role (IAS service installed)
+    without: 'UNKNOWN "NPS counters unavailable: NPS role is not installed (IAS service missing)"'
+  - source: 'PDH counter object `NPS Authentication Server` (default) or the one named by object=, e.g. `NPS Accounting Server`'
+    provides: 'one row per counter and instance (_Total included): object, counter, instance, value'
+    note: 'Counters are enumerated from the installed object and sampled twice, sample-ms apart (default 1000). On a localized Windows pass the localized object name.'
+    without: 'UNKNOWN "NPS counters unavailable: NPS counter object unavailable: <object>" or a failed-sample error; never zeros'

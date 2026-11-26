@@ -1,0 +1,9 @@
+windows:
+  - source: "`SERVERPROPERTY(...)` and DMV `sys.dm_os_sys_info` over ODBC/TDS"
+    provides: server_name, version, product_level, edition, uptime
+    without: "Connection failure is UNKNOWN `Failed to connect to SQL Server '<server>': <ODBC diagnostic>`; a query failure is UNKNOWN `Query failed: ...`"
+    requires:
+      - SQL Server ODBC driver (auto-detected, newest first - ODBC Driver 18/17/13/11, Native Client 11.0, then the legacy `SQL Server` driver shipped with Windows; override with `driver`)
+      - Network reachability of the instance named by `server` (default `localhost`)
+      - "Credentials: a SQL login (`user`/`password`), or - with both empty - Windows integrated authentication as the agent service account, which then needs a login on the instance"
+      - "`VIEW SERVER STATE` (`sys.dm_os_sys_info`)"

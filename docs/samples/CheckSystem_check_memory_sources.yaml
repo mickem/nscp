@@ -1,0 +1,19 @@
+windows:
+  - source: '`GlobalMemoryStatusEx`'
+    provides: the physical, committed and virtual records
+    privilege: none
+    note: Read when the check runs; falls back to `GlobalMemoryStatus` where the Ex call is not exported. No warm-up.
+    without: 'UNKNOWN with the failing call, e.g. "GlobalMemoryStatusEx failed: ..."'
+linux:
+  - source: '`/proc/meminfo` (`MemTotal`, `MemFree`, `Buffers`, `Cached`, `SwapTotal`, `SwapFree`)'
+    provides: the physical, cached and swap records
+    privilege: none
+    note: Sampled once a second by the background collector; the check reads its latest sample.
+    without: 'A collector that cannot read `/proc/meminfo` makes the check UNKNOWN "No memory data available: the collector failed to sample it: ..."'
+macos:
+  - source: '`host_statistics64(HOST_VM_INFO64)` and `sysctl hw.memsize`'
+    provides: the physical and cached records
+    note: Sampled once a second by the background collector. Cached counts file-backed and purgeable pages as free.
+    without: 'The collector fails to sample and the check is UNKNOWN "No memory data available: the collector failed to sample it: ..."'
+  - source: '`sysctl vm.swapusage`'
+    provides: the swap record

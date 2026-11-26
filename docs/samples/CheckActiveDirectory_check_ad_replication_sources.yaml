@@ -1,0 +1,14 @@
+windows:
+  - source: 'Directory replication API (`DsBindW`, `DsReplicaGetInfoW` with `DS_REPL_INFO_NEIGHBORS`)'
+    provides: one row per inbound link - naming context, source DSA, last attempt, last success, last error, consecutive failures
+    note: 'The same data `repadmin /showrepl` reads. The target is always named explicitly (the local DNS host name by default), since replication state is per DC. The whole read runs on a worker bounded by timeout=.'
+    requires:
+      - Active Directory Domain Services (the target must be a domain controller)
+      - 'for server=, TCP 135 (RPC endpoint mapper) and the dynamic RPC range to that DC'
+    without: 'A failed bind or read returns UNKNOWN with the Win32 error ("Failed to bind to the directory service on <dc>: ..."; access denied lands here too). No answer within timeout= is UNKNOWN "No answer from the directory service on <dc> within <n>ms".'
+  - source: '`DsRoleGetPrimaryDomainInformation` (machine role)'
+    provides: whether a failed bind means "not a domain controller"
+    without: 'On a host whose role is not a DC the failure is reported as UNKNOWN "Not a domain controller: ..."; if the role cannot be read the plain failure is reported'
+  - source: 'TCP connect to port 135 on server='
+    provides: reachability pre-check for a remote DC
+    without: 'UNKNOWN "Cannot reach the RPC endpoint mapper on <server> (port 135): ..."'

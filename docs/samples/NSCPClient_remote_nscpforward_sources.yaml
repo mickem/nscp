@@ -1,0 +1,4 @@
+all:
+- source: 'None: the name matches no client dispatch rule, so no request is sent'
+  note: The client framework only dispatches `check_*`, `*_query`, `forward_*`, `*_forward`, `exec_*` and `submit_*`. Relaying to a remote agent's REST API works through the module's fallback handler instead.
+  without: Always fails with `remote_nscpforward not found`.

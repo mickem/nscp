@@ -1,0 +1,22 @@
+windows:
+  - source: 'PDH `\System\Processor Queue Length`'
+    provides: queue, and the queue part of load1/load5/load15
+    note: Sampled once a second by the CheckSystem collector and folded into three moving averages with the busy-core count.
+    without: If the counter is unavailable a message is logged and the load degrades to the CPU-utilization part
+  - source: 'The collector''s CPU sample (`GetSystemTimes`, per core `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`)'
+    provides: the busy-cores part of the load
+    without: 'With `disable = load` the check is UNKNOWN "Load average sampling is disabled ..."'
+  - source: '`NtQuerySystemInformation(SystemProcessInformation)`'
+    provides: procs_total (thread count)
+linux:
+  - source: '`/proc/loadavg`'
+    provides: load1, load5, load15, procs_running, procs_total
+    privilege: none
+    note: Read when the check runs.
+macos:
+  - source: '`getloadavg(3)`'
+    provides: load1, load5, load15
+    note: Read when the check runs.
+    without: 'UNKNOWN "Failed to read the load average (getloadavg)"'
+  - source: '`processor_set_statistics(PROCESSOR_SET_LOAD_INFO)`'
+    provides: procs_total (thread count); procs_running stays unknown

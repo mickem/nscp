@@ -1,0 +1,15 @@
+all:
+  - source: 'Certificate files parsed with OpenSSL (PEM bundles, DER, PKCS#12)'
+    provides: certificates given with `file=` / `path=` (directories scanned, `recursive=true` descends)
+    privilege: conditional
+    note: 'The agent account needs read access to each file (and to list a scanned directory); a PKCS#12 file also needs `password=`.'
+    without: 'An unreadable file adds "cannot open <path>"; these errors are only reported when no certificate at all was read, as UNKNOWN "No certificates found: ..."'
+  - source: 'OpenSSL default trust locations (`X509_STORE_set_default_paths`), or the `ca=` bundle'
+    provides: trusted
+    note: 'Used for files and for Windows store certificates alike. On Windows these are the OpenSSL build''s default locations, not the Windows Root store.'
+    without: 'An issuer chain that cannot be resolved reads as trusted = 0'
+windows:
+  - source: 'CryptoAPI system certificate store (`CertOpenStore` `CERT_STORE_PROV_SYSTEM`, read-only)'
+    provides: 'certificates from `store=` at `location=` LocalMachine (default) or CurrentUser'
+    note: 'CurrentUser is the store of the account the agent service runs as (LocalSystem by default), not that of a logged-on user.'
+    without: 'Adds "Failed to open certificate store ''<location>\<store>''", reported only when no certificate at all was read (UNKNOWN "No certificates found: ...")'

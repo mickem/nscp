@@ -1,0 +1,10 @@
+all:
+- source: Remote NRPE server, NRPE v2/v4 query packet over TCP/TLS
+  provides: the remote answer to the forwarded request, returned unchanged
+  privilege: none
+  note: Each payload of the incoming request is re-sent as `command!arg1!arg2...`, without local option parsing.
+  without: 'A connection, TLS or packet error is UNKNOWN (`Socket error: ...`, `NRPE Packet error: ...`).'
+  requires:
+  - A remote NRPE server (NSClient++ or Nagios `nrpe`) reachable on `host`/`port` (default 5666)
+  - Matching protocol `version` (2, the default, or 4) and, for version 2, the server's `payload length` (default 1024)
+  - TLS settings matching the server (TLS is on by default with `verify mode = none`; `insecure` enables the legacy anonymous-DH ciphers)

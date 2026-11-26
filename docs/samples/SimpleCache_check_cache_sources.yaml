@@ -1,0 +1,4 @@
+all:
+- source: Agent's in-memory result cache, filled from results submitted on the module's channel (default `CACHE`)
+  privilege: none
+  note: Nothing is persisted; the cache starts empty after a restart.

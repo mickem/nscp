@@ -371,3 +371,95 @@ TEST(utf8, make_valid_replaces_each_invalid_byte) {
       utf8::make_valid("m\xE5l"));
 }
 #endif
+
+// ============================================================================
+// Byte-level decoders (detect_bom, from_utf16, from_latin1)
+// ============================================================================
+TEST(utf8, detect_bom) {
+  EXPECT_EQ(utf8::byte_order_mark::utf8, utf8::detect_bom("\xEF\xBB\xBF"
+                                                          "a"));
+  EXPECT_EQ(utf8::byte_order_mark::utf16le, utf8::detect_bom(std::string("\xFF\xFE"
+                                                                         "a\0",
+                                                                         4)));
+  EXPECT_EQ(utf8::byte_order_mark::utf16be, utf8::detect_bom(std::string("\xFE\xFF\0a", 4)));
+  EXPECT_EQ(utf8::byte_order_mark::none, utf8::detect_bom("abc"));
+  EXPECT_EQ(utf8::byte_order_mark::none, utf8::detect_bom(""));
+  EXPECT_EQ(utf8::byte_order_mark::none, utf8::detect_bom("\xEF\xBB"));  // truncated UTF-8 mark
+  EXPECT_EQ(3u, utf8::bom_size(utf8::byte_order_mark::utf8));
+  EXPECT_EQ(2u, utf8::bom_size(utf8::byte_order_mark::utf16le));
+  EXPECT_EQ(2u, utf8::bom_size(utf8::byte_order_mark::utf16be));
+  EXPECT_EQ(0u, utf8::bom_size(utf8::byte_order_mark::none));
+}
+
+TEST(utf8, from_utf16_little_and_big_endian) {
+  std::string out;
+  // "Å1" in both byte orders.
+  ASSERT_TRUE(utf8::from_utf16(std::string("\xC5\x00"
+                                           "1\x00",
+                                           4),
+                               true, out));
+  EXPECT_EQ(
+      "\xC3\x85"
+      "1",
+      out);
+  ASSERT_TRUE(utf8::from_utf16(std::string("\x00\xC5\x00"
+                                           "1",
+                                           4),
+                               false, out));
+  EXPECT_EQ(
+      "\xC3\x85"
+      "1",
+      out);
+  // A three-byte UTF-8 character (U+20AC EURO SIGN).
+  ASSERT_TRUE(utf8::from_utf16(std::string("\xAC\x20", 2), true, out));
+  EXPECT_EQ("\xE2\x82\xAC", out);
+}
+
+TEST(utf8, from_utf16_does_not_consume_a_bom) {
+  std::string out;
+  ASSERT_TRUE(utf8::from_utf16(std::string("\xFF\xFE"
+                                           "a\x00",
+                                           4),
+                               true, out));
+  EXPECT_EQ(
+      "\xEF\xBB\xBF"
+      "a",
+      out);  // U+FEFF, kept as data
+}
+
+TEST(utf8, from_utf16_combines_surrogate_pairs) {
+  std::string out;
+  // U+1F600 is D83D DE00.
+  ASSERT_TRUE(utf8::from_utf16(std::string("\x3D\xD8\x00\xDE", 4), true, out));
+  EXPECT_EQ("\xF0\x9F\x98\x80", out);
+  EXPECT_TRUE(utf8::is_valid(out));
+}
+
+TEST(utf8, from_utf16_replaces_unpaired_surrogates) {
+  std::string out;
+  // A lone high surrogate followed by 'x', then a lone low surrogate.
+  ASSERT_TRUE(utf8::from_utf16(std::string("\x3D\xD8x\x00\x00\xDE", 6), true, out));
+  EXPECT_EQ("\xEF\xBF\xBDx\xEF\xBF\xBD", out);
+  // A high surrogate as the very last unit.
+  ASSERT_TRUE(utf8::from_utf16(std::string("a\x00\x3D\xD8", 4), true, out));
+  EXPECT_EQ("a\xEF\xBF\xBD", out);
+  EXPECT_TRUE(utf8::is_valid(out));
+}
+
+TEST(utf8, from_utf16_refuses_an_odd_byte_count) {
+  std::string out = "stale";
+  EXPECT_FALSE(utf8::from_utf16(std::string("a\x00"
+                                            "b",
+                                            3),
+                                true, out));
+  EXPECT_TRUE(out.empty());
+  EXPECT_TRUE(utf8::from_utf16("", true, out));
+  EXPECT_TRUE(out.empty());
+}
+
+TEST(utf8, from_latin1) {
+  EXPECT_EQ("caf\xC3\xA9", utf8::from_latin1("caf\xE9"));
+  EXPECT_EQ("\xC3\xBF\xC2\x80", utf8::from_latin1("\xFF\x80"));
+  EXPECT_EQ("plain", utf8::from_latin1("plain"));
+  EXPECT_TRUE(utf8::is_valid(utf8::from_latin1(std::string("\x00\x7F\x80\xFF", 4))));
+}

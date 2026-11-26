@@ -1,0 +1,11 @@
+windows:
+- source: WMI `Win32_ShadowCopy` (`root\CIMV2`)
+  provides: copies, newest, newest_date per volume
+  without: 'WMI errors are swallowed: no rows, so the check returns its empty state (OK by default).'
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service
+- source: WMI `Win32_ShadowStorage` (`root\CIMV2`)
+  provides: used, allocated, max_size, used_pct per volume
+  without: Shadow-storage keywords stay empty for the volume.
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service

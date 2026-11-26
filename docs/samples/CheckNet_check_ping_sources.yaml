@@ -1,0 +1,8 @@
+all:
+- source: ICMP / ICMPv6 echo over a raw socket (`boost::asio::ip::icmp`)
+  provides: loss, time, jitter, ttl
+  privilege: elevated
+  note: Administrator or LocalSystem on Windows; root or `CAP_NET_RAW` on Linux (the socket is `SOCK_RAW`, so `net.ipv4.ping_group_range` does not help); root on macOS.
+  requires:
+  - Name resolution of the host
+  - ICMP echo allowed between agent and host

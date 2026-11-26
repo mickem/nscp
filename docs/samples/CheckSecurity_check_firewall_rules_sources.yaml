@@ -1,0 +1,5 @@
+windows:
+  - source: 'Windows Firewall COM `INetFwPolicy2::Rules` (`INetFwRule`)'
+    provides: every keyword (name, group, direction, action, enabled, protocol, ports, addresses, application, service, profiles, edge traversal)
+    note: One pass over the rules of all profiles, the same store `Get-NetFirewallRule` reads.
+    without: 'The check returns UNKNOWN: "Failed to access the Windows firewall policy (INetFwPolicy2)", "Failed to read the Windows firewall rule set (INetFwPolicy2::Rules)" or "Failed to enumerate the Windows firewall rules"'

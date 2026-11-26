@@ -1,0 +1,10 @@
+all:
+- source: Kubernetes API `GET /version`, `GET /readyz` and `GET /api/v1/nodes` (paged)
+  provides: version, platform, api_ready/readyz, node and ready-node counts
+  note: The cluster and credentials come only from settings; no check argument selects the server or token.
+  without: No usable configuration is UNKNOWN naming what to set; HTTP 401 is UNKNOWN naming the rejected credential, HTTP 403 is UNKNOWN naming the RBAC rule to grant. A 5xx from `/readyz` is reported as the API server not being ready, not as a connection failure.
+  requires:
+  - Network reachability of the API server over HTTPS (built with OpenSSL)
+  - 'Cluster configuration under `/settings/kubernetes`, resolved in this order: `api server` plus `token`/`token file`; a kubeconfig in JSON form (`kubectl config view --raw --minify -o json`) with a token, tokenFile or client certificate (exec/auth-provider users are not supported); or, in a pod, `KUBERNETES_SERVICE_HOST` plus the mounted service account token `/var/run/secrets/kubernetes.io/serviceaccount/token`'
+  - Read access, for the agent account, to any token file, kubeconfig or certificate file it is configured with
+  - 'RBAC: `get` on the non-resource URLs `/version` and `/readyz`, and `list` on `nodes` (cluster-scoped)'

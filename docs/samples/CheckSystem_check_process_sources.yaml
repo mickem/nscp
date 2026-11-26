@@ -1,0 +1,51 @@
+windows:
+  - source: '`EnumProcesses` + `OpenProcess` per process'
+    provides: exe, filename, pid, state; with scan-info (the default) the memory, handle, I/O and CPU-time keywords from `GetProcessTimes`, `GetProcessHandleCount` and `NtQueryInformationProcess`
+    privilege: conditional
+    note: 'The scan enables `SeDebugPrivilege`, which the agent holds when it runs as LocalSystem or an administrator. Without it, processes of other users and protected processes are opened with `PROCESS_QUERY_LIMITED_INFORMATION` only: the name is still read (`QueryFullProcessImageName`), but not the counters or the command line.'
+    without: 'A process that cannot be opened at all is `unreadable` (dropped by the default filter `state != ''unreadable''`); one opened with limited rights has only its name'
+  - source: 'The process environment block, read with `ReadProcessMemory`'
+    provides: command_line
+    privilege: conditional
+    note: Needs `PROCESS_VM_READ` on the target, so the same condition as above applies.
+    without: command_line is empty
+  - source: '`EnumWindows` + `IsHungAppWindow`'
+    provides: hung state
+    note: Only the top-level windows of the agent's own desktop are seen.
+  - source: '`OpenProcessToken` + `LookupAccountSidW`'
+    provides: username, uid
+    note: Only with resolve-owner=true; the account lookup can block on domain accounts.
+  - source: '`NtQuerySystemInformation(SystemProcessInformation)` and `GetSystemTimes`, sampled once a second by the collector'
+    provides: kernel, user and time as a percentage with delta=true
+    requires:
+      - "`process cpu = true` under `/settings/system/windows`"
+    without: 'delta=true returns UNKNOWN naming the setting to enable'
+linux:
+  - source: '`/proc/<pid>/stat`, `/proc/<pid>/status`, `/proc/<pid>/statm`, `/proc/<pid>/cmdline`'
+    provides: state, proc_state, ppid, uid, memory, fault and CPU-time keywords, elapsed, command_line
+    privilege: none
+  - source: '`readlink /proc/<pid>/exe`'
+    provides: filename, exe
+    privilege: conditional
+    note: Reading another user's `/proc/<pid>/exe` link needs root (ptrace-level access); the agent's own processes need nothing.
+    without: exe falls back to `/proc/<pid>/comm` (truncated to 15 characters) or the command line, and filename stays empty
+  - source: '`getpwuid_r` (NSS)'
+    provides: username
+    note: Only with resolve-owner=true; cached per uid.
+  - source: '`/proc/stat` CPU total'
+    provides: CPU percentages with delta=true
+    note: Two snapshots one second apart, taken when the check runs.
+macos:
+  - source: '`sysctl KERN_PROC` (the kernel process table) and `proc_pidpath`'
+    provides: pid, ppid, uid, username, creation, elapsed, filename, exe, state
+    privilege: none
+  - source: '`proc_pidinfo(PROC_PIDTASKINFO)`'
+    provides: virtual, working_set, rss, page_faults, user, kernel, time, proc_state (running vs sleeping)
+    privilege: conditional
+    note: macOS answers only for the caller's own processes unless it runs as root; the agent runs as the unprivileged `_nsclient` account.
+    without: For other users' processes these keywords render unknown, never satisfy a threshold and emit no perfdata
+  - source: '`sysctl KERN_PROCARGS2`'
+    provides: command_line
+    privilege: conditional
+    note: Same restriction as the task info.
+    without: command_line is empty for other users' processes

@@ -1,0 +1,24 @@
+windows:
+- source: WMI `Win32_PerfFormattedData_PerfDisk_LogicalDisk` / `Win32_PerfRawData_PerfDisk_LogicalDisk`, sampled by the CheckDisk background collector
+  provides: I/O keywords (percent_disk_time, queue_length, latency, ...)
+  without: Returns "Collector not started" when the module's collector is not running.
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service
+- source: '`GetLogicalDriveStrings`, `GetDriveType` and `GetDiskFreeSpaceEx`, sampled by the collector'
+  provides: space keywords (size, free, used, free_pct, used_pct, user_free) for fixed, remote and RAM-disk drives
+  note: A drive `GetDiskFreeSpaceEx` cannot query is left out of the sample.
+- source: WMI `MSFT_PhysicalDisk` and `MSFT_Disk` (`root\Microsoft\Windows\Storage`), queried per check
+  provides: 'device rows: health, media type, serial, friendly name, offline, read-only'
+  without: No device rows; space and I/O rows are still reported.
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service
+  - Storage Management WMI provider (`root\Microsoft\Windows\Storage` namespace)
+linux:
+- source: '`/proc/diskstats`, sampled by the CheckDisk background collector'
+  provides: I/O keywords (percent_disk_time, queue_length, latency, ...)
+  privilege: none
+  without: Returns "Collector not started" when the module's collector is not running.
+- source: '`/proc/mounts` + `statvfs`, sampled by the collector; backing device resolved through `/sys/class/block/<dev>/slaves`'
+  provides: space keywords (size, free, used, free_pct, used_pct, user_free)
+  privilege: none
+  note: There are no device-state rows on Linux.

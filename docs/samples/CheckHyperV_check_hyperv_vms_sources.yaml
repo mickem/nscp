@@ -1,0 +1,14 @@
+windows:
+  - source: 'WMI `root\virtualization\v2`: `Msvm_ComputerSystem`, `Msvm_HeartbeatComponent`, `Msvm_MemorySettingData`, `Msvm_Memory`, `Msvm_ProcessorSettingData`, `Msvm_Processor`, `Msvm_VirtualSystemSettingData`'
+    provides: every keyword (state, health, operation, uptime, replication, heartbeat, memory, vcpus, cpu_load, snapshots, oldest_snapshot, name_count)
+    privilege: elevated
+    note: 'Local Administrators with an elevated token, or Hyper-V Administrators; LocalSystem qualifies. Hyper-V does not refuse other callers: it silently returns only the VMs the caller is authorised for.'
+    requires:
+      - Hyper-V role (provides the namespace)
+      - Hyper-V Virtual Machine Management service (vmms) running
+    without: 'An account that sees no VMs gets UNKNOWN ("... none are visible to this account: run as an elevated administrator or a member of Hyper-V Administrators", or "... cannot tell that there are none"). Without the role: UNKNOWN "... the Hyper-V role is not installed on this host (root\virtualization\v2 missing)"; with vmms stopped the message points at the service.'
+  - source: 'PDH counters `Hyper-V Virtual Machine Health Summary` (Health Ok, Health Critical)'
+    provides: the VM count used to tell an empty host from VMs hidden by missing rights
+    privilege: none
+    note: Readable by any account; counts only VMs with a running worker process.
+    without: When the counters cannot be read an empty VM list is only trusted from an account that may see every VM

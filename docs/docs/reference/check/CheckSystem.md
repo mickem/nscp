@@ -228,6 +228,7 @@ A list of all short hand aliases for queries (check commands)
 **Jump to section:**
 
 * [Sample Commands](#check_battery_samples)
+* [Data sources and privileges](#check_battery_sources)
 * [Command-line Arguments](#check_battery_options)
 * [Filter keywords](#check_battery_filter_keys)
 
@@ -299,6 +300,26 @@ check_battery "detail-syntax=${name} rem=${remaining_capacity} full=${full_capac
 OK: BAT0 rem=48120 full=55300 design=60000 rate=0
 ```
 
+
+
+<a id="check_battery_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                             | Provides                                                                                | Privilege        | Requires                                                                                                                 | Notes  |
+|----------|------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|------------------|--------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | `GetSystemPowerStatus`                                                             | power_source, battery_status, battery_present, charge, time_remaining                   | none             |                                                                                                                          | note 1 |
+| Windows  | WMI `root\WMI`: `BatteryStatus`, `BatteryStaticData`, `BatteryFullChargedCapacity` | charge_rate, discharge_rate, remaining_capacity, design_capacity, full_capacity, health | *not determined* | Windows Management Instrumentation service (`Winmgmt`)<br>a battery driver that publishes the `root\WMI` battery classes | note 2 |
+| Linux    | `/sys/class/power_supply/*` (`type`, `online` and the battery attributes)          | every keyword; a `Mains` entry sets power_source                                        | none             | a kernel ACPI or platform power-supply driver that populates sysfs                                                       | note 3 |
+| macOS    | IOKit power sources (`IOPSCopyPowerSourcesInfo`)                                   | charge, power_source, battery_status, time_remaining, battery_present                   | none             |                                                                                                                          | note 4 |
+| macOS    | IOKit registry entry `AppleSmartBattery`                                           | design_capacity, full_capacity, remaining_capacity, charge_rate, discharge_rate         | none             |                                                                                                                          | note 5 |
+
+1. Sampled by the CheckSystem auxiliary collector about every 12 seconds, not when the check runs. Reports a single battery named `system`. *Without it:* If the call fails the battery collector logs "Failed to fetch battery status, disabling: ..." and stops collecting until the module is reloaded
+2. Applied to the first battery only. Each class is read best-effort and WMI errors are ignored. *Without it:* The capacity and rate keywords stay unset; the charge and power-source keywords still work
+3. *Without it:* No battery entry gives zero records and the empty state (WARNING "No battery found" by default)
+4. Internal batteries and UPS power sources are reported.
+5. *Without it:* A Mac without a battery (desktop, VM) gives zero records and the empty state (WARNING "No battery found" by default)
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_battery_options"></a>
@@ -654,6 +675,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 **Jump to section:**
 
 * [Sample Commands](#check_cpu_samples)
+* [Data sources and privileges](#check_cpu_sources)
 * [Command-line Arguments](#check_cpu_options)
 * [Filter keywords](#check_cpu_filter_keys)
 
@@ -720,6 +742,26 @@ CPU Load ok
 'total 5m load'=7%;80;90 'total 5m user'=4%;;; 'total 5m system'=3%;;; 'total 5m idle'=93%;;; ...
 ```
 
+
+
+<a id="check_cpu_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                   | Provides                                    | Privilege        | Notes  |
+|----------|----------------------------------------------------------------------------------------------------------|---------------------------------------------|------------------|--------|
+| Windows  | `GetSystemTimes`                                                                                         | the `total` rows                            | none             | note 1 |
+| Windows  | `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`                                        | the `core N` rows                           | *not determined* | note 2 |
+| Windows  | PDH `\Processor Information(*)\% Processor Utility` and `\Processor Information(*)\% Privileged Utility` | every row, instead of the two sources above | *not determined* | note 3 |
+| Linux    | `/proc/stat` (`cpu` and `cpuN` lines)                                                                    |                                             | none             | note 4 |
+| macOS    | `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`                                                           |                                             | *not determined* | note 5 |
+
+1. Sampled once a second by the CheckSystem collector into a ring buffer (`default buffer length`, 1h); the check averages the buffer over each `time=` window. *Without it:* With `disable = cpu` the check returns UNKNOWN "CPU load sampling is disabled ..." rather than frozen values
+2. Only read when `fetch core loads` is enabled (the default).
+3. Only with `use pdh for cpu = true` in `/settings/system/windows`. `warmup-state` is refused in this mode.
+4. Sampled once a second by the background collector; the check averages its buffer. *Without it:* A collector that cannot read `/proc/stat` makes the check UNKNOWN (collector failed to sample)
+5. Sampled once a second by the background collector; the check averages its buffer.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_cpu_options"></a>
@@ -934,6 +976,7 @@ CPU Load ok
 **Jump to section:**
 
 * [Sample Commands](#check_cpu_frequency_samples)
+* [Data sources and privileges](#check_cpu_frequency_sources)
 * [Command-line Arguments](#check_cpu_frequency_options)
 * [Filter keywords](#check_cpu_frequency_filter_keys)
 
@@ -975,6 +1018,20 @@ check_cpu_frequency "warn=l3_cache < 1M" "crit=architecture != 'x64'"
 OK: Intel(R) Core(TM) Ultra 7 265H: 2200/2200 MHz (100%)
 ```
 
+
+
+<a id="check_cpu_frequency_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                        | Provides                                                                              | Privilege        | Requires                                               | Notes  |
+|----------|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|------------------|--------------------------------------------------------|--------|
+| Windows  | WMI `root\CIMV2` `Win32_Processor`                                                                                            | one record per socket - frequency, max frequency, load_pct, architecture, cache sizes | *not determined* | Windows Management Instrumentation service (`Winmgmt`) | note 1 |
+| Linux    | `/sys/devices/system/cpu/cpuN/cpufreq/` (`scaling_cur_freq`, else `cpuinfo_cur_freq`; `cpuinfo_max_freq`, `cpuinfo_min_freq`) |                                                                                       | conditional      | kernel cpufreq support (often absent in VMs)           | note 2 |
+
+1. Sampled by the CheckSystem auxiliary collector about every 12 seconds, not when the check runs. `load_pct` reads `no load sample` on a cycle where WMI has no load figure. *Without it:* If the class is missing the collector logs "Failed to fetch CPU frequency metrics (WMI class not available), disabling..."; with no data the check is UNKNOWN "No CPU frequency data available"
+2. None where `scaling_cur_freq` exists, which is world-readable. Root only where the kernel exposes just the fallback `cpuinfo_cur_freq`, which is root-only on some kernels. A core with no readable current frequency is skipped. *Without it:* No readable core gives UNKNOWN "No CPU frequency data available (no cpufreq support?)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_cpu_frequency_options"></a>
@@ -1066,6 +1123,7 @@ zero.
 **Jump to section:**
 
 * [Sample Commands](#check_cpu_utilization_samples)
+* [Data sources and privileges](#check_cpu_utilization_sources)
 * [Command-line Arguments](#check_cpu_utilization_options)
 * [Filter keywords](#check_cpu_utilization_filter_keys)
 
@@ -1102,6 +1160,20 @@ check_cpu_utilization "warn=steal > 5" "crit=steal > 15"
 OK: user: 1.4% system: 1.5% iowait: 0% steal: 0% idle: 95.7%
 ```
 
+
+
+<a id="check_cpu_utilization_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                         | Provides                                                                 | Privilege        | Notes  |
+|----------|------------------------------------------------|--------------------------------------------------------------------------|------------------|--------|
+| Linux    | `/proc/stat` (aggregate `cpu` line)            | user, nice, system, iowait, irq, softirq, steal, guest, idle percentages | none             | note 1 |
+| macOS    | `host_processor_info(PROCESSOR_CPU_LOAD_INFO)` | user, nice, system, idle; the Linux-only buckets stay 0                  | *not determined* | note 2 |
+
+1. Read twice, one second apart, when the check runs; no background collector involved. *Without it:* UNKNOWN "Failed to read /proc/stat"
+2. Read twice, one second apart, when the check runs. *Without it:* UNKNOWN "Failed to read CPU times (host_processor_info)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_cpu_utilization_options"></a>
@@ -1200,6 +1272,7 @@ down). `ConfiguredClockSpeed` falls back to the raw `Speed` on older Windows.
 **Jump to section:**
 
 * [Sample Commands](#check_hardware_samples)
+* [Data sources and privileges](#check_hardware_sources)
 * [Command-line Arguments](#check_hardware_options)
 * [Filter keywords](#check_hardware_filter_keys)
 
@@ -1252,6 +1325,18 @@ check_nscp_client --host 192.168.56.103 --command check_hardware --argument "cri
 OK: Dell Inc. Dell Pro Max 16 MC16250 (Notebook), serial=ABC1234, 2 memory module(s), 32GB
 ```
 
+
+
+<a id="check_hardware_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                        | Provides                                                                                 | Privilege        | Requires                                               | Notes  |
+|----------|-------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|------------------|--------------------------------------------------------|--------|
+| Windows  | WMI `root\CIMV2`: `Win32_ComputerSystemProduct`, `Win32_SystemEnclosure`, `Win32_PhysicalMemory`, `Win32_PhysicalMemoryArray` | vendor, model, UUID and serial; chassis type and asset tag; memory modules; memory slots | *not determined* | Windows Management Instrumentation service (`Winmgmt`) | note 1 |
+
+1. Read when the check runs. Each class is read best-effort. *Without it:* A class that fails leaves its keywords empty; only when no class answers is the check UNKNOWN "Failed to read hardware inventory from WMI: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_hardware_options"></a>
@@ -1446,6 +1531,7 @@ This command also supports the [common filter keywords](../common-options.md#com
 **Jump to section:**
 
 * [Sample Commands](#check_hostname_samples)
+* [Data sources and privileges](#check_hostname_sources)
 * [Command-line Arguments](#check_hostname_options)
 * [Filter keywords](#check_hostname_filter_keys)
 
@@ -1526,6 +1612,24 @@ check_nrpe --host 192.168.56.103 --command check_hostname --arguments "crit=doma
 OK: web01 (web01.corp.example.com), domain=corp.example.com
 ```
 
+
+
+<a id="check_hostname_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                    | Provides                                                                   | Privilege | Requires                                                              | Notes  |
+|----------|---------------------------------------------------------------------------|----------------------------------------------------------------------------|-----------|-----------------------------------------------------------------------|--------|
+| Windows  | `GetComputerNameExW` (NetBIOS, DNS hostname, DNS domain, fully qualified) | hostname, dns_hostname, domain, fqdn, fqdn_consistent, netbios_matches_dns | none      |                                                                       |        |
+| Windows  | `NetGetJoinInformation`                                                   | join, join_name                                                            | none      |                                                                       |        |
+| Linux    | `gethostname()`                                                           | hostname                                                                   | none      |                                                                       | note 1 |
+| Linux    | `getaddrinfo(AI_CANONNAME)`                                               | fqdn, domain, fqdn_consistent                                              | none      | a resolver that knows this host (DNS or `/etc/hosts`) for a real FQDN | note 2 |
+| macOS    | `gethostname()`                                                           | hostname                                                                   | none      |                                                                       | note 1 |
+| macOS    | `getaddrinfo(AI_CANONNAME)`                                               | fqdn, domain, fqdn_consistent                                              | none      |                                                                       | note 2 |
+
+1. *Without it:* UNKNOWN "Failed to read hostname (gethostname failed)"
+2. *Without it:* An unresolvable host gets its bare hostname as the FQDN, treated as consistent
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_hostname_options"></a>
@@ -1788,6 +1892,7 @@ OK: web01 (web01.corp.example.com), domain=corp.example.com
 **Jump to section:**
 
 * [Sample Commands](#check_installed_software_samples)
+* [Data sources and privileges](#check_installed_software_sources)
 * [Command-line Arguments](#check_installed_software_options)
 * [Filter keywords](#check_installed_software_filter_keys)
 
@@ -1886,6 +1991,26 @@ check_installed_software "filter=name = 'bash'" "top-syntax=${status}: ${list}" 
 OK: bash 5.2.21-2 via dpkg|'count'=1;0;0
 ```
 
+
+
+<a id="check_installed_software_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                               | Provides                                     | Privilege        | Requires                                                          | Notes  |
+|----------|--------------------------------------------------------------------------------------|----------------------------------------------|------------------|-------------------------------------------------------------------|--------|
+| Windows  | `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` (64-bit and 32-bit views) | machine-wide installs (`hive` = machine)     | *not determined* |                                                                   | note 1 |
+| Windows  | `HKEY_USERS\<SID>\Software\Microsoft\Windows\CurrentVersion\Uninstall`               | per-user installs (`hive` = user)            | *not determined* |                                                                   | note 2 |
+| Linux    | `dpkg-query -W`, `rpm -qa` or `pacman -Q`, the first one found                       | every keyword; `manager` names the tool used | *not determined* | `dpkg-query`, `rpm` or `pacman` in `/usr/bin` or `/usr/local/bin` | note 3 |
+| macOS    | Installer receipts in `/var/db/receipts`                                             | `manager` = pkgutil                          | *not determined* |                                                                   | note 4 |
+| macOS    | Application bundles in `/Applications` and `/Applications/Utilities`                 | `manager` = bundle                           | *not determined* |                                                                   |        |
+| macOS    | Homebrew `Cellar` and `Caskroom` under `/opt/homebrew` and `/usr/local`              | `manager` = homebrew                         | *not determined* |                                                                   |        |
+
+1. Read when the check runs. A 32-bit Windows has only the one view.
+2. Only the user hives that are loaded when the check runs (logged-on users and running service accounts) are under `HKEY_USERS`.
+3. Run through the shell when the check runs. pacman gives only name and version; dpkg has no install time (the file-list modification time is used). *Without it:* No tool: UNKNOWN "No supported package manager found ..."; a failed query: UNKNOWN "Failed to query installed software from &lt;manager&gt; ..."
+4. Read from disk; nothing is run. *Without it:* No readable receipt at all makes the check UNKNOWN "Failed to query installed software from ..." instead of an empty inventory
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_installed_software_options"></a>
@@ -2113,6 +2238,7 @@ OK: bash 5.2.21-2 via dpkg|'count'=1;0;0
 **Jump to section:**
 
 * [Sample Commands](#check_kernel_memory_samples)
+* [Data sources and privileges](#check_kernel_memory_sources)
 * [Command-line Arguments](#check_kernel_memory_options)
 * [Filter keywords](#check_kernel_memory_filter_keys)
 
@@ -2204,6 +2330,23 @@ check_nrpe --host 192.168.56.103 --command check_kernel_memory --arguments "crit
 OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
 ```
 
+
+
+<a id="check_kernel_memory_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                                                     | Provides                                                                      | Privilege        | Notes  |
+|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|------------------|--------|
+| Windows  | PDH `\Memory\Pool Paged Bytes`, `\Memory\Pool Nonpaged Bytes`, `\Memory\Cache Bytes`, `\Memory\Page Faults/sec`, `\Memory\Transition Faults/sec`, `\Memory\Page Reads/sec` |                                                                               | *not determined* | note 1 |
+| Linux    | `/proc/meminfo`                                                                                                                                                            | slab, slab_reclaimable, slab_unreclaimable, cache                             | none             |        |
+| Linux    | `/proc/vmstat` (`pgfault`, `pgmajfault`)                                                                                                                                   | page_faults_per_sec, major_faults_per_sec                                     | none             | note 2 |
+| macOS    | `host_statistics64(HOST_VM_INFO64)`                                                                                                                                        | wired, compressed, cache, page_faults_per_sec, major_faults_per_sec (pageins) | *not determined* | note 3 |
+
+1. Read when the check runs, as a one-off PDH query. *Without it:* UNKNOWN "Failed to sample kernel memory counters: ..."
+2. Read twice, about one second apart, when the check runs. *Without it:* UNKNOWN "Failed to read /proc/vmstat ..."
+3. Read twice, about one second apart. There is no slab allocator, so the slab keywords are unknown. *Without it:* UNKNOWN "Failed to read VM statistics: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_kernel_memory_options"></a>
@@ -2442,6 +2585,7 @@ OK: slab 512MB (128MB unreclaimable), cache 4GB, 2 major faults/s
 **Jump to section:**
 
 * [Sample Commands](#check_kernel_stats_samples)
+* [Data sources and privileges](#check_kernel_stats_sources)
 * [Command-line Arguments](#check_kernel_stats_options)
 * [Filter keywords](#check_kernel_stats_filter_keys)
 
@@ -2506,6 +2650,24 @@ check_kernel_stats type=ctxt type=processes
 OK - Context Switches 57111.0/s, Process Creations 317.0/s
 ```
 
+
+
+<a id="check_kernel_stats_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                 | Provides                                       | Privilege        | Notes  |
+|----------|--------------------------------------------------------------------------------------------------------|------------------------------------------------|------------------|--------|
+| Windows  | PDH `\System\Context Switches/sec`, `\System\System Calls/sec`, `\System\Processes`, `\System\Threads` | the ctxt, syscalls, processes and threads rows | *not determined* | note 1 |
+| Linux    | `/proc/stat` (`ctxt`, `processes`)                                                                     | the ctxt and processes (fork rate) rows        | none             | note 2 |
+| Linux    | `/proc/<pid>/task/` directories                                                                        | the threads row                                | *not determined* | note 3 |
+| macOS    | `processor_set_statistics(PROCESSOR_SET_LOAD_INFO)`                                                    | the threads row only                           | *not determined* | note 4 |
+
+1. Read when the check runs, as a one-off PDH query. *Without it:* UNKNOWN "Failed to sample kernel activity counters: ..."
+2. Read twice, one second apart, when the check runs. *Without it:* UNKNOWN "Failed to read /proc/stat"
+3. Counts the task entries of every process listed in `/proc`.
+4. No context-switch or fork counter is read, so the ctxt and processes rows do not exist. *Without it:* UNKNOWN "Failed to read the thread count: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_kernel_stats_options"></a>
@@ -2764,6 +2926,7 @@ OK - Context Switches 57111.0/s, Process Creations 317.0/s
 **Jump to section:**
 
 * [Sample Commands](#check_load_samples)
+* [Data sources and privileges](#check_load_sources)
 * [Command-line Arguments](#check_load_options)
 * [Filter keywords](#check_load_filter_keys)
 
@@ -2833,6 +2996,26 @@ check_load "warn=queue > 16" "crit=queue > 32"
 OK: total load average: 2.33528, 1.84625, 1.74261
 ```
 
+
+
+<a id="check_load_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                    | Provides                                                | Privilege        | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|------------------|--------|
+| Windows  | PDH `\System\Processor Queue Length`                                                                                      | queue, and the queue part of load1/load5/load15         | *not determined* | note 1 |
+| Windows  | The collector's CPU sample (`GetSystemTimes`, per core `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`) | the busy-cores part of the load                         | *not determined* | note 2 |
+| Windows  | `NtQuerySystemInformation(SystemProcessInformation)`                                                                      | procs_total (thread count)                              | *not determined* |        |
+| Linux    | `/proc/loadavg`                                                                                                           | load1, load5, load15, procs_running, procs_total        | none             | note 3 |
+| macOS    | `getloadavg(3)`                                                                                                           | load1, load5, load15                                    | *not determined* | note 4 |
+| macOS    | `processor_set_statistics(PROCESSOR_SET_LOAD_INFO)`                                                                       | procs_total (thread count); procs_running stays unknown | *not determined* |        |
+
+1. Sampled once a second by the CheckSystem collector and folded into three moving averages with the busy-core count. *Without it:* If the counter is unavailable a message is logged and the load degrades to the CPU-utilization part
+2. *Without it:* With `disable = load` the check is UNKNOWN "Load average sampling is disabled ..."
+3. Read when the check runs.
+4. Read when the check runs. *Without it:* UNKNOWN "Failed to read the load average (getloadavg)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_load_options"></a>
@@ -3035,6 +3218,7 @@ warm-up, so the option is not accepted there. See
 **Jump to section:**
 
 * [Sample Commands](#check_memory_samples)
+* [Data sources and privileges](#check_memory_sources)
 * [Command-line Arguments](#check_memory_options)
 * [Filter keywords](#check_memory_filter_keys)
 
@@ -3084,6 +3268,23 @@ page = 8.05G, physical = 7.85G
 'page free'=15G;4;2 'page free %'=66%;19;9 'physical free'=4G;2;1 'physical free %'=34%;19;9
 ```
 
+
+
+<a id="check_memory_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                | Provides                                    | Privilege        | Notes  |
+|----------|---------------------------------------------------------------------------------------|---------------------------------------------|------------------|--------|
+| Windows  | `GlobalMemoryStatusEx`                                                                | the physical, committed and virtual records | none             | note 1 |
+| Linux    | `/proc/meminfo` (`MemTotal`, `MemFree`, `Buffers`, `Cached`, `SwapTotal`, `SwapFree`) | the physical, cached and swap records       | none             | note 2 |
+| macOS    | `host_statistics64(HOST_VM_INFO64)` and `sysctl hw.memsize`                           | the physical and cached records             | *not determined* | note 3 |
+| macOS    | `sysctl vm.swapusage`                                                                 | the swap record                             | *not determined* |        |
+
+1. Read when the check runs; falls back to `GlobalMemoryStatus` where the Ex call is not exported. No warm-up. *Without it:* UNKNOWN with the failing call, e.g. "GlobalMemoryStatusEx failed: ..."
+2. Sampled once a second by the background collector; the check reads its latest sample. *Without it:* A collector that cannot read `/proc/meminfo` makes the check UNKNOWN "No memory data available: the collector failed to sample it: ..."
+3. Sampled once a second by the background collector. Cached counts file-backed and purgeable pages as free. *Without it:* The collector fails to sample and the check is UNKNOWN "No memory data available: the collector failed to sample it: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_memory_options"></a>
@@ -3537,6 +3738,7 @@ page = 8.05G, physical = 7.85G
 **Jump to section:**
 
 * [Sample Commands](#check_network_samples)
+* [Data sources and privileges](#check_network_sources)
 * [Command-line Arguments](#check_network_options)
 * [Filter keywords](#check_network_filter_keys)
 
@@ -3633,6 +3835,29 @@ check_nrpe --host 192.168.56.103 --command check_network --arguments "crit=rx_er
 OK: eth0 >659B/s <659B/s, lo >0B/s <0B/s
 ```
 
+
+
+<a id="check_network_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                      | Provides                                                                      | Privilege        | Requires                                                                                                                                                | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `root\CIMV2` `Win32_PerfRawData_Tcpip_NetworkInterface` (`mode=interface`) or `Win32_PerfRawData_Tcpip_NetworkAdapter` (`mode=adapter`) | received, sent, throughput, packet, error and discard rates                   | *not determined* | Windows Management Instrumentation service (`Winmgmt`)<br>WMI Performance Adapter service (`wmiApSrv`), which maintains the `Win32_PerfRawData` classes | note 1 |
+| Windows  | WMI `root\CIMV2` `Win32_NetworkAdapter` (`PhysicalAdapter=True`)                                                                            | MAC, speed, speed_bps, enabled, net_connection_id and the usage_* percentages | *not determined* |                                                                                                                                                         | note 2 |
+| Windows  | WMI `root\StandardCimv2` `MSFT_NetLbfoTeamMember`                                                                                           | team, team_status                                                             | *not determined* |                                                                                                                                                         | note 3 |
+| Linux    | `/proc/net/dev`                                                                                                                             | byte, packet and error counters and the rates derived from them               | none             |                                                                                                                                                         | note 4 |
+| Linux    | `/sys/class/net/<name>/` (`operstate`, `address`, `speed`)                                                                                  | status, MAC, speed                                                            | none             |                                                                                                                                                         | note 5 |
+| macOS    | `sysctl` `NET_RT_IFLIST2` (64-bit interface counters)                                                                                       | byte, packet and error counters, MAC, link speed                              | *not determined* |                                                                                                                                                         | note 6 |
+| macOS    | `ioctl(SIOCGIFMEDIA)` per interface, else the `IFF_UP` / `IFF_RUNNING` flags                                                                | status                                                                        | *not determined* |                                                                                                                                                         |        |
+
+1. Sampled by the CheckSystem auxiliary collector about every 12 seconds; rates are computed from the cumulative raw counters. *Without it:* If the class is missing the collector logs "Failed to fetch network metrics, disabling..." and stops collecting
+2. Team aggregates have no row here, so these keywords are empty for them.
+3. Best-effort; disables itself when the LBFO provider is absent (client SKUs, older Windows).
+4. Sampled once a second by the background collector.
+5. Best-effort; virtual interfaces often report no speed.
+6. Sampled once a second by the background collector. *Without it:* The collector fails to sample with "sysctl NET_RT_IFLIST2 failed: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_network_options"></a>
@@ -4061,6 +4286,7 @@ OK: eth0 >659B/s <659B/s, lo >0B/s <0B/s
 **Jump to section:**
 
 * [Sample Commands](#check_os_updates_samples)
+* [Data sources and privileges](#check_os_updates_sources)
 * [Command-line Arguments](#check_os_updates_options)
 * [Filter keywords](#check_os_updates_filter_keys)
 
@@ -4157,6 +4383,26 @@ check_nrpe --host 192.168.56.103 --command check_os_updates --arguments "critica
 OK: 0 updates available (0 security)
 ```
 
+
+
+<a id="check_os_updates_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                            | Provides                                                                           | Privilege        | Requires                                                                                            | Notes  |
+|----------|-----------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------|-----------------------------------------------------------------------------------------------------|--------|
+| Windows  | Windows Update Agent API (`IUpdateSearcher::Search`, criteria `IsInstalled=0 and Type='Software' and IsHidden=0`)                 | updates, security, critical, important, defender, rollups, reboot_required, titles | *not determined* | Windows Update service (`wuauserv`)<br>reachability of Windows Update or the configured WSUS server | note 1 |
+| Windows  | `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired` (existence)                             | reboot_pending                                                                     | *not determined* |                                                                                                     | note 2 |
+| Linux    | `apt list --upgradable`, `dnf -q check-update`, `yum -q check-update`, `zypper -q --non-interactive list-updates` or `pacman -Qu` | every keyword; `manager` names the tool used                                       | *not determined* | one of apt-get, dnf, yum, zypper or pacman                                                          | note 3 |
+| macOS    | `/Library/Preferences/com.apple.SoftwareUpdate.plist`                                                                             | every keyword, last_checked                                                        | *not determined* |                                                                                                     | note 4 |
+| macOS    | `/usr/sbin/softwareupdate --list`                                                                                                 | every keyword                                                                      | *not determined* | network access to Apple's software update server                                                    | note 5 |
+
+1. Run by the CheckSystem auxiliary collector on its own thread, at most once an hour; the search can take minutes and the check answers from the last result. Driver updates are excluded by the criteria. *Without it:* Before the first search completes the record reads "update status pending"; a failed search reads "update query failed: &lt;error&gt;" with update_status = error
+2. Read when the check runs.
+3. Run through the shell when the check runs; the first manager found in `/usr/bin` or `/usr/local/bin` is used (apt, dnf, yum, zypper, pacman). The result reflects the manager's repository metadata, which the check does not refresh itself for apt and pacman. *Without it:* No manager found: UNKNOWN "No supported package manager found (apt-get/dnf/yum/zypper/pacman)"
+4. The default; the list macOS caches at its background check. Instant and offline. *Without it:* No cached list: UNKNOWN "No cached update list in /Library/Preferences/com.apple.SoftwareUpdate.plist (use live=true to ask the update server)"
+5. Only with `live=true`; takes 10 to 60 seconds. *Without it:* UNKNOWN "softwareupdate --list did not finish within 60 seconds" on timeout, or "... failed with exit code N"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_os_updates_options"></a>
@@ -4316,6 +4562,7 @@ version, as `uname` reports them.
 **Jump to section:**
 
 * [Sample Commands](#check_os_version_samples)
+* [Data sources and privileges](#check_os_version_sources)
 * [Command-line Arguments](#check_os_version_options)
 * [Filter keywords](#check_os_version_filter_keys)
 
@@ -4371,6 +4618,28 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
 ```
 
 
+
+
+<a id="check_os_version_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                        | Provides                                                                           | Privilege        | Requires                                               | Notes  |
+|----------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------|--------------------------------------------------------|--------|
+| Windows  | `RtlGetVersion`                                                               | version, major, minor, build                                                       | *not determined* |                                                        | note 1 |
+| Windows  | `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` value `UBR` (64-bit view) | ubr, kernel_version                                                                | *not determined* |                                                        | note 2 |
+| Windows  | `GetNativeSystemInfo`                                                         | arch                                                                               | none             |                                                        |        |
+| Windows  | WMI `root\CIMV2` `Win32_BIOS`                                                 | serial, bios_version, manufacturer (inventory only)                                | *not determined* | Windows Management Instrumentation service (`Winmgmt`) | note 3 |
+| Linux    | `uname(2)`                                                                    | kernel_name, nodename, kernel_release, kernel_version, machine, processor          | none             |                                                        | note 4 |
+| Linux    | `/etc/os-release`, else `/usr/lib/os-release`                                 | os, distribution, family, distribution_name, version                               | none             |                                                        |        |
+| macOS    | `uname(2)`                                                                    | kernel_name (Darwin), nodename, kernel_release, kernel_version, machine, processor | none             |                                                        |        |
+| macOS    | `sysctl kern.osproductversion` and `kern.osversion`                           | os, version and the build shown in os                                              | *not determined* |                                                        |        |
+
+1. Read once and cached for the life of the agent.
+2. Absent before Windows 10, where ubr is 0.
+3. Best-effort. *Without it:* The three inventory keywords are empty; the check itself does not fail
+4. *Without it:* UNKNOWN "Cannot get system name"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_os_version_options"></a>
@@ -4556,6 +4825,7 @@ warm-up, so the option is not accepted there. See
 **Jump to section:**
 
 * [Sample Commands](#check_pagefile_samples)
+* [Data sources and privileges](#check_pagefile_sources)
 * [Command-line Arguments](#check_pagefile_options)
 * [Filter keywords](#check_pagefile_filter_keys)
 
@@ -4616,6 +4886,22 @@ check_pagefile help
 ...
 ```
 
+
+
+<a id="check_pagefile_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                | Provides                                                                   | Privilege        | Notes  |
+|----------|-------------------------------------------------------|----------------------------------------------------------------------------|------------------|--------|
+| Windows  | `NtQuerySystemInformation(SystemPageFileInformation)` | one record per paging file (size, used, peak_used) plus the `total` record | *not determined* | note 1 |
+| Linux    | `/proc/meminfo` (`SwapTotal`, `SwapFree`)             | the single `total` record                                                  | none             | note 2 |
+| macOS    | `sysctl vm.swapusage`                                 | the single `total` record                                                  | *not determined* | note 3 |
+
+1. Read when the check runs; no warm-up.
+2. Sampled once a second by the background collector. Only the aggregate is read, so there is no per-device record. *Without it:* A collector that cannot read `/proc/meminfo` makes the check UNKNOWN "No pagefile/swap data available: the collector failed to sample it: ..."
+3. Sampled once a second by the background collector. Swap files are created on demand, so the size is 0 until macOS has needed swap.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_pagefile_options"></a>
@@ -4776,6 +5062,7 @@ check_patch_age "warn=age > 40" "crit=age > 90 or age_known = 0"
 **Jump to section:**
 
 * [Sample Commands](#check_patch_age_samples)
+* [Data sources and privileges](#check_patch_age_sources)
 * [Command-line Arguments](#check_patch_age_options)
 * [Filter keywords](#check_patch_age_filter_keys)
 
@@ -4839,6 +5126,18 @@ check_nscp_client --host 192.168.56.103 --command check_patch_age --argument "wa
 OK: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (18d ago)
 ```
 
+
+
+<a id="check_patch_age_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                  | Provides                                     | Privilege        | Requires                                               | Notes  |
+|----------|-----------------------------------------------------------------------------------------|----------------------------------------------|------------------|--------------------------------------------------------|--------|
+| Windows  | WMI `root\CIMV2` `Win32_QuickFixEngineering` (`HotFixID`, `InstalledOn`, `Description`) | every keyword, and the hotfix= presence test | *not determined* | Windows Management Instrumentation service (`Winmgmt`) | note 1 |
+
+1. Read when the check runs. `InstalledOn` is parsed from the class's date string. *Without it:* UNKNOWN "Failed to enumerate installed hotfixes: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_patch_age_options"></a>
@@ -4986,6 +5285,7 @@ access-denied errors is usually a permissions problem, not a missing counter.
 **Jump to section:**
 
 * [Sample Commands](#check_pdh_samples)
+* [Data sources and privileges](#check_pdh_sources)
 * [Command-line Arguments](#check_pdh_options)
 * [Filter keywords](#check_pdh_filter_keys)
 
@@ -5067,6 +5367,18 @@ prompt treats a backslash as an escape everywhere except inside single quotes, s
 single-quote the path, `check_pdh counter='\Processor(*)\% processortid' instances`, or double
 every backslash, as in the examples further up.
 
+
+
+<a id="check_pdh_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                     | Provides                                                    | Privilege   | Notes  |
+|----------|------------------------------------------------------------|-------------------------------------------------------------|-------------|--------|
+| Windows  | PDH (Performance Data Helper) counters named by `counter=` | one record per counter, or per instance with instances=true | conditional | note 1 |
+
+1. The module and the check_pdh reference state that reading performance counters needs membership of the Performance Log Users group (or equivalent rights). A path is read with a one-off query when the check runs (two samples one second apart with averages=true); a name configured under `/settings/system/windows/counters` is answered from the collector's buffer. Which counters a caller may name is limited by the `counter access` / `allowed counters` settings. *Without it:* An access-denied counter fails the check ("Failed to add counter: ..." / "Failed to get value: ..."), or reads 0 with ignore-errors=true
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_pdh_options"></a>
@@ -5212,31 +5524,37 @@ Check whether the system is waiting for a reboot, aggregating the servicing, Win
 
 #### About `check_pending_reboot`
 
-`check_pending_reboot` answers a question no single Windows API does: **is this
+`check_pending_reboot` answers a question no single OS API does: **is this
 machine waiting for a reboot, and why?** A pending reboot is signalled
 independently by several subsystems, so the check reads each one and reports the
 union. This is the reliable way to catch servers that have applied updates but
 will not finish patching until they restart.
 
-All signals are read from the 64-bit registry view, so a 32-bit agent under
-WOW64 still reads the native keys.
+The aggregate keywords — `pending`, `signals`, `written`, `written_s`, `age`,
+`reasons` and `message` — mean the same on Windows and Linux, so
+`crit=pending = 1 and age > 7d` ports across platforms. The per-cause keywords
+are each platform's own, because the causes are (see below).
 
 The default threshold is `warn=pending = 1` (WARNING whenever a reboot is
 pending, no critical). Override it to escalate, to alert only on specific causes
-(e.g. `crit=servicing = 1`), or to suppress the default with `warn=none`. The
-check always returns a single aggregate row, so there is no empty state.
+(e.g. `crit=servicing = 1` on Windows, `crit=kernel = 1` on Linux), or to
+suppress the default with `warn=none`. The check always returns a single
+aggregate row, so there is no empty state.
 
 ##### How long has the reboot been pending?
 
 A reboot queued minutes ago by an update is expected; one still queued days
 later is usually the actionable case. The `age` and `written` keywords expose
 how long the reboot has been pending, e.g.
-`crit=pending = 1 and age > 7d`. The time comes from the last-write time of the
-Component Based Servicing / Windows Update registry key (each exists only while
-its reboot is queued); when both are set the oldest one wins. Three caveats:
+`crit=pending = 1 and age > 7d`. On Windows the time comes from the last-write
+time of the Component Based Servicing / Windows Update registry key (each exists
+only while its reboot is queued). On Linux it is the modification time of the
+marker file and the time the first kernel newer than the running one was
+written to disk (its image's ctime; the mtime is the package's build time). When several signals are set the
+oldest one wins. Three caveats:
 
-- Only those two signals carry a timestamp. A reboot signalled solely by a
-  pending file rename, computer rename or domain join reports
+- On Windows only those two signals carry a timestamp. A reboot signalled
+  solely by a pending file rename, computer rename or domain join reports
   `age`/`written` as `unknown`, which never trips a numeric threshold
   (test for it explicitly with `written = 'unknown'`).
 - Threshold staleness with a duration on `age` (`age > 7d`) or a *relative*
@@ -5246,12 +5564,99 @@ its reboot is queued); when both are set the oldest one wins. Three caveats:
   and will not order correctly. The only quoted comparison with a defined
   meaning is the `written = 'unknown'` probe.
 - The registry records the key's *last* write, not its creation: if servicing
-  re-touches the key while the reboot is still queued, `age` restarts. Treat it
-  as "pending at least this long since the last signal update".
+  re-touches the key while the reboot is still queued, `age` restarts. The same
+  holds for the Linux marker, which every package hook that asks for a reboot
+  touches again. Treat it as "pending at least this long since the last signal
+  update".
+
+##### Windows
+
+Signals: `servicing` (Component Based Servicing), `windows_update`,
+`file_rename` (`PendingFileRenameOperations`), `computer_rename` and
+`domain_join`. All are read from the 64-bit registry view, so a 32-bit agent
+under WOW64 still reads the native keys.
+
+##### Linux
+
+Two signals, each a cheap file-system read (no package-manager or helper
+process is run):
+
+- `marker` — the distribution's reboot marker is present:
+  `/run/reboot-required` on Debian and Ubuntu (written by the package hooks of
+  the kernel, libc, dbus and friends; the packages that asked are listed in
+  `/run/reboot-required.pkgs` and exposed as `packages`), or
+  `/run/reboot-needed` on SUSE (written by zypper; what
+  `zypper needs-rebooting` tests).
+- `kernel` — the next boot changes kernel: a newer kernel *of the running
+  kernel's product line* is installed, or the running kernel has been removed
+  (pacman deletes its modules on every Arch upgrade; the reason then reads
+  `running kernel ... is no longer installed`). This covers the RHEL family,
+  which has no marker file. `running_kernel` and `newest_kernel` show what was
+  compared.
+
+**What counts as an installed kernel.** Only a release with both a modules
+directory (`/lib/modules/<release>` or `/usr/lib/modules/<release>`) and an
+image — `/lib/modules/<release>/vmlinuz` (RHEL 8+, Fedora, Arch) or
+`/boot/vmlinuz-<release>` (every distribution). A stray copy in `/boot`
+(`vmlinuz-<release>.orig`, `.old`, a rescue image) has no modules directory, and
+a DKMS leftover directory has no image, so neither is a kernel. A kernel
+installed with an image in `/boot` but no modules directory at all is not
+seen; distribution kernels always ship one.
+
+**Product lines.** Releases are compared as versions, not as text (`6.1.0-18`
+is newer than `6.1.0-9`; `5.14.0-427.13.1.el9_4` newer than `5.14.0-427.el9`),
+and only within the running kernel's product line, so a deliberately installed
+second line does not warn forever while successive builds of one line do:
+
+| Distribution | Separate lines |
+|---|---|
+| RHEL family, Fedora, Amazon Linux | stock, Oracle UEK (`.el9uek`), real-time (`.rt…` on EL8, `+rt` on EL9), ELRepo (`.elrepo`), `+debug`, `+64k`, each architecture. Minor-release dist tags (`el9` / `el9_5`, `fc40` / `fc41`) are one line |
+| Debian, Ubuntu, SUSE, Raspberry Pi OS | the flavour after the ABI number: `-amd64` / `-cloud-amd64` / `-rt-amd64`, `-generic` / `-lowlatency` / `-generic-64k`, `-default` |
+| Arch | `linux`, `linux-lts`, `linux-zen`, `linux-hardened` |
+
+A release that cannot be placed in a line raises no kernel signal: a missed
+update is preferred to a warning that never clears.
+
+**Containers.** A container shares the host's kernel and does not own it.
+When this root is a container's — `/run/systemd/container`,
+`/run/.containerenv`, `/.dockerenv`, OpenVZ's `/proc/vz`, `container=` in PID
+1's environment, or an overlay root filesystem — `kernel` is never set, even if
+the image happens to carry a kernel package. A container reports "No reboot
+pending" unless its image carries a marker file.
+
+**What could not be read is not "clear".** When a modules directory exists but
+cannot be listed, or a kernel image that would decide the answer cannot be
+looked up (a `/boot` the agent may not read, or a `/boot` that is not mounted so
+even the running kernel's image is missing), `kernel` is `unknown` and the
+message says why. A `marker` that cannot be looked up is `unknown` the same way.
+An `unknown` value never matches a numeric threshold; test for it with
+`kernel = 'unknown'`. If no other signal says a reboot is pending, the check
+then returns **UNKNOWN** ("Cannot tell whether a reboot is pending: ...")
+instead of "No reboot pending"; pass `allow-unreadable` to report the readable
+signals anyway. A signal that did fire is always reported. On the RHEL family,
+Fedora and Arch the images are in the world-readable modules directories, so
+an unprivileged agent never needs `/boot`; on Debian and Ubuntu, where the
+image is only in `/boot`, `/boot` is world-readable by default.
+
+**When it became pending.** For the kernel signal `written` is the install time
+of the *first* kernel newer than the running one (the ctime of its image), so a
+host that keeps installing updates without rebooting does not restart its
+`age`.
+
+Not covered on purpose: `needs-restarting -r` (dnf/yum) and `needrestart` are
+slow Python/Perl helpers that may not be installed; the kernel signal covers the
+case that matters most without them. Libraries that were upgraded while still
+mapped by running processes are a service-restart question, not a reboot one,
+and too noisy to alert on.
+
+##### macOS
+
+Not supported yet: the check returns `UNKNOWN`.
 
 **Jump to section:**
 
 * [Sample Commands](#check_pending_reboot_samples)
+* [Data sources and privileges](#check_pending_reboot_sources)
 * [Command-line Arguments](#check_pending_reboot_options)
 * [Filter keywords](#check_pending_reboot_filter_keys)
 
@@ -5314,6 +5719,95 @@ check_nscp_client --host 192.168.56.103 --command check_pending_reboot
 OK: No reboot pending
 ```
 
+**Linux: a kernel update and the Debian/Ubuntu marker (default `warn=pending = 1`):**
+
+The `vmlinuz-<release>.orig` copy that was also left in `/boot` here is not
+taken for a kernel (it has no modules directory).
+
+```
+check_pending_reboot
+WARNING: Reboot required: reboot-required marker (linux-image-6.18.52-fc-v819, libc6, libssl3t64), newer kernel installed (6.18.52-fc-v819, running 6.18.44-fc-v819) (pending since 2026-11-15 17:52:33)|'reboot_pending'=1;1 'reboot_signals'=2
+```
+
+**Linux: escalate after a week, the same expression as on Windows:**
+
+```
+check_pending_reboot "warn=pending = 1" "crit=pending = 1 and age > 7d"
+CRITICAL: Reboot required: reboot-required marker (linux-image-6.18.52-fc-v819, libc6, libssl3t64), newer kernel installed (6.18.52-fc-v819, running 6.18.44-fc-v819) (pending since 2026-11-15 17:52:33)|'reboot_age'=777600s;;604800 'reboot_pending'=1;1;1 'reboot_signals'=2
+```
+
+**Linux: only a kernel change is critical (the marker alone stays quiet):**
+
+```
+check_pending_reboot "warn=none" "crit=kernel = 1"
+CRITICAL: Reboot required: reboot-required marker (linux-image-6.18.52-fc-v819, libc6, libssl3t64), newer kernel installed (6.18.52-fc-v819, running 6.18.44-fc-v819) (pending since 2026-11-15 17:52:59)|'reboot_kernel'=1;;1 'reboot_pending'=1 'reboot_signals'=2
+```
+
+**Linux: what was compared, and which packages asked for the reboot:**
+
+```
+check_pending_reboot "detail-syntax=${signals} signal(s): ${reasons}; running=${running_kernel} newest=${newest_kernel} since=${written_s}"
+WARNING: 2 signal(s): reboot-required marker (linux-image-6.18.52-fc-v819, libc6, libssl3t64), newer kernel installed (6.18.52-fc-v819, running 6.18.44-fc-v819); running=6.18.44-fc-v819 newest=6.18.52-fc-v819 since=2026-11-15 17:52:33
+
+check_pending_reboot "detail-syntax=${packages}"
+WARNING: linux-image-6.18.52-fc-v819, libc6, libssl3t64
+```
+
+**Linux, Arch layout: the upgrade removed the running kernel:**
+
+```
+check_pending_reboot
+WARNING: Reboot required: running kernel 6.18.44-fc-v819 is no longer installed (newest installed: 6.18.52-fc-v819) (pending since 2026-11-24 17:52:33)|'reboot_pending'=1;1 'reboot_signals'=1
+```
+
+**Linux, unprivileged agent and a `/boot` it may not read (Debian layout):**
+
+Nothing else is pending, so the check cannot claim "No reboot pending" and is
+UNKNOWN; `allow-unreadable` reports the rest with `kernel` as `unknown`. A
+marker that is present is still reported.
+
+```
+check_pending_reboot
+Cannot tell whether a reboot is pending: the kernel inventory could not be read (cannot read /boot/vmlinuz-6.18.52-fc-v819: Permission denied); run the agent with read access to it or pass allow-unreadable
+
+check_pending_reboot allow-unreadable=true
+OK: No reboot signal is set, but the kernel inventory could not be read (cannot read /boot/vmlinuz-6.18.52-fc-v819: Permission denied)|'reboot_pending'=0;1 'reboot_signals'=0
+
+check_pending_reboot allow-unreadable=true "detail-syntax=kernel=${kernel} marker=${marker} newest=${newest_kernel}"
+OK: kernel=unknown marker=0 newest=|'reboot_pending'=0;1 'reboot_signals'=0
+
+check_pending_reboot
+WARNING: Reboot required: reboot-required marker (pending since 2026-11-24 17:52:33); the kernel inventory could not be read (cannot read /boot/vmlinuz-6.18.52-fc-v819: Permission denied)|'reboot_pending'=1;1 'reboot_signals'=1
+```
+
+**Linux container (detected as one; no marker):**
+
+```
+check_pending_reboot "detail-syntax=${signals} signal(s): ${reasons}; kernel=${kernel} marker=${marker} running=${running_kernel} newest=${newest_kernel}"
+OK: 0 signal(s): none; kernel=0 marker=0 running=6.18.44-fc-v819 newest=
+```
+
+
+
+<a id="check_pending_reboot_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                               | Provides                                                | Privilege        | Notes  |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|------------------|--------|
+| Windows  | `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending` (existence, last-write time)                                | servicing, written, age                                 | *not determined* | note 1 |
+| Windows  | `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired` (existence, last-write time)                               | windows_update, written, age                            | *not determined* |        |
+| Windows  | `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager` value `PendingFileRenameOperations`                                                          | file_rename                                             | *not determined* |        |
+| Windows  | `HKLM\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName` vs `ComputerName\ComputerName`                                               | computer_rename                                         | *not determined* |        |
+| Windows  | `HKLM\SYSTEM\CurrentControlSet\Services\Netlogon` values `JoinDomain`, `AvoidSpnSet`                                                                 | domain_join                                             | *not determined* |        |
+| Linux    | `/run/reboot-required` (and `/var/run`), `/run/reboot-required.pkgs`, `/run/reboot-needed`                                                           | marker, packages, written, age                          | *not determined* | note 2 |
+| Linux    | `uname(2)` release vs `/lib/modules/*`, `/usr/lib/modules/*` and their kernel images (`/lib/modules/<release>/vmlinuz` or `/boot/vmlinuz-<release>`) | kernel, running_kernel, newest_kernel, written, age     | conditional      | note 3 |
+| Linux    | `/run/systemd/container`, `/run/.containerenv`, `/.dockerenv`, `/proc/vz`, `/proc/1/environ`, `/proc/self/mountinfo`                                 | container detection, which suppresses the kernel signal | *not determined* |        |
+
+1. All registry reads use the 64-bit view.
+2. Plain file-system reads; no package manager or helper is run. *Without it:* A marker that cannot be looked up is `unknown`
+3. Only where a modules directory or `/boot` is not readable by the agent's account. The images are in the world-readable modules directories on the RHEL family, Fedora and Arch, and `/boot` is world-readable by default on Debian and Ubuntu. *Without it:* kernel = unknown, and unless another signal fired the check is UNKNOWN "Cannot tell whether a reboot is pending: ...; run the agent with read access to it or pass allow-unreadable"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_pending_reboot_options"></a>
@@ -5407,6 +5901,7 @@ That is fine for alerting; for graphing prefer the always-present `count`, or
 **Jump to section:**
 
 * [Sample Commands](#check_printjobs_samples)
+* [Data sources and privileges](#check_printjobs_sources)
 * [Command-line Arguments](#check_printjobs_options)
 * [Filter keywords](#check_printjobs_filter_keys)
 
@@ -5482,6 +5977,18 @@ check_nscp_client --host 192.168.56.103 --command check_printjobs --argument "fi
 OK: All 2 job(s) ok.
 ```
 
+
+
+<a id="check_printjobs_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                            | Provides                                                                                                                          | Privilege        | Requires                                                                                    | Notes  |
+|----------|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `root\CIMV2` `Win32_PrintJob` | one record per job - printer, document, owner, id, job_status and its flags, size, pages, pages_printed, priority, submitted, age | *not determined* | Windows Management Instrumentation service (`Winmgmt`)<br>Print Spooler service (`Spooler`) | note 1 |
+
+1. Read when the check runs; properties drivers do not always populate are read best-effort. *Without it:* UNKNOWN "Failed to enumerate print jobs: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_printjobs_options"></a>
@@ -5585,6 +6092,7 @@ with the `offline` keyword where it matters (e.g. a print server). empty-state i
 **Jump to section:**
 
 * [Sample Commands](#check_printqueue_samples)
+* [Data sources and privileges](#check_printqueue_sources)
 * [Command-line Arguments](#check_printqueue_options)
 * [Filter keywords](#check_printqueue_filter_keys)
 
@@ -5662,6 +6170,19 @@ check_printqueue "filter=shared = 1" "crit=error = 1 or offline = 1"
 OK: All 4 printer(s) ok.
 ```
 
+
+
+<a id="check_printqueue_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                    | Provides                                                                                                                                                  | Privilege        | Requires                                                                                    | Notes  |
+|----------|---------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `root\CIMV2` `Win32_Printer`                                          | one record per printer - printer_status, error_state, error, offline and the driver, port, location, share, server, default, shared and network inventory | *not determined* | Windows Management Instrumentation service (`Winmgmt`)<br>Print Spooler service (`Spooler`) | note 1 |
+| Windows  | WMI `root\CIMV2` `Win32_PrintJob` (`Name`, `TimeSubmitted`, `StatusMask`) | jobs, oldest_job_age, error_jobs                                                                                                                          | *not determined* |                                                                                             |        |
+
+1. Read when the check runs; optional properties are read best-effort. *Without it:* A failed query makes the check UNKNOWN "Failed to check print queues: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_printqueue_options"></a>
@@ -5929,6 +6450,7 @@ Cumulative CPU seconds (`delta` omitted) need no collector and are unaffected.
 **Jump to section:**
 
 * [Sample Commands](#check_process_samples)
+* [Data sources and privileges](#check_process_sources)
 * [Command-line Arguments](#check_process_options)
 * [Filter keywords](#check_process_filter_keys)
 
@@ -6067,6 +6589,38 @@ check_process process=bash "crit=rss > 2G" "top-syntax=${list}" "detail-syntax=$
 bash rss=8.594MB ws=8.594MB, bash rss=9.219MB ws=9.219MB, bash rss=4.688MB ws=4.688MB|'bash rss'=0.00839GB;0;2 ...
 ```
 
+
+
+<a id="check_process_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                            | Provides                                                                                                                                                                              | Privilege        | Requires                                              | Notes   |
+|----------|-------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------|-------------------------------------------------------|---------|
+| Windows  | `EnumProcesses` + `OpenProcess` per process                                                                       | exe, filename, pid, state; with scan-info (the default) the memory, handle, I/O and CPU-time keywords from `GetProcessTimes`, `GetProcessHandleCount` and `NtQueryInformationProcess` | conditional      |                                                       | note 1  |
+| Windows  | The process environment block, read with `ReadProcessMemory`                                                      | command_line                                                                                                                                                                          | conditional      |                                                       | note 2  |
+| Windows  | `EnumWindows` + `IsHungAppWindow`                                                                                 | hung state                                                                                                                                                                            | *not determined* |                                                       | note 3  |
+| Windows  | `OpenProcessToken` + `LookupAccountSidW`                                                                          | username, uid                                                                                                                                                                         | *not determined* |                                                       | note 4  |
+| Windows  | `NtQuerySystemInformation(SystemProcessInformation)` and `GetSystemTimes`, sampled once a second by the collector | kernel, user and time as a percentage with delta=true                                                                                                                                 | *not determined* | `process cpu = true` under `/settings/system/windows` | note 5  |
+| Linux    | `/proc/<pid>/stat`, `/proc/<pid>/status`, `/proc/<pid>/statm`, `/proc/<pid>/cmdline`                              | state, proc_state, ppid, uid, memory, fault and CPU-time keywords, elapsed, command_line                                                                                              | none             |                                                       |         |
+| Linux    | `readlink /proc/<pid>/exe`                                                                                        | filename, exe                                                                                                                                                                         | conditional      |                                                       | note 6  |
+| Linux    | `getpwuid_r` (NSS)                                                                                                | username                                                                                                                                                                              | *not determined* |                                                       | note 7  |
+| Linux    | `/proc/stat` CPU total                                                                                            | CPU percentages with delta=true                                                                                                                                                       | *not determined* |                                                       | note 8  |
+| macOS    | `sysctl KERN_PROC` (the kernel process table) and `proc_pidpath`                                                  | pid, ppid, uid, username, creation, elapsed, filename, exe, state                                                                                                                     | none             |                                                       |         |
+| macOS    | `proc_pidinfo(PROC_PIDTASKINFO)`                                                                                  | virtual, working_set, rss, page_faults, user, kernel, time, proc_state (running vs sleeping)                                                                                          | conditional      |                                                       | note 9  |
+| macOS    | `sysctl KERN_PROCARGS2`                                                                                           | command_line                                                                                                                                                                          | conditional      |                                                       | note 10 |
+
+1. The scan enables `SeDebugPrivilege`, which the agent holds when it runs as LocalSystem or an administrator. Without it, processes of other users and protected processes are opened with `PROCESS_QUERY_LIMITED_INFORMATION` only: the name is still read (`QueryFullProcessImageName`), but not the counters or the command line. *Without it:* A process that cannot be opened at all is `unreadable` (dropped by the default filter `state != 'unreadable'`); one opened with limited rights has only its name
+2. Needs `PROCESS_VM_READ` on the target, so the same condition as above applies. *Without it:* command_line is empty
+3. Only the top-level windows of the agent's own desktop are seen.
+4. Only with resolve-owner=true; the account lookup can block on domain accounts.
+5. *Without it:* delta=true returns UNKNOWN naming the setting to enable
+6. Reading another user's `/proc/<pid>/exe` link needs root (ptrace-level access); the agent's own processes need nothing. *Without it:* exe falls back to `/proc/<pid>/comm` (truncated to 15 characters) or the command line, and filename stays empty
+7. Only with resolve-owner=true; cached per uid.
+8. Two snapshots one second apart, taken when the check runs.
+9. macOS answers only for the caller's own processes unless it runs as root; the agent runs as the unprivileged `_nsclient` account. *Without it:* For other users' processes these keywords render unknown, never satisfy a threshold and emit no perfdata
+10. Same restriction as the task info. *Without it:* command_line is empty for other users' processes
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_process_options"></a>
@@ -6422,6 +6976,7 @@ bash rss=8.594MB ws=8.594MB, bash rss=9.219MB ws=9.219MB, bash rss=4.688MB ws=4.
 **Jump to section:**
 
 * [Sample Commands](#check_process_history_samples)
+* [Data sources and privileges](#check_process_history_sources)
 * [Command-line Arguments](#check_process_history_options)
 * [Filter keywords](#check_process_history_filter_keys)
 
@@ -6524,6 +7079,22 @@ check_nrpe --host 192.168.56.103 --command check_process_history --arguments "pr
 OK: 1 processes in history.
 ```
 
+
+
+<a id="check_process_history_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                 | Provides                                        | Privilege   | Requires                                                  | Notes  |
+|----------|----------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------|-------------|-----------------------------------------------------------|--------|
+| Windows  | `EnumProcesses` + `OpenProcess` (executable name only), sampled by the CheckSystem collector                                           | exe, running, first_seen, last_seen, times_seen | conditional | `process history = true` under `/settings/system/windows` | note 1 |
+| Linux    | `/proc/<pid>/exe` link, else `/proc/<pid>/comm` extended from `/proc/<pid>/cmdline`, sampled once a second by the background collector | exe, running, first_seen, last_seen, times_seen | conditional | `process history = true` under `/settings/system/unix`    | note 2 |
+| macOS    | `proc_listpids` + `proc_pidpath`, sampled once a second by the background collector                                                    | exe, running, first_seen, last_seen, times_seen | none        | `process history = true` under `/settings/system/unix`    | note 3 |
+
+1. The history is kept in memory from the agent's start and fed by the collector, from the realtime process filters when any are configured. The scan enables `SeDebugPrivilege` when the agent holds it (LocalSystem or an administrator); without it a process that cannot be opened even with `PROCESS_QUERY_LIMITED_INFORMATION` is left out of the history. *Without it:* With the setting off nothing is recorded and the check reports from an empty history (no "not enabled" message on Windows): every process= name shows times_seen = 0
+2. Reading another user's `/proc/<pid>/exe` needs root; without it the name comes from `comm` (15 characters), extended from argv[0] when that continues the truncated name. *Without it:* Setting off: UNKNOWN "Process history is not enabled (set 'process history = true' under /settings/system/unix)"
+3. The executable path is readable for every process, whoever owns it. *Without it:* Setting off: UNKNOWN "Process history is not enabled (set 'process history = true' under /settings/system/unix)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_process_history_options"></a>
@@ -6663,6 +7234,7 @@ This command also supports the [common filter keywords](../common-options.md#com
 **Jump to section:**
 
 * [Sample Commands](#check_process_history_new_samples)
+* [Data sources and privileges](#check_process_history_new_sources)
 * [Command-line Arguments](#check_process_history_new_options)
 * [Filter keywords](#check_process_history_new_filter_keys)
 
@@ -6708,6 +7280,22 @@ check_process_history_new "crit=exe = '/usr/bin/nmap'"
 OK: No new processes found.
 ```
 
+
+
+<a id="check_process_history_new_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                | Provides                                                            | Privilege   | Requires                                                  | Notes  |
+|----------|-------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|-------------|-----------------------------------------------------------|--------|
+| Windows  | The CheckSystem collector's process history (`EnumProcesses` + `OpenProcess`, executable name only)   | exe, first_seen and the rest of each record first seen inside time= | conditional | `process history = true` under `/settings/system/windows` | note 1 |
+| Linux    | The background collector's process history (`/proc/<pid>/exe`, else `/proc/<pid>/comm` and `cmdline`) | exe, first_seen and the rest of each record first seen inside time= | conditional | `process history = true` under `/settings/system/unix`    | note 2 |
+| macOS    | The background collector's process history (`proc_listpids` + `proc_pidpath`)                         | exe, first_seen and the rest of each record first seen inside time= | none        | `process history = true` under `/settings/system/unix`    | note 3 |
+
+1. The scan enables `SeDebugPrivilege` when the agent holds it (LocalSystem or an administrator); without it a process that cannot be opened even with `PROCESS_QUERY_LIMITED_INFORMATION` is never recorded, so it never counts as new. *Without it:* With the setting off nothing is recorded and the check answers "OK: No new processes found." (no "not enabled" message on Windows)
+2. Reading another user's `/proc/<pid>/exe` needs root; without it the name comes from `comm` (15 characters), extended from argv[0] when that continues the truncated name. *Without it:* Setting off: UNKNOWN "Process history is not enabled (set 'process history = true' under /settings/system/unix)"
+3. *Without it:* Setting off: UNKNOWN "Process history is not enabled (set 'process history = true' under /settings/system/unix)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_process_history_new_options"></a>
@@ -6840,6 +7428,7 @@ locally on the monitored host is both faster and easier to secure.
 **Jump to section:**
 
 * [Sample Commands](#check_registry_key_samples)
+* [Data sources and privileges](#check_registry_key_sources)
 * [Command-line Arguments](#check_registry_key_options)
 * [Filter keywords](#check_registry_key_filter_keys)
 
@@ -6920,6 +7509,20 @@ check_nscp_client --host 192.168.56.103 --command check_registry_key --argument 
 OK: All 1 registry key(s) are ok.
 ```
 
+
+
+<a id="check_registry_key_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                   | Provides                                                                       | Privilege        | Requires                                                                                                      | Notes  |
+|----------|--------------------------------------------------------------------------|--------------------------------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | `RegOpenKeyExW` + `RegQueryInfoKeyW` / `RegEnumKeyExW` on the named keys | exists, written, age, value_count, subkey_count, class, and the recursive walk | conditional      |                                                                                                               | note 1 |
+| Windows  | `RegConnectRegistryW` (computer=)                                        | the same keywords for a remote machine                                         | *not determined* | Remote Registry service running on the target<br>read rights on the target's registry for the agent's account | note 2 |
+
+1. Only for keys whose ACL does not grant the agent's account read access, e.g. `HKLM\SECURITY` and `HKLM\SAM\SAM`, which only SYSTEM may read. `HKCU` is the hive of the account the agent runs as, not of a logged-on user. Keys a caller may name can be restricted by the module's registry access settings. *Without it:* A key the agent cannot open reads as exists = 0, the same as a missing key (CRITICAL by default)
+2. *Without it:* The connection error is returned as UNKNOWN
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_registry_key_options"></a>
@@ -7073,6 +7676,7 @@ UNKNOWN rather than OK.
 **Jump to section:**
 
 * [Sample Commands](#check_registry_value_samples)
+* [Data sources and privileges](#check_registry_value_sources)
 * [Command-line Arguments](#check_registry_value_options)
 * [Filter keywords](#check_registry_value_filter_keys)
 
@@ -7171,6 +7775,20 @@ check_nscp_client --host 192.168.56.103 --command check_registry_value --argumen
 OK: HKLM\Software\NSClient\InstallVersion: 0.6.0 (type=REG_SZ)
 ```
 
+
+
+<a id="check_registry_value_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                   | Provides                                                                | Privilege        | Requires                                                                                                      | Notes  |
+|----------|--------------------------------------------------------------------------|-------------------------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | `RegOpenKeyExW` + `RegQueryValueExW` / `RegEnumValueW` on the named keys | exists, type, string_value, int_value, size, and the key's written time | conditional      |                                                                                                               | note 1 |
+| Windows  | `RegConnectRegistryW` (computer=)                                        | the same keywords for a remote machine                                  | *not determined* | Remote Registry service running on the target<br>read rights on the target's registry for the agent's account | note 2 |
+
+1. Only for keys whose ACL does not grant the agent's account read access, e.g. `HKLM\SECURITY` and `HKLM\SAM\SAM`, which only SYSTEM may read. `HKCU` is the hive of the account the agent runs as, not of a logged-on user. Keys a caller may name can be restricted by the module's registry access settings. *Without it:* A named value in a key the agent cannot open reads as exists = 0, the same as a missing value (CRITICAL by default); enumerating such a key (no value= or value=*) gives no records and the empty state (UNKNOWN)
+2. *Without it:* The connection error is returned as UNKNOWN
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_registry_value_options"></a>
@@ -7394,6 +8012,7 @@ only has for its own processes; for any other job they read 0, and
 **Jump to section:**
 
 * [Sample Commands](#check_service_samples)
+* [Data sources and privileges](#check_service_sources)
 * [Command-line Arguments](#check_service_options)
 * [Filter keywords](#check_service_filter_keys)
 
@@ -7548,6 +8167,27 @@ check_nrpe --host 192.168.56.103 --command check_service --arguments "service=do
 OK: All 1 service(s) are ok.
 ```
 
+
+
+<a id="check_service_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                                                                        | Provides                                                                                                                    | Privilege        | Requires                                                                                 | Notes  |
+|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------|--------|
+| Windows  | Service Control Manager: `OpenSCManager(SC_MANAGER_ENUMERATE_SERVICE)`, `EnumServicesStatusEx`, `QueryServiceConfig`, `QueryServiceConfig2` (delayed start, triggers), `QueryServiceStatusEx` | name, desc, state, start_type, delayed, is_trigger, triggers, pid, exit_code, classification, state_is_ok, state_is_perfect | *not determined* | for computer=, network access to the remote SCM and rights there for the agent's account | note 1 |
+| Linux    | `systemctl list-units --type=service --all`, `systemctl show` (and `systemctl is-enabled` for a check by name)                                                                                | name, desc, active, sub_state, start_type, preset, pid, state, tasks (cgroup `TasksCurrent`)                                | none             | systemd and `systemctl` on the PATH                                                      | note 2 |
+| Linux    | `/proc/<pid>/status` and `/proc/<pid>/stat` of the main process, `/proc/stat`, `/proc/uptime`                                                                                                 | rss, vms, cpu, created, age, has_metrics                                                                                    | none             |                                                                                          | note 3 |
+| macOS    | `launchctl print system`, `launchctl print-disabled system`, `launchctl print system/<label>`                                                                                                 | name, active, sub_state, start_type, pid, state                                                                             | *not determined* |                                                                                          | note 4 |
+| macOS    | `sysctl KERN_PROC` (start time)                                                                                                                                                               | created, age                                                                                                                | none             |                                                                                          |        |
+| macOS    | `proc_pidinfo(PROC_PIDTASKINFO)` of the job's process                                                                                                                                         | rss, vms, cpu, tasks, has_metrics                                                                                           | conditional      |                                                                                          | note 5 |
+
+1. Read when the check runs. computer= opens the SCM of a remote machine instead.
+2. Run when the check runs; `service=*` uses one batched `systemctl show`.
+3. Only for running units with a main PID.
+4. Run when the check runs; start_type and the non-zero exit test need a check by name.
+5. macOS answers only for the caller's own processes unless it runs as root; the agent runs unprivileged. *Without it:* For other jobs rss, vms, cpu and tasks read 0 and has_metrics is false
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_service_options"></a>
@@ -7864,6 +8504,7 @@ OK: All 1 service(s) are ok.
 **Jump to section:**
 
 * [Sample Commands](#check_swap_io_samples)
+* [Data sources and privileges](#check_swap_io_sources)
 * [Command-line Arguments](#check_swap_io_options)
 * [Filter keywords](#check_swap_io_filter_keys)
 
@@ -7906,6 +8547,25 @@ check_swap_io "crit=swap_out_bytes > 10485760" "detail-syntax=in ${swap_in_bytes
 OK: in 172032B/s, out 28672B/s|'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'=28672B;;10485760;
 ```
 
+
+
+<a id="check_swap_io_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                       | Provides                                         | Privilege        | Notes  |
+|----------|--------------------------------------------------------------|--------------------------------------------------|------------------|--------|
+| Windows  | PDH `\Memory\Pages Input/sec` and `\Memory\Pages Output/sec` | swap_in, swap_out, swap_in_bytes, swap_out_bytes | *not determined* | note 1 |
+| Windows  | `NtQuerySystemInformation(SystemPageFileInformation)`        | swap_count (number of paging files)              | *not determined* |        |
+| Linux    | `/proc/vmstat` (`pswpin`, `pswpout`)                         | swap_in, swap_out, swap_in_bytes, swap_out_bytes | none             | note 2 |
+| Linux    | `/proc/swaps`                                                | swap_count                                       | none             |        |
+| macOS    | `host_statistics64(HOST_VM_INFO64)` (`swapins`, `swapouts`)  | swap_in, swap_out, swap_in_bytes, swap_out_bytes | *not determined* | note 3 |
+| macOS    | `sysctl vm.swapusage`                                        | swap_count (1 while any swap file exists)        | *not determined* |        |
+
+1. Read when the check runs, two samples one second apart; bytes use the page size from `GetSystemInfo`. These are system-wide paging rates, not per-pagefile I/O. *Without it:* UNKNOWN "Failed to sample paging counters: ..."
+2. Read twice, one second apart, when the check runs. *Without it:* UNKNOWN "Failed to read /proc/vmstat"
+3. Read twice, about one second apart, when the check runs. *Without it:* UNKNOWN "Failed to read VM statistics: ..."
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_swap_io_options"></a>
@@ -8126,6 +8786,7 @@ OK: in 172032B/s, out 28672B/s|'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'
 **Jump to section:**
 
 * [Sample Commands](#check_temperature_samples)
+* [Data sources and privileges](#check_temperature_sources)
 * [Command-line Arguments](#check_temperature_options)
 * [Filter keywords](#check_temperature_filter_keys)
 
@@ -8182,6 +8843,24 @@ check_nrpe --host 192.168.56.103 --command check_temperature --arguments "crit=t
 OK: thermal_zone0: 42 C, thermal_zone1: 38 C
 ```
 
+
+
+<a id="check_temperature_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                     | Provides                                    | Privilege        | Requires                                                                                    | Notes  |
+|----------|----------------------------------------------------------------------------|---------------------------------------------|------------------|---------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `root\WMI` `MSAcpi_ThermalZoneTemperature`                             | name, temperature, active, throttle_reasons | *not determined* | Windows Management Instrumentation service (`Winmgmt`)<br>an ACPI thermal zone driver       | note 1 |
+| Windows  | WMI `root\CIMV2` `Win32_PerfFormattedData_Counters_ThermalZoneInformation` | name, temperature, throttle_reasons         | *not determined* | Windows 10 / Windows Server 2016 or later                                                   | note 2 |
+| Linux    | `/sys/class/thermal/thermal_zone*/` (`temp`, `type`)                       | thermal zone records                        | none             |                                                                                             | note 3 |
+| Linux    | `/sys/class/hwmon/hwmon*/` (`name`, `temp*_input`, `temp*_label`)          | hwmon sensor records                        | none             | a loaded kernel sensor driver (thermal or hwmon); VMs and cloud instances usually have none | note 4 |
+
+1. The primary source. Sampled by the CheckSystem auxiliary collector about every 12 seconds, not when the check runs. *Without it:* A missing class, no zones, or an access-denied answer switches the collector to the fallback below for the rest of the run
+2. The fallback. *Without it:* With neither source the collector logs "... neither ACPI nor performance counter source available), disabling..." and the check is UNKNOWN "No temperature sensors found"
+3. Read when the check runs.
+4. *Without it:* No readable sensor gives UNKNOWN "No temperature sensors found"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_temperature_options"></a>
@@ -8328,6 +9007,7 @@ Boot time is `kern.boottime`.
 **Jump to section:**
 
 * [Sample Commands](#check_uptime_samples)
+* [Data sources and privileges](#check_uptime_sources)
 * [Command-line Arguments](#check_uptime_options)
 * [Filter keywords](#check_uptime_filter_keys)
 
@@ -8376,6 +9056,22 @@ check_uptime max-unit=d "detail-syntax=uptime: ${uptime}, boot: ${boot} (${tz})"
 ```
 
 
+
+
+<a id="check_uptime_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                    | Provides     | Privilege | Notes  |
+|----------|-----------------------------------------------------------|--------------|-----------|--------|
+| Windows  | `GetTickCount64` (`GetTickCount` where it is unavailable) | uptime, boot | none      | note 1 |
+| Linux    | `/proc/uptime`                                            | uptime, boot | none      | note 2 |
+| macOS    | `sysctl kern.boottime`                                    | uptime, boot | none      | note 3 |
+
+1. Read when the check runs; boot is now minus uptime in the configured timezone.
+2. Read when the check runs.
+3. Read when the check runs. *Without it:* UNKNOWN "Failed to read kern.boottime"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_uptime_options"></a>
@@ -8498,6 +9194,7 @@ defaults apply as they are. **Windows only.**
 **Jump to section:**
 
 * [Sample Commands](#check_w32time_samples)
+* [Data sources and privileges](#check_w32time_sources)
 * [Command-line Arguments](#check_w32time_options)
 * [Filter keywords](#check_w32time_filter_keys)
 
@@ -8600,6 +9297,24 @@ check_w32time "critical=sync_type = 'NoSync'" "warning=last_sync_age > 604800"
 L        cli OK: the Windows Time service is stopped (start type demand)|'w32time_last_sync'=50036s;604800;0
 ```
 
+
+
+<a id="check_w32time_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                      | Provides                                                                    | Privilege        | Requires                                                                     | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------|--------|
+| Windows  | Service Control Manager (the `W32Time` service)                                                                                             | installed, running, service_state, start_type                               | *not determined* |                                                                              | note 1 |
+| Windows  | `HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters` values `Type`, `NtpServer`                                                      | sync_type, peers, peer_count                                                | *not determined* |                                                                              |        |
+| Windows  | `HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Config` value `LastKnownGoodTime`                                                           | last_sync, last_sync_age                                                    | *not determined* |                                                                              |        |
+| Windows  | `W32TimeQuerySource` (w32time.dll)                                                                                                          | source, source_from, local_clock, and with them synchronized when available | elevated         | the W32Time service running                                                  | note 2 |
+| Windows  | PDH `\Windows Time Service\Computed Time Offset`, `NTP Roundtrip Delay`, `Clock Frequency Adjustment (PPB)`, `NTP Client Time Source Count` | offset, delay, frequency_adjustment, time_sources                           | *not determined* | the W32Time service running (it only maintains these counters while it runs) | note 3 |
+
+1. *Without it:* A service that does not exist or cannot be opened is reported as not installed
+2. Like `w32tm /query /source` this needs privilege; the agent running as a service has it. *Without it:* An unprivileged caller gets access denied and the check falls back to the configured peers and time_sources
+3. *Without it:* The four keywords render unknown, never satisfy a threshold and emit no perfdata
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_w32time_options"></a>

@@ -37,10 +37,15 @@ import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import EditIcon from "@mui/icons-material/Edit";
-import SettingsInstanceDialog, { FieldGroup } from "./SettingsInstanceDialog.tsx";
+import SettingsInstanceDialog from "./SettingsInstanceDialog.tsx";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { FormEvent, useMemo, useRef, useState } from "react";
-import { getFactoryTemplates, InstanceTemplate } from "./instanceTemplates.ts";
+import type {
+  FieldGroup,
+  InstanceCollectionConfig,
+  InstanceTemplate,
+} from "../modules/types.ts";
+import { getInstanceCollectionConfig } from "../modules/registry.ts";
 
 interface Props {
   // Parent collection path, e.g. "/settings/system/windows/counters".
@@ -49,9 +54,11 @@ interface Props {
   settings: SettingsDescription[];
   // Optional name of a child path that holds the template/sample (default "default").
   templateName?: string;
-  // When true, schema entries flagged is_advanced_key (debug, perf config, etc.)
-  // are rendered alongside the regular fields.
-  showAdvanced?: boolean;
+  // Expert mode: schema entries flagged is_advanced_key (debug, perf config,
+  // etc.) are rendered alongside the regular fields, and the module page's
+  // layout for this collection (tabs, preview column, presets, visibility
+  // rules) is not applied.
+  expert?: boolean;
 }
 
 interface Instance {
@@ -60,6 +67,9 @@ interface Instance {
   fields: SettingsDescription[];
   isTemplate: boolean;
 }
+
+const NO_PRESETS: InstanceTemplate[] = [];
+const NO_GROUPS: FieldGroup[] = [];
 
 const isTemplateValue = (v: string | undefined) => (v ?? "").toLowerCase() === "true";
 
@@ -88,14 +98,15 @@ function formatError(err: unknown): string {
 }
 
 // Per-field visibility rules. Returns false to hide a field based on the
-// current values of sibling fields. POC: only counter-specific rules.
+// current values of sibling fields. Generic rules first, then whatever the
+// module page that owns the collection adds.
 function isFieldVisible(
   key: string,
   fields: SettingsDescription[],
   isTemplate: boolean,
   isDefaultTemplate: boolean,
   showAdvanced: boolean,
-  collectionPath: string,
+  config: InstanceCollectionConfig | undefined,
 ): boolean {
   // is_template flag is set at creation time via the Add / Add template
   // buttons — never editable inline.
@@ -111,106 +122,14 @@ function isFieldVisible(
   // Templates describe schema for child instances; they don't bind to a
   // concrete PDH counter themselves and don't carry per-instance aliases.
   if ((key === "counter" || key === "alias") && isTemplate) return false;
-  // On WEB users `alias` is an advanced authentication mechanism — keep it
-  // out of the way unless the user has opted into advanced fields.
-  if (
-    key === "alias" &&
-    collectionPath === "/settings/WEB/server/users" &&
-    !showAdvanced
-  ) {
-    return false;
-  }
   // The default template is the root of the inheritance chain — it has no parent.
   if (key === "parent" && isDefaultTemplate) return false;
-  if (key === "buffer size") {
-    const strategy = fields.find((f) => f.key === "collection strategy")?.value ?? "";
-    return strategy === "rrd";
-  }
-  // The "Create objects" fields only matter when auto-creation is enabled —
-  // hide them when ensure objects is off so the tab isn't full of inert config.
-  if (
-    collectionPath.includes("/icinga/client/targets") &&
-    (key === "check command" || key === "host template" || key === "service template")
-  ) {
-    const ensureField = fields.find((f) => f.key === "ensure objects");
-    const effective = (ensureField?.value || ensureField?.default_value || "").toLowerCase();
-    return effective === "true" || effective === "1";
-  }
+  const own = config?.isFieldVisible?.(key, { fields, isTemplate });
+  if (own !== undefined) return own;
   // `debug` is rarely toggled at the per-instance level — hide it unless the
   // user has explicitly opted into advanced fields.
   if (key === "debug" && !showAdvanced) return false;
   return true;
-}
-
-// Wizard-style tab groups for the per-instance edit dialog. Picked per
-// collection by path. Any schema field not listed in any group falls into
-// a final auto-generated "Other" tab so nothing is silently hidden.
-const FILTER_FIELD_GROUPS: FieldGroup[] = [
-  { name: "Source", keys: ["process", "time", "type", "log", "file", "files", "column-split"] },
-  { name: "Filter", keys: ["filter", "warning", "critical", "ok"] },
-  {
-    name: "Display",
-    keys: [
-      "top syntax",
-      "ok syntax",
-      "detail syntax",
-      "severity",
-      "perf config",
-      "silent period",
-      "empty message",
-      "maximum age",
-      "run on startup",
-      "escape html",
-      "debug",
-    ],
-  },
-  { name: "Target", keys: ["destination", "target id", "source id", "command"] },
-];
-
-const COUNTER_FIELD_GROUPS: FieldGroup[] = [
-  { name: "Source", keys: ["counter", "instances", "type", "flags"] },
-  { name: "Storage", keys: ["collection strategy", "buffer size"] },
-];
-
-const ICINGA_TARGET_FIELD_GROUPS: FieldGroup[] = [
-  {
-    name: "Icinga Server",
-    keys: [
-      "parent",
-      "address",
-      "host",
-      "port",
-      "username",
-      "password",
-      "retries",
-      "timeout",
-    ],
-  },
-  { name: "TLS", keys: ["tls version", "verify mode", "ca"] },
-  {
-    name: "Create objects",
-    keys: ["ensure objects", "check command", "host template", "service template"],
-  },
-  { name: "Check", keys: ["check source"] },
-];
-
-function getFieldGroups(collectionPath: string): FieldGroup[] {
-  if (collectionPath.includes("/system/windows/real-time")) return FILTER_FIELD_GROUPS;
-  if (collectionPath.includes("/settings/eventlog/real-time/filters")) return FILTER_FIELD_GROUPS;
-  if (collectionPath.includes("/system/windows/counters")) return COUNTER_FIELD_GROUPS;
-  if (collectionPath.includes("/icinga/client/targets")) return ICINGA_TARGET_FIELD_GROUPS;
-  if (collectionPath.includes("/settings/logfile/real-time/checks")) return FILTER_FIELD_GROUPS;
-  return [];
-}
-
-// One extra column shown next to the instance name in the list view so the
-// user can tell instances apart without opening the dialog.
-function getPreviewColumn(collectionPath: string): { key: string; label: string } | null {
-  if (collectionPath.includes("/system/windows/counters")) return { key: "counter", label: "Counter" };
-  if (collectionPath.includes("/system/windows/real-time/cpu")) return { key: "time", label: "Time" };
-  if (collectionPath.includes("/system/windows/real-time/memory")) return { key: "type", label: "Type" };
-  if (collectionPath.includes("/system/windows/real-time/process")) return { key: "process", label: "Process" };
-  return null;
 }
 
 // Backend can register the same key from multiple schema sources (parent
@@ -260,8 +179,9 @@ export default function SettingsCollection({
   collectionPath,
   settings,
   templateName = "default",
-  showAdvanced = false,
+  expert = false,
 }: Props) {
+  const showAdvanced = expert;
   const [confirmDelete, setConfirmDelete] = useState<Instance | null>(null);
   const [adding, setAdding] = useState<null | "regular" | "template">(null);
   const [newName, setNewName] = useState("");
@@ -269,7 +189,13 @@ export default function SettingsCollection({
   // Currently-selected factory template (if any). When set, onConfirmAdd
   // writes its `fields` map under the new path instead of the bare seed.
   const [pendingTemplate, setPendingTemplate] = useState<InstanceTemplate | null>(null);
-  const factoryTemplates = useMemo(() => getFactoryTemplates(collectionPath), [collectionPath]);
+  // What the module page that owns this collection says about it: tabs,
+  // preview column, presets, visibility rules. Not consulted in expert mode.
+  const config = useMemo(
+    () => (expert ? undefined : getInstanceCollectionConfig(collectionPath)),
+    [collectionPath, expert],
+  );
+  const factoryTemplates = config?.presets ?? NO_PRESETS;
   const addMenuAnchor = useRef<HTMLDivElement | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -382,8 +308,8 @@ export default function SettingsCollection({
     [instances],
   );
 
-  const fieldGroups = useMemo(() => getFieldGroups(collectionPath), [collectionPath]);
-  const previewColumn = useMemo(() => getPreviewColumn(collectionPath), [collectionPath]);
+  const fieldGroups = config?.fieldGroups ?? NO_GROUPS;
+  const previewColumn = config?.previewColumn ?? null;
   const editingInstance = useMemo(
     () => (editingPath ? (instances.find((i) => i.path === editingPath) ?? null) : null),
     [editingPath, instances],
@@ -732,7 +658,7 @@ export default function SettingsCollection({
               editingInstance.isTemplate,
               editingInstance.name === templateName,
               showAdvanced,
-              collectionPath,
+              config,
             )
           }
           existingNames={instanceNames}

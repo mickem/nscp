@@ -89,6 +89,7 @@ is over 80% busy, or a physical disk reports `Warning` health; and CRITICAL belo
 **Jump to section:**
 
 * [Sample Commands](#check_disk_health_samples)
+* [Data sources and privileges](#check_disk_health_sources)
 * [Command-line Arguments](#check_disk_health_options)
 * [Filter keywords](#check_disk_health_filter_keys)
 
@@ -128,6 +129,25 @@ Device-state keywords (populated on `has_device = 1` rows): `friendly_name`,
 (Healthy/Warning/Unhealthy/Unknown), `operational_status`, `is_offline`,
 `is_readonly`, `disk_number`.
 
+
+
+<a id="check_disk_health_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                       | Provides                                                                                               | Privilege        | Requires                                                                                                                               | Notes  |
+|----------|----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `Win32_PerfFormattedData_PerfDisk_LogicalDisk` / `Win32_PerfRawData_PerfDisk_LogicalDisk`, sampled by the CheckDisk background collector | I/O keywords (percent_disk_time, queue_length, latency, ...)                                           | *not determined* | Windows Management Instrumentation (`Winmgmt`) service                                                                                 | note 1 |
+| Windows  | `GetLogicalDriveStrings`, `GetDriveType` and `GetDiskFreeSpaceEx`, sampled by the collector                                                  | space keywords (size, free, used, free_pct, used_pct, user_free) for fixed, remote and RAM-disk drives | *not determined* |                                                                                                                                        | note 2 |
+| Windows  | WMI `MSFT_PhysicalDisk` and `MSFT_Disk` (`root\Microsoft\Windows\Storage`), queried per check                                                | device rows: health, media type, serial, friendly name, offline, read-only                             | *not determined* | Windows Management Instrumentation (`Winmgmt`) service<br>Storage Management WMI provider (`root\Microsoft\Windows\Storage` namespace) | note 3 |
+| Linux    | `/proc/diskstats`, sampled by the CheckDisk background collector                                                                             | I/O keywords (percent_disk_time, queue_length, latency, ...)                                           | none             |                                                                                                                                        | note 1 |
+| Linux    | `/proc/mounts` + `statvfs`, sampled by the collector; backing device resolved through `/sys/class/block/<dev>/slaves`                        | space keywords (size, free, used, free_pct, used_pct, user_free)                                       | none             |                                                                                                                                        | note 4 |
+
+1. *Without it:* Returns "Collector not started" when the module's collector is not running.
+2. A drive `GetDiskFreeSpaceEx` cannot query is left out of the sample.
+3. *Without it:* No device rows; space and I/O rows are still reported.
+4. There are no device-state rows on Linux.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_disk_health_options"></a>
@@ -295,6 +315,7 @@ check_disk_io "perf-config=percent_disk_time(suffix:_busy)"
 **Jump to section:**
 
 * [Sample Commands](#check_disk_io_samples)
+* [Data sources and privileges](#check_disk_io_sources)
 * [Command-line Arguments](#check_disk_io_options)
 * [Filter keywords](#check_disk_io_filter_keys)
 
@@ -336,6 +357,19 @@ OK: All disk I/O seems ok.
 'C:'=2%;80;95 'HarddiskVolume4'=0%;80;95 ...
 ```
 
+
+
+<a id="check_disk_io_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                                        | Provides                                                                            | Privilege        | Requires                                               | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|------------------|--------------------------------------------------------|--------|
+| Windows  | WMI `Win32_PerfFormattedData_PerfDisk_LogicalDisk` and `Win32_PerfRawData_PerfDisk_LogicalDisk` (`root\CIMV2`), sampled by the CheckDisk background collector | per logical disk throughput, IOPS, queue length, busy/idle time, split I/O, latency | *not determined* | Windows Management Instrumentation (`Winmgmt`) service | note 1 |
+| Linux    | `/proc/diskstats`, sampled by the CheckDisk background collector                                                                                              | per block device throughput, IOPS, queue length, busy time, latency                 | none             |                                                        | note 1 |
+
+1. *Without it:* Returns "Collector not started" when the module's collector is not running.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_disk_io_options"></a>
@@ -444,6 +478,7 @@ performance data.
 **Jump to section:**
 
 * [Sample Commands](#check_disk_write_samples)
+* [Data sources and privileges](#check_disk_write_sources)
 * [Command-line Arguments](#check_disk_write_options)
 * [Filter keywords](#check_disk_write_filter_keys)
 
@@ -498,6 +533,20 @@ check_nscp_client --host 192.168.56.103 --command check_disk_write --argument "f
 OK: /data/nscp-write-test.dat: wrote and read back 1048576 bytes in 9ms
 ```
 
+
+
+<a id="check_disk_write_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                            | Provides                                         | Privilege   | Notes  |
+|----------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|-------------|--------|
+| Windows  | Test file at `file=`: exclusive create (`_sopen_s` with `_O_EXCL`), write, flush and `_commit`, read back, delete | write_time, total_time, size, issues, has_issues | conditional | note 1 |
+| Linux    | Test file at `file=`: exclusive create (`fopen` mode `wbx`), write, `fflush` + `fsync`, read back, `remove`       | write_time, total_time, size, issues, has_issues | conditional | note 2 |
+
+1. Needs create, write and delete permission in the target folder for the agent's account. Paths are also held against `file access` in `[/settings/disk]`. *Without it:* The failing step is recorded in `issues` (e.g. "failed to create file: ..."), which is CRITICAL by default.
+2. Needs create, write and delete permission in the target directory for the agent's account. Paths are also held against `file access` in `[/settings/disk]`. *Without it:* The failing step is recorded in `issues` (e.g. "failed to create file: ..."), which is CRITICAL by default.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_disk_write_options"></a>
@@ -715,6 +764,7 @@ the keywords are `unknown`.
 **Jump to section:**
 
 * [Sample Commands](#check_drivesize_samples)
+* [Data sources and privileges](#check_drivesize_sources)
 * [Command-line Arguments](#check_drivesize_options)
 * [Filter keywords](#check_drivesize_filter_keys)
 
@@ -942,6 +992,28 @@ check_drivesize drive=c: "filter=used_change_1h = 'unknown'" "top-syntax=${count
 1 drive(s) without an hour of history: c:|'c: used'=1.17094TB;1.45469;1.63653;0;1.81837 'c: used %'=64%;80;90;0;100
 ```
 
+
+
+<a id="check_drivesize_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                                                      | Provides                                                                    | Privilege        | Notes  |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|------------------|--------|
+| Windows  | Volume enumeration: `GetLogicalDriveStrings`, `FindFirstVolume`/`FindNextVolume`, `GetVolumePathNamesForVolumeName`, `GetVolumeInformation` | drive list, letter, id, name, file system, `GetDriveType` type              | *not determined* |        |
+| Windows  | `DeviceIoControl` (`IOCTL_STORAGE_GET_HOTPLUG_INFO`, `IOCTL_STORAGE_GET_MEDIA_TYPES_EX`) on the volume                                      | media type, removable, hotplug, mounted, readable, writable, erasable flags | *not determined* | note 1 |
+| Windows  | `GetDiskFreeSpaceEx`                                                                                                                        | size, free, used, user_free and their percentages                           | conditional      | note 2 |
+| Windows  | CheckDisk background collector (used-space history)                                                                                         | full_in, rate, trend_span, trend_samples, used_change_1h, used_change_24h   | *not determined* | note 3 |
+| Linux    | `/proc/mounts` (fallback `/etc/mtab`) via `getmntent_r`                                                                                     | drive list, device, mount point, file system, type                          | none             | note 4 |
+| Linux    | `statvfs`                                                                                                                                   | size, free, used, user_free, inode counts, writable                         | none             | note 5 |
+| Linux    | CheckDisk background collector (used-space history)                                                                                         | full_in, rate, trend_span, trend_samples, used_change_1h, used_change_24h   | *not determined* | note 3 |
+
+1. The volume is opened with no access rights requested (device query only).
+2. Needs read access to the volume root; `ERROR_ACCESS_DENIED` is handled as its own case. *Without it:* A volume that answers access denied is marked not readable/writable and drops out of the default filter; the other drives are still checked.
+3. *Without it:* The keywords have no value (`never`/`unknown`) when the collector is not running or `disk_free`/`trend` is in its `disable` list.
+4. Pseudo and image filesystems (proc, sysfs, tmpfs, overlay, squashfs, ...) are skipped when enumerating all drives.
+5. *Without it:* A mount `statvfs` cannot reach reports zero sizes and is marked not readable/writable; a `drive=` path that fails `statvfs` is reported as not found.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_drivesize_options"></a>
@@ -1274,6 +1346,7 @@ file itself) and [`check_drivesize`](#check_drivesize) (for optional mounts).
 **Jump to section:**
 
 * [Sample Commands](#check_files_samples)
+* [Data sources and privileges](#check_files_sources)
 * [Command-line Arguments](#check_files_options)
 * [Filter keywords](#check_files_filter_keys)
 
@@ -1357,6 +1430,25 @@ check_files path=/var/spool/exports ignore-missing=true
 No files found
 ```
 
+
+
+<a id="check_files_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                     | Provides                                                             | Privilege        | Requires                                                                  | Notes  |
+|----------|--------------------------------------------------------------------------------------------|----------------------------------------------------------------------|------------------|---------------------------------------------------------------------------|--------|
+| Windows  | Directory walk with `FindFirstFile`/`FindNextFile` (`GetFileAttributes` on the start path) | file list, name, path, size, creation/access/write times, attributes | conditional      |                                                                           | note 1 |
+| Windows  | File contents (`fopen`)                                                                    | line_count, md5/sha1/sha256/sha384/sha512 checksums                  | conditional      | OpenSSL in the build for the checksum keywords (they are empty otherwise) | note 2 |
+| Windows  | `GetFileVersionInfo`                                                                       | version                                                              | *not determined* |                                                                           |        |
+| Linux    | Directory walk with `boost::filesystem::directory_iterator` plus `stat`/`lstat`            | file list, name, path, size, times, type                             | conditional      |                                                                           | note 3 |
+| Linux    | File contents (`fopen`)                                                                    | line_count, md5/sha1/sha256/sha384/sha512 checksums                  | conditional      | OpenSSL in the build for the checksum keywords (they are empty otherwise) | note 4 |
+
+1. The agent's account must be able to list each scanned folder. Paths are also held against `file access` in `[/settings/disk]`. *Without it:* A start path that does not exist or cannot be read is reported as missing (UNKNOWN unless `ignore-missing=true`).
+2. Needs read access to each matched file; only read when one of these keywords is used.
+3. The agent's account must be able to search and list each scanned folder; symbolic links are skipped. Paths are also held against `file access` in `[/settings/disk]`. *Without it:* A start path that does not exist or cannot be read is reported as missing (UNKNOWN unless `ignore-missing=true`); a subfolder that cannot be opened is logged and skipped.
+4. Needs read access to each matched file; only read when one of these keywords is used. `version` is always empty on Linux.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_files_options"></a>
@@ -1581,6 +1673,7 @@ lies beneath a root that passed.
 **Jump to section:**
 
 * [Sample Commands](#check_largest_files_samples)
+* [Data sources and privileges](#check_largest_files_sources)
 * [Command-line Arguments](#check_largest_files_options)
 * [Filter keywords](#check_largest_files_filter_keys)
 
@@ -1647,6 +1740,22 @@ check_largest_files path=C:\Windows method=mft
 Unable to read the MFT for C:\Windows: unable to open the volume for reading (this needs administrator rights): 5: Access is denied.
 ```
 
+
+
+<a id="check_largest_files_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                                                          | Provides                                                                                   | Privilege   | Notes  |
+|----------|-----------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|-------------|--------|
+| Windows  | NTFS Master File Table: raw volume handle (`CreateFileW` on `\\?\Volume{...}`) and `FSCTL_GET_NTFS_VOLUME_DATA` | file and folder sizes with `method=auto` (default) or `method=mft`                         | elevated    | note 1 |
+| Windows  | Directory walk with `FindFirstFileEx`                                                                           | file and folder sizes on ReFS/FAT/exFAT, network shares, unelevated runs, or `method=walk` | conditional | note 2 |
+| Linux    | Directory walk with `fts(3)` (`FTS_PHYSICAL`, `FTS_XDEV`)                                                       | file and folder sizes                                                                      | conditional | note 3 |
+
+1. Only for a folder on a local NTFS volume; the legacy XP build has no MFT reader. *Without it:* `auto` falls back to the directory walk; `method=mft` fails with "Unable to read the MFT for &lt;path&gt;: ..." (opening the volume "needs administrator rights").
+2. Needs list access to the folders walked. Name-surrogate reparse points (links, junctions) are not followed. Paths are also held against `file access` in `[/settings/disk]`. *Without it:* "Unable to read folder &lt;path&gt;: &lt;error&gt;" when the root cannot be opened.
+3. Needs search and list access to the folders walked; stays on the root's filesystem and does not follow symbolic links. Paths are also held against `file access` in `[/settings/disk]`. *Without it:* "Unable to read folder &lt;path&gt;: &lt;error&gt;" when the root cannot be read.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_largest_files_options"></a>
@@ -1807,6 +1916,7 @@ fstype/options mismatch is WARNING out of the box; override `warning=` /
 **Jump to section:**
 
 * [Sample Commands](#check_mount_samples)
+* [Data sources and privileges](#check_mount_sources)
 * [Command-line Arguments](#check_mount_options)
 * [Filter keywords](#check_mount_filter_keys)
 
@@ -1856,6 +1966,16 @@ check_nscp_client --host 192.168.56.103 --command check_mount --argument "mount=
 OK: mounts are as expected
 ```
 
+
+
+<a id="check_mount_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                | Provides                             | Privilege |
+|----------|-------------------------------------------------------|--------------------------------------|-----------|
+| Linux    | `/proc/mounts` (fallback `/etc/mtab`) via `getmntent` | mount point, device, fstype, options | none      |
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_mount_options"></a>
@@ -1964,6 +2084,7 @@ configured as "unbounded", which makes `used_pct` inert by design.
 **Jump to section:**
 
 * [Sample Commands](#check_shadowcopy_samples)
+* [Data sources and privileges](#check_shadowcopy_sources)
 * [Command-line Arguments](#check_shadowcopy_options)
 * [Filter keywords](#check_shadowcopy_filter_keys)
 
@@ -2027,6 +2148,20 @@ check_nscp_client --host 192.168.56.103 --command check_shadowcopy --argument "w
 OK: \\?\Volume{4c2b...}\: 12 copies, newest 2026-07-11 07:00:03 UTC
 ```
 
+
+
+<a id="check_shadowcopy_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                   | Provides                                       | Privilege        | Requires                                               | Notes  |
+|----------|------------------------------------------|------------------------------------------------|------------------|--------------------------------------------------------|--------|
+| Windows  | WMI `Win32_ShadowCopy` (`root\CIMV2`)    | copies, newest, newest_date per volume         | *not determined* | Windows Management Instrumentation (`Winmgmt`) service | note 1 |
+| Windows  | WMI `Win32_ShadowStorage` (`root\CIMV2`) | used, allocated, max_size, used_pct per volume | *not determined* | Windows Management Instrumentation (`Winmgmt`) service | note 2 |
+
+1. *Without it:* WMI errors are swallowed: no rows, so the check returns its empty state (OK by default).
+2. *Without it:* Shadow-storage keywords stay empty for the volume.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_shadowcopy_options"></a>
@@ -2121,6 +2256,7 @@ share.
 **Jump to section:**
 
 * [Sample Commands](#check_share_samples)
+* [Data sources and privileges](#check_share_sources)
 * [Command-line Arguments](#check_share_options)
 * [Filter keywords](#check_share_filter_keys)
 
@@ -2177,6 +2313,18 @@ check_nscp_client --host 192.168.56.103 --command check_share --argument "share=
 OK: All 2 share(s) ok.
 ```
 
+
+
+<a id="check_share_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                           | Provides                              | Privilege        | Requires                                               | Notes  |
+|----------|----------------------------------|---------------------------------------|------------------|--------------------------------------------------------|--------|
+| Windows  | WMI `Win32_Share` (`root\CIMV2`) | name, path, description, type, exists | *not determined* | Windows Management Instrumentation (`Winmgmt`) service | note 1 |
+
+1. *Without it:* WMI errors are swallowed: no shares are listed, so every `share=` is reported missing.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_share_options"></a>
@@ -2290,6 +2438,7 @@ The same option exists on [`check_files`](#check_files) (for scan paths) and
 **Jump to section:**
 
 * [Sample Commands](#check_single_file_samples)
+* [Data sources and privileges](#check_single_file_sources)
 * [Command-line Arguments](#check_single_file_options)
 * [Filter keywords](#check_single_file_filter_keys)
 
@@ -2353,6 +2502,25 @@ check_single_file file=/tmp/no-such-report.csv ignore-missing=true
 File not found (ignored): /tmp/no-such-report.csv
 ```
 
+
+
+<a id="check_single_file_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                             | Provides                                            | Privilege        | Requires                                                                  | Notes  |
+|----------|----------------------------------------------------|-----------------------------------------------------|------------------|---------------------------------------------------------------------------|--------|
+| Windows  | `FindFirstFile` on the named file                  | name, path, size, times, attributes                 | conditional      |                                                                           | note 1 |
+| Windows  | File contents (`fopen`)                            | line_count, md5/sha1/sha256/sha384/sha512 checksums | conditional      | OpenSSL in the build for the checksum keywords (they are empty otherwise) | note 2 |
+| Windows  | `GetFileVersionInfo`                               | version                                             | *not determined* |                                                                           |        |
+| Linux    | `stat` on the named file (follows a symbolic link) | name, path, size, times                             | conditional      |                                                                           | note 3 |
+| Linux    | File contents (`fopen`)                            | line_count, md5/sha1/sha256/sha384/sha512 checksums | conditional      | OpenSSL in the build for the checksum keywords (they are empty otherwise) | note 4 |
+
+1. Needs access to the file's folder for the agent's account. Paths are also held against `file access` in `[/settings/disk]`. *Without it:* "File not found: &lt;path&gt;" (or OK with `ignore-missing=true`).
+2. Needs read access to the file; only read when one of these keywords is used.
+3. Needs search access to the file's folders for the agent's account. Paths are also held against `file access` in `[/settings/disk]`. *Without it:* "File not found: &lt;path&gt;" (or OK with `ignore-missing=true`).
+4. Needs read access to the file; only read when one of these keywords is used. `version` is always empty on Linux.
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_single_file_options"></a>
@@ -2478,6 +2646,7 @@ physical-disk device state exposed by `check_disk_health`.
 **Jump to section:**
 
 * [Sample Commands](#check_storagepool_samples)
+* [Data sources and privileges](#check_storagepool_sources)
 * [Command-line Arguments](#check_storagepool_options)
 * [Filter keywords](#check_storagepool_filter_keys)
 
@@ -2508,6 +2677,18 @@ Keywords: `name`, `health_status` (Healthy/Warning/Unhealthy/Unknown),
 `operational_status`, `capacity`, `used`, `free`, `free_pct`, `used_pct`,
 `is_readonly`.
 
+
+
+<a id="check_storagepool_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                               | Provides                                                    | Privilege        | Requires                                                                                                                               | Notes  |
+|----------|--------------------------------------------------------------------------------------|-------------------------------------------------------------|------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Windows  | WMI `MSFT_StoragePool` where `IsPrimordial=FALSE` (`root\Microsoft\Windows\Storage`) | name, health, capacity, used, read-only, operational status | *not determined* | Windows Management Instrumentation (`Winmgmt`) service<br>Storage Management WMI provider (`root\Microsoft\Windows\Storage` namespace) | note 1 |
+
+1. *Without it:* WMI errors are swallowed: no pools are reported and the check returns its empty state (OK).
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_storagepool_options"></a>
@@ -2594,6 +2775,7 @@ path must already be mounted (alternate-credential UNC access is Windows-only).
 **Jump to section:**
 
 * [Sample Commands](#check_uncpath_samples)
+* [Data sources and privileges](#check_uncpath_sources)
 * [Command-line Arguments](#check_uncpath_options)
 * [Filter keywords](#check_uncpath_filter_keys)
 
@@ -2630,6 +2812,22 @@ querying account (honouring per-user quotas) as distinct from the share's total
 check_uncpath path=\\a\share path=\\b\share "crit=free_pct < 10" "top-syntax=${status}: ${problem_list}"
 ```
 
+
+
+<a id="check_uncpath_sources"></a>
+#### Data sources and privileges
+
+| Platform | Source                                                                         | Provides                                                      | Privilege        | Requires                                         | Notes  |
+|----------|--------------------------------------------------------------------------------|---------------------------------------------------------------|------------------|--------------------------------------------------|--------|
+| Windows  | `GetDiskFreeSpaceEx` on the UNC path                                           | size, free, used, user_free and their percentages             | conditional      | Network reachability of the file server over SMB | note 1 |
+| Windows  | `WNetAddConnection2` / `WNetCancelConnection2` (only with `user=`/`password=`) | alternate-credential connection for the duration of the query | *not determined* |                                                  | note 2 |
+| Linux    | `statvfs` on an already-mounted path                                           | size, free, used, user_free and their percentages             | none             |                                                  | note 3 |
+
+1. Without `user=` the share is opened as the agent's account (LocalSystem reaches the network as the computer account), which needs access to the share. *Without it:* "Failed to query &lt;path&gt;: &lt;error&gt;"
+2. *Without it:* "Failed to connect to &lt;path&gt; as &lt;user&gt;: &lt;error&gt;"
+3. `user=`/`password=` are ignored; the share must already be mounted. *Without it:* "Failed to statvfs &lt;path&gt; (UNC credential access is Windows-only)"
+
+*Privilege* is what the account the NSClient++ agent runs as needs, not the caller of the check: *elevated* means Administrator or LocalSystem on Windows and root on Linux and macOS. *Not determined* means nobody has worked it out yet - not that none is needed. See also [all checks by privilege](../data-sources.md).
 
 
 <a id="check_uncpath_options"></a>

@@ -31,11 +31,13 @@ set(SRCS
     ${NSCP_ERROR_CPP}
 )
 
-# The Linux readers of the posture checks that have one (check_secureboot).
-# posture_linux.cpp only points them at the live files, so the unit tests link
-# these against fixtures.
+# The Linux readers of check_secureboot, check_local_accounts and
+# check_group_members. posture_linux.cpp only points them at the live files, so
+# the unit tests link these against fixtures.
 set(POSTURE_LINUX_READERS
     secureboot_source_linux.cpp
+    local_accounts_source_linux.cpp
+    group_members_source_linux.cpp
 )
 
 if(WIN32)
@@ -159,7 +161,7 @@ NSCP_CREATE_TEST(
 # acquisition is Windows), so these unit tests build everywhere. The command
 # tests stand in for the platform sources, which is what lets the *matched* half
 # of these checks - thresholds, rendering, perf data - run off Windows at all.
-# On Linux the target also covers the readers in POSTURE_LINUX_READERS,
+# On Linux the target also covers the passwd/shadow/group/efivars readers,
 # against fixtures.
 set(POSTURE_TEST_PLATFORM_SOURCES)
 if(NOT WIN32 AND NOT APPLE)
@@ -236,3 +238,32 @@ if(NOT WIN32)
         target_link_libraries(check_security_test ${OPENSSL_LIBRARIES})
     endif()
 endif()
+
+# Unit tests for the module class: that it loads and that every dispatch
+# method reaches its check, shown with answers that do not depend on the
+# host. The stub core (include/nscapi/test_helpers.hpp) stands in for the
+# daemon.
+set(CHECK_SECURITY_MODULE_TEST_SRCS ${SRCS})
+list(FILTER CHECK_SECURITY_MODULE_TEST_SRCS EXCLUDE REGEX "/module\\.(cpp|hpp|def|rc)$|\\.h$|\\.hpp$")
+NSCP_CREATE_TEST(
+    check_security_module_test
+    SOURCES
+        check_security_module_test.cpp
+        ${CHECK_SECURITY_MODULE_TEST_SRCS}
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${EXTRA_LIBS}
+        ${OPENSSL_LIBRARIES}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${OPENSSL_INCLUDE_DIR}
+)

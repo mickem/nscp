@@ -1,0 +1,4 @@
+all:
+- source: The wrapped command's performance data
+  privilege: none
+  note: The wrapped command runs with the caller's grants; its own data sources and privileges apply.

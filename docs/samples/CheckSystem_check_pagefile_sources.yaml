@@ -1,0 +1,14 @@
+windows:
+  - source: '`NtQuerySystemInformation(SystemPageFileInformation)`'
+    provides: one record per paging file (size, used, peak_used) plus the `total` record
+    note: Read when the check runs; no warm-up.
+linux:
+  - source: '`/proc/meminfo` (`SwapTotal`, `SwapFree`)'
+    provides: the single `total` record
+    privilege: none
+    note: Sampled once a second by the background collector. Only the aggregate is read, so there is no per-device record.
+    without: 'A collector that cannot read `/proc/meminfo` makes the check UNKNOWN "No pagefile/swap data available: the collector failed to sample it: ..."'
+macos:
+  - source: '`sysctl vm.swapusage`'
+    provides: the single `total` record
+    note: Sampled once a second by the background collector. Swap files are created on demand, so the size is 0 until macOS has needed swap.

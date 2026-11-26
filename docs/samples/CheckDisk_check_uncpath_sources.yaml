@@ -1,0 +1,17 @@
+windows:
+- source: '`GetDiskFreeSpaceEx` on the UNC path'
+  provides: size, free, used, user_free and their percentages
+  privilege: conditional
+  note: Without `user=` the share is opened as the agent's account (LocalSystem reaches the network as the computer account), which needs access to the share.
+  without: '"Failed to query <path>: <error>"'
+  requires:
+  - Network reachability of the file server over SMB
+- source: '`WNetAddConnection2` / `WNetCancelConnection2` (only with `user=`/`password=`)'
+  provides: alternate-credential connection for the duration of the query
+  without: '"Failed to connect to <path> as <user>: <error>"'
+linux:
+- source: '`statvfs` on an already-mounted path'
+  provides: size, free, used, user_free and their percentages
+  privilege: none
+  note: '`user=`/`password=` are ignored; the share must already be mounted.'
+  without: '"Failed to statvfs <path> (UNC credential access is Windows-only)"'
