@@ -23,7 +23,18 @@ import {
   transportRisk,
 } from "./checkmk.ts";
 
-const ADVANCED: FieldSpec[] = [...CORE_ADVANCED, ...SOCKET_TLS_ADVANCED];
+const ADVANCED: FieldSpec[] = [
+  // The agent ships the check_mk script (default_check_mk.lua); moving where
+  // the Lua scripts are read from is rarely needed.
+  {
+    key: "script root",
+    label: "Script root",
+    kind: "text",
+    help: "Where the Lua scripts live: empty for ${scripts}, fleet for scripts a fleet bundle stages, shared, or a folder.",
+  },
+  ...CORE_ADVANCED,
+  ...SOCKET_TLS_ADVANCED,
+];
 
 export default function CheckmkPage({ onExpertMode }: ModulePanelProps) {
   const tlsDraft = useSocketTlsDraft();
@@ -101,15 +112,6 @@ export default function CheckmkPage({ onExpertMode }: ModulePanelProps) {
           label: "Result lifetime (seconds)",
           kind: "number",
           help: "How long a submitted result is reported as fresh; at least the interval that submits it.",
-        })}
-      </PanelSection>
-
-      <PanelSection title="Scripts">
-        {f({
-          key: "script root",
-          label: "Script root",
-          kind: "text",
-          help: "Where the Lua scripts live: empty for ${scripts}, fleet for scripts a fleet bundle stages, shared, or a folder.",
         })}
       </PanelSection>
 
