@@ -18,6 +18,9 @@ import CheckmkPage from "./CheckMKServer/CheckmkPage";
 import NcpaPage from "./NCPAServer/NcpaPage";
 import WebPage from "./WEBServer/WebPage";
 import IcingaPage from "./IcingaAgent/IcingaPage";
+import RolesEditor from "./WEBServer/RolesEditor";
+import ModuleSettings from "../components/ModuleSettings";
+import { SettingsDescription } from "../api/api";
 
 function render(Page: ComponentType<ModulePanelProps>, stored: Settings[]) {
   const writes: string[] = [];
@@ -233,5 +236,152 @@ describe("Icinga agent page", () => {
     const ini = screen.getByLabelText("INI fragment");
     expect(ini).toHaveTextContent("parent port = 5665");
     expect(ini).not.toHaveTextContent("endpoint name =");
+  });
+});
+
+describe("web server passive results", () => {
+  it("shows the cache's options only while it is on", async () => {
+    render(WebPage, []);
+    await screen.findByRole("switch", { name: "Keep passive results for polling" });
+    expect(screen.queryByLabelText("Channel")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("switch", { name: "Keep passive results for polling" }));
+    expect(screen.getByLabelText("Channel")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Drop results once polled" })).toBeInTheDocument();
+  });
+});
+
+describe("web server roles", () => {
+  const R = "/settings/WEB/server/roles";
+  const stored: Settings[] = [
+    { path: R, key: "full", value: "*" },
+    { path: R, key: "metrics", value: "public,metrics.list,openmetrics.list,login.get" },
+    { path: "/settings/WEB/server/users/admin", key: "role", value: "full" },
+  ];
+  const renderRoles = (s: Settings[]) => {
+    const writes: string[] = [];
+    installFetchMock({
+      "/api/v2/settings": async (req: Request) => {
+        if (req.method === "PUT") {
+          const body = (await req.json()) as Settings;
+          writes.push(`[${body.path}] ${body.key}=${body.value}`);
+          return jsonResponse("");
+        }
+        return jsonResponse(s);
+      },
+    });
+    renderWithProviders(<RolesEditor collectionPath={R} descriptions={[]} />, {
+      preloadedState: authenticatedState,
+    });
+    return writes;
+  };
+
+  it("lists roles with what they grant and who holds them", async () => {
+    renderRoles(stored);
+    const table = within(await screen.findByRole("table", { name: "Roles" }));
+    expect(table.getByText("Everything")).toBeInTheDocument();
+    expect(table.getByText("admin")).toBeInTheDocument();
+    expect(table.getByText("powerful grants")).toBeInTheDocument();
+    expect(
+      table.getByText(/public, metrics.list, openmetrics.list and 1 more/),
+    ).toBeInTheDocument();
+  });
+
+  it("edits a role's grants with the picker", async () => {
+    const writes = renderRoles(stored);
+    const row = (await screen.findByText("metrics")).closest("tr") as HTMLElement;
+    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByRole("checkbox", { name: "Metrics" })).toBeChecked();
+    await userEvent.click(dialog.getByRole("checkbox", { name: "Change settings" }));
+    expect(dialog.getByText("This role holds powerful grants")).toBeInTheDocument();
+    await userEvent.click(dialog.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(writes).toEqual([
+        `[${R}] metrics=public,metrics.list,openmetrics.list,login.get,settings.put`,
+      ]),
+    );
+  });
+
+  it("covers a whole area with its wildcard, and nothing outside it", async () => {
+    const writes = renderRoles([]);
+    await userEvent.click(await screen.findByRole("button", { name: "Add role" }));
+    await userEvent.click(screen.getByText("Empty role"));
+    const dialog = within(screen.getByRole("dialog"));
+    await userEvent.type(dialog.getByLabelText("Name"), "checker");
+    await userEvent.click(dialog.getByRole("checkbox", { name: "List aliases" }));
+    await userEvent.click(dialog.getByRole("checkbox", { name: /queries\.\*/ }));
+    expect(dialog.getByRole("checkbox", { name: "List checks" })).toBeDisabled();
+    expect(dialog.getByRole("checkbox", { name: "List aliases" })).toBeEnabled();
+    await userEvent.click(dialog.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(writes).toEqual([`[${R}] checker=public,login.get,aliases.list,queries.*`]),
+    );
+  });
+
+  it("starts a role from a built-in one", async () => {
+    const writes = renderRoles(stored);
+    await userEvent.click(await screen.findByRole("button", { name: "Add role" }));
+    await userEvent.click(screen.getByText("Like metrics"));
+    const dialog = within(screen.getByRole("dialog"));
+    // The name is taken, so it gets a suffix.
+    expect(dialog.getByLabelText("Name")).toHaveValue("metrics_2");
+    await userEvent.click(dialog.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(writes).toEqual([`[${R}] metrics_2=public,metrics.list,openmetrics.list,login.get`]),
+    );
+  });
+
+  it("warns before deleting a role someone holds", async () => {
+    renderRoles(stored);
+    const row = (await screen.findByText("full")).closest("tr") as HTMLElement;
+    await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
+    expect(screen.getByText(/admin hold this role/)).toBeInTheDocument();
+  });
+});
+
+describe("web server users", () => {
+  const U = "/settings/WEB/server/users";
+  const d = (
+    path: string,
+    key: string,
+    over: Partial<SettingsDescription> = {},
+  ): SettingsDescription => ({
+    path,
+    key,
+    type: "string",
+    title: key.toUpperCase(),
+    description: "",
+    value: "",
+    default_value: "",
+    icon: "",
+    is_advanced_key: false,
+    is_object: key === "",
+    is_sample_key: false,
+    is_template_key: false,
+    plugins: ["WEBServer"],
+    sample_usage: "",
+    ...over,
+  });
+
+  it("has no templates: no Add template, no default row", async () => {
+    installFetchMock({
+      "/api/v2/settings/descriptions": jsonResponse([
+        d(U, "", { title: "Web server users" }),
+        d(`${U}/default`, "is template", { default_value: "false" }),
+        d(`${U}/default`, "parent", { default_value: "default" }),
+        d(`${U}/default`, "password"),
+        d(`${U}/default`, "role"),
+      ]),
+      "/api/v2/settings": jsonResponse([{ path: `${U}/admin`, key: "role", value: "full" }]),
+    });
+    renderWithProviders(<ModuleSettings settings={[]} moduleId="WEBServer" />, {
+      preloadedState: authenticatedState,
+    });
+    const card = (await screen.findByText("Web server users")).closest(
+      ".MuiCard-root",
+    ) as HTMLElement;
+    expect(await within(card).findByText("admin")).toBeInTheDocument();
+    expect(within(card).queryByText("default")).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Add template" })).not.toBeInTheDocument();
   });
 });

@@ -22,6 +22,8 @@ import {
 
 type Spec = FieldSpec & { path: string };
 
+const isOn = (v: string) => v.toLowerCase() === "true" || v === "1";
+
 const RESULTS: Spec[] = [
   {
     path: WEB_RESULTS,
@@ -218,7 +220,12 @@ export default function WebPage() {
         </Stack>
       </PanelSection>
 
-      <PanelSection title="Passive results">{RESULTS.map((r) => f(r, r.path))}</PanelSection>
+      <PanelSection title="Passive results">
+        {/* The cache's options only matter while it is on. */}
+        {(isOn(panel.value(WEB_RESULTS, "enabled")) ? RESULTS : RESULTS.slice(0, 1)).map((r) =>
+          f(r, r.path),
+        )}
+      </PanelSection>
 
       <AdvancedSection count={advancedSet}>{ADVANCED.map((a) => f(a, a.path))}</AdvancedSection>
     </PanelShell>

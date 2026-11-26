@@ -22,8 +22,12 @@ parent unverified. Saving is held back where the agent would refuse to start:
 NSCA encryption without a key, TLS without its certificate or CA, an Icinga
 parent host without its endpoint name.
 
-The check_mk local and MRPE entries, and the web server's users and roles,
-stay as lists below their page. check_nt's allowed commands are picked from
+The check_mk local and MRPE entries, and the web server's users, stay as
+lists below their page; web users no longer offer templates. The web server's
+roles get an editor of their own: each role's grants picked by area (with the
+area's `*` wildcard where it has one), the users holding it, a warning on roles
+that can change the agent or run arbitrary commands, and the built-in roles as
+starting points. The passive-results options show only once the cache is on. check_nt's allowed commands are picked from
 the groups and commands the agent knows. NSCA and check_mk offer the same three
 transport modes - two-way TLS, one-way TLS, no TLS - and,
 as on the NRPE page, a stored configuration that matches none of them is shown

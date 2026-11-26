@@ -120,14 +120,20 @@ export default function ModuleSettings({
           expert={expert}
         />
       ))}
-      {kvPaths.map((path) => (
-        <SettingsKeyValueCollection
-          key={path}
-          collectionPath={path}
-          descriptions={allDescriptions ?? []}
-          expert={expert}
-        />
-      ))}
+      {kvPaths.map((path) => {
+        const config = getCollectionConfig(path);
+        const Editor = !expert && config?.kind === "keyValue" ? config.Editor : undefined;
+        return Editor ? (
+          <Editor key={path} collectionPath={path} descriptions={allDescriptions ?? []} />
+        ) : (
+          <SettingsKeyValueCollection
+            key={path}
+            collectionPath={path}
+            descriptions={allDescriptions ?? []}
+            expert={expert}
+          />
+        );
+      })}
     </Stack>
   );
 }

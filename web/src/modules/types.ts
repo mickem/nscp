@@ -87,12 +87,25 @@ export interface InstanceCollectionConfig {
   // Return undefined to fall through to the generic rules. Expert mode skips
   // it, so a field hidden here is still reachable there.
   isFieldVisible?: (key: string, ctx: FieldVisibilityContext) => boolean | undefined;
+  // false: no templates. No "Add template", no `default` template row
+  // (unless something is stored under it), and no `parent` / `is template`
+  // fields. For a collection with too few keys for inheritance to pay off.
+  templates?: boolean;
+}
+
+// What a key/value collection's own editor is given.
+export interface KeyValueEditorProps {
+  collectionPath: string;
+  descriptions: SettingsDescription[];
 }
 
 // A path whose entries are flat key/value pairs stored directly under it.
 export interface KeyValueCollectionConfig {
   kind: "keyValue";
   presets?: KeyValueTemplate[];
+  // An editor of the module's own in place of the generic key/value list
+  // (expert mode still shows the generic one).
+  Editor?: ComponentType<KeyValueEditorProps>;
 }
 
 // A collection root that must not render: superseded or non-object semantics.

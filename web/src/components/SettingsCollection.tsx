@@ -40,11 +40,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import SettingsInstanceDialog from "./SettingsInstanceDialog.tsx";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { FormEvent, useMemo, useRef, useState } from "react";
-import type {
-  FieldGroup,
-  InstanceCollectionConfig,
-  InstanceTemplate,
-} from "../modules/types.ts";
+import type { FieldGroup, InstanceCollectionConfig, InstanceTemplate } from "../modules/types.ts";
 import { getInstanceCollectionConfig } from "../modules/registry.ts";
 
 interface Props {
@@ -124,6 +120,8 @@ function isFieldVisible(
   if ((key === "counter" || key === "alias") && isTemplate) return false;
   // The default template is the root of the inheritance chain — it has no parent.
   if (key === "parent" && isDefaultTemplate) return false;
+  // A collection without templates has nothing to inherit from.
+  if (key === "parent" && config?.templates === false) return false;
   const own = config?.isFieldVisible?.(key, { fields, isTemplate });
   if (own !== undefined) return own;
   // `debug` is rarely toggled at the per-instance level — hide it unless the
@@ -142,10 +140,7 @@ function isFieldVisible(
 // advanced switch and rendering them as plain text.
 function dedupeByKey(items: SettingsDescription[]): SettingsDescription[] {
   const score = (s: SettingsDescription) =>
-    (s.type ? 8 : 0) +
-    (s.title ? 4 : 0) +
-    (s.description ? 2 : 0) +
-    (s.default_value ? 1 : 0);
+    (s.type ? 8 : 0) + (s.title ? 4 : 0) + (s.description ? 2 : 0) + (s.default_value ? 1 : 0);
   const byKey = new Map<string, SettingsDescription>();
   for (const s of items) {
     const prev = byKey.get(s.key);
@@ -241,10 +236,12 @@ export default function SettingsCollection({
       if (!rest.includes("/")) names.add(rest);
     }
     // The schema-default template is always editable even when no values
-    // have been stored under it.
-    if (settings.some((s) => s.path === templatePath)) names.add(templateName);
+    // have been stored under it - unless the module page turns templates off,
+    // when it only shows if something is stored under it.
+    if (config?.templates !== false && settings.some((s) => s.path === templatePath))
+      names.add(templateName);
     return [...names].sort((a, b) => a.localeCompare(b));
-  }, [storedSettings, settings, templatePath, templateName, collectionPath, prefix]);
+  }, [storedSettings, settings, templatePath, templateName, collectionPath, prefix, config]);
 
   // Template keys come from the template child path. If absent, fall back to the first instance.
   const templateKeys = useMemo(() => {
@@ -270,9 +267,7 @@ export default function SettingsCollection({
   const instances: Instance[] = useMemo(() => {
     const built = instanceNames.map((name) => {
       const path = `${prefix}${name}`;
-      const existing = dedupeByKey(
-        settings.filter((s) => s.path === path && s.key !== ""),
-      );
+      const existing = dedupeByKey(settings.filter((s) => s.path === path && s.key !== ""));
       // Always source field metadata (type, title, description, flags,
       // default_value) from the template — instance description entries only
       // get fleshed out by the backend after a save/reload, so a freshly
@@ -298,10 +293,13 @@ export default function SettingsCollection({
   // key in their schema; others (memory/cpu filters) don't. The Add-template
   // button and the seed key written when materializing a new instance both
   // depend on this.
-  const supportsTemplates = useMemo(
+  const hasTemplateKey = useMemo(
     () => templateKeys.some((k) => k.key === "is template"),
     [templateKeys],
   );
+  // The module page can turn the template UI off; the key still seeds a new
+  // entry below.
+  const supportsTemplates = hasTemplateKey && config?.templates !== false;
 
   const templateOptions = useMemo(
     () => instances.filter((i) => i.isTemplate).map((i) => i.name),
@@ -356,7 +354,7 @@ export default function SettingsCollection({
         }
         // Defensive — shouldn't happen unless every field in the template was
         // empty, but keep the create path materialized either way.
-        if (!wroteSomething && supportsTemplates) {
+        if (!wroteSomething && hasTemplateKey) {
           await updateSettings({ path: newPath, key: "is template", value: "false" }).unwrap();
         }
       } else {
@@ -370,7 +368,7 @@ export default function SettingsCollection({
         // creates the path.
         let seedKey: string;
         let seedValue: string;
-        if (supportsTemplates) {
+        if (hasTemplateKey) {
           seedKey = "is template";
           seedValue = isTemplate ? "true" : "false";
         } else {
@@ -771,7 +769,12 @@ export default function SettingsCollection({
           >
             Cancel
           </Button>
-          <Button color="error" onClick={onConfirmDelete} disabled={deleteBusy} loading={deleteBusy}>
+          <Button
+            color="error"
+            onClick={onConfirmDelete}
+            disabled={deleteBusy}
+            loading={deleteBusy}
+          >
             Delete
           </Button>
         </DialogActions>
@@ -779,4 +782,3 @@ export default function SettingsCollection({
     </Card>
   );
 }
-
