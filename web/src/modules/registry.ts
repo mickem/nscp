@@ -13,22 +13,32 @@ import type {
 import CheckEventLog from "./CheckEventLog/index.ts";
 import CheckHelpers from "./CheckHelpers/index.ts";
 import CheckLogFile from "./CheckLogFile/index.ts";
+import CheckMKServer from "./CheckMKServer/index.ts";
 import CheckNSCP from "./CheckNSCP/index.ts";
 import CheckSystem from "./CheckSystem/index.ts";
 import CheckSystemUnix from "./CheckSystemUnix/index.ts";
+import IcingaAgent from "./IcingaAgent/index.ts";
 import IcingaClient from "./IcingaClient/index.ts";
+import NCPAServer from "./NCPAServer/index.ts";
 import NRPEServer from "./NRPEServer/index.ts";
+import NSCAServer from "./NSCAServer/index.ts";
+import NSClientServer from "./NSClientServer/index.ts";
 import WEBServer from "./WEBServer/index.ts";
 
 export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   CheckEventLog,
   CheckHelpers,
   CheckLogFile,
+  CheckMKServer,
   CheckNSCP,
   CheckSystem,
   CheckSystemUnix,
+  IcingaAgent,
   IcingaClient,
+  NCPAServer,
   NRPEServer,
+  NSCAServer,
+  NSClientServer,
   WEBServer,
 ];
 

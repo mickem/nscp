@@ -1,0 +1,28 @@
+---
+icon: "🔧"
+modules: [WEBServer, NSCAServer, NSClientServer, NCPAServer, CheckMKServer, IcingaAgent]
+action: none
+---
+**Web UI: settings pages for the servers.** Nothing to do. The module pages of
+NSCAServer, NSClientServer, NCPAServer, CheckMKServer, WEBServer and IcingaAgent
+get a page of their own, built like the NRPE one: every setting of the module on
+one page (the rarely changed ones under *Advanced*), a *Default* / *Local*
+switch on the settings the agent can also read from `[/settings/default]`,
+the exact changes listed before they are saved, and *Show config* for an INI
+fragment to copy to another agent or a fleet bundle. Passwords, tokens and
+tickets are never shown back, only whether one is set.
+
+Each page says plainly what weakens it: NSCA results accepted unencrypted (or
+under `xor`), check_nt's password in clear without TLS, an NCPA or NSClient
+listener that refuses everything for want of a token or password, NCPA
+arguments reaching external scripts, anonymous web access, a missing
+certificate meaning plain HTTP, and an Icinga agent that trusts its first
+parent unverified. Saving is held back where the agent would refuse to start:
+NSCA encryption without a key, TLS without its certificate or CA, an Icinga
+parent host without its endpoint name.
+
+The check_mk local and MRPE entries, and the web server's users and roles,
+stay as lists below their page. The socket servers (NSCA, NSClient, check_mk)
+offer the same three transport modes - two-way TLS, one-way TLS, no TLS - and,
+as on the NRPE page, a stored configuration that matches none of them is shown
+as *Custom* and left alone.
