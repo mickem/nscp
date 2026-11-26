@@ -78,24 +78,43 @@ describe("NSCA server page", () => {
 describe("NSClient server page", () => {
   const P = "/settings/NSClient/server";
 
-  it("reads a fresh install as TLS with no password, and says what that means", async () => {
+  it("offers no TLS, and says check_nt cannot reach the agent's default TLS", async () => {
     render(NsclientPage, []);
-    await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
-    expect(screen.getByText("check_nt is a legacy protocol")).toBeInTheDocument();
+    expect(await screen.findByText("check_nt is a legacy protocol")).toBeInTheDocument();
+    expect(screen.getByText("TLS is not supported by check_nt")).toBeInTheDocument();
+    expect(screen.getByText(/check_nt clients cannot connect to/)).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: /TLS/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Server certificate")).not.toBeInTheDocument();
     expect(screen.getByText("No password: every request is refused")).toBeInTheDocument();
   });
 
-  it("flags plain TCP and writes it", async () => {
+  it("says the connection is in clear once the agent's TLS is off", async () => {
+    render(NsclientPage, [{ path: P, key: "use ssl", value: "false" }]);
+    expect(await screen.findByText(/Connections are plain TCP/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open expert mode" })).not.toBeInTheDocument();
+  });
+
+  it("picks allowed commands and writes them in the shortest spelling", async () => {
     const writes = render(NsclientPage, [
       { path: "/settings/default", key: "password", value: "pw" },
     ]);
-    await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
-    expect(screen.queryByText(/No password/)).not.toBeInTheDocument();
-    await userEvent.click(radio(/^No TLS/));
-    expect(screen.getByText("The password travels in clear")).toBeInTheDocument();
+    const all = await screen.findByRole("switch", { name: /All commands/ });
+    expect(all).toBeChecked();
+    // Everything allowed includes the arbitrary reads.
+    expect(screen.getByText("check_nt can read more than metrics")).toBeInTheDocument();
+
+    await userEvent.click(all);
+    expect(screen.getByText("No command is allowed")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("checkbox", { name: /System metrics/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Agent version/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "counter" }));
+    expect(screen.getByText(/any performance counter, by name/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("checkbox", { name: "counter" }));
+    expect(screen.queryByText("check_nt can read more than metrics")).not.toBeInTheDocument();
+
     await save();
     await waitFor(() =>
-      expect(writes).toEqual([`[${P}] use ssl=false`, "[/modules] NSClientServer=enabled"]),
+      expect(writes).toEqual([`[${P}] allow=metrics, info`, "[/modules] NSClientServer=enabled"]),
     );
   });
 });

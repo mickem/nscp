@@ -1,38 +1,33 @@
-// The NSClient (check_nt) server page.
-import { Stack } from "@mui/material";
+// The NSClient (check_nt) server page. check_nt has no TLS, so the page
+// offers none; the agent's TLS keys are left to expert mode.
+import { Button, Stack } from "@mui/material";
 import AllowedHostsSection from "../kit/AllowedHostsSection.tsx";
 import { readStored } from "../kit/changes.ts";
 import PanelShell, { AdvancedSection, KeyField, PanelSection } from "../kit/PanelShell.tsx";
 import RiskBanner from "../kit/RiskBanner.tsx";
-import {
-  CORE_ADVANCED,
-  FieldSpec,
-  SOCKET_TLS_ADVANCED,
-  socketTlsView,
-  useSocketTlsDraft,
-} from "../kit/socketServer.ts";
-import SocketTlsControls from "../kit/SocketTlsControls.tsx";
+import { CORE_ADVANCED, FieldSpec } from "../kit/socketServer.ts";
 import { usePanel } from "../kit/usePanel.ts";
 import type { ModulePanelProps } from "../types.ts";
+import AllowedCommandsPicker from "./AllowedCommandsPicker.tsx";
 import {
-  COMMAND_GROUPS,
+  allowRisk,
+  allowValue,
+  emptyAllowRisk,
   legacyRisk,
   NSCLIENT_MODULE,
   NSCLIENT_PATH,
   NSCLIENT_TABLE,
-  NSCLIENT_TLS,
   nsclientIni,
+  parseAllow,
   passwordRisk,
-  transportRisk,
+  tlsOn,
 } from "./nsclient.ts";
 
-const ADVANCED: FieldSpec[] = [...CORE_ADVANCED, ...SOCKET_TLS_ADVANCED];
+const ADVANCED: FieldSpec[] = CORE_ADVANCED;
 
 export default function NsclientPage({ onExpertMode }: ModulePanelProps) {
-  const tlsDraft = useSocketTlsDraft();
-  const panel = usePanel(NSCLIENT_MODULE, NSCLIENT_TABLE, tlsDraft.reset);
-  const tls = socketTlsView(tlsDraft.draft, panel.stored, NSCLIENT_PATH, NSCLIENT_TLS);
-  const changes = panel.pending(tls.changes);
+  const panel = usePanel(NSCLIENT_MODULE, NSCLIENT_TABLE);
+  const changes = panel.pending();
   const f = (s: FieldSpec) => (
     <KeyField
       key={s.key}
@@ -46,6 +41,8 @@ export default function NsclientPage({ onExpertMode }: ModulePanelProps) {
   );
   const hosts = panel.get(NSCLIENT_PATH, "allowed hosts");
   const pwRisk = passwordRisk(panel.value(NSCLIENT_PATH, "password"));
+  const allow = parseAllow(panel.value(NSCLIENT_PATH, "allow"));
+  const commandsRisk = emptyAllowRisk(allow.commands) ?? allowRisk(allow.commands);
   const advancedSet = ADVANCED.filter(
     (a) => readStored(panel.stored, NSCLIENT_PATH, a.key) !== undefined,
   ).length;
@@ -56,7 +53,7 @@ export default function NsclientPage({ onExpertMode }: ModulePanelProps) {
       subheader="Answers check_nt, the NSClient protocol of the Nagios check_nt plugin."
       panel={panel}
       changes={changes}
-      problem={tls.problem}
+      problem={null}
       ini={nsclientIni}
     >
       <RiskBanner risk={legacyRisk()} />
@@ -72,6 +69,30 @@ export default function NsclientPage({ onExpertMode }: ModulePanelProps) {
           onScopeChange={(sc) => panel.setScope(NSCLIENT_PATH, "allowed hosts", sc)}
           disabled={panel.busy}
         />
+        <RiskBanner
+          risk={
+            tlsOn(panel.stored)
+              ? {
+                  severity: "warning",
+                  title: "TLS is not supported by check_nt",
+                  reason:
+                    "The agent's TLS is on (its default for this module), which check_nt clients cannot connect to. Turn off use ssl in expert mode for check_nt to reach it.",
+                }
+              : {
+                  severity: "warning",
+                  title: "TLS is not supported by check_nt",
+                  reason:
+                    "Connections are plain TCP, so the password and every result can be read on the network path.",
+                }
+          }
+        />
+        {tlsOn(panel.stored) && (
+          <Stack direction="row">
+            <Button size="small" onClick={onExpertMode}>
+              Open expert mode
+            </Button>
+          </Stack>
+        )}
       </PanelSection>
 
       <PanelSection title="Access">
@@ -82,30 +103,24 @@ export default function NsclientPage({ onExpertMode }: ModulePanelProps) {
           kind: "secret",
           help: "What check_nt has to send (-s).",
         })}
-        {f({
-          key: "allow",
-          label: "Allowed commands",
-          kind: "text",
-          help: `Comma separated: any, a group (${COMMAND_GROUPS.join(", ")}) or a command name such as cpuload.`,
-        })}
+        {commandsRisk && <RiskBanner risk={commandsRisk} />}
+        <AllowedCommandsPicker
+          value={allow}
+          onChange={(next) =>
+            panel.set(
+              NSCLIENT_PATH,
+              "allow",
+              allowValue(panel.current(NSCLIENT_PATH, "allow").value, next),
+            )
+          }
+          disabled={panel.busy}
+        />
         {f({
           key: "performance data",
           label: "Performance data",
           kind: "bool",
           help: "Return perfdata with results.",
         })}
-      </PanelSection>
-
-      <PanelSection title="Transport security">
-        <SocketTlsControls
-          panel={panel}
-          path={NSCLIENT_PATH}
-          view={tls}
-          setDraft={tlsDraft.setDraft}
-          plainDescription="Plain TCP, for check_nt clients that cannot do TLS (many cannot)."
-          risk={transportRisk(tls.mode)}
-          onExpertMode={onExpertMode}
-        />
       </PanelSection>
 
       <AdvancedSection count={advancedSet}>{ADVANCED.map(f)}</AdvancedSection>
