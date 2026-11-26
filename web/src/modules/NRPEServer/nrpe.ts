@@ -7,21 +7,27 @@
 // defaults that depend on `insecure`: with it on, the agent loads no server
 // certificate and uses SECLEVEL=0 ciphers unless they are set explicitly.
 import { Settings } from "../../api/api.ts";
-import {
-  DEFAULT_SECTION,
-  enableModuleChange,
-  readScoped,
-  readStored,
-  Scope,
-  scopedChanges,
-  SettingChange,
-  toIni,
-  valueInScope,
-} from "../kit/changes.ts";
+import { enableModuleChange, readStored, SettingChange } from "../kit/changes.ts";
 import { ALLOWED_HOSTS_DEFAULT } from "../kit/allowedHosts.ts";
+import {
+  FieldValue,
+  fixed,
+  KeySpec,
+  KeyTable,
+  keyChanges,
+  readKey,
+  tableIni,
+} from "../kit/keys.ts";
 import { CUSTOM, Custom } from "../kit/modes.ts";
 import type { Risk } from "../kit/RiskBanner.tsx";
 import type { TlsFiles } from "../kit/TlsSection.tsx";
+import {
+  DEFAULT_CA,
+  DEFAULT_CERTIFICATE,
+  parseVerifyMode,
+  SOCKET_TLS_VERSIONS,
+  tlsVersionRisk,
+} from "../kit/tls.ts";
 
 export const NRPE_MODULE = "NRPEServer";
 export const NRPE_PATH = "/settings/NRPE/server";
@@ -33,8 +39,7 @@ export const SECURE_CIPHERS = "ALL:!aNULL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
 const LEGACY_SECURE_CIPHERS = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
 
 export const DEFAULT_PORT = "5666";
-export const DEFAULT_CERTIFICATE = "${certificate-path}/certificate.pem";
-export const DEFAULT_CA = "${certificate-path}/ca.pem";
+export { DEFAULT_CA, DEFAULT_CERTIFICATE };
 
 export type SecurityMode = "two-way-tls" | "one-way-tls" | "insecure";
 export type ArgumentsMode = "none" | "built-ins" | "all";
@@ -58,29 +63,6 @@ function certificateDefault(insecure: boolean) {
 }
 function ciphersDefault(insecure: boolean) {
   return insecure ? INSECURE_CIPHERS : SECURE_CIPHERS;
-}
-
-// The bits `verify mode` sets, exactly as the agent parses it: comma
-// separated, no trimming, and any token outside these makes it something the
-// three modes do not describe.
-function parseVerifyMode(raw: string): { peer: boolean; required: boolean } | null {
-  let peer = false;
-  let required = false;
-  for (const token of raw.split(",")) {
-    if (token === "" || token === "none") continue;
-    if (token === "peer-cert") {
-      peer = true;
-      required = true;
-    } else if (token === "peer" || token === "certificate") peer = true;
-    else if (
-      token === "fail-if-no-cert" ||
-      token === "fail-if-no-peer-cert" ||
-      token === "client-certificate"
-    )
-      required = true;
-    else return null;
-  }
-  return { peer, required };
 }
 
 // The security mode the stored keys describe, or CUSTOM when they describe
@@ -256,14 +238,10 @@ export function argumentsRisk(mode: ArgumentsMode, nasty: boolean): Risk | null 
 // stored, and whether it falls back to [/settings/default] first
 // (add_core_server_opts, and `encoding`). Some defaults follow the insecure
 // flag, as in the agent.
-export interface NrpeKey {
-  builtIn: (stored: Settings[] | undefined) => string;
-  inherits?: boolean;
-}
-const fixed = (v: string) => () => v;
+export type NrpeKey = KeySpec;
 
 // The keys the page edits one value at a time.
-export const NRPE_FIELDS: Record<string, NrpeKey> = {
+export const NRPE_FIELDS: Record<string, KeySpec> = {
   "bind to": { builtIn: fixed(""), inherits: true },
   "cache allowed hosts": { builtIn: fixed("true"), inherits: true },
   timeout: { builtIn: fixed("30"), inherits: true },
@@ -285,7 +263,7 @@ export const NRPE_FIELDS: Record<string, NrpeKey> = {
 };
 
 // All of them, in the order the INI fragment lists them.
-export const NRPE_KEYS: Record<string, NrpeKey> = {
+export const NRPE_KEYS: Record<string, KeySpec> = {
   port: { builtIn: fixed(DEFAULT_PORT) },
   "allowed hosts": { builtIn: fixed(ALLOWED_HOSTS_DEFAULT), inherits: true },
   "use ssl": { builtIn: fixed("true") },
@@ -300,16 +278,12 @@ export const NRPE_KEYS: Record<string, NrpeKey> = {
   ...NRPE_FIELDS,
 };
 
-// A field's value and, for a key that can inherit, where it is kept.
-export interface FieldValue {
-  value: string;
-  scope?: Scope;
-}
+export const NRPE_TABLE: KeyTable = { [NRPE_PATH]: NRPE_KEYS };
+
+export type { FieldValue };
 
 export function readField(stored: Settings[] | undefined, key: string): FieldValue {
-  const spec = NRPE_KEYS[key];
-  if (spec.inherits) return readScoped(stored, NRPE_PATH, key, spec.builtIn(stored));
-  return { value: readStored(stored, NRPE_PATH, key) ?? spec.builtIn(stored) };
+  return readKey(stored, NRPE_PATH, key, NRPE_KEYS[key]);
 }
 
 export function fieldChanges(
@@ -317,73 +291,19 @@ export function fieldChanges(
   key: string,
   next: FieldValue,
 ): SettingChange[] {
-  const spec = NRPE_KEYS[key];
-  if (spec.inherits && next.scope) {
-    return scopedChanges(
-      NRPE_PATH,
-      key,
-      { scope: next.scope, value: next.value },
-      spec.builtIn(stored),
-    );
-  }
-  return [{ path: NRPE_PATH, key, value: next.value, defaultValue: spec.builtIn(stored) }];
-}
-
-// The value a field shows when the reader moves it to `scope`.
-export function fieldInScope(
-  stored: Settings[] | undefined,
-  key: string,
-  scope: Scope,
-  shown: string,
-): string {
-  return valueInScope(stored, NRPE_PATH, key, NRPE_KEYS[key].builtIn(stored), scope, shown);
+  return keyChanges(stored, NRPE_PATH, key, NRPE_KEYS[key], next);
 }
 
 // The NRPE configuration as an INI fragment, to copy to another agent or into
-// a fleet bundle: the module switched on, then every key in the section the
-// agent reads it from. `includeDefaults` adds the keys left at the agent's
-// default, so the fragment also pins them on an agent whose defaults differ.
+// a fleet bundle, with CheckExternalScripts' `allow arguments` when it is set.
 export function nrpeIni(stored: Settings[] | undefined, includeDefaults: boolean): string {
-  const own: Array<[string, string]> = [];
-  const shared: Array<[string, string]> = [];
-  for (const [key, spec] of Object.entries(NRPE_KEYS)) {
-    const local = readStored(stored, NRPE_PATH, key);
-    const common = spec.inherits ? readStored(stored, DEFAULT_SECTION, key) : undefined;
-    if (local !== undefined) own.push([key, local]);
-    else if (common !== undefined) shared.push([key, common]);
-    else if (includeDefaults) (spec.inherits ? shared : own).push([key, spec.builtIn(stored)]);
-  }
   const scripts = readStored(stored, EXTERNAL_SCRIPTS_PATH, "allow arguments");
-  return toIni([
-    ["/modules", [[NRPE_MODULE, "enabled"]]],
-    [DEFAULT_SECTION, shared],
-    [NRPE_PATH, own],
+  return tableIni(stored, NRPE_MODULE, NRPE_TABLE, includeDefaults, [
     [EXTERNAL_SCRIPTS_PATH, scripts !== undefined ? [["allow arguments", scripts]] : []],
   ]);
 }
 
-// `tls version`: one version, or that version and newer with a `+`.
-export const TLS_VERSIONS = [
-  "tlsv1.3",
-  "tlsv1.3+",
-  "tlsv1.2",
-  "tlsv1.2+",
-  "tlsv1.1",
-  "tlsv1.1+",
-  "tlsv1.0",
-  "tlsv1.0+",
-];
-
-export function tlsVersionRisk(version: string): Risk | null {
-  if (/^(tlsv1\.[01]|sslv3)/.test(version)) {
-    return {
-      severity: "warning",
-      title: "An outdated TLS version is allowed",
-      reason: `${version} lets clients negotiate a protocol older than TLS 1.2. Use tlsv1.2+ unless a client cannot.`,
-    };
-  }
-  return null;
-}
+export { SOCKET_TLS_VERSIONS as TLS_VERSIONS, tlsVersionRisk };
 
 // `client identity source = cn` takes the caller's identity from its client
 // certificate, so the agent refuses to start NRPE unless one is required and

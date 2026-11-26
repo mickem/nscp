@@ -33,25 +33,36 @@ function documentedPaths(): Set<string> {
   return paths;
 }
 
-// The keys documented under `path`: the entries indented under its `keys:`.
+// The keys documented under `path`: the entries indented under its `keys:`,
+// in every reference file that lists the path (a client module's file can
+// name a server's path too, without its keys).
 function documentedKeys(path: string): string[] {
   // vitest runs with the web/ package root as the working directory.
   const dir = join(process.cwd(), "..", "docs", "reference");
+  const out = new Set<string>();
   for (const name of readdirSync(dir).filter((n) => n.endsWith(".yaml"))) {
     const lines = readFileSync(join(dir, name), "utf8").split("\n");
-    const at = lines.indexOf(`    ${path}:`);
-    if (at < 0) continue;
-    const keysAt = lines.findIndex((l, i) => i > at && l === "      keys:");
-    const end = lines.findIndex((l, i) => i > at && /^ {0,4}\S/.test(l));
-    if (keysAt < 0 || (end >= 0 && keysAt > end)) return [];
-    const out: string[] = [];
-    for (let i = keysAt + 1; i < lines.length && /^ {8}/.test(lines[i]); ++i) {
-      const m = lines[i].match(/^ {8}(\S[^:]*):$/);
-      if (m) out.push(m[1]);
+    for (
+      let at = lines.indexOf(`    ${path}:`);
+      at >= 0;
+      at = lines.indexOf(`    ${path}:`, at + 1)
+    ) {
+      const end = lines.findIndex((l, i) => i > at && /^ {0,4}\S/.test(l));
+      const keysAt = lines.findIndex((l, i) => i > at && l === "      keys:");
+      if (keysAt < 0 || (end >= 0 && keysAt > end)) continue;
+      // Up to the next line indented less than a key; a multi-line
+      // description can hold a blank line.
+      for (
+        let i = keysAt + 1;
+        i < lines.length && (lines[i] === "" || /^ {8}/.test(lines[i]));
+        ++i
+      ) {
+        const m = lines[i].match(/^ {8}(\S[^:]*):$/);
+        if (m) out.add(m[1]);
+      }
     }
-    return out;
   }
-  return [];
+  return [...out];
 }
 
 describe("module page registry", () => {
