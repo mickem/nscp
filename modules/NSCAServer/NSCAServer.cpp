@@ -91,15 +91,14 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
   settings.register_all();
   settings.notify();
 
-  // Anything that keeps the listener from starting is collected here and acted
-  // on by load mode. A start (normalStart, reloadStart) refuses: an empty or
-  // hashed key is a well-known one, and a server that came up anyway would
-  // accept forged submissions while looking configured. dontStart - `nscp
-  // settings`, `nscp client`, the documentation extractor, the unit tests - never
-  // binds the port, and those callers exist precisely to show and repair the
-  // configuration: a module that refuses to load over its own settings is one
-  // whose settings they can neither list, document nor fix. So with dontStart
-  // the problem is logged as a warning and the module loads, without a listener.
+  // Anything that keeps the listener from starting is collected here. It never
+  // fails the load: an empty or hashed key is a well-known one, so the
+  // listener is refused, but the module itself stays loaded so its settings
+  // can still be listed and fixed (web UI, REST, `nscp settings`) and a reload
+  // with the key set brings the listener up. A start (normalStart,
+  // reloadStart) logs the refusal as an error; dontStart - `nscp settings`,
+  // `nscp client`, the documentation extractor, the unit tests - never binds
+  // the port anyway, so there it is only a warning.
   std::string refusal;
   try {
     encryption_ = nscp::encryption::helpers::encryption_to_int(encryption_name_);
@@ -135,11 +134,16 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
   }
 #endif
   if (!refusal.empty()) {
+    // The module still loads - only the listener is refused. Failing the load
+    // would take the module out of the running agent, so its settings could
+    // no longer be listed or fixed (web UI, REST, `nscp settings`) and a
+    // reload with the key set would have nothing to reload.
     if (mode != NSCAPI::dontStart) {
       NSC_LOG_ERROR_STD("Refusing to start NSCA server: " + refusal);
-      return false;
+    } else {
+      NSC_LOG_WARNING("NSCA server would refuse to start: " + refusal + " (loaded without a listener so the configuration can be inspected and fixed)");
     }
-    NSC_LOG_WARNING("NSCA server would refuse to start: " + refusal + " (loaded without a listener so the configuration can be inspected and fixed)");
+    return true;
   }
   if (payload_length_ != 512)
     NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = " +
