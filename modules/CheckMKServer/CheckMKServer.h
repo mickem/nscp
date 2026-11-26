@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <list>
 #include <net/check_mk/server/server_protocol.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <scripts/script_nscp.hpp>
+#include <string>
+#include <utility>
 
 #include "handler_impl.hpp"
 
@@ -26,6 +29,11 @@ class CheckMKServer : public nscapi::impl::simple_plugin {
   void handleNotification(const std::string &channel, const PB::Commands::SubmitRequestMessage &request_message,
                           PB::Commands::SubmitResponseMessage *response_message);
 
+  typedef std::list<std::pair<std::string, std::string> > script_list;
+  // The Lua scripts to load, as (alias, file): the entries of the deprecated
+  // scripts/ section while it has any, otherwise `script` alone.
+  static script_list scripts_to_load(const std::string &script, const script_list &legacy_scripts);
+
  private:
   bool add_script(std::string alias, std::string file);
 
@@ -36,6 +44,10 @@ class CheckMKServer : public nscapi::impl::simple_plugin {
   std::shared_ptr<lua::lua_runtime> lua_runtime_;
   std::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
   boost::filesystem::path root_;
+  // The Lua script rendering the agent output (`script`).
+  std::string script_;
+  // Entries of the deprecated /settings/check_mk/server/scripts section.
+  script_list legacy_scripts_;
 
   // Channel names (configurable).
   std::string channel_mrpe_;
