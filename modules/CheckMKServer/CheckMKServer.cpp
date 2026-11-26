@@ -59,8 +59,13 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   settings.alias().add_path_to_settings()
     ("CHECK MK SERVER SECTION", "Section for check_mk (CheckMKServer.dll) protocol options.")
     ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_script(key, value); }),
-	    "REMOTE TARGET DEFINITIONS", "",
-	    "TARGET", "For more configuration options add a dedicated section")
+        "LUA SCRIPTS",
+        "Lua scripts that render the check_mk agent output, as `<alias> = <file>` (resolved under the script root, e.g. "
+        "`scripts/lua/`). When none is configured `default_check_mk.lua` is loaded. The agent response comes from the script "
+        "that registers `check_mk.server(<function>)`; there is only one such callback, so configure a single script that "
+        "registers it (if several do, the last one loaded wins).\n"
+        "Example:\n  default = my_check_mk.lua",
+        "SCRIPT", "Lua script file to load")
     // The /local and /mrpe sub-paths are read on demand by default_check_mk.lua
     // (no C++-side callback needed). Registering them here gives them help text
     // and makes them appear in `nscp settings --generate` and the web UI.

@@ -72,8 +72,10 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	      "TARGET", "For more configuration options add a dedicated section")
 
       ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_script(key, value); }),
-	      "REMOTE TARGET DEFINITIONS", "",
-	      "SCRIPT", "For more configuration options add a dedicated section")
+	      "LUA SCRIPTS",
+	      "Lua scripts to load, as `<alias> = <file>` (resolved under the script root, e.g. `scripts/lua/`). "
+	      "A script registers a client callback with `check_mk.client(<function>)` to process the agent output fetched from a remote check_mk agent.",
+	      "SCRIPT", "Lua script file to load")
       ;
 
     // clang-format on
