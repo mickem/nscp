@@ -20,8 +20,9 @@ moving value:
   `slots` count.
 
 There are no default thresholds (a bare call is an inventory line); `memory`
-and `modules` are always emitted as perf data (`hardware_memory`,
-`hardware_modules`). Per-item keywords such as `module_list` belong in
+and `modules` are emitted as perf data (`hardware_memory`,
+`hardware_modules`) — on Linux only when the memory inventory is complete, see
+below. Per-item keywords such as `module_list` belong in
 `detail-syntax` (the default `top-syntax` embeds them via `${list}`).
 
 **Caveats:** VMs and OEM boards frequently report blank or placeholder values —
@@ -59,6 +60,7 @@ Without root:
   empty. An `unknown` value compares false against every number, so
   `warn=modules < 8` never fires on an agent that simply may not read the
   table; test for the case with `modules = 'unknown'`;
+- no perf data is emitted;
 - `memory` falls back to the memory the kernel manages, counted in hotplug
   memory blocks (`/sys/devices/system/memory`). It is close to, but not exactly,
   the installed total; `memory_source` says which one you got (`smbios`,
@@ -88,6 +90,12 @@ number that is short:
   `module_list` and is still counted in `modules`, but `memory` is no longer
   the sum of the others: it comes from the kernel, or is `unknown` when the
   kernel exposes no memory blocks either.
+
+**Perf data follows the same rule (Linux).** `hardware_memory` and
+`hardware_modules` are emitted only when the memory inventory is the complete
+SMBIOS read (`memory_source` `smbios`). An UNKNOWN result, an unprivileged
+agent and every fallback above emit no perf data at all, so a graph never
+steps between the installed total and the kernel's approximation of it.
 
 `help` and argument errors are answered before any of this, so they work on a
 host with no inventory too.

@@ -59,11 +59,12 @@ OK: Dell Inc. PowerEdge R760 uuid=4C4C4544-0042-3510-8051-B4C04F4B4E32 asset=ASS
 **Linux, unprivileged agent (serials, UUID and the module inventory need root):**
 
 The module count is `unknown`, so `warn=modules < 8` stays quiet instead of
-firing, and `memory` is the kernel's memory-block total.
+firing, and `memory` is the kernel's memory-block total. No perf data is
+emitted: the fallback total is not the same series as the SMBIOS one.
 
 ```
 check_hardware "warn=modules < 8"
-OK: Dell Inc. PowerEdge R760 (Rack Mount Chassis), serial=, unknown memory module(s), 16GB|'hardware_memory'=17179869184
+OK: Dell Inc. PowerEdge R760 (Rack Mount Chassis), serial=, unknown memory module(s), 16GB
 
 check_hardware "detail-syntax=${vendor} ${model} serial=${serial} uuid=${uuid} modules=${modules} memory=${memory} (${memory_source})"
 OK: Dell Inc. PowerEdge R760 serial= uuid= modules=unknown memory=16GB (sysfs)

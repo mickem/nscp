@@ -177,6 +177,12 @@ PB::Common::ResultCode run_check(const hardware_info &info, const std::vector<st
   return response.result();
 }
 
+int perf_count(const PB::Commands::QueryResponseMessage::Response &r) {
+  int n = 0;
+  for (int i = 0; i < r.lines_size(); ++i) n += r.lines(i).perf_size();
+  return n;
+}
+
 bool has_perf(const PB::Commands::QueryResponseMessage::Response &r, const std::string &alias) {
   for (int i = 0; i < r.lines_size(); ++i) {
     for (int j = 0; j < r.lines(i).perf_size(); ++j) {
@@ -526,6 +532,7 @@ TEST(CheckHardwareUnix, GatherTruncatedTableIsUnknownNotPartial) {
   PB::Commands::QueryResponseMessage::Response r;
   EXPECT_EQ(run_check(h, {"crit=modules < 2"}, r), PB::Common::ResultCode::UNKNOWN);
   EXPECT_EQ(join_lines(r), h.unavailable);
+  EXPECT_EQ(perf_count(r), 0);
 }
 
 TEST(CheckHardwareUnix, GatherAllSocketsEmptyIsNotZeroMemory) {
@@ -546,6 +553,7 @@ TEST(CheckHardwareUnix, GatherAllSocketsEmptyIsNotZeroMemory) {
   EXPECT_EQ(h.memory_source, "sysfs");
   PB::Commands::QueryResponseMessage::Response r;
   EXPECT_EQ(run_check(h, {"warn=memory < 1G or modules < 1"}, r), PB::Common::ResultCode::OK);
+  EXPECT_EQ(perf_count(r), 0);  // the kernel's total is not the SMBIOS series
 }
 
 TEST(CheckHardwareUnix, GatherUnknownModuleSizeDoesNotUndercountMemory) {
@@ -564,6 +572,11 @@ TEST(CheckHardwareUnix, GatherUnknownModuleSizeDoesNotUndercountMemory) {
     EXPECT_EQ(h.memory.value(), 256LL * 0x8000000);
     EXPECT_EQ(h.memory_source, "sysfs");
     EXPECT_EQ(h.module_list, "A1: 16GB@4800MHz; A2: unknown@4800MHz");
+    // A known module count beside a fallback total: still no perfdata, even
+    // for a keyword a threshold names.
+    PB::Commands::QueryResponseMessage::Response r;
+    EXPECT_EQ(run_check(h, {"warn=modules < 2 or memory < 1G"}, r), PB::Common::ResultCode::OK);
+    EXPECT_EQ(perf_count(r), 0);
   }
   {
     FakeRoot fs;
@@ -575,7 +588,7 @@ TEST(CheckHardwareUnix, GatherUnknownModuleSizeDoesNotUndercountMemory) {
     EXPECT_EQ(h.memory_source, "none");
     PB::Commands::QueryResponseMessage::Response r;
     EXPECT_EQ(run_check(h, {"warn=memory < 64G"}, r), PB::Common::ResultCode::OK);
-    EXPECT_FALSE(has_perf(r, "hardware_memory"));
+    EXPECT_EQ(perf_count(r), 0);
   }
 }
 
@@ -598,6 +611,7 @@ TEST(CheckHardwareUnix, HelpAndBadArgumentsAreAnsweredWithoutAnInventory) {
   unsupported.unavailable = "check_hardware is not supported on macOS yet";
   PB::Commands::QueryResponseMessage::Response r;
   EXPECT_EQ(run_check(unsupported, {}, r), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_EQ(perf_count(r), 0);
   EXPECT_EQ(join_lines(r), "check_hardware is not supported on macOS yet");
 }
 
@@ -644,7 +658,7 @@ TEST(CheckHardwareUnix, UnknownModuleCountNeverTrips) {
   PB::Commands::QueryResponseMessage::Response r;
   EXPECT_EQ(run_check(h, {"warn=modules < 8 or slots < 2 or memory_speed < 1000"}, r), PB::Common::ResultCode::OK);
   EXPECT_EQ(join_lines(r), "OK: LENOVO 20XW0055GE (Notebook), serial=, unknown memory module(s), 16GB");
-  EXPECT_FALSE(has_perf(r, "hardware_modules"));
+  EXPECT_EQ(perf_count(r), 0);  // memory is the sysfs fallback: not graphed
   PB::Commands::QueryResponseMessage::Response r2;
   EXPECT_EQ(run_check(h, {"crit=modules = 'unknown'"}, r2), PB::Common::ResultCode::CRITICAL);
 }

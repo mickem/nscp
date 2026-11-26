@@ -84,6 +84,10 @@ struct hardware_info {
   std::string get_module_list() const { return module_list; }
   std::string get_memory_source() const { return memory_source; }
 
+  // True when modules, memory and slots are the full SMBIOS read: the only
+  // case in which the check emits perfdata.
+  bool memory_inventory_complete() const { return modules && memory && memory_source == "smbios"; }
+
   std::string show() const { return vendor + " " + model; }
 };
 

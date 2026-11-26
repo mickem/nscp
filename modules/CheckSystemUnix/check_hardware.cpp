@@ -609,6 +609,15 @@ void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   filter.match(record);
 
   filter_helper.post_process(filter);
+
+  // Perfdata is a series someone graphs and alerts on. A memory total that
+  // came from the kernel's memory blocks, or a module count beside an unknown
+  // total, is a different quantity from the SMBIOS one and would step the
+  // series whenever the agent gains or loses access to the table. Emit it
+  // only when the memory inventory is the complete SMBIOS read.
+  if (!info.memory_inventory_complete()) {
+    for (int i = 0; i < response->lines_size(); ++i) response->mutable_lines(i)->clear_perf();
+  }
 }
 
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
