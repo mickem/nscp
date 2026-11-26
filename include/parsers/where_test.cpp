@@ -3,11 +3,13 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <parsers/where.hpp>
 #include <parsers/where/node.hpp>
 #include <string>
+#include <vector>
 
 using namespace parsers::where;
 
@@ -1058,3 +1060,127 @@ TEST(WhereParser, NotStillNegatesAsAWord) {
     EXPECT_NE(std::string::npos, p.result_as_tree().find("not")) << expr << " -> " << p.result_as_tree();
   }
 }
+
+// ======================================================================
+// Keywords only match as whole words
+//
+// `and`, `or`, `in` and the word operators (`le`, `lt`, `eq`, `ne`, `ge`,
+// `gt`, `like`, `regexp`, `not like`, `not regexp`, `not in`) used to be plain
+// literals with no word-boundary check, the way `not` was (above), so a
+// variable whose name started with one was split: `a > 1 order > 2` parsed as
+// `a > 1 or (der > 2)` and `x next` as `x ne xt`. These tests record which
+// variables the grammar asks the factory for, which pins the split exactly.
+// ======================================================================
+
+namespace {
+struct recording_object_factory final : object_factory_interface {
+  std::vector<std::string> variables;
+  std::string error_;
+  bool has_error() const override { return !error_.empty(); }
+  std::string get_error() const override { return error_; }
+  void error(std::string msg) override { error_ += msg; }
+  bool has_warn() const override { return false; }
+  std::string get_warn() const override { return ""; }
+  void warn(std::string) override {}
+  void clear() override { error_.clear(); }
+  void enable_debug(bool) override {}
+  bool debug_enabled() override { return false; }
+  std::string get_debug() const override { return ""; }
+  void debug(object_match) override {}
+  bool can_convert(value_type, value_type) override { return false; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
+  bool has_variable(const std::string &) override { return true; }
+  node_type create_variable(const std::string &name, bool) override {
+    variables.push_back(name);
+    return factory::create_int(1);
+  }
+  bool has_function(const std::string &) override { return false; }
+  node_type create_function(const std::string &, node_type) override { return factory::create_false(); }
+  std::string get_performance_config_key(const std::string, const std::string, const std::string, const std::string, const std::string) const override {
+    return "";
+  }
+};
+
+// Parses `expr` in full and returns the variables it referenced, in order.
+// The grammar backtracks, so a name can be requested more than once; the
+// distinct names in order of first use are what a test cares about.
+std::vector<std::string> variables_of(const std::string &expr, std::string *tree = nullptr) {
+  auto f = std::make_shared<recording_object_factory>();
+  parser p;
+  if (!p.parse(f, expr)) return {"<parse failed>"};
+  if (!p.rest.empty()) return {"<rest: " + p.rest + ">"};
+  if (tree) *tree = p.result_as_tree();
+  std::vector<std::string> out;
+  for (const auto &v : f->variables)
+    if (std::find(out.begin(), out.end(), v) == out.end()) out.push_back(v);
+  return out;
+}
+
+using names = std::vector<std::string>;
+}  // namespace
+
+TEST(WhereKeywords, VariablesStartingWithAndOrAreVariables) {
+  EXPECT_EQ(variables_of("android = 1"), (names{"android"}));
+  EXPECT_EQ(variables_of("order = 1"), (names{"order"}));
+  EXPECT_EQ(variables_of("orphans > 0 and android = 1"), (names{"orphans", "android"}));
+  EXPECT_EQ(variables_of("a = order or b = android"), (names{"a", "order", "b", "android"}));
+}
+
+TEST(WhereKeywords, AndOrNeedAWordBoundary) {
+  // `a > 1 order > 2` is not `a > 1 or (der > 2)`.
+  EXPECT_EQ(variables_of("a > 1 order > 2"), (names{"<parse failed>"}));
+  EXPECT_EQ(variables_of("a > 1 android > 2"), (names{"<parse failed>"}));
+  EXPECT_EQ(variables_of("a > 1 and b < 2"), (names{"a", "b"}));
+  EXPECT_EQ(variables_of("a > 1 AND b < 2 Or c = 3"), (names{"a", "b", "c"}));
+  EXPECT_EQ(variables_of("(a > 1)and(b < 2)"), (names{"a", "b"}));
+}
+
+TEST(WhereKeywords, VariablesStartingWithInAreVariables) {
+  EXPECT_EQ(variables_of("index = 1"), (names{"index"}));
+  EXPECT_EQ(variables_of("index in (1, 2)"), (names{"index"}));
+  EXPECT_EQ(variables_of("x in (index, inbox)"), (names{"x", "index", "inbox"}));
+  EXPECT_EQ(variables_of("x in(1,2)"), (names{"x"}));
+  EXPECT_EQ(variables_of("x IN (1,2)"), (names{"x"}));
+  EXPECT_EQ(variables_of("x not in (1,2)"), (names{"x"}));
+  EXPECT_EQ(variables_of("x not  in (1,2)"), (names{"x"}));
+  EXPECT_EQ(variables_of("notice not in (1,2)"), (names{"notice"}));
+  // `x index (1)` is not `x in dex(1)`.
+  EXPECT_EQ(variables_of("x index (1)"), (names{"<parse failed>"}));
+}
+
+TEST(WhereKeywords, VariablesStartingWithWordOperatorsAreVariables) {
+  for (const std::string v : {"level", "ltime", "equal", "next", "generic", "gtotal", "likes", "regexps", "letter", "eqx"}) {
+    EXPECT_EQ(variables_of(v + " = 1"), (names{v})) << v;
+    EXPECT_EQ(variables_of("x = " + v), (names{"x", v})) << v;
+    EXPECT_EQ(variables_of("x < " + v), (names{"x", v})) << v;
+  }
+}
+
+TEST(WhereKeywords, WordOperatorsNeedAWordBoundary) {
+  // `x next` is not `x ne xt`, `x likes 'a'` is not `x like s 'a'`.
+  EXPECT_EQ(variables_of("x next"), (names{"<parse failed>"}));
+  EXPECT_EQ(variables_of("x gtotal"), (names{"<parse failed>"}));
+  EXPECT_EQ(variables_of("x likes 'a'"), (names{"<parse failed>"}));
+  EXPECT_EQ(variables_of("x notlike 'a'"), (names{"<parse failed>"}));
+}
+
+TEST(WhereKeywords, WordOperatorsStillWork) {
+  for (const std::string op : {"le", "lt", "eq", "ne", "ge", "gt", "LE", "Gt"}) {
+    EXPECT_EQ(variables_of("x " + op + " y"), (names{"x", "y"})) << op;
+    EXPECT_EQ(variables_of("x " + op + " letter"), (names{"x", "letter"})) << op;
+  }
+  std::string tree;
+  EXPECT_EQ(variables_of("likes like 'y'", &tree), (names{"likes"}));
+  EXPECT_NE(tree.find("like"), std::string::npos) << tree;
+  EXPECT_EQ(variables_of("x not like 'y'", &tree), (names{"x"}));
+  EXPECT_NE(tree.find("not_like"), std::string::npos) << tree;
+  EXPECT_EQ(variables_of("x NOT  LIKE 'y'"), (names{"x"}));
+  EXPECT_EQ(variables_of("notice not like 'y'"), (names{"notice"}));
+  EXPECT_EQ(variables_of("x regexp 'y'", &tree), (names{"x"}));
+  EXPECT_NE(tree.find("regexp"), std::string::npos) << tree;
+  EXPECT_EQ(variables_of("x not regexp 'y'", &tree), (names{"x"}));
+  EXPECT_NE(tree.find("not_regexp"), std::string::npos) << tree;
+  EXPECT_EQ(variables_of("x like'y'"), (names{"x"}));
+}
+
