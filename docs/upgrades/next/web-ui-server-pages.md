@@ -13,7 +13,8 @@ fragment to copy to another agent or a fleet bundle. Passwords, tokens and
 tickets are never shown back, only whether one is set.
 
 Each page says plainly what weakens it: NSCA results accepted unencrypted (or
-under `xor`; the NSCA page offers only `aes256` and, as NSCA has its own
+under `xor`; the NSCA page offers only the secure ciphers - AES, Twofish,
+Serpent - and, as NSCA has its own
 encryption, no TLS - other ciphers and TLS are set in expert mode), check_nt's password in clear (check_nt has no TLS, so its page offers none and
 says when the agent's own TLS default keeps check_nt out), an NCPA or NSClient
 listener that refuses everything for want of a token or password, NCPA

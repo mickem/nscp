@@ -37,21 +37,28 @@ export const NSCA_TABLE: KeyTable = {
 // protects results with its own encryption: the page leaves TLS to expert mode.
 export const NSCA_TLS_KEYS = Object.keys(socketTlsKeys(NSCA_TLS));
 
-// The page offers the one secure cipher; any other is set in expert mode.
-// nscpcrypt reads aes and rijndael256 as the same cipher.
-export const SECURE_ENCRYPTION = "aes256";
-const SECURE_SPELLINGS = new Set(["aes256", "aes", "rijndael256"]);
+// The page offers the secure ciphers (libs/nscpcrypt: AES at its three key
+// sizes, Twofish and Serpent with 256-bit keys); any other is set in expert
+// mode. nscpcrypt reads aes, rijndael256 and the like as the same cipher.
+export const SECURE_ENCRYPTIONS = ["aes256", "aes192", "aes128", "twofish", "serpent"];
+const SECURE_SPELLINGS = new Set([
+  ...SECURE_ENCRYPTIONS,
+  "aes",
+  "rijndael256",
+  "rijndael192",
+  "rijndael128",
+]);
 
 export function isSecureEncryption(encryption: string): boolean {
   return SECURE_SPELLINGS.has(encryption);
 }
 
-// What the encryption field offers: aes256, plus whatever is stored now so
-// it is shown rather than silently replaced.
+// What the encryption field offers: the secure ciphers, plus whatever is
+// stored now so it is shown rather than silently replaced.
 export function encryptionOptions(current: string): string[] {
-  return isSecureEncryption(current) || current === ""
-    ? [current || SECURE_ENCRYPTION]
-    : [SECURE_ENCRYPTION, current];
+  return current === "" || SECURE_ENCRYPTIONS.includes(current)
+    ? SECURE_ENCRYPTIONS
+    : [...SECURE_ENCRYPTIONS, current];
 }
 
 // Whether TLS was turned on (in expert mode): standard send_nsca cannot
@@ -60,18 +67,6 @@ export function tlsOn(stored: Settings[] | undefined): boolean {
   const v = (readStored(stored, NSCA_PATH, "use ssl") ?? "false").toLowerCase();
   return v === "true" || v === "1";
 }
-
-const STRONG = new Set([
-  "aes256",
-  "aes",
-  "rijndael256",
-  "aes192",
-  "rijndael192",
-  "aes128",
-  "rijndael128",
-  "serpent",
-  "twofish",
-]);
 
 export function encryptionRisk(encryption: string, tls: boolean): Risk | null {
   if (encryption === "none" || encryption === "") {
@@ -91,7 +86,7 @@ export function encryptionRisk(encryption: string, tls: boolean): Risk | null {
       reason: "It hides nothing from anyone who looks. Use aes256 if the sending hosts support it.",
     };
   }
-  if (!STRONG.has(encryption)) {
+  if (!isSecureEncryption(encryption)) {
     return {
       severity: "warning",
       title: `${encryption} is an old cipher`,

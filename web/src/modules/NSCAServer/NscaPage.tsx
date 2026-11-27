@@ -17,7 +17,6 @@ import {
   NSCA_TABLE,
   nscaIni,
   passwordProblem,
-  SECURE_ENCRYPTION,
   tlsOn,
 } from "./nsca.ts";
 
@@ -87,8 +86,8 @@ export default function NscaPage({ onExpertMode }: ModulePanelProps) {
             label: "Encryption",
             kind: { options: encryptionOptions(encryption) },
             help: isSecureEncryption(encryption)
-              ? "The NSCA payload cipher. Every sending host has to use the same one; another cipher, or none, is set in expert mode."
-              : `${encryption} was set outside this page; only ${SECURE_ENCRYPTION} is offered here. Every sending host has to use the same one.`,
+              ? "The NSCA payload cipher. Every sending host has to use the same one; an older cipher, or none, is set in expert mode."
+              : `${encryption} was set outside this page, which offers only the secure ciphers. Every sending host has to use the same one.`,
           })}
           {f({
             key: "password",

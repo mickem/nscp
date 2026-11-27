@@ -80,21 +80,21 @@ describe("NSCA server page", () => {
     expect(await screen.findByText("xor is not encryption")).toBeInTheDocument();
   });
 
-  it("offers only aes256, keeping another stored cipher on show", async () => {
+  it("offers only the secure ciphers, keeping another stored cipher on show", async () => {
     const writes = render(NscaPage, [
       { path: P, key: "encryption", value: "blowfish" },
       { path: P, key: "password", value: "k" },
     ]);
     const field = await screen.findByLabelText("Encryption");
     expect(field).toHaveTextContent("blowfish");
-    expect(screen.getByText(/only aes256 is offered here/)).toBeInTheDocument();
+    expect(screen.getByText(/offers only the secure ciphers/)).toBeInTheDocument();
     await userEvent.click(field);
     const options = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(options).toEqual(["aes256", "blowfish"]);
-    await userEvent.click(screen.getByRole("option", { name: "aes256" }));
+    expect(options).toEqual(["aes256", "aes192", "aes128", "twofish", "serpent", "blowfish"]);
+    await userEvent.click(screen.getByRole("option", { name: "twofish" }));
     await save();
     await waitFor(() =>
-      expect(writes).toEqual([`[${P}] encryption=aes256`, "[/modules] NSCAServer=enabled"]),
+      expect(writes).toEqual([`[${P}] encryption=twofish`, "[/modules] NSCAServer=enabled"]),
     );
   });
 
