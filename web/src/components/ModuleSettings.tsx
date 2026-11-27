@@ -112,14 +112,20 @@ export default function ModuleSettings({
     <Stack spacing={3}>
       {Panel && <Panel onExpertMode={onExpertMode} />}
       {showFlat && <SettingsList settings={flatSettings} flat />}
-      {visibleCollectionPaths.map((path) => (
-        <SettingsCollection
-          key={path}
-          collectionPath={path}
-          settings={allDescriptions ?? []}
-          expert={expert}
-        />
-      ))}
+      {visibleCollectionPaths.map((path) => {
+        const config = getCollectionConfig(path);
+        const Editor = !expert && config?.kind === "instances" ? config.Editor : undefined;
+        return Editor ? (
+          <Editor key={path} collectionPath={path} onExpertMode={onExpertMode} />
+        ) : (
+          <SettingsCollection
+            key={path}
+            collectionPath={path}
+            settings={allDescriptions ?? []}
+            expert={expert}
+          />
+        );
+      })}
       {kvPaths.map((path) => {
         const config = getCollectionConfig(path);
         const Editor = !expert && config?.kind === "keyValue" ? config.Editor : undefined;
