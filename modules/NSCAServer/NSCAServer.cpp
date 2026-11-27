@@ -69,14 +69,15 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
   // from NSCAClient: that key is what *this* agent submits to a remote daemon
   // with, a different secret shared with a different peer, and quietly reusing
   // it would let a client target hand out a listening key. One section, one
-  // key, set on purpose - and the server refuses to start without it rather
-  // than listen with a well-known one.
+  // key, set on purpose - and without it the module loads but opens no
+  // listener, rather than listen with a well-known one.
   settings.alias()
       .add_key_to_settings()
 
       .add_password("password", sh::string_key(&password_, ""), DEFAULT_PASSWORD_NAME,
                     "The NSCA encryption key: the same value every host submitting to this agent uses. Required whenever encryption is enabled - "
-                    "the server refuses to start without it, since an empty password is a well-known key. Inherited from nowhere: not "
+                    "without it the module still loads but opens no port (no listener) until a key is set, since an empty password is a "
+                    "well-known key. Inherited from nowhere: not "
                     "/settings/default (the hashed password inbound protocols verify against) and not the NSCAClient target (the key this agent "
                     "submits to a remote daemon with, which is a different secret).")
 
