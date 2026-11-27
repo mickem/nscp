@@ -91,12 +91,12 @@ export function encryptionRisk(encryption: string, tls: boolean): Risk | null {
   return null;
 }
 
-// The server refuses to start with encryption and no key, since an empty key
-// is a well-known one.
+// With encryption and no key the module loads but opens no listener, since
+// an empty key is a well-known one.
 export function passwordProblem(encryption: string, password: string): string | null {
   if (encryption === "none" || encryption === "") return null;
   return password === ""
-    ? "NSCA encryption needs a password (the shared key every sending host uses); the server refuses to start without one."
+    ? "NSCA encryption needs a password (the shared key every sending host uses); without one the server opens no port."
     : null;
 }
 

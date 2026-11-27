@@ -18,7 +18,7 @@ says when the agent's own TLS default keeps check_nt out), an NCPA or NSClient
 listener that refuses everything for want of a token or password, NCPA
 arguments reaching external scripts, anonymous web access, a missing
 certificate meaning plain HTTP, and an Icinga agent that trusts its first
-parent unverified. Saving is held back where the agent would refuse to start:
+parent unverified. Saving is held back where the agent would refuse to listen or start:
 NSCA encryption without a key, TLS without its certificate or CA, an Icinga
 parent host without its endpoint name.
 
