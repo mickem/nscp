@@ -549,6 +549,69 @@ TEST(CheckHardwareUnix, GatherTruncatedTableLeavesMemoryInventoryUnknown) {
   EXPECT_EQ(run_check(h, {"crit=modules < 8"}, r), PB::Common::ResultCode::OK);
 }
 
+TEST(CheckHardwareUnix, DevicesOfOtherOrUnknownArraysAreKept) {
+  // Firmware that labels its main memory array Other (1) or Unknown (2).
+  for (const std::uint8_t use : {std::uint8_t(1), std::uint8_t(2)}) {
+    std::string array = type16(use, 2);
+    put16(array, 0x02, 0x30);
+    std::string dimm = type17(8192, 3200, 3200, "DIMM 1", "");
+    put16(dimm, 0x04, 0x30);
+    const smbios_inventory inv = parse_smbios_table(array + dimm + end_of_table(), boost::none);
+    EXPECT_EQ(inv.device_records, 1);
+    EXPECT_EQ(inv.other_devices, 0);
+    ASSERT_EQ(inv.modules.size(), 1u);
+  }
+}
+
+TEST(CheckHardwareUnix, GatherOnlyNonSystemDevicesSaysSo) {
+  FakeRoot fs;
+  fs.standard_dmi();
+  std::string flash_array = type16(5, 1);
+  put16(flash_array, 0x02, 0x20);
+  std::string rom = type17(16, 0, 0, "SYSTEM ROM", "");
+  put16(rom, 0x04, 0x20);
+  fs.write("sys/firmware/dmi/tables/DMI", flash_array + rom + end_of_table());
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_FALSE(h.modules);
+  EXPECT_NE(h.gather_errors.find("no populated system memory module"), std::string::npos) << h.gather_errors;
+  EXPECT_NE(h.gather_errors.find("1 device(s) of video, flash or cache arrays ignored"), std::string::npos) << h.gather_errors;
+}
+
+TEST(CheckHardwareUnix, GatherDamageAfterAllSocketsKeepsInventory) {
+  // Every socket the system array announces was read before the damage.
+  FakeRoot fs;
+  fs.standard_dmi();
+  std::string broken(8, '\0');
+  broken[0] = 41;
+  broken[1] = 2;  // length below the header
+  const std::string full = server_table();
+  fs.write("sys/firmware/dmi/tables/DMI", full.substr(0, full.size() - end_of_table().size()) + broken);
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_EQ(h.modules.value(), 2);
+  EXPECT_EQ(h.slots.value(), 4);
+  EXPECT_EQ(h.memory_source, "smbios");
+  EXPECT_NE(h.gather_errors.find("malformed or truncated"), std::string::npos) << h.gather_errors;
+}
+
+TEST(CheckHardwareUnix, GatherEntryPointCapLeavesMemoryInventoryUnknown) {
+  // A 2.x structure count that ends the walk after the first of two modules.
+  FakeRoot fs;
+  fs.standard_dmi();
+  fs.write("sys/firmware/dmi/tables/DMI", server_table());
+  fs.write("sys/firmware/dmi/tables/smbios_entry_point", entry_point_v2(0, 5));
+  fs.memory_blocks("8000000", 8, 0);
+  const hardware_info h = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_FALSE(h.modules);
+  EXPECT_FALSE(h.slots);
+  EXPECT_EQ(h.memory_source, "sysfs");
+  EXPECT_NE(h.gather_errors.find("entry point ends the walk"), std::string::npos) << h.gather_errors;
+  // A count that covers the whole table is not a cap.
+  fs.write("sys/firmware/dmi/tables/smbios_entry_point", entry_point_v2(0, 9));
+  const hardware_info ok = hardware_check::gather_hardware_from(fs.root());
+  EXPECT_EQ(ok.modules.value(), 2);
+  EXPECT_EQ(ok.gather_errors.find("entry point"), std::string::npos) << ok.gather_errors;
+}
+
 TEST(CheckHardwareUnix, GatherNoPopulatedModuleIsUnknownNotZero) {
   // An array and sockets but nothing in them: the table does not describe a
   // running machine, so this is "unknown", never "0 modules, 0B".

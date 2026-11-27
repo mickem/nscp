@@ -45,9 +45,9 @@ struct hardware_info {
 
   // Memory inventory. Unset when it could not be read, so that `modules < 8`
   // never fires on an agent that simply may not read the SMBIOS table. It is
-  // all or nothing: a malformed table, or one with no populated module, leaves
-  // slots/modules/memory_speed unset, and memory is the SMBIOS sum only when
-  // every module reports its size.
+  // all or nothing: a table with no populated module, or a walk that stopped
+  // before every announced socket was read, leaves slots/modules/memory_speed
+  // unset, and memory is the SMBIOS sum only when every module reports its size.
   boost::optional<long long> slots;         // memory sockets (type 16 "Number of Memory Devices", summed)
   boost::optional<long long> modules;       // populated modules
   boost::optional<long long> memory;        // installed memory in bytes
@@ -121,12 +121,14 @@ struct smbios_inventory {
   // Type 16 (system memory arrays only) / type 17.
   bool have_arrays;
   long long slots;                     // sum of "Number of Memory Devices"
-  long long device_records;            // type 17 structures (one per socket), less those of non-system arrays
+  long long device_records;            // type 17 structures (one per socket), less those counted in other_devices
   std::vector<memory_module> modules;  // populated ones, same filter
   long long structures;                // structures walked
+  long long other_devices;             // type 17 structures left out: their array is video, flash, NVRAM or cache
   bool truncated;                      // the walk stopped at a malformed or cut-off structure
+  bool capped;                         // the entry point's count or length ended the walk with structures still ahead
 
-  smbios_inventory() : chassis_type(0), have_arrays(false), slots(0), device_records(0), structures(0), truncated(false) {}
+  smbios_inventory() : chassis_type(0), have_arrays(false), slots(0), device_records(0), structures(0), other_devices(0), truncated(false), capped(false) {}
 };
 
 // Walk the structure table. Every header, formatted area, string set and
