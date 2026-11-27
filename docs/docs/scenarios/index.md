@@ -71,6 +71,7 @@ direction (active vs. passive) and protocol that matches your setup.
 | [Mod-Gearman (Naemon / Nagios Core)](mod-gearman.md)          | Pull the checks a Naemon or Nagios Core schedules off a gearmand queue — as an agent for one host or a proxy for a whole hostgroup — and submit passive results down the same connection |
 | [Checkmk Agent Integration](check-mk.md)                      | Serve a Checkmk-compatible agent dump from NSClient++ on TCP/6556                |
 | [Prometheus Scraping](prometheus.md)                          | Expose metrics on `/api/v2/openmetrics` for Prometheus to scrape                 |
+| [Explaining Alerts with a Local LLM (Fleet)](fleet-llm-enrichment.md) | Have a fleet server explain a Nagios or Icinga alert with a model on your own network, from the metrics and diagnostics the agent captured when the check failed |
 
 ### Extensibility
 

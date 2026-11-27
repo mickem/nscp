@@ -71,6 +71,7 @@ nav:
       - Mod-Gearman (Naemon / Nagios Core): scenarios/mod-gearman.md
       - Checkmk Agent Integration: scenarios/check-mk.md
       - Prometheus Scraping: scenarios/prometheus.md
+      - Explaining Alerts with a Local LLM (Fleet): scenarios/fleet-llm-enrichment.md
       - External Scripts: scenarios/external-scripts.md
   - Reference:
       - Reference: reference/index.md
