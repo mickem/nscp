@@ -56,6 +56,21 @@ double scope_obj::get_used_pct() const { return percent(in_use, get_addresses())
 // anything to report, and a "free_pct < 10" threshold must not fire on it.
 double scope_obj::get_free_pct() const { return percent(available, get_addresses()); }
 
+namespace {
+// A percentage as the detail line shows it: whole numbers bare, anything else
+// to one decimal ("85", "97.5").
+std::string format_pct(const double v) {
+  const long long tenths = static_cast<long long>(v * 10.0 + 0.5);
+  if (tenths % 10 == 0) return std::to_string(tenths / 10);
+  return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10);
+}
+}  // namespace
+
+std::string scope_obj::get_usage() const {
+  if (!stats_known) return "no statistics";
+  return format_pct(get_used_pct()) + "% used, " + std::to_string(available) + " of " + std::to_string(get_addresses()) + " free";
+}
+
 scope_obj_ptr make_scope(const std::uint32_t subnet, const std::uint32_t mask, const std::string &name, const std::string &comment, const int state,
                          const scope_stats *stats) {
   scope_obj_ptr obj = std::make_shared<scope_obj>();
@@ -86,25 +101,33 @@ scope_handler::scope_handler() {
                       "The scope state: enabled, disabled, enabled_switched, disabled_switched or invalid");
   registry_.add_int_var("prefix", type_int, [](auto obj) { return obj->prefix; }, "The prefix length of the subnet mask (24 for 255.255.255.0)");
   registry_.add_int_var("enabled", type_bool, [](auto obj) { return obj->enabled ? 1LL : 0LL; },
-                        "True when the scope hands out addresses (state enabled or enabled_switched)");
-  registry_.add_int_var("in_use", type_int, [](auto obj) { return obj->in_use; }, "Addresses of the scope that are leased (reservations in use included)")
+                        "True when the scope hands out addresses (state enabled or enabled_switched)")
+      .no_perf();
+  // The counts and percentages have no value when the server returned no
+  // statistics for the scope (see stats_known): no numeric comparison
+  // matches, they render "unknown" and write no perfdata.
+  registry_.add_optional_int_var("in_use", type_int, [](auto obj) { return obj->opt_in_use(); }, "unknown",
+                                 "Addresses of the scope that are leased (reservations in use included)")
       .add_int_perf("", "", "_in_use");
-  registry_.add_int_var("free", type_int, [](auto obj) { return obj->available; }, "Addresses of the scope that are still free to lease")
+  registry_.add_optional_int_var("free", type_int, [](auto obj) { return obj->opt_free(); }, "unknown", "Addresses of the scope that are still free to lease")
       .add_int_perf("", "", "_free");
-  registry_.add_int_var("pending_offers", type_int, [](auto obj) { return obj->pending_offers; },
-                        "Addresses offered to a client that has not yet requested them")
+  registry_.add_optional_int_var("pending_offers", type_int, [](auto obj) { return obj->opt_pending_offers(); }, "unknown",
+                                 "Addresses offered to a client that has not yet requested them")
       .add_int_perf("", "", "_pending_offers");
-  registry_.add_int_var("addresses", type_int, [](auto obj) { return obj->get_addresses(); },
-                        "Addresses the scope can lease: in_use plus free (the range minus its exclusions)")
+  registry_.add_optional_int_var("addresses", type_int, [](auto obj) { return obj->opt_addresses(); }, "unknown",
+                                 "Addresses the scope can lease: in_use plus free (the range minus its exclusions)")
       .add_int_perf("", "", "_addresses");
-  registry_.add_numbers("used_pct", type_float, [](auto obj) { return static_cast<long long>(obj->get_used_pct()); },
-                        [](auto obj) { return obj->get_used_pct(); }, "Addresses in use as a percentage of the addresses the scope can lease")
+  registry_.add_optional_float_var("used_pct", [](auto obj) { return obj->opt_used_pct(); }, {}, "unknown",
+                                   "Addresses in use as a percentage of the addresses the scope can lease")
       .add_float_perf("%", "", "_used_pct");
-  registry_.add_numbers("free_pct", type_float, [](auto obj) { return static_cast<long long>(obj->get_free_pct()); },
-                        [](auto obj) { return obj->get_free_pct(); }, "Free addresses as a percentage of the addresses the scope can lease")
+  registry_.add_optional_float_var("free_pct", [](auto obj) { return obj->opt_free_pct(); }, {}, "unknown",
+                                   "Free addresses as a percentage of the addresses the scope can lease")
       .add_float_perf("%", "", "_free_pct");
+  registry_.add_string_var("usage", [](auto obj) { return obj->get_usage(); },
+                           "The utilisation as the default detail line shows it: \"85% used, 30 of 200 free\", or \"no statistics\"");
   registry_.add_int_var("stats_known", type_bool, [](auto obj) { return obj->stats_known ? 1LL : 0LL; },
-                        "False when the server returned no statistics for the scope (it was created while the check ran): the counts are then 0");
+                        "False when the server returned no statistics for the scope (it was created while the check ran): the counts and percentages then have no value, and the default warning fires")
+      .no_perf();
   // clang-format on
 }
 

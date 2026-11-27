@@ -16,13 +16,17 @@ void check_dhcp_scopes(const PB::Commands::QueryRequestMessage::Request &request
 
   dhcp_filter::scope_filter filter;
   // A disabled scope leases nothing, so it cannot run out: only the enabled
-  // ones are checked unless the filter says otherwise. A server with none is
+  // ones are checked unless the filter says otherwise. A scope the server
+  // returned no statistics for cannot be judged at all, which is a warning
+  // rather than a healthy 0% - its usage keywords have no value, so no
+  // used_pct threshold would ever see it. A server where nothing matches is
   // UNKNOWN - a check that watches for exhaustion on a server that leases
   // nothing is pointed at the wrong host.
-  filter_helper.add_options("used_pct > 80", "used_pct > 95", "enabled = 1", filter.get_filter_syntax(), "unknown");
+  filter_helper.add_options("used_pct > 80 or stats_known = 0", "used_pct > 95", "enabled = 1", filter.get_filter_syntax(), "unknown");
   filter_helper.add_short_threshold("used_pct", modern_filter::shorthand::above, modern_filter::shorthand::unit_percent_number, "80", "95");
-  filter_helper.add_syntax("${status}: ${problem_list}", "${scope} (${name}): ${used_pct}% used, ${free} of ${addresses} free", "${scope}",
-                           "No enabled DHCP scopes found", "%(status): all %(count) scopes are below their thresholds");
+  filter_helper.add_short_warning("${used_pct} or stats_known = 0");
+  filter_helper.add_syntax("${status}: ${problem_list}", "${scope} (${name}): ${usage}", "${scope}",
+                           "No DHCP scopes matched the filter (%(total) on the server)", "%(status): all %(count) scopes are below their thresholds");
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;

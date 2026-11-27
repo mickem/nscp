@@ -20,8 +20,14 @@ jest.setTimeout(120_000);
 
 const onWindows = process.platform === "win32" ? describe : describe.skip;
 
+// What the option parser and the filter engine actually say about a bad
+// argument, a mistyped keyword or a malformed expression. Option and filter
+// parsing run before the DHCP server is read, so these surface on any host,
+// DHCP role or not - which the "rejects" cases below prove for the pattern
+// itself.
 const ARGUMENT_ERROR =
-  /does not take any arguments|unknown option|invalid expression|error parsing/i;
+  /Failed to validate filter|expression is not valid|Failed to parse|unrecognised option|does not take any arguments|Invalid command line/i;
+/does not take any arguments|unknown option|invalid expression|error parsing/i;
 
 onWindows("CheckWindowsApps DHCP", () => {
   let nscp: NscpInstance;
@@ -59,7 +65,7 @@ onWindows("CheckWindowsApps DHCP", () => {
     // of "<subnet>/<prefix> (<name>): N% used", or "No enabled DHCP scopes
     // found". Anything else: the service is not there to ask.
     expect(out).toMatch(
-      /scopes are below their thresholds|\d+\.\d+\.\d+\.\d+\/\d+ \(.*\): [\d.]+% used|No enabled DHCP scopes found|DHCP Server service is not running or not installed on this host|dhcpsapi\.dll\) is not available/,
+      /scopes are below their thresholds|\d+\.\d+\.\d+\.\d+\/\d+ \(.*\): ([\d.]+% used|no statistics)|No DHCP scopes matched the filter|DHCP Server service is not running or not installed on this host|dhcpsapi\.dll\) is not available/,
     );
     expect(out).not.toMatch(ARGUMENT_ERROR);
   });
@@ -69,7 +75,7 @@ onWindows("CheckWindowsApps DHCP", () => {
       "filter=state = 'enabled' or state = 'disabled'",
       "warning=free < 20 or used_pct > 70",
       "critical=free < 5",
-      "detail-syntax=${scope} ${name} ${state} ${in_use}/${addresses} ${pending_offers} ${free_pct}",
+      "detail-syntax=${scope} ${name} ${state} ${in_use}/${addresses} ${pending_offers} ${free_pct} ${usage} ${stats_known} ${enabled}",
       "empty-state=ok",
     ]);
     expect(out).not.toMatch(ARGUMENT_ERROR);
@@ -90,6 +96,17 @@ onWindows("CheckWindowsApps DHCP", () => {
     } else {
       expect(out).not.toMatch(ARGUMENT_ERROR);
     }
+  });
+
+  it("check_dhcp_scopes rejects a mistyped keyword (the ARGUMENT_ERROR control)", async () => {
+    const warn = await queryWithCode("check_dhcp_scopes", ["warning=usedpct > 80"]);
+    expect(warn.out).toMatch(/Warning expression is not valid: usedpct > 80/);
+    expect(warn.out).toMatch(ARGUMENT_ERROR);
+    expect(warn.code).toBe(3);
+    const syntax = await query("check_dhcp_scopes", ["detail-syntax=${no_such_keyword}"]);
+    expect(syntax).toMatch(ARGUMENT_ERROR);
+    const option = await query("check_dhcp_scopes", ["no-such-option=1"]);
+    expect(option).toMatch(ARGUMENT_ERROR);
   });
 
   // --- check_dhcp_server -------------------------------------------------------
@@ -117,6 +134,13 @@ onWindows("CheckWindowsApps DHCP", () => {
       "critical=conflict_queue > 100 or offers > 1000 or discovers > 1000 or requests > 1000 or acks > 1000",
     ]);
     expect(out).not.toMatch(ARGUMENT_ERROR);
+  });
+
+  it("check_dhcp_server rejects a mistyped keyword (the ARGUMENT_ERROR control)", async () => {
+    const { out, code } = await queryWithCode("check_dhcp_server", ["warning=nack > 10"]);
+    expect(out).toMatch(/Warning expression is not valid: nack > 10/);
+    expect(out).toMatch(ARGUMENT_ERROR);
+    expect(code).toBe(3);
   });
 
   it("check_dhcp_server takes the short thresholds", async () => {

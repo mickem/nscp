@@ -9,8 +9,9 @@ experimental).** Nothing to do on an upgrade. On a Windows DHCP server with
 utilisation of every IPv4 scope (addresses in use, free and offered, and
 `used_pct`), and `check_dhcp_server` reports the server's packet rates and
 queue lengths from the *DHCP Server* performance counters.
-`check_dhcp_scopes` warns at `used_pct > 80` and goes critical at
-`used_pct > 95`, over the enabled scopes only; `check_dhcp_server` warns on any
+`check_dhcp_scopes` warns at `used_pct > 80` (and on a scope the server
+returned no statistics for) and goes critical at `used_pct > 95`, over the
+enabled scopes only; `check_dhcp_server` warns on any
 DHCPDECLINE (an address conflict), on more than 10 NAKs a second or a queue of
 more than 50 packets, and goes critical at a queue of 200. On a host without
 the DHCP Server role both checks return UNKNOWN with a message that says so.

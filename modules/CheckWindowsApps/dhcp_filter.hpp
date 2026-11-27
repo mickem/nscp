@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -50,7 +51,9 @@ struct scope_obj {
   long long available = 0;  // free addresses ("free" is a CRT debug macro)
   long long pending_offers = 0;
   // False when the server returned no statistics for this scope (it was
-  // created between the two reads): the counts are then 0 and mean nothing.
+  // created between the two reads). The count and percentage keywords then
+  // have no value - they render "unknown", match no numeric comparison and
+  // write no perfdata - rather than a 0 that would read as an empty scope.
   bool stats_known = false;
 
   std::string get_scope() const { return subnet + "/" + std::to_string(prefix); }
@@ -60,7 +63,22 @@ struct scope_obj {
   double get_used_pct() const;
   double get_free_pct() const;
 
+  // The keyword values: empty when the statistics are unknown.
+  boost::optional<long long> opt_in_use() const { return known(in_use); }
+  boost::optional<long long> opt_free() const { return known(available); }
+  boost::optional<long long> opt_pending_offers() const { return known(pending_offers); }
+  boost::optional<long long> opt_addresses() const { return known(get_addresses()); }
+  boost::optional<double> opt_used_pct() const { return stats_known ? boost::optional<double>(get_used_pct()) : boost::none; }
+  boost::optional<double> opt_free_pct() const { return stats_known ? boost::optional<double>(get_free_pct()) : boost::none; }
+
+  // "85% used, 30 of 200 free", or "no statistics" - the default detail line,
+  // so a scope without statistics never reads as "0% used".
+  std::string get_usage() const;
+
   std::string show() const { return get_scope(); }
+
+ private:
+  boost::optional<long long> known(const long long v) const { return stats_known ? boost::optional<long long>(v) : boost::none; }
 };
 typedef std::shared_ptr<scope_obj> scope_obj_ptr;
 

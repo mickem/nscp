@@ -1,18 +1,10 @@
-**Default check:**
+**Default check (warns on any decline, more than 10 NAKs a second or 50 queued packets; critical at 200 queued):**
 
 ```
 check_dhcp_server
-OK: 1 discovers/s, 1 offers/s, 2 requests/s, 2 acks/s, 0 nacks/s, 0 declines/s, 0 queued|'dhcp_acks'=2 'dhcp_active_queue'=0;50;200 'dhcp_conflict_queue'=0 'dhcp_declines'=0;0 'dhcp_discovers'=1 ...
 ```
 
-**An address conflict (a client declined the offered address):**
-
-```
-check_dhcp_server
-WARNING: 1 discovers/s, 1 offers/s, 2 requests/s, 2 acks/s, 0 nacks/s, 2 declines/s, 0 queued|...
-```
-
-**Only alert on server overload, through the short thresholds:**
+**Only alert on server overload, through the short thresholds (the decline and NAK conditions stay):**
 
 ```
 check_dhcp_server w=20 c=100
@@ -24,9 +16,8 @@ check_dhcp_server w=20 c=100
 check_dhcp_server "warning=packets_expired > 0" "critical=active_queue > 200"
 ```
 
-**On a host without the DHCP Server role:**
+**Ignore NAKs entirely (a network with many roaming clients):**
 
 ```
-check_dhcp_server
-DHCP Server performance counters are not available - is the DHCP Server role installed on this host? (...)
+check_dhcp_server "warning=declines > 0 or active_queue > 50"
 ```

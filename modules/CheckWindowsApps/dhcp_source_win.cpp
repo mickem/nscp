@@ -183,8 +183,12 @@ bool fetch_scopes(std::vector<dhcp_filter::scope_obj_ptr> &out, std::string &err
     subnet_info_holder info;
     const DWORD rc = DhcpGetSubnetInfo(kLocalServer, subnet, &info.p);
     if (rc == ERROR_DHCP_SUBNET_NOT_PRESENT) continue;
-    if (rc != ERROR_SUCCESS || info.p == nullptr) {
+    if (rc != ERROR_SUCCESS) {
       error = describe_failure("Failed to read DHCP scope " + dhcp_filter::format_ipv4(subnet), rc);
+      return false;
+    }
+    if (info.p == nullptr) {
+      error = "The DHCP server returned no information for scope " + dhcp_filter::format_ipv4(subnet);
       return false;
     }
     const auto it = stats.find(subnet);

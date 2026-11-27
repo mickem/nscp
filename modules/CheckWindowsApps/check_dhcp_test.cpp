@@ -195,7 +195,22 @@ TEST(CheckDhcpScopes, DisabledScopesCanBeIncluded) {
 TEST(CheckDhcpScopes, NoEnabledScopesIsUnknown) {
   const result r = run_scopes({}, {scope(kNet192, kMask24, "Retired", 1, 10, 190)});
   EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
-  EXPECT_EQ("No enabled DHCP scopes found", r.message);
+  // The message names the filter, not "enabled": it is the same one for a
+  // caller's own filter that matched nothing.
+  EXPECT_EQ("No DHCP scopes matched the filter (1 on the server)", r.message);
+}
+
+TEST(CheckDhcpScopes, EmptyMessageCountsEveryScopeOnTheServer) {
+  const std::vector<scope_obj_ptr> scopes = {scope(kNet192, kMask24, "Office", 0, 10, 190), scope(kNet10, kMask16, "Lab", 0, 10, 990)};
+  const result r = run_scopes({"filter=name = 'Nope'"}, scopes);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_EQ("No DHCP scopes matched the filter (2 on the server)", r.message);
+}
+
+TEST(CheckDhcpScopes, ServerWithoutScopes) {
+  const result r = run_scopes({"filter=none"}, {});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_EQ("No DHCP scopes matched the filter (0 on the server)", r.message);
 }
 
 TEST(CheckDhcpScopes, EmptyStateCanBeOverridden) {
@@ -229,6 +244,53 @@ TEST(CheckDhcpScopes, FilterByScopeAndName) {
   const std::vector<scope_obj_ptr> scopes = {scope(kNet192, kMask24, "Office", 0, 199, 1), scope(kNet10, kMask16, "Lab", 0, 10, 990)};
   EXPECT_EQ(PB::Common::ResultCode::OK, run_scopes({"filter=scope = '10.0.0.0/16'"}, scopes).code);
   EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run_scopes({"filter=name = 'Office'"}, scopes).code);
+}
+
+TEST(CheckDhcpScopes, ScopeWithoutStatisticsWarnsInsteadOfReadingHealthy) {
+  const std::vector<scope_obj_ptr> scopes = {scope(kNet192, kMask24, "Office", 0, 10, 190), make_scope(kNet10, kMask16, "New", "", 0, nullptr)};
+  const result r = run_scopes({}, scopes);
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, r.code) << r.message;
+  EXPECT_EQ("WARNING: 10.0.0.0/16 (New): no statistics", r.message);
+  // No stand-in zeros in the graph for it.
+  EXPECT_EQ(std::string::npos, r.perf.find("10.0.0.0/16")) << r.perf;
+  EXPECT_NE(std::string::npos, r.perf.find("192.168.1.0/24_used_pct")) << r.perf;
+}
+
+TEST(CheckDhcpScopes, ScopeWithoutStatisticsHasNoValues) {
+  const std::vector<scope_obj_ptr> scopes = {make_scope(kNet10, kMask16, "New", "", 0, nullptr)};
+  const result r = run_scopes({"warning=none", "critical=none", "show-all", "detail-syntax=${in_use} ${free} ${addresses} ${used_pct} ${free_pct}"}, scopes);
+  EXPECT_EQ(PB::Common::ResultCode::OK, r.code) << r.message;
+  EXPECT_NE(std::string::npos, r.message.find("unknown unknown unknown unknown unknown")) << r.message;
+  // A numeric threshold never matches a missing value.
+  EXPECT_EQ(PB::Common::ResultCode::OK, run_scopes({"warning=free < 10", "critical=used_pct < 50"}, scopes).code);
+}
+
+TEST(CheckDhcpScopes, ShortWarningKeepsTheStatisticsCondition) {
+  const std::vector<scope_obj_ptr> scopes = {make_scope(kNet10, kMask16, "New", "", 0, nullptr)};
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, run_scopes({"w=70", "c=90"}, scopes).code);
+}
+
+TEST(CheckDhcpScopes, UsageRendersFractions) {
+  EXPECT_EQ("97.5% used, 5 of 200 free", scope(kNet192, kMask24, "x", 0, 195, 5)->get_usage());
+  EXPECT_EQ("85% used, 30 of 200 free", scope(kNet192, kMask24, "x", 0, 170, 30)->get_usage());
+  EXPECT_EQ("0% used, 0 of 0 free", scope(kNet192, kMask24, "x", 0, 0, 0)->get_usage());
+  EXPECT_EQ("no statistics", make_scope(kNet192, kMask24, "x", "", 0, nullptr)->get_usage());
+}
+
+TEST(CheckDhcpScopes, MistypedKeywordIsRejectedBeforeTheServerIsRead) {
+  bool fetched = false;
+  const auto request = make_request("check_dhcp_scopes", {"warning=usedpct > 80"});
+  PB::Commands::QueryResponseMessage::Response response;
+  check_dhcp::check_dhcp_scopes(request, &response, [&fetched](std::vector<scope_obj_ptr> &, std::string &) {
+    fetched = true;
+    return true;
+  });
+  const result r = collect(response);
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_EQ("Failed to validate filter see log for details: Warning expression is not valid: usedpct > 80", r.message);
+  // The integration suite relies on this: a bad keyword is reported even on a
+  // host where the DHCP server cannot be read.
+  EXPECT_FALSE(fetched);
 }
 
 TEST(CheckDhcpScopes, FetchErrorIsUnknown) {
@@ -306,6 +368,12 @@ TEST(CheckDhcpServer, ShortThresholdsBoundTheQueueAndKeepTheOtherConditions) {
   c["Active Queue Length"] = 0.0;
   c["Declines/sec"] = 2.0;
   EXPECT_EQ(PB::Common::ResultCode::WARNING, run_server({"w=10", "c=20"}, c).code);
+}
+
+TEST(CheckDhcpServer, MistypedKeywordIsRejected) {
+  const result r = run_server({"warning=nack > 10"}, quiet_server());
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code);
+  EXPECT_EQ("Failed to validate filter see log for details: Warning expression is not valid: nack > 10", r.message);
 }
 
 TEST(CheckDhcpServer, FetchErrorIsUnknown) {
