@@ -185,6 +185,27 @@ TEST(destination_container, well_known_keys_become_structured_fields) {
   EXPECT_FALSE(d.has_data("host")) << "translated, not stored as free-form data";
 }
 
+TEST(destination_container, the_retries_setting_reaches_the_retry_field) {
+  // Targets store the setting as `retries`; NRPE, NSCP, NRDP and Icinga read
+  // the `retry` field, so a configured value used to be ignored by all four.
+  client::destination_container d;
+  d.set_string_data("retries", "5");
+
+  EXPECT_EQ(d.retry, 5);
+  EXPECT_EQ(d.get_int_data("retries"), 5) << "NSCA, NSCA-NG and collectd read the map copy";
+}
+
+TEST(destination_container, retry_and_retries_keep_each_other_in_step) {
+  // The target's value first, then a command line --retry over it: both
+  // readers see the later one.
+  client::destination_container d;
+  d.set_string_data("retries", "5");
+  d.set_int_data("retry", 1);
+
+  EXPECT_EQ(d.retry, 1);
+  EXPECT_EQ(d.get_int_data("retries"), 1);
+}
+
 TEST(destination_container, unknown_keys_are_kept_as_data) {
   client::destination_container d;
   d.set_string_data("password", "secret");
