@@ -1,0 +1,34 @@
+---
+icon: "🔧"
+modules: [NRPEClient, NSCAClient, NSCANgClient, NRDPClient, NSCPClient, SMTPClient, SyslogClient, GraphiteClient, CollectdClient, CheckMKClient, GearmanClient, IcingaClient]
+action: none
+---
+**Web UI: a targets editor for the client modules.** Nothing to do. The
+targets of the twelve client modules (NRPE, NSCA, NSCA-NG, NRDP, NSCP, SMTP,
+syslog, Graphite, collectd, check_mk, Gearman and Icinga) are edited on one
+card per module: each target with its address, how it is protected and what
+weakens it, and a dialog that edits it by section - connection, security,
+what is sent - with the rarely changed keys under *Advanced* and *Show config*
+for an INI fragment.
+
+Security is one choice where a protocol has modes: TLS with the server
+verified, TLS without, legacy anonymous NRPE, or none for NRPE, NSCP and
+check_mk; a pre-shared key or the server's certificate for NSCA-NG;
+encrypted or not for Gearman. A stored configuration that matches none of them
+is shown as *Custom* and left alone. The card says plainly what the agent will
+refuse (an NSCA-NG certificate target that does not verify the server, an
+unencrypted Gearman target without its acknowledgement, a login over plain
+SMTP) and what is weak (an unverified server, plain HTTP, an empty NSCA key).
+NSCA targets offer the secure ciphers only and leave TLS to expert mode, as the
+NSCA server page does.
+
+NRPE and NSCP targets have a *Test* button: NRPE asks the server for its
+version, NSCP runs `check_ok` on the remote agent. The passive clients have
+none, since the only test is submitting a real result.
+
+The `default` target is the one used when a request names none or an unknown
+one. Other targets inherit from it only the keys the agent registers without a
+default of their own - the socket TLS keys, NRPE's legacy mode, version and
+payload length, among others; the dialog says which. Timeout, retries,
+`address` and every other key with a default of its own fall back to that
+default in each target.

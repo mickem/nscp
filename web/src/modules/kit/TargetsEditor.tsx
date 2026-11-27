@@ -206,7 +206,7 @@ function TargetRow({
           </Typography>
           {isDefault && (
             <Typography variant="caption" color="text.secondary">
-              Also the defaults for every target
+              Used when a request names none
             </Typography>
           )}
         </TableCell>
@@ -342,7 +342,12 @@ function TargetDialog({
       <>
         {f.help}
         {own === undefined && draft[key] === undefined && from !== undefined && from !== f.builtIn
-          ? ` Taken from the default target.`
+          ? " Taken from the default target."
+          : ""}
+        {initialName === DEFAULT_TARGET
+          ? f.inherits
+            ? " Inherited by other targets."
+            : " Not inherited: other targets use the built-in default unless they set it."
           : ""}
       </>
     );
@@ -362,7 +367,7 @@ function TargetDialog({
       <ValueField
         key={key}
         label={f.label}
-        kind={f.kind}
+        kind={typeof f.kind === "function" ? f.kind(v) : f.kind}
         help={help}
         value={v(key)}
         onChange={(x) => set(key, x)}
@@ -429,8 +434,9 @@ function TargetDialog({
                 />
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  Used when no target is named, and every other target takes what it does not set
-                  itself from here.
+                  Used when a request names no target, or one that does not exist. Other targets
+                  take only the settings marked as inherited from here; the rest they set themselves
+                  or leave at the built-in default.
                 </Typography>
               )}
             </Stack>
@@ -506,3 +512,4 @@ function TargetDialog({
     </Dialog>
   );
 }
+

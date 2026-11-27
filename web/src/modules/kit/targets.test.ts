@@ -19,7 +19,7 @@ const spec: TargetSpec = {
   fields: {
     address: { label: "Address", kind: "text", builtIn: "" },
     port: { label: "Port", kind: "number", builtIn: "1234" },
-    "use ssl": { label: "TLS", kind: "bool", builtIn: "true" },
+    "use ssl": { label: "TLS", kind: "bool", builtIn: "true", inherits: true },
     secret: { label: "Secret", kind: "secret", builtIn: "" },
   },
   sections: [{ title: "Connection", keys: ["address"] }],
@@ -44,7 +44,9 @@ describe("targets", () => {
 
   it("inherits from the parent, then default, then the built-in", () => {
     expect(effective(stored, spec, "a", "use ssl")).toBe("false");
-    expect(effective(stored, spec, "b", "address")).toBe("a.example");
+    // A key with a default of its own is not inherited, address included.
+    expect(effective(stored, spec, "b", "address")).toBe("");
+    expect(effective(stored, spec, "b", "use ssl")).toBe("false");
     expect(effective(stored, spec, "default", "port")).toBe("1234");
     // A loop falls back to the built-in rather than spin.
     expect(effective(stored, spec, "c", "use ssl")).toBe("true");

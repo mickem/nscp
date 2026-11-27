@@ -3,10 +3,13 @@
 // targets is a TargetSpec: the keys with their built-in defaults, how they are
 // grouped, what weakens a target, and how to probe one.
 //
-// A target reads a key from its own section, then from the target it names as
-// `parent` (`default` when it names none), then the built-in default. The
-// `default` target is therefore "the defaults for every target", and the page
-// shows it as such.
+// A target reads a key from its own section. A key the agent registers
+// without a default then comes from the target it names as `parent`
+// (`default` when it names none); a key registered with one falls back to
+// that built-in default, whatever the parent says (typed_key::notify in
+// include/nscapi/settings/helper.cpp). `address` is never inherited either:
+// reading a target starts by resetting it. So `default` is the target used
+// when none is named, and the template for the inheriting keys only.
 import type { ReactNode } from "react";
 import { Settings } from "../../api/api.ts";
 import { readStored, SettingChange, toIni } from "./changes.ts";
@@ -18,10 +21,15 @@ export const DEFAULT_TARGET = "default";
 
 export interface TargetField {
   label: string;
-  kind: ValueKind | "secret";
+  // A function for a choice that depends on the target (a stored value
+  // outside the offered list is shown, not silently replaced).
+  kind: ValueKind | "secret" | ((v: TargetValues) => ValueKind);
   help?: ReactNode;
-  // What the agent uses while neither the target nor its parent sets it.
+  // What the agent uses while the target does not set it (and, for an
+  // inheriting key, nor does its parent).
   builtIn: string;
+  // Registered without a default, so a target takes its parent's value.
+  inherits?: boolean;
   // Only shown while this holds for the target's values.
   visible?: (v: TargetValues) => boolean;
 }
@@ -114,7 +122,7 @@ export function inherited(
   seen: Set<string> = new Set(),
 ): string {
   const builtIn = spec.fields[key]?.builtIn ?? "";
-  if (name === DEFAULT_TARGET) return builtIn;
+  if (name === DEFAULT_TARGET || !spec.fields[key]?.inherits) return builtIn;
   seen.add(name);
   const parent = readStored(stored, targetPath(spec, name), "parent") || DEFAULT_TARGET;
   if (seen.has(parent)) return builtIn;
