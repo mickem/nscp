@@ -9,6 +9,7 @@ import {
 } from "../kit/targetFields.ts";
 import type { TargetSpec, TargetValues } from "../kit/targets.ts";
 import type { ModulePage } from "../types.ts";
+import { HOSTNAME_WIDGET } from "../kit/hostnameWidget.ts";
 
 // Anything but http:// is sent as https (icinga_client.hpp).
 const https = (v: TargetValues) => scheme(v("address")) !== "http";
@@ -88,6 +89,7 @@ const IcingaClient: ModulePage = {
     direction: "passive",
     platforms: ["windows", "linux", "macos"],
   },
+  sections: { "/settings/icinga/client": HOSTNAME_WIDGET },
   collections: { [ICINGA_CLIENT_TARGETS.path]: targetsCollection(ICINGA_CLIENT_TARGETS) },
 };
 

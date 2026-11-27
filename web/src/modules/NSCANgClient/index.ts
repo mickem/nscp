@@ -5,6 +5,7 @@ import { CONNECTION_KEYS, connectionFields, isOn, socketTlsFields } from "../kit
 import type { TargetSpec } from "../kit/targets.ts";
 import { parseVerifyMode } from "../kit/tls.ts";
 import type { ModulePage } from "../types.ts";
+import { HOSTNAME_WIDGET } from "../kit/hostnameWidget.ts";
 
 const TLS = socketTlsFields({ ssl: true });
 const certOnly = (v: (k: string) => string) => !isOn(v("use psk"));
@@ -129,6 +130,7 @@ const NSCANgClient: ModulePage = {
     direction: "passive",
     platforms: ["windows", "linux", "macos"],
   },
+  sections: { "/settings/NSCA-NG/client": HOSTNAME_WIDGET },
   collections: { [NSCA_NG_CLIENT_TARGETS.path]: targetsCollection(NSCA_NG_CLIENT_TARGETS) },
 };
 

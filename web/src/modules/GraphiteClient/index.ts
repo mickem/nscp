@@ -3,6 +3,7 @@ import { targetsCollection } from "../kit/targetsCollection.tsx";
 import { connectionFields, httpTlsFields, httpTlsRisks, isOn } from "../kit/targetFields.ts";
 import type { TargetSpec, TargetValues } from "../kit/targets.ts";
 import type { ModulePage } from "../types.ts";
+import { HOSTNAME_WIDGET } from "../kit/hostnameWidget.ts";
 
 const tls = (v: TargetValues) => isOn(v("ssl"));
 const withTls = Object.fromEntries(
@@ -107,6 +108,7 @@ const GraphiteClient: ModulePage = {
     direction: "passive",
     platforms: ["windows", "linux", "macos"],
   },
+  sections: { "/settings/graphite/client": HOSTNAME_WIDGET },
   collections: { [GRAPHITE_CLIENT_TARGETS.path]: targetsCollection(GRAPHITE_CLIENT_TARGETS) },
 };
 

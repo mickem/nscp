@@ -24,6 +24,8 @@ import NRPEServer from "./NRPEServer/index.ts";
 import NSCAServer from "./NSCAServer/index.ts";
 import NSClientServer from "./NSClientServer/index.ts";
 import WEBServer from "./WEBServer/index.ts";
+import Op5Client from "./Op5Client/index.ts";
+import ElasticClient from "./ElasticClient/index.ts";
 import CheckMKClient from "./CheckMKClient/index.ts";
 import CollectdClient from "./CollectdClient/index.ts";
 import GearmanClient from "./GearmanClient/index.ts";
@@ -46,6 +48,7 @@ export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   CheckSystem,
   CheckSystemUnix,
   CollectdClient,
+  ElasticClient,
   GearmanClient,
   GraphiteClient,
   IcingaAgent,
@@ -59,6 +62,7 @@ export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   NSCAServer,
   NSClientServer,
   NSCPClient,
+  Op5Client,
   SMTPClient,
   SyslogClient,
   WEBServer,

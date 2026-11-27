@@ -3,6 +3,7 @@ import { targetsCollection } from "../kit/targetsCollection.tsx";
 import { connectionFields, httpTlsFields, httpTlsRisks, scheme } from "../kit/targetFields.ts";
 import type { TargetSpec, TargetValues } from "../kit/targets.ts";
 import type { ModulePage } from "../types.ts";
+import { HOSTNAME_WIDGET } from "../kit/hostnameWidget.ts";
 
 const https = (v: TargetValues) => scheme(v("address")) === "https";
 
@@ -65,6 +66,7 @@ const NRDPClient: ModulePage = {
     direction: "passive",
     platforms: ["windows", "linux", "macos"],
   },
+  sections: { "/settings/NRDP/client": HOSTNAME_WIDGET },
   collections: { [NRDP_CLIENT_TARGETS.path]: targetsCollection(NRDP_CLIENT_TARGETS) },
 };
 

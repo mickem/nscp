@@ -58,7 +58,9 @@ export type FieldWidget =
   // PDH counter picker backed by /v1/metadata/counters.
   | { kind: "counter" }
   // WEB role picker, populated from the roles defined on the server.
-  | { kind: "role" };
+  | { kind: "role" }
+  // The host name a client reports itself as (auto, or a placeholder pattern).
+  | { kind: "hostname" };
 
 // Per-key widgets, keyed by settings key.
 export type FieldWidgets = Record<string, FieldWidget>;

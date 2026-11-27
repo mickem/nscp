@@ -4,6 +4,7 @@ import { CONNECTION_KEYS, connectionFields, socketTlsFields } from "../kit/targe
 import type { TargetSpec } from "../kit/targets.ts";
 import { encryptionOptions, encryptionRisk } from "../NSCAServer/nsca.ts";
 import type { ModulePage } from "../types.ts";
+import { HOSTNAME_WIDGET } from "../kit/hostnameWidget.ts";
 
 const TLS = socketTlsFields({ ssl: false });
 
@@ -73,6 +74,7 @@ const NSCAClient: ModulePage = {
     direction: "passive",
     platforms: ["windows", "linux", "macos"],
   },
+  sections: { "/settings/NSCA/client": HOSTNAME_WIDGET },
   collections: { [NSCA_CLIENT_TARGETS.path]: targetsCollection(NSCA_CLIENT_TARGETS) },
 };
 

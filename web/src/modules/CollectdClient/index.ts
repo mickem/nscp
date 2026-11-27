@@ -3,6 +3,7 @@ import { targetsCollection } from "../kit/targetsCollection.tsx";
 import { connectionFields } from "../kit/targetFields.ts";
 import type { TargetSpec } from "../kit/targets.ts";
 import type { ModulePage } from "../types.ts";
+import { HOSTNAME_WIDGET } from "../kit/hostnameWidget.ts";
 
 export const COLLECTD_CLIENT_TARGETS: TargetSpec = {
   moduleId: "CollectdClient",
@@ -37,6 +38,7 @@ const CollectdClient: ModulePage = {
     direction: "passive",
     platforms: ["windows", "linux", "macos"],
   },
+  sections: { "/settings/collectd/client": HOSTNAME_WIDGET },
   collections: { [COLLECTD_CLIENT_TARGETS.path]: targetsCollection(COLLECTD_CLIENT_TARGETS) },
 };
 

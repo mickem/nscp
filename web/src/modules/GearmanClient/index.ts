@@ -4,6 +4,7 @@ import { targetsCollection } from "../kit/targetsCollection.tsx";
 import { connectionFields, isOn } from "../kit/targetFields.ts";
 import type { TargetSpec } from "../kit/targets.ts";
 import type { ModulePage } from "../types.ts";
+import { HOSTNAME_WIDGET } from "../kit/hostnameWidget.ts";
 
 export const GEARMAN_CLIENT_TARGETS: TargetSpec = {
   moduleId: "GearmanClient",
@@ -100,6 +101,7 @@ const GearmanClient: ModulePage = {
     direction: "passive",
     platforms: ["windows", "linux", "macos"],
   },
+  sections: { "/settings/gearman/client": HOSTNAME_WIDGET },
   collections: { [GEARMAN_CLIENT_TARGETS.path]: targetsCollection(GEARMAN_CLIENT_TARGETS) },
 };
 

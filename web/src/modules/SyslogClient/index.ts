@@ -3,6 +3,7 @@ import { targetsCollection } from "../kit/targetsCollection.tsx";
 import { connectionFields } from "../kit/targetFields.ts";
 import type { TargetSpec } from "../kit/targets.ts";
 import type { ModulePage } from "../types.ts";
+import { HOSTNAME_WIDGET } from "../kit/hostnameWidget.ts";
 
 const SEVERITIES = [
   "emergency",
@@ -63,6 +64,7 @@ const SyslogClient: ModulePage = {
     direction: "passive",
     platforms: ["windows", "linux", "macos"],
   },
+  sections: { "/settings/syslog/client": HOSTNAME_WIDGET },
   collections: { [SYSLOG_CLIENT_TARGETS.path]: targetsCollection(SYSLOG_CLIENT_TARGETS) },
 };
 

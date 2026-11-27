@@ -1,6 +1,6 @@
 ---
 icon: "🔧"
-modules: [NRPEClient, NSCAClient, NSCANgClient, NRDPClient, NSCPClient, SMTPClient, SyslogClient, GraphiteClient, CollectdClient, CheckMKClient, GearmanClient, IcingaClient]
+modules: [ElasticClient, Op5Client, NRPEClient, NSCAClient, NSCANgClient, NRDPClient, NSCPClient, SMTPClient, SyslogClient, GraphiteClient, CollectdClient, CheckMKClient, GearmanClient, IcingaClient]
 action: none
 ---
 **Web UI: a targets editor for the client modules.** Nothing to do. The
@@ -21,6 +21,13 @@ unencrypted Gearman target without its acknowledgement, a login over plain
 SMTP) and what is weak (an unverified server, plain HTTP, an empty NSCA key).
 NSCA targets offer the secure ciphers only and leave TLS to expert mode, as the
 NSCA server page does.
+
+The `hostname` of the ten clients that report one (NSCA, NSCA-NG, NRDP,
+syslog, Graphite, collectd, Gearman, Icinga, Elastic, op5) is picked rather
+than typed: the computer's name as reported, in lowercase or uppercase, or a
+name of its own built from placeholders (`${host_lc}`, `${domain}`,
+`${address_ipv4}`, ...), including the full-name `${hostname}` forms the
+setting's description leaves out.
 
 NRPE and NSCP targets have a *Test* button: NRPE asks the server for its
 version, NSCP runs `check_ok` on the remote agent. The passive clients have
