@@ -58,7 +58,9 @@ export type FieldWidget =
   // PDH counter picker backed by /v1/metadata/counters.
   | { kind: "counter" }
   // WEB role picker, populated from the roles defined on the server.
-  | { kind: "role" };
+  | { kind: "role" }
+  // The host name a client reports itself as (auto, or a placeholder pattern).
+  | { kind: "hostname" };
 
 // Per-key widgets, keyed by settings key.
 export type FieldWidgets = Record<string, FieldWidget>;
@@ -91,6 +93,15 @@ export interface InstanceCollectionConfig {
   // (unless something is stored under it), and no `parent` / `is template`
   // fields. For a collection with too few keys for inheritance to pay off.
   templates?: boolean;
+  // An editor of the module's own in place of the generic instance list
+  // (expert mode still shows the generic one).
+  Editor?: ComponentType<InstanceEditorProps>;
+}
+
+// What an instance collection's own editor is given.
+export interface InstanceEditorProps {
+  collectionPath: string;
+  onExpertMode: () => void;
 }
 
 // What a key/value collection's own editor is given.

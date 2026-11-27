@@ -18,6 +18,8 @@ import {
 import RestoreIcon from "@mui/icons-material/Restore";
 import SettingsDialog from "./SettingsDialog.tsx";
 import { MouseEvent, useState } from "react";
+import { findFieldWidget } from "../../modules/registry.ts";
+import { describeHostname, HOSTNAME_HELP } from "../../modules/kit/hostname.ts";
 
 interface Props {
   path: string;
@@ -46,7 +48,13 @@ export default function SettingsItem({ path, setting, dense = false }: Props) {
 
   const obfuscate = (v: string) => v.replace(/./g, "*");
   const title = description?.title || setting.key;
-  const helpText = description?.description;
+  const widget = findFieldWidget(path, setting.key);
+  // A host name's description lists every placeholder; the row says what the
+  // value reports, and the dialog offers the placeholders.
+  const helpText =
+    widget?.kind === "hostname"
+      ? `${HOSTNAME_HELP} ${describeHostname(displayedValue)}`
+      : description?.description;
   const displayValue =
     description?.type === "password" ? obfuscate(displayedValue) : displayedValue;
 

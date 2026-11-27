@@ -24,21 +24,47 @@ import NRPEServer from "./NRPEServer/index.ts";
 import NSCAServer from "./NSCAServer/index.ts";
 import NSClientServer from "./NSClientServer/index.ts";
 import WEBServer from "./WEBServer/index.ts";
+import Op5Client from "./Op5Client/index.ts";
+import ElasticClient from "./ElasticClient/index.ts";
+import CheckMKClient from "./CheckMKClient/index.ts";
+import CollectdClient from "./CollectdClient/index.ts";
+import GearmanClient from "./GearmanClient/index.ts";
+import GraphiteClient from "./GraphiteClient/index.ts";
+import NRDPClient from "./NRDPClient/index.ts";
+import NRPEClient from "./NRPEClient/index.ts";
+import NSCAClient from "./NSCAClient/index.ts";
+import NSCANgClient from "./NSCANgClient/index.ts";
+import NSCPClient from "./NSCPClient/index.ts";
+import SMTPClient from "./SMTPClient/index.ts";
+import SyslogClient from "./SyslogClient/index.ts";
 
 export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   CheckEventLog,
   CheckHelpers,
   CheckLogFile,
+  CheckMKClient,
   CheckMKServer,
   CheckNSCP,
   CheckSystem,
   CheckSystemUnix,
+  CollectdClient,
+  ElasticClient,
+  GearmanClient,
+  GraphiteClient,
   IcingaAgent,
   IcingaClient,
   NCPAServer,
+  NRDPClient,
+  NRPEClient,
   NRPEServer,
+  NSCAClient,
+  NSCANgClient,
   NSCAServer,
   NSClientServer,
+  NSCPClient,
+  Op5Client,
+  SMTPClient,
+  SyslogClient,
   WEBServer,
 ];
 
