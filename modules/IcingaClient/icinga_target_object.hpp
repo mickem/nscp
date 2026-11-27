@@ -102,8 +102,8 @@ struct options_reader_impl : client::options_reader_interface {
         "The check_command to set on auto-created service objects (default: dummy).")
     ("check-source", po::value<std::string>()->notifier([&data] (const auto&  value) { data.set_string_data("check_source", value); }),
         "Override for the check_source field reported to Icinga 2.")
-    ("tls-version", po::value<std::string>()->default_value("1.3")->notifier([&data] (const auto&  value) { data.set_string_data("tls version", value); }),
-        "The TLS version to use 1.0, 1.1, 1.2, 1.3 or any")
+    ("tls-version", po::value<std::string>()->notifier([&data] (const auto&  value) { data.set_string_data("tls version", value); }),
+        "The TLS version to use 1.0, 1.1, 1.2, 1.3 or any (default: the target's tls version, 1.3 unless configured)")
     ("verify-mode", po::value<std::string>()->notifier([&data] (const auto&  value) { data.set_string_data("verify mode", value); }),
         "Comma separated list of options: none, peer (or certificate), peer-cert, fail-if-no-cert "
         "(or fail-if-no-peer-cert, client-certificate). Any other value is rejected and the connection fails. "
