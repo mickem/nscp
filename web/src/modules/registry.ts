@@ -24,6 +24,7 @@ import NCPAServer from "./NCPAServer/index.ts";
 import NRPEServer from "./NRPEServer/index.ts";
 import NSCAServer from "./NSCAServer/index.ts";
 import NSClientServer from "./NSClientServer/index.ts";
+import Scheduler from "./Scheduler/index.ts";
 import WEBServer from "./WEBServer/index.ts";
 import Op5Client from "./Op5Client/index.ts";
 import ElasticClient from "./ElasticClient/index.ts";
@@ -65,6 +66,7 @@ export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   NSClientServer,
   NSCPClient,
   Op5Client,
+  Scheduler,
   SMTPClient,
   SyslogClient,
   WEBServer,

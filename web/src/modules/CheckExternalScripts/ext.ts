@@ -3,6 +3,9 @@
 import { Settings } from "../../api/api.ts";
 import { fixed, KeyTable, tableIni } from "../kit/keys.ts";
 import type { Risk } from "../kit/RiskBanner.tsx";
+import { Entry, entryWrites, readEntries, Write } from "../kit/entries.ts";
+
+export type { Write };
 
 export const EXT_MODULE = "CheckExternalScripts";
 export const EXT_PATH = "/settings/external scripts";
@@ -62,73 +65,17 @@ export const SCRIPT_KEYS = [
   "encoding",
 ] as const;
 
-export interface Script {
-  name: string;
-  // `name = command` under the scripts path, or a section of its own.
-  form: "line" | "section";
-  values: Record<string, string>;
-}
+export type Script = Entry;
 
 export function readScripts(stored: Settings[] | undefined): Script[] {
-  const byName = new Map<string, Script>();
-  const prefix = EXT_SCRIPTS + "/";
-  for (const s of stored ?? []) {
-    if (s.path === EXT_SCRIPTS && s.key !== "") {
-      const cur = byName.get(s.key);
-      if (cur?.form === "section") continue;
-      byName.set(s.key, { name: s.key, form: "line", values: { command: s.value } });
-    } else if (s.path.startsWith(prefix) && s.key !== "") {
-      const name = s.path.slice(prefix.length);
-      if (name.includes("/") || name === "default") continue;
-      const cur = byName.get(name);
-      const values = cur?.form === "section" ? cur.values : {};
-      values[s.key] = s.value;
-      byName.set(name, { name, form: "section", values });
-    }
-  }
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return readEntries(stored, EXT_SCRIPTS, "command");
 }
 
-// Whether a script needs a section: anything but its command is set.
-export function needsSection(values: Record<string, string>): boolean {
-  return Object.entries(values).some(([k, v]) => k !== "command" && v !== "");
-}
-
-export interface Write {
-  kind: "put" | "delete" | "delete-path";
-  path: string;
-  key?: string;
-  value?: string;
-}
-
-// What saving a script writes. A script whose options are all empty is kept
-// as (or turned into) a one-line entry; one with options becomes a section.
+// A script with nothing but its command is one line; with options, a section.
 export function scriptWrites(
   original: Script | null,
   name: string,
   values: Record<string, string>,
 ): Write[] {
-  const out: Write[] = [];
-  const section = needsSection(values) || (original?.form === "section" && original.name === name);
-  const renamed = original !== null && original.name !== name;
-  if (original && (renamed || original.form !== (section ? "section" : "line"))) {
-    out.push(
-      original.form === "line"
-        ? { kind: "delete", path: EXT_SCRIPTS, key: original.name }
-        : { kind: "delete-path", path: `${EXT_SCRIPTS}/${original.name}` },
-    );
-  }
-  if (!section) {
-    out.push({ kind: "put", path: EXT_SCRIPTS, key: name, value: values.command ?? "" });
-    return out;
-  }
-  const path = `${EXT_SCRIPTS}/${name}`;
-  for (const key of SCRIPT_KEYS) {
-    const v = values[key] ?? "";
-    const before =
-      original?.name === name && original.form === "section" ? original.values[key] : undefined;
-    if (v !== "" && v !== before) out.push({ kind: "put", path, key, value: v });
-    else if (v === "" && before !== undefined) out.push({ kind: "delete", path, key });
-  }
-  return out;
+  return entryWrites(EXT_SCRIPTS, SCRIPT_KEYS, "command", original, name, values);
 }

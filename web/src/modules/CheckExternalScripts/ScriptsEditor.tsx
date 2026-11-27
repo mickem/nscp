@@ -35,7 +35,8 @@ import { placeholders } from "../kit/commandLine.ts";
 import { AdvancedSection } from "../kit/PanelShell.tsx";
 import SecretField from "../kit/SecretField.tsx";
 import ValueField from "../kit/ValueField.tsx";
-import { readScripts, Script, scriptWrites, Write } from "./ext.ts";
+import { deleteEntry } from "../kit/entries.ts";
+import { EXT_SCRIPTS, readScripts, Script, scriptWrites, Write } from "./ext.ts";
 
 interface Editing {
   original: Script | null;
@@ -305,24 +306,7 @@ export default function ScriptsEditor() {
             variant="contained"
             loading={busy}
             onClick={() =>
-              deleting &&
-              void run(
-                deleting.form === "line"
-                  ? [
-                      {
-                        kind: "delete",
-                        path: "/settings/external scripts/scripts",
-                        key: deleting.name,
-                      },
-                    ]
-                  : [
-                      {
-                        kind: "delete-path",
-                        path: `/settings/external scripts/scripts/${deleting.name}`,
-                      },
-                    ],
-                () => setDeleting(null),
-              )
+              deleting && void run([deleteEntry(EXT_SCRIPTS, deleting)], () => setDeleting(null))
             }
           >
             Delete
