@@ -1,29 +1,24 @@
 // The NSCA server page: where passive results arrive, how they are
 // protected, and how they are read.
-import { Stack } from "@mui/material";
+import { Button, Stack } from "@mui/material";
 import AllowedHostsSection from "../kit/AllowedHostsSection.tsx";
 import { readStored } from "../kit/changes.ts";
 import PanelShell, { AdvancedSection, KeyField, PanelSection } from "../kit/PanelShell.tsx";
 import RiskBanner from "../kit/RiskBanner.tsx";
-import {
-  CORE_ADVANCED,
-  FieldSpec,
-  SOCKET_TLS_ADVANCED,
-  socketTlsView,
-  useSocketTlsDraft,
-} from "../kit/socketServer.ts";
-import SocketTlsControls from "../kit/SocketTlsControls.tsx";
+import { CORE_ADVANCED, FieldSpec } from "../kit/socketServer.ts";
 import { usePanel } from "../kit/usePanel.ts";
 import type { ModulePanelProps } from "../types.ts";
 import {
-  ENCRYPTIONS,
+  encryptionOptions,
   encryptionRisk,
+  isSecureEncryption,
   NSCA_MODULE,
   NSCA_PATH,
   NSCA_TABLE,
-  NSCA_TLS,
   nscaIni,
   passwordProblem,
+  SECURE_ENCRYPTION,
+  tlsOn,
 } from "./nsca.ts";
 
 const ADVANCED: FieldSpec[] = [
@@ -34,14 +29,11 @@ const ADVANCED: FieldSpec[] = [
     help: "Bytes per packet. Must match send_nsca's compiled-in value; 512 for standard NSCA.",
   },
   ...CORE_ADVANCED,
-  ...SOCKET_TLS_ADVANCED,
 ];
 
 export default function NscaPage({ onExpertMode }: ModulePanelProps) {
-  const tlsDraft = useSocketTlsDraft();
-  const panel = usePanel(NSCA_MODULE, NSCA_TABLE, tlsDraft.reset);
-  const tls = socketTlsView(tlsDraft.draft, panel.stored, NSCA_PATH, NSCA_TLS);
-  const changes = panel.pending(tls.changes);
+  const panel = usePanel(NSCA_MODULE, NSCA_TABLE);
+  const changes = panel.pending();
   const value = (key: string) => panel.value(NSCA_PATH, key);
   const f = (s: FieldSpec) => (
     <KeyField
@@ -56,9 +48,9 @@ export default function NscaPage({ onExpertMode }: ModulePanelProps) {
   );
 
   const encryption = value("encryption");
-  const usesTls = tls.mode === "one-way-tls" || tls.mode === "two-way-tls";
+  const usesTls = tlsOn(panel.stored);
   const encRisk = encryptionRisk(encryption, usesTls);
-  const problem = tls.problem ?? passwordProblem(encryption, value("password"));
+  const problem = passwordProblem(encryption, value("password"));
   const hosts = panel.get(NSCA_PATH, "allowed hosts");
   const advancedSet = ADVANCED.filter(
     (a) => readStored(panel.stored, NSCA_PATH, a.key) !== undefined,
@@ -93,8 +85,10 @@ export default function NscaPage({ onExpertMode }: ModulePanelProps) {
           {f({
             key: "encryption",
             label: "Encryption",
-            kind: { options: ENCRYPTIONS },
-            help: "The NSCA payload cipher. Every sending host has to use the same one.",
+            kind: { options: encryptionOptions(encryption) },
+            help: isSecureEncryption(encryption)
+              ? "The NSCA payload cipher. Every sending host has to use the same one; another cipher, or none, is set in expert mode."
+              : `${encryption} was set outside this page; only ${SECURE_ENCRYPTION} is offered here. Every sending host has to use the same one.`,
           })}
           {f({
             key: "password",
@@ -103,18 +97,23 @@ export default function NscaPage({ onExpertMode }: ModulePanelProps) {
             help: "The shared key every sending host uses. Not taken from [/settings/default].",
           })}
         </Stack>
-      </PanelSection>
-
-      <PanelSection title="Transport security">
-        <SocketTlsControls
-          panel={panel}
-          path={NSCA_PATH}
-          view={tls}
-          setDraft={tlsDraft.setDraft}
-          plainDescription="Plain TCP. The usual NSCA setup: the results are protected by the NSCA encryption above, not by the connection."
-          risk={null}
-          onExpertMode={onExpertMode}
-        />
+        {usesTls && (
+          <>
+            <RiskBanner
+              risk={{
+                severity: "warning",
+                title: "TLS is on for this server",
+                reason:
+                  "NSCA protects results with its own encryption, and standard send_nsca cannot connect over TLS. TLS is set in expert mode.",
+              }}
+            />
+            <Stack direction="row">
+              <Button size="small" onClick={onExpertMode}>
+                Open expert mode
+              </Button>
+            </Stack>
+          </>
+        )}
       </PanelSection>
 
       <PanelSection title="Results">

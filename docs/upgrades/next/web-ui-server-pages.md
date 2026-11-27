@@ -13,7 +13,8 @@ fragment to copy to another agent or a fleet bundle. Passwords, tokens and
 tickets are never shown back, only whether one is set.
 
 Each page says plainly what weakens it: NSCA results accepted unencrypted (or
-under `xor`), check_nt's password in clear (check_nt has no TLS, so its page offers none and
+under `xor`; the NSCA page offers only `aes256` and, as NSCA has its own
+encryption, no TLS - other ciphers and TLS are set in expert mode), check_nt's password in clear (check_nt has no TLS, so its page offers none and
 says when the agent's own TLS default keeps check_nt out), an NCPA or NSClient
 listener that refuses everything for want of a token or password, NCPA
 arguments reaching external scripts, anonymous web access, a missing
@@ -28,7 +29,7 @@ roles get an editor of their own: each role's grants picked by area (with the
 area's `*` wildcard where it has one), the users holding it, a warning on roles
 that can change the agent or run arbitrary commands, and the built-in roles as
 starting points. The passive-results options show only once the cache is on. check_nt's allowed commands are picked from
-the groups and commands the agent knows. NSCA and check_mk offer the same three
-transport modes - two-way TLS, one-way TLS, no TLS - and,
+the groups and commands the agent knows. check_mk offers the same three
+transport modes as NRPE - two-way TLS, one-way TLS, no TLS - and,
 as on the NRPE page, a stored configuration that matches none of them is shown
 as *Custom* and left alone.

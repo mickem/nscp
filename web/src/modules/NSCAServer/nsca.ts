@@ -2,6 +2,7 @@
 // (modules/NSCAServer/NSCAServer.cpp, libs/nscpcrypt): the keys with their
 // defaults, and what the encryption choice means.
 import { Settings } from "../../api/api.ts";
+import { readStored } from "../kit/changes.ts";
 import { fixed, KeyTable, tableIni } from "../kit/keys.ts";
 import type { Risk } from "../kit/RiskBanner.tsx";
 import { coreServerKeys } from "../kit/socketServer.ts";
@@ -32,24 +33,33 @@ export const NSCA_TABLE: KeyTable = {
   },
 };
 
-// The names nscpcrypt accepts (aes and rijndael* are spellings of these).
-export const ENCRYPTIONS = [
-  "aes256",
-  "aes192",
-  "aes128",
-  "serpent",
-  "twofish",
-  "blowfish",
-  "cast128",
-  "3des",
-  "des",
-  "xtea",
-  "3way",
-  "rc2",
-  "gost",
-  "xor",
-  "none",
-];
+// The agent also registers the socket servers' TLS options here, but NSCA
+// protects results with its own encryption: the page leaves TLS to expert mode.
+export const NSCA_TLS_KEYS = Object.keys(socketTlsKeys(NSCA_TLS));
+
+// The page offers the one secure cipher; any other is set in expert mode.
+// nscpcrypt reads aes and rijndael256 as the same cipher.
+export const SECURE_ENCRYPTION = "aes256";
+const SECURE_SPELLINGS = new Set(["aes256", "aes", "rijndael256"]);
+
+export function isSecureEncryption(encryption: string): boolean {
+  return SECURE_SPELLINGS.has(encryption);
+}
+
+// What the encryption field offers: aes256, plus whatever is stored now so
+// it is shown rather than silently replaced.
+export function encryptionOptions(current: string): string[] {
+  return isSecureEncryption(current) || current === ""
+    ? [current || SECURE_ENCRYPTION]
+    : [SECURE_ENCRYPTION, current];
+}
+
+// Whether TLS was turned on (in expert mode): standard send_nsca cannot
+// connect then.
+export function tlsOn(stored: Settings[] | undefined): boolean {
+  const v = (readStored(stored, NSCA_PATH, "use ssl") ?? "false").toLowerCase();
+  return v === "true" || v === "1";
+}
 
 const STRONG = new Set([
   "aes256",

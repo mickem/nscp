@@ -45,17 +45,20 @@ const pending = () => within(screen.getByRole("list", { name: "Pending changes" 
 describe("NSCA server page", () => {
   const P = "/settings/NSCA/server";
 
-  it("reads a fresh install as plain TCP with aes256, and needs the key before saving", async () => {
+  it("reads a fresh install as aes256 with no TLS, and needs the key before saving", async () => {
     render(NscaPage, []);
-    await waitFor(() => expect(radio(/^No TLS/)).toBeChecked());
-    expect(screen.getByLabelText("Encryption")).toHaveTextContent("aes256");
+    await waitFor(() => expect(screen.getByLabelText("Encryption")).toHaveTextContent("aes256"));
+    // NSCA has its own encryption: no TLS on the page.
+    expect(screen.queryByRole("radio", { name: /TLS/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Server certificate")).not.toBeInTheDocument();
+    expect(screen.queryByText("TLS is on for this server")).not.toBeInTheDocument();
     // Nothing to save yet, but the missing key is already said.
     expect(screen.getByText(/NSCA encryption needs a password/)).toBeInTheDocument();
   });
 
   it("writes the key and lets the save through", async () => {
     const writes = render(NscaPage, []);
-    await waitFor(() => expect(radio(/^No TLS/)).toBeChecked());
+    await screen.findByLabelText("Password");
     await userEvent.type(screen.getByLabelText("Password"), "s3cret");
     expect(screen.getByText(/Will be replaced when saved/)).toBeInTheDocument();
     await save();
@@ -75,6 +78,30 @@ describe("NSCA server page", () => {
       { path: P, key: "password", value: "k" },
     ]);
     expect(await screen.findByText("xor is not encryption")).toBeInTheDocument();
+  });
+
+  it("offers only aes256, keeping another stored cipher on show", async () => {
+    const writes = render(NscaPage, [
+      { path: P, key: "encryption", value: "blowfish" },
+      { path: P, key: "password", value: "k" },
+    ]);
+    const field = await screen.findByLabelText("Encryption");
+    expect(field).toHaveTextContent("blowfish");
+    expect(screen.getByText(/only aes256 is offered here/)).toBeInTheDocument();
+    await userEvent.click(field);
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["aes256", "blowfish"]);
+    await userEvent.click(screen.getByRole("option", { name: "aes256" }));
+    await save();
+    await waitFor(() =>
+      expect(writes).toEqual([`[${P}] encryption=aes256`, "[/modules] NSCAServer=enabled"]),
+    );
+  });
+
+  it("points to expert mode when TLS was turned on there", async () => {
+    render(NscaPage, [{ path: P, key: "use ssl", value: "true" }]);
+    expect(await screen.findByText("TLS is on for this server")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open expert mode" })).toBeInTheDocument();
   });
 });
 
