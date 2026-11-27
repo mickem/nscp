@@ -96,7 +96,11 @@ void check_apache_status(const std::string &default_ca_file, const PB::Commands:
   const fetch_result r = fetch_status_page(ensure_query_param(url, "auto"), opt);
   auto obj = std::make_shared<filter_obj>();
   fill_status(*obj, url, r);
+  // No status data is UNKNOWN with the reason, never a record of zeros: those
+  // would go out as perfdata (a counter "reset" on every graph) and trip any
+  // "below" threshold on values the server never reported.
   if (obj->result == "ok" && !parse_apache_auto(r.body, obj->s)) obj->result = "parse_error";
+  if (obj->result != "ok") return nscapi::protobuf::functions::set_response_bad(*response, url + ": " + obj->result);
   f.match(obj);
 
   filter_helper.post_process(f);
@@ -165,7 +169,11 @@ void check_nginx_status(const std::string &default_ca_file, const PB::Commands::
   const fetch_result r = fetch_status_page(url, opt);
   auto obj = std::make_shared<filter_obj>();
   fill_status(*obj, url, r);
+  // No status data is UNKNOWN with the reason, never a record of zeros: those
+  // would go out as perfdata (a counter "reset" on every graph) and trip any
+  // "below" threshold on values the server never reported.
   if (obj->result == "ok" && !parse_nginx_stub(r.body, obj->s)) obj->result = "parse_error";
+  if (obj->result != "ok") return nscapi::protobuf::functions::set_response_bad(*response, url + ": " + obj->result);
   f.match(obj);
 
   filter_helper.post_process(f);
@@ -248,7 +256,11 @@ void check_phpfpm_status(const std::string &default_ca_file, const PB::Commands:
   const fetch_result r = fetch_status_page(url, opt);
   auto obj = std::make_shared<filter_obj>();
   fill_status(*obj, url, r);
+  // No status data is UNKNOWN with the reason, never a record of zeros: those
+  // would go out as perfdata (a counter "reset" on every graph) and trip any
+  // "below" threshold on values the server never reported.
   if (obj->result == "ok" && !parse_phpfpm_status(r.body, obj->s)) obj->result = "parse_error";
+  if (obj->result != "ok") return nscapi::protobuf::functions::set_response_bad(*response, url + ": " + obj->result);
   f.match(obj);
 
   filter_helper.post_process(f);
@@ -341,27 +353,20 @@ void check_tomcat_status(const std::string &default_ca_file, const PB::Commands:
   tomcat_status status;
   std::string result = r.result;
   if (result == "ok" && !parse_tomcat_status_xml(r.body, status)) result = "parse_error";
+  // No status data is UNKNOWN with the reason, never a record of zeros: those
+  // would go out as perfdata (a counter "reset" on every graph) and trip any
+  // "below" threshold on values the server never reported.
+  if (result != "ok") return nscapi::protobuf::functions::set_response_bad(*response, url + ": " + result);
   // A body with zero <connector> elements (e.g. a truncated manager response)
   // never carried the data this check reports; treat it like a parse failure
-  // rather than reporting a degenerate 0/0-threads record as OK.
-  if (result == "ok" && status.connectors.empty()) result = "parse_error";
+  // rather than reporting a degenerate 0/0-threads record.
+  if (status.connectors.empty())
+    return nscapi::protobuf::functions::set_response_bad(*response, url + ": parse_error: no <connector> elements in the status XML");
 
-  if (result == "ok") {
-    for (const tomcat_connector &c : status.connectors) {
-      auto obj = std::make_shared<filter_obj>();
-      fill_status(*obj, url, r);
-      obj->c = c;
-      obj->memory_free = status.memory_free;
-      obj->memory_total = status.memory_total;
-      obj->memory_max = status.memory_max;
-      f.match(obj);
-    }
-  } else {
-    // Fetch or parse failure: emit a single record carrying the failure so
-    // the default critical expression fires.
+  for (const tomcat_connector &c : status.connectors) {
     auto obj = std::make_shared<filter_obj>();
     fill_status(*obj, url, r);
-    obj->result = result;
+    obj->c = c;
     obj->memory_free = status.memory_free;
     obj->memory_total = status.memory_total;
     obj->memory_max = status.memory_max;

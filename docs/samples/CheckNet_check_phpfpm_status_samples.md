@@ -19,9 +19,9 @@ check_phpfpm_status url=http://127.0.0.1/status "critical=max_children_reached >
 CRITICAL: ok: pool www: 3 active, 7 idle, 0 queued|'www_max_children_reached'=1c;0;0 'www_slow_requests'=5c;4;0 'www_active_processes'=3;0;0 'www_idle_processes'=7;0;0 'www_listen_queue'=0;0;0
 ```
 
-**An FPM pool that is down (or a missing status location) is CRITICAL by default:**
+**An FPM pool that is down (or a missing status location) is UNKNOWN, without performance data:**
 
 ```
 check_phpfpm_status url=http://127.0.0.1/status
-CRITICAL: http_404: pool : 0 active, 0 idle, 0 queued|'_active_processes'=0;0;0 '_idle_processes'=0;0;0 '_listen_queue'=0;0;0
+UNKNOWN: http://127.0.0.1/status: http_404
 ```

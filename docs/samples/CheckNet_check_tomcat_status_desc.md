@@ -11,8 +11,10 @@ The manager application must be deployed and the account used needs the
 
 One record is emitted per connector (e.g. `http-nio-8080`, `ajp-nio-8009`).
 By default the check goes **warning** at 75% and **critical** at 90% thread
-pool usage, and **critical** when the page cannot be fetched or parsed
-(`result != 'ok'` — including `http_401` for missing credentials).
+pool usage. When the page cannot be fetched or parsed — including `http_401`
+for missing credentials, and a status XML with no `<connector>` elements — the
+check returns **UNKNOWN** with `<url>: <reason>` as the message and no
+performance data.
 
 Use `filter=connector like 'http'` to scope the check to specific connectors.
 The JVM heap keywords repeat on every connector record, so combine them with a

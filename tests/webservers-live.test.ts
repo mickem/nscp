@@ -159,13 +159,15 @@ dockerOrSkip()("Web server status checks against live servers", () => {
     });
 
     it("check_tomcat_status reports the HTTP code when authentication is missing", async () => {
-      // No credentials: the manager answers 401, the default critical
-      // expression (`result != 'ok' or ...`) turns that into CRITICAL with
-      // the code in the record - the documented failure contract, produced
-      // by a real server rather than a scripted response.
+      // No credentials: the manager answers 401, and no data is UNKNOWN with
+      // the code in the message and no perfdata - the documented failure
+      // contract, produced by a real server rather than a scripted response.
+      // Client-query output has no status word, so pin the message itself.
       const out = await query("check_tomcat_status", [`url=${url}`]);
-      expect(out).toMatch(/CRITICAL/);
-      expect(out).toMatch(/http_401/);
+      const line = out.split(/\r?\n/).find((l) => l.includes(`${url}: http_401`));
+      expect(line).toBeDefined();
+      expect(line).not.toContain("|");
+      expect(out).not.toMatch(/CRITICAL/);
     });
   });
 

@@ -8,9 +8,11 @@ the URL does not already carry it, so `url=http://host/server-status` is
 enough. `ExtendedStatus On` (the default since Apache 2.3.6) is required for
 the request/byte counters; `BusyWorkers`/`IdleWorkers` are always present.
 
-The check emits a single record. By default it goes **critical** when the
-endpoint cannot be fetched or does not look like a mod_status page
-(`result != 'ok'`); worker/traffic thresholds are opt-in.
+The check emits a single record; worker/traffic thresholds are opt-in.
+If the endpoint cannot be fetched (`invalid_url`, `http_<code>`, `error: ...`)
+or does not look like a mod_status page, there is no data to judge: the check
+returns **UNKNOWN** with `<url>: <reason>` as the message and no performance
+data, so a graph shows a gap rather than a drop to zero.
 
 Connection options match `check_http` where applicable: `timeout`, `username`
 / `password` (Basic auth), and for https `tls-version`, `verify` and `ca`.

@@ -381,11 +381,15 @@ TEST(CheckApacheStatus, UptimeTakesDurations) {
   }
 }
 
+// No data is UNKNOWN with "<url>: <reason>" and no perfdata - never a record
+// of zeros that would graph as a counter reset.
 TEST(CheckApacheStatus, HtmlPageIsAParseError) {
   scripted_server server(http_reply(http_response(200, "<html><body>Apache Status</body></html>")));
-  const outcome r = run(&check_net::check_apache_status, {"url=" + base(server) + "/server-status", "detail-syntax=${result}"});
-  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
-  EXPECT_TRUE(contains(r.message, "parse_error")) << r.message;
+  const std::string url = base(server) + "/server-status";
+  const outcome r = run(&check_net::check_apache_status, {"url=" + url});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_EQ(url + ": parse_error", r.message);
+  EXPECT_TRUE(r.perf.empty()) << r.perf;
 }
 
 TEST(CheckApacheStatus, NonPositiveTimeoutIsRejected) {
@@ -403,23 +407,29 @@ TEST(CheckNginxStatus, ParsesStubStatus) {
   EXPECT_EQ("GET /nginx_status HTTP/1.0", seen.request_line());
 }
 
-TEST(CheckNginxStatus, ServerErrorIsCritical) {
+TEST(CheckNginxStatus, ServerErrorIsUnknown) {
   scripted_server server(http_reply(http_response(500, "oops")));
-  const outcome r = run(&check_net::check_nginx_status, {"url=" + base(server) + "/nginx_status", "detail-syntax=${result} ${code}"});
-  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
-  EXPECT_TRUE(contains(r.message, "http_500 500")) << r.message;
+  const std::string url = base(server) + "/nginx_status";
+  // A "below" threshold must not fire on a stand-in 0.
+  const outcome r = run(&check_net::check_nginx_status, {"url=" + url, "warning=active < 5"});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_EQ(url + ": http_500", r.message);
+  EXPECT_TRUE(r.perf.empty()) << r.perf;
 }
 
 TEST(CheckNginxStatus, InvalidUrlIsReported) {
-  const outcome r = run(&check_net::check_nginx_status, {"url=nonsense", "detail-syntax=${result}"});
-  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
-  EXPECT_TRUE(contains(r.message, "invalid_url")) << r.message;
+  const outcome r = run(&check_net::check_nginx_status, {"url=nonsense"});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_TRUE(contains(r.message, "nonsense: invalid_url")) << r.message;
+  EXPECT_TRUE(r.perf.empty()) << r.perf;
 }
 
 TEST(CheckNginxStatus, UnreachableServerIsAnError) {
-  const outcome r = run(&check_net::check_nginx_status, {"url=http://127.0.0.1:" + closed_port() + "/nginx_status", "detail-syntax=${result}"});
-  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
-  EXPECT_TRUE(contains(r.message, "error: ")) << r.message;
+  const std::string url = "http://127.0.0.1:" + closed_port() + "/nginx_status";
+  const outcome r = run(&check_net::check_nginx_status, {"url=" + url});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_TRUE(contains(r.message, url + ": error: ")) << r.message;
+  EXPECT_TRUE(r.perf.empty()) << r.perf;
 }
 
 TEST(CheckPhpFpmStatus, QueuedRequestsWarnByDefault) {
@@ -432,9 +442,11 @@ TEST(CheckPhpFpmStatus, QueuedRequestsWarnByDefault) {
 
 TEST(CheckPhpFpmStatus, NotFoundPageIsAParseError) {
   scripted_server server(http_reply(http_response(200, "File not found.\n")));
-  const outcome r = run(&check_net::check_phpfpm_status, {"url=" + base(server) + "/status", "detail-syntax=${result}"});
-  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
-  EXPECT_TRUE(contains(r.message, "parse_error")) << r.message;
+  const std::string url = base(server) + "/status";
+  const outcome r = run(&check_net::check_phpfpm_status, {"url=" + url});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_EQ(url + ": parse_error", r.message);
+  EXPECT_TRUE(r.perf.empty()) << r.perf;
 }
 
 TEST(CheckTomcatStatus, OneRecordPerConnector) {
@@ -450,16 +462,20 @@ TEST(CheckTomcatStatus, OneRecordPerConnector) {
 
 TEST(CheckTomcatStatus, NoConnectorsIsAParseError) {
   scripted_server server(http_reply(http_response(200, "<status><jvm><memory free='1' total='2' max='3'/></jvm></status>")));
-  const outcome r = run(&check_net::check_tomcat_status, {"url=" + base(server) + "/manager/status", "detail-syntax=${result} ${memory_max}"});
-  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
-  EXPECT_TRUE(contains(r.message, "parse_error 3")) << r.message;
+  const std::string url = base(server) + "/manager/status";
+  const outcome r = run(&check_net::check_tomcat_status, {"url=" + url});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_EQ(url + ": parse_error: no <connector> elements in the status XML", r.message);
+  EXPECT_TRUE(r.perf.empty()) << r.perf;
 }
 
 TEST(CheckTomcatStatus, AuthenticationFailureIsReported) {
   scripted_server server(http_reply(http_response(401, "Unauthorized")));
-  const outcome r = run(&check_net::check_tomcat_status, {"url=" + base(server) + "/manager/status", "detail-syntax=${result}"});
-  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, r.code) << r.message;
-  EXPECT_TRUE(contains(r.message, "http_401")) << r.message;
+  const std::string url = base(server) + "/manager/status";
+  const outcome r = run(&check_net::check_tomcat_status, {"url=" + url});
+  EXPECT_EQ(PB::Common::ResultCode::UNKNOWN, r.code) << r.message;
+  EXPECT_EQ(url + ": http_401", r.message);
+  EXPECT_TRUE(r.perf.empty()) << r.perf;
 }
 
 // ============================================================================
