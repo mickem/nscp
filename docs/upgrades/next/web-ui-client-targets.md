@@ -34,8 +34,4 @@ version, NSCP runs `check_ok` on the remote agent. The passive clients have
 none, since the only test is submitting a real result.
 
 The `default` target is the one used when a request names none or an unknown
-one. Other targets inherit from it only the keys the agent registers without a
-default of their own - the socket TLS keys, NRPE's legacy mode, version and
-payload length, among others; the dialog says which. Timeout, retries,
-`address` and every other key with a default of its own fall back to that
-default in each target.
+one. Inheritance between targets (`parent`) is left to expert mode.

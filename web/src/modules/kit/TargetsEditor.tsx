@@ -54,7 +54,6 @@ import {
   advancedKeys,
   DEFAULT_TARGET,
   endpoint,
-  inherited,
   TargetMode,
   targetChanges,
   targetIni,
@@ -336,21 +335,9 @@ function TargetDialog({
   const field = (key: string) => {
     const f = spec.fields[key];
     if (!f || (f.visible && !f.visible(v))) return null;
-    const own = readStored(stored, targetPath(spec, readAs), key);
-    const from = initialName === DEFAULT_TARGET ? undefined : inherited(stored, spec, readAs, key);
-    const help = (
-      <>
-        {f.help}
-        {own === undefined && draft[key] === undefined && from !== undefined && from !== f.builtIn
-          ? " Taken from the default target."
-          : ""}
-        {initialName === DEFAULT_TARGET
-          ? f.inherits
-            ? " Inherited by other targets."
-            : " Not inherited: other targets use the built-in default unless they set it."
-          : ""}
-      </>
-    );
+    // Inheritance between targets is left to expert mode: a field shows the
+    // value in effect, and its own help.
+    const help = f.help;
     if (f.kind === "secret")
       return (
         <SecretField
@@ -434,9 +421,7 @@ function TargetDialog({
                 />
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  Used when a request names no target, or one that does not exist. Other targets
-                  take only the settings marked as inherited from here; the rest they set themselves
-                  or leave at the built-in default.
+                  Used when a request names no target, or one that does not exist.
                 </Typography>
               )}
             </Stack>
@@ -512,4 +497,3 @@ function TargetDialog({
     </Dialog>
   );
 }
-
