@@ -43,17 +43,18 @@ export function commandLineProblem(line: string): string | null {
   }
 }
 
-// The command and the rest of the line, kept as typed.
+// The command and the rest of the line, kept as typed: the arguments are
+// not trimmed at the end, so a space typed after the last one stays.
 export function splitCommand(line: string): { command: string; args: string } {
-  const trimmed = line.trim();
-  const at = trimmed.search(/\s/);
+  const start = line.replace(/^\s+/, "");
+  const at = start.search(/\s/);
   return at < 0
-    ? { command: trimmed, args: "" }
-    : { command: trimmed.slice(0, at), args: trimmed.slice(at).trim() };
+    ? { command: start, args: "" }
+    : { command: start.slice(0, at), args: start.slice(at).replace(/^\s+/, "") };
 }
 
 export function joinCommand(command: string, args: string): string {
-  return args.trim() ? `${command.trim()} ${args.trim()}` : command.trim();
+  return args !== "" ? `${command.trim()} ${args}` : command.trim();
 }
 
 // A token as it has to be written to come back as itself.

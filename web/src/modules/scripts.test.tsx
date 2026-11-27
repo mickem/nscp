@@ -117,6 +117,7 @@ describe("check helpers aliases", () => {
     await userEvent.click(screen.getByText("Empty alias"));
     await userEvent.type(dialog().getByLabelText("Name"), "cpu_5m");
     await userEvent.type(dialog().getByLabelText("Command"), "check_cpu");
+    await userEvent.click(dialog().getByText("Options and filter keywords of check_cpu"));
     await userEvent.click(await dialog().findByText("time"));
     await userEvent.type(dialog().getByLabelText("Arguments"), "5m");
     await userEvent.click(dialog().getByRole("button", { name: "Run now" }));
@@ -124,6 +125,23 @@ describe("check helpers aliases", () => {
     expect(runs).toEqual(["?time=5m"]);
     await userEvent.click(dialog().getByRole("button", { name: "Save" }));
     await waitFor(() => expect(writes).toEqual([`[${A}] cpu_5m=check_cpu time=5m`]));
+  });
+
+  it("keeps spaces typed in the arguments", async () => {
+    const { writes } = render([]);
+    await userEvent.click(await screen.findByRole("button", { name: "Add alias" }));
+    await userEvent.click(screen.getByText("Empty alias"));
+    await userEvent.type(dialog().getByLabelText("Name"), "cpu_bounded");
+    await userEvent.type(dialog().getByLabelText("Command"), "check_cpu");
+    await userEvent.type(
+      dialog().getByLabelText("Arguments"),
+      '"warn=load > 80%" "crit=load > 90%"',
+    );
+    expect(dialog().getByText("Check CPU load")).toBeInTheDocument();
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(writes).toEqual([`[${A}] cpu_bounded=check_cpu "warn=load > 80%" "crit=load > 90%"`]),
+    );
   });
 
   it("starts from a preset, and cannot run one that takes arguments", async () => {

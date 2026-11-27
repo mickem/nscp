@@ -1,17 +1,24 @@
 // A command line: the check, picked from those the agent knows, and its
 // arguments, with the check's options a click away and a way to run it now.
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Autocomplete,
-  Box,
   Button,
-  Chip,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
-import { useMemo, useState } from "react";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { useMemo, useRef, useState } from "react";
+import { makeVocabulary } from "../../common/queryHelp.ts";
+import { contextAt, CursorContext } from "../../common/syntax.ts";
+import SyntaxArgumentsField, {
+  SyntaxArgumentsFieldHandle,
+} from "../../components/atoms/SyntaxArgumentsField.tsx";
+import QueryHelpPanel from "../../components/QueryHelpPanel.tsx";
 import {
   useExecuteQueryMutation,
   useGetAliasesQuery,
@@ -36,6 +43,13 @@ interface Props {
   runnable?: boolean;
 }
 
+// A check's description can run to a paragraph; the field says its first
+// sentence. The help panel below has the rest.
+function firstSentence(text: string): string {
+  const m = /^.*?[.!?](?=\s|$)/.exec(text.trim());
+  return m ? m[0] : text;
+}
+
 interface Option {
   name: string;
   description: string;
@@ -52,7 +66,12 @@ export default function CommandLineField({
   const { command, args } = splitCommand(value);
   const { data: queries } = useGetQueriesQuery();
   const { data: aliases } = useGetAliasesQuery();
-  const { data: help } = useGetQueryHelpQuery(command, { skip: command === "" });
+  const { data: help, isFetching: helpLoading } = useGetQueryHelpQuery(command, {
+    skip: command === "",
+  });
+  const vocabulary = useMemo(() => makeVocabulary(help), [help]);
+  const [context, setContext] = useState<CursorContext>(() => contextAt("", 0));
+  const argumentsRef = useRef<SyntaxArgumentsFieldHandle>(null);
   const [executeQuery, { isLoading }] = useExecuteQueryMutation();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -87,11 +106,6 @@ export default function CommandLineField({
     }
   };
 
-  const addOption = (name: string) => {
-    const token = `${name}=`;
-    onChange(joinCommand(command, `${args} ${token}`));
-  };
-
   return (
     <Stack spacing={1.5}>
       <Autocomplete
@@ -112,7 +126,7 @@ export default function CommandLineField({
               </Typography>
               {o.description && (
                 <Typography variant="caption" color="text.secondary">
-                  {o.description}
+                  {firstSentence(o.description)}
                 </Typography>
               )}
             </Stack>
@@ -124,40 +138,40 @@ export default function CommandLineField({
             variant="standard"
             label="Command"
             helperText={
-              known?.description ??
+              (known && firstSentence(known.description)) ??
               (command && options.length > 0 ? "Not a command this agent has loaded." : undefined)
             }
           />
         )}
       />
-      <TextField
-        variant="standard"
-        label="Arguments"
+      <SyntaxArgumentsField
+        ref={argumentsRef}
         value={args}
+        onChange={(a) => onChange(joinCommand(command, a))}
+        vocabulary={vocabulary}
+        onContextChange={setContext}
         disabled={disabled}
-        onChange={(e) => onChange(joinCommand(command, e.target.value))}
-        multiline
-        helperText={argumentsHelp ?? 'Quote an argument that holds spaces: "warn=load > 80%".'}
-        slotProps={{ htmlInput: { style: { fontFamily: "monospace" } } }}
+        placeholder={argumentsHelp ?? '"warn=load > 80%" "crit=load > 90%"'}
       />
-      {help && help.parameters.length > 0 && (
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Options of {command}:
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
-            {help.parameters.map((p) => (
-              <Tooltip key={p.name} title={p.short_description} describeChild>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={p.name}
-                  onClick={disabled ? undefined : () => addOption(p.name)}
-                />
-              </Tooltip>
-            ))}
-          </Box>
-        </Box>
+      {command && (
+        <Accordion
+          disableGutters
+          elevation={0}
+          sx={{ bgcolor: "transparent", "&:before": { display: "none" } }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 0 }}>
+            <Typography variant="body2">Options and filter keywords of {command}</Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={{ px: 0 }}>
+            <QueryHelpPanel
+              queryName={command}
+              vocabulary={vocabulary}
+              context={context}
+              loading={helpLoading}
+              onInsert={(entry) => argumentsRef.current?.insert(entry)}
+            />
+          </AccordionDetails>
+        </Accordion>
       )}
       {runnable && (
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>

@@ -36,7 +36,8 @@ describe("command lines", () => {
       args: `"warn=load > 80%"`,
     });
     expect(splitCommand("check_ok")).toEqual({ command: "check_ok", args: "" });
-    expect(joinCommand("check_ok", " ")).toBe("check_ok");
+    // A space typed after the last argument stays while typing.
+    expect(splitCommand(joinCommand("check_cpu", "time=5m ")).args).toBe("time=5m ");
   });
 
   it("quotes what needs it, so it comes back as itself", () => {
