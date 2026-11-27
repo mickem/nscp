@@ -239,6 +239,27 @@ describe("Icinga agent page", () => {
   });
 });
 
+describe("web server advanced options", () => {
+  it("keeps worker threads and the login limiter under Advanced", async () => {
+    render(WebPage, []);
+    expect(await screen.findByLabelText("Worker threads")).not.toBeVisible();
+    expect(screen.getByLabelText("Failed logins before blocking")).not.toBeVisible();
+    expect(screen.getByLabelText("Block for (seconds)")).not.toBeVisible();
+    await userEvent.click(screen.getByText("Advanced"));
+    await waitFor(() => expect(screen.getByLabelText("Worker threads")).toBeVisible());
+    expect(screen.getByLabelText("Failed logins before blocking")).toBeVisible();
+    expect(screen.getByLabelText("Block for (seconds)")).toBeVisible();
+  });
+
+  it("still warns where logins are set up when the limiter is off", async () => {
+    render(WebPage, [
+      { path: "/settings/WEB/server", key: "auth rate limit max failures", value: "0" },
+    ]);
+    expect(await screen.findByText("Failed logins are not limited")).toBeVisible();
+    expect(screen.getByText(/The limit is under Advanced/)).toBeVisible();
+  });
+});
+
 describe("web server passive results", () => {
   it("shows the cache's options only while it is on", async () => {
     render(WebPage, []);

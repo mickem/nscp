@@ -79,6 +79,27 @@ const RESULTS: Spec[] = [
 const ADVANCED: Spec[] = [
   {
     path: WEB_PATH,
+    key: "threads",
+    label: "Worker threads",
+    kind: "number",
+    help: "Requests served at once; a slow check holds its thread.",
+  },
+  {
+    path: WEB_PATH,
+    key: "auth rate limit max failures",
+    label: "Failed logins before blocking",
+    kind: "number",
+    help: "Consecutive failures from one address; 0 turns the limit off.",
+  },
+  {
+    path: WEB_PATH,
+    key: "auth rate limit block seconds",
+    label: "Block for (seconds)",
+    kind: "number",
+    help: "Doubles for an address guessing at machine speed, up to an hour.",
+  },
+  {
+    path: WEB_PATH,
     key: "cache allowed hosts",
     label: "Cache allowed hosts",
     kind: "bool",
@@ -155,15 +176,7 @@ export default function WebPage() {
       </Explainer>
 
       <PanelSection title="Connection">
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-          <Stack sx={{ minWidth: 120 }}>{f({ key: "port", label: "Port", kind: "number" })}</Stack>
-          {f({
-            key: "threads",
-            label: "Worker threads",
-            kind: "number",
-            help: "Requests served at once; a slow check holds its thread.",
-          })}
-        </Stack>
+        <Stack sx={{ maxWidth: 200 }}>{f({ key: "port", label: "Port", kind: "number" })}</Stack>
         <AllowedHostsSection
           value={hosts.value}
           scope={hosts.scope ?? "default"}
@@ -203,21 +216,9 @@ export default function WebPage() {
           kind: "bool",
           help: "Only a hash of each session key is stored.",
         })}
-        {rRisk && <RiskBanner risk={rRisk} />}
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-          {f({
-            key: "auth rate limit max failures",
-            label: "Failed logins before blocking",
-            kind: "number",
-            help: "Consecutive failures from one address; 0 turns the limit off.",
-          })}
-          {f({
-            key: "auth rate limit block seconds",
-            label: "Block for (seconds)",
-            kind: "number",
-            help: "Doubles for an address guessing at machine speed, up to an hour.",
-          })}
-        </Stack>
+        {rRisk && (
+          <RiskBanner risk={{ ...rRisk, reason: `${rRisk.reason} The limit is under Advanced.` }} />
+        )}
       </PanelSection>
 
       <PanelSection title="Passive results">
