@@ -61,6 +61,7 @@ TEST_F(CheckMkServerModule, LoadRegistersItsKeysWithTheDocumentedDefaults) {
   EXPECT_EQ(core().default_for("mrpe channel"), "check_mk-mrpe");
   EXPECT_EQ(core().default_for("local channel"), "check_mk-local");
   EXPECT_EQ(core().default_for("submission ttl"), "60");
+  EXPECT_EQ(core().default_for("script"), "default_check_mk.lua");
 }
 
 // The socket options every server module shares come from
@@ -73,7 +74,8 @@ TEST_F(CheckMkServerModule, LoadRegistersTheSharedServerAndSslOptions) {
   EXPECT_EQ(core().default_for("certificate"), "${certificate-path}/certificate.pem");
 }
 
-// scripts/ drives the Lua side; local/ and mrpe/ are read by
+// scripts/ (deprecated, superseded by `script`) is still registered so an
+// existing configuration is read; local/ and mrpe/ are read by
 // default_check_mk.lua but registered here so they get help text and show up
 // in `nscp settings --generate`.
 TEST_F(CheckMkServerModule, LoadRegistersItsSettingsSections) {
@@ -82,6 +84,26 @@ TEST_F(CheckMkServerModule, LoadRegistersItsSettingsSections) {
   EXPECT_TRUE(has_section("scripts")) << "no scripts section registered";
   EXPECT_TRUE(has_section("local")) << "no local section registered";
   EXPECT_TRUE(has_section("mrpe")) << "no mrpe section registered";
+}
+
+// The agent output comes from one Lua script, named by `script`.
+TEST(CheckMkServerScripts, ScriptKeyNamesTheOnlyScriptToLoad) {
+  const CheckMKServer::script_list scripts = CheckMKServer::scripts_to_load("custom_check_mk.lua", {});
+  ASSERT_EQ(scripts.size(), 1u);
+  EXPECT_EQ(scripts.front().second, "custom_check_mk.lua");
+}
+
+TEST(CheckMkServerScripts, EmptyScriptKeyFallsBackToTheDefaultScript) {
+  const CheckMKServer::script_list scripts = CheckMKServer::scripts_to_load("", {});
+  ASSERT_EQ(scripts.size(), 1u);
+  EXPECT_EQ(scripts.front().second, "default_check_mk.lua");
+}
+
+// The deprecated scripts/ section is still read: while it has entries they are
+// loaded in place of `script`, so an existing configuration keeps working.
+TEST(CheckMkServerScripts, DeprecatedScriptsSectionIsLoadedInsteadOfScriptKey) {
+  const CheckMKServer::script_list legacy = {{"a", "a.lua"}, {"b", "b.lua"}};
+  EXPECT_EQ(CheckMKServer::scripts_to_load("custom_check_mk.lua", legacy), legacy);
 }
 
 // ============================================================================

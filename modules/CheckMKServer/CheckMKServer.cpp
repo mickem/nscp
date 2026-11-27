@@ -55,12 +55,20 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("check_mk", alias, "server");
 
+  // Refilled by the settings callback; a reload must not keep the old entries.
+  legacy_scripts_.clear();
+
   // clang-format off
   settings.alias().add_path_to_settings()
     ("CHECK MK SERVER SECTION", "Section for check_mk (CheckMKServer.dll) protocol options.")
-    ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->add_script(key, value); }),
-	    "REMOTE TARGET DEFINITIONS", "",
-	    "TARGET", "For more configuration options add a dedicated section")
+    // Deprecated: superseded by the `script` key below. Still read so an
+    // existing configuration keeps working, with a warning at load.
+    ("scripts", sh::fun_values_path([this] (auto key, auto value) { this->legacy_scripts_.emplace_back(key, value); }),
+        "LUA SCRIPTS (DEPRECATED)",
+        "Deprecated: use the `script` key in /settings/check_mk/server instead. Lua scripts to load, as `<alias> = <file>`. "
+        "Still read for existing configurations: while this section has entries they are loaded instead of `script`, and a "
+        "warning is logged.",
+        "SCRIPT", "Lua script file to load")
     // The /local and /mrpe sub-paths are read on demand by default_check_mk.lua
     // (no C++-side callback needed). Registering them here gives them help text
     // and makes them appear in `nscp settings --generate` and the web UI.
@@ -80,6 +88,10 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   // clang-format off
   settings.alias().add_key_to_settings()
     .add_string("port", sh::string_key(&info_.port_, "6556"), "PORT NUMBER", "Port to use for check_mk.")
+    .add_string("script", sh::string_key(&script_, "default_check_mk.lua"),
+                "LUA SCRIPT",
+                "Lua script that renders the check_mk agent output, resolved under the script root (e.g. `scripts/lua/`). "
+                "It must register the agent callback with `check_mk.server(<function>)`.")
     .add_string("mrpe channel", sh::string_key(&channel_mrpe_, "check_mk-mrpe"),
                 "MRPE SUBMISSION CHANNEL",
                 "Channel name passive check results land on to be relayed as cached <<<mrpe>>> entries.")
@@ -100,9 +112,16 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
   settings.register_all();
   settings.notify();
 
-  if (scripts_->empty()) {
-    add_script("default", "default_check_mk.lua");
+  if (!legacy_scripts_.empty()) {
+    const std::string legacy_path = settings.alias().get_settings_path("scripts");
+    NSC_LOG_WARNING(legacy_path + " is deprecated and will be removed: set `script = <file>` in " + settings.alias().get_settings_path("") +
+                    " instead. Loading its entries in place of `script` for now.");
+    if (legacy_scripts_.size() > 1) {
+      NSC_LOG_WARNING(legacy_path + " lists " + std::to_string(legacy_scripts_.size()) +
+                      " scripts, but there is only one agent callback: the last script that registers check_mk.server() wins.");
+    }
   }
+  for (const auto &entry : scripts_to_load(script_, legacy_scripts_)) add_script(entry.first, entry.second);
 
   // Register the two passive submission channels. Other modules (e.g. the
   // Scheduler) submit Nagios-format check results to these; CheckMKServer
@@ -246,6 +265,11 @@ void CheckMKServer::handleNotification(const std::string &channel, const PB::Com
     resp->set_command(name);
     resp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
   }
+}
+
+CheckMKServer::script_list CheckMKServer::scripts_to_load(const std::string &script, const script_list &legacy_scripts) {
+  if (!legacy_scripts.empty()) return legacy_scripts;
+  return {{"default", script.empty() ? std::string("default_check_mk.lua") : script}};
 }
 
 bool CheckMKServer::add_script(std::string alias, std::string file) {
