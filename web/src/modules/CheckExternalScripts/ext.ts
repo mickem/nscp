@@ -63,6 +63,9 @@ export const SCRIPT_KEYS = [
   "capture output",
   "ignore perfdata",
   "encoding",
+  "alias",
+  "parent",
+  "is template",
 ] as const;
 
 export type Script = Entry;

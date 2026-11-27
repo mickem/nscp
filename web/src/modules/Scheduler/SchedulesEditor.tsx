@@ -8,6 +8,7 @@ import {
   CardContent,
   CardHeader,
   Checkbox,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -45,6 +46,7 @@ import ValueField from "../kit/ValueField.tsx";
 import {
   DEFAULT_SCHEDULE,
   describeWhen,
+  isTemplate,
   readSchedules,
   reportSet,
   reportValue,
@@ -97,8 +99,10 @@ export default function SchedulesEditor() {
     }
   };
 
-  const isDefault = editing?.original?.name === DEFAULT_SCHEDULE;
-  const name = isDefault ? DEFAULT_SCHEDULE : (editing?.name.trim() ?? "");
+  const isDefault =
+    editing?.original?.name === DEFAULT_SCHEDULE || (editing ? isTemplate(editing.values) : false);
+  const name =
+    editing?.original?.name === DEFAULT_SCHEDULE ? DEFAULT_SCHEDULE : (editing?.name.trim() ?? "");
   const own = (k: string) => editing?.values[k] ?? "";
   const get = (k: string) => (editing ? scheduleValue(stored, name, k, editing.values) : "");
   const set = (k: string, v: string) =>
@@ -117,7 +121,7 @@ export default function SchedulesEditor() {
 
   const writes = (): Write[] => {
     if (!editing) return [];
-    if (isDefault) {
+    if (editing.original?.name === DEFAULT_SCHEDULE) {
       const path = `${SCHEDULES}/${DEFAULT_SCHEDULE}`;
       return SCHEDULE_KEYS.flatMap((k): Write[] => {
         const before = editing.original?.values[k];
@@ -162,16 +166,24 @@ export default function SchedulesEditor() {
             {rows.map((s) => {
               const v = (k: string) => scheduleValue(stored, s.name, k, s.values);
               const d = s.name === DEFAULT_SCHEDULE;
+              const template = d || isTemplate(s.values);
+              const refused = template ? null : scheduleProblem(v, false);
               return (
                 <TableRow key={s.name} hover>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
                       {s.name}
                     </Typography>
-                    {d && (
+                    {d ? (
                       <Typography variant="caption" color="text.secondary">
                         What every schedule takes unless it sets its own
                       </Typography>
+                    ) : (
+                      template && (
+                        <Typography variant="caption" color="text.secondary">
+                          Template: not run, other schedules take from it
+                        </Typography>
+                      )
                     )}
                   </TableCell>
                   <TableCell>
@@ -183,7 +195,18 @@ export default function SchedulesEditor() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">{describeWhen(v)}</Typography>
+                    {refused ? (
+                      <Tooltip title={refused} describeChild>
+                        <Chip
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          label="refused by the agent"
+                        />
+                      </Tooltip>
+                    ) : (
+                      <Typography variant="body2">{describeWhen(v)}</Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">
@@ -225,7 +248,7 @@ export default function SchedulesEditor() {
         fullWidth
       >
         <DialogTitle>
-          {isDefault
+          {editing?.original?.name === DEFAULT_SCHEDULE
             ? "Default schedule"
             : editing?.original
               ? `Schedule ${editing.original.name}`
@@ -234,7 +257,7 @@ export default function SchedulesEditor() {
         <DialogContent>
           {editing && (
             <Stack spacing={3} divider={<Divider flexItem />} sx={{ pt: 1 }}>
-              {isDefault ? (
+              {editing.original?.name === DEFAULT_SCHEDULE ? (
                 <Typography variant="body2" color="text.secondary">
                   Every schedule takes what it does not set from here: a one-line schedule (name =
                   command) runs only if an interval or a schedule is set here.

@@ -39,6 +39,7 @@ export const SCHEDULE_KEYS = [
   "run on startup",
   "parent",
   "alias",
+  "is template",
 ] as const;
 
 const BUILT_IN: Record<string, string> = {
@@ -135,7 +136,12 @@ export function reportValue(set: Set<string>): string {
   return REPORTS.every((r) => set.has(r)) ? "all" : REPORTS.filter((r) => set.has(r)).join(",");
 }
 
+export const isTemplate = (values: Record<string, string>) =>
+  ["true", "1"].includes((values["is template"] ?? "").toLowerCase());
+
 // Why the agent would refuse a schedule with these effective values, or null.
+// A template (`default`, or one marked so) is never run: only what is set on
+// it is checked.
 export function scheduleProblem(get: (key: string) => string, isDefault: boolean): string | null {
   const interval = get("interval");
   const cron = get("schedule");

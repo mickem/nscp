@@ -104,6 +104,21 @@ describe("schedules editor", () => {
     expect(within(rows[2]).getByText("NSCA")).toBeInTheDocument();
   });
 
+  it("marks templates, and a schedule the agent refuses", async () => {
+    render([
+      { path: `${S}/default`, key: "interval", value: "5m" },
+      { path: `${S}/cron`, key: "schedule", value: "0 2 * * *" },
+      { path: `${S}/cron`, key: "is template", value: "true" },
+      { path: `${S}/nightly`, key: "command", value: "check_ok" },
+      { path: `${S}/nightly`, key: "parent", value: "cron" },
+    ]);
+    const row = async (n: string) =>
+      within((await screen.findByText(n, { selector: "p" })).closest("tr") as HTMLElement);
+    expect((await row("cron")).getByText(/Template: not run/)).toBeInTheDocument();
+    // An inherited cron line and an inherited interval: both, refused.
+    expect((await row("nightly")).getByText("refused by the agent")).toBeInTheDocument();
+  });
+
   it("adds a one-line schedule when only its command differs from default", async () => {
     const writes = render([{ path: `${S}/default`, key: "interval", value: "5m" }]);
     await userEvent.click(await screen.findByRole("button", { name: "Add schedule" }));

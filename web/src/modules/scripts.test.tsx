@@ -13,6 +13,7 @@ import CheckHelpersAliases from "./CheckHelpers/CheckHelpersAliases";
 import { CHECK_HELPERS_ALIAS_PATH as A } from "./CheckHelpers/paths";
 import ExtScriptsPage from "./CheckExternalScripts/ExtScriptsPage";
 import ScriptsEditor from "./CheckExternalScripts/ScriptsEditor";
+import ScriptListEditor from "./kit/ScriptListEditor";
 import {
   argumentsRisk,
   EXT_SCRIPTS,
@@ -215,5 +216,40 @@ describe("external scripts", () => {
     await userEvent.type(dialog().getByLabelText("Command line"), "scripts/foo.sh");
     await userEvent.click(dialog().getByRole("button", { name: "Save" }));
     await waitFor(() => expect(writes).toEqual([`[${S}] check_foo=scripts/foo.sh`]));
+  });
+});
+
+describe("script lists", () => {
+  const P = "/settings/lua/scripts";
+  it("adds a script under its file's name, and lists what an empty value loads", async () => {
+    const { writes } = api([{ path: "/settings/dotnet/plugins", key: "Checks", value: "" }]);
+    renderWithProviders(
+      <>
+        <ScriptListEditor
+          collectionPath={P}
+          title="Lua scripts"
+          subheader=""
+          noun="script"
+          fileLabel="Script file"
+          fileHelp=""
+        />
+        <ScriptListEditor
+          collectionPath="/settings/dotnet/plugins"
+          title=".NET plugins"
+          subheader=""
+          noun="plugin"
+          fileLabel="Assembly"
+          fileHelp=""
+          emptyMeans={(a) => `${a}.dll`}
+        />
+      </>,
+      { preloadedState: authenticatedState },
+    );
+    expect(await screen.findByText("Checks.dll")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add script" }));
+    await userEvent.type(dialog().getByLabelText("Script file"), "lua/check_foo.lua");
+    expect(dialog().getByLabelText("Alias")).toHaveAttribute("placeholder", "check_foo");
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toEqual([`[${P}] check_foo=lua/check_foo.lua`]));
   });
 });
