@@ -38,6 +38,9 @@ class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handl
   bool loadModuleEx(const std::string& alias, NSCAPI::moduleLoadMode mode);
   void prepareShutdown();
   bool unloadModule();
+  // Whether a listener was created: false after a load that refused to start
+  // one (no or hashed key, unknown cipher) and after every dontStart load.
+  bool is_listening() const { return static_cast<bool>(server_); }
 
   // handler
   void handle(nsca::packet packet) override;

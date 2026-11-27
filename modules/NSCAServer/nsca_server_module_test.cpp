@@ -7,16 +7,16 @@
 // other translation units and have their own tests; what is covered here is
 // only the plugin shell around them.
 //
-// The one thing worth pinning is the load-mode split. With encryption enabled
-// the server needs a key, and an empty or hashed one is a well-known key, so a
-// *start* refuses. But dontStart - `nscp settings`, `nscp client`, the
-// documentation extractor - never binds the port and exists to show and repair
-// the configuration, so it has to load a module whose configuration is broken:
-// otherwise the keys the operator has to fix are the ones that cannot be
-// listed. A regression here is invisible in a running agent and only shows up
-// as a module missing from the generated reference.
+// The one thing worth pinning is that a broken configuration refuses the
+// listener, never the module. With encryption enabled the server needs a key,
+// and an empty or hashed one is a well-known key, so a *start* does not create
+// the listener. But the module still loads, in every mode: a module that fails
+// to load over its own settings is one whose settings cannot be listed or fixed
+// (web UI, REST, `nscp settings`, the documentation extractor). A regression
+// here only shows up as a module missing from a running agent or from the
+// generated reference.
 //
-// Every load that must succeed uses NSCAPI::dontStart, so no socket is ever
+// The loads that must succeed use NSCAPI::dontStart, so no socket is ever
 // opened. The refusing loads use normalStart and return before the server is
 // created, so they open none either.
 
@@ -86,7 +86,10 @@ TEST_F(NscaServerModule, ThePasswordIsRegisteredAsSensitive) {
 
 // The default configuration: aes256 and no key. That is exactly what a fresh
 // checkout hands the documentation extractor, and it has to get the module.
-TEST_F(NscaServerModule, DontStartLoadsWithoutAPassword) { EXPECT_TRUE(load(NSCAPI::dontStart)); }
+TEST_F(NscaServerModule, DontStartLoadsWithoutAPassword) {
+  EXPECT_TRUE(load(NSCAPI::dontStart));
+  EXPECT_FALSE(module_.is_listening());
+}
 
 TEST_F(NscaServerModule, DontStartLoadsWithAHashedPassword) {
   core().set_setting("password", kHashedPassword);
@@ -106,27 +109,35 @@ TEST_F(NscaServerModule, DontStartLoadsAValidConfiguration) {
 }
 
 // ============================================================================
-// A start refuses the same configurations
+// A start loads the module but refuses the listener on the same configurations
 // ============================================================================
 
 // An empty password is a well-known key. The refusal happens before the
 // server object exists, so nothing is bound.
-TEST_F(NscaServerModule, StartRefusesWithoutAPassword) { EXPECT_FALSE(load(NSCAPI::normalStart)); }
-
-TEST_F(NscaServerModule, StartRefusesAHashedPassword) {
-  core().set_setting("password", kHashedPassword);
-  EXPECT_FALSE(load(NSCAPI::normalStart));
+TEST_F(NscaServerModule, StartRefusesListenerWithoutAPassword) {
+  EXPECT_TRUE(load(NSCAPI::normalStart));
+  EXPECT_FALSE(module_.is_listening());
 }
 
-TEST_F(NscaServerModule, StartRefusesAnUnknownEncryption) {
+TEST_F(NscaServerModule, StartRefusesListenerWithAHashedPassword) {
+  core().set_setting("password", kHashedPassword);
+  EXPECT_TRUE(load(NSCAPI::normalStart));
+  EXPECT_FALSE(module_.is_listening());
+}
+
+TEST_F(NscaServerModule, StartRefusesListenerWithAnUnknownEncryption) {
   core().set_setting("encryption", "no-such-cipher");
   core().set_setting("password", "the shared key");
-  EXPECT_FALSE(load(NSCAPI::normalStart));
+  EXPECT_TRUE(load(NSCAPI::normalStart));
+  EXPECT_FALSE(module_.is_listening());
 }
 
 // A reload is a start too: the running listener has been stopped by the time
 // the configuration is checked, and it must not come back on a bad key.
-TEST_F(NscaServerModule, ReloadRefusesWithoutAPassword) { EXPECT_FALSE(load(NSCAPI::reloadStart)); }
+TEST_F(NscaServerModule, ReloadRefusesListenerWithoutAPassword) {
+  EXPECT_TRUE(load(NSCAPI::reloadStart));
+  EXPECT_FALSE(module_.is_listening());
+}
 
 // ============================================================================
 // Lifecycle
