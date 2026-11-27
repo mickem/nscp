@@ -98,19 +98,20 @@ export default function ModuleSettings({
   // section-header entries (key === "") alone would render an empty card.
   const hasFlatKeys = flatSettings.some((s) => s.key !== "");
 
+  // A module's own page replaces the generic list outside expert mode: it
+  // covers every key of its sections, and listing them again would edit each
+  // in two places. Its collections (users, entries, ...) still follow it.
   const Panel = expert ? undefined : page?.Panel;
-  // A module's own page is the whole page outside expert mode: it covers every
-  // key of its sections, and listing them again below it would edit each in
-  // two places.
-  if (Panel) return <Panel onExpertMode={onExpertMode} />;
+  const showFlat = hasFlatKeys && !Panel;
 
-  if (!hasFlatKeys && visibleCollectionPaths.length === 0 && kvPaths.length === 0) {
+  if (!Panel && !showFlat && visibleCollectionPaths.length === 0 && kvPaths.length === 0) {
     return null;
   }
 
   return (
     <Stack spacing={3}>
-      {hasFlatKeys && <SettingsList settings={flatSettings} flat />}
+      {Panel && <Panel onExpertMode={onExpertMode} />}
+      {showFlat && <SettingsList settings={flatSettings} flat />}
       {visibleCollectionPaths.map((path) => (
         <SettingsCollection
           key={path}
@@ -119,14 +120,20 @@ export default function ModuleSettings({
           expert={expert}
         />
       ))}
-      {kvPaths.map((path) => (
-        <SettingsKeyValueCollection
-          key={path}
-          collectionPath={path}
-          descriptions={allDescriptions ?? []}
-          expert={expert}
-        />
-      ))}
+      {kvPaths.map((path) => {
+        const config = getCollectionConfig(path);
+        const Editor = !expert && config?.kind === "keyValue" ? config.Editor : undefined;
+        return Editor ? (
+          <Editor key={path} collectionPath={path} descriptions={allDescriptions ?? []} />
+        ) : (
+          <SettingsKeyValueCollection
+            key={path}
+            collectionPath={path}
+            descriptions={allDescriptions ?? []}
+            expert={expert}
+          />
+        );
+      })}
     </Stack>
   );
 }
