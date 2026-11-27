@@ -61,17 +61,15 @@ export const WMI_TARGET_SPEC: TargetSpec = {
       label: "Host",
       kind: "text",
       builtIn: "",
-      inherits: true,
       help: "The computer to query; the target's name when empty.",
     },
     username: {
       label: "User",
       kind: "text",
       builtIn: "",
-      inherits: true,
       help: "DOMAIN\\user; the agent's own account when empty.",
     },
-    password: { label: "Password", kind: "secret", builtIn: "", inherits: true },
+    password: { label: "Password", kind: "secret", builtIn: "" },
   },
   sections: [
     { title: "Host", keys: ["hostname"] },

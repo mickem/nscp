@@ -7,8 +7,30 @@
 
 namespace sh = nscapi::settings_helper;
 
+namespace {
+bool has_own_key(const sh::settings_impl_interface_ptr &proxy, const std::string &path, const std::string &key) {
+  static const std::string missing("\x01$$nscp-missing$$\x01");
+  return nscapi::settings_objects::inheriting_settings_proxy::unwrap(proxy)->get_string(path, key, missing) != missing;
+}
+}  // namespace
+
 void nscapi::targets::target_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool, bool is_sample) {
-  set_address(this->get_value());
+  // The value is the address of a one-line target (`name = host:port`). A
+  // target written as a section has none, and keeps the address it inherited
+  // from its parent unless its own keys say otherwise.
+  //
+  // `host` and `port` are older spellings of parts of `address`, applied on top
+  // of it. A target that names its own address must not have an inherited
+  // `host`/`port` rewrite it, and a one-line target must not have the parent's
+  // `address` replace the one it was given.
+  const bool own_address = !this->get_value().empty() || has_own_key(proxy, get_path(), "address");
+  if (own_address) {
+    auto *effective = get_effective_settings();
+    if (!this->get_value().empty()) effective->erase({"", "address"});
+    effective->erase({"", "host"});
+    effective->erase({"", "port"});
+  }
+  if (!this->get_value().empty() || !has_option("address")) set_address(this->get_value());
   nscapi::settings_helper::settings_registry settings(proxy);
 
   nscapi::settings_helper::path_extension root_path = settings.path(get_path());

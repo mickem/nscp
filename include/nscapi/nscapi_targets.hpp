@@ -34,6 +34,11 @@ struct target_object : public nscapi::settings_objects::object_instance_interfac
   NSCAPI_EXPORT std::string to_string() const;
   NSCAPI_EXPORT void set_address(std::string new_value) { set_property_string("address", new_value); }
 
+  // A target's keys come from its parent (`default` unless it names one) when
+  // its own section leaves them out; only `default` itself, and any other
+  // target without a parent, falls back to the built-in defaults.
+  NSCAPI_EXPORT bool inherits_settings() const override { return true; }
+
   NSCAPI_EXPORT virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 
   NSCAPI_EXPORT void add_ssl_keys(nscapi::settings_helper::path_extension root_path, const ssl_defaults &defaults = ssl_defaults());

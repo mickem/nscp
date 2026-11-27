@@ -4,6 +4,7 @@
 #pragma once
 #include <algorithm>
 #include <list>
+#include <map>
 #include <memory>
 #include <nscapi/settings/helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
@@ -22,6 +23,97 @@ inline void import_string(std::string &object, const std::string &parent) {
 
 inline std::string make_obj_path(const std::string &base_path, const std::string &alias) { return base_path + "/" + alias; }
 
+// The raw setting strings an object's read() ended up with, keyed by the path
+// relative to the object's own section ("" for the section itself) and the key.
+typedef std::map<std::pair<std::string, std::string>, std::string> effective_settings_map;
+
+// Reads an object's settings so that a key missing from its own section takes
+// the value its parent ended up with, and only a root object (no parent) falls
+// back to the built-in default a key was registered with.
+//
+// The object keeps the raw strings it read (`effective`, copied from the parent
+// when it was cloned). A lookup under the object's own section answers with the
+// object's own value when the section has the key, else with the inherited raw
+// string, else with the caller's default; whatever it answers with is recorded
+// for the object's own children. Handing back the raw string, rather than
+// leaving the cloned property alone, means a key's post-processing (path
+// expansion, `insecure`'s side effects, `host`/`port` folding into `address`)
+// runs again on the child exactly as it did on the parent.
+//
+// Everything else is passed through. `effective` must outlive the proxy: it is
+// only meant to live for the duration of one read().
+class inheriting_settings_proxy : public settings_helper::settings_impl_interface {
+  settings_helper::settings_impl_interface_ptr inner_;
+  std::string own_path_;
+  effective_settings_map *effective_;
+
+  bool relative_path(const std::string &path, std::string &rel) const {
+    if (path == own_path_) {
+      rel.clear();
+      return true;
+    }
+    if (path.size() > own_path_.size() && path.compare(0, own_path_.size(), own_path_) == 0 && path[own_path_.size()] == '/') {
+      rel = path.substr(own_path_.size());
+      return true;
+    }
+    return false;
+  }
+
+ public:
+  inheriting_settings_proxy(settings_helper::settings_impl_interface_ptr inner, std::string own_path, effective_settings_map *effective)
+      : inner_(std::move(inner)), own_path_(std::move(own_path)), effective_(effective) {}
+
+  settings_helper::settings_impl_interface_ptr inner() const { return inner_; }
+
+  // A proxy that is not an inheriting one is returned as is.
+  static settings_helper::settings_impl_interface_ptr unwrap(const settings_helper::settings_impl_interface_ptr &proxy) {
+    if (const auto p = std::dynamic_pointer_cast<inheriting_settings_proxy>(proxy)) return p->inner();
+    return proxy;
+  }
+
+  std::string get_string(const std::string path, const std::string key, const std::string def) override {
+    std::string rel;
+    if (!effective_ || !relative_path(path, rel)) return inner_->get_string(path, key, def);
+    // Presence is told by a value no setting can hold, so an empty string the
+    // operator wrote ("ca =") still counts as set and overrides the parent.
+    static const std::string missing("\x01$$nscp-inherit-missing$$\x01");
+    const std::string own = inner_->get_string(path, key, missing);
+    const auto k = std::make_pair(rel, key);
+    if (own != missing) {
+      (*effective_)[k] = own;
+      return own;
+    }
+    const auto it = effective_->find(k);
+    if (it != effective_->end()) return it->second;
+    return def;
+  }
+
+  void register_path(std::string path, std::string title, std::string description, bool advanced, bool sample) override {
+    inner_->register_path(path, title, description, advanced, sample);
+  }
+  void register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defValue, bool advanced,
+                    bool sample, bool sensitive) override {
+    inner_->register_key(path, key, type, title, description, defValue, advanced, sample, sensitive);
+  }
+  void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample) override {
+    inner_->register_subkey(path, title, description, advanced, sample);
+  }
+  void register_user_keys(std::string path) override { inner_->register_user_keys(path); }
+  void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) override {
+    inner_->register_tpl(path, title, icon, description, fields);
+  }
+  void set_string(std::string path, std::string key, std::string value) override { inner_->set_string(path, key, value); }
+  string_list get_sections(std::string path) override { return inner_->get_sections(path); }
+  string_list get_keys(std::string path) override { return inner_->get_keys(path); }
+  std::string expand_path(std::string key) override { return inner_->expand_path(key); }
+  void remove_key(std::string path, std::string key) override { inner_->remove_key(path, key); }
+  void remove_path(std::string path) override { inner_->remove_path(path); }
+  void err(const char *file, int line, std::string message) override { inner_->err(file, line, message); }
+  void warn(const char *file, int line, std::string message) override { inner_->warn(file, line, message); }
+  void info(const char *file, int line, std::string message) override { inner_->info(file, line, message); }
+  void debug(const char *file, int line, std::string message) override { inner_->debug(file, line, message); }
+};
+
 struct object_instance_interface {
  private:
   std::string alias;
@@ -31,6 +123,7 @@ struct object_instance_interface {
   std::string parent;
   std::string value;
   std::unordered_map<std::string, std::string> options;
+  effective_settings_map effective_settings_;
 
  public:
   virtual ~object_instance_interface() = default;
@@ -42,6 +135,7 @@ struct object_instance_interface {
     for (const auto &e : other->options) {
       options.insert(e);
     }
+    effective_settings_ = other->effective_settings_;
   }
   object_instance_interface(const object_instance_interface &other) = default;
 
@@ -56,8 +150,17 @@ struct object_instance_interface {
     }
   }
   const std::unordered_map<std::string, std::string> &get_options() const { return options; }
+
+  // True for an object type whose keys a child takes from its parent when its
+  // own section leaves them out (see inheriting_settings_proxy). Off by
+  // default, so only the types that opt in (client targets) read that way.
+  virtual bool inherits_settings() const { return false; }
+  effective_settings_map *get_effective_settings() { return &effective_settings_; }
+
   virtual void read(settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool _is_sample) {
-    settings_helper::settings_registry settings(std::move(proxy));
+    // `parent`, `is template` and `alias` describe this object itself and are
+    // never inherited: a template's children are not templates.
+    settings_helper::settings_registry settings(inheriting_settings_proxy::unwrap(proxy));
     if (oneliner) {
       parent = "default";
       make_template(false);
@@ -219,7 +322,15 @@ struct object_handler : boost::noncopyable {
         object = factory->create(alias, path);
       }
       object->set_value(value);
-      object->read(proxy, keys.empty() && alias != "default", false);
+      settings_helper::settings_impl_interface_ptr read_proxy = proxy;
+      if (object->inherits_settings()) {
+        // A root object (created, not cloned) starts with nothing to inherit,
+        // so it reads its own keys or the built-in defaults as before; going
+        // through the proxy still records what it ended up with, for its
+        // children.
+        read_proxy = std::make_shared<inheriting_settings_proxy>(proxy, object->get_path(), object->get_effective_settings());
+      }
+      object->read(read_proxy, keys.empty() && alias != "default", false);
     } else {
       object = factory->create(alias, path);
       object->set_value(value);
