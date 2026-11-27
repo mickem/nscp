@@ -127,7 +127,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("chassis_serial", &hardware_info::get_chassis_serial, "Enclosure serial number")
       .add_string_var("asset_tag", &hardware_info::get_asset_tag, "SMBIOS asset tag")
       .add_string_var("module_list", &hardware_info::get_module_list,
-                      "Semicolon-separated per-DIMM inventory (slot: size@speed, e.g. 'DIMM_A1: 32GB@4800MHz')");
+                      "Semicolon-separated per-DIMM inventory (slot: size@speed, e.g. 'DIMM_A1: 32GB@4800MHz')")
+      .add_string_var("gather_errors", &hardware_info::get_gather_errors,
+                      "Why a source could not be read, '; '-separated (on Windows: the WMI classes that failed and the error); empty when everything was "
+                      "readable. Explains keywords left empty by a partially available WMI");
   registry_.add_int_var("chassis_type", &hardware_info::get_chassis_type, "Raw SMBIOS chassis type number (0 when unknown)")
       .add_int_var("slots", &hardware_info::get_slots, "Total memory sockets on the board (0 when not reported)")
       .add_int_var("modules", &hardware_info::get_modules, "Number of populated memory modules")

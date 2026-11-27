@@ -5,8 +5,9 @@ model, UUID, serial, chassis type, enclosure serial, asset tag and the memory
 modules. It complements `check_os_version` — that check answers "what OS am I
 running", this one answers "what box am I". The keywords (`vendor`, `model`,
 `uuid`, `serial`, `chassis_type`, `chassis`, `chassis_serial`, `asset_tag`,
-`slots`, `modules`, `memory`, `memory_speed`, `module_list`) carry the same
-meaning on Windows and Linux, so a policy written for one ports to the other.
+`slots`, `modules`, `memory`, `memory_speed`, `module_list`, `gather_errors`)
+carry the same meaning on Windows and Linux, so a policy written for one ports
+to the other.
 
 The useful alerts are **pinned expectations and changes**, not thresholds on a
 moving value:
@@ -35,7 +36,8 @@ serial), `Win32_SystemEnclosure` (chassis type, enclosure serial, asset tag),
 `Win32_PhysicalMemory` (per-DIMM inventory) and `Win32_PhysicalMemoryArray`
 (total sockets). Each WMI class is read best-effort: a class that is missing
 (stripped-down VMs) leaves its fields empty rather than failing the check, and
-the check only errors when *no* class answers (WMI down).
+the check only errors when *no* class answers (WMI down). The classes that
+failed, and why, are in the `gather_errors` keyword.
 `ConfiguredClockSpeed` falls back to the raw `Speed` on older Windows.
 
 ##### Linux
@@ -63,6 +65,20 @@ Without root:
   memory blocks (`/sys/devices/system/memory`). It is close to, but not exactly,
   the installed total; `memory_source` says which one you got (`smbios`,
   `sysfs` or `none`).
+
+None of this changes the default output, but the reason is available: the
+`gather_errors` keyword lists every source that could not be read and why, for
+example `DMI: product_uuid, product_serial, chassis_serial: permission denied
+(root only); SMBIOS table: permission denied (root only)`, and the agent logs
+the same text at debug level. It is empty when everything was readable. Put it in
+`detail-syntax` next to a pinned value, so an empty serial explains itself:
+
+```
+check_hardware "crit=serial != 'ABC1234'" "detail-syntax=serial=${serial} (${gather_errors})"
+CRITICAL: serial= (DMI: product_uuid, product_serial, chassis_serial: permission denied (root only); SMBIOS table: permission denied (root only))
+```
+
+or alert on it directly (`warn=gather_errors like 'permission denied'`).
 
 **No DMI at all.** Containers, microVMs (Firecracker) and boards without
 SMBIOS expose neither `/sys/class/dmi/id` nor the table. The check then returns

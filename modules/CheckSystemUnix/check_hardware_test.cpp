@@ -446,6 +446,7 @@ TEST(CheckHardwareUnix, GatherAsRoot) {
   EXPECT_EQ(h.memory_speed.value(), 4400);
   EXPECT_EQ(h.memory_source, "smbios");
   EXPECT_EQ(h.module_list, "A1: 32GB@4800MHz; A2: 32GB@4400MHz");
+  EXPECT_EQ(h.gather_errors, "");  // everything readable: nothing to explain
 }
 
 TEST(CheckHardwareUnix, GatherUnprivileged) {
@@ -477,6 +478,44 @@ TEST(CheckHardwareUnix, GatherUnprivileged) {
   EXPECT_EQ(h.memory.value(), 128LL * 0x8000000);  // online blocks only
   EXPECT_EQ(h.memory_source, "sysfs");
   EXPECT_NE(h.gather_errors.find("SMBIOS table"), std::string::npos);
+
+  // The reason is a keyword, so an operator can see why the fields are empty.
+  PB::Commands::QueryResponseMessage::Response r;
+  EXPECT_EQ(run_check(h, {"detail-syntax=${gather_errors}"}, r), PB::Common::ResultCode::OK);
+  EXPECT_EQ(join_lines(r), "OK: " + h.gather_errors);
+  EXPECT_NE(join_lines(r).find("SMBIOS table: "), std::string::npos) << join_lines(r);
+  if (::geteuid() != 0) EXPECT_NE(join_lines(r).find("product_serial: permission denied (root only)"), std::string::npos) << join_lines(r);
+}
+
+TEST(CheckHardwareUnix, GatherErrorsExplainPinnedPolicy) {
+  // What an unprivileged agent gathers (root can not reproduce the EACCES in a
+  // fixture, so the row is built by hand with the message gather produces).
+  hardware_info h;
+  h.dmi_ok = true;
+  h.vendor = "Dell Inc.";
+  h.model = "PowerEdge R760";
+  h.chassis_type = 23;
+  h.chassis = "Rack Mount Chassis";
+  h.memory = 64LL * 1024 * 1024 * 1024;
+  h.memory_source = "sysfs";
+  h.gather_errors = "DMI: product_uuid, product_serial, chassis_serial: permission denied (root only); SMBIOS table: permission denied (root only)";
+
+  // The default output is unchanged: the reason does not leak into it.
+  PB::Commands::QueryResponseMessage::Response r1;
+  EXPECT_EQ(run_check(h, {}, r1), PB::Common::ResultCode::OK);
+  EXPECT_EQ(join_lines(r1), "OK: Dell Inc. PowerEdge R760 (Rack Mount Chassis), serial=, unknown memory module(s), 64GB");
+
+  // A pinned serial still goes CRITICAL (no UNKNOWN), and the reason renders.
+  PB::Commands::QueryResponseMessage::Response r2;
+  EXPECT_EQ(run_check(h, {"crit=serial != 'ABC1234'", "detail-syntax=serial=${serial} (${gather_errors})"}, r2), PB::Common::ResultCode::CRITICAL);
+  EXPECT_EQ(join_lines(r2),
+            "CRITICAL: serial= (DMI: product_uuid, product_serial, chassis_serial: permission denied (root only); SMBIOS table: permission denied (root only))");
+
+  // And it can be filtered on.
+  PB::Commands::QueryResponseMessage::Response r3;
+  EXPECT_EQ(run_check(h, {"warn=gather_errors like 'permission denied'"}, r3), PB::Common::ResultCode::WARNING);
+  PB::Commands::QueryResponseMessage::Response r4;
+  EXPECT_EQ(run_check(h, {"warn=gather_errors != ''"}, r4), PB::Common::ResultCode::WARNING);
 }
 
 TEST(CheckHardwareUnix, GatherNoDmiAtAll) {

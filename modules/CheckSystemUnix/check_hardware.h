@@ -52,7 +52,9 @@ struct hardware_info {
   std::string module_list;                  // "DIMM_A1: 32GB@4800MHz; ..." for rendering
   std::string memory_source;                // "smbios", "sysfs" or "none"
 
-  // Gather bookkeeping (not filter keywords): which sources answered.
+  // Gather bookkeeping: which sources answered (not keywords), and why a
+  // source did not (the gather_errors keyword), e.g. "DMI: product_serial:
+  // permission denied (root only)". Empty when everything was readable.
   bool dmi_ok;     // /sys/class/dmi/id was there
   bool smbios_ok;  // the SMBIOS table parsed
   std::string gather_errors;
@@ -78,6 +80,7 @@ struct hardware_info {
   boost::optional<long long> get_memory_speed() const { return memory_speed; }
   std::string get_module_list() const { return module_list; }
   std::string get_memory_source() const { return memory_source; }
+  std::string get_gather_errors() const { return gather_errors; }
 
   std::string show() const { return vendor + " " + model; }
 };

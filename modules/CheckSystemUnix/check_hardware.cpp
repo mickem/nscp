@@ -10,6 +10,8 @@
 #include <boost/filesystem.hpp>
 #include <cerrno>
 #include <cstdio>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <str/format.hpp>
@@ -437,7 +439,11 @@ filter_obj_handler::filter_obj_handler() {
                       "Semicolon-separated per-DIMM inventory (slot: size@speed, e.g. 'DIMM_A1: 32GB@4800MHz'); empty unless the SMBIOS table could be read")
       .add_string_var("memory_source", &hardware_info::get_memory_source,
                       "Where memory came from: 'smbios' (sum of the memory modules), 'sysfs' (memory the kernel manages, in memory-block "
-                      "granularity: the SMBIOS table needs root) or 'none'");
+                      "granularity: the SMBIOS table needs root) or 'none'")
+      .add_string_var("gather_errors", &hardware_info::get_gather_errors,
+                      "Why a source could not be read, '; '-separated (e.g. 'DMI: product_uuid, product_serial, chassis_serial: permission denied "
+                      "(root only)' or 'SMBIOS table: permission denied (root only)'); empty when everything was readable. Explains empty uuid/serial/"
+                      "chassis_serial and 'unknown' modules/slots/memory_speed on an unprivileged agent");
   registry_.add_int_var("chassis_type", &hardware_info::get_chassis_type, "Raw SMBIOS chassis type number (0 when unknown)");
   registry_.add_optional_int_var("slots", [](auto obj) { return obj->get_slots(); }, "unknown",
                                  "Total memory sockets on the board; 'unknown' unless the SMBIOS table could be read (root)")
@@ -584,7 +590,9 @@ void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 
 void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   try {
-    check_from(request, response, gather_hardware());
+    const hardware_info info = gather_hardware();
+    if (!info.gather_errors.empty()) NSC_DEBUG_MSG("check_hardware: some sources could not be read: " + info.gather_errors);
+    check_from(request, response, info);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to read hardware inventory: " + std::string(e.what()));
   }

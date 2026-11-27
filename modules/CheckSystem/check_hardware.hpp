@@ -47,7 +47,8 @@ struct hardware_info {
   long long memory_speed;   // slowest module's clock (MHz); 0 unknown
   std::string module_list;  // "DIMM_A1: 32GB@4800MHz; ..." for rendering
 
-  // Gather bookkeeping (not filter keywords): how many WMI classes answered.
+  // Gather bookkeeping: how many WMI classes answered (not a keyword), and
+  // why the others did not (the gather_errors keyword).
   long long classes_ok;
   std::string gather_errors;
 
@@ -64,6 +65,7 @@ struct hardware_info {
   std::string get_chassis() const { return chassis; }
   std::string get_chassis_serial() const { return chassis_serial; }
   std::string get_asset_tag() const { return asset_tag; }
+  std::string get_gather_errors() const { return gather_errors; }
   long long get_slots() const { return slots; }
   long long get_modules() const { return modules; }
   long long get_memory() const { return memory; }
