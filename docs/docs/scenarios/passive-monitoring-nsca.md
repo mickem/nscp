@@ -285,7 +285,8 @@ direction, where this agent *accepts* NSCA submissions.
     an NSCA server, that is a separate key: it is shared with the hosts
     submitting here, not with the daemon above, so set it under
     `[/settings/NSCA/server]` (or with `nscp nsca install --server --password
-    <that key>`) — the server refuses to start without one.
+    <that key>`). Without one the NSCAServer module still loads, but it opens
+    no port (no listener) until a key is set.
 <!-- @formatter:on -->
 
 ---

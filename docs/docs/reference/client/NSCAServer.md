@@ -342,7 +342,7 @@ inbox=inbox
 
 #### Password <a id="/settings/NSCA/server/password"></a>
 
-The NSCA encryption key: the same value every host submitting to this agent uses. Required whenever encryption is enabled - the server refuses to start without it, since an empty password is a well-known key. Inherited from nowhere: not /settings/default (the hashed password inbound protocols verify against) and not the NSCAClient target (the key this agent submits to a remote daemon with, which is a different secret).
+The NSCA encryption key: the same value every host submitting to this agent uses. Required whenever encryption is enabled - without it the module still loads but opens no port (no listener) until a key is set, since an empty password is a well-known key. Inherited from nowhere: not /settings/default (the hashed password inbound protocols verify against) and not the NSCAClient target (the key this agent submits to a remote daemon with, which is a different secret).
 
 
 | Key            | Description                                     |

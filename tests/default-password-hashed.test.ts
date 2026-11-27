@@ -8,7 +8,7 @@
  *     value, and the hash string itself is not a valid credential;
  *   - NSCAServer does not read that section at all any more. Its key is shared
  *     with the hosts submitting to this agent, it is inherited from nowhere,
- *     and the server refuses to start rather than listen without one.
+ *     and without one the module loads but opens no listener.
  *
  * check_nt is spoken over a raw socket here (`<password>&<code>`, no framing,
  * one response then close), so this runs without docker; the real
