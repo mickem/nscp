@@ -36,6 +36,7 @@ See [Supported platforms](supported-platforms.md) for the Windows and Linux vers
   - [On-disk layout (LAYOUT)](#on-disk-layout-layout)
   - [Features](#features)
   - [Silent install](#silent-install)
+  - [Visual C++ runtime](#visual-c-runtime)
   - [Debugging](#debugging)
 - [Specifying your monitoring tool](#specifying-your-monitoring-tool)
 - [Enrolling with a fleet server](#enrolling-with-a-fleet-server)
@@ -803,6 +804,69 @@ Python script binaries.
 ```
 msiexec /qn /l* log.txt /i NSCP-0.4.3.50-x64.msi INSTALLLOCATION=c:\FooBar CONFIGURATION_TYPE=registry://HKEY_LOCAL_MACHINE/software/NSClient++ ADDLOCAL=ALL REMOVE=PythonScript
 ```
+
+### Visual C++ runtime {#visual-c-runtime}
+
+NSClient++ is built with Microsoft Visual C++ and needs its runtime
+(`vcruntime140.dll`, `msvcp140.dll` and their siblings) on the machine. What
+each package needs, and what it installs, differs:
+
+| Package        | Runtime the agent needs               | Runtime the MSI installs                                              |
+|----------------|---------------------------------------|-----------------------------------------------------------------------|
+| x64 and Win32  | 14.16 or newer (built with `v141`)    | **14.44.35211.0**, as a merge module                                  |
+| ARM64          | 14.44 or newer (built with `v143`)    | None: install the [ARM64 redistributable](https://aka.ms/vs/17/release/vc_redist.arm64.exe) first |
+| Legacy (XP)    | None: the runtime is linked in        | None                                                                  |
+
+Every x64 and Win32 MSI from 0.11.6 through 0.27.0 carries 14.44.35211.0. The
+version is not chosen by the project: the merge module is the one Visual
+Studio 2022 provides on the build machine, so a later release can carry a
+newer build. To read it from a given MSI, extract the package and look at the
+file version:
+
+```
+msiexec /a NSCP-<version>-x64.msi /qn TARGETDIR=C:\tmp\nscp
+Get-ChildItem C:\tmp\nscp -Recurse -Filter vcruntime140.dll | ForEach-Object { $_.VersionInfo.FileVersion }
+```
+
+On Linux, `msiinfo export NSCP-<version>-x64.msi File` from `msitools` lists
+the same version next to each runtime DLL.
+
+#### Why the installer can touch other applications
+
+Since Visual Studio 2015 there is a single Visual C++ runtime, version 14.x,
+shared by every program on the machine: one copy per architecture in
+`System32` (and `SysWOW64` for 32-bit programs). A newer runtime runs programs
+built for an older one, so the newest version installed wins.
+
+The MSI therefore only replaces the runtime when the machine has an **older**
+one than the MSI carries. A machine that already has 14.44.35211.0 or newer is
+left alone, and nothing else on it is affected.
+
+When the runtime does have to be replaced, other running programs have the old
+files loaded. Windows Installer's Restart Manager then closes those programs
+to replace the files. In an interactive install it asks first; in a silent
+install (`/qn`, `/quiet`) there is nobody to ask. On a server where a critical
+process uses the Visual C++ runtime, plan for that in one of these ways:
+
+* **Install the runtime yourself first.** Deploy the
+  [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+  (`vc_redist.x86.exe` for the Win32 package) in a maintenance window. Once it
+  is at least the version the MSI carries, the NSClient++ install no longer
+  touches it. A runtime installed this way is also kept up to date by Windows
+  Update, which one installed by a merge module is not.
+* **Defer the replacement to the next reboot.** Turn the Restart Manager off
+  for this install, so no program is closed and the files in use are replaced
+  when the machine next restarts:
+
+    ```
+    msiexec /qn /i NSCP-<version>-x64.msi MSIRESTARTMANAGERCONTROL=Disable REBOOT=ReallySuppress
+    ```
+
+    The agent itself starts straight away, on the runtime that is already
+    there. `REBOOT=ReallySuppress` stops the installer from restarting the
+    machine on its own; the installation then ends with exit code 3010
+    ("restart required") rather than 0, which deployment tools need to accept
+    as success.
 
 ### Debugging
 
