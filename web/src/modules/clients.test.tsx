@@ -45,16 +45,25 @@ const SPECS: TargetSpec[] = [
   ICINGA_CLIENT_TARGETS,
 ];
 
-// The keys docs/reference documents for a target (its `sample` keys).
+// The keys docs/reference documents for a target (its `sample` keys). Each
+// file is parsed once, and only when it names the path: parsing all of them
+// for every client is too slow for the default timeout on CI.
+type Reference = Record<
+  string,
+  { paths?: Record<string, { sample?: { keys?: Record<string, unknown> } }> }
+>;
+const REFERENCE_DIR = join(process.cwd(), "..", "docs", "reference");
+const REFERENCE_TEXT = readdirSync(REFERENCE_DIR)
+  .filter((n) => n.endsWith(".yaml"))
+  .map((n) => readFileSync(join(REFERENCE_DIR, n), "utf8"));
+const parsed = new Map<string, Reference>();
+
 function documentedTargetKeys(path: string): string[] {
-  const dir = join(process.cwd(), "..", "docs", "reference");
   const out = new Set<string>();
-  for (const name of readdirSync(dir).filter((n) => n.endsWith(".yaml"))) {
-    const doc = parse(readFileSync(join(dir, name), "utf8")) as Record<
-      string,
-      { paths?: Record<string, { sample?: { keys?: Record<string, unknown> } }> }
-    >;
-    for (const platform of Object.values(doc)) {
+  for (const text of REFERENCE_TEXT) {
+    if (!text.includes(`${path}:`)) continue;
+    if (!parsed.has(text)) parsed.set(text, parse(text) as Reference);
+    for (const platform of Object.values(parsed.get(text) ?? {})) {
       const keys = platform?.paths?.[path]?.sample?.keys;
       for (const k of Object.keys(keys ?? {})) out.add(k);
     }
