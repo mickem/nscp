@@ -10,11 +10,20 @@ interface Props {
   disabled?: boolean;
   // Said with the result, e.g. where the query came from.
   note?: string;
+  // Open the answer above the button (it sits at the bottom of the window).
+  above?: boolean;
 }
 
 const STATUS = ["OK", "WARNING", "CRITICAL", "UNKNOWN"];
 
-export default function RunCheckButton({ query, args, label = "Run", disabled, note }: Props) {
+export default function RunCheckButton({
+  query,
+  args,
+  label = "Run",
+  disabled,
+  note,
+  above,
+}: Props) {
   const [executeQuery, { isLoading }] = useExecuteQueryMutation();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
@@ -45,8 +54,8 @@ export default function RunCheckButton({ query, args, label = "Run", disabled, n
         open={result !== null}
         anchorEl={anchor}
         onClose={() => setResult(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        anchorOrigin={{ vertical: above ? "top" : "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: above ? "bottom" : "top", horizontal: "right" }}
       >
         {result && (
           <Box sx={{ maxWidth: 560 }}>

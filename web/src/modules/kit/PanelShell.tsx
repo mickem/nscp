@@ -115,7 +115,7 @@ interface ShellProps {
   // A cheap, read-only check that shows the module reaches what it is
   // configured for (a server, an engine, a cluster). It runs against what the
   // agent has loaded, so not while there are unsaved changes.
-  test?: { query: string; args?: string[]; what: string };
+  test?: PanelTest;
   children: ReactNode;
 }
 
@@ -135,14 +135,22 @@ function listSections(
 // The panel's unsaved changes, Save and Discard: a bar pinned to the bottom
 // of the window, always there so Save is never hunted for, and in reach
 // while the reader scrolls through the lists below the panel.
+interface PanelTest {
+  query: string;
+  args?: string[];
+  what: string;
+}
+
 function SaveBar({
   panel,
   changes,
   problem,
+  test,
 }: {
   panel: Panel;
   changes: SettingChange[];
   problem: string | null;
+  test?: PanelTest;
 }) {
   const [details, setDetails] = useState(true);
   const pending = changes.length > 0;
@@ -164,6 +172,27 @@ function SaveBar({
                 ? "Changed. Use Save and reload to store the settings and apply them."
                 : "No unsaved changes."}
           </Typography>
+          {test && (
+            <Tooltip
+              title={
+                pending
+                  ? "Save first: the test runs against the settings the agent has loaded."
+                  : test.what
+              }
+              describeChild
+            >
+              <span>
+                <RunCheckButton
+                  query={test.query}
+                  args={test.args ?? []}
+                  label="Test connection"
+                  above
+                  disabled={pending}
+                  note={`Runs ${test.query} with the settings the agent has loaded: after a save, reload the agent first.`}
+                />
+              </span>
+            </Tooltip>
+          )}
           {pending && (
             <Button size="small" onClick={() => setDetails(!details)}>
               {details ? "Hide changes" : "Show changes"}
@@ -209,7 +238,7 @@ export default function PanelShell({
 }: ShellProps) {
   const [showConfig, setShowConfig] = useState(false);
   const frame = useContext(PageFrameContext);
-  const bar = <SaveBar panel={panel} changes={changes} problem={problem} />;
+  const bar = <SaveBar panel={panel} changes={changes} problem={problem} test={test} />;
   return (
     <Card>
       <CardHeader
@@ -217,26 +246,6 @@ export default function PanelShell({
         subheader={subheader}
         action={
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            {test && (
-              <Tooltip
-                title={
-                  changes.length > 0
-                    ? "Save first: the test runs against the settings the agent has loaded."
-                    : test.what
-                }
-                describeChild
-              >
-                <span>
-                  <RunCheckButton
-                    query={test.query}
-                    args={test.args ?? []}
-                    label="Test connection"
-                    disabled={changes.length > 0}
-                    note={`Runs ${test.query} with the settings the agent has loaded: after a save, reload the agent first.`}
-                  />
-                </span>
-              </Tooltip>
-            )}
             <Button onClick={() => setShowConfig(true)}>Show config</Button>
           </Stack>
         }
