@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Helper function",
 		"description"	: "Various helper function to extend other checks.",
+		"category"	: "check",
 		"name"			: "CheckHelpers",
 		"alias"			: "helpers",
 		"version"		: "auto",

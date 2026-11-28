@@ -49,18 +49,18 @@ export default function Modules() {
   const needle = filter.trim().toLowerCase();
   // Groups shown: those with a module present, and Other only when needed.
   const groups = useMemo(() => {
-    const present = new Set((modules ?? []).flatMap((m) => groupsOf(m.id)));
+    const present = new Set((modules ?? []).flatMap((m) => groupsOf(m.metadata?.category)));
     return [...MODULE_GROUPS, OTHER_GROUP]
       .filter((g) => present.has(g.id))
       .map((g) => ({
         ...g,
-        count: (modules ?? []).filter((m) => groupsOf(m.id).includes(g.id)).length,
+        count: (modules ?? []).filter((m) => groupsOf(m.metadata?.category).includes(g.id)).length,
       }));
   }, [modules]);
   const filtered = useMemo(() => {
     if (!modules) return [];
     const inGroup =
-      picked.size === 0 ? modules : modules.filter((m) => groupsOf(m.id).some((g) => picked.has(g)));
+      picked.size === 0 ? modules : modules.filter((m) => groupsOf(m.metadata?.category).some((g) => picked.has(g)));
     if (!needle) return inGroup;
     return inGroup.filter((m) =>
       // "experimental" is matched as if it were a word in the row, so the

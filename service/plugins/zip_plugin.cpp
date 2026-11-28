@@ -103,6 +103,10 @@ void nsclient::core::zip_plugin::read_metadata(const std::string &data) {
     if (root.contains("experimental")) {
       experimental_ = root["experimental"].as_bool();
     }
+    // Optional too: what kind of module the bundle is, for grouping it.
+    if (root.contains("category") && root["category"].is_string()) {
+      category_ = root["category"].as_string().c_str();
+    }
 
     if (root.contains("scripts")) {
       for (const auto &s : root["scripts"].as_array()) {

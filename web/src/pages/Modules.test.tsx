@@ -10,6 +10,7 @@ const moduleFixture = (
   enabled: boolean,
   description: string,
   experimental = false,
+  category?: string,
 ) => ({
   id,
   name: id,
@@ -18,17 +19,17 @@ const moduleFixture = (
   enabled,
   loaded,
   experimental,
-  metadata: { alias: "", plugin_id: "0" },
+  metadata: { alias: "", plugin_id: "0", ...(category ? { category } : {}) },
   load_url: "",
   unload_url: "",
   module_url: "",
 });
 
 const MODULES = [
-  moduleFixture("CheckDisk", true, true, "Monitors disk usage"),
-  moduleFixture("CheckSystem", true, false, "Monitors cpu and memory"),
-  moduleFixture("WEBServer", false, false, "Serves the web interface"),
-  moduleFixture("CheckSecurity", true, true, "Checks host security posture", true),
+  moduleFixture("CheckDisk", true, true, "Monitors disk usage", false, "check"),
+  moduleFixture("CheckSystem", true, false, "Monitors cpu and memory", false, "check"),
+  moduleFixture("WEBServer", false, false, "Serves the web interface", false, "server"),
+  moduleFixture("CheckSecurity", true, true, "Checks host security posture", true, "check"),
 ];
 
 function setup() {
@@ -98,7 +99,8 @@ describe("Modules page groups", () => {
     installFetchMock({
       "/api/v2/modules": jsonResponse([
         ...MODULES,
-        moduleFixture("CheckMSSQL", false, false, "SQL Server"),
+        moduleFixture("CheckMSSQL", false, false, "SQL Server", false, "database"),
+        // A zip bundle that declares no category.
         moduleFixture("my_bundle", true, true, "A zip bundle"),
       ]),
     });

@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "MySQL/MariaDB checker",
 		"description"		: "Check MySQL, MariaDB, Percona and other MySQL-compatible servers: connectivity, health and custom queries.",
+		"category"		: "database",
 		"name"			: "CheckMySQL",
 		"alias"			: "mysql",
 		"version"		: "auto",

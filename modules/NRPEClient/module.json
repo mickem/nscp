@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "NRPE Client",
 		"description"	: "NRPE client can be used both from command line and from queries to check remote systems via NRPE as well as configure the NRPE server",
+		"category"	: "client",
 		"name"			: "NRPEClient",
 		"alias"			: "nrpe",
 		"version"		: "auto"

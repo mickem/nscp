@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "NSCA Client",
 		"description"	: "NSCA client can be used both from command line and from queries to submit passive checks via NSCA",
+		"category"	: "client",
 		"name"			: "NSCAClient",
 		"alias"			: "nsca",
 		"version"		: "auto"

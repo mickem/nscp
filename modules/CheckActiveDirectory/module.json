@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Active Directory checker",
 		"description"	: "CheckActiveDirectory checks Active Directory health: replication on domain controllers, the machine-account secure channel and Kerberos KDC availability.",
+		"category"	: "check",
 		"name"			: "CheckActiveDirectory",
 		"alias"			: "ad",
 		"version"		: "auto",

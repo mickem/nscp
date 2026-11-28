@@ -167,6 +167,12 @@ void registry_query_handler::add_module(PB::Registry::RegistryResponseMessage::R
   kvp = rpp->mutable_info()->add_metadata();
   kvp->set_key("alias");
   kvp->set_value(plugin.alias);
+  // What kind of module it is, for grouping it in listings (module.json).
+  if (!plugin.category.empty()) {
+    kvp = rpp->mutable_info()->add_metadata();
+    kvp->set_key("category");
+    kvp->set_value(plugin.category);
+  }
   kvp = rpp->mutable_info()->add_metadata();
   kvp->set_key("enabled");
   kvp->set_value(is_enabled ? "true" : "false");
@@ -364,6 +370,7 @@ plugin_cache_item registry_query_handler::inventory_plugin_on_disk(nsclient::cor
     itm.id = instance->get_id();
     itm.is_loaded = false;
     itm.experimental = instance->is_experimental();
+    itm.category = instance->get_category();
     list.push_back(itm);
   } catch (const std::exception &e) {
     LOG_ERROR_CORE("Failed to load " + plugin + ": " + utf8::utf8_from_native(e.what()));

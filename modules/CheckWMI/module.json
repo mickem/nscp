@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "WMI checker",
 		"description"	: "Check status via WMI",
+		"category"	: "check",
 		"name"			: "CheckWMI",
 		"alias"			: "wmi",
 		"version"		: "auto"

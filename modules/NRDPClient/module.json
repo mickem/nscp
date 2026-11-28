@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "NRDP Client",
 		"description"	: "NRDP client can be used both from command line and from queries to check remote systems via NRDP",
+		"category"	: "client",
 		"name"			: "NRDPClient",
 		"alias"			: "nrdp",
 		"version"		: "auto"

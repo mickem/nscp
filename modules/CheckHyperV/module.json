@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Hyper-V host and virtual machine checks",
 		"description"		: "Checks for a Hyper-V host: hypervisor health, capacity and over-commitment, logical processor load, the state, heartbeat, memory and snapshots of every virtual machine, and the virtual switches.",
+		"category"		: "container",
 		"name"			: "CheckHyperV",
 		"alias"			: "hyperv",
 		"version"		: "auto",

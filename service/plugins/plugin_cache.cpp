@@ -95,6 +95,7 @@ void nsclient::core::plugin_cache::add_plugin(plugin_type plugin) {
         i.title = item.title;
         i.desc = item.desc;
         i.experimental = item.experimental;
+        i.category = item.category;
         return;
       }
     }
@@ -125,4 +126,5 @@ nsclient::core::plugin_cache_item::plugin_cache_item(const nsclient::core::plugi
       desc(plugin->getDescription()),
       version(plugin->get_version()),
       is_loaded(true),
-      experimental(plugin->is_experimental()) {}
+      experimental(plugin->is_experimental()),
+      category(plugin->get_category()) {}

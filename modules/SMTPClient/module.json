@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "SMTP Client",
 		"description"		: "SMTP client can be used both from command line and from queries to check remote systems via SMTP",
+		"category"		: "client",
 		"name"			: "SMTPClient",
 		"alias"			: "smtp",
 		"version"		: "auto"

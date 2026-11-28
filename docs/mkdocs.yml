@@ -80,8 +80,6 @@ nav:
       - Check commands:
         - CheckDisk: reference/check/CheckDisk.md
         - CheckDocker: reference/check/CheckDocker.md
-        - CheckExternalScripts: reference/check/CheckExternalScripts.md
-        - CheckEventLog (Windows): reference/windows/CheckEventLog.md
         - CheckHelpers: reference/check/CheckHelpers.md
         - CheckKubernetes: reference/check/CheckKubernetes.md
         - CheckLogFile: reference/check/CheckLogFile.md
@@ -91,41 +89,43 @@ nav:
         - CheckSecurity: reference/check/CheckSecurity.md
         - CheckSystem: reference/check/CheckSystem.md
         - CheckActiveDirectory (Windows): reference/windows/CheckActiveDirectory.md
-        - CheckMSSQL (Windows): reference/windows/CheckMSSQL.md
-        - CheckWindowsApps (Windows): reference/windows/CheckWindowsApps.md
+        - CheckEventLog (Windows): reference/windows/CheckEventLog.md
         - CheckHyperV (Windows): reference/windows/CheckHyperV.md
+        - CheckMSSQL (Windows): reference/windows/CheckMSSQL.md
         - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
+        - CheckWindowsApps (Windows): reference/windows/CheckWindowsApps.md
         - CheckWMI (Windows): reference/windows/CheckWMI.md
       - Clients & Servers:
-        - WEBServer: reference/generic/WEBServer.md
-        - NRPEServer: reference/client/NRPEServer.md
-        - NCPAServer: reference/client/NCPAServer.md
-        - NRPEClient: reference/client/NRPEClient.md
-        - NSClientServer: reference/windows/NSClientServer.md
-        - NSCAServer: reference/client/NSCAServer.md
-        - NSCAClient: reference/client/NSCAClient.md
-        - NSCANgClient: reference/client/NSCANgClient.md
-        - NSCPClient: reference/client/NSCPClient.md
-        - NRDPClient: reference/client/NRDPClient.md
-        - IcingaAgent: reference/client/IcingaAgent.md
-        - IcingaClient: reference/client/IcingaClient.md
-        - GearmanClient: reference/client/GearmanClient.md
-        - SMTPClient: reference/client/SMTPClient.md
-        - GraphiteClient: reference/client/GraphiteClient.md
-        - SyslogClient: reference/client/SyslogClient.md
-        - CollectdClient: reference/client/CollectdClient.md
-        - Op5Client: reference/client/Op5Client.md
-        - ElasticClient: reference/client/ElasticClient.md
         - CheckMKClient: reference/client/CheckMKClient.md
         - CheckMKServer: reference/client/CheckMKServer.md
+        - CollectdClient: reference/client/CollectdClient.md
+        - ElasticClient: reference/client/ElasticClient.md
+        - GearmanClient: reference/client/GearmanClient.md
+        - GraphiteClient: reference/client/GraphiteClient.md
+        - IcingaAgent: reference/client/IcingaAgent.md
+        - IcingaClient: reference/client/IcingaClient.md
+        - NCPAServer: reference/client/NCPAServer.md
+        - NRDPClient: reference/client/NRDPClient.md
+        - NRPEClient: reference/client/NRPEClient.md
+        - NRPEServer: reference/client/NRPEServer.md
+        - NSCAClient: reference/client/NSCAClient.md
+        - NSCANgClient: reference/client/NSCANgClient.md
+        - NSCAServer: reference/client/NSCAServer.md
+        - NSCPClient: reference/client/NSCPClient.md
+        - Op5Client: reference/client/Op5Client.md
+        - SMTPClient: reference/client/SMTPClient.md
+        - SyslogClient: reference/client/SyslogClient.md
+        - WEBServer: reference/generic/WEBServer.md
+        - NSClientServer (Windows): reference/windows/NSClientServer.md
       - Helper modules:
-        - Scheduler: reference/generic/Scheduler.md
-        - SimpleFileWriter: reference/generic/SimpleFileWriter.md
+        - CheckExternalScripts: reference/check/CheckExternalScripts.md
         - CommandClient: reference/generic/CommandClient.md
-        - SimpleCache: reference/generic/SimpleCache.md
-        - PythonScript: reference/generic/PythonScript.md
-        - LUAScript: reference/generic/LUAScript.md
         - DotnetPlugins: reference/generic/DotnetPlugins.md
+        - LUAScript: reference/generic/LUAScript.md
+        - PythonScript: reference/generic/PythonScript.md
+        - Scheduler: reference/generic/Scheduler.md
+        - SimpleCache: reference/generic/SimpleCache.md
+        - SimpleFileWriter: reference/generic/SimpleFileWriter.md
   - Extending:
       - Overview: extending/index.md
       - Python Scripts: extending/python.md

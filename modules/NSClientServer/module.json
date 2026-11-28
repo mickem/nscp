@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "check_nt server",
 		"description"	: "A server that listens for incoming check_nt connection and processes incoming requests.",
+		"category"	: "server",
 		"name"			: "NSClientServer",
 		"alias"			: "check_nt",
 		"version"		: "auto"

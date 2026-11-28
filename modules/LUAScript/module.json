@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Lua script",
 		"description"	: "Loads and processes internal Lua scripts",
+		"category"	: "script",
 		"name"			: "LUAScript",
 		"alias"			: "lua",
 		"version"		: "auto",

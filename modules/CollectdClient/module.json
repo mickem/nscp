@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "CollectD Client",
 		"description"	: "CollectD client can be used to submit metrics to a collectd server",
+		"category"	: "client",
 		"name"			: "CollectdClient",
 		"alias"			: "collectd",
 		"version"		: "auto"

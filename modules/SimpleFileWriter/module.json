@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Simple file writer module",
 		"description"	: "Write status updates to a text file (A bit like the NSCA server does)",
+		"category"	: "scheduling",
 		"name"			: "SimpleFileWriter",
 		"alias"			: "write/file",
 		"version"		: "auto",

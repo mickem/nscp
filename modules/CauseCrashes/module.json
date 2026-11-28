@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Cause NSClient++ to crash",
 		"description"	: "*DO NOT USE* This module is useful except for debugging purposes and outright dangerous as it allows someone remotely to crash your client!",
+		"category"	: "tool",
 		"name"			: "CauseCrashes",
 		"alias"			: "crash",
 		"version"		: "auto",

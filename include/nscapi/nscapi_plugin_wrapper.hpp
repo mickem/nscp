@@ -134,6 +134,16 @@ struct basic_wrapper_static {
     }
     return NSCAPI::api_return_codes::hasFailed;
   }
+  // What kind of module this is (module.json "category"), for grouping it in
+  // listings. Optional for the core: a module without it has no category.
+  static int NSGetModuleCategory(char *buf, int buflen) {
+    try {
+      return helpers::wrap_string(buf, buflen, impl_class::getModuleCategory(), NSCAPI::api_return_codes::isSuccess);
+    } catch (...) {
+      NSC_LOG_CRITICAL("Unknown exception in: NSGetModuleCategory");
+    }
+    return NSCAPI::api_return_codes::hasFailed;
+  }
   static int NSGetModuleVersion(int *major, int *minor, int *revision) {
     try {
       nscapi::module_version version = impl_class::getModuleVersion();

@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Graphite Client",
 		"description"	: "Graphite client can be used to submit graph data to a graphite graphing system",
+		"category"	: "client",
 		"name"			: "GraphiteClient",
 		"alias"			: "graphite",
 		"version"		: "auto"

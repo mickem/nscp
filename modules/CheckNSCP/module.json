@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Check status of NSClient++",
 		"description"	: "Use this module to check the health and status of NSClient++ it self",
+		"category"	: "check",
 		"name"			: "CheckNSCP",
 		"alias"			: "check_nscp",
 		"version"		: "auto"

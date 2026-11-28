@@ -72,6 +72,7 @@ describe("REST modules (v2)", () => {
             metadata: {
               alias: "",
               plugin_id: anyPluginId,
+              category: "script",
             },
             module_url: expect.stringMatching(
               /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/$/,
@@ -115,6 +116,7 @@ describe("REST modules (v2)", () => {
             metadata: {
               alias: "",
               plugin_id: anyPluginId,
+              category: "script",
             },
             module_url: expect.stringMatching(
               /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/$/,
@@ -135,6 +137,7 @@ describe("REST modules (v2)", () => {
             metadata: {
               alias: "",
               plugin_id: anyPluginId,
+              category: "check",
             },
             module_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/",
             name: "CheckNSCP",
@@ -166,6 +169,7 @@ describe("REST modules (v2)", () => {
           metadata: {
             alias: "",
             plugin_id: anyPluginId,
+            category: "scheduling",
           },
           name: "Scheduler",
           title: expect.anything(),
@@ -210,6 +214,7 @@ describe("REST modules (v2)", () => {
           metadata: {
             alias: "",
             plugin_id: anyPluginId,
+            category: "scheduling",
           },
           name: "Scheduler",
           title: "Scheduler",
@@ -254,6 +259,7 @@ describe("REST modules (v2)", () => {
           metadata: {
             alias: "",
             plugin_id: anyPluginId,
+            category: "scheduling",
           },
           name: "Scheduler",
           title: "Scheduler",

@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: ".NET plugins",
 		"description"	: "Loads and hosts plugins written for .NET (C#, F#, ...)",
+		"category"	: "script",
 		"name"			: "DotnetPlugins",
 		"alias"			: "dotnet",
 		"version"		: "auto"

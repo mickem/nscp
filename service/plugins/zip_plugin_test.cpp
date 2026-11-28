@@ -72,6 +72,15 @@ TEST_F(ZipPluginTest, reads_the_name_and_description_from_module_json) {
 
   EXPECT_EQ(plugin->getName(), "Sample");
   EXPECT_EQ(plugin->getDescription(), "A sample module");
+  // Nothing said, no category.
+  EXPECT_EQ(plugin->get_category(), "");
+}
+
+TEST_F(ZipPluginTest, reads_the_category_from_module_json) {
+  const fs::path archive =
+      make_archive("categorised.zip", {{"module.json", R"({"name":"Sample","description":"","category":"check"})"}});
+
+  EXPECT_EQ(open(archive)->get_category(), "check");
 }
 
 TEST_F(ZipPluginTest, the_module_name_comes_from_the_archive_file_name) {

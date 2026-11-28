@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Scheduler",
 		"description"	: "Use this to schedule check commands and jobs in conjunction with for instance passive monitoring through NSCA",
+		"category"	: "scheduling",
 		"name"			: "Scheduler",
 		"alias"			: "schedule",
 		"version"		: "auto",

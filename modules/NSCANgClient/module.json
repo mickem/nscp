@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "NSCA-NG Client",
 		"description"	: "NSCA-NG client can be used both from command line and from queries to submit passive checks via NSCA-NG (TLS-based NSCA next generation)",
+		"category"	: "client",
 		"name"			: "NSCANgClient",
 		"alias"			: "nsca-ng",
 		"version"		: "auto"

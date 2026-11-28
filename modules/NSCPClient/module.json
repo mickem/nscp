@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "NSCP Client",
 		"description"	: "NSCP client can be used both from command line and from queries to check remote systems over their REST API",
+		"category"	: "client",
 		"name"			: "NSCPClient",
 		"alias"			: "nscp",
 		"version"		: "auto"
