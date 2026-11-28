@@ -686,4 +686,39 @@ describeOnLinux("CheckDisk (Unix)", () => {
     expect(code).toBe(3);
     expect(out).not.toMatch(/only available on Windows/);
   });
+
+  // --- check_smart -----------------------------------------------------------
+  // CI hosts have virtual disks and may run the agent unprivileged, so these
+  // pin the thresholds and assert the documented states rather than a verdict.
+
+  it("check_smart runs and reports each block device's SMART state", async () => {
+    const { out, code } = await queryWithCode("check_smart", [
+      "filter=none",
+      "warning=none",
+      "critical=none",
+      "empty-state=ok",
+      "top-syntax=${list}",
+      "detail-syntax=${drive}=${smart_state}",
+    ]);
+    expect(code).toBe(0);
+    // Every listed device carries one of the four states (a host with no block
+    // device at all prints the empty-state message instead).
+    const rows = out.match(/\/dev\/\S+=\w+/g) ?? [];
+    for (const row of rows) expect(row).toMatch(/=(available|unsupported|denied|error)$/);
+    if (rows.length === 0) expect(out).toMatch(/No drives with SMART data found/);
+  });
+
+  it("check_smart keeps virtual disks out of the default filter", async () => {
+    // Only virtual (vd*) disks would make the default result the empty state;
+    // either way it is never an evaluation error.
+    const { out, code } = await queryWithCode("check_smart", ["warning=none", "critical=none", "empty-state=ok"]);
+    expect(code).toBe(0);
+    expect(out).toMatch(/No drives with SMART data found|\/dev\/\S+/);
+  });
+
+  it("check_smart takes -w / -c as a temperature bound", async () => {
+    const out = await query("check_smart", ["-w", "200", "-c", "250", "show-query"]);
+    expect(out).toMatch(/temperature > 200/);
+    expect(out).toMatch(/temperature > 250/);
+  });
 });

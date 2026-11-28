@@ -1,0 +1,46 @@
+windows:
+- source: '`\\.\PhysicalDrive0` to `\\.\PhysicalDrive127` opened with no access rights, then `IOCTL_STORAGE_QUERY_PROPERTY` (`StorageDeviceProperty`)'
+  provides: the drive list, drive, model, serial, firmware, protocol (bus type)
+  privilege: none
+  note: Read for every drive, so an unelevated agent still lists the drives it cannot read SMART from. Virtual, file-backed and Storage Spaces disks stop here as `smart_state=unsupported` and are dropped by the default filter.
+- source: '`SMART_RCV_DRIVE_DATA` (IDENTIFY, READ ATTRIBUTES, READ THRESHOLDS) and `SMART_SEND_DRIVE_COMMAND` (RETURN STATUS) on a read/write handle to `\\.\PhysicalDriveN`'
+  provides: 'SMART attributes, health, predict_failure and media of ATA/SATA drives (`source=ioctl`); also tried on USB, SAS, iSCSI and RAID buses, as some drivers pass SMART through'
+  privilege: elevated
+  note: Opening the read/write handle needs an elevated agent; the service runs as LocalSystem.
+  requires:
+  - a storage driver that passes SMART commands through (the inbox ATA/AHCI miniports do; many RAID and vendor drivers do not)
+  without: 'Access denied gives `smart_state=denied` "access denied opening \\.\PhysicalDriveN (the agent must run elevated)", which the default warning fires on. A driver that refuses the command gives `unsupported` (or `error` on an ATA/SATA bus); the WMI fallback below is then tried.'
+- source: '`IOCTL_STORAGE_QUERY_PROPERTY` with an NVMe protocol-specific query (`StorageDeviceProtocolSpecificProperty`, then `StorageAdapterProtocolSpecificProperty`) for the SMART / Health Information log page, on a read/write handle to `\\.\PhysicalDriveN`'
+  provides: health, predict_failure, critical_warning, temperature, wear, available_spare, media_errors and the other NVMe counters (`source=ioctl`)
+  privilege: elevated
+  note: The same read/write handle as the ATA path. NVMe drives get no WMI fallback.
+  requires:
+  - Windows 10 / Windows Server 2016 or later (the inbox `stornvme.sys` answers the query)
+  without: '`smart_state=denied` (access denied) or `error` "NVMe health log query failed: <error>"; the default warning fires on both.'
+- source: 'WMI `root\WMI` `MSStorageDriver_FailurePredictStatus`, `MSStorageDriver_FailurePredictData` and `MSStorageDriver_FailurePredictThresholds`, matched to drives through `root\cimv2` `Win32_DiskDrive` (`Index`, `PNPDeviceID`)'
+  provides: 'health and predict_failure (`PredictFailure`) and the ATA attributes, for a non-NVMe drive the IOCTLs could not read (`source=wmi`); no wear, as there is no IDENTIFY data'
+  privilege: elevated
+  note: The fallback, queried once per check and only when some non-NVMe drive could not be read through the IOCTLs. The code treats `root\WMI` as answering only an elevated caller and skips any query that fails.
+  requires:
+  - Windows Management Instrumentation (`Winmgmt`) service
+  - a storage driver that publishes the FailurePredict classes
+  without: The drive keeps the state the IOCTL path gave it (`denied`, `unsupported` or `error`).
+linux:
+- source: '`/sys/block/<dev>` (`device/vendor`, `device/model`, `device/rev`) and `/sys/class/nvme/<controller>` (`model`, `serial`, `firmware_rev`)'
+  provides: the drive list, drive, model, firmware, NVMe serial, protocol
+  privilege: none
+  note: Loop, RAM, device-mapper, md, optical, MMC and other pseudo devices, and devices without a `device` link, are skipped. `vd*` / `xvd*` disks are reported as `smart_state=unsupported` ("virtual disk") and dropped by the default filter.
+- source: '`SG_IO` with an ATA PASS-THROUGH(16) CDB (IDENTIFY DEVICE, SMART READ DATA, READ THRESHOLDS, RETURN STATUS) on `/dev/sdX` and `/dev/hdX`, opened `O_RDONLY | O_NONBLOCK`'
+  provides: SMART attributes, serial, model, firmware, media, health and predict_failure of ATA/SATA drives (`source=sg_io`)
+  privilege: elevated
+  note: Needs `CAP_SYS_RAWIO` for the ATA pass-through and read access to the device node, which in practice means running the agent as root.
+  requires:
+  - a SATA/ATA drive, or a USB bridge that implements SAT
+  without: '`smart_state=denied` "permission denied on /dev/sdX (run the agent as root or grant it CAP_SYS_RAWIO)", which the default warning fires on. A SAS/SCSI disk that rejects ATA pass-through is `unsupported` ("SCSI/SAS log pages are not read").'
+- source: '`NVME_IOCTL_ADMIN_CMD`, Get Log Page 02h (SMART / Health Information), on `/dev/nvmeN` (or the namespace device `/dev/nvmeNnM` when the controller node is missing)'
+  provides: health, predict_failure, critical_warning, temperature, wear, available_spare, media_errors and the other NVMe counters (`source=nvme_ioctl`)
+  privilege: elevated
+  note: Needs `CAP_SYS_ADMIN` for the NVMe admin command, which in practice means running the agent as root.
+  requires:
+  - a build with `<linux/nvme_ioctl.h>`
+  without: '`smart_state=denied` "permission denied on /dev/nvmeN (run the agent as root or grant it CAP_SYS_ADMIN)", which the default warning fires on. A build without the header reports every NVMe drive as `unsupported` ("built without NVMe ioctl support").'
