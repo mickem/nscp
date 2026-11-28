@@ -192,6 +192,21 @@ the helper goes in its `ALLOWED` set with the reason.
   options, keywords and output have settled — that is the only thing it
   promises. A zip bundle declares the same key at the top level of its
   `module.json`.
+- **A new module with settings gets a page in the web UI**: a folder
+  `web/src/modules/<Module>/` whose `index.ts` exports a `ModulePage`, listed
+  in `web/src/modules/registry.ts`. A handful of keys in one section is a
+  `simplePage()` (`kit/SimplePage.tsx`, see `CheckHyperV`); anything more is a
+  `Panel` built on `usePanel` + `PanelShell` (see `CheckDisk`). Put the keys
+  in a `KeyTable` with the agent's defaults and pass `handledKeys:
+  tableKeys(TABLE)`; lists (`/settings/<x>/files`, targets, ...) go in
+  `collections` with an `Editor` that reads and writes through
+  `useStagedSettings()` (`kit/staging.ts`), so its rows wait for the page's
+  Save like the fields do. `src/modules/registry.test.ts` fails for a module
+  the reference documents with settings but no page, and for a key a page
+  names that the reference does not have - so re-extract the reference
+  (`docs/reference/<Module>.yaml`) with the module. Expert mode (the generic
+  schema form) is the fallback for out-of-tree modules, not a substitute for
+  a page. Do not register UI with `add_templates()`: nothing reads it.
 - Cross-platform data acquisition uses the platform shim: platform-neutral
   sources plus an `if(WIN32) … _win.cpp else() … _linux.cpp` split in
   `CMakeLists.txt` (an `elseif(APPLE) … _darwin.cpp` branch joins it with the
