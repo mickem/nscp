@@ -1,6 +1,6 @@
 // Runs a check now and shows what it answered, next to the button.
 import { Alert, Box, Button, Popover } from "@mui/material";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useExecuteQueryMutation } from "../../api/api.ts";
 
 interface Props {
@@ -17,7 +17,7 @@ const STATUS = ["OK", "WARNING", "CRITICAL", "UNKNOWN"];
 export default function RunCheckButton({ query, args, label = "Run", disabled, note }: Props) {
   const [executeQuery, { isLoading }] = useExecuteQueryMutation();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
-  const anchor = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
 
   const run = async () => {
     setResult(null);
@@ -33,7 +33,7 @@ export default function RunCheckButton({ query, args, label = "Run", disabled, n
   return (
     <>
       <Button
-        ref={anchor}
+        ref={setAnchor}
         size="small"
         onClick={() => void run()}
         disabled={disabled}
@@ -43,7 +43,7 @@ export default function RunCheckButton({ query, args, label = "Run", disabled, n
       </Button>
       <Popover
         open={result !== null}
-        anchorEl={anchor.current}
+        anchorEl={anchor}
         onClose={() => setResult(null)}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
