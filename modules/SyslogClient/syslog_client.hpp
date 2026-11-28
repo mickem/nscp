@@ -48,7 +48,9 @@ struct connection_data : public socket_helpers::connection_info {
     address = arguments.address.host;
     port_ = arguments.address.get_port_string("514");
     timeout = arguments.get_int_data("timeout", 30);
-    retry = arguments.get_int_data("retry", 3);
+    // `retry` and the `retries` setting land in the container's typed field,
+    // never in the data map (see destination_container::set_string_data).
+    retry = arguments.retry;
     severity = arguments.data["severity"];
     facility = arguments.data["facility"];
     tag_syntax = arguments.data["tag template"];
