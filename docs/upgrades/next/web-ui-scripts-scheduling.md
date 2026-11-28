@@ -35,5 +35,6 @@ action: none
 On every module page with its own settings panel, the panel's unsaved
 changes, *Save* and *Discard* are a bar always pinned to the bottom of the
 window, so they stay in reach below the lists
-(which save each change from their own dialog). *Show config* moves to the
-top of the panel and prints the lists' sections too.
+(which save each change from their own dialog). *Show config* sits in the
+same bar and prints the lists' sections too; a page that is only lists (the
+clients, Check helpers) gets a bar with *Show config* alone.
