@@ -52,6 +52,13 @@ bool CheckMySQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
         "CONNECTION TIMEOUT", "Connection timeout in seconds.", true)
       .add_int("query timeout", sh::int_key(&fresh.query_timeout, 30),
         "QUERY TIMEOUT", "Query (read/write) timeout in seconds.", true)
+      .add_bool("allow host override", sh::bool_key(&fresh.allow_host_override, false),
+        "ALLOW HOST OVERRIDE",
+        "Let a check request (REST, NRPE arguments or `nscp client`) send the credentials configured here - the user and password, or the "
+        "[client] credentials of the defaults file - to a destination the request names. Off by default: when a request changes `host` or "
+        "`port`, or turns `tls` off where it is configured on, and does not bring its own `user` and `password`, the check is refused, since "
+        "otherwise anyone able to run the module's checks could have the configured password sent to a server of their choosing. A request that "
+        "supplies its own credentials, one that changes none of those, and a module with no credentials configured are unaffected.", true)
       ;
     // clang-format on
 

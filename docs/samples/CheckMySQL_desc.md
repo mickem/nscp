@@ -12,3 +12,10 @@ account — `socket`, `plugin dir` and `defaults file` — are configured only i
 load a plugin or read a file it chooses. Credentials can be kept out of
 `nsclient.ini` entirely via `defaults file` pointing at a permission-protected
 my.cnf-style file.
+
+The network overrides do not move the configured credentials: when a `user`,
+`password` or `defaults file` is configured, a request that changes `host` or
+`port`, or turns `tls` off where it is configured on, is refused unless it
+supplies its own `user=` and `password=` - otherwise anyone able to run a
+check could have the configured password sent to a server of their choosing.
+Set `allow host override = true` under `/settings/mysql` to permit it.

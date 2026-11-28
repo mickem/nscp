@@ -36,6 +36,15 @@ struct connection_info {
   int connect_timeout = 10;   // seconds
   int query_timeout = 30;     // seconds (read/write timeout per query)
 
+  // Not connection parameters: bookkeeping for connection_override_refusal().
+  // allow_host_override comes from /settings/mysql only and is never a request
+  // option; the *_from_request flags are set by add_connection_options() when
+  // the request itself names the option, as opposed to inheriting the
+  // configured value.
+  bool allow_host_override = false;
+  bool user_from_request = false;
+  bool password_from_request = false;
+
   // Human-readable connection target for error messages ("host:port" or the socket path).
   std::string display_target() const { return socket.empty() ? host + ":" + std::to_string(port) : socket; }
 };
@@ -67,6 +76,17 @@ typedef std::function<result(const std::string &sql)> query_runner;
 // returns a runner bound to a live connection, or throws mysql_exception when
 // the connection cannot be established. Injectable for unit tests.
 typedef std::function<query_runner(const connection_info &info)> session_factory;
+
+// Whether a request may connect with `requested`, given the module's
+// `configured` defaults. Returns the refusal message, or "" when allowed.
+//
+// The configured user and password (or the [client] credentials of the
+// configured defaults file) go to whatever host the connection names. So a
+// request that moves the destination (host, port) or drops the configured TLS
+// requirement is refused unless it brings its own user= and password=, or
+// /settings/mysql opted in with `allow host override`. With no credentials
+// configured there is nothing to protect, and the request is unaffected.
+std::string connection_override_refusal(const connection_info &configured, const connection_info &requested);
 
 // Classify a server as mysql / mariadb / percona from its version string and
 // version_comment ("10.11.14-MariaDB-ubu2404", "Percona Server (GPL), ...").

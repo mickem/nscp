@@ -66,7 +66,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   // execute it.
   if (filter_helper.answer_show_query()) return;
 
-  mssql_options::with_session(info, response, [&](mssql_odbc::session &session) {
+  mssql_options::with_session(defaults, info, response, [&](mssql_odbc::session &session) {
     const mssql_odbc::result res = session.execute(query);
 
     // No column-bearing result set at all (e.g. a lone UPDATE, or a procedure

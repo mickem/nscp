@@ -20,9 +20,19 @@ for Windows integrated authentication as the NSClient++ service account),
 `/settings/mssql` section, so credentials can be configured once in
 `nsclient.ini` instead of per check.
 
+A request cannot move the configured credentials: one that changes `server`,
+`driver`, `connection-string` or `encrypt`, or turns `trust-cert` on where
+`/settings/mssql` has it off, is refused unless it supplies its own `user=` and
+`password=`. That includes the default, credential-less setup, which would
+otherwise authenticate to the caller's server as the service account (an NTLM
+relay vector). A `connection-string=` from the request always needs the
+opt-in, since it picks its own authentication. Set
+`allow host override = true` under `/settings/mssql` to permit it.
+
 The ODBC driver is auto-detected (newest installed *ODBC Driver NN for SQL
 Server* first, falling back to the legacy `SQL Server` driver that ships with
 Windows). On the modern drivers `TrustServerCertificate=yes` is added by
-default since most instances run with a self-signed certificate; use
-`trust-cert=false` (and optionally `encrypt=yes`) when the server has a
+default since most instances run with a self-signed certificate; set
+`trust server certificate = false` (and optionally `encrypt = yes`) under
+`/settings/mssql` - or pass `trust-cert=false` - when the server has a
 properly trusted certificate.

@@ -473,7 +473,7 @@ sometimes the entire query chosen by the caller:
 |-------|-----------|-----------------------|
 | `check_wmi` | `target=`, `user=`, `password=`, `namespace=` | which machine is queried over DCOM, and with which account |
 | `check_mysql` | `host=`, `port=`, `user=`, `password=`, `database=` | which MySQL/MariaDB server is connected to, and with which account |
-| `check_mssql` | the ODBC connection string | the driver, the server, the credentials and every other connection attribute |
+| `check_mssql` | `server=`, `user=`, `password=`, `database=`, `driver=` (and `connection-string=` with `allow host override`) | which SQL Server is connected to, and with which login |
 | `check_uncpath` | `path=`, `user=`, `password=` | which SMB share this host authenticates to |
 
 These are the checks' purpose — monitoring a database from the agent that sits
@@ -507,7 +507,15 @@ are the ones that decide that, rather than a mode setting of their own:
 `check_wmi` is the one of the four with a gate of its own: with `query access`
 set to anything other than `any`, `target=` must name an entry in
 `[/settings/wmi/targets]` (see above). The others have no named-target setting
-today, so for them the argument controls above are the whole answer.
+today, so for them the argument controls above are the whole answer - with one
+exception for the SQL checks: they never let a request take the *configured*
+credentials elsewhere. A `check_mysql*` request that changes `host` or `port`
+(or turns `tls` off) while `/settings/mysql` holds a user, password or defaults
+file, and a `check_mssql*` request that changes `server`, `driver`,
+`connection-string`, `encrypt` or turns `trust-cert` on - with a configured SQL
+login, or with none, which means Windows integrated authentication as the
+agent's own account - is refused unless it brings its own `user=` and
+`password=`, or the module sets `allow host override = true`.
 
 ## What a refusal looks like
 

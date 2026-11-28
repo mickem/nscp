@@ -14,8 +14,8 @@
 #include "check_mssql_backup.hpp"
 #include "check_mssql_blocking.hpp"
 #include "check_mssql_counters.hpp"
-#include "check_mssql_integrity.hpp"
 #include "check_mssql_databases.hpp"
+#include "check_mssql_integrity.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
 #include "check_mssql_sessions.hpp"
@@ -56,6 +56,25 @@ bool CheckMSSQL::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
         "LOGIN TIMEOUT", "Connection (login) timeout in seconds.", true)
       .add_int("query timeout", sh::int_key(&fresh.query_timeout, 30),
         "QUERY TIMEOUT", "Query timeout in seconds.", true)
+      .add_bool("trust server certificate", sh::bool_key(&fresh.trust_server_cert, true),
+        "TRUST SERVER CERTIFICATE",
+        "Accept the server's TLS certificate without validating it (TrustServerCertificate=yes; modern ODBC drivers only). On by default because "
+        "ODBC Driver 18 encrypts by default and SQL Server's self-generated certificate does not validate; turn it off once the instance has a "
+        "certificate the agent trusts, so a host impersonating the server cannot collect the login. A request cannot turn this on when it is off "
+        "unless `allow host override` is set.", true)
+      .add_string("encrypt", sh::string_key(&fresh.encrypt, ""),
+        "ENCRYPT",
+        "Connection encryption (Encrypt=; modern ODBC drivers only): yes, no, or, for ODBC Driver 18, strict. Empty leaves the driver's default. "
+        "A request cannot change this unless `allow host override` is set.", true)
+      .add_bool("allow host override", sh::bool_key(&fresh.allow_host_override, false),
+        "ALLOW HOST OVERRIDE",
+        "Let a check request (REST, NRPE arguments or `nscp client`) connect with the credentials configured here - the user and password, or, "
+        "with none, Windows integrated authentication as the account the agent runs as - to a destination the request names. Off by default: "
+        "when a request changes `server`, `driver`, `connection-string`, `encrypt` or turns `trust-cert` on, and does not bring its own `user` "
+        "and `password`, the check is refused, since otherwise anyone able to run the module's checks could have the agent authenticate to a "
+        "host of their choosing (and relay the machine account's NTLM authentication). A request that supplies its own SQL login, and one that "
+        "changes none of those, is unaffected; a request-supplied `connection-string` always needs this, since it can select integrated "
+        "authentication itself.", true)
       ;
     // clang-format on
 

@@ -59,10 +59,44 @@ describeOnWindows("CheckMSSQL contract (no SQL Server required)", () => {
 
   it("check_mssql with a nonexistent driver hits the connect contract deterministically", async () => {
     // IM002 (driver not found) fails identically on every machine, no network involved.
-    const out = await query("check_mssql", ["server=localhost", "driver=No Such Driver 99"]);
+    // A SQL login of the request's own: with the default (integrated) authentication
+    // a request-chosen driver is refused before the driver manager is asked.
+    const out = await query("check_mssql", [
+      "server=localhost",
+      "driver=No Such Driver 99",
+      "user=nobody",
+      "password=nothing",
+    ]);
     expect(out).toMatch(/UNKNOWN|Failed to connect/);
     expect(out).toMatch(/Failed to connect to SQL Server 'localhost'/);
     expect(out).toMatch(/IM002/);
+  });
+
+  it("refuses to take integrated authentication to a server the request names", async () => {
+    // Nothing configured: the connection would authenticate as the agent's
+    // own account, so moving it needs `allow host override` - and nothing is
+    // contacted, which is why there is no "Failed to connect" here.
+    for (const args of [
+      ["server=attacker.invalid"],
+      ["driver=SQL Server"],
+      ["connection-string=Server=attacker.invalid;Trusted_Connection=yes;"],
+    ]) {
+      const out = await query("check_mssql", args);
+      expect(out).toMatch(/allow host override/);
+      expect(out).not.toMatch(CONNECT_FAILED);
+    }
+  });
+
+  it("lets a request with its own SQL login choose the server", async () => {
+    // .invalid never resolves, so this is the connect contract, not the refusal.
+    const out = await query("check_mssql", [
+      "server=attacker.invalid",
+      "user=nobody",
+      "password=nothing",
+      "timeout=2",
+    ]);
+    expect(out).not.toMatch(/allow host override/);
+    expect(out).toMatch(CONNECT_FAILED);
   });
 
   it("accepts REST-style single-token key=value arguments (valued boolean)", async () => {
@@ -701,9 +735,17 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     try {
       const r = await nscp.run(
         [
-          "client", "--module", "CheckMSSQL", "--boot", "--query", "check_mssql_integrity",
-          `server=${server}`, "user=lowpriv", "password=L0wPriv!Pass",
-          "warning=none", "critical=none",
+          "client",
+          "--module",
+          "CheckMSSQL",
+          "--boot",
+          "--query",
+          "check_mssql_integrity",
+          `server=${server}`,
+          "user=lowpriv",
+          "password=L0wPriv!Pass",
+          "warning=none",
+          "critical=none",
           "detail-syntax=${name}=${checkdb_age}/${suspect_pages}",
           "top-syntax=${status}: ${list}",
           "show-all",

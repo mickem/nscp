@@ -107,7 +107,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
 
-  mssql_options::with_session(info, response, [&](mssql_odbc::session &session) {
+  mssql_options::with_session(defaults, info, response, [&](mssql_odbc::session &session) {
     const mssql_odbc::result res = session.execute(TEMPDB_SQL);
     if (res.rows.empty()) {
       filter_helper.post_process(filter);

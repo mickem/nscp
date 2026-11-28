@@ -35,16 +35,22 @@ namespace mysql_options {
 // caller who sends plugin-dir=... gets "Invalid command line", not a silent
 // load - the allowlist is the option table itself. See the CheckDocker
 // is_local_docker_endpoint() guard for the same UNC/SMB reasoning.
+//
+// `allow host override` is not here either: it decides whether host/port/tls
+// may move the configured credentials, so a request must not set it for
+// itself. with_runner() enforces it (mysql_client::connection_override_refusal()).
 inline void add_connection_options(boost::program_options::options_description &desc, mysql_client::connection_info &info) {
   namespace po = boost::program_options;
   // clang-format off
   desc.add_options()
-    ("host", po::value<std::string>(&info.host)->default_value(info.host), "MySQL/MariaDB server to connect to.")
-    ("port", po::value<int>(&info.port)->default_value(info.port), "TCP port of the server.")
+    ("host", po::value<std::string>(&info.host)->default_value(info.host), "MySQL/MariaDB server to connect to. Changing it while credentials are configured requires user and password, unless /settings/mysql sets allow host override.")
+    ("port", po::value<int>(&info.port)->default_value(info.port), "TCP port of the server. Changing it while credentials are configured requires user and password, unless /settings/mysql sets allow host override.")
     ("database", po::value<std::string>(&info.database), "Default database (schema) to connect to.")
-    ("user", po::value<std::string>(&info.user), "User to authenticate with.")
-    ("password", po::value<std::string>(&info.password), "Password to authenticate with.")
-    ("tls", po::value<bool>(&info.tls)->implicit_value(true)->default_value(info.tls), "Require TLS on the connection.")
+    ("user", po::value<std::string>(&info.user)->notifier([&info](const std::string &) { info.user_from_request = true; }),
+      "User to authenticate with.")
+    ("password", po::value<std::string>(&info.password)->notifier([&info](const std::string &) { info.password_from_request = true; }),
+      "Password to authenticate with.")
+    ("tls", po::value<bool>(&info.tls)->implicit_value(true)->default_value(info.tls), "Require TLS on the connection. Turning it off where /settings/mysql requires it needs user and password, unless allow host override is set.")
     ("timeout", po::value<int>(&info.connect_timeout)->default_value(info.connect_timeout), "Connection timeout in seconds.")
     ("query-timeout", po::value<int>(&info.query_timeout)->default_value(info.query_timeout), "Query (read/write) timeout in seconds.")
     ;
@@ -92,9 +98,14 @@ void run_with_runner(const mysql_client::session_factory &factory, const mysql_c
 }
 
 // The same, for a check: a failure becomes the response's UNKNOWN line.
+// `configured` is the module's /settings/mysql defaults the request started
+// from; a request that moves the configured credentials to a server of its
+// choosing is refused here, before the factory is asked to connect.
 template <class TBody>
-void with_runner(const mysql_client::session_factory &factory, const mysql_client::connection_info &info,
+void with_runner(const mysql_client::session_factory &factory, const mysql_client::connection_info &configured, const mysql_client::connection_info &info,
                  PB::Commands::QueryResponseMessage::Response *response, TBody body) {
+  const std::string refused = mysql_client::connection_override_refusal(configured, info);
+  if (!refused.empty()) return fail(response, refused);
   run_with_runner(factory, info, [response](const std::string &message) { fail(response, message); }, body);
 }
 

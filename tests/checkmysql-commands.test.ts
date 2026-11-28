@@ -155,9 +155,82 @@ dockerOrSkip()("CheckMySQL commands", () => {
 
   it("check_mysql_query show-query does not contact the server", async () => {
     if (!moduleBuilt()) return;
-    const out = await query("check_mysql_query", ["host=127.0.0.1", "port=1", "timeout=2", "query=SELECT 1", "show-query"]);
+    const out = await query("check_mysql_query", [
+      "host=127.0.0.1",
+      "port=1",
+      "timeout=2",
+      "query=SELECT 1",
+      "show-query",
+    ]);
     expect(out).not.toMatch(/Failed to connect/);
     expect(out).toContain('"query=SELECT 1" ');
+  });
+});
+
+/**
+ * `allow host override`: with credentials configured in [/settings/mysql], a
+ * request that names another host is refused before anything is contacted,
+ * unless it brings its own user and password. No server is needed - the
+ * point is that none is contacted - so this is not docker-gated.
+ */
+describe("CheckMySQL allow host override", () => {
+  let nscp: NscpInstance;
+
+  async function query(command: string, args: string[] = []): Promise<string> {
+    const r = await nscp.run(
+      ["client", "--module", "CheckMySQL", "--boot", "--query", command, ...args],
+      {
+        allowFailure: true,
+      },
+    );
+    return r.all ?? `${r.stdout}\n${r.stderr}`;
+  }
+
+  beforeAll(async () => {
+    if (!moduleBuilt()) return;
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": { CheckMySQL: "enabled" },
+      "/settings/mysql": {
+        hostname: "127.0.0.1",
+        port: "1",
+        user: "monitor",
+        password: "configured-secret",
+        timeout: "2",
+      },
+    });
+  });
+
+  it("refuses to send the configured password to a host the request names", async () => {
+    if (!moduleBuilt()) return;
+    for (const [command, args] of [
+      ["check_mysql", ["host=127.0.0.2"]],
+      ["check_mysql_query", ["host=127.0.0.2", "query=SELECT 1"]],
+    ] as const) {
+      const out = await query(command, [...args]);
+      expect(out).toMatch(/allow host override/);
+      expect(out).not.toMatch(/Failed to connect/);
+      expect(out).not.toContain("configured-secret");
+    }
+  });
+
+  it("lets a request with its own credentials choose the host", async () => {
+    if (!moduleBuilt()) return;
+    const out = await query("check_mysql", [
+      "host=127.0.0.1",
+      "port=1",
+      "user=other",
+      "password=its-own",
+    ]);
+    expect(out).not.toMatch(/allow host override/);
+    expect(out).toMatch(/Failed to connect to MySQL server '127\.0\.0\.1:1'/);
+  });
+
+  it("leaves a request that keeps the configured host alone", async () => {
+    if (!moduleBuilt()) return;
+    const out = await query("check_mysql", ["host=127.0.0.1", "port=1"]);
+    expect(out).not.toMatch(/allow host override/);
+    expect(out).toMatch(/Failed to connect to MySQL server '127\.0\.0\.1:1'/);
   });
 });
 

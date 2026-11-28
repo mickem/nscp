@@ -66,7 +66,7 @@ void check_with(const mysql_client::connection_info &defaults, const PB::Command
   // execute it.
   if (filter_helper.answer_show_query()) return;
 
-  mysql_options::with_runner(factory, info, response, [&](const mysql_client::query_runner &run) {
+  mysql_options::with_runner(factory, defaults, info, response, [&](const mysql_client::query_runner &run) {
     const mysql_client::result res = run(query);
 
     // No column-bearing result set at all (e.g. a lone UPDATE): there is
