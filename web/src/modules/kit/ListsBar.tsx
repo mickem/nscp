@@ -6,11 +6,13 @@ import { useState } from "react";
 import { useGetSettingsQuery } from "../../api/api.ts";
 import { toIni } from "./changes.ts";
 import ConfigDialog from "./ConfigDialog.tsx";
+import { UNSTORED_TEXT, useStoreSettings } from "./useStoreSettings.ts";
 import { listsIni } from "./listsIni.ts";
 
 export default function ListsBar({ moduleId, paths }: { moduleId: string; paths: string[] }) {
   const { data: stored } = useGetSettingsQuery();
   const [open, setOpen] = useState(false);
+  const agent = useStoreSettings();
   return (
     <Paper
       elevation={6}
@@ -20,11 +22,21 @@ export default function ListsBar({ moduleId, paths }: { moduleId: string; paths:
     >
       <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         <Typography variant="body2" sx={{ flexGrow: 1 }}>
-          Each list saves its changes from its own dialog.
+          {agent.unstored ? UNSTORED_TEXT : "Each list saves its changes from its own dialog."}
         </Typography>
         <Button size="small" onClick={() => setOpen(true)}>
           Show config
         </Button>
+        {agent.unstored && (
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => void agent.store()}
+            loading={agent.busy}
+          >
+            Save and reload
+          </Button>
+        )}
       </Stack>
       <ConfigDialog
         open={open}

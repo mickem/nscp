@@ -25,6 +25,7 @@ import { applyToStored, describeChange, SettingChange } from "./changes.ts";
 import { listsIni } from "./listsIni.ts";
 import { PageFrameContext } from "./pageFrame.ts";
 import ConfigDialog from "./ConfigDialog.tsx";
+import { UNSTORED_TEXT, useStoreSettings } from "./useStoreSettings.ts";
 import RunCheckButton from "./RunCheckButton.tsx";
 import SecretField from "./SecretField.tsx";
 import type { Panel } from "./usePanel.ts";
@@ -145,6 +146,10 @@ function SaveBar({
 }) {
   const [details, setDetails] = useState(true);
   const pending = changes.length > 0;
+  const stored = useStoreSettings();
+  // Nothing left to write to the agent, but the agent has not stored it:
+  // Save becomes the step that does.
+  const storeStep = !pending && stored.unstored;
   return (
     <Paper
       elevation={6}
@@ -155,13 +160,16 @@ function SaveBar({
       <Stack spacing={1}>
         {problem && <NscpAlert severity="warning" text={problem} />}
         {panel.error && <NscpAlert severity="error" text={panel.error} />}
+        {stored.error && <NscpAlert severity="error" text={stored.error} />}
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <Typography variant="body2" sx={{ flexGrow: 1 }}>
             {pending
               ? `${changes.length} unsaved ${changes.length === 1 ? "change" : "changes"}`
-              : panel.saved
-                ? "Changed. Use Save and reload to store the settings and apply them."
-                : "No unsaved changes."}
+              : storeStep
+                ? UNSTORED_TEXT
+                : panel.saved
+                  ? "Saved."
+                  : "No unsaved changes."}
           </Typography>
           <Button size="small" onClick={onShowConfig}>
             Show config
@@ -195,14 +203,25 @@ function SaveBar({
           <Button onClick={panel.discard} disabled={panel.busy || !pending}>
             Discard
           </Button>
-          <Button
-            variant="contained"
-            onClick={() => void panel.save(changes)}
-            disabled={panel.busy || !pending || !!problem}
-            loading={panel.busy}
-          >
-            Save
-          </Button>
+          {storeStep ? (
+            <Button
+              variant="contained"
+              onClick={() => void stored.store()}
+              disabled={stored.busy}
+              loading={stored.busy}
+            >
+              Save and reload
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={() => void panel.save(changes)}
+              disabled={panel.busy || !pending || !!problem}
+              loading={panel.busy}
+            >
+              Save
+            </Button>
+          )}
         </Stack>
         {pending && details && (
           <Box

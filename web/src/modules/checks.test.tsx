@@ -4,7 +4,12 @@ import { ComponentType } from "react";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Settings } from "../api/api";
-import { authenticatedState, installFetchMock, jsonResponse, renderWithProviders } from "../test/test-utils";
+import {
+  authenticatedState,
+  installFetchMock,
+  jsonResponse,
+  renderWithProviders,
+} from "../test/test-utils";
 import DiskPage from "./CheckDisk/DiskPage";
 import DiskFiles from "./CheckDisk/DiskFiles";
 import { accessRisk, disabledCollectors, disableValue, fileAccessOf } from "./CheckDisk/disk";
@@ -81,7 +86,9 @@ describe("CheckDisk", () => {
     expect(trend).toBeChecked();
     await userEvent.click(screen.getByRole("checkbox", { name: /Disk I\/O/ }));
     await save();
-    await waitFor(() => expect(writes).toEqual([`[${P}] disable=disk_io,trend`, "[/modules] CheckDisk=enabled"]));
+    await waitFor(() =>
+      expect(writes).toEqual([`[${P}] disable=disk_io,trend`, "[/modules] CheckDisk=enabled"]),
+    );
     expect(disabledCollectors("disk_free, disk_io")).toEqual(new Set(["disk_io", "disk_free"]));
     expect(disableValue(new Set())).toBe("");
   });
@@ -89,7 +96,9 @@ describe("CheckDisk", () => {
   it("lists the named paths and runs one by name", async () => {
     let file: string | null = null;
     installFetchMock({
-      "/api/v2/settings": jsonResponse([{ path: `${P}/files`, key: "applog", value: "/var/log/app.log" }]),
+      "/api/v2/settings": jsonResponse([
+        { path: `${P}/files`, key: "applog", value: "/var/log/app.log" },
+      ]),
       "/api/v2/queries/check_single_file/commands/execute": async (req: Request) => {
         file = new URL(req.url, "http://localhost").searchParams.get("file");
         return jsonResponse({
@@ -108,6 +117,37 @@ describe("CheckDisk", () => {
   });
 });
 
+describe("storing what the agent holds", () => {
+  it("offers Save and reload once a list has changed the agent but not its file", async () => {
+    const commands: string[] = [];
+    installFetchMock({
+      "/api/v2/settings": jsonResponse([{ path: `${P}/files`, key: "ddd", value: "c:\\eeee" }]),
+      "/api/v2/settings/status": jsonResponse({ context: "", type: "ini", has_changed: true }),
+      "/api/v2/settings/command": async (req: Request) => {
+        commands.push(((await req.json()) as { command: string }).command);
+        return jsonResponse("");
+      },
+    });
+    renderWithProviders(<DiskPage />, { preloadedState: authenticatedState });
+    expect(
+      await screen.findByText("Changed on the agent, not yet in its configuration file."),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Save and reload" }));
+    await waitFor(() => expect(commands).toEqual(["save", "reload"]));
+  });
+
+  it("keeps Save for edits on the page", async () => {
+    installFetchMock({
+      "/api/v2/settings": jsonResponse([]),
+      "/api/v2/settings/status": jsonResponse({ context: "", type: "ini", has_changed: true }),
+    });
+    renderWithProviders(<DiskPage />, { preloadedState: authenticatedState });
+    await userEvent.click(await screen.findByRole("radio", { name: "Only the named paths below" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save and reload" })).not.toBeInTheDocument();
+  });
+});
+
 describe("small pages", () => {
   const panel = (id: string) => {
     const Panel = getModulePage(id)?.Panel;
@@ -117,7 +157,11 @@ describe("small pages", () => {
 
   it.each([
     ["CheckHyperV", "Report the virtual machines", "[/settings/hyperv/facts] hyperv.vms=true"],
-    ["CheckTaskSched", "Report the scheduled tasks", "[/settings/task schedule/facts] tasks.scheduled=true"],
+    [
+      "CheckTaskSched",
+      "Report the scheduled tasks",
+      "[/settings/task schedule/facts] tasks.scheduled=true",
+    ],
   ])("%s switches its fact set on", async (id, label, write) => {
     const writes = render(panel(id), []);
     await userEvent.click(await screen.findByRole("switch", { name: label }));
@@ -134,7 +178,10 @@ describe("small pages", () => {
     await userEvent.type(file, "results.log");
     await save();
     await waitFor(() =>
-      expect(writes).toEqual(["[/settings/writers/file] file=results.log", "[/modules] SimpleFileWriter=enabled"]),
+      expect(writes).toEqual([
+        "[/settings/writers/file] file=results.log",
+        "[/modules] SimpleFileWriter=enabled",
+      ]),
     );
   });
 
@@ -150,6 +197,11 @@ describe("small pages", () => {
     await userEvent.clear(size);
     await userEvent.type(size, "0");
     await save();
-    await waitFor(() => expect(writes).toEqual(["[/settings/cli] history size=0", "[/modules] CommandClient=enabled"]));
+    await waitFor(() =>
+      expect(writes).toEqual([
+        "[/settings/cli] history size=0",
+        "[/modules] CommandClient=enabled",
+      ]),
+    );
   });
 });
