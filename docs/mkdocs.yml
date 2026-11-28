@@ -73,6 +73,7 @@ nav:
       - Prometheus Scraping: scenarios/prometheus.md
       - Explaining Alerts with a Local LLM (Fleet): scenarios/fleet-llm-enrichment.md
       - External Scripts: scenarios/external-scripts.md
+      - Configuration Management (Fleet): scenarios/fleet-config-management.md
   - Reference:
       - Reference: reference/index.md
       - Common options: reference/common-options.md
