@@ -127,8 +127,8 @@ function listSections(
 }
 
 // The panel's unsaved changes, Save and Discard: a bar pinned to the bottom
-// of the window while there is something to say, so it stays in reach while
-// the reader scrolls through the lists below the panel.
+// of the window, always there so Save is never hunted for, and in reach
+// while the reader scrolls through the lists below the panel.
 function SaveBar({
   panel,
   changes,
@@ -140,13 +140,12 @@ function SaveBar({
 }) {
   const [details, setDetails] = useState(true);
   const pending = changes.length > 0;
-  if (!pending && !panel.saved && !panel.error && !problem) return null;
   return (
     <Paper
       elevation={6}
       role="region"
       aria-label="Unsaved changes"
-      sx={{ p: 1.5, mt: 1, borderTop: 2, borderColor: pending ? "warning.main" : "success.main" }}
+      sx={{ p: 1.5, mt: 1, borderTop: 2, borderColor: pending ? "warning.main" : "divider" }}
     >
       <Stack spacing={1}>
         {problem && <NscpAlert severity="warning" text={problem} />}
@@ -157,26 +156,24 @@ function SaveBar({
               ? `${changes.length} unsaved ${changes.length === 1 ? "change" : "changes"}`
               : panel.saved
                 ? "Changed. Use Save and reload to store the settings and apply them."
-                : ""}
+                : "No unsaved changes."}
           </Typography>
           {pending && (
-            <>
-              <Button size="small" onClick={() => setDetails(!details)}>
-                {details ? "Hide changes" : "Show changes"}
-              </Button>
-              <Button onClick={panel.discard} disabled={panel.busy}>
-                Discard
-              </Button>
-              <Button
-                variant="contained"
-                onClick={() => void panel.save(changes)}
-                disabled={panel.busy || !!problem}
-                loading={panel.busy}
-              >
-                Save
-              </Button>
-            </>
+            <Button size="small" onClick={() => setDetails(!details)}>
+              {details ? "Hide changes" : "Show changes"}
+            </Button>
           )}
+          <Button onClick={panel.discard} disabled={panel.busy || !pending}>
+            Discard
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void panel.save(changes)}
+            disabled={panel.busy || !pending || !!problem}
+            loading={panel.busy}
+          >
+            Save
+          </Button>
         </Stack>
         {pending && details && (
           <Box

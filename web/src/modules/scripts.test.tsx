@@ -320,7 +320,7 @@ describe("wrapped scripts", () => {
 });
 
 describe("the page frame", () => {
-  it("shows the lists in Show config, and the save bar only once something changed", async () => {
+  it("shows the lists in Show config, and keeps the save bar in the page's slot", async () => {
     api([
       { path: EXT_SCRIPTS, key: "check_foo", value: "scripts/foo.sh" },
       { path: "/settings/check helpers/alias", key: "other_module", value: "check_ok" },
@@ -336,7 +336,8 @@ describe("the page frame", () => {
     const allow = await screen.findByRole("switch", {
       name: "Let callers pass arguments to scripts",
     });
-    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
+    expect(within(slot).getByText("No unsaved changes.")).toBeInTheDocument();
+    expect(within(slot).getByRole("button", { name: "Save" })).toBeDisabled();
     await userEvent.click(allow);
     // The bar goes where the page puts it, not inside the panel.
     const bar = within(slot).getByRole("region", { name: "Unsaved changes" });

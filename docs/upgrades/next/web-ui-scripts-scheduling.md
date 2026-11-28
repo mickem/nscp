@@ -33,7 +33,7 @@ action: none
   load.
 
 On every module page with its own settings panel, the panel's unsaved
-changes, *Save* and *Discard* are a bar pinned to the bottom of the window
-while there is something to save, so they stay in reach below the lists
+changes, *Save* and *Discard* are a bar always pinned to the bottom of the
+window, so they stay in reach below the lists
 (which save each change from their own dialog). *Show config* moves to the
 top of the panel and prints the lists' sections too.
