@@ -1,0 +1,41 @@
+# Temporary diagnostic, not for merging: lists which Visual C++ merge modules
+# and redistributable folders the windows-2022 runner has, before and after
+# .github/actions/update-msvc adds the v141 toolset (#1776).
+name: Probe merge modules
+
+on:
+  push:
+    branches: [claude/probe-merge-modules]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: List (stock runner image)
+      shell: pwsh
+      run: ./.github/scripts/probe-merge-modules.ps1
+
+    - name: List installer catalog entries for merge modules
+      shell: pwsh
+      run: |
+        $catalogs = Get-ChildItem 'C:\ProgramData\Microsoft\VisualStudio\Packages\_Instances' -Recurse -Filter catalog.json -ErrorAction SilentlyContinue
+        foreach ($c in $catalogs) {
+          Write-Host "== $($c.FullName)"
+          $json = Get-Content $c.FullName -Raw | ConvertFrom-Json
+          $json.packages |
+            Where-Object { $_.id -match '(?i)msm|mergemod|Redist' } |
+            ForEach-Object { "{0,-12} {1,-90} {2}" -f $_.type, $_.id, $_.version } |
+            Sort-Object -Unique
+        }
+
+    - uses: ./.github/actions/update-msvc
+
+    - name: List (after update-msvc)
+      shell: pwsh
+      run: ./.github/scripts/probe-merge-modules.ps1
