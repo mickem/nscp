@@ -1485,6 +1485,27 @@ TEST_F(SettingsProxyTest, GetSectionsAndKeysReflectTheStore) {
   EXPECT_EQ(keys.size(), 2u);
 }
 
+// A section set but not yet saved is listed under each ancestor as its
+// first segment only. Listing `/settings/disk/files` under `/settings` as
+// `disk/files` made a recursive walk reach it twice and list each of its
+// keys twice (a named path added from the web UI showed up as two rows).
+TEST_F(SettingsProxyTest, GetSectionsListsOnlyDirectChildrenOfUnsavedPaths) {
+  proxy_->set_string("/settings/disk/files", "foobar", "c:\\foobar");
+  proxy_->set_string("/settingsx/other", "k", "v");
+
+  const auto under_settings = proxy_->get_sections("/settings");
+  EXPECT_EQ(std::vector<std::string>(under_settings.begin(), under_settings.end()), std::vector<std::string>{"disk"});
+
+  const auto under_disk = proxy_->get_sections("/settings/disk");
+  EXPECT_EQ(std::vector<std::string>(under_disk.begin(), under_disk.end()), std::vector<std::string>{"files"});
+
+  // The store may hold sections of its own at the root; ours are there, whole.
+  const auto root = proxy_->get_sections("");
+  EXPECT_NE(std::find(root.begin(), root.end(), "settings"), root.end());
+  EXPECT_NE(std::find(root.begin(), root.end(), "settingsx"), root.end());
+  for (const auto &s : root) EXPECT_EQ(s.find('/'), std::string::npos) << s;
+}
+
 TEST_F(SettingsProxyTest, RemoveKeyDeletesJustTheKey) {
   proxy_->set_string("/sec", "keep", "v");
   proxy_->set_string("/sec", "drop", "v");
