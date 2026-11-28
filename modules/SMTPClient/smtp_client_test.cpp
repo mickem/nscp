@@ -15,6 +15,7 @@
 
 #include <client/command_line_parser.hpp>
 #include <map>
+#include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
 #include <vector>
@@ -127,6 +128,28 @@ TEST(SmtpConnectionData, DoesNotClaimToHonourRetry) {
   const smtp_client::connection_data con = connection_for({{"address", "h"}, {"retry", "7"}});
 
   EXPECT_NE(con.retry, 7) << "retry is not honoured, so it must not be read in as though it were";
+}
+
+TEST(SmtpConnectionData, AConfiguredTimeoutReachesTheConnection) {
+  // destination_container routes "timeout" into its typed field, not the data
+  // map; connection_data used to read the map and always got 30.
+  EXPECT_EQ(connection_for({{"address", "h"}, {"timeout", "5"}}).timeout, 5u);
+}
+
+TEST(SmtpConnectionData, TheTargetDefaultTimeoutReachesTheConnection) {
+  // Every settings-loaded target, the implicit "default" one included,
+  // notifies the documented 30.
+  client::destination_container d;
+  d.apply(std::make_shared<smtp_handler::smtp_target_object>("default", "/settings/smtp/client/targets/default"));
+  d.set_string_data("address", "h");
+
+  EXPECT_EQ(smtp_client::connection_data(d, client::destination_container()).timeout, 30u);
+}
+
+TEST(SmtpConnectionData, ANonPositiveTimeoutKeepsTheDefault) {
+  // 0 would spend the whole submission budget before the connect started.
+  EXPECT_EQ(connection_for({{"address", "h"}, {"timeout", "0"}}).timeout, 30u);
+  EXPECT_EQ(connection_for({{"address", "h"}, {"timeout", "-5"}}).timeout, 30u);
 }
 
 // =============================================================================

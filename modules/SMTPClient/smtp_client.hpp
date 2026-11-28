@@ -39,7 +39,16 @@ struct connection_data : socket_helpers::connection_info {
   connection_data(client::destination_container arguments, client::destination_container sender_container) {
     address = arguments.address.host;
     port_ = arguments.address.get_port_string("587");
-    timeout = arguments.get_int_data("timeout", 30);
+    // destination_container routes the well-known "timeout" key into a typed
+    // field (see set_string_data), never into the free-form data map, so
+    // get_int_data("timeout") could not see a configured value and the fallback
+    // always won. The settings layer notifies the documented default (30) for
+    // every target, the implicit "default" one included, so an unset container
+    // default (10) is only reached by a container built without settings.
+    // Unlike CollectdClient, where 0 means "no time limit", a 0 here would
+    // expire the deadline before the connect starts and fail every
+    // submission, so only a positive value replaces the inherited 30.
+    if (arguments.timeout > 0) timeout = static_cast<unsigned int>(arguments.timeout);
     // No `retry` here: smtp::send() makes exactly one attempt per submission
     // and this client has no retry loop to feed. Reading the setting into the
     // inherited field only made it look honoured. Retrying a submission is not

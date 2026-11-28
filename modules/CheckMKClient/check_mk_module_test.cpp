@@ -169,6 +169,25 @@ TEST(CheckMkConnectionData, ABlankVerifyModeFallsBackToTheDefault) {
   EXPECT_EQ(con.ssl.ca_path, "/expanded${ca-path}");
 }
 
+TEST(CheckMkConnectionData, AConfiguredTimeoutReachesTheConnection) {
+  // destination_container routes "timeout" into its typed field, not the data
+  // map; connection_data used to read the map and always got 30.
+  EXPECT_EQ(check_mk_connection_for({{"address", "h"}, {"timeout", "5"}}).timeout, 5u);
+}
+
+TEST(CheckMkConnectionData, TheTargetDefaultTimeoutReachesTheConnection) {
+  client::destination_container d;
+  d.apply(std::make_shared<check_mk_handler::check_mk_target_object>("default", "/settings/check_mk/client/targets/default"));
+  d.set_string_data("address", "h");
+
+  EXPECT_EQ(check_mk_client::connection_data(d, client::destination_container(), std::make_shared<expanding_handler>()).timeout, 30u);
+}
+
+TEST(CheckMkConnectionData, ANonPositiveTimeoutKeepsTheDefault) {
+  // 0 would expire the connection deadline before the connect started.
+  EXPECT_EQ(check_mk_connection_for({{"address", "h"}, {"timeout", "0"}}).timeout, 30u);
+}
+
 TEST(CheckMkConnectionData, AMissingHandlerLeavesThePathsVerbatim) {
   const check_mk_client::connection_data con(check_mk_target_with({{"address", "h"}}), client::destination_container());
 

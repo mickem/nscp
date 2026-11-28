@@ -62,7 +62,16 @@ connection_data::connection_data(client::destination_container arguments, client
   // floor so cert-mode targets don't have to spell it out.
   ssl.tls_version = arguments.get_string_data("tls version");
   if (ssl.tls_version.empty()) ssl.tls_version = "tlsv1.2+";
-  timeout = arguments.get_int_data("timeout", 30);
+  // destination_container routes the well-known "timeout" key into a typed
+  // field (see set_string_data), never into the free-form data map, so
+  // get_int_data("timeout") could not see a configured value and the fallback
+  // always won. The settings layer notifies the documented default (30) for
+  // every target, the implicit "default" one included, so an unset container
+  // default (10) is only reached by a container built without settings.
+  // Unlike CollectdClient, where 0 means "no time limit", a 0 here would
+  // expire the deadline before the connect starts and fail every
+  // submission, so only a positive value replaces the inherited 30.
+  if (arguments.timeout > 0) timeout = static_cast<unsigned int>(arguments.timeout);
   retry = arguments.get_int_data("retries", kDefaultMaxAttempts - 1);
   password = arguments.get_string_data("password");
   identity = arguments.get_string_data("identity");

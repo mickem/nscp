@@ -16,9 +16,14 @@
 #include <gtest/gtest.h>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <map>
+#include <memory>
 #include <nscapi/test_helpers.hpp>
 #include <string>
 #include <vector>
+
+#include "nsca_client.hpp"
+#include "nsca_handler.hpp"
 
 // Test binaries have no generated module glue, so the plugin singleton
 // (normally provided by NSC_WRAP_DLL()) must be defined here.
@@ -416,4 +421,41 @@ TEST_F(NscaModule, InstallHelpDoesNotWriteAnything) {
   PB::Commands::ExecuteResponseMessage response;
   ASSERT_TRUE(module_.commandLineExec(NSCAPI::target_module, install_request({"--help"}), response));
   EXPECT_TRUE(core().updated_settings().empty());
+}
+
+// ---------------------------------------------------------------------------
+// connection_data - the target's timeout reaches the connection.
+// ---------------------------------------------------------------------------
+
+namespace {
+client::destination_container nsca_target_with(const std::map<std::string, std::string> &options) {
+  client::destination_container d;
+  for (const auto &o : options) d.set_string_data(o.first, o.second);
+  return d;
+}
+}  // namespace
+
+TEST(NscaConnectionData, AConfiguredTimeoutReachesTheConnection) {
+  // destination_container routes "timeout" into its typed field, not the data
+  // map; connection_data used to read the map and always got 30.
+  const nsca_client::connection_data con(nsca_target_with({{"address", "h"}, {"timeout", "5"}}), client::destination_container());
+
+  EXPECT_EQ(con.timeout, 5u);
+}
+
+TEST(NscaConnectionData, TheTargetDefaultsReachTheConnection) {
+  client::destination_container d;
+  d.apply(std::make_shared<nsca_handler::nsca_target_object>("default", "/settings/NSCA/client/targets/default"));
+  d.set_string_data("address", "h");
+  const nsca_client::connection_data con(d, client::destination_container());
+
+  EXPECT_EQ(con.timeout, 30u);
+  EXPECT_EQ(con.retry, 3);
+}
+
+TEST(NscaConnectionData, ANonPositiveTimeoutKeepsTheDefault) {
+  // 0 would expire the connection deadline before the connect started.
+  const nsca_client::connection_data con(nsca_target_with({{"address", "h"}, {"timeout", "0"}}), client::destination_container());
+
+  EXPECT_EQ(con.timeout, 30u);
 }

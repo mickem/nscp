@@ -126,12 +126,15 @@ int priority_of(const std::string &datagram) {
 // connection_data - settings in, connection info out.
 // ---------------------------------------------------------------------------
 
-TEST(SyslogConnectionData, DefaultsToTheSyslogPortAndSaneRetries) {
+TEST(SyslogConnectionData, DefaultsToTheSyslogPort) {
   const syslog_client::connection_data con(target_with({{"address", "syslog.example.com"}}), client::destination_container());
 
   EXPECT_EQ(con.get_port(), "514");
-  EXPECT_EQ(con.timeout, 30u);
-  EXPECT_EQ(con.retry, 3);
+  // A container built without settings carries its own defaults (10 / 2);
+  // a settings-loaded target always notifies 30, see
+  // SyslogTarget.TheTargetDefaultTimeoutReachesTheConnection.
+  EXPECT_EQ(con.timeout, 10u);
+  EXPECT_EQ(con.retry, 2);
 }
 
 TEST(SyslogConnectionData, TakesThePortFromTheTarget) {
@@ -140,24 +143,36 @@ TEST(SyslogConnectionData, TakesThePortFromTheTarget) {
   EXPECT_EQ(con.get_port(), "1514");
 }
 
-TEST(SyslogConnectionData, AConfiguredTimeoutDoesNotReachTheConnection) {
-  // CHARACTERIZATION TEST - this pins current behaviour, which is wrong.
-  //
-  // connection_data reads `arguments.get_int_data("timeout", 30)`, which looks
-  // in the container's free-form data map. But destination_container routes the
-  // well-known keys "timeout" and "retry" into typed *fields* instead of that
-  // map (set_string_data), so the lookup never finds them and the default wins
-  // no matter what the operator configured.
-  //
-  // Harmless here - syslog is UDP and never uses the value for anything but a
-  // debug line - but the same expression appears in NSCAClient, IcingaClient
-  // and CollectdClient, where it is the socket timeout. Fixing it means
-  // choosing what an unset timeout should be: the container defaults to 10,
-  // these clients document 30.
+TEST(SyslogConnectionData, AConfiguredTimeoutAndRetryReachTheConnection) {
+  // destination_container routes the well-known keys "timeout" and "retry"
+  // into typed fields rather than its data map; connection_data used to look
+  // them up in the map, so the defaults won whatever the operator configured.
   const syslog_client::connection_data con(target_with({{"address", "h"}, {"timeout", "5"}, {"retry", "1"}}), client::destination_container());
 
-  EXPECT_EQ(con.timeout, 30u) << "documenting the defect: the configured 5 was ignored";
-  EXPECT_EQ(con.retry, 3) << "documenting the defect: the configured 1 was ignored";
+  EXPECT_EQ(con.timeout, 5u);
+  EXPECT_EQ(con.retry, 1);
+}
+
+TEST(SyslogConnectionData, RetriesInTheDataMapWinsOverTheTypedRetry) {
+  // "retries" is not a typed key and lands in the data map, the spelling the
+  // other clients' targets use; it is honoured the way CollectdClient does.
+  const syslog_client::connection_data con(target_with({{"address", "h"}, {"retry", "1"}, {"retries", "4"}}), client::destination_container());
+
+  EXPECT_EQ(con.retry, 4);
+}
+
+TEST(SyslogConnectionData, AConfiguredZeroTimeoutIsKept) {
+  const syslog_client::connection_data con(target_with({{"address", "h"}, {"timeout", "0"}}), client::destination_container());
+
+  EXPECT_EQ(con.timeout, 0u);
+}
+
+TEST(SyslogConnectionData, ANegativeTimeoutKeepsTheInheritedDefault) {
+  client::destination_container d = target_with({{"address", "h"}});
+  d.timeout = -1;
+  const syslog_client::connection_data con(d, client::destination_container());
+
+  EXPECT_EQ(con.timeout, 30u);
 }
 
 TEST(SyslogConnectionData, CarriesTheTemplatesAndSeverities) {
@@ -391,6 +406,30 @@ TEST(SyslogTarget, TheTargetDefaultsReachTheConnection) {
   EXPECT_EQ(con.warn_severity, "warning");
   EXPECT_EQ(con.crit_severity, "critical");
   EXPECT_EQ(con.unknown_severity, "emergency");
+}
+
+TEST(SyslogTarget, TheTargetDefaultTimeoutReachesTheConnection) {
+  // Every settings-loaded target - the implicit "default" one included -
+  // notifies the documented 30, so the container's own 10 never applies to a
+  // configured client.
+  const auto target = std::make_shared<syslog_handler::syslog_target_object>("default", "/settings/syslog/client/targets/default");
+
+  client::destination_container d;
+  d.apply(target);
+  d.set_string_data("address", "h");
+
+  EXPECT_EQ(syslog_client::connection_data(d, client::destination_container()).timeout, 30u);
+}
+
+TEST(SyslogTarget, ATimeoutGivenOnTopOfTheTargetWins) {
+  const auto target = std::make_shared<syslog_handler::syslog_target_object>("default", "/settings/syslog/client/targets/default");
+
+  client::destination_container d;
+  d.apply(target);
+  d.set_string_data("address", "h");
+  d.set_string_data("timeout", "7");
+
+  EXPECT_EQ(syslog_client::connection_data(d, client::destination_container()).timeout, 7u);
 }
 
 TEST(SyslogSubmit, ANewlineInTheCheckOutputCannotForgeASecondRecord) {
