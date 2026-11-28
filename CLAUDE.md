@@ -169,8 +169,10 @@ the helper goes in its `ALLOWED` set with the reason.
 - **Every module declares its `"category"` in `module.json`** (inside the
   `"module"` object): `check`, `database`, `container`, `server`, `client`,
   `script`, `scheduling` or `tool`. It groups the module in the web UI's
-  module list and decides its heading in the reference navigation; the build
-  refuses an unknown value. After adding a module (or changing a category)
+  module list, decides its heading in the reference navigation and the folder
+  its reference page lives in (`scripts/python/docs_namespace.py`, which pins
+  the folders of modules older than their category); the build refuses an
+  unknown value. After adding a module (or changing a category)
   run `python3 scripts/python/docs_nav.py --write` to update
   `docs/mkdocs.yml`; CI runs `--check`.
 - **A new module or command is marked experimental in `module.json`.** Add

@@ -19,6 +19,8 @@ on:
       - 'scripts/python/docs_generate.py'
       - 'build/python/test_docs_sources.py'
       - 'scripts/python/docs_nav.py'
+      - 'scripts/python/docs_namespace.py'
+      - 'build/python/test_docs_namespace.py'
       - 'docs/mkdocs.yml'
       - '.github/workflows/docs-sources.yml'
   pull_request:
@@ -30,6 +32,8 @@ on:
       - 'scripts/python/docs_generate.py'
       - 'build/python/test_docs_sources.py'
       - 'scripts/python/docs_nav.py'
+      - 'scripts/python/docs_namespace.py'
+      - 'build/python/test_docs_namespace.py'
       - 'docs/mkdocs.yml'
       - '.github/workflows/docs-sources.yml'
 
@@ -58,6 +62,10 @@ jobs:
       # (module.json); a new module, or a changed category, needs a rewrite.
       - name: Check the module navigation
         run: python3 scripts/python/docs_nav.py --check
+      # ...and so does the folder a module's page lives in, with the
+      # historical folders pinned so no page moves.
+      - name: Test the reference folders
+        run: python3 build/python/test_docs_namespace.py
       - name: Test the rendering
         run: python3 build/python/test_docs_sources.py
       - name: Render the reference

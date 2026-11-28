@@ -36,39 +36,24 @@ helper = None
 PLATFORM_TAGS = {'win32': 'windows', 'darwin': 'darwin'}
 DEFAULT_PLATFORM_TAG = 'unix'
 
-# --- Static, platform-independent module -> namespace classification. ----------
-# (docs.py picked windows vs unix at runtime from sys.platform; here the mapping
-# is fixed so a module always lands in the same reference folder regardless of
-# which platform's pipeline extracted it. Cross-platform "system" modules keep
-# their historical windows/ home; CheckSystemUnix is the only unix-only one.
-# DotnetPlugins is hosted on both platforms since 0.20.0 and lives in generic/.)
-WINDOWS_MODULES = ['NSClientServer', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI', 'CheckWindowsApps', 'CheckHyperV', 'CheckActiveDirectory']
-UNIX_MODULES = []
-CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpers', 'CheckLogFile', 'CheckNSCP', 'CheckNet',
-                 'CheckSecurity', 'CheckMySQL', 'CheckDocker', 'CheckKubernetes', 'CheckWindowsApps']
-CLIENT_MODULES = ['GraphiteClient', 'IcingaClient', 'NRDPClient', 'NRPEClient', 'NRPEServer',
-                  'NSCAClient', 'NSCANgClient', 'NSCAServer', 'NSClientServer', 'SMTPClient',
-                  'SyslogClient', 'CollectdClient', 'Op5Client', 'CheckNSCP', 'ElasticClient', 'NSCPClient',
-                  'CheckMKClient', 'CheckMKServer', 'GearmanClient', 'NCPAServer', 'IcingaAgent']
-GENERIC_MODULES = ['CommandClient', 'DotnetPlugins', 'LUAScript', 'PythonScript', 'Scheduler',
-                   'SimpleCache', 'SimpleFileWriter', 'WEBServer']
-IGNORED_MODULES = ['CauseCrashes', 'SamplePluginSimple']
+# --- Module -> namespace (the reference folder a module's page lives in). -----
+# From the module's category, with the historical folders pinned: see
+# docs_namespace.py.
+# PythonScript puts only scripts/python/lib on sys.path; docs_namespace.py sits
+# next to this file.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import docs_namespace  # noqa: E402
+from docs_namespace import IGNORED_MODULES, classify_namespace  # noqa: E402
 
 
-def classify_namespace(name):
-    # Order matters: the "system" modules must win over client/generic where a
-    # name appears in more than one list (NSClientServer).
-    if name in UNIX_MODULES:
-        return 'unix'
-    if name in WINDOWS_MODULES:
-        return 'windows'
-    if name in CHECK_MODULES:
-        return 'check'
-    if name in CLIENT_MODULES:
-        return 'client'
-    if name in GENERIC_MODULES:
-        return 'generic'
-    return 'misc'
+def namespace_of(module):
+    namespace = classify_namespace(module)
+    if namespace == 'misc':
+        # A module without a category would land in a folder of its own and
+        # move its page; say so rather than write it there quietly.
+        log_error('%s: no category found in modules/%s/module.json (looked in %s); its page goes under misc/'
+                  % (module, module, ', '.join(docs_namespace.MODULES_DIRS)))
+    return namespace
 
 
 # --- Common options / keywords folding. -------------------------------------
@@ -348,7 +333,7 @@ def ser_path(pc, unexpand):
 def serialize_module(root, module, minfo, unexpand, commons):
     slice = {
         'module': module,
-        'namespace': classify_namespace(module),
+        'namespace': namespace_of(module),
         'info': {
             'title': minfo.info.title,
             'description': minfo.info.description,
@@ -679,6 +664,11 @@ class DocumentationExtractor(object):
         parser.add_option("-o", "--output", help="Output root (YAML written to <output>/reference)")
         parser.add_option("-i", "--input", help="Reference folder (unused; kept for CLI parity)")
         (options, args) = parser.parse_args(args=args)
+        # The modules' categories (module.json) decide the reference folders;
+        # they sit next to the docs folder the YAML is written to, in the
+        # source tree, while this script runs from a copy in the build tree.
+        docs_namespace.MODULES_DIRS.insert(
+            0, os.path.join(os.path.dirname(os.path.abspath(options.output)), 'modules'))
         self.extract(options.output)
 
 
