@@ -163,11 +163,19 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
     bool drained;
   };
   std::vector<walk_closing> close_walks(unsigned long plugin_id);
+  // Shared body of only_load_module() and probe_module().
+  plugin_type open_module(const std::string &module, const std::string &alias, bool &loaded, bool probe);
 
  public:
   void prepare_shutdown_plugins();
   void stop_plugins();
   plugin_type only_load_module(const std::string &module, const std::string &alias, bool &loaded);
+  // Opens a module only to read what it says about itself (name, description,
+  // flags) for a listing; the instance is thrown away by the caller. Logs as
+  // "Inspecting module" rather than "Loading module", and does not take a
+  // plugin id: the instance carries plugin_interface::no_plugin_id, so a
+  // listing leaves no gap in the ids of the modules that are really loaded.
+  plugin_type probe_module(const std::string &module, bool &loaded);
 
   plugin_type find_plugin(const unsigned int plugin_id);
   // Whether the calling thread is inside a call the core dispatched into a

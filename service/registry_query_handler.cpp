@@ -357,7 +357,7 @@ plugin_cache_item registry_query_handler::inventory_plugin_on_disk(nsclient::cor
   plugin_cache_item itm;
   try {
     bool loaded = false;
-    plugin_type instance = plugins_->only_load_module(plugin, "", loaded);
+    plugin_type instance = plugins_->probe_module(plugin, loaded);
     if (!loaded) {
       return itm;
     }

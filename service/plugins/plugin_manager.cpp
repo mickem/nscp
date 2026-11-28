@@ -766,6 +766,15 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
 
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(const std::string &module, const std::string &alias,
                                                                                              bool &loaded) {
+  return open_module(module, alias, loaded, false);
+}
+
+nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::probe_module(const std::string &module, bool &loaded) {
+  return open_module(module, "", loaded, true);
+}
+
+nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::open_module(const std::string &module, const std::string &alias, bool &loaded,
+                                                                                        const bool probe) {
   // Held here as well as in add_plugin, so the duplicate check and the append
   // that follows it in add_plugin cannot be split by another loader: two
   // threads both passing find_duplicate for the same file ended up with two
@@ -777,16 +786,21 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
   if (!real_file) {
     return {};
   }
-  LOG_DEBUG_CORE_STD("Loading module " + real_file.value().string() + " (" + alias + ")");
   plugin_type dup = plugin_list_.find_duplicate(real_file.value(), alias);
   if (dup) {
     return dup;
   }
+  // Logged past the duplicate check: a module that is already loaded is not
+  // opened again, so saying so would be the misleading "loaded twice" line.
+  LOG_DEBUG_CORE_STD((probe ? "Inspecting module " : "Loading module ") + real_file.value().string() + " (" + alias + ")");
   loaded = true;
+  // Taken only once the instance is certain to be created, and never for a
+  // probe, so the ids of loaded modules stay consecutive.
+  const unsigned int id = probe ? plugin_interface::no_plugin_id : plugin_list_.get_next_id();
   if (boost::algorithm::ends_with(real_file.value().string(), ".zip")) {
-    return std::make_shared<zip_plugin>(plugin_list_.get_next_id(), real_file.value().lexically_normal(), alias, path_, shared_from_this(), log_instance_);
+    return std::make_shared<zip_plugin>(id, real_file.value().lexically_normal(), alias, path_, shared_from_this(), log_instance_);
   }
-  return std::make_shared<dll_plugin>(plugin_list_.get_next_id(), real_file.value().lexically_normal(), alias);
+  return std::make_shared<dll_plugin>(id, real_file.value().lexically_normal(), alias);
 }
 
 /**
