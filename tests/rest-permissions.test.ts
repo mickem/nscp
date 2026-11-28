@@ -327,6 +327,41 @@ describe("REST permissions", () => {
         .expect(200);
     });
 
+    it("revalidates /metrics and /openmetrics with an ETag", async () => {
+      // `*` matches whatever the endpoint holds now, so this does not race the
+      // collectors that refresh the store every second.
+      for (const path of ["/api/v2/metrics", "/api/v2/openmetrics"]) {
+        const first = await request(REST_URL)
+          .get(path)
+          .set("Authorization", `Bearer ${key}`)
+          .trustLocalhost(true)
+          .expect(200);
+        expect(first.headers.etag).toMatch(/^"[0-9a-f]{16}"$/);
+        expect(first.headers["cache-control"]).toEqual("private, no-cache");
+        await request(REST_URL)
+          .get(path)
+          .set("Authorization", `Bearer ${key}`)
+          .set("If-None-Match", "*")
+          .trustLocalhost(true)
+          .expect(304);
+        // A tag the server never issued is a stale copy: the body comes back.
+        await request(REST_URL)
+          .get(path)
+          .set("Authorization", `Bearer ${key}`)
+          .set("If-None-Match", '"0000000000000000"')
+          .trustLocalhost(true)
+          .expect(200);
+      }
+    });
+
+    it("can not read the facts inventory", async () => {
+      await request(REST_URL)
+        .get("/api/v2/facts")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(403);
+    });
+
     it("can not execute a query", async () => {
       // The point of the role: a scraper has no business running commands.
       await request(REST_URL)
@@ -388,6 +423,25 @@ describe("REST permissions", () => {
         .set("Authorization", `Bearer ${key}`)
         .trustLocalhost(true)
         .expect(200);
+    });
+
+    // A monitoring server builds its checks from the inventory (which
+    // volumes, interfaces and services the host has), so it may read it.
+    it("can read the facts inventory", async () => {
+      await request(REST_URL)
+        .get("/api/v2/facts")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200);
+    });
+
+    // Collecting is work on the host; that stays with `full`.
+    it("can not make the producers collect", async () => {
+      await request(REST_URL)
+        .post("/api/v2/facts/commands/refresh")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(403);
     });
 
     it("can not access /modules", async () => {

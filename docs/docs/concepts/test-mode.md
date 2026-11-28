@@ -136,6 +136,7 @@ cost you the command you were halfway through.
 | `metrics [prefix]`                 | Show the metrics collected so far |
 | `facts [path]`                     | Show the host inventory, or the subtree at a dotted path |
 | `facts refresh`                    | Collect the inventory now, then show it |
+| `facts list`                       | List the fact sets the loaded modules can produce: enabled or not, the producer, the section that turns it on |
 | `settings`                         | Dump the effective settings |
 | `exec <target> <command> [args]`   | Run a command on one specific module |
 | `load <module>`                    | Load a module now, without changing the configuration |
