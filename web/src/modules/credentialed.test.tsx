@@ -60,6 +60,21 @@ describe("MSSQL", () => {
     );
   });
 
+  it("keeps browsers and password managers off the login fields", async () => {
+    render(MssqlPage, []);
+    await userEvent.click(await screen.findByRole("radio", { name: "A SQL Server login" }));
+    const user = screen.getByLabelText("User");
+    const password = screen.getByLabelText("Password");
+    expect(user).toHaveAttribute("autocomplete", "off");
+    expect(password).toHaveAttribute("autocomplete", "new-password");
+    for (const input of [user, password]) {
+      expect(input).toHaveAttribute("data-1p-ignore", "true");
+      expect(input).toHaveAttribute("data-lpignore", "true");
+      expect(input).toHaveAttribute("data-bwignore", "true");
+      expect(input).toHaveAttribute("data-form-type", "other");
+    }
+  });
+
   it("reads a connection string as the whole connection, and flags a password in it", async () => {
     render(MssqlPage, [{ path: P, key: "connection string", value: "Driver={x};Server=db;PWD=s" }]);
     expect(await screen.findByRole("radio", { name: "ODBC connection string" })).toBeChecked();

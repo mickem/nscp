@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import { ReactNode } from "react";
 import { DEFAULT_SECTION, Scope } from "./changes.ts";
+import { NO_AUTOFILL } from "./noAutofill.ts";
 
 export type ValueKind = "text" | "number" | "bool" | { options: string[] };
 
@@ -141,7 +142,9 @@ export default function ValueField({
         fullWidth
         disabled={disabled}
         helperText={helper}
-        slotProps={kind === "number" ? { htmlInput: { inputMode: "numeric" } } : undefined}
+        slotProps={{
+          htmlInput: { ...NO_AUTOFILL, ...(kind === "number" ? { inputMode: "numeric" } : {}) },
+        }}
       />
     );
   }
