@@ -79,6 +79,25 @@ message FactSet {
 	// there would make every round a change and bump the revision hourly
 	// forever.
 	string gathered = 5;
+
+	// This set is collected when a consumer asks for it, never on a round, and
+	// is never part of the stored document: not hashed into its revision, not
+	// counted against its size budget and not uploaded to a fleet server.
+	//
+	// It means two things depending on which way the message is travelling:
+	//  - in the answer to a round (or to the `declare` probe), a FactSet
+	//    carrying nothing but an id and this flag is the *declaration*: "I can
+	//    produce this when asked". The id is a set (`counters`) or one key
+	//    below a set (`scripts.python`), so several modules can each own one
+	//    key of a shared set.
+	//  - in the answer to a demand (FactsQueryMessage.Request.demand), the set
+	//    whose id is the first segment of the demanded id carries the values.
+	bool on_demand = 6;
+	// Declaration only: the set takes one parameter, which a consumer passes
+	// as the rest of the path (`pdh.instances.<object>`). The core hands it
+	// over verbatim in Request.parameter; it is the producer's to validate
+	// against what it knows, and never a command line.
+	bool parameterized = 7;
 }
 
 //
@@ -93,6 +112,13 @@ message FactsQueryMessage {
 		// configuration - and enough for an expensive collector to hand back its
 		// last snapshot instead of collecting again.
 		string reason = 2;
+		// Set when the core is not running a round but asking for one on-demand
+		// set: the id the producer declared (FactSet.on_demand). The producer
+		// answers with that set alone; nothing else in its answer is read, and
+		// nothing it leaves out is pruned. `reason` is then "demand".
+		string demand = 3;
+		// The parameter of a parameterized on-demand set; empty otherwise.
+		string parameter = 4;
 	};
 
 	PB.Common.Header header = 1;
@@ -132,6 +158,8 @@ message FactsRequestMessage {
 			GET = 0;
 			// Run a collection round now, then answer as GET does.
 			REFRESH = 1;
+			// Which sets exist: the envelope without the document.
+			SETS = 2;
 		};
 
 		int64 id = 1;
@@ -139,6 +167,14 @@ message FactsRequestMessage {
 		// A dotted path into the document ("os", "software.installed"). Empty is
 		// the whole document.
 		string path = 3;
+		// Answer from the stored document only. A path that names an on-demand
+		// set is then not collected: the answer says `on_demand` and
+		// `found: false`, which is how a caller that may read the document but
+		// not that set is turned away without the set being collected for it.
+		bool stored_only = 4;
+		// Collect an on-demand set now rather than answering from the short
+		// cache. For a caller that has just changed what the set lists.
+		bool fresh = 5;
 	};
 
 	PB.Common.Header header = 1;
@@ -182,6 +218,17 @@ message FactsResponseMessage {
 		// `os.family` is a string and `storage.volumes` a list. The whole
 		// document is always an object_value.
 		Value facts = 9;
+
+		// The path named an on-demand set (or something inside one): `facts`
+		// was collected for this request, or served from the short cache, and
+		// is not part of the stored document.
+		bool on_demand = 11;
+		// The on-demand sets the loaded producers have declared.
+		message OnDemandSet {
+			string id = 1;
+			bool parameterized = 2;
+		};
+		repeated OnDemandSet on_demand_sets = 12;
 	};
 
 	PB.Common.Header header = 1;

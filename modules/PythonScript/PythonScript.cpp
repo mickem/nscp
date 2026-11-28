@@ -3,8 +3,6 @@
 
 #include "PythonScript.h"
 
-#include <set>
-
 #include <boost/program_options.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -15,7 +13,10 @@
 #include <nscapi/protobuf/functions_status.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <scripts/script_facts.hpp>
+#include <scripts/script_files.hpp>
 #include <scripts/script_root_setting.hpp>
+#include <set>
 
 #include "boost_python_wrapper.hpp"
 #include "extscr_cli.h"
@@ -358,4 +359,24 @@ void PythonScript::fetchMetrics(PB::Metrics::MetricsMessage::Response *response)
     r2.ParseFromString(buffer);
     for (const PB::Metrics::MetricsBundle &b : r2.bundles()) response->add_bundles()->CopyFrom(b);
   }
+}
+
+void PythonScript::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  const std::string id = scripts::facts::id_of(scripts::facts::key_python);
+  // Declared on every round and on the probe; collected only when asked for.
+  response.on_demand(id);
+  if (!request.is_demand() || request.demand() != id) return;
+
+  // A reference of our own: a reload replaces the provider.
+  const std::shared_ptr<script_provider_interface> provider = provider_;
+  if (!provider) {
+    response.error(id, "The Python script module is not configured");
+    return;
+  }
+  // The folder in force, spelled relative to the scripts folder above it and
+  // without the helpers in `lib` folders: what `python list` prints.
+  const boost::filesystem::path root = provider->get_root();
+  scripts::facts::listing listing;
+  for (const std::string &file : scripts::files::list_files(root, root.parent_path(), false)) listing.files.push_back(file);
+  scripts::facts::publish(scripts::facts::key_python, listing, std::time(nullptr), response);
 }

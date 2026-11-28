@@ -274,6 +274,10 @@ NSCP_CREATE_TEST(
         tag_repository.hpp
         fact_repository_test.cpp
         fact_repository.hpp
+        on_demand_facts_test.cpp
+        on_demand_facts.hpp
+        module_facts_test.cpp
+        module_facts.hpp
         failed_check_store_test.cpp
         failed_check_store.hpp
         metrics_snapshot.hpp

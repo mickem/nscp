@@ -59,7 +59,7 @@
 		"checkCounter"		: "Legacy version of check_pdh"
 	},
 	"metrics" : "produce",
-	"facts" : true,
+	"facts" : "on-demand",
 
 	"command line exec" : "legacy",
 	

@@ -48,6 +48,8 @@ request::request(const std::string &buffer) {
   if (!message.ParseFromString(buffer)) return;
   if (message.payload_size() == 0) return;
   reason_ = message.payload(0).reason();
+  demand_ = message.payload(0).demand();
+  parameter_ = message.payload(0).parameter();
 }
 
 PB::Facts::FactsMessage response::to_message() const {
@@ -63,6 +65,15 @@ PB::Facts::FactsMessage response::to_message() const {
     return message;
   }
   payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
+
+  // What this module collects on demand: an id and the flag, nothing else.
+  // Kept apart from the sets below, which are values.
+  for (const std::pair<const std::string, bool> &declared : on_demand_) {
+    PB::Facts::FactSet *set = payload->add_sets();
+    set->set_id(declared.first);
+    set->set_on_demand(true);
+    if (declared.second) set->set_parameterized(true);
+  }
 
   for (const std::string &name : order_) {
     const std::map<std::string, detail::node_ptr>::const_iterator it = sets_.find(name);

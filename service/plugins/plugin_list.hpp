@@ -208,6 +208,36 @@ struct simple_plugins_list : boost::noncopyable {
     }
   }
 
+  // Call `fun` on the one module with this id, through its gate as do_all
+  // does. False when it is not registered here, or is being removed.
+  bool do_one(const unsigned long id, const boost::function<void(plugin_type)> &fun) {
+    std::shared_ptr<gate_type> gate;
+    {
+      const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+      if (!has_valid_lock_log(readLock, "plugins_list::one")) return false;
+      for (const slot &s : plugins_) {
+        if (s.id == id) gate = s.gate;
+      }
+    }
+    if (!gate) return false;
+    threads::in_flight::guard inside(gate->tracker());
+    if (!inside.try_enter()) return false;
+    plugin_type plugin = gate->value();
+    fun(plugin);
+    plugin.reset();
+    inside.leave();
+    return true;
+  }
+
+  // The ids registered here, in the order the rounds walk them.
+  std::vector<unsigned long> get_ids() {
+    std::vector<unsigned long> ids;
+    const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+    if (!has_valid_lock_log(readLock, "plugins_list::ids")) return ids;
+    for (const slot &s : plugins_) ids.push_back(s.id);
+    return ids;
+  }
+
   std::string to_string() {
     std::string ret;
     const boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));

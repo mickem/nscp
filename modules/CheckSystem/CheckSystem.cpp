@@ -12,6 +12,7 @@
 #include <compat.hpp>
 #include <facts/host_facts.hpp>
 #include <facts/network_facts.hpp>
+#include <facts/pdh_facts.hpp>
 #include <facts/service_facts.hpp>
 #include <facts/software_facts.hpp>
 #include <map>
@@ -1505,7 +1506,62 @@ class add_visitor : public boost::static_visitor<> {
     return nscapi::metrics::metric(b, dims.family).key(key).label("pdh_instance", dims.instance).help(meta.help).unit(meta.unit);
   }
 };
+namespace {
+// The on-demand `pdh` sets (facts/pdh_facts.hpp): the counter catalog, and
+// the instances of one object. This is what `pdh --list --json --all` was
+// being run through exec for; here the enumeration is called directly and no
+// caller-supplied string is ever parsed as options.
+void fetch_pdh_facts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  const std::string &id = request.demand();
+  try {
+    if (id == pdh_facts::id_objects) {
+      // Objects and their counters, without instances - the enumeration
+      // `--no-instances` did. Copied out record by record: the set owns its
+      // strings, not the PDH list.
+      std::vector<pdh_facts::object> objects;
+      for (const PDH::Enumerations::Object &enumerated : PDH::Enumerations::EnumObjects(false, true)) {
+        pdh_facts::object o;
+        o.name = enumerated.name;
+        o.counters.assign(enumerated.counters.begin(), enumerated.counters.end());
+        objects.push_back(o);
+      }
+      pdh_facts::publish_objects(objects, std::time(nullptr), response);
+    } else if (id == pdh_facts::id_instances) {
+      // The parameter names an object. It is matched against the names PDH
+      // enumerates, and PDH is then asked about the enumerated name.
+      std::vector<std::string> known;
+      for (const PDH::Enumerations::Object &enumerated : PDH::Enumerations::EnumObjects(false, false)) known.push_back(enumerated.name);
+      const std::string object_name = pdh_facts::find_object(known, request.parameter());
+      if (object_name.empty()) {
+        response.error(id, "No such performance object");
+        return;
+      }
+      const PDH::Enumerations::Object enumerated = PDH::Enumerations::EnumObject(object_name, true, false);
+      if (!enumerated.error.empty()) {
+        response.error(id, "Failed to enumerate instances: " + utf8::utf8_from_native(enumerated.error));
+        return;
+      }
+      pdh_facts::publish_instances(object_name, std::vector<std::string>(enumerated.instances.begin(), enumerated.instances.end()), std::time(nullptr),
+                                   response);
+    }
+  } catch (const PDH::pdh_exception &e) {
+    response.error(id, "Failed to enumerate performance counters: " + e.reason());
+  } catch (const std::exception &e) {
+    response.error(id, std::string("Failed to enumerate performance counters: ") + utf8::utf8_from_native(e.what()));
+  }
+}
+}  // namespace
+
 void CheckSystem::fetchFacts(const nscapi::facts::request &request, nscapi::facts::response &response) {
+  // The on-demand sets are declared whatever is enabled below: they are not
+  // stored, so there is no switch for them. See facts/pdh_facts.hpp.
+  response.on_demand(pdh_facts::id_objects);
+  response.on_demand(pdh_facts::id_instances, true);
+  if (request.declare_only()) return;
+  if (request.is_demand()) {
+    fetch_pdh_facts(request, response);
+    return;
+  }
   if (facts_services_installed_.load()) {
     if (request.reason() == "startup") {
       response.error(service_facts::set_services, "Not collected during startup: services are read on the first scheduled round, or now with a manual refresh");

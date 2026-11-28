@@ -263,32 +263,79 @@ namespace {
 // for), plus what a consumer needs to render and cache it - the revision it
 // can poll on, when the last round ran, when each set's values were actually
 // gathered, which sets are enabled, and which of them could not be collected.
-void build_facts_response(const std::string &path, PB::Facts::FactsResponseMessage::Response *payload) {
+void add_entries(const std::map<std::string, std::string> &entries, google::protobuf::RepeatedPtrField<PB::Common::KeyValue> *out) {
+  for (const std::pair<const std::string, std::string> &item : entries) {
+    PB::Common::KeyValue *entry = out->Add();
+    entry->set_key(item.first);
+    entry->set_value(item.second);
+  }
+}
+
+// How a path that may name an on-demand set is read.
+struct facts_read_options {
+  // Never collect: an on-demand path is only said to be one.
+  bool stored_only = false;
+  // Collect now rather than answer from the short cache.
+  bool fresh = false;
+  // The envelope alone, without the document: which sets exist.
+  bool sets_only = false;
+};
+
+void build_facts_response(const std::string &path, const facts_read_options &options, PB::Facts::FactsResponseMessage::Response *payload) {
   const nsclient::core::fact_repository_instance facts = mainClient->get_fact_repository();
   payload->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
   payload->set_revision(facts->get_revision());
   payload->set_collected(facts->get_collected());
   for (const std::string &id : facts->get_enabled()) payload->add_enabled(id);
-  for (const std::pair<const std::string, std::string> &error : facts->get_errors()) {
-    PB::Common::KeyValue *entry = payload->add_errors();
-    entry->set_key(error.first);
-    entry->set_value(error.second);
-  }
+  std::map<std::string, std::string> errors = facts->get_errors();
   // Per set, when its values were read off the machine. Always the whole map,
   // even for a subtree request: a consumer showing `storage.volumes` still
   // wants to say how old that reading is.
-  for (const std::pair<const std::string, std::string> &when : facts->get_gathered()) {
-    PB::Common::KeyValue *entry = payload->add_gathered();
-    entry->set_key(when.first);
-    entry->set_value(when.second);
+  std::map<std::string, std::string> gathered = facts->get_gathered();
+
+  if (options.sets_only) {
+    add_entries(errors, payload->mutable_errors());
+    add_entries(gathered, payload->mutable_gathered());
+    for (const std::pair<std::string, bool> &declared : mainClient->get_plugin_manager()->get_on_demand_sets()) {
+      PB::Facts::FactsResponseMessage::Response::OnDemandSet *set = payload->add_on_demand_sets();
+      set->set_id(declared.first);
+      set->set_parameterized(declared.second);
+    }
+    return;
   }
   if (path.empty()) {
+    add_entries(errors, payload->mutable_errors());
+    add_entries(gathered, payload->mutable_gathered());
     *payload->mutable_facts()->mutable_object_value() = facts->get_all();
     return;
   }
+  payload->set_path(path);
+
+  // A set the document holds is read from the document, whatever a module
+  // declares: a name is a stored set or an on-demand one, and the stored one
+  // is what every existing reader of that path has been getting.
+  const std::string head = path.substr(0, path.find('.'));
+  if (!facts->has_set(head)) {
+    nsclient::core::plugin_manager::on_demand_result demanded = mainClient->get_plugin_manager()->read_on_demand(path, !options.stored_only, options.fresh);
+    if (demanded.on_demand) {
+      // Collected for this request (or a few seconds ago), and not part of
+      // the document: the revision, `collected` and `enabled` above still
+      // describe the document, and this set's own age and error ride in the
+      // same two maps, keyed by the id its producer declared.
+      for (const std::pair<const std::string, std::string> &error : demanded.errors) errors[error.first] = error.second;
+      for (const std::pair<const std::string, std::string> &when : demanded.gathered) gathered[when.first] = when.second;
+      add_entries(errors, payload->mutable_errors());
+      add_entries(gathered, payload->mutable_gathered());
+      payload->set_on_demand(true);
+      payload->set_found(demanded.found);
+      if (demanded.found) *payload->mutable_facts() = demanded.value;
+      return;
+    }
+  }
+  add_entries(errors, payload->mutable_errors());
+  add_entries(gathered, payload->mutable_gathered());
   // A subtree the document does not have is not an error here: the REST layer
   // turns `found: false` into a 404 and the console prints "no such path".
-  payload->set_path(path);
   const boost::optional<PB::Facts::Value> subtree = facts->get(path);
   payload->set_found(subtree.is_initialized());
   if (subtree.is_initialized()) *payload->mutable_facts() = subtree.value();
@@ -300,7 +347,10 @@ void build_facts_response(const std::string &path, PB::Facts::FactsResponseMessa
 //
 //   GET                      the whole document
 //   GET, path "software"     one subtree
+//   GET, path "scripts"      an on-demand set: collected now, or a few
+//                            seconds ago, and never part of the document
 //   REFRESH                  run a round, then the document
+//   SETS                     which sets exist, without the document
 //
 // There is no set command on purpose. Facts are produced by fetchFacts on the
 // core's schedule from what each producing module's own configuration enables,
@@ -310,6 +360,7 @@ NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned i
   try {
     PB::Facts::FactsRequestMessage::Request::Command command = PB::Facts::FactsRequestMessage::Request::GET;
     std::string path;
+    facts_read_options options;
     // An empty request is "get the whole document": the console's bare `facts`
     // verb sends nothing at all.
     const std::string request = request_buffer == nullptr ? std::string() : std::string(request_buffer, request_buffer_len);
@@ -322,12 +373,15 @@ NSCAPI::errorReturn NSAPIFactsQuery(const char *request_buffer, const unsigned i
       if (message.payload_size() > 0) {
         command = message.payload(0).command();
         path = message.payload(0).path();
+        options.stored_only = message.payload(0).stored_only();
+        options.fresh = message.payload(0).fresh();
       }
     }
     if (command == PB::Facts::FactsRequestMessage::Request::REFRESH) mainClient->process_facts("manual");
 
     PB::Facts::FactsResponseMessage response_message;
-    build_facts_response(path, response_message.add_payload());
+    options.sets_only = command == PB::Facts::FactsRequestMessage::Request::SETS;
+    build_facts_response(path, options, response_message.add_payload());
     const std::string response = response_message.SerializeAsString();
     *response_buffer_len = static_cast<unsigned int>(response.size());
     *response_buffer = new char[*response_buffer_len + 10];

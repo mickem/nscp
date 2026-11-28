@@ -22,5 +22,6 @@
 
 	"channels" : true,
 
-	"events": true
+	"events": true,
+	"facts" : "on-demand"
 }

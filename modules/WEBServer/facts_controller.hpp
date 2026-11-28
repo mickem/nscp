@@ -24,6 +24,11 @@
 // A path nothing produced answers 200 with `found: false`: "no such subtree"
 // and "the call failed" are different answers, and a UI that asks for a set an
 // operator has not enabled should render "not collected", not an error.
+//
+// A path may also name an on-demand set (`scripts.python`, `pdh.objects`):
+// one that is collected for the request and never stored. Those are read with
+// `facts.get.<set>`, never with `facts.get` alone, and `GET /api/v2/facts/sets`
+// lists which exist.
 class facts_controller : public Mongoose::RegexpController {
   std::shared_ptr<session_manager_interface> session;
   const nscapi::core_wrapper *core;
@@ -33,5 +38,6 @@ class facts_controller : public Mongoose::RegexpController {
   facts_controller(int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core, unsigned int plugin_id);
 
   void get_facts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+  void get_sets(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
   void refresh_facts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 };

@@ -421,6 +421,21 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# The on-demand `pdh` fact sets (include/facts/pdh_facts.hpp): the shape of the
+# counter catalog and the handling of the one parameter. Header-only and
+# platform-neutral - the enumeration itself is CheckSystem's, on Windows.
+NSCP_CREATE_TEST(
+    pdh_facts_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/facts/pdh_facts_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${PLUGIN_API_TARGET}
+        nscp_protobuf
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     software_facts_test
     SOURCES
@@ -954,6 +969,20 @@ NSCP_CREATE_TEST(
     LIBRARIES
         GTest::gtest_main
         ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+# The on-demand `scripts` fact set the three script modules publish through
+# (include/scripts/script_facts.hpp): header-only, so pinned once here.
+NSCP_CREATE_TEST(
+    script_facts_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/scripts/script_facts_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${PLUGIN_API_TARGET}
+        nscp_protobuf
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )

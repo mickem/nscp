@@ -219,6 +219,31 @@ bool has_set(const nsclient::core::fact_repository& facts, const std::string& na
 }
 }  // namespace
 
+TEST(plugin_manager_facts, an_on_demand_declaration_is_neither_stored_nor_enabled) {
+  // The document and its `enabled` list are what they were before on-demand
+  // sets existed: a declaration is reported on the side and nothing else.
+  nsclient::core::fact_repository facts;
+  std::map<std::string, std::string> errors;
+  std::set<std::string> produced;
+  std::map<std::string, bool> on_demand;
+  nscapi::facts::response response;
+  response.set("os").value("family", "linux");
+  response.on_demand("scripts.python");
+  response.on_demand("pdh.instances", true);
+  EXPECT_EQ(nsclient::core::plugin_manager::apply_facts_response(response.serialize(), 1, facts, errors, produced, &on_demand), "");
+  EXPECT_EQ(json_of(facts), R"({"os":{"family":"linux"}})");
+  EXPECT_EQ(produced, std::set<std::string>{"os"});
+  EXPECT_TRUE(errors.empty());
+  EXPECT_EQ(on_demand, (std::map<std::string, bool>{{"pdh.instances", true}, {"scripts.python", false}}));
+
+  // A caller that does not ask for the declarations still skips them.
+  nsclient::core::fact_repository other;
+  std::set<std::string> produced_again;
+  EXPECT_EQ(apply(response.serialize(), other, errors, &produced_again), "");
+  EXPECT_EQ(produced_again, std::set<std::string>{"os"});
+  EXPECT_EQ(json_of(other), R"({"os":{"family":"linux"}})");
+}
+
 TEST(plugin_manager_facts, a_returned_set_is_stored_and_counts_as_produced) {
   nsclient::core::fact_repository facts;
   std::map<std::string, std::string> errors;

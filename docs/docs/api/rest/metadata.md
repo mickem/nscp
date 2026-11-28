@@ -58,9 +58,14 @@ curl -s -k -u admin https://localhost:8443/api/v2/metadata | python -m json.tool
 ## Counters
 
 Returns the list of Windows performance counters that the `CheckSystem`
-module has discovered on this host. The response is forwarded verbatim
-from `CheckSystem pdh --list --json --all --no-instances`, so the shape
-matches the CLI output of that command.
+module has discovered on this host: one `\object\counter` path per counter,
+the shape `CheckSystem pdh --list --json --all --no-instances` prints.
+
+The catalog is read from CheckSystem's on-demand
+[`pdh.objects` fact set](facts.md#read-an-on-demand-set) rather than by
+running that command line, and is served from the core's five-second cache.
+The same data, grouped by object and with the instances of an object
+available, is at `GET /api/v2/facts?path=pdh.objects`.
 
 This endpoint requires the `CheckSystem` module to be loaded; if it is
 not, the endpoint returns `500` with a body describing the missing module.

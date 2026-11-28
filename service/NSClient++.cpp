@@ -19,6 +19,7 @@
 #include "diagnostics_round.hpp"
 #include "fatal_handler.hpp"
 #include "logger/nsclient_logger.hpp"
+#include "module_facts.hpp"
 #include "reload_request.hpp"
 #ifdef HAVE_ONBOARDING
 #include <net/socket/socket_helpers.hpp>
@@ -530,6 +531,11 @@ void NSClientT::register_core_settings() {
                                                  "Collect the `agent` fact set: the NSClient++ version, the modules it has loaded and whether it is enrolled "
                                                  "with a fleet server (yes or no - never which server or with which identity). The one set the core produces "
                                                  "itself; it is re-read at start and on every settings reload, which is when any of it can change.",
+                                                 "false", false, false);
+      settings_manager::get_core()->register_key(0xffff, path, "modules", "bool", "MODULE FACTS",
+                                                 "Collect the `modules` fact set: one record per loaded module, with its version, the alias it is loaded "
+                                                 "under and whether the configuration loads it at start. Produced by the core and re-read on every round, "
+                                                 "like `agent`.",
                                                  "false", false, false);
     }
     {
@@ -1113,24 +1119,46 @@ void NSClientT::process_facts(const std::string &reason, const bool reread_max_s
 // merely confirms it (an unchanged set costs no revision).
 void NSClientT::collect_agent_facts() {
   const unsigned int owner = nsclient::core::fact_repository::core_owner;
-  bool enabled = false;
+  bool agent_enabled = false;
+  bool modules_enabled = false;
   try {
-    enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string("/settings/facts", "agent", "false"));
+    agent_enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string("/settings/facts", "agent", "false"));
+    modules_enabled = settings::settings_interface::string_to_bool(settings_manager::get_settings()->get_string("/settings/facts", "modules", "false"));
   } catch (const std::exception &e) {
-    LOG_ERROR_CORE_STD("Failed to read the facts 'agent' setting: " + utf8::utf8_from_native(e.what()));
+    LOG_ERROR_CORE_STD("Failed to read the core's facts settings: " + utf8::utf8_from_native(e.what()));
     return;
   }
-  if (!enabled) {
-    // Turned off, or never on: the same omission that drops a module's set.
-    facts_->retain_only(owner, {});
-    return;
-  }
+  // What the core is configured to produce. A set that is turned off, or was
+  // never on, is left out - the same omission that drops a module's set.
+  std::set<std::string> produced;
   std::string error;
-  const PB::Facts::Object agent = nsclient::core::agent_facts::build(CURRENT_SERVICE_VERSION, plugins_->get_loaded_modules(), is_enrolled());
-  if (facts_->set(nsclient::core::agent_facts::set_agent, owner, agent, error) == nsclient::core::fact_repository::set_result::rejected) {
-    LOG_ERROR_CORE_STD("The agent fact set was rejected: " + error);
+  if (agent_enabled) {
+    const PB::Facts::Object agent = nsclient::core::agent_facts::build(CURRENT_SERVICE_VERSION, plugins_->get_loaded_modules(), is_enrolled());
+    if (facts_->set(nsclient::core::agent_facts::set_agent, owner, agent, error) == nsclient::core::fact_repository::set_result::rejected) {
+      LOG_ERROR_CORE_STD("The agent fact set was rejected: " + error);
+    }
+    produced.insert(nsclient::core::agent_facts::set_agent);
   }
-  facts_->retain_only(owner, {nsclient::core::agent_facts::set_agent});
+  if (modules_enabled) {
+    // Copied out of the plugin list record by record: the set owns every
+    // string it is built from.
+    std::vector<nsclient::core::module_facts::module> modules;
+    for (const nsclient::core::plugin_cache_item &plugin : plugins_->get_loaded_plugin_items()) {
+      nsclient::core::module_facts::module m;
+      m.name = plugin.dll;
+      m.alias = plugin.alias;
+      m.title = plugin.title;
+      m.version = plugin.version;
+      m.enabled = plugins_->is_enabled(plugin.dll);
+      modules.push_back(m);
+    }
+    if (facts_->set(nsclient::core::module_facts::set_modules, owner, nsclient::core::module_facts::build(modules), error) ==
+        nsclient::core::fact_repository::set_result::rejected) {
+      LOG_ERROR_CORE_STD("The modules fact set was rejected: " + error);
+    }
+    produced.insert(nsclient::core::module_facts::set_modules);
+  }
+  facts_->retain_only(owner, produced);
 }
 
 // Whether this host is enrolled with a fleet server: the same test the fleet

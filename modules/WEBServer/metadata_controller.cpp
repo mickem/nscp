@@ -5,45 +5,14 @@
 
 #include <boost/json.hpp>
 #include <boost/regex.hpp>
-#include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/registry.hpp>
 #include <utility>
 
+#include "facts_listing.hpp"
 #include "str/constant_time.hpp"
 #include "str/xtos.hpp"
 
 namespace json = boost::json;
-
-namespace {
-bool exec_metadata_command(const nscapi::core_wrapper *core, const std::string &target, const std::string &command, const std::vector<std::string> &arguments,
-                           Mongoose::StreamResponse &response, std::string &out_message) {
-  PB::Commands::ExecuteRequestMessage rm;
-  PB::Commands::ExecuteRequestMessage::Request *payload = rm.add_payload();
-  payload->set_command(command);
-  for (const std::string &arg : arguments) {
-    payload->add_arguments(arg);
-  }
-
-  std::string pb_response;
-  core->exec_command(target, rm.SerializeAsString(), pb_response);
-  PB::Commands::ExecuteResponseMessage resp;
-  resp.ParseFromString(pb_response);
-  if (resp.payload_size() == 0) {
-    response.setCodeServerError("No response from module, is the " + target + " module loaded?");
-    return false;
-  }
-  if (resp.payload_size() != 1) {
-    response.setCodeServerError("Invalid response from module");
-    return false;
-  }
-  if (resp.payload(0).result() != PB::Common::ResultCode::OK) {
-    response.setCodeServerError("Command returned errors: " + resp.payload(0).message());
-    return false;
-  }
-  out_message = resp.payload(0).message();
-  return true;
-}
-}  // namespace
 
 metadata_controller::metadata_controller(const int version, std::shared_ptr<session_manager_interface> session, const nscapi::core_wrapper *core,
                                          unsigned int plugin_id)
@@ -73,10 +42,21 @@ void metadata_controller::get_index(Mongoose::Request &request, boost::smatch &w
 void metadata_controller::get_counters(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_logged_in("metadata.get.counters", request, response)) return;
 
-  std::string message;
-  if (!exec_metadata_command(core, "CheckSystem", "pdh", {"--list", "--json", "--all", "--no-instances"}, response, message)) {
+  // The catalog is CheckSystem's on-demand `pdh.objects` fact set. It used to
+  // be the stdout of `CheckSystem pdh --list --json --all --no-instances`,
+  // run through exec; the body is the same JSON array of `\object\counter`
+  // paths. Enumerating it is the expensive part, so this is content with the
+  // core's few seconds of cache.
+  const facts_listing::reading reading = facts_listing::parse(core->get_facts("pdh.objects"), "pdh");
+  if (!reading.found) {
+    if (!reading.error.empty()) {
+      response.setCodeServerError("Command returned errors: " + reading.error);
+    } else {
+      response.setCodeServerError("No response from module, is the CheckSystem module loaded?");
+    }
     return;
   }
+  const std::string message = facts_listing::render_counters(reading.value);
   response.get_headers()["XX-debug"] = "size: " + str::xtos(message.size());
 
   response.get_headers()["Content-Type"] = "application/json";

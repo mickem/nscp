@@ -3,8 +3,6 @@
 
 #include "extscr_cli.h"
 
-#include "script_paths.hpp"
-
 #include <config.h>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -19,6 +17,9 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/settings_functions.hpp>
 #include <string>
+
+#include "script_listing.hpp"
+#include "script_paths.hpp"
 
 #ifndef WIN32
 #include <sys/stat.h>
@@ -198,50 +199,22 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
     }
   } else {
     // The scripts folder in force, spelled relative to the folder scripts run
-    // in: the form that runs as-is when recorded as a command.
-    const scripts::root::layout layout = provider_->get_layout();
-    boost::filesystem::path dir = provider_->get_root();
-    const boost::filesystem::path rel = layout.base;
-    boost::system::error_code ec;
-    boost::filesystem::recursive_directory_iterator iter(dir, ec), eod;
-    if (ec) {
+    // in: the form that runs as-is when recorded as a command. The walk is
+    // shared with the `scripts.external` fact set (script_listing.hpp).
+    std::vector<std::string> files;
+    std::string error;
+    if (!script_listing::list_files(provider_->get_root(), provider_->get_layout().base, lib, files, error)) {
       // A scripts folder that is not there, or cannot be read, is not an
       // empty one: the operator asked what is in it, and the honest answer
       // is why it cannot be told.
-      nscapi::protobuf::functions::set_response_bad(*response, "Failed to list " + dir.string() + ": " + ec.message());
+      nscapi::protobuf::functions::set_response_bad(*response, error);
       return;
     }
-    for (boost::filesystem::path const &i : boost::make_iterator_range(iter, eod)) {
-      std::string s = i.string();
-      // Relative to the install base when the file is under it, which is the
-      // case on Windows and is what `show` and the web UI's script list have
-      // always been handed. When it is not - the normal case on unix, where
-      // ${scripts} is not below ${base-path} - the path is left absolute.
-      // It used to have its leading separator sliced off regardless, leaving a
-      // rootless `usr/lib/nsclient/scripts/x` that named no file at all.
-      if (boost::algorithm::starts_with(s, rel.string())) {
-        s = s.substr(rel.string().size());
-        if (!s.empty() && (s[0] == '\\' || s[0] == '/')) s = s.substr(1);
-      }
-      if (s.empty()) continue;
-      // Skip scripts under a `lib` folder unless --include-lib was given. The
-      // previous test used a substring match on the whole path (so a `libs` or
-      // `calibrate` folder was wrongly excluded) AND never consulted the parsed
-      // `lib` flag, so --include-lib did nothing. Match a path *component* named
-      // exactly `lib`, and honour the flag.
-      bool in_lib = false;
-      for (const boost::filesystem::path &part : i) {
-        if (part.string() == "lib") {
-          in_lib = true;
-          break;
-        }
-      }
-      if (boost::filesystem::is_regular_file(i) && (lib || !in_lib)) {
-        if (json) {
-          data.push_back(json::value(s));
-        } else {
-          resp += s + "\n";
-        }
+    for (const std::string &s : files) {
+      if (json) {
+        data.push_back(json::value(s));
+      } else {
+        resp += s + "\n";
       }
     }
   }

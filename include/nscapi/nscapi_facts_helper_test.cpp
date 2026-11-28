@@ -196,3 +196,67 @@ TEST(FactsTree, ListsKeepTheOrderTheProducerReported) {
   tree::sort_fields(&agent);
   EXPECT_EQ(tree::to_json(agent), R"({"modules":["CheckSystem","CheckDisk"]})") << "a list is ordered data, so sorting it would change the document";
 }
+
+TEST(FactsRequest, ARoundCarriesNoDemand) {
+  PB::Facts::FactsQueryMessage message;
+  message.add_payload()->set_reason("scheduled");
+  const nscapi::facts::request request(message.SerializeAsString());
+  EXPECT_EQ(request.reason(), "scheduled");
+  EXPECT_FALSE(request.is_demand());
+  EXPECT_FALSE(request.declare_only());
+  EXPECT_TRUE(request.parameter().empty());
+}
+
+TEST(FactsRequest, ADemandNamesTheSetAndItsParameter) {
+  PB::Facts::FactsQueryMessage message;
+  PB::Facts::FactsQueryMessage::Request *payload = message.add_payload();
+  payload->set_reason("demand");
+  payload->set_demand("pdh.instances");
+  payload->set_parameter(".NET CLR Memory");
+  const nscapi::facts::request request(message.SerializeAsString());
+  EXPECT_TRUE(request.is_demand());
+  EXPECT_EQ(request.demand(), "pdh.instances");
+  EXPECT_EQ(request.parameter(), ".NET CLR Memory");
+  EXPECT_FALSE(request.declare_only());
+}
+
+TEST(FactsRequest, TheDeclareProbeIsNotADemand) {
+  PB::Facts::FactsQueryMessage message;
+  message.add_payload()->set_reason("declare");
+  const nscapi::facts::request request(message.SerializeAsString());
+  EXPECT_TRUE(request.declare_only());
+  EXPECT_FALSE(request.is_demand());
+}
+
+TEST(FactsResponse, AnOnDemandDeclarationIsAnIdAndAFlag) {
+  nscapi::facts::response out;
+  out.on_demand("scripts.python");
+  out.on_demand("pdh.instances", true);
+  const PB::Facts::FactsMessage message = out.to_message();
+  ASSERT_EQ(message.payload(0).sets_size(), 2);
+  const PB::Facts::FactSet &instances = message.payload(0).sets(0);
+  EXPECT_EQ(instances.id(), "pdh.instances");
+  EXPECT_TRUE(instances.on_demand());
+  EXPECT_TRUE(instances.parameterized());
+  EXPECT_FALSE(instances.has_facts());
+  const PB::Facts::FactSet &python = message.payload(0).sets(1);
+  EXPECT_EQ(python.id(), "scripts.python");
+  EXPECT_TRUE(python.on_demand());
+  EXPECT_FALSE(python.parameterized());
+  EXPECT_FALSE(python.has_facts());
+}
+
+TEST(FactsResponse, ADeclarationDoesNotMarkTheValuesOnDemand) {
+  // The answer to a demand carries the declaration and the set; the set is
+  // an ordinary one, named after the first segment of the id.
+  nscapi::facts::response out;
+  out.on_demand("scripts.python");
+  out.set("scripts").object("python").strings("files", {"python/a.py"});
+  const PB::Facts::FactsMessage message = out.to_message();
+  ASSERT_EQ(message.payload(0).sets_size(), 2);
+  EXPECT_TRUE(message.payload(0).sets(0).on_demand());
+  const PB::Facts::FactSet &values = message.payload(0).sets(1);
+  EXPECT_EQ(values.id(), "scripts");
+  EXPECT_FALSE(values.on_demand());
+  EXPECT_EQ(nscapi::facts::tree::to_json(values.facts()), R"({"python":{"files":["python/a.py"]}})");
+}
