@@ -14,6 +14,8 @@ import { CHECK_HELPERS_ALIAS_PATH as A } from "./CheckHelpers/paths";
 import ExtScriptsPage from "./CheckExternalScripts/ExtScriptsPage";
 import ScriptsEditor from "./CheckExternalScripts/ScriptsEditor";
 import ScriptListEditor from "./kit/ScriptListEditor";
+import WrappedScriptsEditor from "./CheckExternalScripts/WrappedScriptsEditor";
+import { readWrappings, wrappedCommand } from "./CheckExternalScripts/wrapped";
 import {
   argumentsRisk,
   EXT_SCRIPTS,
@@ -269,5 +271,49 @@ describe("script lists", () => {
     expect(dialog().getByLabelText("Alias")).toHaveAttribute("placeholder", "check_foo");
     await userEvent.click(dialog().getByRole("button", { name: "Save" }));
     await waitFor(() => expect(writes).toEqual([`[${P}] check_foo=lua/check_foo.lua`]));
+  });
+});
+
+describe("wrapped scripts", () => {
+  const W = "/settings/external scripts/wrappings";
+  const WS = "/settings/external scripts/wrapped scripts";
+
+  it("builds the command line the agent runs, by extension", () => {
+    const wrappings = readWrappings([
+      { path: W, key: "py", value: 'python "scripts\\%SCRIPT%" %ARGS%' },
+    ]);
+    expect(wrappings.map((w) => w.ext)).toEqual(["bat", "ps1", "py", "vbs"]);
+    expect(wrappedCommand('check_updates.ps1 -Days 7 $ARGS"$', wrappings).command).toBe(
+      'powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File "scripts\\check_updates.ps1" $ARGS"$',
+    );
+    expect(wrappedCommand("foo.py a b", wrappings).command).toBe('python "scripts\\foo.py" a b');
+    // The extension match is case sensitive, as in the agent.
+    expect(wrappedCommand("FOO.PS1", wrappings)).toEqual({ ext: "PS1", command: null });
+    expect(wrappedCommand("noext", wrappings).ext).toBe("none");
+  });
+
+  it("does not take a stored copy of a built-in wrapping for an override", () => {
+    const [bat] = readWrappings([{ path: W, key: "bat", value: '"scripts\\%SCRIPT%" $ARGS"$' }]);
+    expect(bat.overridden).toBe(false);
+  });
+
+  it("edits a wrapped script as a file and arguments, showing what runs", async () => {
+    const { writes } = api([{ path: WS, key: "updates", value: "check_updates.ps1 -Days 7" }]);
+    renderWithProviders(<WrappedScriptsEditor />, { preloadedState: authenticatedState });
+    expect(
+      await screen.findByText(
+        'powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File "scripts\\check_updates.ps1" $ARGS"$',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add wrapped script" }));
+    await userEvent.type(dialog().getByLabelText("Name"), "logs");
+    await userEvent.type(dialog().getByLabelText("Script file"), "check_logs.sh");
+    expect(dialog().getByText(/the agent registers an empty command/)).toBeInTheDocument();
+    await userEvent.clear(dialog().getByLabelText("Script file"));
+    await userEvent.type(dialog().getByLabelText("Script file"), "check_logs.bat");
+    await userEvent.type(dialog().getByLabelText("Arguments"), "C:\\logs 10");
+    expect(dialog().getByText('"scripts\\check_logs.bat" $ARGS"$')).toBeInTheDocument();
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toEqual([`[${WS}] logs=check_logs.bat C:\\logs 10`]));
   });
 });

@@ -15,7 +15,11 @@ action: none
   characters, with the risk said plainly and a fixed alias in Check helpers
   offered instead; the kill timeout; the script folder under *Advanced*.
   Scripts are one-line entries, or sections once they run as another user or
-  change how their output is read.
+  change how their output is read. A wrapped script is a file and its
+  arguments, with the command line its extension's wrapping makes of them
+  shown beside it - and a warning when no wrapping matches the extension
+  (the match is case sensitive). The built-in ps1, vbs and bat wrappings are
+  listed with the ones you add.
 - **Scheduler**: the worker count, startup spread and timezone, and an editor
   for schedules - the check, an interval or a cron line, the channel and
   target the result is submitted on, which results to submit. `default` is
