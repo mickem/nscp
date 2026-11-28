@@ -14,16 +14,25 @@ namespace PDH {
 namespace instance_providers {
 struct container : pdh_instance_interface {
   std::string alias_;
+  // The $INSTANCE$ object the children were expanded from, kept so the
+  // instance set can be expanded again while the counter is running
+  // (PDHQuery::expand_instances).
+  pdh_object object_;
   std::list<std::shared_ptr<pdh_instance_interface> > children_;
 
   bool has_instances() override { return true; }
   std::list<std::shared_ptr<pdh_instance_interface> > get_instances() override { return children_; }
 
-  container(const pdh_object &parent, const std::list<pdh_object> &sub_counters) : alias_(parent.alias) {
+  container(const pdh_object &parent, const std::list<pdh_object> &sub_counters) : alias_(parent.alias), object_(parent) {
     for (const pdh_object &o : sub_counters) {
       children_.push_back(factory::create(o));
     }
   }
+  const pdh_object &get_object() const { return object_; }
+  // Not synchronised: the owner of the container serialises these against
+  // its readers (the collector does both under its write lock).
+  void add_instance(const std::shared_ptr<pdh_instance_interface> &child) { children_.push_back(child); }
+  void remove_instance(const std::shared_ptr<pdh_instance_interface> &child) { children_.remove(child); }
   std::string get_name() const override { return alias_; }
   std::string get_counter() const override { return ""; }
 
