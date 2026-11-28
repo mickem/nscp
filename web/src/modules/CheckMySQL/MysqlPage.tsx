@@ -51,6 +51,10 @@ export default function MysqlPage() {
       panel={panel}
       changes={changes}
       problem={null}
+      test={{
+        query: "check_mysql",
+        what: "Connects with the saved settings and reads the server version: proves the server, TLS and login.",
+      }}
       ini={(stored, d) => tableIni(stored, MYSQL_MODULE, MYSQL_TABLE, d)}
     >
       <PanelSection title="Server">

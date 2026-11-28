@@ -58,6 +58,10 @@ export default function KubernetesPage() {
       panel={panel}
       changes={changes}
       problem={kubeProblem(get, source)}
+      test={{
+        query: "check_kubernetes",
+        what: "Asks the API server for its version and readiness: proves the address, the trust and the token.",
+      }}
       ini={(stored, d) => tableIni(stored, KUBE_MODULE, KUBE_TABLE, d)}
     >
       <PanelSection title="Cluster">

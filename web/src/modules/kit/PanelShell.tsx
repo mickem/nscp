@@ -12,6 +12,7 @@ import {
   Divider,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -22,6 +23,7 @@ import NscpAlert from "../../components/atoms/NscpAlert.tsx";
 import { applyToStored, describeChange, SettingChange, toIni } from "./changes.ts";
 import { PageFrameContext } from "./pageFrame.ts";
 import ConfigDialog from "./ConfigDialog.tsx";
+import RunCheckButton from "./RunCheckButton.tsx";
 import SecretField from "./SecretField.tsx";
 import type { Panel } from "./usePanel.ts";
 import ValueField, { ValueKind } from "./ValueField.tsx";
@@ -110,6 +112,10 @@ interface ShellProps {
   // The INI fragment for a stored state (the stored settings with the
   // unsaved changes applied).
   ini: (stored: Settings[], includeDefaults: boolean) => string;
+  // A cheap, read-only check that shows the module reaches what it is
+  // configured for (a server, an engine, a cluster). It runs against what the
+  // agent has loaded, so not while there are unsaved changes.
+  test?: { query: string; args?: string[]; what: string };
   children: ReactNode;
 }
 
@@ -198,6 +204,7 @@ export default function PanelShell({
   changes,
   problem,
   ini,
+  test,
   children,
 }: ShellProps) {
   const [showConfig, setShowConfig] = useState(false);
@@ -208,7 +215,31 @@ export default function PanelShell({
       <CardHeader
         title={<Typography variant="h6">{title}</Typography>}
         subheader={subheader}
-        action={<Button onClick={() => setShowConfig(true)}>Show config</Button>}
+        action={
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            {test && (
+              <Tooltip
+                title={
+                  changes.length > 0
+                    ? "Save first: the test runs against the settings the agent has loaded."
+                    : test.what
+                }
+                describeChild
+              >
+                <span>
+                  <RunCheckButton
+                    query={test.query}
+                    args={test.args ?? []}
+                    label="Test connection"
+                    disabled={changes.length > 0}
+                    note={`Runs ${test.query} with the settings the agent has loaded: after a save, reload the agent first.`}
+                  />
+                </span>
+              </Tooltip>
+            )}
+            <Button onClick={() => setShowConfig(true)}>Show config</Button>
+          </Stack>
+        }
       />
       <CardContent>
         <Stack spacing={3} divider={<Divider flexItem />}>

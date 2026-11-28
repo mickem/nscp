@@ -40,6 +40,10 @@ function DockerPage() {
       panel={panel}
       changes={changes}
       problem={endpointProblem(panel.value(PATH, "endpoint"))}
+      test={{
+        query: "check_docker_info",
+        what: "Asks the engine for its version and counts: proves the endpoint and the agent's access to it.",
+      }}
       ini={(stored, d) => tableIni(stored, MODULE, TABLE, d)}
     >
       <PanelSection title="Engine">

@@ -23,6 +23,11 @@ export default function WmiPage() {
       panel={panel}
       changes={changes}
       problem={null}
+      test={{
+        query: "check_wmi",
+        args: ["query=SELECT Caption FROM Win32_OperatingSystem"],
+        what: "Reads this host's operating system over WMI. Under a restricted access setting it has to be allowed, like any query.",
+      }}
       ini={(stored, d) => tableIni(stored, WMI_MODULE, WMI_TABLE, d)}
     >
       <PanelSection title="What callers may query">

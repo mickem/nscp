@@ -76,6 +76,29 @@ describe("MSSQL", () => {
     }
   });
 
+  it("tests the saved connection, and not while there are unsaved changes", async () => {
+    let ran = 0;
+    installFetchMock({
+      "/api/v2/settings": jsonResponse([]),
+      "/api/v2/queries/check_mssql/commands/execute": () => {
+        ran += 1;
+        return jsonResponse({
+          command: "check_mssql",
+          result: 0,
+          lines: [{ message: "SQL Server 16.0.4135 (Developer Edition)", perf: {} }],
+        });
+      },
+    });
+    renderWithProviders(<MssqlPage />, { preloadedState: authenticatedState });
+    const test = await screen.findByRole("button", { name: "Test connection" });
+    await userEvent.click(test);
+    expect(await screen.findByText(/OK: SQL Server 16\.0\.4135/)).toBeInTheDocument();
+    expect(ran).toBe(1);
+    await userEvent.keyboard("{Escape}");
+    await userEvent.type(screen.getByLabelText("Database"), "x");
+    expect(screen.getByRole("button", { name: "Test connection" })).toBeDisabled();
+  });
+
   it("reads a connection string as the whole connection, and flags a password in it", async () => {
     render(MssqlPage, [{ path: P, key: "connection string", value: "Driver={x};Server=db;PWD=s" }]);
     expect(await screen.findByRole("radio", { name: "ODBC connection string" })).toBeChecked();

@@ -23,6 +23,11 @@ Nothing to do.
   token sent over `http://`, an unverified API server and a token stored in
   the settings are flagged.
 
+Each of these pages has a *Test connection* button that runs the module's own
+read-only health check (`check_mssql`, `check_mysql`, `check_docker_info`,
+`check_kubernetes`, or a small WMI query) against the settings the agent has
+loaded, and shows what it answered; it is off while there are unsaved changes.
+
 Both database pages say plainly that every check takes the server (and, for
 MSSQL, the connection string) from its caller, and sends the configured login
 there: give those checks only to callers you trust.

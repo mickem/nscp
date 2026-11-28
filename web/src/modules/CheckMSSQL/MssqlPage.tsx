@@ -56,6 +56,10 @@ export default function MssqlPage() {
           ? "Give the connection string, or build the connection from the fields."
           : null
       }
+      test={{
+        query: "check_mssql",
+        what: "Connects with the saved settings and reads the server version: proves the server, driver and login.",
+      }}
       ini={(stored, d) => tableIni(stored, MSSQL_MODULE, MSSQL_TABLE, d)}
     >
       <PanelSection title="Server">
