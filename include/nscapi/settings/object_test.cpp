@@ -98,7 +98,8 @@ class MockSettingsInterface : public settings_helper::settings_impl_interface {
 
   void remove_path(std::string path) override { removed_paths.push_back(path); }
 
-  void err(const char* file, int line, std::string message) override {}
+  std::vector<std::string> errors;
+  void err(const char* file, int line, std::string message) override { errors.push_back(message); }
   void warn(const char* file, int line, std::string message) override {}
   void info(const char* file, int line, std::string message) override {}
   void debug(const char* file, int line, std::string message) override {}
@@ -114,6 +115,7 @@ class MockSettingsInterface : public settings_helper::settings_impl_interface {
     keys_data.clear();
     removed_paths.clear();
     removed_keys.clear();
+    errors.clear();
   }
 };
 
@@ -771,6 +773,48 @@ TEST_F(ObjectHandlerTest, AddWithParentInheritance) {
   EXPECT_EQ("child", child->get_alias());
   // Child should inherit the option from parent
   EXPECT_EQ("inherited_value", child->get_property_string("inherited_key"));
+}
+
+TEST_F(ObjectHandlerTest, TwoTargetParentCycleLoadsWithoutRecursion) {
+  // [/settings/targets/a] parent = b and [/settings/targets/b] parent = a used to
+  // recurse in add() until the stack overflowed.
+  mock_->set_setting("/settings/targets/a", "parent", "b");
+  mock_->set_keys("/settings/targets/a", {"parent"});
+  mock_->set_setting("/settings/targets/b", "parent", "a");
+  mock_->set_keys("/settings/targets/b", {"parent"});
+
+  const auto a = handler_.add(mock_, "a", "");
+
+  ASSERT_TRUE(a != nullptr);
+  EXPECT_TRUE(handler_.has_object("a"));
+  EXPECT_TRUE(handler_.has_object("b"));
+  ASSERT_EQ(1u, mock_->errors.size());
+  EXPECT_NE(std::string::npos, mock_->errors[0].find("a -> b -> a"));
+
+  // b closed the cycle, so it is the root a inherits from; loading b on its own
+  // afterwards returns the existing object.
+  const auto b = handler_.add(mock_, "b", "");
+  EXPECT_EQ(b, handler_.find_object("b"));
+  EXPECT_EQ(1u, mock_->errors.size());
+}
+
+TEST_F(ObjectHandlerTest, ThreeTargetParentCycleLoadsWithoutRecursion) {
+  mock_->set_setting("/settings/targets/a", "parent", "b");
+  mock_->set_keys("/settings/targets/a", {"parent"});
+  mock_->set_setting("/settings/targets/b", "parent", "c");
+  mock_->set_keys("/settings/targets/b", {"parent"});
+  mock_->set_setting("/settings/targets/c", "parent", "a");
+  mock_->set_keys("/settings/targets/c", {"parent"});
+
+  for (const std::string alias : {"a", "b", "c"}) {
+    ASSERT_TRUE(handler_.add(mock_, alias, "") != nullptr);
+  }
+
+  EXPECT_TRUE(handler_.has_object("a"));
+  EXPECT_TRUE(handler_.has_object("b"));
+  EXPECT_TRUE(handler_.has_object("c"));
+  ASSERT_EQ(1u, mock_->errors.size());
+  EXPECT_NE(std::string::npos, mock_->errors[0].find("a -> b -> c -> a"));
 }
 
 TEST_F(ObjectHandlerTest, HasObjectsReturnsFalseForOnlyTemplates) {
