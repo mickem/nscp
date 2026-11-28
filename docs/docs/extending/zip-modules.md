@@ -13,6 +13,7 @@ At the heart of the zip-module is the `module.json` file which defines the modul
 	"description": "This is a description",
 	"version": "1.0.0",
 	"experimental": true,
+	"category": "check",
 	"modules": [ "CheckSystem" ],
 	"scripts": [
 		{
@@ -37,6 +38,7 @@ name        | The name of the module (Showed in for instance the Web Ui)
 description | Description of module
 version     | The version
 experimental | Optional. `true` marks the module as experimental: it is listed with an "experimental" marker in `nscp test`, the web UI and the documentation, telling users its commands and output may still change. Leave it out for a stable module.
+category | Optional. What kind of module it is, for grouping it in the web UI's module list: `check`, `database`, `container`, `server`, `client`, `script`, `scheduling` or `tool`. A bundle without one is listed under *Other*.
 modules     | A list of other modules this module require (they will be loaded on start but not added to the config)
 scripts     | A list of script to add to NSClient++ (will be added on start but not to config)
 on_start    | A list of commands to execute on start

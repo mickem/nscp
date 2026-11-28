@@ -28,6 +28,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import { useEffect, useMemo, useState } from "react";
 import { EnumOption, resolveEnumOptions } from "./fieldEnums.ts";
 import { findFieldWidget } from "../../modules/registry.ts";
+import { NO_AUTOFILL, NO_PASSWORD_AUTOFILL } from "../../modules/kit/noAutofill.ts";
 import { WEB_ROLES_PATH } from "../../modules/WEBServer/index.ts";
 
 interface Props {
@@ -212,6 +213,7 @@ export default function SettingsField({
           }}
           disabled={saving}
           slotProps={{
+            htmlInput: description.type === "password" ? NO_PASSWORD_AUTOFILL : NO_AUTOFILL,
             input: dirty
               ? {
                   endAdornment: (

@@ -60,6 +60,7 @@ TEST(PluginCacheItemTest, DefaultConstructor) {
   EXPECT_FALSE(item.is_loaded);
   // A module says it is experimental; nothing says it for it.
   EXPECT_FALSE(item.experimental);
+  EXPECT_TRUE(item.category.empty());
 }
 TEST(PluginCacheItemTest, CopyConstructor) {
   nsclient::core::plugin_cache_item item1;
@@ -68,6 +69,7 @@ TEST(PluginCacheItemTest, CopyConstructor) {
   item1.alias = "test_alias";
   item1.is_loaded = true;
   item1.experimental = true;
+  item1.category = "database";
   nsclient::core::plugin_cache_item item2(item1);
   EXPECT_EQ(item2.id, 42u);
   EXPECT_EQ(item2.dll, "test.dll");
@@ -76,6 +78,7 @@ TEST(PluginCacheItemTest, CopyConstructor) {
   nsclient::core::plugin_cache_item item3;
   item3 = item1;
   EXPECT_TRUE(item3.experimental);
+  EXPECT_EQ("database", item3.category);
 }
 TEST_F(PluginCacheTest, InitialState) {
   EXPECT_FALSE(cache_->has_all());
@@ -187,6 +190,7 @@ class cache_test_plugin : public nsclient::core::plugin_interface {
   std::string getDescription() override { return module_ + " description"; }
   std::string get_version() override { return "2.0.0"; }
   bool is_experimental() override { return experimental_; }
+  std::string get_category() override { return "check"; }
   bool hasCommandHandler() override { return false; }
   NSCAPI::nagiosReturn handleCommand(std::string, std::string&) override { return NSCAPI::cmd_return_codes::returnIgnored; }
   bool hasNotificationHandler() override { return false; }
@@ -223,6 +227,7 @@ TEST(PluginCacheItemTest, ConstructedFromALoadedPlugin) {
   EXPECT_EQ("2.0.0", item.version);
   EXPECT_TRUE(item.is_loaded);
   EXPECT_TRUE(item.experimental);
+  EXPECT_EQ("check", item.category);
 }
 
 TEST_F(PluginCacheTest, AddPluginListsANewModuleAsLoaded) {

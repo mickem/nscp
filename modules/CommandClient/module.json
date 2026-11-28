@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Command-line Client",
 		"description"	: "A command line client, generally not used except with \"nscp test\".",
+		"category"	: "tool",
 		"name"			: "CommandClient",
 		"alias"			: "cli",
 		"version"		: "auto"

@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { resolveEnumOptions } from "./fieldEnums.ts";
+import { NO_AUTOFILL, NO_PASSWORD_AUTOFILL } from "../../modules/kit/noAutofill.ts";
 
 interface Params {
   value: string;
@@ -117,6 +118,7 @@ export default function SettingsDialogValue({ value, description, onChange }: Pa
         <Input
           id="value"
           type={type}
+          inputProps={type === "password" ? NO_PASSWORD_AUTOFILL : NO_AUTOFILL}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           endAdornment={

@@ -147,6 +147,8 @@ export interface ModuleListItem {
   metadata: {
     alias: string;
     plugin_id: string;
+    /** What kind of module it is (module.json "category"), when it says. */
+    category?: string;
   };
   load_url: string;
   unload_url: string;

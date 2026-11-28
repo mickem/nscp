@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Docker container checker",
 		"description"	: "Check docker containers (state, health) and the docker daemon itself.",
+		"category"	: "container",
 		"name"			: "CheckDocker",
 		"alias"			: "docker",
 		"version"		: "auto"

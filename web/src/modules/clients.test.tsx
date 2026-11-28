@@ -15,6 +15,7 @@ import {
   renderWithProviders,
 } from "../test/test-utils";
 import TargetsEditor from "./kit/TargetsEditor";
+import ModuleSettings from "../components/ModuleSettings";
 import type { TargetSpec } from "./kit/targets";
 import { MODULE_PAGES } from "./registry";
 import { NRPE_CLIENT_TARGETS } from "./NRPEClient/index";
@@ -277,5 +278,40 @@ describe("other client targets", () => {
       "NRPEClient",
       "NSCPClient",
     ]);
+  });
+});
+
+describe("a page that is only lists", () => {
+  it("has a bar with Show config for the whole module, and nothing to save", async () => {
+    installFetchMock({
+      "/api/v2/settings/descriptions": jsonResponse([
+        {
+          path: T,
+          key: "",
+          type: "",
+          title: "Targets",
+          description: "",
+          value: "",
+          default_value: "",
+          icon: "",
+          is_advanced_key: false,
+          is_object: true,
+          is_sample_key: false,
+          is_template_key: false,
+          plugins: ["NRPEClient"],
+          sample_usage: "",
+        },
+      ]),
+      "/api/v2/settings": jsonResponse([{ path: `${T}/nagios`, key: "address", value: "nagios" }]),
+    });
+    renderWithProviders(<ModuleSettings settings={[]} moduleId="NRPEClient" />, {
+      preloadedState: authenticatedState,
+    });
+    const bar = within(await screen.findByRole("region", { name: "Module configuration" }));
+    expect(bar.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    await userEvent.click(bar.getByRole("button", { name: "Show config" }));
+    const text = within(screen.getByRole("dialog")).getByText(/\[\/modules\]/).textContent ?? "";
+    expect(text).toContain("NRPEClient = enabled");
+    expect(text).toContain(`[${T}/nagios]\naddress = nagios`);
   });
 });

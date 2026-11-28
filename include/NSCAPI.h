@@ -170,6 +170,8 @@ typedef NSCAPI::errorReturn (*lpModuleHelperInit)(unsigned int, ::nscapi::core_a
 typedef NSCAPI::errorReturn (*lpGetVersion)(int *major, int *minor, int *revision);
 // Optional: modules generated before this export existed do not have it.
 typedef NSCAPI::errorReturn (*lpGetFlags)(int *flags);
+// Optional, like lpGetFlags: the module's category from module.json.
+typedef NSCAPI::errorReturn (*lpGetCategory)(char *, unsigned int);
 typedef NSCAPI::errorReturn (*lpDeleteBuffer)(char **buffer);
 
 typedef NSCAPI::errorReturn (*lpLoadModule)(unsigned int plugin_id, const char *alias, int mode);

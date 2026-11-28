@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Win32 system module",
 		"description"	: "Various system related checks, such as CPU load, process state, service state memory usage and PDH counters.",
+		"category"	: "check",
 		"name"			: "CheckSystem",
 		"alias"			: "w32system",
 		"version"		: "auto"

@@ -86,7 +86,7 @@ export interface TargetSpec {
 // The address a target connects to, as the list shows it. `address` is what
 // the agent reads; `host` and `port` are older spellings of its parts.
 export function endpoint(v: TargetValues): string {
-  const address = v("address");
+  const address = v("address") || v("hostname");
   if (address) return address;
   const host = v("host");
   const port = v("port");

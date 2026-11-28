@@ -5,7 +5,9 @@ name: Data-source sidecars
 # (scripts/python/docs_sources.py holds the schema). The reference is only
 # rendered by the manual "Update reference docs" workflow, so validate the
 # sidecars here on every change: a misspelt key or a sidecar named after a
-# command that does not exist would otherwise only surface there.
+# command that does not exist would otherwise only surface there. The same job
+# holds the reference's module navigation in docs/mkdocs.yml to the modules'
+# categories (scripts/python/docs_nav.py).
 on:
   push:
     branches: [main]
@@ -16,6 +18,10 @@ on:
       - 'scripts/python/docs_sources.py'
       - 'scripts/python/docs_generate.py'
       - 'build/python/test_docs_sources.py'
+      - 'scripts/python/docs_nav.py'
+      - 'scripts/python/docs_namespace.py'
+      - 'build/python/test_docs_namespace.py'
+      - 'docs/mkdocs.yml'
       - '.github/workflows/docs-sources.yml'
   pull_request:
     paths:
@@ -25,6 +31,10 @@ on:
       - 'scripts/python/docs_sources.py'
       - 'scripts/python/docs_generate.py'
       - 'build/python/test_docs_sources.py'
+      - 'scripts/python/docs_nav.py'
+      - 'scripts/python/docs_namespace.py'
+      - 'build/python/test_docs_namespace.py'
+      - 'docs/mkdocs.yml'
       - '.github/workflows/docs-sources.yml'
 
 permissions:
@@ -48,6 +58,14 @@ jobs:
         run: pip install pyyaml jinja2
       - name: Validate the sidecars
         run: python3 scripts/python/docs_sources.py --check
+      # The reference's module navigation follows each module's category
+      # (module.json); a new module, or a changed category, needs a rewrite.
+      - name: Check the module navigation
+        run: python3 scripts/python/docs_nav.py --check
+      # ...and so does the folder a module's page lives in, with the
+      # historical folders pinned so no page moves.
+      - name: Test the reference folders
+        run: python3 build/python/test_docs_namespace.py
       - name: Test the rendering
         run: python3 build/python/test_docs_sources.py
       - name: Render the reference

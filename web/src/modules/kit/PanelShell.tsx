@@ -1,5 +1,6 @@
 // The frame every module page shares: a card with its sections, the changes
-// a save would make, Save / Discard, and Show config.
+// a save would make, Save / Discard, and Show config - the last three in a
+// bar the page pins to the bottom of the window.
 import {
   Accordion,
   AccordionDetails,
@@ -12,6 +13,7 @@ import {
   Divider,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -19,9 +21,11 @@ import { ReactNode, useContext, useState } from "react";
 import { createPortal } from "react-dom";
 import { Settings } from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
-import { applyToStored, describeChange, SettingChange, toIni } from "./changes.ts";
+import { applyToStored, describeChange, SettingChange } from "./changes.ts";
+import { listsIni } from "./listsIni.ts";
 import { PageFrameContext } from "./pageFrame.ts";
 import ConfigDialog from "./ConfigDialog.tsx";
+import RunCheckButton from "./RunCheckButton.tsx";
 import SecretField from "./SecretField.tsx";
 import type { Panel } from "./usePanel.ts";
 import ValueField, { ValueKind } from "./ValueField.tsx";
@@ -110,33 +114,34 @@ interface ShellProps {
   // The INI fragment for a stored state (the stored settings with the
   // unsaved changes applied).
   ini: (stored: Settings[], includeDefaults: boolean) => string;
+  // A cheap, read-only check that shows the module reaches what it is
+  // configured for (a server, an engine, a cluster). It runs against what the
+  // agent has loaded, so not while there are unsaved changes.
+  test?: PanelTest;
   children: ReactNode;
-}
-
-// The stored sections under the page's lists, as INI rows.
-function listSections(
-  stored: Settings[],
-  paths: string[],
-): Array<[string, Array<[string, string]>]> {
-  const byPath = new Map<string, Array<[string, string]>>();
-  for (const s of stored) {
-    if (s.key === "" || !paths.some((p) => s.path === p || s.path.startsWith(p + "/"))) continue;
-    byPath.set(s.path, [...(byPath.get(s.path) ?? []), [s.key, s.value]]);
-  }
-  return [...byPath.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
 // The panel's unsaved changes, Save and Discard: a bar pinned to the bottom
 // of the window, always there so Save is never hunted for, and in reach
 // while the reader scrolls through the lists below the panel.
+interface PanelTest {
+  query: string;
+  args?: string[];
+  what: string;
+}
+
 function SaveBar({
   panel,
   changes,
   problem,
+  test,
+  onShowConfig,
 }: {
   panel: Panel;
   changes: SettingChange[];
   problem: string | null;
+  test?: PanelTest;
+  onShowConfig: () => void;
 }) {
   const [details, setDetails] = useState(true);
   const pending = changes.length > 0;
@@ -158,6 +163,30 @@ function SaveBar({
                 ? "Changed. Use Save and reload to store the settings and apply them."
                 : "No unsaved changes."}
           </Typography>
+          <Button size="small" onClick={onShowConfig}>
+            Show config
+          </Button>
+          {test && (
+            <Tooltip
+              title={
+                pending
+                  ? "Save first: the test runs against the settings the agent has loaded."
+                  : test.what
+              }
+              describeChild
+            >
+              <span>
+                <RunCheckButton
+                  query={test.query}
+                  args={test.args ?? []}
+                  label="Test connection"
+                  above
+                  disabled={pending}
+                  note={`Runs ${test.query} with the settings the agent has loaded: after a save, reload the agent first.`}
+                />
+              </span>
+            </Tooltip>
+          )}
           {pending && (
             <Button size="small" onClick={() => setDetails(!details)}>
               {details ? "Hide changes" : "Show changes"}
@@ -198,18 +227,23 @@ export default function PanelShell({
   changes,
   problem,
   ini,
+  test,
   children,
 }: ShellProps) {
   const [showConfig, setShowConfig] = useState(false);
   const frame = useContext(PageFrameContext);
-  const bar = <SaveBar panel={panel} changes={changes} problem={problem} />;
+  const bar = (
+    <SaveBar
+      panel={panel}
+      changes={changes}
+      problem={problem}
+      test={test}
+      onShowConfig={() => setShowConfig(true)}
+    />
+  );
   return (
     <Card>
-      <CardHeader
-        title={<Typography variant="h6">{title}</Typography>}
-        subheader={subheader}
-        action={<Button onClick={() => setShowConfig(true)}>Show config</Button>}
-      />
+      <CardHeader title={<Typography variant="h6">{title}</Typography>} subheader={subheader} />
       <CardContent>
         <Stack spacing={3} divider={<Divider flexItem />}>
           {children}
@@ -227,7 +261,7 @@ export default function PanelShell({
           }
           render={(includeDefaults) => {
             const stored = applyToStored(panel.stored, changes);
-            const lists = toIni(listSections(stored, frame?.collectionPaths ?? []));
+            const lists = listsIni(stored, frame?.collectionPaths ?? []);
             const own = ini(stored, includeDefaults);
             return lists ? `${own}\n\n${lists}` : own;
           }}

@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "MSSQL checker",
 		"description"		: "Check Microsoft SQL Server: connectivity, databases, backups, agent jobs and custom queries.",
+		"category"		: "database",
 		"name"			: "CheckMSSQL",
 		"alias"			: "mssql",
 		"version"		: "auto",

@@ -69,6 +69,7 @@ foreach(file ${scripts_PYT})
        OR ${filename} STREQUAL "docs_extract.py"
        OR ${filename} STREQUAL "docs_generate.py"
        OR ${filename} STREQUAL "docs_merge.py"
+       OR ${filename} STREQUAL "docs_namespace.py"
        OR ${filename} STREQUAL "docs_sources.py")
         copy_single_test_file(
             ALL_FILES

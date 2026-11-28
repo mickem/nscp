@@ -134,16 +134,20 @@ export default function Module() {
             label="Expert mode"
           />
         </Tooltip>
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={hideDefaults}
-              onChange={(e) => dispatch(setHideDefaults(e.target.checked))}
-            />
-          }
-          label="Hide defaults"
-        />
+        {/* Filters only the generic settings form: the one in expert mode,
+            and the only one a module without a page of its own has. */}
+        {(expert || !hasPage) && (
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={hideDefaults}
+                onChange={(e) => dispatch(setHideDefaults(e.target.checked))}
+              />
+            }
+            label="Hide defaults"
+          />
+        )}
         <RefreshButton onRefresh={onRefresh} />
       </Toolbar>
       <Card>

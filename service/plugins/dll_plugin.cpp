@@ -33,6 +33,7 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
       fGetName(nullptr),
       fGetVersion(nullptr),
       fGetFlags(nullptr),
+      fGetCategory(nullptr),
       fGetDescription(nullptr),
       fHasCommandHandler(nullptr),
       fHasMessageHandler(nullptr),
@@ -279,6 +280,25 @@ bool nsclient::core::dll_plugin::is_experimental() {
     return false;
   }
   return (flags & NSCAPI::module_flags::experimental) != 0;
+}
+/**
+ * What kind of module this is, as declared in its module.json.
+ *
+ * Reported through the optional NSGetModuleCategory export; like the flags it
+ * never throws, and a module without it (or one that fails to answer) simply
+ * has no category.
+ *
+ * @return the category, or an empty string
+ */
+std::string nsclient::core::dll_plugin::get_category() {
+  if (!isLoaded() || fGetCategory == nullptr) return "";
+  std::vector<char> buffer(256, '\0');
+  try {
+    if (fGetCategory(buffer.data(), static_cast<unsigned int>(buffer.size() - 1)) != NSCAPI::api_return_codes::isSuccess) return "";
+  } catch (...) {
+    return "";
+  }
+  return buffer.data();
 }
 /**
  * Returns true if the plug in has a command handler.
@@ -606,6 +626,7 @@ void nsclient::core::dll_plugin::unload_dll() {
   fGetName = nullptr;
   fGetVersion = nullptr;
   fGetFlags = nullptr;
+  fGetCategory = nullptr;
   fGetDescription = nullptr;
   fHasCommandHandler = nullptr;
   fHasMessageHandler = nullptr;
@@ -677,6 +698,7 @@ void nsclient::core::dll_plugin::loadRemoteProcs_(void) {
     // Optional: modules built before module flags existed do not export this,
     // which simply means they declare no flags.
     fGetFlags = (nscapi::plugin_api::lpGetFlags)module_.load_proc("NSGetModuleFlags");
+    fGetCategory = (nscapi::plugin_api::lpGetCategory)module_.load_proc("NSGetModuleCategory");
 
     fGetDescription = (nscapi::plugin_api::lpGetDescription)module_.load_proc("NSGetModuleDescription");
     if (!fGetDescription) throw plugin_exception(get_alias_or_name(), "Could not load NSGetModuleDescription");

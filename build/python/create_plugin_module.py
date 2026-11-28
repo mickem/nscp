@@ -20,6 +20,7 @@ EXPORTS
 	NSGetModuleDescription
 	NSGetModuleVersion
 	NSGetModuleFlags
+	NSGetModuleCategory
 	NSHasCommandHandler
 	NSHasMessageHandler
 	NSHandleMessage
@@ -767,6 +768,9 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 	extern int NSGetModuleFlags(int *flags) {
 		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleFlags(flags);
 	}
+	extern int NSGetModuleCategory(char* buf, int buflen) {
+		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleCategory(buf, buflen);
+	}
 	extern int NSUnloadModule(unsigned int id) {
 		int ret;
 		{
@@ -872,6 +876,7 @@ extern "C" int NSGetModuleName(char* buf, int buflen);
 extern "C" int NSGetModuleDescription(char* buf, int buflen);
 extern "C" int NSGetModuleVersion(int *major, int *minor, int *revision);
 extern "C" int NSGetModuleFlags(int *flags);
+extern "C" int NSGetModuleCategory(char* buf, int buflen);
 extern "C" NSCAPI::boolReturn NSHasCommandHandler(unsigned int plugin_id);
 extern "C" NSCAPI::boolReturn NSHasMessageHandler(unsigned int plugin_id);
 extern "C" void NSHandleMessage(unsigned int plugin_id, const char* data, unsigned int len);
@@ -949,6 +954,14 @@ public:
 	*/
 	static int getModuleFlags() {
 		return {% if module.experimental %}NSCAPI::module_flags::experimental{% else %}NSCAPI::module_flags::none{% endif %};
+	}
+	/**
+	* What kind of module this is (module.json "category"): check, database,
+	* container, server, client, script, scheduling or tool.
+	* @return the category, empty when the module declares none
+	*/
+	static std::string getModuleCategory() {
+		return "{{module.category|cstring}}";
 	}
 
 {% if module.commands or module.command_fallback%}
@@ -1070,6 +1083,11 @@ events = False
 # and the link fails when the class does not implement it.
 diagnostics = False
 
+# The kinds a module can declare itself as (module.json "category"); keep in
+# step with web/src/modules/groups.ts and docs/hooks/reference_nav.py.
+MODULE_CATEGORIES = ('check', 'database', 'container', 'server', 'client', 'script', 'scheduling', 'tool')
+
+
 class Module:
 	name = ''
 	title = ''
@@ -1079,6 +1097,7 @@ class Module:
 	loaders = "both"
 	managed = False
 	experimental = False
+	category = ''
 
 	def __init__(self, data):
 		if data['name']:
@@ -1096,6 +1115,12 @@ class Module:
 		# documentation render it as a marker.
 		if 'experimental' in data and data['experimental']:
 			self.experimental = True
+		# "category": what kind of module this is, for grouping it in the web
+		# UI's module list and the reference documentation.
+		if 'category' in data and data['category']:
+			if data['category'] not in MODULE_CATEGORIES:
+				raise Exception('Invalid category "%s" in module.json: use one of %s' % (data['category'], ', '.join(MODULE_CATEGORIES)))
+			self.category = data['category']
 		if data['version']:
 			if data['version'] == 'auto':
 				self.version = None

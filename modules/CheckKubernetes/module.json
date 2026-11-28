@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Kubernetes cluster checker",
 		"description"	: "Check a Kubernetes cluster through its API server: cluster health, pods, nodes and workloads.",
+		"category"	: "container",
 		"name"			: "CheckKubernetes",
 		"alias"			: "kubernetes",
 		"version"		: "auto",

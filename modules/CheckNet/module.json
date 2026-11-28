@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Network related checks",
 		"description"		: "Network related checks such as check_ping, check_tcp, check_dns, check_http, check_connections and check_ntp_offset.",
+		"category"		: "check",
 		"name"			: "CheckNet",
 		"alias"			: "net",
 		"version"		: "auto",

@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Python script",
 		"description"	: "Loads and processes internal Python scripts",
+		"category"	: "script",
 		"name"			: "PythonScript",
 		"alias"			: "python",
 		"version"		: "auto",

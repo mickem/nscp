@@ -2,6 +2,7 @@
 	"module"		: {
 		"title"			: "Task shedule checker",
 		"description"		: "Check status of your scheduled jobs.",
+		"category"		: "check",
 		"name"			: "CheckTaskSched",
 		"alias"			: "tasksched",
 		"version"		: "auto"

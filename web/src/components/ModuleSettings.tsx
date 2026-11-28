@@ -5,6 +5,7 @@ import SettingsCollection from "./SettingsCollection.tsx";
 import SettingsKeyValueCollection from "./SettingsKeyValueCollection.tsx";
 import { useMemo, useState } from "react";
 import { PageFrameContext } from "../modules/kit/pageFrame.ts";
+import ListsBar from "../modules/kit/ListsBar.tsx";
 import { isBoolTrue } from "../common/settings.ts";
 import { getCollectionConfig, getModulePage } from "../modules/registry.ts";
 
@@ -153,7 +154,13 @@ export default function ModuleSettings({
         })}
         {/* The panel's save bar: pinned to the bottom of the window while it has
           unsaved changes, below the lists. */}
-        <Box ref={setSaveBar} sx={{ position: "sticky", bottom: 0, zIndex: 2 }} />
+        <Box ref={setSaveBar} sx={{ position: "sticky", bottom: 0, zIndex: 2 }}>
+          {/* A page that is only lists has nothing to save, but its config can
+            still be shown. */}
+          {!Panel && !expert && page && lists > 0 && (
+            <ListsBar moduleId={moduleId} paths={[...visibleCollectionPaths, ...kvPaths]} />
+          )}
+        </Box>
       </Stack>
     </PageFrameContext.Provider>
   );

@@ -28,6 +28,8 @@ struct plugin_cache_item {
   bool is_loaded;
   // The module declared itself experimental in its module.json.
   bool experimental;
+  // What kind of module it is (module.json "category"), or empty.
+  std::string category;
 
   plugin_cache_item() : id(0), is_loaded(false), experimental(false) {}
   plugin_cache_item(const plugin_type& other);
@@ -42,6 +44,7 @@ struct plugin_cache_item {
     version = other.version;
     is_loaded = other.is_loaded;
     experimental = other.experimental;
+    category = other.category;
     return *this;
   }
 };

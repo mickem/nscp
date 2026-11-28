@@ -5,6 +5,7 @@ import { Button, Stack, TextField } from "@mui/material";
 import { ReactNode } from "react";
 import { Scope } from "./changes.ts";
 import { ScopeToggle } from "./ValueField.tsx";
+import { NO_PASSWORD_AUTOFILL } from "./noAutofill.ts";
 
 interface Props {
   label: string;
@@ -46,7 +47,7 @@ export default function SecretField({
         <TextField
           label={label}
           type="password"
-          autoComplete="new-password"
+          slotProps={{ htmlInput: NO_PASSWORD_AUTOFILL }}
           // Only what the reader types: emptying the field again keeps the
           // stored value.
           value={changed ? value : ""}

@@ -72,6 +72,7 @@ describe("REST modules (v1)", () => {
             metadata: {
               alias: "",
               plugin_id: anyPluginId,
+              category: "script",
             },
             module_url: expect.stringMatching(
               /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/$/,
@@ -115,6 +116,7 @@ describe("REST modules (v1)", () => {
             metadata: {
               alias: "",
               plugin_id: anyPluginId,
+              category: "script",
             },
             module_url: expect.stringMatching(
               /^https:\/\/127\.0\.0\.1:8443\/api\/v1\/modules\/L[Uu][Aa]Script\/$/,
@@ -135,6 +137,7 @@ describe("REST modules (v1)", () => {
             metadata: {
               alias: "",
               plugin_id: anyPluginId,
+              category: "check",
             },
             module_url: "https://127.0.0.1:8443/api/v1/modules/CheckNSCP/",
             name: "CheckNSCP",
@@ -165,6 +168,7 @@ describe("REST modules (v1)", () => {
           metadata: {
             alias: "",
             plugin_id: anyPluginId,
+            category: "check",
           },
           name: "CheckNSCP",
           title: expect.anything(),
@@ -204,6 +208,7 @@ describe("REST modules (v1)", () => {
           metadata: {
             alias: "",
             plugin_id: anyPluginId,
+            category: "check",
           },
           name: "CheckNSCP",
           title: "CheckNSCP",
@@ -243,6 +248,7 @@ describe("REST modules (v1)", () => {
           metadata: {
             alias: "",
             plugin_id: anyPluginId,
+            category: "check",
           },
           name: "CheckNSCP",
           title: "CheckNSCP",
