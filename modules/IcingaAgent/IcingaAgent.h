@@ -5,6 +5,8 @@
 
 #include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/protobuf/command.hpp>
+#include <string>
 
 namespace icinga_agent {
 class agent;
@@ -23,8 +25,13 @@ class IcingaAgent : public nscapi::impl::simple_plugin {
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
   void prepareShutdown();
   bool unloadModule();
+  bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
+                       PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
 
  private:
   void stop();
+  // Where the certificates go, as configured: set on every load, so the
+  // command line sees it too.
+  std::string certificate_directory_;
   std::shared_ptr<icinga_agent::agent> agent_;
 };

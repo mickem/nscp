@@ -87,6 +87,22 @@ void ModifyServiceType(LPCTSTR szName, DWORD dwServiceType) {
   if (result != TRUE) throw service_control_exception("Could not change service information");
 }
 
+void SetStartType(std::wstring name, DWORD dwStartType) {
+  SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
+  if (!schSCManager) throw service_control_exception("OpenSCManager failed: " + error::lookup::last_error());
+  SC_HANDLE schService = OpenService(schSCManager, name.c_str(), SERVICE_CHANGE_CONFIG);
+  if (!schService) {
+    DWORD err = GetLastError();
+    CloseServiceHandle(schSCManager);
+    throw service_control_exception("Unable to open service: " + error::lookup::last_error(err));
+  }
+  BOOL result = ChangeServiceConfig(schService, SERVICE_NO_CHANGE, dwStartType, SERVICE_NO_CHANGE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+  DWORD err = GetLastError();
+  CloseServiceHandle(schService);
+  CloseServiceHandle(schSCManager);
+  if (result != TRUE) throw service_control_exception("Could not change the start type of the service: " + error::lookup::last_error(err));
+}
+
 DWORD GetServiceType(LPCTSTR szName) {
   LPQUERY_SERVICE_CONFIG lpqscBuf = (LPQUERY_SERVICE_CONFIG)LocalAlloc(LPTR, 4096);
   if (lpqscBuf == NULL) {

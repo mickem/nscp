@@ -24,6 +24,9 @@ class service_control_exception : public std::exception {
 void Install(std::wstring, std::wstring, std::wstring, DWORD = SERVICE_WIN32_OWN_PROCESS, std::wstring args = std::wstring(),
              std::wstring exe = std::wstring());
 void ModifyServiceType(LPCTSTR szName, DWORD dwServiceType);
+// Change when a service starts: SERVICE_AUTO_START, SERVICE_DEMAND_START or
+// SERVICE_DISABLED. Throws service_control_exception.
+void SetStartType(std::wstring name, DWORD dwStartType);
 void Uninstall(std::wstring);
 void Start(std::wstring);
 bool isStarted(std::wstring);

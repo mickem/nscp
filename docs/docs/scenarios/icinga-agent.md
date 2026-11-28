@@ -118,6 +118,10 @@ object CheckCommand "nscp-disk" {
 }
 ```
 
+Services on the ITL's own Windows commands (`disk-windows`, `load-windows`, `nscp-local-cpu`, ...) need no new
+command: the agent answers those under their Icinga names, see
+[Migrating from the Icinga 2 Windows Agent](migrating-from-icinga-agent.md).
+
 The argument values are NSClient++ filter expressions, as on any other transport. A list value repeats its key
 (`time=5s time=1m`); `set_if` turns a boolean into a flag; an argument whose variable is not set is left out.
 
@@ -222,6 +226,9 @@ Icinga agent: stored the certificate signed by the Icinga CA in .../icinga/win-h
 Icinga agent: Disconnected from icinga-master.example.com: Received a signed certificate, reconnecting with it
 Icinga agent: Connected to Icinga endpoint 'icinga-master' at icinga-master.example.com:5665
 ```
+
+On Windows, install with `LAYOUT=modern` so that this directory is under `C:\ProgramData\NSClient++`, readable by
+`SYSTEM` and `Administrators` only, rather than in the install folder: see [file layout](../concepts/file-layout.md).
 
 The key, the signed certificate and the Icinga CA are kept in `certificate directory` (default
 `${certificate-path}/icinga`); the key is readable only by the account NSClient++ runs as. The ticket is only needed
@@ -361,6 +368,8 @@ The host stays UP while the agent is connected (`Zone 'win-host-01' is connected
 
 ## Next steps
 
+- [Migrating from the Icinga 2 Windows Agent](migrating-from-icinga-agent.md) - for a host that runs the Icinga
+  agent or Icinga for Windows today: command mapping, and taking over its certificate.
 - [IcingaAgent reference](../reference/client/IcingaAgent.md) - every setting of the module.
 - [Permissions](../concepts/permissions.md) - grant the master only what it monitors.
 - [Windows Server Health](windows-server-health.md) - which checks to schedule for a baseline.

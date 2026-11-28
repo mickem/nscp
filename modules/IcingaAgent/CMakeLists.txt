@@ -11,10 +11,13 @@ set(PROTOCOL_SRCS
     icinga_agent_arguments.cpp
     icinga_agent_execute.cpp
     icinga_agent_fingerprint.cpp
+    icinga_agent_import.cpp
     icinga_agent_json.cpp
     icinga_agent_macros.cpp
     icinga_agent_messages.cpp
     icinga_agent_netstring.cpp
+    icinga_agent_thresholds.cpp
+    icinga_agent_translate.cpp
 )
 
 set(SRCS
@@ -22,7 +25,9 @@ set(SRCS
     "${TARGET}.cpp"
     ${PROTOCOL_SRCS}
     icinga_agent_connection.cpp
+    icinga_agent_import_command.cpp
     icinga_agent_pki.cpp
+    icinga_agent_service.cpp
     ${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -39,12 +44,21 @@ if(WIN32)
         icinga_agent_arguments.hpp
         icinga_agent_execute.hpp
         icinga_agent_fingerprint.hpp
+        icinga_agent_import.hpp
+        icinga_agent_import_command.hpp
         icinga_agent_json.hpp
         icinga_agent_macros.hpp
         icinga_agent_messages.hpp
         icinga_agent_netstring.hpp
+        icinga_agent_thresholds.hpp
+        icinga_agent_translate.hpp
         icinga_agent_connection.hpp
         icinga_agent_pki.hpp
+        icinga_agent_service.hpp
+        ${NSCP_INCLUDEDIR}/win/service_control.cpp
+        ${NSCP_INCLUDEDIR}/win/service_control.hpp
+        ${NSCP_ERROR_CPP}
+        ${NSCP_ERROR_HPP}
         icinga_agent_openssl.hpp
         ${NSCP_DEF_PLUGIN_HPP}
     )
@@ -60,6 +74,7 @@ target_link_libraries(
     ${Boost_JSON_LIBRARY}
     nscp_net
     ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${NSCP_DEF_PLUGIN_LIB}
     ${OPENSSL_LIBRARIES}
@@ -73,10 +88,13 @@ NSCP_CREATE_TEST(
         icinga_agent_arguments_test.cpp
         icinga_agent_execute_test.cpp
         icinga_agent_fingerprint_test.cpp
+        icinga_agent_import_test.cpp
         icinga_agent_json_test.cpp
         icinga_agent_macros_test.cpp
         icinga_agent_messages_test.cpp
         icinga_agent_netstring_test.cpp
+        icinga_agent_thresholds_test.cpp
+        icinga_agent_translate_test.cpp
         ${PROTOCOL_SRCS}
     LIBRARIES
         GTest::gtest_main

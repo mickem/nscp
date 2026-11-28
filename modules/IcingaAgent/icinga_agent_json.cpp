@@ -92,6 +92,28 @@ bool is_truthy(const json::value &v) {
   }
 }
 
+bool has_value(const json::object &obj, const char *key) {
+  const json::value *value = find(obj, key);
+  return value && !is_empty(*value);
+}
+
+bool truthy_field(const json::object &obj, const char *key) {
+  const json::value *value = find(obj, key);
+  return value && is_truthy(*value);
+}
+
+std::vector<std::string> text_list(const json::object &obj, const char *key) {
+  std::vector<std::string> out;
+  const json::value *value = find(obj, key);
+  if (!value || is_empty(*value)) return out;
+  if (value->is_array()) {
+    for (const json::value &element : value->get_array()) out.push_back(to_text(element));
+  } else {
+    out.push_back(to_text(*value));
+  }
+  return out;
+}
+
 long to_long(const json::value &v, const long fallback) {
   if (v.is_int64()) return static_cast<long>(v.get_int64());
   if (v.is_uint64()) return static_cast<long>(v.get_uint64());

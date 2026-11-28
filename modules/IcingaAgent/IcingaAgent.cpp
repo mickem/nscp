@@ -12,19 +12,25 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread/thread.hpp>
 #include <chrono>
+#include <map>
+#include <mutex>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/registry.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/utf8.hpp>
+#include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <threads/guarded_io_context.hpp>
 #include <threads/guarded_thread.hpp>
 
 #include "icinga_agent_connection.hpp"
+#include "icinga_agent_import_command.hpp"
 #include "icinga_agent_json.hpp"
 #include "icinga_agent_pki.hpp"
 #include "icinga_agent_protocol.hpp"
@@ -39,6 +45,7 @@ struct agent_config {
   std::string endpoint_name;
   std::string certificate_directory;
   bool allow_arguments = true;
+  translation_config translation;
   std::string tls_version = "1.2+";
   std::string allowed_ciphers;
   std::string parent_fingerprint_setting;
@@ -70,7 +77,10 @@ class agent : public std::enable_shared_from_this<agent> {
         net_work_(asio::make_work_guard(net_io_)),
         check_work_(asio::make_work_guard(check_io_)),
         reconnect_timer_(net_io_),
-        paths_(pki_paths::for_endpoint(config_.certificate_directory, config_.endpoint_name)) {}
+        paths_(pki_paths::for_endpoint(config_.certificate_directory, config_.endpoint_name)) {
+    // `this` outlives the function: it is stored in a member.
+    config_.translation.is_local_query = [this](const std::string &name) { return has_local_query(name); };
+  }
 
   void start() {
     if (ensure_bootstrap_certificate(paths_, config_.endpoint_name)) {
@@ -240,7 +250,7 @@ class agent : public std::enable_shared_from_this<agent> {
   static double now() { return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); }
 
   void execute(const std::shared_ptr<connection> &conn, const boost::json::value &params) {
-    const query_request req = parse_execute_command(params);
+    const query_request req = parse_execute_command(params, config_.translation);
     check_result result;
     result.check_source = config_.endpoint_name;
     result.execution_start = now();
@@ -252,7 +262,7 @@ class agent : public std::enable_shared_from_this<agent> {
     } else if (!req.error.empty()) {
       result.exit_status = 3;
       result.output = "UNKNOWN: " + req.error;
-    } else if (!config_.allow_arguments && !req.arguments.empty()) {
+    } else if (!config_.allow_arguments && !req.arguments.empty() && !req.fixed_arguments) {
       result.exit_status = 3;
       result.output = "UNKNOWN: arguments are not allowed on this agent (see /settings/Icinga/agent/allow arguments)";
     } else {
@@ -276,7 +286,45 @@ class agent : public std::enable_shared_from_this<agent> {
     conn->send(make_check_result(req.host, req.service, result));
   }
 
+  // Whether another module has registered a query or an alias under `name`.
+  // Asked once a minute per name at most: the answer changes only when a
+  // module loads or a script registers a command.
+  bool has_local_query(const std::string &name) {
+    const auto now = std::chrono::steady_clock::now();
+    {
+      const std::lock_guard<std::mutex> lock(local_queries_mutex_);
+      const auto cached = local_queries_.find(name);
+      if (cached != local_queries_.end() && now - cached->second.second < std::chrono::seconds(60)) return cached->second.first;
+    }
+    bool found = false;
+    try {
+      PB::Registry::RegistryRequestMessage request;
+      PB::Registry::RegistryRequestMessage::Request *payload = request.add_payload();
+      payload->mutable_inventory()->set_name(name);
+      payload->mutable_inventory()->set_fetch_all(false);
+      payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY);
+      payload->mutable_inventory()->add_type(PB::Registry::ItemType::QUERY_ALIAS);
+      std::string buffer;
+      core_->registry_query(request.SerializeAsString(), buffer);
+      PB::Registry::RegistryResponseMessage response;
+      response.ParseFromString(buffer);
+      for (const auto &r : response.payload()) {
+        for (const auto &item : r.inventory()) {
+          if (boost::iequals(item.name(), name)) found = true;
+        }
+      }
+    } catch (const std::exception &e) {
+      NSC_DEBUG_MSG(std::string("Icinga agent: could not look up the query '") + name + "': " + e.what());
+    }
+    if (found) NSC_DEBUG_MSG("Icinga agent: '" + name + "' is a query on this agent; it runs as that, not as the built-in translation");
+    const std::lock_guard<std::mutex> lock(local_queries_mutex_);
+    local_queries_[name] = std::make_pair(found, now);
+    return found;
+  }
+
   agent_config config_;
+  std::mutex local_queries_mutex_;
+  std::map<std::string, std::pair<bool, std::chrono::steady_clock::time_point>> local_queries_;
   nscapi::core_wrapper *core_;
   unsigned int plugin_id_;
   asio::io_context net_io_;
@@ -320,6 +368,24 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
   // clang-format off
   settings.alias().add_path_to_settings()
     ("Icinga agent", "Native Icinga 2 agent: connect to an Icinga 2 parent over the cluster protocol and run the checks it schedules.")
+    ("commands", sh::fun_values_path([&config](auto key, auto value) {
+        try {
+          icinga_agent::command_alias alias;
+          str::utils::parse_alias_command(value, alias.query, alias.arguments);
+          if (alias.query.empty()) throw std::invalid_argument("no query");
+          config.translation.aliases[key] = alias;
+        } catch (const std::exception &e) {
+          NSC_LOG_ERROR("Icinga agent: refusing the command alias '" + key + "': " + utf8::utf8_from_native(e.what()));
+        }
+      }),
+      "Icinga command aliases",
+      "Icinga check commands this agent answers as an NSClient++ query: `<Icinga command> = <query> <argument>...`. "
+      "An argument may use the macros the master sends with the check, as the command's own arguments do on the master "
+      "(`disk-windows = check_drivesize drive=$disk_win_path$`): an argument whose macro has no value is left out, "
+      "and one that is a single list macro becomes one argument per element. "
+      "An alias here takes precedence over the built-in translation of the same command (see `translate commands`). "
+      "Commands that import `ifw-api` name their own query and are not looked up here.",
+      "ICINGA COMMAND", "The NSClient++ query and arguments to run for this Icinga check command")
   ;
   // clang-format on
   settings.alias()
@@ -356,6 +422,14 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
                 "Whether the parent may pass arguments to the checks it runs. True (the default) because Icinga CheckCommands carry their "
                 "thresholds as arguments; false runs only argument-less queries and aliases defined on the agent. Which queries the parent may "
                 "run at all is the permission policy's job (/settings/permissions).")
+      .add_bool("translate commands", sh::bool_key(&config.translation.builtin, true), "TRANSLATE ICINGA COMMANDS",
+                "Whether the agent answers the Windows check commands of the Icinga Template Library under their Icinga names: "
+                "`disk-windows`, `load-windows`, `memory-windows`, `swap-windows`, `service-windows`, `procs-windows`, `uptime-windows`, "
+                "`users-windows`, `network-windows`, `perfmon-windows`, `update-windows`, `ping-windows` and the `nscp-local` commands. "
+                "The master sends such a command with the variables the service set (`disk_win_warn`, `disk_win_path`, ...); the agent "
+                "turns them into the matching query and its `-w` / `-c`, so a host that ran the Icinga 2 agent keeps its services "
+                "unchanged. True (the default); false runs only `ifw-api` commands, the aliases under `commands` and queries called "
+                "by their own name.")
       .add_string("tls version", sh::string_key(&config.tls_version, "1.2+"), "TLS VERSION",
                   "Which TLS versions the agent negotiates with its parent, in the same vocabulary as the other servers and clients: an exact "
                   "version (1.0, 1.1, 1.2, 1.3), a trailing + for that version or later, or `any`. The default, 1.2+, is what Icinga 2 accepts "
@@ -371,6 +445,7 @@ bool IcingaAgent::loadModuleEx(std::string alias, const NSCAPI::moduleLoadMode m
 
   settings.register_all();
   settings.notify();
+  certificate_directory_ = config.certificate_directory;
 
   if (mode != NSCAPI::normalStart && mode != NSCAPI::reloadStart) return true;
   if (config.connection.host.empty()) {
@@ -434,5 +509,17 @@ bool IcingaAgent::unloadModule() {
     NSC_LOG_ERROR_EX("unload");
     return false;
   }
+  return true;
+}
+
+bool IcingaAgent::commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
+                                  PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &) {
+  // Only what was sent to this module (`nscp icinga-agent ...`). An exec
+  // offered to every module is somebody else's to answer.
+  if (target_mode != NSCAPI::target_module) return false;
+  if (request.arguments_size() > 0 && request.arguments(0) == "import") {
+    return icinga_agent::run_import_command(get_core(), get_id(), certificate_directory_, request, response);
+  }
+  nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp icinga-agent import --help");
   return true;
 }
