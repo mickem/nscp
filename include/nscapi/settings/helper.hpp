@@ -184,6 +184,9 @@ class alias_extension {
 
   settings_keys_easy_init add_key_to_settings(const std::string& path = "") { return {get_settings_path(path), parent_, owner_}; }
   settings_paths_easy_init add_path_to_settings(const std::string& path = "") { return {get_settings_path(path), owner_}; }
+  // Templates for the old web UI. The core still stores them, but nothing
+  // serves or reads them: a module's config page lives in web/src/modules/.
+  // Kept so out-of-tree modules calling it still build.
   settings_tpl_easy_init add_templates(const std::string& path = "") { return {get_settings_path(path), owner_}; }
   std::string get_settings_path(const std::string& path) const {
     if (path.empty()) return "/settings/" + alias_;

@@ -65,7 +65,25 @@ function documentedKeys(path: string): string[] {
   return [...out];
 }
 
+// The modules the reference documents with settings of their own: a file
+// docs/reference/<Module>.yaml that names a /settings path.
+function documentedModulesWithSettings(): string[] {
+  const dir = join(process.cwd(), "..", "docs", "reference");
+  return readdirSync(dir)
+    .filter((n) => n.endsWith(".yaml") && n !== "common-options.yaml")
+    .filter((n) => /^\s+\/settings\/[^:\n]*:$/m.test(readFileSync(join(dir, n), "utf8")))
+    .map((n) => n.replace(/\.yaml$/, ""));
+}
+
 describe("module page registry", () => {
+  // A new module with settings gets a page of its own (CLAUDE.md, "Adding a
+  // new check module"); expert mode is the fallback, not the plan.
+  it("gives every documented module with settings a page", () => {
+    const modules = documentedModulesWithSettings();
+    expect(modules.length).toBeGreaterThan(30);
+    expect(modules.filter((m) => getModulePage(m) === undefined)).toEqual([]);
+  });
+
   it("registers each module once", () => {
     const ids = MODULE_PAGES.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);

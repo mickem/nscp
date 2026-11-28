@@ -267,38 +267,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
       "WRAPPED SCRIPT", "A wrapped script definitions")
 
       ;
-
-
-    settings.alias().add_templates()
-      ("scripts", "plus", "Add a simple script",
-	      "Add binding for a simple script",
-	      "{"
-	      "\"fields\": [ "
-	      " { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
-	      " { \"id\": \"script\",		\"title\" : \"Script\",		\"type\" : \"data-choice\",	\"desc\" : \"The name of the script\",\"exec\" : \"CheckExternalScripts list --json\" } , "
-	      " { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the script use $ARG1$ to specify arguments\" } , "
-	      " { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
-	      " ], "
-	      "\"events\": { "
-	      "\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); var val = node.get_field('script').value(); if (node.get_field('args').value()) { val += ' ' + node.get_field('args').value(); }; f.value(val)})\""
-	      "}"
-	      "}")
-      ("alias", "plus", "Add an alias",
-	      "Add binding for an alias",
-	      "{"
-	      "\"fields\": [ "
-	      " { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
-	      " { \"id\": \"command\",	\"title\" : \"Command\",	\"type\" : \"data-choice\",	\"desc\" : \"The name of the command to execute\",\"exec\" : \"CheckExternalScripts list --json --query\" } , "
-	      " { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the command. use $ARG1$ to specify arguments\" } , "
-	      " { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
-	      " ], "
-	      "\"events\": { "
-	      "\"onSave\": \"(function (node) { node.save_path = self.path; \\nvar f = node.get_field('cmd'); \\nf.key = node.get_field('alias').value(); \\nvar val = node.get_field('command').value(); \\nif (node.get_field('args').value()) { \\nval += ' ' + node.get_field('args').value(); }; \\nf.value(val)})\""
-	      "}"
-	      "}")
-      ;
     // clang-format on
-
     settings.register_all();
     settings.notify();
 

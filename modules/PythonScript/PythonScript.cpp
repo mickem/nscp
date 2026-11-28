@@ -75,23 +75,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	      "Python scripts", "A list of scripts available to run from the PythonScript module.",
 	      "SCRIPT", "For more configuration options add a dedicated section")
       ;
-
-    settings.alias().add_templates()
-      ("scripts", "plus", "Add a simple script",
-	      "Add binding for a simple script",
-	      "{"
-	      "\"fields\": [ "
-	      " { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This has to be unique and if you load a script twice the script can use the alias to diferentiate between instances.\"} , "
-	      " { \"id\": \"script\",		\"title\" : \"Script\",		\"type\" : \"data-choice\",	\"desc\" : \"The name of the script\",\"exec\" : \"PythonScript list --json\" } , "
-	      " { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
-	      " ], "
-	      "\"events\": { "
-	      "\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); f.value(node.get_field('script').value()); })\""
-	      "}"
-	      "}")
-      ;
     // clang-format on
-
     // The `scripts` callback only records what it finds; notify() below is
     // what runs it, and at that point there is no Python interpreter yet -
     // constructing a script takes the GIL, and `python_script::init()` cannot
