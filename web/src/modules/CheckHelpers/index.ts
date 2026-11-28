@@ -1,6 +1,8 @@
 import type { KeyValueTemplate, ModulePage } from "../types.ts";
+import CheckHelpersAliases from "./CheckHelpersAliases.tsx";
+import { CHECK_HELPERS_ALIAS_PATH } from "./paths.ts";
 
-const CHECK_HELPERS_ALIASES: KeyValueTemplate[] = [
+export const CHECK_HELPERS_ALIASES: KeyValueTemplate[] = [
   {
     label: "alias_cpu_bounded",
     description: "CPU load with bounds",
@@ -90,7 +92,11 @@ const CHECK_HELPERS_ALIASES: KeyValueTemplate[] = [
 const CheckHelpers: ModulePage = {
   id: "CheckHelpers",
   collections: {
-    "/settings/check helpers/alias": { kind: "keyValue", presets: CHECK_HELPERS_ALIASES },
+    [CHECK_HELPERS_ALIAS_PATH]: {
+      kind: "keyValue",
+      presets: CHECK_HELPERS_ALIASES,
+      Editor: CheckHelpersAliases,
+    },
   },
 };
 

@@ -1,0 +1,355 @@
+// The scripts and scheduling pages against a fake API.
+import { describe, expect, it } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Settings } from "../api/api";
+import {
+  authenticatedState,
+  installFetchMock,
+  jsonResponse,
+  renderWithProviders,
+} from "../test/test-utils";
+import CheckHelpersAliases from "./CheckHelpers/CheckHelpersAliases";
+import { CHECK_HELPERS_ALIAS_PATH as A } from "./CheckHelpers/paths";
+import ExtScriptsPage from "./CheckExternalScripts/ExtScriptsPage";
+import ScriptsEditor from "./CheckExternalScripts/ScriptsEditor";
+import ScriptListEditor from "./kit/ScriptListEditor";
+import { PageFrameContext } from "./kit/pageFrame";
+import WrappedScriptsEditor from "./CheckExternalScripts/WrappedScriptsEditor";
+import { readWrappings, wrappedCommand } from "./CheckExternalScripts/wrapped";
+import {
+  argumentsRisk,
+  EXT_SCRIPTS,
+  readScripts,
+  Script,
+  scriptWrites,
+} from "./CheckExternalScripts/ext";
+
+function api(stored: Settings[]) {
+  const writes: string[] = [];
+  const runs: string[] = [];
+  installFetchMock({
+    "/api/v2/settings": async (req: Request) => {
+      if (req.method === "PUT") {
+        const body = (await req.json()) as Settings;
+        writes.push(`[${body.path}] ${body.key}=${body.value}`);
+        return jsonResponse("");
+      }
+      return jsonResponse(stored);
+    },
+    [encodeURI(`/api/v2/settings${A}`)]: async (req: Request) => {
+      if (req.method === "DELETE") {
+        writes.push(
+          `delete [${A}] ${new URL(req.url, "http://localhost").searchParams.get("key")}`,
+        );
+        return jsonResponse("");
+      }
+      return jsonResponse(stored);
+    },
+    "/api/v2/queries": jsonResponse([
+      {
+        name: "check_cpu",
+        title: "",
+        plugin: "CheckSystem",
+        description: "Check CPU load",
+        experimental: false,
+        query_url: "",
+      },
+      {
+        name: "check_ok",
+        title: "",
+        plugin: "CheckHelpers",
+        description: "Just return OK",
+        experimental: false,
+        query_url: "",
+      },
+    ]),
+    "/api/v2/aliases": jsonResponse([]),
+    "/api/v2/queries/check_cpu/help": jsonResponse({
+      name: "check_cpu",
+      keyword_source: "check_cpu",
+      parameters: [
+        {
+          name: "time",
+          default_value: "",
+          required: false,
+          repeatable: true,
+          content_type: "",
+          short_description: "The time to check",
+          long_description: "",
+        },
+      ],
+      fields: [],
+    }),
+    "/api/v2/queries/check_cpu/commands/execute": async (req: Request) => {
+      runs.push(new URL(req.url, "http://localhost").search);
+      return jsonResponse({
+        command: "check_cpu",
+        result: 1,
+        lines: [{ message: "CPU load is high", perf: {} }],
+      });
+    },
+  });
+  return { writes, runs };
+}
+
+const dialog = () => within(screen.getByRole("dialog"));
+
+describe("check helpers aliases", () => {
+  const render = (stored: Settings[]) => {
+    const r = api(stored);
+    renderWithProviders(<CheckHelpersAliases collectionPath={A} descriptions={[]} />, {
+      preloadedState: authenticatedState,
+    });
+    return r;
+  };
+
+  it("lists each alias with what it runs", async () => {
+    render([
+      { path: A, key: "cpu", value: 'check_cpu "warn=load > 80%"' },
+      { path: A, key: "files", value: 'check_files "path=$ARG1$"' },
+    ]);
+    const table = within(await screen.findByRole("table", { name: "Aliases" }));
+    expect(table.getByText('check_cpu "warn=load > 80%"')).toBeInTheDocument();
+    expect(table.getAllByText("takes arguments")).toHaveLength(1);
+  });
+
+  it("builds an alias with the check picker and an option chip, and runs it", async () => {
+    const { writes, runs } = render([]);
+    await userEvent.click(await screen.findByRole("button", { name: "Add alias" }));
+    await userEvent.click(screen.getByText("Empty alias"));
+    await userEvent.type(dialog().getByLabelText("Name"), "cpu_5m");
+    await userEvent.type(dialog().getByLabelText("Command"), "check_cpu");
+    await userEvent.click(dialog().getByText("Options and filter keywords of check_cpu"));
+    await userEvent.click(await dialog().findByText("time"));
+    await userEvent.type(dialog().getByLabelText("Arguments"), "5m");
+    await userEvent.click(dialog().getByRole("button", { name: "Run now" }));
+    expect(await dialog().findByText("WARNING: CPU load is high")).toBeInTheDocument();
+    expect(runs).toEqual(["?time=5m"]);
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toEqual([`[${A}] cpu_5m=check_cpu time=5m`]));
+  });
+
+  it("keeps spaces typed in the arguments", async () => {
+    const { writes } = render([]);
+    await userEvent.click(await screen.findByRole("button", { name: "Add alias" }));
+    await userEvent.click(screen.getByText("Empty alias"));
+    await userEvent.type(dialog().getByLabelText("Name"), "cpu_bounded");
+    await userEvent.type(dialog().getByLabelText("Command"), "check_cpu");
+    await userEvent.type(
+      dialog().getByLabelText("Arguments"),
+      '"warn=load > 80%" "crit=load > 90%"',
+    );
+    expect(dialog().getByText("Check CPU load")).toBeInTheDocument();
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(writes).toEqual([`[${A}] cpu_bounded=check_cpu "warn=load > 80%" "crit=load > 90%"`]),
+    );
+  });
+
+  it("starts from a preset, and cannot run one that takes arguments", async () => {
+    const { writes } = render([]);
+    await userEvent.click(await screen.findByRole("button", { name: "Add alias" }));
+    await userEvent.click(screen.getByText("alias_process_stopped"));
+    expect(dialog().getByLabelText("Name")).toHaveValue("alias_process_stopped");
+    expect(dialog().getByRole("button", { name: "Run now" })).toBeDisabled();
+    expect(dialog().getByText(/Takes \$ARG1\$ from its caller/)).toBeInTheDocument();
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes[0]).toMatch(/^\[.*\] alias_process_stopped=check_process /));
+  });
+
+  it("renames by writing the new name and dropping the old", async () => {
+    const { writes } = render([{ path: A, key: "cpu", value: "check_cpu" }]);
+    const row = (await screen.findByText("cpu", { selector: "td" })).closest("tr") as HTMLElement;
+    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    await userEvent.clear(dialog().getByLabelText("Name"));
+    await userEvent.type(dialog().getByLabelText("Name"), "cpu_load");
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toEqual([`[${A}] cpu_load=check_cpu`, `delete [${A}] cpu`]));
+  });
+});
+
+describe("external scripts", () => {
+  const S = EXT_SCRIPTS;
+
+  it("writes a script with only a command as one line, and one with options as a section", () => {
+    expect(scriptWrites(null, "foo", { command: "scripts\\foo.bat" })).toEqual([
+      { kind: "put", path: S, key: "foo", value: "scripts\\foo.bat" },
+    ]);
+    const line: Script = { name: "foo", form: "line", values: { command: "x" } };
+    expect(scriptWrites(line, "foo", { command: "x", user: "svc" })).toEqual([
+      { kind: "delete", path: S, key: "foo" },
+      { kind: "put", path: `${S}/foo`, key: "command", value: "x" },
+      { kind: "put", path: `${S}/foo`, key: "user", value: "svc" },
+    ]);
+    const section: Script = { name: "foo", form: "section", values: { command: "x", user: "svc" } };
+    expect(scriptWrites(section, "foo", { command: "y", user: "" })).toEqual([
+      { kind: "put", path: `${S}/foo`, key: "command", value: "y" },
+      { kind: "delete", path: `${S}/foo`, key: "user" },
+    ]);
+    expect(scriptWrites(section, "bar", { command: "x", user: "svc" })[0]).toEqual({
+      kind: "delete-path",
+      path: `${S}/foo`,
+    });
+  });
+
+  it("reads both forms", () => {
+    expect(
+      readScripts([
+        { path: S, key: "a", value: "a.bat" },
+        { path: `${S}/b`, key: "command", value: "b.ps1" },
+        { path: `${S}/b`, key: "user", value: "svc" },
+        { path: `${S}/default`, key: "user", value: "x" },
+      ]),
+    ).toEqual([
+      { name: "a", form: "line", values: { command: "a.bat" } },
+      { name: "b", form: "section", values: { command: "b.ps1", user: "svc" } },
+    ]);
+  });
+
+  it("warns once arguments are allowed, and more with shell characters", () => {
+    expect(argumentsRisk("false", "true")).toBeNull();
+    expect(argumentsRisk("true", "false")?.severity).toBe("warning");
+    expect(argumentsRisk("true", "true")?.severity).toBe("error");
+  });
+
+  it("offers shell characters only once arguments are allowed", async () => {
+    api([]);
+    renderWithProviders(<ExtScriptsPage />, { preloadedState: authenticatedState });
+    const allow = await screen.findByRole("switch", {
+      name: "Let callers pass arguments to scripts",
+    });
+    expect(
+      screen.queryByRole("switch", { name: "Allow shell characters in arguments" }),
+    ).toBeNull();
+    await userEvent.click(allow);
+    expect(screen.getByText("Callers can pass arguments to scripts")).toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: "Allow shell characters in arguments" }),
+    ).toBeInTheDocument();
+  });
+
+  it("adds a script as one line", async () => {
+    const { writes } = api([]);
+    renderWithProviders(<ScriptsEditor />, { preloadedState: authenticatedState });
+    await userEvent.click(await screen.findByRole("button", { name: "Add script" }));
+    await userEvent.type(dialog().getByLabelText("Name"), "check_foo");
+    await userEvent.type(dialog().getByLabelText("Command line"), "scripts/foo.sh");
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toEqual([`[${S}] check_foo=scripts/foo.sh`]));
+  });
+});
+
+describe("script lists", () => {
+  const P = "/settings/lua/scripts";
+  it("adds a script under its file's name, and lists what an empty value loads", async () => {
+    const { writes } = api([{ path: "/settings/dotnet/plugins", key: "Checks", value: "" }]);
+    renderWithProviders(
+      <>
+        <ScriptListEditor
+          collectionPath={P}
+          title="Lua scripts"
+          subheader=""
+          noun="script"
+          fileLabel="Script file"
+          fileHelp=""
+        />
+        <ScriptListEditor
+          collectionPath="/settings/dotnet/plugins"
+          title=".NET plugins"
+          subheader=""
+          noun="plugin"
+          fileLabel="Assembly"
+          fileHelp=""
+          emptyMeans={(a) => `${a}.dll`}
+        />
+      </>,
+      { preloadedState: authenticatedState },
+    );
+    expect(await screen.findByText("Checks.dll")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add script" }));
+    await userEvent.type(dialog().getByLabelText("Script file"), "lua/check_foo.lua");
+    expect(dialog().getByLabelText("Alias")).toHaveAttribute("placeholder", "check_foo");
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toEqual([`[${P}] check_foo=lua/check_foo.lua`]));
+  });
+});
+
+describe("wrapped scripts", () => {
+  const W = "/settings/external scripts/wrappings";
+  const WS = "/settings/external scripts/wrapped scripts";
+
+  it("builds the command line the agent runs, by extension", () => {
+    const wrappings = readWrappings([
+      { path: W, key: "py", value: 'python "scripts\\%SCRIPT%" %ARGS%' },
+    ]);
+    expect(wrappings.map((w) => w.ext)).toEqual(["bat", "ps1", "py", "vbs"]);
+    expect(wrappedCommand('check_updates.ps1 -Days 7 $ARGS"$', wrappings).command).toBe(
+      'powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File "scripts\\check_updates.ps1" $ARGS"$',
+    );
+    expect(wrappedCommand("foo.py a b", wrappings).command).toBe('python "scripts\\foo.py" a b');
+    // The extension match is case sensitive, as in the agent.
+    expect(wrappedCommand("FOO.PS1", wrappings)).toEqual({ ext: "PS1", command: null });
+    expect(wrappedCommand("noext", wrappings).ext).toBe("none");
+  });
+
+  it("does not take a stored copy of a built-in wrapping for an override", () => {
+    const [bat] = readWrappings([{ path: W, key: "bat", value: '"scripts\\%SCRIPT%" $ARGS"$' }]);
+    expect(bat.overridden).toBe(false);
+  });
+
+  it("edits a wrapped script as a file and arguments, showing what runs", async () => {
+    const { writes } = api([{ path: WS, key: "updates", value: "check_updates.ps1 -Days 7" }]);
+    renderWithProviders(<WrappedScriptsEditor />, { preloadedState: authenticatedState });
+    expect(
+      await screen.findByText(
+        'powershell.exe -NoProfile -ExecutionPolicy Bypass -NonInteractive -File "scripts\\check_updates.ps1" $ARGS"$',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add wrapped script" }));
+    await userEvent.type(dialog().getByLabelText("Name"), "logs");
+    await userEvent.type(dialog().getByLabelText("Script file"), "check_logs.sh");
+    expect(dialog().getByText(/the agent registers an empty command/)).toBeInTheDocument();
+    await userEvent.clear(dialog().getByLabelText("Script file"));
+    await userEvent.type(dialog().getByLabelText("Script file"), "check_logs.bat");
+    await userEvent.type(dialog().getByLabelText("Arguments"), "C:\\logs 10");
+    expect(dialog().getByText('"scripts\\check_logs.bat" $ARGS"$')).toBeInTheDocument();
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toEqual([`[${WS}] logs=check_logs.bat C:\\logs 10`]));
+  });
+});
+
+describe("the page frame", () => {
+  it("shows the lists in Show config, and keeps the save bar in the page's slot", async () => {
+    api([
+      { path: EXT_SCRIPTS, key: "check_foo", value: "scripts/foo.sh" },
+      { path: "/settings/check helpers/alias", key: "other_module", value: "check_ok" },
+    ]);
+    const slot = document.createElement("div");
+    document.body.appendChild(slot);
+    renderWithProviders(
+      <PageFrameContext.Provider value={{ saveBar: slot, collectionPaths: [EXT_SCRIPTS] }}>
+        <ExtScriptsPage />
+      </PageFrameContext.Provider>,
+      { preloadedState: authenticatedState },
+    );
+    const allow = await screen.findByRole("switch", {
+      name: "Let callers pass arguments to scripts",
+    });
+    expect(within(slot).getByText("No unsaved changes.")).toBeInTheDocument();
+    expect(within(slot).getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.click(allow);
+    // The bar goes where the page puts it, not inside the panel.
+    const bar = within(slot).getByRole("region", { name: "Unsaved changes" });
+    // The setting, and switching the module on.
+    expect(within(bar).getByText("2 unsaved changes")).toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: "Save" })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Show config" }));
+    const text = within(screen.getByRole("dialog")).getByText(/\[\/modules\]/).textContent ?? "";
+    expect(text).toContain("allow arguments = true");
+    expect(text).toContain(`[${EXT_SCRIPTS}]\ncheck_foo = scripts/foo.sh`);
+    expect(text).not.toContain("other_module");
+    slot.remove();
+  });
+});

@@ -45,7 +45,7 @@ describe("NRPE page", () => {
     await waitFor(() => expect(radio(/^One-way TLS/)).toBeChecked());
     expect(screen.getByText("Clients are not authenticated")).toBeInTheDocument();
     expect(radio(/^No arguments/)).toBeChecked();
-    expect(screen.getByText("No changes.")).toBeInTheDocument();
+    expect(screen.getByText("No unsaved changes.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
@@ -61,7 +61,7 @@ describe("NRPE page", () => {
     const onExpertMode = vi.fn();
     render([nrpe("verify mode", "peer")], onExpertMode);
     await waitFor(() => expect(radio(/^Custom/)).toBeChecked());
-    expect(screen.getByText("No changes.")).toBeInTheDocument();
+    expect(screen.getByText("No unsaved changes.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Edit them in expert mode" }));
     expect(onExpertMode).toHaveBeenCalled();
   });

@@ -11,6 +11,7 @@ import type {
   ModulePage,
 } from "./types.ts";
 import CheckEventLog from "./CheckEventLog/index.ts";
+import CheckExternalScripts from "./CheckExternalScripts/index.ts";
 import CheckHelpers from "./CheckHelpers/index.ts";
 import CheckLogFile from "./CheckLogFile/index.ts";
 import CheckMKServer from "./CheckMKServer/index.ts";
@@ -23,6 +24,10 @@ import NCPAServer from "./NCPAServer/index.ts";
 import NRPEServer from "./NRPEServer/index.ts";
 import NSCAServer from "./NSCAServer/index.ts";
 import NSClientServer from "./NSClientServer/index.ts";
+import DotnetPlugins from "./DotnetPlugins/index.tsx";
+import PythonScript from "./PythonScript/index.tsx";
+import LUAScript from "./LUAScript/index.tsx";
+import Scheduler from "./Scheduler/index.ts";
 import WEBServer from "./WEBServer/index.ts";
 import Op5Client from "./Op5Client/index.ts";
 import ElasticClient from "./ElasticClient/index.ts";
@@ -40,6 +45,7 @@ import SyslogClient from "./SyslogClient/index.ts";
 
 export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   CheckEventLog,
+  CheckExternalScripts,
   CheckHelpers,
   CheckLogFile,
   CheckMKClient,
@@ -48,11 +54,13 @@ export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   CheckSystem,
   CheckSystemUnix,
   CollectdClient,
+  DotnetPlugins,
   ElasticClient,
   GearmanClient,
   GraphiteClient,
   IcingaAgent,
   IcingaClient,
+  LUAScript,
   NCPAServer,
   NRDPClient,
   NRPEClient,
@@ -63,6 +71,8 @@ export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   NSClientServer,
   NSCPClient,
   Op5Client,
+  PythonScript,
+  Scheduler,
   SMTPClient,
   SyslogClient,
   WEBServer,

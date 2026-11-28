@@ -13,6 +13,7 @@ import {
 import { FieldValue, KeySpec, KeyTable, keyChanges, keyInScope, readKey } from "./keys.ts";
 
 export interface Panel {
+  moduleId: string;
   stored: Settings[] | undefined;
   busy: boolean;
   saved: boolean;
@@ -71,6 +72,7 @@ export function usePanel(moduleId: string, keys: KeyTable, onReset?: () => void)
   }, [onReset]);
 
   return {
+    moduleId,
     stored,
     busy,
     saved,
