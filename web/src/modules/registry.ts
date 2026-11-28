@@ -11,6 +11,11 @@ import type {
   ModulePage,
 } from "./types.ts";
 import CheckEventLog from "./CheckEventLog/index.ts";
+import CheckKubernetes from "./CheckKubernetes/index.ts";
+import CheckDocker from "./CheckDocker/index.tsx";
+import CheckWMI from "./CheckWMI/index.ts";
+import CheckMySQL from "./CheckMySQL/index.ts";
+import CheckMSSQL from "./CheckMSSQL/index.ts";
 import CheckExternalScripts from "./CheckExternalScripts/index.ts";
 import CheckHelpers from "./CheckHelpers/index.ts";
 import CheckLogFile from "./CheckLogFile/index.ts";
@@ -44,15 +49,20 @@ import SMTPClient from "./SMTPClient/index.ts";
 import SyslogClient from "./SyslogClient/index.ts";
 
 export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
+  CheckDocker,
   CheckEventLog,
   CheckExternalScripts,
   CheckHelpers,
+  CheckKubernetes,
   CheckLogFile,
   CheckMKClient,
   CheckMKServer,
+  CheckMSSQL,
+  CheckMySQL,
   CheckNSCP,
   CheckSystem,
   CheckSystemUnix,
+  CheckWMI,
   CollectdClient,
   DotnetPlugins,
   ElasticClient,
