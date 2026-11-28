@@ -4,12 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
 import Module from "./Module";
 import { SettingsDescription } from "../api/api";
-import {
-  authenticatedState,
-  installFetchMock,
-  jsonResponse,
-  renderWithProviders,
-} from "../test/test-utils";
+import { authenticatedState, installFetchMock, jsonResponse, renderWithProviders } from "../test/test-utils";
 
 const description = (over: Partial<SettingsDescription>): SettingsDescription => ({
   path: "",
@@ -30,7 +25,7 @@ const description = (over: Partial<SettingsDescription>): SettingsDescription =>
 });
 
 // One ordinary and one advanced key for the module under test.
-function serve(moduleId: string, path: string, loaded = true) {
+function serve(moduleId: string, path: string, loaded = true, registers = true) {
   installFetchMock({
     [`/api/v2/modules/${moduleId}`]: jsonResponse({
       id: moduleId,
@@ -47,18 +42,24 @@ function serve(moduleId: string, path: string, loaded = true) {
     "/api/v2/queries": jsonResponse([]),
     "/api/v2/aliases": jsonResponse([]),
     "/api/v2/settings": jsonResponse([]),
-    "/api/v2/settings/descriptions": jsonResponse([
-      description({ path, title: "Section", plugins: [moduleId] }),
-      description({ path, key: "plain", title: "PLAIN KEY", plugins: [moduleId] }),
-      description({
-        path,
-        key: "deep",
-        title: "ADVANCED KEY",
-        is_advanced_key: true,
-        plugins: [moduleId],
-      }),
-    ]),
+    "/api/v2/settings/descriptions": jsonResponse(
+      registers ? keysOf(moduleId, path) : keysOf("OtherModule", "/settings/other"),
+    ),
   });
+}
+
+function keysOf(moduleId: string, path: string) {
+  return [
+    description({ path, title: "Section", plugins: [moduleId] }),
+    description({ path, key: "plain", title: "PLAIN KEY", plugins: [moduleId] }),
+    description({
+      path,
+      key: "deep",
+      title: "ADVANCED KEY",
+      is_advanced_key: true,
+      plugins: [moduleId],
+    }),
+  ];
 }
 
 function renderModule(moduleId: string) {
@@ -92,8 +93,9 @@ describe("Module page expert mode", () => {
   });
 
   it("starts on for a module without a tailored page", async () => {
-    serve("CheckDisk", "/settings/disk");
-    renderModule("CheckDisk");
+    // No tailored page, and no settings of its own: the descriptions are mocked.
+    serve("CheckNet", "/settings/net");
+    renderModule("CheckNet");
 
     expect(await screen.findByText("ADVANCED KEY")).toBeInTheDocument();
     expect(expertSwitch()).toBeChecked();
@@ -116,6 +118,15 @@ describe("Module page expert mode", () => {
 
     await userEvent.click(expertSwitch());
     expect(hideDefaultsSwitch()).toBeInTheDocument();
+  });
+
+  it("says so for a module that registers no settings", async () => {
+    serve("CheckNet", "/settings/net", true, false);
+    renderModule("CheckNet");
+    expect(await screen.findByText(/This module has no settings/)).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Expert mode" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Hide defaults" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/has no tailored settings page yet/)).not.toBeInTheDocument();
   });
 
   it("shows no settings for a module that is not loaded", async () => {

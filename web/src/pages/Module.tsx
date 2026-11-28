@@ -80,6 +80,14 @@ export default function Module() {
         (expert || !setting.is_advanced_key) && !setting.is_sample_key && !setting.is_template_key,
     ) || [];
   const mySettings = relevantSettings.filter((setting) => setting.plugins.includes(id));
+  // A module whose checks take everything as arguments registers nothing:
+  // no form, no expert mode, nothing to filter.
+  const noSettings =
+    !hasPage &&
+    settings !== undefined &&
+    !settings.some(
+      (s) => s.plugins.includes(id) && !s.is_sample_key && !s.is_template_key,
+    );
 
   const onRefresh = () => {
     dispatch(
@@ -126,17 +134,23 @@ export default function Module() {
       <Toolbar>
         <Trail trail={[{ link: "/modules", title: "Modules" }]} title={module?.title || id} />
         <Spacing />
-        <Tooltip title={EXPERT_TOOLTIP} arrow describeChild>
-          <FormControlLabel
-            control={
-              <Switch size="small" checked={expert} onChange={(e) => setExpert(e.target.checked)} />
-            }
-            label="Expert mode"
-          />
-        </Tooltip>
+        {!noSettings && (
+          <Tooltip title={EXPERT_TOOLTIP} arrow describeChild>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={expert}
+                  onChange={(e) => setExpert(e.target.checked)}
+                />
+              }
+              label="Expert mode"
+            />
+          </Tooltip>
+        )}
         {/* Filters only the generic settings form: the one in expert mode,
             and the only one a module without a page of its own has. */}
-        {(expert || !hasPage) && (
+        {(expert || !hasPage) && !noSettings && (
           <FormControlLabel
             control={
               <Switch
@@ -261,7 +275,13 @@ export default function Module() {
           onClick={() => setExpert(false)}
         />
       )}
-      {module?.loaded && expert && !hasPage && (
+      {module?.loaded && noSettings && (
+        <NscpAlert
+          severity="info"
+          text="This module has no settings: its checks take everything they need as arguments."
+        />
+      )}
+      {module?.loaded && expert && !hasPage && !noSettings && (
         <NscpAlert
           severity="info"
           text="This module has no tailored settings page yet, so every setting it registers is shown as the schema describes it, advanced ones included."
@@ -269,7 +289,7 @@ export default function Module() {
       )}
       {/* An unloaded module cannot be configured from here, in either view: its
           page would read and write settings nothing is using. */}
-      {module?.loaded && (
+      {module?.loaded && !noSettings && (
         <ModuleSettings
           settings={mySettings}
           moduleId={id}
