@@ -198,7 +198,10 @@ void registry_query_handler::inventory_modules(const PB::Registry::RegistryReque
     plugin_cache_item itm = inventory_plugin_on_disk(tmp_list, q.name());
     if (!itm.dll.empty()) {
       add_module(rp, itm, false);
-      plugins_->get_plugin_cache()->add_plugins(tmp_list);
+      // One module looked up by name is not a scan of the folder: marking the
+      // cache complete here made every later ?all=true listing skip the scan
+      // and show only the loaded modules.
+      plugins_->get_plugin_cache()->remember_plugins(tmp_list);
     }
     return;
   }
