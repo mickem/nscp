@@ -10,9 +10,6 @@
 // does not exist, so every connection fails locally and at once: no server,
 // no network and no credentials are involved.
 
-#include "CheckMySQL.h"
-#include "mysql_facts.hpp"
-
 #include <gtest/gtest.h>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -20,6 +17,9 @@
 #include <nscapi/test_helpers.hpp>
 #include <string>
 #include <vector>
+
+#include "CheckMySQL.h"
+#include "mysql_facts.hpp"
 
 // Test binaries have no generated module glue, so the plugin singleton
 // (normally provided by NSC_WRAP_DLL()) must be defined here.
@@ -111,6 +111,29 @@ TEST_F(CheckMySQLModule, LoadRegistersItsKeysWithTheDocumentedDefaults) {
   EXPECT_EQ(core().default_for(kRoot, "tls"), "false");
   EXPECT_EQ(core().default_for(kRoot, "timeout"), "10");
   EXPECT_EQ(core().default_for(kRoot, "query timeout"), "30");
+  EXPECT_EQ(core().default_for(kRoot, "allow host override"), "false");
+}
+
+// The opt-in is read from the settings and reaches the guard: with it set, a
+// request that moves the configured password is let through to the connect
+// (which fails here, on the missing socket - but as a connect failure, not
+// as the refusal).
+TEST_F(CheckMySQLModule, AllowHostOverrideIsReadFromTheSettings) {
+  core().set_setting(kRoot, "user", "monitor");
+  core().set_setting(kRoot, "password", "configured-secret");
+  core().set_setting(kRoot, "timeout", "1");
+  ASSERT_TRUE(load());
+  const response_type refused = check_mysql({"host=127.0.0.1", "port=1"});
+  EXPECT_EQ(refused.result(), PB::Common::ResultCode::UNKNOWN);
+  ASSERT_GT(refused.lines_size(), 0);
+  EXPECT_NE(refused.lines(0).message().find("allow host override"), std::string::npos) << refused.lines(0).message();
+
+  core().set_setting(kRoot, "allow host override", "true");
+  ASSERT_TRUE(module_.loadModuleEx("", NSCAPI::reloadStart));
+  const response_type allowed = check_mysql({"host=127.0.0.1", "port=1"});
+  EXPECT_EQ(allowed.result(), PB::Common::ResultCode::UNKNOWN);
+  ASSERT_GT(allowed.lines_size(), 0);
+  EXPECT_NE(allowed.lines(0).message().find("Failed to connect to MySQL server '127.0.0.1:1'"), std::string::npos) << allowed.lines(0).message();
 }
 
 TEST_F(CheckMySQLModule, ThePasswordIsRegisteredAsSensitive) {

@@ -188,7 +188,7 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
 
-  mssql_options::with_session(info, response, [&](mssql_odbc::session &session) {
+  mssql_options::with_session(defaults, info, response, [&](mssql_odbc::session &session) {
     const mssql_odbc::result res = session.execute(COUNTERS_SQL);
     std::vector<counter_row> rows;
     for (std::size_t i = 0; i < res.rows.size(); i++) {

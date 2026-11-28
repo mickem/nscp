@@ -14,20 +14,27 @@ namespace mssql_options {
 // Shared connection options for all CheckMSSQL commands. `info` arrives
 // pre-populated with the module's /settings/mssql defaults, so options only
 // override what the user passes explicitly.
+//
+// `allow host override` is deliberately not here: it decides whether these
+// options may move the configured credentials to another server, so a request
+// that could set it would decide that for itself. with_session() enforces it
+// (see mssql_odbc::connection_override_refusal()).
 inline void add_connection_options(boost::program_options::options_description &desc, mssql_odbc::connection_info &info) {
   namespace po = boost::program_options;
   // clang-format off
   desc.add_options()
-    ("server", po::value<std::string>(&info.server)->default_value(info.server), "SQL Server to connect to: host, host\\INSTANCE or host,port.")
+    ("server", po::value<std::string>(&info.server)->default_value(info.server), "SQL Server to connect to: host, host\\INSTANCE or host,port. Changing it requires user and password, unless /settings/mssql sets allow host override.")
     ("database", po::value<std::string>(&info.database), "Database (initial catalog) to connect to (default: the login's default database).")
-    ("user", po::value<std::string>(&info.user), "SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.")
-    ("password", po::value<std::string>(&info.password), "Password for the SQL login.")
-    ("driver", po::value<std::string>(&info.driver), "ODBC driver to use (default: newest installed SQL Server driver).")
-    ("connection-string", po::value<std::string>(&info.raw_connection_string), "Raw ODBC connection string; overrides all other connection options.")
+    ("user", po::value<std::string>(&info.user)->notifier([&info](const std::string &) { info.user_from_request = true; }),
+      "SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.")
+    ("password", po::value<std::string>(&info.password)->notifier([&info](const std::string &) { info.password_from_request = true; }),
+      "Password for the SQL login.")
+    ("driver", po::value<std::string>(&info.driver), "ODBC driver to use (default: newest installed SQL Server driver). Changing it requires user and password, unless /settings/mssql sets allow host override.")
+    ("connection-string", po::value<std::string>(&info.raw_connection_string), "Raw ODBC connection string; overrides all other connection options. Only accepted when /settings/mssql sets allow host override.")
     ("timeout", po::value<int>(&info.login_timeout)->default_value(info.login_timeout), "Connection (login) timeout in seconds.")
     ("query-timeout", po::value<int>(&info.query_timeout)->default_value(info.query_timeout), "Query timeout in seconds.")
-    ("trust-cert", po::value<bool>(&info.trust_server_cert)->implicit_value(true)->default_value(info.trust_server_cert), "Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).")
-    ("encrypt", po::value<std::string>(&info.encrypt), "Force connection encryption on or off: yes or no (modern ODBC drivers only).")
+    ("trust-cert", po::value<bool>(&info.trust_server_cert)->implicit_value(true)->default_value(info.trust_server_cert), "Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only). Turning it on where /settings/mssql has it off requires user and password, unless allow host override is set.")
+    ("encrypt", po::value<std::string>(&info.encrypt), "Force connection encryption on or off: yes or no (modern ODBC drivers only). Changing it requires user and password, unless /settings/mssql sets allow host override.")
     ;
   // clang-format on
 }
@@ -73,8 +80,14 @@ void run_with_session(const mssql_odbc::connection_info &info, TReport report, T
 }
 
 // The same, for a check: a failure becomes the response's UNKNOWN line.
+// `configured` is the module's /settings/mssql defaults the request started
+// from; a request that moves the configured credentials to a server of its
+// choosing is refused here, before anything is contacted.
 template <class TBody>
-void with_session(const mssql_odbc::connection_info &info, PB::Commands::QueryResponseMessage::Response *response, TBody body) {
+void with_session(const mssql_odbc::connection_info &configured, const mssql_odbc::connection_info &info,
+                  PB::Commands::QueryResponseMessage::Response *response, TBody body) {
+  const std::string refused = mssql_odbc::connection_override_refusal(configured, info);
+  if (!refused.empty()) return fail(response, refused);
   run_with_session(info, [response](const std::string &message) { fail(response, message); }, body);
 }
 

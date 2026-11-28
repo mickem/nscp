@@ -81,7 +81,7 @@ void check_with(const mysql_client::connection_info &defaults, const PB::Command
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
 
-  mysql_options::with_runner(factory, info, response, [&](const mysql_client::query_runner &run) {
+  mysql_options::with_runner(factory, defaults, info, response, [&](const mysql_client::query_runner &run) {
     const mysql_client::result health = run(HEALTH_SQL);
     if (health.rows.empty()) throw mysql_client::mysql_exception("Server returned no version information");
 

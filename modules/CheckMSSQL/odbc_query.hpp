@@ -34,8 +34,30 @@ struct connection_info {
   int login_timeout = 10;             // seconds, SQL_ATTR_LOGIN_TIMEOUT
   int query_timeout = 30;             // seconds, SQL_ATTR_QUERY_TIMEOUT
 
+  // Not connection parameters: bookkeeping for connection_override_refusal().
+  // allow_host_override comes from /settings/mssql only and is never a request
+  // option; the *_from_request flags are set by add_connection_options() when
+  // the request itself names the option, as opposed to inheriting the
+  // configured value.
+  bool allow_host_override = false;
+  bool user_from_request = false;
+  bool password_from_request = false;
+
   std::string to_connection_string(const std::string &resolved_driver) const;
 };
+
+// Whether a request may connect with `requested`, given the module's
+// `configured` defaults. Returns the refusal message, or "" when allowed.
+//
+// The configured login - or, with none, Windows integrated authentication as
+// the account the agent runs as - goes to whatever server the connection
+// names. So a request that moves the destination (server, driver,
+// connection-string) or weakens how the server is authenticated (trust-cert,
+// encrypt) is refused unless it brings its own SQL login (user= and
+// password=), or /settings/mssql opted in with `allow host override`. A
+// connection string from the request picks its own authentication,
+// Trusted_Connection=yes included, so it always needs the opt-in.
+std::string connection_override_refusal(const connection_info &configured, const connection_info &requested);
 
 struct cell {
   std::string text;

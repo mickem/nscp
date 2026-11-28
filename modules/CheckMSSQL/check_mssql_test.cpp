@@ -92,6 +92,160 @@ TEST(ConnectionString, RawConnectionStringWinsOverEverything) {
 
 // --- driver selection ------------------------------------------------------------
 
+// --- allow host override ---------------------------------------------------------
+//
+// The configured login - or, with none, Windows integrated authentication as
+// the agent's account - goes to whatever server the connection names, so a
+// request may move the destination or weaken the certificate check only with
+// its own SQL login, or when /settings/mssql opted in.
+
+namespace {
+
+mssql_odbc::connection_info configured_login() {
+  mssql_odbc::connection_info configured;
+  configured.server = "db.internal";
+  configured.user = "monitor";
+  configured.password = "configured-secret";
+  configured.trust_server_cert = false;
+  return configured;
+}
+
+}  // namespace
+
+TEST(HostOverride, UnchangedDestinationIsAllowed) {
+  const mssql_odbc::connection_info configured = configured_login();
+  mssql_odbc::connection_info requested = configured;
+  requested.database = "app";
+  requested.login_timeout = 3;
+  EXPECT_EQ(mssql_odbc::connection_override_refusal(configured, requested), "");
+}
+
+TEST(HostOverride, EachDestinationOptionIsRefusedWithTheConfiguredLogin) {
+  const mssql_odbc::connection_info configured = configured_login();
+  struct {
+    const char *option;
+    void (*apply)(mssql_odbc::connection_info &);
+  } cases[] = {
+      {"server", [](mssql_odbc::connection_info &i) { i.server = "attacker.example"; }},
+      {"driver", [](mssql_odbc::connection_info &i) { i.driver = "SQL Server"; }},
+      {"trust-cert", [](mssql_odbc::connection_info &i) { i.trust_server_cert = true; }},
+      {"encrypt", [](mssql_odbc::connection_info &i) { i.encrypt = "no"; }},
+  };
+  for (const auto &c : cases) {
+    mssql_odbc::connection_info requested = configured;
+    c.apply(requested);
+    const std::string refused = mssql_odbc::connection_override_refusal(configured, requested);
+    EXPECT_NE(refused.find(c.option), std::string::npos) << c.option << ": " << refused;
+    EXPECT_NE(refused.find("allow host override"), std::string::npos) << refused;
+    EXPECT_NE(refused.find("SQL login configured"), std::string::npos) << refused;
+    EXPECT_EQ(refused.find("configured-secret"), std::string::npos) << refused;
+  }
+}
+
+TEST(HostOverride, IntegratedAuthenticationIsProtectedToo) {
+  // Nothing configured: the connection authenticates as the agent's account.
+  const mssql_odbc::connection_info configured;
+  mssql_odbc::connection_info requested = configured;
+  requested.server = "attacker.example";
+  const std::string refused = mssql_odbc::connection_override_refusal(configured, requested);
+  EXPECT_NE(refused.find("integrated authentication"), std::string::npos) << refused;
+
+  // An explicitly empty user and password is still integrated authentication.
+  requested.user_from_request = true;
+  requested.password_from_request = true;
+  EXPECT_NE(mssql_odbc::connection_override_refusal(configured, requested), "");
+}
+
+TEST(HostOverride, RequiringCertificateValidationIsAllowed) {
+  mssql_odbc::connection_info configured = configured_login();
+  configured.trust_server_cert = true;
+  mssql_odbc::connection_info requested = configured;
+  requested.trust_server_cert = false;
+  EXPECT_EQ(mssql_odbc::connection_override_refusal(configured, requested), "");
+}
+
+TEST(HostOverride, ARequestWithItsOwnLoginMayMoveTheDestination) {
+  const mssql_odbc::connection_info configured = configured_login();
+  mssql_odbc::connection_info requested = configured;
+  requested.server = "other.example";
+  requested.trust_server_cert = true;
+  requested.user = "other";
+  requested.password = "its-own";
+  requested.user_from_request = true;
+  requested.password_from_request = true;
+  EXPECT_EQ(mssql_odbc::connection_override_refusal(configured, requested), "");
+
+  // user= alone still sends the configured password.
+  requested.password = configured.password;
+  requested.password_from_request = false;
+  EXPECT_NE(mssql_odbc::connection_override_refusal(configured, requested), "");
+}
+
+TEST(HostOverride, ARequestConnectionStringNeedsTheOptIn) {
+  // Even with a user and password: the connection string decides the
+  // authentication itself (Trusted_Connection=yes) and wins over both.
+  const mssql_odbc::connection_info configured = configured_login();
+  mssql_odbc::connection_info requested = configured;
+  requested.raw_connection_string = "Driver={SQL Server};Server=attacker.example;Trusted_Connection=yes;";
+  requested.user = "other";
+  requested.password = "its-own";
+  requested.user_from_request = true;
+  requested.password_from_request = true;
+  const std::string refused = mssql_odbc::connection_override_refusal(configured, requested);
+  EXPECT_NE(refused.find("connection-string"), std::string::npos) << refused;
+}
+
+TEST(HostOverride, AConfiguredConnectionStringPinsTheDestination) {
+  // The configured connection string wins over server= and friends, so they move nothing.
+  mssql_odbc::connection_info configured;
+  configured.raw_connection_string = "Driver={ODBC Driver 18 for SQL Server};Server=db.internal;Trusted_Connection=yes;";
+  mssql_odbc::connection_info requested = configured;
+  requested.server = "attacker.example";
+  requested.driver = "SQL Server";
+  EXPECT_EQ(mssql_odbc::connection_override_refusal(configured, requested), "");
+}
+
+TEST(HostOverride, TheSettingPermitsIt) {
+  mssql_odbc::connection_info configured;
+  configured.allow_host_override = true;
+  mssql_odbc::connection_info requested = configured;
+  requested.server = "other.example";
+  requested.raw_connection_string = "Server=other.example;Trusted_Connection=yes;";
+  EXPECT_EQ(mssql_odbc::connection_override_refusal(configured, requested), "");
+}
+
+// End to end through a check: the refusal is the response, and no connection
+// is attempted (there is no SQL Server here - a connect would report
+// "Failed to connect to SQL Server" instead).
+TEST(HostOverride, ChecksRefuseBeforeConnecting) {
+  for (const std::string &command : {std::string("check_mssql"), std::string("check_mssql_query")}) {
+    PB::Commands::QueryRequestMessage::Request request;
+    request.set_command(command);
+    request.add_arguments("server=attacker.example");
+    if (command == "check_mssql_query") request.add_arguments("query=SELECT 1");
+    PB::Commands::QueryResponseMessage::Response response;
+    if (command == "check_mssql")
+      check_mssql_command::check(configured_login(), request, &response);
+    else
+      check_mssql_query_command::check(configured_login(), request, &response);
+    EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << command;
+    const std::string msg = join_lines(response);
+    EXPECT_NE(msg.find("allow host override"), std::string::npos) << command << ": " << msg;
+    EXPECT_EQ(msg.find("Failed to connect"), std::string::npos) << command << ": " << msg;
+  }
+}
+
+TEST(HostOverride, TheSettingIsNotARequestOption) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_mssql");
+  request.add_arguments("allow-host-override=true");
+  request.add_arguments("server=attacker.example");
+  PB::Commands::QueryResponseMessage::Response response;
+  check_mssql_command::check(configured_login(), request, &response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_EQ(join_lines(response).find("Failed to connect"), std::string::npos) << join_lines(response);
+}
+
 TEST(PickDriver, PrefersNewestModernDriver) {
   const std::vector<std::string> installed = {"SQL Server", "ODBC Driver 17 for SQL Server", "ODBC Driver 18 for SQL Server", "PostgreSQL Unicode"};
   EXPECT_EQ(mssql_odbc::session::pick_driver(installed), "ODBC Driver 18 for SQL Server");
@@ -250,8 +404,8 @@ TEST(ComputeHeadroom, LogFilesRollUpAsOneGroup) {
     auto log = make_file(8 * 1024 * 1024);
     log.file_id = 2 + i;
     log.type = 1;
-    log.data_space_id = 0;                        // every log file reports 0
-    log.volume = i == 0 ? "/log1" : "/log2";      // separate volumes, so they add
+    log.data_space_id = 0;                    // every log file reports 0
+    log.volume = i == 0 ? "/log1" : "/log2";  // separate volumes, so they add
     files.push_back(log);
   }
 
@@ -767,8 +921,8 @@ check_mssql_waits_command::wait_row make_wait(const std::string &type, long long
 
 TEST(BuildWaits, RatesAndSignalPctExcludeBenignWaits) {
   std::vector<check_mssql_waits_command::wait_row> rows;
-  rows.push_back(make_wait("PAGEIOLATCH_SH", 500, 50, 2000));  // io: 250 ms/s over a 2s window
-  rows.push_back(make_wait("LCK_M_X", 300, 30, 2000));         // lock: 150 ms/s
+  rows.push_back(make_wait("PAGEIOLATCH_SH", 500, 50, 2000));      // io: 250 ms/s over a 2s window
+  rows.push_back(make_wait("LCK_M_X", 300, 30, 2000));             // lock: 150 ms/s
   rows.push_back(make_wait("LAZYWRITER_SLEEP", 100000, 0, 2000));  // benign: excluded everywhere
 
   const auto out = check_mssql_waits_command::build_waits(rows);

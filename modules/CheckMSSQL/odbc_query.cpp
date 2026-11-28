@@ -272,6 +272,50 @@ std::string connection_info::to_connection_string(const std::string &resolved_dr
   return cs;
 }
 
+std::string connection_override_refusal(const connection_info &configured, const connection_info &requested) {
+  if (configured.allow_host_override) return "";
+
+  const bool own_connection_string = requested.raw_connection_string != configured.raw_connection_string;
+  std::vector<std::string> changed;
+  if (own_connection_string) {
+    changed.push_back("connection-string");
+  } else if (configured.raw_connection_string.empty()) {
+    // A configured connection string wins over every other option (see
+    // to_connection_string()), so with one in place they cannot move anything.
+    if (requested.server != configured.server) changed.push_back("server");
+    if (requested.driver != configured.driver) changed.push_back("driver");
+    // Only the weakening direction: asking for the certificate to be
+    // validated where the configuration trusts it blindly moves nothing.
+    if (requested.trust_server_cert && !configured.trust_server_cert) changed.push_back("trust-cert");
+    if (requested.encrypt != configured.encrypt) changed.push_back("encrypt");
+  }
+  if (changed.empty()) return "";
+
+  std::string how;
+  for (const std::string &option : changed) {
+    if (!how.empty()) how += "/";
+    how += option;
+  }
+
+  if (own_connection_string) {
+    return "A connection string supplied by the request (" + how +
+           ") chooses its own server and authentication, Windows integrated authentication as the account the agent runs as included, so it is "
+           "refused unless 'allow host override = true' is set in /settings/mssql. Configure the connection string there instead.";
+  }
+
+  // The request's own SQL login: both named, and a user, since an empty user
+  // and password is how integrated authentication is selected.
+  if (requested.user_from_request && requested.password_from_request && !requested.user.empty()) return "";
+
+  const bool integrated = requested.user.empty() && requested.password.empty();
+  const std::string credentials =
+      integrated ? "Windows integrated authentication (as the account the agent runs as)" : "the SQL login configured in /settings/mssql";
+  return "The connection uses " + credentials + ", so the request cannot change " + how +
+         ": that would authenticate to a server of the caller's choosing, or without checking that the server answering is the configured one. "
+         "Supply user= and password= with the request, configure the server in /settings/mssql, or set 'allow host override = true' there to "
+         "permit this.";
+}
+
 std::string session::pick_driver(const std::vector<std::string> &installed) {
   static const char *preferred[] = {"ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server", "ODBC Driver 13 for SQL Server",
                                     "ODBC Driver 11 for SQL Server", "SQL Server Native Client 11.0", "SQL Server"};

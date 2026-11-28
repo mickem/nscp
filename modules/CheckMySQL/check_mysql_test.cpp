@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include "check_mysql.hpp"
+
 #include <gtest/gtest.h>
+
 #include <nscapi/nscapi_helper_singleton.hpp>
 
-#include "check_mysql.hpp"
 #include "check_mysql_query.hpp"
 #include "mysql_client.hpp"
 
@@ -48,8 +50,7 @@ mysql_client::session_factory healthy_mariadb() {
     return [](const std::string &sql) -> mysql_client::result {
       if (sql.find("@@version") != std::string::npos)
         return make_result({"version", "version_comment", "max_connections"}, {{"10.11.14-MariaDB-ubu2404", "Ubuntu 24.04", "151"}});
-      if (sql.find("GLOBAL STATUS") != std::string::npos)
-        return make_result({"Variable_name", "Value"}, {{"Uptime", "86400"}, {"Threads_connected", "3"}});
+      if (sql.find("GLOBAL STATUS") != std::string::npos) return make_result({"Variable_name", "Value"}, {{"Uptime", "86400"}, {"Threads_connected", "3"}});
       throw mysql_exception("unexpected query: " + sql);
     };
   };
@@ -131,8 +132,7 @@ struct connect_probe {
       called = true;
       seen = info;
       return [](const std::string &sql) -> mysql_client::result {
-        if (sql.find("@@version") != std::string::npos)
-          return make_result({"version", "version_comment", "max_connections"}, {{"8.4.3", "MySQL", "151"}});
+        if (sql.find("@@version") != std::string::npos) return make_result({"version", "version_comment", "max_connections"}, {{"8.4.3", "MySQL", "151"}});
         return make_result({"Variable_name", "Value"}, {{"Uptime", "1"}, {"Threads_connected", "1"}});
       };
     };
@@ -144,8 +144,8 @@ struct connect_probe {
 // file read (defaults-file) as the service account. They must be rejected
 // outright - not merely ignored - and the connect must never be attempted.
 TEST(CheckMysql, CodeLoadingOptionsAreRejectedFromTheRequest) {
-  for (const std::string &arg : {std::string("plugin-dir=\\\\attacker\\share"), std::string("socket=\\\\attacker\\pipe\\x"),
-                                 std::string("defaults-file=\\\\attacker\\share\\my.cnf")}) {
+  for (const std::string &arg :
+       {std::string("plugin-dir=\\\\attacker\\share"), std::string("socket=\\\\attacker\\pipe\\x"), std::string("defaults-file=\\\\attacker\\share\\my.cnf")}) {
     connect_probe probe;
     PB::Commands::QueryResponseMessage::Response response;
     EXPECT_EQ(run_health(probe.factory(), {arg}, response), PB::Common::ResultCode::UNKNOWN) << arg << ": " << join_lines(response);
@@ -209,9 +209,7 @@ TEST(CheckMysqlQuery, NoQuerySpecifiedReturnsUnknown) {
 
 TEST(CheckMysqlQuery, ColumnsBecomeKeywordsAndThresholdsApply) {
   const auto factory = [](const mysql_client::connection_info &) -> mysql_client::query_runner {
-    return [](const std::string &) -> mysql_client::result {
-      return make_result({"name", "value"}, {{"queue_a", "3"}, {"queue_b", "12"}});
-    };
+    return [](const std::string &) -> mysql_client::result { return make_result({"name", "value"}, {{"queue_a", "3"}, {"queue_b", "12"}}); };
   };
   PB::Commands::QueryResponseMessage::Response response;
   PB::Commands::QueryRequestMessage::Request request;
@@ -247,4 +245,146 @@ TEST(CheckMysqlQuery, StatementWithoutResultSetIsUnknown) {
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run_query(factory, {"query=SET @x = 1"}, response), PB::Common::ResultCode::UNKNOWN);
   EXPECT_NE(join_lines(response).find("no result set"), std::string::npos) << join_lines(response);
+}
+
+// --- allow host override -----------------------------------------------------
+//
+// The configured user/password go to whatever host the request names, so a
+// request that moves the destination (or drops the configured TLS) while those
+// credentials would travel is refused - before the factory is asked to connect
+// - unless it brings its own, or /settings/mysql opted in.
+
+namespace {
+
+mysql_client::connection_info configured_with_password() {
+  mysql_client::connection_info defaults;
+  defaults.host = "db.internal";
+  defaults.user = "monitor";
+  defaults.password = "configured-secret";
+  return defaults;
+}
+
+PB::Common::ResultCode run_health_with(const mysql_client::connection_info &defaults, const mysql_client::session_factory &factory,
+                                       const std::vector<std::string> &args, PB::Commands::QueryResponseMessage::Response &response) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_mysql");
+  for (const std::string &a : args) request.add_arguments(a);
+  check_mysql_command::check_with(defaults, request, &response, factory);
+  return response.result();
+}
+
+}  // namespace
+
+TEST(CheckMysqlHostOverride, MovingTheConfiguredCredentialsIsRefusedWithoutConnecting) {
+  for (const std::string &arg : {std::string("host=attacker.example"), std::string("port=3307")}) {
+    connect_probe probe;
+    PB::Commands::QueryResponseMessage::Response response;
+    EXPECT_EQ(run_health_with(configured_with_password(), probe.factory(), {arg}, response), PB::Common::ResultCode::UNKNOWN) << arg;
+    EXPECT_FALSE(probe.called) << arg << ": the configured password was sent to the request's destination";
+    const std::string msg = join_lines(response);
+    EXPECT_NE(msg.find("allow host override"), std::string::npos) << msg;
+    EXPECT_EQ(msg.find("configured-secret"), std::string::npos) << msg;
+  }
+}
+
+TEST(CheckMysqlHostOverride, DroppingTheConfiguredTlsIsRefused) {
+  mysql_client::connection_info defaults = configured_with_password();
+  defaults.tls = true;
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(defaults, probe.factory(), {"tls=false"}, response), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_FALSE(probe.called);
+  EXPECT_NE(join_lines(response).find("tls"), std::string::npos) << join_lines(response);
+}
+
+TEST(CheckMysqlHostOverride, RequiringTlsOrRepeatingTheConfiguredHostIsAllowed) {
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(configured_with_password(), probe.factory(), {"host=db.internal", "port=3306", "tls=true", "database=app"}, response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  ASSERT_TRUE(probe.called);
+  EXPECT_TRUE(probe.seen.tls);
+  EXPECT_EQ(probe.seen.database, "app");
+}
+
+TEST(CheckMysqlHostOverride, ARequestWithItsOwnCredentialsMayMoveTheDestination) {
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(configured_with_password(), probe.factory(), {"host=other.example", "user=other", "password=its-own"}, response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  ASSERT_TRUE(probe.called);
+  EXPECT_EQ(probe.seen.host, "other.example");
+  EXPECT_EQ(probe.seen.password, "its-own");
+}
+
+TEST(CheckMysqlHostOverride, OnlyTheUserIsNotTheRequestsOwnCredentials) {
+  // user= alone still sends the configured password along.
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(configured_with_password(), probe.factory(), {"host=other.example", "user=other"}, response), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_FALSE(probe.called);
+}
+
+TEST(CheckMysqlHostOverride, EmptyCredentialsDoNotCountWithADefaultsFile) {
+  // An empty user/password reaches the connector as NULL, which falls back to
+  // the defaults file's [client] credentials - the configured ones.
+  mysql_client::connection_info defaults;
+  defaults.defaults_file = "/etc/nscp/my.cnf";
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(defaults, probe.factory(), {"host=attacker.example", "user=", "password="}, response), PB::Common::ResultCode::UNKNOWN)
+      << join_lines(response);
+  EXPECT_FALSE(probe.called);
+}
+
+TEST(CheckMysqlHostOverride, NothingConfiguredMeansNothingToProtect) {
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(mysql_client::connection_info(), probe.factory(), {"host=other.example", "port=3307"}, response), PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_TRUE(probe.called);
+}
+
+TEST(CheckMysqlHostOverride, AConfiguredSocketPinsTheDestination) {
+  // With a socket configured host and port are not used, so they move nothing.
+  mysql_client::connection_info defaults = configured_with_password();
+  defaults.socket = "/var/run/mysqld/mysqld.sock";
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(defaults, probe.factory(), {"host=attacker.example"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  EXPECT_TRUE(probe.called);
+}
+
+TEST(CheckMysqlHostOverride, TheSettingPermitsIt) {
+  mysql_client::connection_info defaults = configured_with_password();
+  defaults.allow_host_override = true;
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(defaults, probe.factory(), {"host=other.example"}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  ASSERT_TRUE(probe.called);
+  EXPECT_EQ(probe.seen.host, "other.example");
+  EXPECT_EQ(probe.seen.password, "configured-secret");
+}
+
+TEST(CheckMysqlHostOverride, TheSettingIsNotARequestOption) {
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_health_with(configured_with_password(), probe.factory(), {"allow-host-override=true", "host=attacker.example"}, response),
+            PB::Common::ResultCode::UNKNOWN);
+  EXPECT_FALSE(probe.called);
+}
+
+TEST(CheckMysqlQueryHostOverride, TheQueryCheckIsGuardedToo) {
+  connect_probe probe;
+  PB::Commands::QueryResponseMessage::Response response;
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_mysql_query");
+  request.add_arguments("query=SELECT 1");
+  request.add_arguments("host=attacker.example");
+  check_mysql_query_command::check_with(configured_with_password(), request, &response, probe.factory());
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN) << join_lines(response);
+  EXPECT_FALSE(probe.called);
+  EXPECT_NE(join_lines(response).find("allow host override"), std::string::npos) << join_lines(response);
 }
