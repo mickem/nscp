@@ -291,6 +291,7 @@ export default function Module() {
           page would read and write settings nothing is using. */}
       {module?.loaded && !noSettings && (
         <ModuleSettings
+          key={id}
           settings={mySettings}
           moduleId={id}
           expert={expert}

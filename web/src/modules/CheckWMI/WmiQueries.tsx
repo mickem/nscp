@@ -1,15 +1,15 @@
 // WMI's named queries: name = WQL. A caller's query=<name> runs it as
 // written, whatever the access mode allows.
 import { Stack, Typography } from "@mui/material";
-import { useGetSettingsQuery } from "../../api/api.ts";
 import { readStored } from "../kit/changes.ts";
 import RunCheckButton from "../kit/RunCheckButton.tsx";
 import KeyValueCard from "../kit/KeyValueCard.tsx";
 import ValueField from "../kit/ValueField.tsx";
 import { queryAccessOf, WMI_PATH, WMI_QUERIES } from "./wmi.ts";
+import { useStagedSettings } from "../kit/staging.ts";
 
 export default function WmiQueries() {
-  const { data: stored } = useGetSettingsQuery();
+  const { stored } = useStagedSettings();
   const restricted = queryAccessOf(readStored(stored, WMI_PATH, "query access") ?? "any") !== "any";
   const rows = (stored ?? [])
     .filter((s) => s.path === WMI_QUERIES && s.key !== "")

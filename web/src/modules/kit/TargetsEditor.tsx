@@ -31,10 +31,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import { useMemo, useState } from "react";
 import {
   Settings,
-  useDeleteSettingsMutation,
   useExecuteQueryMutation,
-  useGetSettingsQuery,
-} from "../../api/api.ts";
+  } from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
 import {
   applyToStored,
@@ -42,8 +40,7 @@ import {
   enableModuleChange,
   pendingChanges,
   readStored,
-  useApplyChanges,
-} from "./changes.ts";
+  } from "./changes.ts";
 import ConfigDialog from "./ConfigDialog.tsx";
 import ModeSelector from "./ModeSelector.tsx";
 import { CUSTOM } from "./modes.ts";
@@ -63,6 +60,7 @@ import {
   targetValues,
 } from "./targets.ts";
 import ValueField from "./ValueField.tsx";
+import { useStagedSettings, changesToOps } from "./staging.ts";
 
 interface Props {
   spec: TargetSpec;
@@ -74,8 +72,7 @@ function worst(risks: Risk[]): Risk | undefined {
 }
 
 export default function TargetsEditor({ spec, onExpertMode }: Props) {
-  const { data: stored } = useGetSettingsQuery();
-  const [deleteSettings] = useDeleteSettingsMutation();
+  const { stored, write } = useStagedSettings();
   const [editing, setEditing] = useState<{ name: string; isNew: boolean } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,9 +82,9 @@ export default function TargetsEditor({ spec, onExpertMode }: Props) {
     if (!deleting) return;
     setError(null);
     try {
-      await deleteSettings({ path: targetPath(spec, deleting) }).unwrap();
+      await write([{ kind: "deletePath", path: targetPath(spec, deleting) }]);
       if (readStored(stored, spec.path, deleting) !== undefined)
-        await deleteSettings({ path: spec.path, key: deleting }).unwrap();
+        await write([{ kind: "delete", path: spec.path, key: deleting }]);
       setDeleting(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -278,7 +275,7 @@ function TargetDialog({
   onClose: () => void;
   onExpertMode?: () => void;
 }) {
-  const applyChanges = useApplyChanges();
+  const { write } = useStagedSettings();
   const [name, setName] = useState(initialName);
   const [draft, setDraft] = useState<Record<string, string>>({});
   // Modes the reader picked; a mode the values match by themselves needs none.
@@ -323,7 +320,7 @@ function TargetDialog({
     setBusy(true);
     setError(null);
     try {
-      await applyChanges(changes);
+      await write(changesToOps(changes));
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

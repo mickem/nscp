@@ -1,14 +1,14 @@
 // CheckDisk's named paths: name = path. A caller's file=<name> (or path=)
 // uses the path, whatever the access mode allows.
 import { Stack, Typography } from "@mui/material";
-import { useGetSettingsQuery } from "../../api/api.ts";
 import KeyValueCard from "../kit/KeyValueCard.tsx";
 import RunCheckButton from "../kit/RunCheckButton.tsx";
 import ValueField from "../kit/ValueField.tsx";
 import { DISK_FILES } from "./disk.ts";
+import { useStagedSettings } from "../kit/staging.ts";
 
 export default function DiskFiles() {
-  const { data: stored } = useGetSettingsQuery();
+  const { stored } = useStagedSettings();
   const rows = (stored ?? [])
     .filter((s) => s.path === DISK_FILES && s.key !== "")
     .map((s) => ({ key: s.key, value: s.value }))

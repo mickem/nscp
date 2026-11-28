@@ -282,7 +282,7 @@ describe("other client targets", () => {
 });
 
 describe("a page that is only lists", () => {
-  it("has a bar with Show config for the whole module, and nothing to save", async () => {
+  it("has a bar with Show config for the whole module, and nothing to save yet", async () => {
     installFetchMock({
       "/api/v2/settings/descriptions": jsonResponse([
         {
@@ -307,8 +307,9 @@ describe("a page that is only lists", () => {
     renderWithProviders(<ModuleSettings settings={[]} moduleId="NRPEClient" />, {
       preloadedState: authenticatedState,
     });
-    const bar = within(await screen.findByRole("region", { name: "Module configuration" }));
-    expect(bar.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    const bar = within(await screen.findByRole("region", { name: "Unsaved changes" }));
+    expect(bar.getByText("No unsaved changes.")).toBeInTheDocument();
+    expect(bar.getByRole("button", { name: "Save" })).toBeDisabled();
     await userEvent.click(bar.getByRole("button", { name: "Show config" }));
     const text = within(screen.getByRole("dialog")).getByText(/\[\/modules\]/).textContent ?? "";
     expect(text).toContain("NRPEClient = enabled");

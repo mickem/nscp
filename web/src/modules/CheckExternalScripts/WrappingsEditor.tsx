@@ -1,13 +1,13 @@
 // Wrappings: per extension, the command line a wrapped script runs with.
 // ps1, vbs and bat are built in; storing one replaces it.
-import { useGetSettingsQuery } from "../../api/api.ts";
 import KeyValueCard from "../kit/KeyValueCard.tsx";
 import ValueField from "../kit/ValueField.tsx";
 import { EXT_WRAPPINGS } from "./ext.ts";
 import { readWrappings } from "./wrapped.ts";
+import { useStagedSettings } from "../kit/staging.ts";
 
 export default function WrappingsEditor() {
-  const { data: stored } = useGetSettingsQuery();
+  const { stored } = useStagedSettings();
   return (
     <KeyValueCard
       collectionPath={EXT_WRAPPINGS}

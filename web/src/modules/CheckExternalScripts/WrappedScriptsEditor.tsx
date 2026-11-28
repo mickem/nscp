@@ -2,7 +2,6 @@
 // for the file's extension - the runtime (powershell, cscript, ...) lives in
 // the wrapping, so each script is just a name, a file and arguments.
 import { Stack, Typography } from "@mui/material";
-import { useGetSettingsQuery } from "../../api/api.ts";
 import KeyValueCard from "../kit/KeyValueCard.tsx";
 import ValueField from "../kit/ValueField.tsx";
 import { EXT_WRAPPED } from "./ext.ts";
@@ -13,9 +12,10 @@ import {
   splitWrapped,
   wrappedCommand,
 } from "./wrapped.ts";
+import { useStagedSettings } from "../kit/staging.ts";
 
 export default function WrappedScriptsEditor() {
-  const { data: stored } = useGetSettingsQuery();
+  const { stored } = useStagedSettings();
   const wrappings = readWrappings(stored);
   const known = wrappings.map((w) => w.ext).join(", ");
   const missing = (value: string) => {

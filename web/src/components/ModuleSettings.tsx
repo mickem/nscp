@@ -1,11 +1,12 @@
 import { SettingsDescription, useGetSettingsDescriptionsQuery } from "../api/api.ts";
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, Stack } from "@mui/material";
 import SettingsList from "./SettingsList.tsx";
 import SettingsCollection from "./SettingsCollection.tsx";
 import SettingsKeyValueCollection from "./SettingsKeyValueCollection.tsx";
 import { useMemo, useState } from "react";
 import { PageFrameContext } from "../modules/kit/pageFrame.ts";
 import ListsBar from "../modules/kit/ListsBar.tsx";
+import { StagedOp, StagingContext } from "../modules/kit/staging.ts";
 import { isBoolTrue } from "../common/settings.ts";
 import { getCollectionConfig, getModulePage } from "../modules/registry.ts";
 
@@ -105,6 +106,16 @@ export default function ModuleSettings({
   // in two places. Its collections (users, entries, ...) still follow it.
   const Panel = expert ? undefined : page?.Panel;
   const [saveBar, setSaveBar] = useState<HTMLElement | null>(null);
+  // The rows the page's lists have queued until its Save.
+  const [ops, setOps] = useState<StagedOp[]>([]);
+  const staging = useMemo(
+    () => ({
+      ops,
+      stage: (next: StagedOp[]) => setOps((o) => [...o, ...next]),
+      clear: () => setOps([]),
+    }),
+    [ops],
+  );
   const showFlat = hasFlatKeys && !Panel;
 
   if (!Panel && !showFlat && visibleCollectionPaths.length === 0 && kvPaths.length === 0) {
@@ -116,13 +127,9 @@ export default function ModuleSettings({
     <PageFrameContext.Provider
       value={{ saveBar, collectionPaths: [...visibleCollectionPaths, ...kvPaths] }}
     >
+      <StagingContext.Provider value={expert ? null : staging}>
       <Stack spacing={3}>
         {Panel && <Panel onExpertMode={onExpertMode} />}
-        {Panel && lists > 0 && (
-          <Typography variant="body2" color="text.secondary">
-            The lists below save each change from their own dialog.
-          </Typography>
-        )}
         {showFlat && <SettingsList settings={flatSettings} flat />}
         {visibleCollectionPaths.map((path) => {
           const config = getCollectionConfig(path);
@@ -155,13 +162,13 @@ export default function ModuleSettings({
         {/* The panel's save bar: pinned to the bottom of the window while it has
           unsaved changes, below the lists. */}
         <Box ref={setSaveBar} sx={{ position: "sticky", bottom: 0, zIndex: 2 }}>
-          {/* A page that is only lists has nothing to save, but its config can
-            still be shown. */}
+          {/* A page that is only lists still saves what they queue. */}
           {!Panel && !expert && page && lists > 0 && (
             <ListsBar moduleId={moduleId} paths={[...visibleCollectionPaths, ...kvPaths]} />
           )}
         </Box>
       </Stack>
+      </StagingContext.Provider>
     </PageFrameContext.Provider>
   );
 }

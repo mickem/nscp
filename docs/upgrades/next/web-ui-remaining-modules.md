@@ -22,3 +22,12 @@ Nothing to do.
 Every module in the reference with settings now has a page of its own; expert mode still shows
 every key. A module that registers no settings (CheckNet, CheckSecurity, ...)
 says so instead of showing an empty form.
+
+On every tailored module page, the lists (named paths, queries, targets,
+schedules, scripts, aliases, roles, ...) no longer write a row the moment its
+dialog closes: the row is queued, shown in the list and in the save bar, and
+written with the page's own fields by **Save** (or dropped by **Discard**).
+Storing what the agent holds in its configuration file and reloading it is a
+separate step in the same bar - **Save and reload**, next to **Show diff** -
+shown while the agent has changes its file lacks. Expert mode still writes
+each key as before.

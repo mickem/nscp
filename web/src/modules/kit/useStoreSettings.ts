@@ -24,5 +24,3 @@ export function useStoreSettings() {
   };
   return { unstored: status?.has_changed ?? false, store, busy, error };
 }
-
-export const UNSTORED_TEXT = "Changed on the agent, not yet in its configuration file.";

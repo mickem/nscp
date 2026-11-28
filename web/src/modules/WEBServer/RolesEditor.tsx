@@ -28,16 +28,12 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import EditIcon from "@mui/icons-material/Edit";
 import { useMemo, useState } from "react";
-import {
-  useDeleteSettingsMutation,
-  useGetSettingsQuery,
-  useUpdateSettingsMutation,
-} from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
 import RiskBanner from "../kit/RiskBanner.tsx";
 import type { KeyValueEditorProps } from "../types.ts";
 import GrantPicker from "./GrantPicker.tsx";
 import { formatGrants, parseGrants, powerfulHeld, ROLE_PRESETS } from "./grants.ts";
+import { useStagedSettings } from "../kit/staging.ts";
 
 const USERS = "/settings/WEB/server/users/";
 
@@ -54,9 +50,7 @@ interface Editing {
 }
 
 export default function RolesEditor({ collectionPath, descriptions }: KeyValueEditorProps) {
-  const { data: stored } = useGetSettingsQuery();
-  const [updateSettings] = useUpdateSettingsMutation();
-  const [deleteSettings] = useDeleteSettingsMutation();
+  const { stored, write } = useStagedSettings();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
@@ -96,7 +90,7 @@ export default function RolesEditor({ collectionPath, descriptions }: KeyValueEd
       // An empty grant list would delete the key; store a role that grants
       // nothing as a single space, as the generic list does.
       const value = formatGrants(editing.grants) || " ";
-      await updateSettings({ path: collectionPath, key: name, value }).unwrap();
+      await write([{ kind: "set", path: collectionPath, key: name, value }]);
       setEditing(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -108,7 +102,7 @@ export default function RolesEditor({ collectionPath, descriptions }: KeyValueEd
     if (!deleting) return;
     setBusy(true);
     try {
-      await deleteSettings({ path: collectionPath, key: deleting }).unwrap();
+      await write([{ kind: "delete", path: collectionPath, key: deleting }]);
       setDeleting(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

@@ -1,13 +1,13 @@
 // External scripts' aliases. They work, but an alias belongs in Check
 // helpers: the same thing, without External scripts loaded.
 import { Stack } from "@mui/material";
-import { useGetSettingsQuery } from "../../api/api.ts";
 import AliasEditor from "../kit/AliasEditor.tsx";
 import Explainer from "../kit/Explainer.tsx";
 import type { InstanceEditorProps } from "../types.ts";
+import { useStagedSettings } from "../kit/staging.ts";
 
 export default function ExtAliases({ collectionPath, onExpertMode }: InstanceEditorProps) {
-  const { data: stored } = useGetSettingsQuery();
+  const { stored } = useStagedSettings();
   // Aliases written as sections ([.../alias/<name>] command = ...) are left to
   // expert mode; the list edits the one-line form.
   const sections = new Set(

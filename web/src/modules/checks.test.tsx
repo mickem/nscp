@@ -14,6 +14,7 @@ import DiskPage from "./CheckDisk/DiskPage";
 import DiskFiles from "./CheckDisk/DiskFiles";
 import { accessRisk, disabledCollectors, disableValue, fileAccessOf } from "./CheckDisk/disk";
 import { getModulePage } from "./registry";
+import ModuleSettings from "../components/ModuleSettings";
 
 function render(Page: ComponentType, stored: Settings[]) {
   const writes: string[] = [];
@@ -117,34 +118,99 @@ describe("CheckDisk", () => {
   });
 });
 
-describe("storing what the agent holds", () => {
-  it("offers Save and reload once a list has changed the agent but not its file", async () => {
-    const commands: string[] = [];
+describe("a page's two steps", () => {
+  const files = {
+    path: `${P}/files`,
+    key: "",
+    type: "",
+    title: "PREDEFINED PATHS",
+    description: "",
+    value: "",
+    default_value: "",
+    icon: "",
+    is_advanced_key: false,
+    is_object: false,
+    is_sample_key: false,
+    is_template_key: false,
+    plugins: ["CheckDisk"],
+    sample_usage: "",
+  };
+  function serve(hasChanged: boolean) {
+    const calls: string[] = [];
     installFetchMock({
-      "/api/v2/settings": jsonResponse([{ path: `${P}/files`, key: "ddd", value: "c:\\eeee" }]),
-      "/api/v2/settings/status": jsonResponse({ context: "", type: "ini", has_changed: true }),
+      "/api/v2/settings/descriptions": jsonResponse([files]),
+      "/api/v2/settings/status": jsonResponse({
+        context: "",
+        type: "ini",
+        has_changed: hasChanged,
+      }),
+      "/api/v2/settings": async (req: Request) => {
+        if (req.method === "PUT") {
+          const body = (await req.json()) as Settings;
+          calls.push(`PUT [${body.path}] ${body.key}=${body.value}`);
+          return jsonResponse("");
+        }
+        return jsonResponse([{ path: "/modules", key: "CheckDisk", value: "enabled" }]);
+      },
       "/api/v2/settings/command": async (req: Request) => {
-        commands.push(((await req.json()) as { command: string }).command);
+        calls.push(`command ${((await req.json()) as { command: string }).command}`);
         return jsonResponse("");
       },
     });
-    renderWithProviders(<DiskPage />, { preloadedState: authenticatedState });
-    expect(
-      await screen.findByText("Changed on the agent, not yet in its configuration file."),
-    ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Save and reload" }));
-    await waitFor(() => expect(commands).toEqual(["save", "reload"]));
+    renderWithProviders(<ModuleSettings settings={[files]} moduleId="CheckDisk" />, {
+      preloadedState: authenticatedState,
+    });
+    return calls;
+  }
+  const addPath = async (name: string, path: string) => {
+    await userEvent.click(await screen.findByRole("button", { name: "Add path" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await userEvent.type(dialog.getByLabelText("Name"), name);
+    await userEvent.type(dialog.getByLabelText("Path"), path);
+    await userEvent.click(dialog.getByRole("button", { name: "Save" }));
+    // The page is hidden from the accessibility tree until the dialog is gone.
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  };
+  const bar = () => within(screen.getByRole("region", { name: "Unsaved changes" }));
+
+  it("queues a list row until the page's Save", async () => {
+    const calls = serve(false);
+    await addPath("logs", "/var/log");
+    expect(await screen.findByRole("table", { name: "Named paths" })).toHaveTextContent("/var/log");
+    expect(calls).toEqual([]);
+    expect(bar().getByText("1 unsaved change")).toBeInTheDocument();
+    expect(bar().getByText(`[${P}/files] logs = /var/log`)).toBeInTheDocument();
+
+    await userEvent.click(bar().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls).toEqual([`PUT [${P}/files] logs=/var/log`]));
   });
 
-  it("keeps Save for edits on the page", async () => {
-    installFetchMock({
-      "/api/v2/settings": jsonResponse([]),
-      "/api/v2/settings/status": jsonResponse({ context: "", type: "ini", has_changed: true }),
-    });
-    renderWithProviders(<DiskPage />, { preloadedState: authenticatedState });
-    await userEvent.click(await screen.findByRole("radio", { name: "Only the named paths below" }));
-    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Save and reload" })).not.toBeInTheDocument();
+  it("drops queued rows on Discard", async () => {
+    const calls = serve(false);
+    await addPath("logs", "/var/log");
+    expect(await screen.findByText("/var/log")).toBeInTheDocument();
+    await userEvent.click(bar().getByRole("button", { name: "Discard" }));
+    expect(screen.queryByText("/var/log")).not.toBeInTheDocument();
+    expect(bar().getByText("No unsaved changes.")).toBeInTheDocument();
+    expect(calls).toEqual([]);
+  });
+
+  it("stores and reloads as a step of its own, once the page has nothing pending", async () => {
+    const calls = serve(true);
+    expect(
+      await screen.findByText(/saved changes that are not in its configuration file/),
+    ).toBeInTheDocument();
+    expect(bar().getByRole("button", { name: "Show diff" })).toBeInTheDocument();
+
+    await addPath("logs", "/var/log");
+    expect(bar().getByRole("button", { name: "Save and reload" })).toBeDisabled();
+    await userEvent.click(bar().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(bar().getByText("Saved to the agent.")).toBeInTheDocument());
+
+    await userEvent.click(bar().getByRole("button", { name: "Save and reload" }));
+    await waitFor(() =>
+      expect(calls).toEqual([`PUT [${P}/files] logs=/var/log`, "command save", "command reload"]),
+    );
   });
 });
 

@@ -2,7 +2,7 @@
 // reader changed, and saving. A page's modes keep their own draft and hand
 // their changes to pending(); everything is written together.
 import { useCallback, useState } from "react";
-import { Settings, useGetSettingsQuery } from "../../api/api.ts";
+import { Settings, } from "../../api/api.ts";
 import {
   enableModuleChange,
   pendingChanges,
@@ -11,6 +11,7 @@ import {
   useApplyChanges,
 } from "./changes.ts";
 import { FieldValue, KeySpec, KeyTable, keyChanges, keyInScope, readKey } from "./keys.ts";
+import { useStagedSettings } from "./staging.ts";
 
 export interface Panel {
   moduleId: string;
@@ -33,7 +34,7 @@ export interface Panel {
 }
 
 export function usePanel(moduleId: string, keys: KeyTable, onReset?: () => void): Panel {
-  const { data: stored } = useGetSettingsQuery();
+  const { stored } = useStagedSettings();
   const applyChanges = useApplyChanges();
   const [edits, setEdits] = useState<Record<string, FieldValue>>({});
   const [busy, setBusy] = useState(false);
