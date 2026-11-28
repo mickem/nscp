@@ -12,6 +12,7 @@ import SchedulesEditor from "./SchedulesEditor";
 import {
   cronProblem,
   intervalSeconds,
+  isFuzzy,
   reportSet,
   reportValue,
   scheduleProblem,
@@ -34,6 +35,13 @@ describe("schedule formats", () => {
     expect(cronProblem("*/5 * * * *")).toMatch(/ranges, steps and names/);
     expect(cronProblem("0 24 * * *")).toMatch(/hour field runs from 0 to 23/);
     expect(cronProblem("0 * * *")).toMatch(/five fields/);
+  });
+
+  it("reads any randomness as fuzzy", () => {
+    expect(isFuzzy("20%")).toBe(true);
+    expect(isFuzzy("5")).toBe(true);
+    expect(isFuzzy("0")).toBe(false);
+    expect(isFuzzy("")).toBe(false);
   });
 
   it("reads and writes report", () => {
@@ -153,5 +161,47 @@ describe("schedules editor", () => {
         `[${S}/cpu] report=warning,critical,unknown`,
       ]),
     );
+  });
+
+  it("turns fuzzy on as 20%, shows any randomness as fuzzy, and renames behind a toggle", async () => {
+    const writes = render([
+      { path: `${S}/default`, key: "interval", value: "5m" },
+      { path: `${S}/cpu`, key: "command", value: "check_cpu" },
+      { path: `${S}/cpu`, key: "randomness", value: "7" },
+    ]);
+    expect(await screen.findByText("every 5m, fuzzy")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add schedule" }));
+    await userEvent.type(dialog().getByLabelText("Name"), "mem");
+    await userEvent.type(dialog().getByLabelText("Command"), "check_memory");
+    expect(dialog().queryByLabelText("Service name")).not.toBeInTheDocument();
+    await userEvent.click(dialog().getByRole("switch", { name: "Rename" }));
+    await userEvent.type(dialog().getByLabelText("Service name"), "Memory");
+    await userEvent.click(dialog().getByRole("switch", { name: "Fuzzy" }));
+    await userEvent.click(dialog().getByLabelText("Channel"));
+    await userEvent.click(await screen.findByRole("option", { name: "NRDP" }));
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(writes).toEqual([
+        `[${S}/mem] command=check_memory`,
+        `[${S}/mem] randomness=20%`,
+        `[${S}/mem] channel=NRDP`,
+        `[${S}/mem] alias=Memory`,
+      ]),
+    );
+  });
+
+  it("turns fuzzy off over an inherited randomness by writing 0", async () => {
+    const writes = render([
+      { path: `${S}/default`, key: "interval", value: "5m" },
+      { path: `${S}/default`, key: "randomness", value: "10%" },
+      { path: `${S}/cpu`, key: "command", value: "check_cpu" },
+    ]);
+    const row = (await screen.findByText("cpu", { selector: "p" })).closest("tr") as HTMLElement;
+    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    const fuzzy = dialog().getByRole("switch", { name: "Fuzzy" });
+    expect(fuzzy).toBeChecked();
+    await userEvent.click(fuzzy);
+    await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toEqual([`[${S}/cpu] randomness=0`]));
   });
 });

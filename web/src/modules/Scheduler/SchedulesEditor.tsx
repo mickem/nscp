@@ -3,6 +3,7 @@
 // does not set its own takes, which is how one-line schedules get their
 // interval.
 import {
+  Autocomplete,
   Button,
   Card,
   CardContent,
@@ -36,16 +37,21 @@ import { useState } from "react";
 import {
   Settings,
   useDeleteSettingsMutation,
+  useGetChannelMetadataQuery,
   useGetSettingsQuery,
   useUpdateSettingsMutation,
 } from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
 import CommandLineField from "../kit/CommandLineField.tsx";
 import { deleteEntry, Entry, entryWrites, Write } from "../kit/entries.ts";
+import { AdvancedSection } from "../kit/PanelShell.tsx";
 import ValueField from "../kit/ValueField.tsx";
 import {
+  COMMON_CHANNELS,
   DEFAULT_SCHEDULE,
   describeWhen,
+  FUZZY,
+  isFuzzy,
   isTemplate,
   readSchedules,
   reportSet,
@@ -77,6 +83,11 @@ export default function SchedulesEditor() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<Entry | null>(null);
   const [busy, setBusy] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const { data: liveChannels } = useGetChannelMetadataQuery();
+  const channelOptions = [
+    ...new Set([...COMMON_CHANNELS, ...(liveChannels ?? []).map((c) => c.value)]),
+  ];
   const [error, setError] = useState<string | null>(null);
   const schedules = readSchedules(stored);
   const rows = [defaultEntry(stored), ...schedules];
@@ -118,6 +129,10 @@ export default function SchedulesEditor() {
           ? "A schedule with that name exists."
           : scheduleProblem(get, isDefault);
   const reports = reportSet(get("report"));
+  // What the schedule would have without a randomness of its own.
+  const inheritedRandomness = editing
+    ? scheduleValue(stored, name, "randomness", { ...editing.values, randomness: "" })
+    : "";
 
   const writes = (): Write[] => {
     if (!editing) return [];
@@ -145,6 +160,7 @@ export default function SchedulesEditor() {
             onClick={() => {
               setError(null);
               setEditing({ original: null, name: "", values: {} });
+              setRenaming(false);
             }}
           >
             Add schedule
@@ -221,6 +237,7 @@ export default function SchedulesEditor() {
                         onClick={() => {
                           setError(null);
                           setEditing({ original: s, name: s.name, values: { ...s.values } });
+                          setRenaming((s.values.alias ?? "") !== "");
                         }}
                       >
                         <EditIcon fontSize="small" />
@@ -268,7 +285,7 @@ export default function SchedulesEditor() {
                   label="Name"
                   value={editing.name}
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  helperText="The service the result is submitted as, unless Alias says otherwise."
+                  helperText="The service the result is submitted as, unless it is renamed below."
                   autoFocus={!editing.original}
                 />
               )}
@@ -280,6 +297,24 @@ export default function SchedulesEditor() {
                     onChange={(v) => set("command", v)}
                     disabled={busy}
                   />
+                  <ValueField
+                    label="Rename"
+                    kind="bool"
+                    value={renaming ? "true" : "false"}
+                    onChange={(v) => {
+                      setRenaming(v === "true");
+                      if (v !== "true") set("alias", "");
+                    }}
+                    help="Submit the result under another service name than the schedule's."
+                  />
+                  {renaming && (
+                    <ValueField
+                      label="Service name"
+                      kind="text"
+                      value={own("alias")}
+                      onChange={(v) => set("alias", v)}
+                    />
+                  )}
                 </Stack>
               )}
               <Stack spacing={2}>
@@ -320,11 +355,16 @@ export default function SchedulesEditor() {
                       help="30s, 5m, 1h, 1d or 1w."
                     />
                     <ValueField
-                      label="Randomness (%)"
-                      kind="text"
-                      value={get("randomness")}
-                      onChange={(v) => set("randomness", v)}
-                      help="Spreads each run by up to this share of the interval."
+                      label="Fuzzy"
+                      kind="bool"
+                      value={isFuzzy(get("randomness")) ? "true" : "false"}
+                      onChange={(v) =>
+                        set(
+                          "randomness",
+                          v === "true" ? FUZZY : isFuzzy(inheritedRandomness) ? "0" : "",
+                        )
+                      }
+                      help="Spread the runs a little (±20% of the interval), so checks do not all fire at once."
                     />
                   </Stack>
                 ) : (
@@ -336,6 +376,17 @@ export default function SchedulesEditor() {
                     help="minute hour day-of-month month day-of-week, each * or numbers separated by commas: 0,30 * * * 1,2,3,4,5"
                   />
                 )}
+                {when === "interval" && (
+                  <AdvancedSection count={own("randomness") !== "" ? 1 : 0}>
+                    <ValueField
+                      label="Randomness (%)"
+                      kind="text"
+                      value={get("randomness")}
+                      onChange={(v) => set("randomness", v)}
+                      help="Spreads each run by up to this share of the interval; Fuzzy sets 20%."
+                    />
+                  </AdvancedSection>
+                )}
                 <ValueField
                   label="Also run at startup"
                   kind="bool"
@@ -346,12 +397,22 @@ export default function SchedulesEditor() {
               <Stack spacing={2}>
                 <Typography variant="subtitle1">Result</Typography>
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                  <ValueField
-                    label="Channel"
-                    kind="text"
+                  <Autocomplete
+                    freeSolo
+                    fullWidth
+                    options={channelOptions}
                     value={get("channel")}
-                    onChange={(v) => set("channel", v)}
-                    help="The client module listening on it submits the result (NSCA, NRDP, ...); drop discards it."
+                    onInputChange={(_, v, reason) => {
+                      if (reason !== "reset" || v !== get("channel")) set("channel", v);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="standard"
+                        label="Channel"
+                        helperText="The client module listening on it submits the result; drop discards it."
+                      />
+                    )}
                   />
                   <ValueField
                     label="Target"
@@ -384,15 +445,6 @@ export default function SchedulesEditor() {
                     />
                   ))}
                 </FormGroup>
-                {!isDefault && (
-                  <ValueField
-                    label="Alias"
-                    kind="text"
-                    value={own("alias")}
-                    onChange={(v) => set("alias", v)}
-                    help="The service name the result is submitted as, when not the schedule's name."
-                  />
-                )}
               </Stack>
               {problem && (editing.name !== "" || isDefault) && (
                 <NscpAlert severity="warning" text={problem} />

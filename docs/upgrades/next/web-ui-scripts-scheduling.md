@@ -21,8 +21,10 @@ action: none
   (the match is case sensitive). The built-in ps1, vbs and bat wrappings are
   listed with the ones you add.
 - **Scheduler**: the worker count, startup spread and timezone, and an editor
-  for schedules - the check, an interval or a cron line, the channel and
-  target the result is submitted on, which results to submit. `default` is
+  for schedules - the check (and, behind *Rename*, the service name it is
+  submitted as), an interval with a *Fuzzy* switch that spreads the runs by
+  20% or a cron line, the channel the result is submitted on (picked from
+  the usual ones, or typed), the target, and which results to submit. `default` is
   shown as what every schedule takes, since every schedule key inherits. A
   schedule the agent would refuse is marked: one with both an interval and a
   cron line (one of them possibly inherited), with neither, or with a cron

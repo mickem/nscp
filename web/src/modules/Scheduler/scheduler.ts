@@ -160,12 +160,31 @@ export function scheduleProblem(get: (key: string) => string, isDefault: boolean
   return null;
 }
 
+// "Fuzzy" is any randomness at all; turning it on sets 20%.
+export const FUZZY = "20%";
+export function isFuzzy(randomness: string): boolean {
+  const n = Number(randomness.replace("%", "").trim());
+  return randomness.trim() !== "" && Number.isFinite(n) && n > 0;
+}
+
+// The channels the passive clients listen on by default, and drop.
+export const COMMON_CHANNELS = [
+  "NSCA",
+  "NSCA-NG",
+  "NRDP",
+  "ICINGA",
+  "GRAPHITE",
+  "GEARMAN",
+  "SMTP",
+  "syslog",
+  "op5",
+  "drop",
+];
+
 export function describeWhen(get: (key: string) => string): string {
   const interval = get("interval");
   const cron = get("schedule");
-  const r = get("randomness").replace("%", "");
-  const jitter = r && r !== "0" ? ` ±${r}%` : "";
-  if (interval) return `every ${interval}${jitter}`;
+  if (interval) return `every ${interval}${isFuzzy(get("randomness")) ? ", fuzzy" : ""}`;
   if (cron) return `at ${cron}`;
   return "not scheduled";
 }
