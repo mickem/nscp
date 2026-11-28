@@ -18,6 +18,7 @@
 #include <vector>
 #include <win/processes.hpp>
 #include <win/psapi.hpp>
+#include <win/registry.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/win_defines.hpp>
 #include <win/windows.hpp>
@@ -92,6 +93,108 @@ void fill_process_owner(HANDLE handle, process_info &entry) {
   }
   if (!sid_key.empty()) sid_name_cache[sid_key] = username;  // cache misses too, so we don't retry
 }
+
+// Store a full image path as filename and its last component as exe.
+void set_image_path(process_info &entry, const std::wstring &path) {
+  const std::string tmp = utf8::cvt<std::string>(path);
+  entry.filename = tmp;
+  const std::size_t pos = tmp.find_last_of('\\');
+  if (pos != std::string::npos)
+    entry.exe = tmp.substr(pos + 1);
+  else
+    entry.exe = tmp;
+}
+
+// Reads every counter a PROCESS_QUERY_LIMITED_INFORMATION handle is enough for
+// (Vista+), so the full and the limited-only paths of describe_pid() share it.
+// A PROCESS_QUERY_INFORMATION handle - all XP has - grants the limited right
+// too, and none of these calls is newer than XP, so the XP build is unaffected:
+// there the limited-only path never runs, because OpenProcess does not know the
+// flag. Each group Windows refuses stays unread on the entry and its keywords
+// render "unknown" (see process_info::has_memory and friends).
+void read_query_counters(const HANDLE handle, process_info &entry, const bool resolve_owner) {
+  DWORD handleCount = 0;
+  if (GetProcessHandleCount(handle, &handleCount)) {
+    entry.handleCount = handleCount;
+    entry.has_handles = true;
+  }
+  // GetGuiResources returns 0 both on failure and for a process that owns no
+  // GUI objects (every service), so only the last error tells them apart: a 0
+  // with any error set is unread, not a count. Microsoft does not document
+  // whether a limited handle is enough, so this is simply tried.
+  SetLastError(ERROR_SUCCESS);
+  const DWORD gdi = GetGuiResources(handle, GR_GDIOBJECTS);
+  const bool gdi_failed = gdi == 0 && GetLastError() != ERROR_SUCCESS;
+  SetLastError(ERROR_SUCCESS);
+  const DWORD user = GetGuiResources(handle, GR_USEROBJECTS);
+  const bool user_failed = user == 0 && GetLastError() != ERROR_SUCCESS;
+  if (!gdi_failed && !user_failed) {
+    entry.gdiHandleCount = gdi;
+    entry.userHandleCount = user;
+    entry.has_gui_handles = true;
+  }
+
+  FILETIME creationTime;
+  FILETIME exitTime;
+  FILETIME kernelTime;
+  FILETIME userTime;
+  if (GetProcessTimes(handle, &creationTime, &exitTime, &kernelTime, &userTime)) {
+    entry.kernel_time_raw = win_registry::filetime_to_ull(kernelTime);
+    entry.user_time_raw = win_registry::filetime_to_ull(userTime);
+    entry.kernel_time = entry.kernel_time_raw / 10000000;
+    entry.user_time = entry.user_time_raw / 10000000;
+    // total_time is the cumulative user+kernel CPU seconds. The delta path
+    // (make_cpu_delta) overwrites all three with whole-percent CPU usage; in
+    // the normal (non-delta) path it must be populated here or the `time`
+    // keyword reads 0 (kernel/user are set individually above but their sum
+    // was never stored).
+    entry.total_time = entry.kernel_time + entry.user_time;
+    // The creation time is also what delta=true matches the collector's CPU%
+    // on, so a process without it can never get a CPU reading.
+    entry.creation_time = str::format::filetime_to_time(win_registry::filetime_to_ull(creationTime));
+    entry.has_times = true;
+  }
+
+  unsigned long ReturnLength = 0;
+  IO_COUNTERS ioc = {};
+  if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessIoCounters, &ioc, sizeof(IO_COUNTERS), &ReturnLength) >= 0) {
+    entry.otherOperationCount = ioc.OtherOperationCount;
+    entry.otherTransferCount = ioc.OtherTransferCount;
+    entry.readOperationCount = ioc.ReadOperationCount;
+    entry.readTransferCount = ioc.ReadTransferCount;
+    entry.writeOperationCount = ioc.WriteOperationCount;
+    entry.writeTransferCount = ioc.WriteTransferCount;
+  }
+  // This is the query GetProcessMemoryInfo is built on. Whether a limited
+  // handle is enough depends on the Windows version, so it is simply tried, and
+  // the memory keywords read unknown when it is refused.
+  windows::winapi::VM_COUNTERS vmc = {};
+  if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessVmCounters, &vmc, sizeof(windows::winapi::VM_COUNTERS), &ReturnLength) >= 0) {
+    entry.PeakVirtualSize = vmc.PeakVirtualSize;
+    entry.VirtualSize = vmc.VirtualSize;
+    entry.PageFaultCount = vmc.PageFaultCount;
+    entry.PeakWorkingSetSize = vmc.PeakWorkingSetSize;
+    entry.WorkingSetSize = vmc.WorkingSetSize;
+    entry.QuotaPeakPagedPoolUsage = vmc.QuotaPeakPagedPoolUsage;
+    entry.QuotaPagedPoolUsage = vmc.QuotaPagedPoolUsage;
+    entry.QuotaPeakNonPagedPoolUsage = vmc.QuotaPeakNonPagedPoolUsage;
+    entry.QuotaNonPagedPoolUsage = vmc.QuotaNonPagedPoolUsage;
+    entry.PageFileUsage = vmc.PagefileUsage;
+    entry.PeakPageFileUsage = vmc.PeakPagefileUsage;
+    entry.has_memory = true;
+  }
+
+  // IsWow64Process is resolved dynamically (it is XP SP2+).
+  const bool osIsWin64 = windows::winapi::IsWow64(GetCurrentProcess());
+  entry.wow64 = windows::winapi::IsWow64(handle, !osIsWin64);
+
+  // Owner resolution is opt-in: LookupAccountSid can block for seconds on
+  // domain / Azure-AD SIDs that need a directory round-trip, so it must not run
+  // on every check_process by default (especially process=* which would resolve
+  // hundreds of owners). OpenProcessToken needs only the limited right, but a
+  // protected process may still refuse its token; the owner then stays empty.
+  if (resolve_owner) fill_process_owner(handle, entry);
+}
 }  // namespace
 void enable_token_privilege(LPTSTR privilege, bool enable) {
   generic_handle token;
@@ -118,6 +221,7 @@ struct find_16bit_container {
 BOOL CALLBACK Enum16Proc(DWORD, WORD, WORD, PSZ, const PSZ pszFileName, LPARAM lpUserDefined) {
   auto *container = reinterpret_cast<find_16bit_container *>(lpUserDefined);
   process_info pEntry;
+  pEntry.mark_counters_unread();
   pEntry.pid = container->pid;
   const std::string tmp = pszFileName;
   pEntry.command_line = tmp;
@@ -201,11 +305,13 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
   process_info entry;
   entry.pid = pid;
   entry.started = true;
+  // Every counter group is unknown until it has actually been read: an
+  // unopenable process, a scan without scan-info and anything Windows refuses
+  // below must not report 0 as if it were a measurement.
+  entry.mark_counters_unread();
   // Open process to get filename
   DWORD openArgs = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
   if (deep_scan) openArgs |= PROCESS_VM_OPERATION;
-
-  unsigned long ReturnLength = 0;
 
   // Three-step fallback to maximise the number of processes the agent can see
   // when running as a non-administrative account (issues #517, #580, #654):
@@ -235,6 +341,7 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
 
   hlp::buffer<wchar_t> buffer(MAX_PATH);
   if (limited_only) {
+    entry.limited = true;
     // GetProcessImageFileName / EnumProcessModules require
     // PROCESS_QUERY_INFORMATION (and VM read for the latter). Use
     // QueryFullProcessImageName which only requires
@@ -251,118 +358,41 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
     DWORD size = static_cast<DWORD>(buffer.size());
     if (windows::winapi::QueryFullProcessImageName(handle, 0, buffer, &size) && size > 0) {
       buffer[size] = 0;
-      auto tmp = utf8::cvt<std::string>(std::wstring(buffer.get()));
-      entry.filename = tmp;
-      std::size_t pos = tmp.find_last_of('\\');
-      if (pos != std::string::npos)
-        entry.exe = tmp.substr(pos + 1);
-      else
-        entry.exe = tmp;
+      set_image_path(entry, std::wstring(buffer.get()));
     }
-    // Without PROCESS_QUERY_INFORMATION/VM_READ we cannot fetch handle counts,
-    // VM counters, command line, etc. Return the partial entry; callers can
-    // still see that the process exists and what its name is.
+    // CPU times, handle counts, wow64 and the owner need no more than the
+    // limited right, and memory is tried. The command line cannot be had: it
+    // is read out of the process's memory, which needs PROCESS_VM_READ.
+    if (deep_scan) read_query_counters(handle, entry, resolve_owner);
     return entry;
   }
 
   DWORD len = GetProcessImageFileName(handle, buffer, static_cast<DWORD>(buffer.size()));
   if (len > 0) {
     buffer[len] = 0;
-    auto tmp = utf8::cvt<std::string>(std::wstring(buffer.get()));
-    entry.filename = tmp;
-    std::size_t pos = tmp.find_last_of('\\');
-    if (pos != std::string::npos)
-      entry.exe = tmp.substr(pos + 1);
-    else
-      entry.exe = tmp;
-  }
-
-  LPVOID PebBaseAddress = nullptr;
-  windows::winapi::PROCESS_BASIC_INFORMATION pbi = {};
-  if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessBasicInformation, &pbi, sizeof(windows::winapi::PROCESS_BASIC_INFORMATION),
-                                                 &ReturnLength) >= 0) {
-    PebBaseAddress = pbi.PebBaseAddress;
-    // entry.handleCount = handleCount;
+    set_image_path(entry, std::wstring(buffer.get()));
   }
 
   if (deep_scan) {
-    DWORD handleCount;
-    if (GetProcessHandleCount(handle, &handleCount)) {
-      entry.handleCount = handleCount;
+    read_query_counters(handle, entry, resolve_owner);
+
+    // The command line lives in the process's own memory (PEB ->
+    // ProcessParameters), so this is the one read that needs PROCESS_VM_READ.
+    // It comes after read_query_counters() because the 32-bit build reads it
+    // only from WOW64 processes.
+    unsigned long ReturnLength = 0;
+    windows::winapi::PROCESS_BASIC_INFORMATION pbi = {};
+    if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessBasicInformation, &pbi, sizeof(windows::winapi::PROCESS_BASIC_INFORMATION),
+                                                   &ReturnLength) >= 0 &&
+        pbi.PebBaseAddress) {
+      // A failed read leaves command_line empty and the rest of the entry
+      // intact. Letting it escape made enumerate_processes() retry without
+      // deep_scan, which threw away every counter read above.
+      try {
+        nscpGetCommandLine(handle, pbi.PebBaseAddress, entry);
+      } catch (const nsclient::nsclient_exception &) {
+      }
     }
-    entry.gdiHandleCount = GetGuiResources(handle, GR_GDIOBJECTS);
-    entry.userHandleCount = GetGuiResources(handle, GR_USEROBJECTS);
-
-    FILETIME creationTime;
-    FILETIME exitTime;
-    FILETIME kernelTime;
-    FILETIME userTime;
-    if (GetProcessTimes(handle, &creationTime, &exitTime, &kernelTime, &userTime)) {
-      entry.kernel_time_raw =
-          (kernelTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(kernelTime.dwLowDateTime);
-      entry.user_time_raw =
-          (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime);
-      entry.kernel_time = entry.kernel_time_raw / 10000000;
-      entry.user_time = entry.user_time_raw / 10000000;
-      // total_time is the cumulative user+kernel CPU seconds. The delta path
-      // (make_cpu_delta) overwrites all three with whole-percent CPU usage; in
-      // the normal (non-delta) path it must be populated here or the `time`
-      // keyword reads 0 (kernel/user are set individually above but their sum
-      // was never stored).
-      entry.total_time = entry.kernel_time + entry.user_time;
-      entry.creation_time = str::format::filetime_to_time(creationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1) +
-                                                          static_cast<unsigned long long>(creationTime.dwLowDateTime));
-    }
-
-    SIZE_T minimumWorkingSetSize;
-    SIZE_T maximumWorkingSetSize;
-    if (GetProcessWorkingSetSize(handle, &minimumWorkingSetSize, &maximumWorkingSetSize)) {
-    }
-
-    IO_COUNTERS ioc = {};
-    if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessIoCounters, &ioc, sizeof(IO_COUNTERS), &ReturnLength) >= 0) {
-      entry.otherOperationCount = ioc.OtherOperationCount;
-      entry.otherTransferCount = ioc.OtherTransferCount;
-      entry.readOperationCount = ioc.ReadOperationCount;
-      entry.readTransferCount = ioc.ReadTransferCount;
-      entry.writeOperationCount = ioc.WriteOperationCount;
-      entry.writeTransferCount = ioc.WriteTransferCount;
-    }
-    windows::winapi::VM_COUNTERS vmc = {};
-    if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessVmCounters, &vmc, sizeof(windows::winapi::VM_COUNTERS), &ReturnLength) >=
-        0) {
-      entry.PeakVirtualSize = vmc.PeakVirtualSize;
-      entry.VirtualSize = vmc.VirtualSize;
-      entry.PageFaultCount = vmc.PageFaultCount;
-      entry.PeakWorkingSetSize = vmc.PeakWorkingSetSize;
-      entry.WorkingSetSize = vmc.WorkingSetSize;
-      entry.QuotaPeakPagedPoolUsage = vmc.QuotaPeakPagedPoolUsage;
-      entry.QuotaPagedPoolUsage = vmc.QuotaPagedPoolUsage;
-      entry.QuotaPeakNonPagedPoolUsage = vmc.QuotaPeakNonPagedPoolUsage;
-      entry.QuotaNonPagedPoolUsage = vmc.QuotaNonPagedPoolUsage;
-      entry.PageFileUsage = vmc.PagefileUsage;
-      entry.PeakPageFileUsage = vmc.PeakPagefileUsage;
-    }
-    // 	KERNEL_USER_TIMES kut;
-    // 	memset(&kut, 0x00, sizeof(kut));
-    // 	ReturnLength = 0;
-    // 	reVal = nscpNtQueryInformationProcess(hProc, ProcessTimes, &kut, sizeof(KERNEL_USER_TIMES), &ReturnLength);
-
-    // 	PROCESS_CYCLE_TIME_INFORMATION pct;
-    // 	memset(&pct, 0x00, sizeof(pct));
-    // 	ReturnLength = 0;
-    // 	reVal = nscpNtQueryInformationProcess(hProc, ProcessCycleTime, &pct, sizeof(PROCESS_CYCLE_TIME_INFORMATION), &ReturnLength);
-
-    bool osIsWin64 = windows::winapi::IsWow64(GetCurrentProcess());
-    entry.wow64 = windows::winapi::IsWow64(handle, !osIsWin64);
-
-    // Owner resolution is opt-in: LookupAccountSid can block for seconds on
-    // domain / Azure-AD SIDs that need a directory round-trip, so it must not run
-    // on every check_process by default (especially process=* which would resolve
-    // hundreds of owners).
-    if (resolve_owner) fill_process_owner(handle, entry);
-
-    if (PebBaseAddress) nscpGetCommandLine(handle, PebBaseAddress, entry);
   }
 
   HMODULE hMod;
@@ -370,19 +400,10 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
   // Get the first module (the process itself)
   if (EnumProcessModules(handle, &hMod, sizeof(hMod), &size)) {
     TCHAR buffer2[MAX_FILENAME + 1];
-    if (!GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer2), MAX_FILENAME)) {
-      // The RAII wrapper owns `handle`; closing it here as well closed a
-      // value the kernel may already have reissued.
-      throw nsclient::nsclient_exception("Failed to find name for: " + str::xtos(pid) + ": " + error::lookup::last_error());
-    } else {
-      std::wstring path = buffer2;
-      entry.filename = utf8::cvt<std::string>(path);
-      std::wstring::size_type pos = path.find_last_of(_T("\\"));
-      if (pos != std::wstring::npos) {
-        path = path.substr(++pos);
-      }
-      entry.exe = utf8::cvt<std::string>(path);
-    }
+    // On failure the name GetProcessImageFileName gave above stands. Throwing
+    // here, as this used to, made enumerate_processes() retry without
+    // deep_scan and discard every counter already read.
+    if (GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer2), MAX_FILENAME)) set_image_path(entry, std::wstring(buffer2));
   }
   return entry;
 }
@@ -587,11 +608,6 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
   process_list ret;
   const debug_privilege_scope debug_privilege(error_interface, true);
 
-  // Convert a FILETIME (split 64-bit value) into a single 64-bit tick count.
-  const auto filetime_to_u64 = [](const FILETIME &ft) -> unsigned long long {
-    return (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) + static_cast<unsigned long long>(ft.dwLowDateTime);
-  };
-
   // Bracket both per-process samples with the system-time measurements so the
   // numerator (per-process CPU) and denominator (system CPU) cover the same
   // wall-clock window. Previously the second GetSystemTimes() was taken before
@@ -602,8 +618,8 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
   unsigned long long kernel_time = 0;
   unsigned long long user_time = 0;
   if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-    kernel_time = filetime_to_u64(kernelTime);
-    user_time = filetime_to_u64(userTime);
+    kernel_time = win_registry::filetime_to_ull(kernelTime);
+    user_time = win_registry::filetime_to_ull(userTime);
   }
 
   const process_map p1 = get_process_data(ignore_unreadable, error_interface);
@@ -611,8 +627,8 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
   process_map p2 = get_process_data(ignore_unreadable, error_interface);
 
   if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-    kernel_time = filetime_to_u64(kernelTime) - kernel_time;
-    user_time = filetime_to_u64(userTime) - user_time;
+    kernel_time = win_registry::filetime_to_ull(kernelTime) - kernel_time;
+    user_time = win_registry::filetime_to_ull(userTime) - user_time;
   }
   // Capacity = kernel + user. GetSystemTimes() already folds idle time into the
   // kernel figure, so idle is NOT added again here (doing so used to inflate

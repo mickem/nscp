@@ -1,20 +1,20 @@
 windows:
   - source: '`EnumProcesses` + `OpenProcess` per process'
-    provides: exe, filename, pid, state; with scan-info (the default) the memory, handle, I/O and CPU-time keywords from `GetProcessTimes`, `GetProcessHandleCount` and `NtQueryInformationProcess`
+    provides: exe, filename, pid, state, limited; with scan-info (the default) the memory, handle, I/O and CPU-time keywords from `GetProcessTimes`, `GetProcessHandleCount`, `GetGuiResources` and `NtQueryInformationProcess`
     privilege: conditional
-    note: 'The scan enables `SeDebugPrivilege`, which the agent holds when it runs as LocalSystem or an administrator. Without it, processes of other users and protected processes are opened with `PROCESS_QUERY_LIMITED_INFORMATION` only: the name is still read (`QueryFullProcessImageName`), but not the counters or the command line.'
-    without: 'A process that cannot be opened at all is `unreadable` (dropped by the default filter `state != ''unreadable''`); one opened with limited rights has only its name'
+    note: 'The scan enables `SeDebugPrivilege`, which the agent holds when it runs as LocalSystem or an administrator. Protected processes (`csrss.exe`, `MsMpEng.exe` and the like) refuse full query rights even then, and other users'' processes do without the privilege; both are opened with `PROCESS_QUERY_LIMITED_INFORMATION` only and `limited` is true. Through that right the name (`QueryFullProcessImageName`), creation, kernel, user and time (`GetProcessTimes`) and handles (`GetProcessHandleCount`) are read; gdi_handles and user_handles (`GetGuiResources`) and the memory keywords (`NtQueryInformationProcess(ProcessVmCounters)`) are tried, and whether Windows answers them for a limited handle depends on the Windows version.'
+    without: 'A process that cannot be opened at all is `unreadable` (dropped by the default filter `state != ''unreadable''`) and all its counters are unknown; for a limited process a counter Windows refuses renders unknown, never satisfies a threshold and emits no perfdata'
   - source: 'The process environment block, read with `ReadProcessMemory`'
     provides: command_line
     privilege: conditional
-    note: Needs `PROCESS_VM_READ` on the target, so the same condition as above applies.
+    note: Needs `PROCESS_VM_READ` on the target, which a limited process never grants, so it is unavailable for protected processes even with `SeDebugPrivilege`, and for other users' processes without it.
     without: command_line is empty
   - source: '`EnumWindows` + `IsHungAppWindow`'
     provides: hung state
     note: Only the top-level windows of the agent's own desktop are seen.
   - source: '`OpenProcessToken` + `LookupAccountSidW`'
     provides: username, uid
-    note: Only with resolve-owner=true; the account lookup can block on domain accounts.
+    note: Only with resolve-owner=true; the account lookup can block on domain accounts. The token is also asked for on a limited process, but a protected process may refuse it, and username and uid then stay empty.
   - source: '`NtQuerySystemInformation(SystemProcessInformation)` and `GetSystemTimes`, sampled once a second by the collector'
     provides: kernel, user and time as a percentage with delta=true
     requires:
