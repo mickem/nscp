@@ -1,6 +1,7 @@
-# Temporary diagnostic, not for merging: lists which Visual C++ merge modules
-# and redistributable folders the windows-2022 runner has, before and after
-# .github/actions/update-msvc adds the v141 toolset (#1776).
+# Temporary diagnostic, not for merging (#1776).
+#  - container: can a published MSI be installed in a clean servercore
+#    container, and what does it do to the Visual C++ runtime there?
+#  - msm: which runtime version is inside the v141 and v143 merge modules?
 name: Probe merge modules
 
 on:
@@ -11,31 +12,33 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  container:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download the 0.27.0 MSI
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force work | Out-Null
+        curl.exe -sSL --fail -o work\NSCP.msi https://github.com/mickem/nscp/releases/download/0.27.0/NSCP-0.27.0-x64.msi
+        Copy-Item .github\scripts\probe-container-install.ps1 work\
+        Get-ChildItem work
+
+    - name: Install it in a clean servercore container
+      shell: pwsh
+      run: |
+        docker version --format '{{.Server.Os}} {{.Server.Version}}'
+        docker images
+        docker run --rm -v "${PWD}\work:C:\work" mcr.microsoft.com/windows/servercore:ltsc2022 powershell -NoProfile -ExecutionPolicy Bypass -File C:\work\probe-container-install.ps1
+
+  msm:
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
     - uses: actions/checkout@v4
-
-    - name: List (stock runner image)
-      shell: pwsh
-      run: ./.github/scripts/probe-merge-modules.ps1
-
-    - name: List installer catalog entries for merge modules
-      shell: pwsh
-      run: |
-        $catalogs = Get-ChildItem 'C:\ProgramData\Microsoft\VisualStudio\Packages\_Instances' -Recurse -Filter catalog.json -ErrorAction SilentlyContinue
-        foreach ($c in $catalogs) {
-          Write-Host "== $($c.FullName)"
-          $json = Get-Content $c.FullName -Raw | ConvertFrom-Json
-          $json.packages |
-            Where-Object { $_.id -match '(?i)msm|mergemod|Redist' } |
-            ForEach-Object { "{0,-12} {1,-90} {2}" -f $_.type, $_.id, $_.version } |
-            Sort-Object -Unique
-        }
-
     - uses: ./.github/actions/update-msvc
-
-    - name: List (after update-msvc)
+    - name: Read the runtime version inside each merge module
       shell: pwsh
-      run: ./.github/scripts/probe-merge-modules.ps1
+      run: ./.github/scripts/probe-msm-version.ps1
