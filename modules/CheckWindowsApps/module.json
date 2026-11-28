@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "Windows application and server-role checks",
-		"description"		: "Checks for Windows applications and server roles: IIS, Remote Desktop Services, NPS authentication, accounting and performance counters, and Failover Clustering groups, resources, nodes and networks.",
+		"description"		: "Checks for Windows applications and server roles: IIS, Remote Desktop Services, NPS authentication, accounting and performance counters, DHCP Server scope utilisation and packet statistics, and Failover Clustering groups, resources, nodes and networks.",
 		"name"			: "CheckWindowsApps",
 		"alias"			: "windowsapps",
 		"version"		: "auto",
@@ -12,6 +12,8 @@
 		"check_nps_auth": "Check NPS authentication outcomes, rejection percentages and reason codes over a time window.",
 		"check_nps_accounting": "Check discarded NPS accounting requests and optional accounting log freshness.",
 		"check_nps_counters": "Check the installed NPS/RADIUS performance counters using two samples.",
+		"check_dhcp_scopes": "Check the address utilisation of the IPv4 scopes on the local DHCP server (addresses in use, free and offered, percent used).",
+		"check_dhcp_server": "Check the DHCP server's packet statistics (discovers, offers, requests, acks, nacks, declines per second and queue lengths).",
 		"check_cluster_groups": "Check Windows Failover Cluster roles and their current owner nodes.",
 		"check_cluster_resources": "Check Windows Failover Cluster resources, types, groups and owners.",
 		"check_cluster_nodes": "Check Windows Failover Cluster node states.",

@@ -16,6 +16,9 @@ set(SRCS
     check_rds_sessions.cpp
     check_nps.cpp
     check_nps_source_win.cpp
+    check_dhcp.cpp
+    dhcp_filter.cpp
+    dhcp_source_win.cpp
     ${NSCP_INCLUDEDIR}/win/eventlog/modern_eventlog.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
@@ -49,6 +52,9 @@ if(WIN32)
         check_nps.hpp
         check_nps_internal.hpp
         check_nps_event_values.hpp
+        check_dhcp.hpp
+        dhcp_filter.hpp
+        dhcp_source.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp
@@ -80,10 +86,23 @@ target_link_libraries(
     winsys_info
     Wbemuuid.lib
     OleAut32
+    dhcpsapi
 )
+
+# dhcpsapi.dll is delay-loaded: it is only mapped when a DHCP check first
+# calls into it, so the IIS, RDS, NPS and cluster checks never depend on it.
+# dhcp_source_win.cpp loads it from System32 itself before the first call and
+# reports UNKNOWN when that fails, so the delay-load helper never has to raise
+# its "module not found" exception.
+if(MSVC)
+    set_property(TARGET ${TARGET} APPEND_STRING PROPERTY LINK_FLAGS " /DELAYLOAD:dhcpsapi.dll")
+    target_link_libraries(${TARGET} delayimp)
+endif()
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/win/pdh/.*)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/dhcp_unit_tests.cmake)
 
 NSCP_CREATE_TEST(
     check_cluster_test

@@ -6,11 +6,12 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 
-// One module for Windows application/server-role checks (IIS, RDS, NPS and
-// Failover Clustering). Each role keeps its own check_<role>_*.cpp/.hpp
+// One module for Windows application/server-role checks (IIS, RDS, NPS, DHCP
+// Server and Failover Clustering). Each role keeps its own check_<role>_*.cpp/.hpp
 // pair; this class is only the dispatch surface the generated module glue
 // binds to. A role earns a module of its own only when it drags in a heavy or
-// optional dependency. Cluster API entry points are loaded only on demand.
+// optional dependency. Cluster API entry points are loaded only on demand, and
+// dhcpsapi.dll is delay-loaded, so neither is needed until its check runs.
 class CheckWindowsApps : public nscapi::impl::simple_plugin {
  public:
   CheckWindowsApps() {}
@@ -22,6 +23,10 @@ class CheckWindowsApps : public nscapi::impl::simple_plugin {
   static void check_nps_auth(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   static void check_nps_accounting(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   static void check_nps_counters(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+
+  // DHCP Server check commands
+  static void check_dhcp_scopes(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  static void check_dhcp_server(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
   // Windows Failover Clustering commands
   static void check_cluster_groups(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
