@@ -14,6 +14,7 @@ import MssqlPage from "./CheckMSSQL/MssqlPage";
 import { connectionStringRisk } from "./CheckMSSQL/mssql";
 import MysqlPage from "./CheckMySQL/MysqlPage";
 import WmiPage from "./CheckWMI/WmiPage";
+import WmiQueries from "./CheckWMI/WmiQueries";
 import { accessRisk, queryAccessOf } from "./CheckWMI/wmi";
 import { endpointProblem } from "./CheckDocker/docker";
 import KubernetesPage from "./CheckKubernetes/KubernetesPage";
@@ -140,6 +141,33 @@ describe("WMI", () => {
         "[/modules] CheckWMI=enabled",
       ]),
     );
+  });
+});
+
+describe("WMI named queries", () => {
+  it("runs a saved query by name, and a typed one as written", async () => {
+    const runs: string[] = [];
+    installFetchMock({
+      "/api/v2/settings": jsonResponse([
+        { path: "/settings/wmi/queries", key: "services", value: "SELECT Name FROM Win32_Service" },
+      ]),
+      "/api/v2/queries/check_wmi/commands/execute": async (req: Request) => {
+        runs.push(new URL(req.url, "http://localhost").searchParams.get("query") ?? "");
+        return jsonResponse({
+          command: "check_wmi",
+          result: 0,
+          lines: [{ message: "OK: 142 rows", perf: {} }],
+        });
+      },
+    });
+    renderWithProviders(<WmiQueries />, { preloadedState: authenticatedState });
+    await userEvent.click(await screen.findByRole("button", { name: "Run" }));
+    expect(await screen.findByText(/OK: OK: 142 rows/)).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: "Add query" }));
+    await userEvent.type(screen.getByLabelText("WQL"), "SELECT Name FROM Win32_Process");
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+    await waitFor(() => expect(runs).toEqual(["services", "SELECT Name FROM Win32_Process"]));
   });
 });
 

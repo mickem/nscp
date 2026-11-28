@@ -53,6 +53,8 @@ interface Props {
   // Why a key and value cannot be saved, or null.
   problem?: (key: string, value: string) => string | null;
   emptyText?: string;
+  // Extra controls at the start of a row's actions (a Run button, ...).
+  rowAction?: (row: KeyValueRow) => ReactNode;
 }
 
 interface Editing {
@@ -73,6 +75,7 @@ export default function KeyValueCard({
   renderValue,
   problem: valueProblem,
   emptyText = "None is defined.",
+  rowAction,
 }: Props) {
   const [updateSettings] = useUpdateSettingsMutation();
   const [deleteSettings] = useDeleteSettingsMutation();
@@ -171,6 +174,7 @@ export default function KeyValueCard({
                     )}
                   </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                    {rowAction?.(r)}
                     <Tooltip title="Edit">
                       <IconButton
                         size="small"
