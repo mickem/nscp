@@ -27,7 +27,6 @@ export const NSCP_CLIENT_TARGETS: TargetSpec = {
       label: "Password",
       kind: "secret",
       builtIn: "",
-      inherits: true,
       help: "The remote agent's web password.",
     },
   },

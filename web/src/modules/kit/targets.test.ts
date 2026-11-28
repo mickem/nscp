@@ -19,7 +19,7 @@ const spec: TargetSpec = {
   fields: {
     address: { label: "Address", kind: "text", builtIn: "" },
     port: { label: "Port", kind: "number", builtIn: "1234" },
-    "use ssl": { label: "TLS", kind: "bool", builtIn: "true", inherits: true },
+    "use ssl": { label: "TLS", kind: "bool", builtIn: "true" },
     secret: { label: "Secret", kind: "secret", builtIn: "" },
   },
   sections: [{ title: "Connection", keys: ["address"] }],
@@ -44,12 +44,36 @@ describe("targets", () => {
 
   it("inherits from the parent, then default, then the built-in", () => {
     expect(effective(stored, spec, "a", "use ssl")).toBe("false");
-    // A key with a default of its own is not inherited, address included.
-    expect(effective(stored, spec, "b", "address")).toBe("");
+    // Every key is inherited, a key the agent registers with a default and
+    // the address included.
+    expect(effective(stored, spec, "b", "address")).toBe("a.example");
+    expect(effective(stored, spec, "b", "port")).toBe("1234");
     expect(effective(stored, spec, "b", "use ssl")).toBe("false");
     expect(effective(stored, spec, "default", "port")).toBe("1234");
     // A loop falls back to the built-in rather than spin.
     expect(effective(stored, spec, "c", "use ssl")).toBe("true");
+  });
+
+  it("takes a key with a built-in default from the parent, not the built-in", () => {
+    const withPort: Settings[] = [
+      { path: `${P}/default`, key: "port", value: "99" },
+      { path: `${P}/default`, key: "address", value: "default.example" },
+      { path: `${P}/tpl`, key: "port", value: "77" },
+      { path: `${P}/leaf`, key: "parent", value: "tpl" },
+      { path: `${P}/own`, key: "address", value: "own.example" },
+      { path: `${P}/root`, key: "parent", value: "" },
+      { path: P, key: "short", value: "short.example:5" },
+    ];
+    expect(effective(withPort, spec, "plain", "port")).toBe("99");
+    expect(effective(withPort, spec, "leaf", "port")).toBe("77");
+    expect(effective(withPort, spec, "leaf", "address")).toBe("default.example");
+    // A target at an address of its own does not take its parent's port.
+    expect(effective(withPort, spec, "own", "port")).toBe("1234");
+    // A one-line target is at the address it names.
+    expect(effective(withPort, spec, "short", "address")).toBe("short.example:5");
+    expect(effective(withPort, spec, "short", "port")).toBe("1234");
+    // An empty parent makes a root, like default.
+    expect(effective(withPort, spec, "root", "port")).toBe("1234");
   });
 
   it("writes only what differs from what the target inherits", () => {

@@ -570,18 +570,29 @@ TEST(IcingaOptionsReader, ProcessParsesTheSubmitIcingaOptions) {
   EXPECT_EQ(source.address.host, "sender-host") << "--hostname names the sender, not the API";
 }
 
-TEST(IcingaOptionsReader, TheTlsVersionDefaultsToOneThree) {
+TEST(IcingaOptionsReader, LeavingOutTlsVersionKeepsTheTargets) {
+  // The option used to carry default_value("1.3"), which program_options
+  // notifies even when the option is not given - so every request overwrote
+  // the target's configured `tls version` with 1.3.
   icinga_handler::options_reader_impl reader;
   boost::program_options::options_description desc;
   client::destination_container source, data;
+  data.set_string_data("tls version", "1.2");  // as applied from the target
   reader.process(desc, source, data);
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::command_line_parser(std::vector<std::string>{}).options(desc).run(), vm);
   boost::program_options::notify(vm);
 
-  EXPECT_EQ(data.get_string_data("tls version"), "1.3");
+  EXPECT_EQ(data.get_string_data("tls version"), "1.2");
   EXPECT_FALSE(data.has_data("ensure_objects")) << "object creation must stay opt-in";
+}
+
+TEST(IcingaOptionsReader, WithNoTlsVersionAnywhereTheConnectionUsesOneThree) {
+  client::destination_container data, sender;
+  data.set_address("https://icinga.example.com");
+  const icinga_client::connection_data con(data, sender);
+  EXPECT_EQ(con.tls_version, "1.3");
 }
 
 TEST(IcingaSubmit, QueryAndExecAreNotSupported) {

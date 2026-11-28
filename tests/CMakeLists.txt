@@ -1095,6 +1095,9 @@ NSCP_CREATE_TEST(
     client_command_line_parser_test
     SOURCES
         ${NSCP_INCLUDEDIR}/client/command_line_parser_test.cpp
+        # How a target takes its keys from its parent (nscapi_targets.cpp is
+        # in plugin_api, linked below).
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_targets_test.cpp
         ${NSCP_CLIENT_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         # Compiled in rather than taken from plugin_api: the Windows plugin_api

@@ -912,5 +912,139 @@ TEST_F(ObjectInstanceInterfaceTest, FullObjectExampleInheritanceBothOverrides) {
       obj->to_string());
 }
 
+// ============================================================================
+// Objects that inherit their settings (client targets opt in to this)
+// ============================================================================
+
+struct inheriting_test_object : test_object {
+  inheriting_test_object(const std::string& alias, const std::string& base_path) : test_object(alias, base_path) {}
+  bool inherits_settings() const override { return true; }
+};
+
+typedef object_handler<inheriting_test_object> inheriting_object_handler;
+
+class InheritingObjectTest : public ::testing::Test {
+ protected:
+  std::shared_ptr<MockSettingsInterface> mock_ = std::make_shared<MockSettingsInterface>();
+  inheriting_object_handler objects_;
+  const std::string base_ = "/settings/targets";
+
+  void SetUp() override { objects_.set_path(base_); }
+
+  void set(const std::string& alias, const std::map<std::string, std::string>& values) {
+    MockSettingsInterface::string_list keys;
+    for (const auto& kv : values) {
+      mock_->set_setting(base_ + "/" + alias, kv.first, kv.second);
+      keys.push_back(kv.first);
+    }
+    mock_->set_keys(base_ + "/" + alias, keys);
+  }
+  std::shared_ptr<inheriting_test_object> load(const std::string& alias, const std::string& value = "") {
+    objects_.add(mock_, alias, value);
+    return objects_.find_object(alias);
+  }
+};
+
+TEST_F(InheritingObjectTest, TheRootFallsBackToTheBuiltInDefault) {
+  const auto obj = load("default");
+  EXPECT_EQ(obj->get_property_string("key1"), "cannot-be-inherited");
+  EXPECT_FALSE(obj->has_option("key2"));
+}
+
+TEST_F(InheritingObjectTest, AKeyWithADefaultComesFromTheParent) {
+  // The defect this fixes: key1 is registered with a default, and a child
+  // that left it out was reset to that default instead of keeping default's.
+  set("default", {{"key1", "from-default"}, {"key2", "two"}});
+  set("child", {{"key3", "three"}});
+
+  const auto obj = load("child");
+  EXPECT_EQ(obj->get_property_string("key1"), "from-default");
+  EXPECT_EQ(obj->get_property_string("key2"), "two");
+  EXPECT_EQ(obj->get_property_string("key3"), "three");
+  EXPECT_EQ(objects_.find_object("default")->get_property_string("key1"), "from-default") << "the root is read as before";
+}
+
+TEST_F(InheritingObjectTest, AOneLineTargetInheritsTooAndKeepsItsValue) {
+  set("default", {{"key1", "from-default"}});
+  const auto obj = load("short", "host:1234");
+  EXPECT_EQ(obj->get_property_string("key1"), "from-default");
+  EXPECT_EQ(obj->get_value(), "host:1234");
+}
+
+TEST_F(InheritingObjectTest, TheChildsOwnValueWins) {
+  set("default", {{"key1", "from-default"}, {"key2", "two"}});
+  set("child", {{"key1", "mine"}});
+
+  const auto obj = load("child");
+  EXPECT_EQ(obj->get_property_string("key1"), "mine");
+  EXPECT_EQ(obj->get_property_string("key2"), "two");
+}
+
+TEST_F(InheritingObjectTest, AnEmptyValueTheChildWritesStillOverrides) {
+  set("default", {{"key1", "from-default"}});
+  set("child", {{"key1", ""}});
+
+  EXPECT_EQ(load("child")->get_property_string("key1"), "");
+}
+
+TEST_F(InheritingObjectTest, ValuesComeDownAWholeChain) {
+  // default -> tpl -> leaf: the leaf takes tpl's value where tpl set one, and
+  // default's where only default did.
+  set("default", {{"key1", "d1"}, {"key2", "d2"}, {"key3", "d3"}});
+  set("tpl", {{"is template", "true"}, {"key2", "t2"}});
+  set("leaf", {{"parent", "tpl"}, {"key3", "l3"}});
+
+  const auto obj = load("leaf");
+  EXPECT_EQ(obj->get_property_string("key1"), "d1");
+  EXPECT_EQ(obj->get_property_string("key2"), "t2");
+  EXPECT_EQ(obj->get_property_string("key3"), "l3");
+}
+
+TEST_F(InheritingObjectTest, TheParentsOwnDescriptionIsNotInherited) {
+  // `is template` and `alias` say what the object itself is: the child of a
+  // template is a target, and keeps its own name.
+  set("tpl", {{"is template", "true"}, {"alias", "renamed-template"}, {"key1", "t1"}});
+  set("leaf", {{"parent", "tpl"}});
+
+  const auto obj = load("leaf");
+  ASSERT_TRUE(obj);
+  EXPECT_FALSE(obj->is_template());
+  EXPECT_EQ(obj->get_alias(), "leaf");
+  EXPECT_EQ(obj->get_property_string("key1"), "t1");
+  EXPECT_EQ(objects_.get_alias_list(), std::list<std::string>{"leaf"});
+}
+
+TEST_F(InheritingObjectTest, ARootThatNamesNoParentUsesTheBuiltIns) {
+  set("default", {{"key1", "from-default"}});
+  set("loner", {{"parent", ""}, {"key2", "two"}});
+
+  const auto obj = load("loner");
+  EXPECT_EQ(obj->get_property_string("key1"), "cannot-be-inherited");
+}
+
+TEST(InheritingSettingsProxy, OnlyKeysUnderTheObjectsOwnSectionAreInherited) {
+  auto mock = std::make_shared<MockSettingsInterface>();
+  mock->set_setting("/t/child", "own", "o");
+  effective_settings_map effective = {{{"", "k"}, "parent-k"}, {{"/sub", "s"}, "parent-s"}};
+  inheriting_settings_proxy proxy(mock, "/t/child", &effective);
+
+  EXPECT_EQ(proxy.get_string("/t/child", "own", "def"), "o");
+  EXPECT_EQ(proxy.get_string("/t/child", "k", "def"), "parent-k");
+  EXPECT_EQ(proxy.get_string("/t/child/sub", "s", "def"), "parent-s");
+  EXPECT_EQ(proxy.get_string("/t/child", "missing", "def"), "def");
+  EXPECT_EQ(proxy.get_string("/t/childish", "k", "def"), "def") << "a sibling whose name merely starts the same is not ours";
+  EXPECT_EQ(proxy.get_string("/elsewhere", "k", "def"), "def");
+  EXPECT_EQ(effective.at({"", "own"}), "o") << "what was read is recorded for the object's own children";
+  EXPECT_EQ(effective.count({"", "missing"}), 0u) << "a caller's default is not recorded as a value";
+}
+
+TEST(InheritingSettingsProxy, UnwrapReturnsTheProxyUnderneath) {
+  auto mock = std::make_shared<MockSettingsInterface>();
+  effective_settings_map effective;
+  auto wrapped = std::make_shared<inheriting_settings_proxy>(mock, "/t/x", &effective);
+  EXPECT_EQ(inheriting_settings_proxy::unwrap(wrapped), mock);
+  EXPECT_EQ(inheriting_settings_proxy::unwrap(mock), mock);
+}
+
 }  // namespace settings_objects
 }  // namespace nscapi

@@ -31,13 +31,14 @@ struct connection_data : public socket_helpers::connection_info {
     // destination_container routes the well-known "timeout" key into a typed
     // field (see set_string_data), never into the free-form data map, so
     // get_int_data("timeout") could not see a configured value and the fallback
-    // always won. "retries" is not one of those keys and does land in the map.
+    // always won. "retries" lands in the retry field too (and a copy in the
+    // map), so the field is what to read.
     // The settings layer notifies the documented defaults (30 / 3) for targets
     // that set neither. A configured 0 means "no time limit" to the sender, so
     // it has to survive: only a negative value - impossible from settings, but
     // reachable from a hand-written --timeout - keeps the inherited default.
     if (arguments.timeout >= 0) timeout = static_cast<unsigned int>(arguments.timeout);
-    retry = arguments.get_int_data("retries", arguments.retry);
+    retry = arguments.retry;
     multicast_interfaces = arguments.get_string_data("multicast interface", "auto");
     sender_hostname = sender.address.host;
     if (sender.has_data("host")) sender_hostname = sender.get_string_data("host");

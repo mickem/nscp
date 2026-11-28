@@ -282,9 +282,14 @@ struct destination_container {
       address.port = to_int(value, static_cast<int>(address.port));
     else if (key == "timeout")
       timeout = to_int(value, timeout);
-    else if (key == "retry")
+    else if (key == "retry" || key == "retries") {
+      // The target setting is spelled `retries`, the command line option and
+      // the field `retry`: both land in the field, which is what NRPE, NSCP,
+      // NRDP and Icinga read. The map keeps a `retries` copy for the clients
+      // that read it from there (NSCA, NSCA-NG, collectd).
       retry = to_int(value, retry);
-    else
+      data["retries"] = str::xtos(retry);
+    } else
       data[key] = value;
   }
   void set_int_data(const std::string &key, const int value) { set_string_data(key, str::xtos(value)); }

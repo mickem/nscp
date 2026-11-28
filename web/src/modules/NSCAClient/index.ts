@@ -39,7 +39,7 @@ export const NSCA_CLIENT_TARGETS: TargetSpec = {
       help: "Of the timestamp sent: utc as the protocol says, or local for a legacy daemon.",
     },
     "time offset": { label: "Time offset", kind: "text", builtIn: "0" },
-    encoding: { label: "Encoding", kind: "text", builtIn: "", inherits: true },
+    encoding: { label: "Encoding", kind: "text", builtIn: "" },
     ...TLS,
   },
   sections: [

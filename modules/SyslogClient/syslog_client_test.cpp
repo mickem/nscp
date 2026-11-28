@@ -131,7 +131,16 @@ TEST(SyslogConnectionData, DefaultsToTheSyslogPortAndSaneRetries) {
 
   EXPECT_EQ(con.get_port(), "514");
   EXPECT_EQ(con.timeout, 30u);
-  EXPECT_EQ(con.retry, 3);
+  // The container's own default; a target read from settings brings the
+  // documented `retries` default (3) with it.
+  EXPECT_EQ(con.retry, 2);
+}
+
+TEST(SyslogConnectionData, TakesTheRetriesFromTheTarget) {
+  // Read from the container's retry field: the old data-map lookup of "retry"
+  // never found anything, so neither the `retries` setting nor --retry took.
+  EXPECT_EQ(syslog_client::connection_data(target_with({{"address", "h"}, {"retries", "1"}}), client::destination_container()).retry, 1);
+  EXPECT_EQ(syslog_client::connection_data(target_with({{"address", "h"}, {"retry", "5"}}), client::destination_container()).retry, 5);
 }
 
 TEST(SyslogConnectionData, TakesThePortFromTheTarget) {
@@ -145,7 +154,7 @@ TEST(SyslogConnectionData, AConfiguredTimeoutDoesNotReachTheConnection) {
   //
   // connection_data reads `arguments.get_int_data("timeout", 30)`, which looks
   // in the container's free-form data map. But destination_container routes the
-  // well-known keys "timeout" and "retry" into typed *fields* instead of that
+  // well-known key "timeout" into a typed *field* instead of that
   // map (set_string_data), so the lookup never finds them and the default wins
   // no matter what the operator configured.
   //
@@ -154,10 +163,9 @@ TEST(SyslogConnectionData, AConfiguredTimeoutDoesNotReachTheConnection) {
   // and CollectdClient, where it is the socket timeout. Fixing it means
   // choosing what an unset timeout should be: the container defaults to 10,
   // these clients document 30.
-  const syslog_client::connection_data con(target_with({{"address", "h"}, {"timeout", "5"}, {"retry", "1"}}), client::destination_container());
+  const syslog_client::connection_data con(target_with({{"address", "h"}, {"timeout", "5"}}), client::destination_container());
 
   EXPECT_EQ(con.timeout, 30u) << "documenting the defect: the configured 5 was ignored";
-  EXPECT_EQ(con.retry, 3) << "documenting the defect: the configured 1 was ignored";
 }
 
 TEST(SyslogConnectionData, CarriesTheTemplatesAndSeverities) {

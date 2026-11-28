@@ -3,13 +3,14 @@
 // targets is a TargetSpec: the keys with their built-in defaults, how they are
 // grouped, what weakens a target, and how to probe one.
 //
-// A target reads a key from its own section. A key the agent registers
-// without a default then comes from the target it names as `parent`
-// (`default` when it names none); a key registered with one falls back to
-// that built-in default, whatever the parent says (typed_key::notify in
-// include/nscapi/settings/helper.cpp). `address` is never inherited either:
-// reading a target starts by resetting it. So `default` is the target used
-// when none is named, and the template for the inheriting keys only.
+// A target reads a key from its own section; a key it leaves out comes from
+// the target it names as `parent` (`default` when it names none), and only
+// `default` itself falls back to the built-in default (inheriting_settings_proxy
+// in include/nscapi/settings/object.hpp). The address follows the same rule,
+// except that a one-line target (`name = host:port` in the collection) is at
+// the address it names, and a target that names its own address does not take
+// `host` or `port` from its parent (target_object::read in
+// include/nscapi/nscapi_targets.cpp).
 import type { ReactNode } from "react";
 import { Settings } from "../../api/api.ts";
 import { readStored, SettingChange, toIni } from "./changes.ts";
@@ -25,11 +26,9 @@ export interface TargetField {
   // outside the offered list is shown, not silently replaced).
   kind: ValueKind | "secret" | ((v: TargetValues) => ValueKind);
   help?: ReactNode;
-  // What the agent uses while the target does not set it (and, for an
-  // inheriting key, nor does its parent).
+  // What the agent uses while neither the target nor any target it inherits
+  // from sets it.
   builtIn: string;
-  // Registered without a default, so a target takes its parent's value.
-  inherits?: boolean;
   // Only shown while this holds for the target's values.
   visible?: (v: TargetValues) => boolean;
 }
@@ -113,6 +112,13 @@ export function targetNames(stored: Settings[] | undefined, spec: TargetSpec): s
   return [DEFAULT_TARGET, ...[...names].sort((a, b) => a.localeCompare(b))];
 }
 
+// The address a one-line target (`name = host:port` in the collection) names.
+function oneLiner(stored: Settings[] | undefined, spec: TargetSpec, name: string): string {
+  return readStored(stored, spec.path, name) ?? "";
+}
+
+const ADDRESS_PARTS = ["host", "port"];
+
 // The value a target inherits for a key: its parent's, else the built-in.
 export function inherited(
   stored: Settings[] | undefined,
@@ -122,10 +128,18 @@ export function inherited(
   seen: Set<string> = new Set(),
 ): string {
   const builtIn = spec.fields[key]?.builtIn ?? "";
-  if (name === DEFAULT_TARGET || !spec.fields[key]?.inherits) return builtIn;
+  if (name === DEFAULT_TARGET) return builtIn;
+  const path = targetPath(spec, name);
+  if (key === "address" && oneLiner(stored, spec, name)) return oneLiner(stored, spec, name);
+  if (
+    ADDRESS_PARTS.includes(key) &&
+    (oneLiner(stored, spec, name) || readStored(stored, path, "address") !== undefined)
+  )
+    return builtIn;
   seen.add(name);
-  const parent = readStored(stored, targetPath(spec, name), "parent") || DEFAULT_TARGET;
-  if (seen.has(parent)) return builtIn;
+  const parent = readStored(stored, path, "parent") ?? DEFAULT_TARGET;
+  // A target naming no parent is a root of its own, like default.
+  if (parent === "" || seen.has(parent)) return builtIn;
   return effective(stored, spec, parent, key, seen);
 }
 

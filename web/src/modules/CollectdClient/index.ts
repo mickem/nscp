@@ -15,7 +15,6 @@ export const COLLECTD_CLIENT_TARGETS: TargetSpec = {
       label: "Interval (seconds)",
       kind: "number",
       builtIn: "",
-      inherits: true,
       help: "Reported to collectd with each metric; the client's interval when empty.",
     },
     "multicast interface": {

@@ -44,7 +44,6 @@ export const NSCA_NG_CLIENT_TARGETS: TargetSpec = {
       label: "Use TLS",
       kind: "bool",
       builtIn: "true",
-      inherits: true,
       help: "Ignored: NSCA-NG always uses TLS.",
     },
     "max output length": { label: "Output kept (bytes)", kind: "number", builtIn: "65536" },
