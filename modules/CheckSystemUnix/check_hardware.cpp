@@ -10,6 +10,7 @@
 #include <boost/filesystem.hpp>
 #include <cerrno>
 #include <cstdio>
+#include <set>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <str/format.hpp>
@@ -309,6 +310,16 @@ smbios_inventory parse_smbios_table(const std::string &table, const boost::optio
   }
   bool seen_chassis = false;
   bool seen_system = false;
+  // Type 17 records are filtered once the walk is done: the array a device
+  // belongs to may be described after the device itself.
+  struct device_record {
+    boost::optional<std::uint16_t> array;   // Physical Memory Array Handle
+    boost::optional<memory_module> module;  // set for a populated socket
+  };
+  std::vector<device_record> devices;
+  std::set<std::uint16_t> system_arrays;
+  std::set<std::uint16_t> other_arrays;
+  bool ended = false;
 
   std::size_t pos = 0;
   while (inv.structures < static_cast<long long>(max_structures)) {
@@ -367,13 +378,23 @@ smbios_inventory parse_smbios_table(const std::string &table, const boost::optio
     } else if (type == 16) {
       // Only arrays used for system memory (not video or flash).
       const boost::optional<std::uint8_t> use = a.u8(0x05);
-      const boost::optional<std::uint16_t> devices = a.u16(0x0D);
-      if (use && use.value() == 0x03 && devices) {
-        inv.have_arrays = true;
-        inv.slots += devices.value();
+      const boost::optional<std::uint16_t> count = a.u16(0x0D);
+      const boost::optional<std::uint16_t> handle = a.u16(0x02);
+      if (use && use.value() == 0x03) {
+        if (handle) system_arrays.insert(handle.value());
+        if (count) {
+          inv.have_arrays = true;
+          inv.slots += count.value();
+        }
+      } else if (use && handle && use.value() >= 0x04 && use.value() <= 0x07) {
+        // Video, flash, non-volatile RAM and cache. An array the firmware
+        // labels Other or Unknown may well be the main memory, so its devices
+        // are kept.
+        other_arrays.insert(handle.value());
       }
     } else if (type == 17) {
-      inv.device_records++;
+      device_record rec;
+      rec.array = a.u16(0x04);
       const boost::optional<long long> size = module_size(a);
       if (size) {
         memory_module m;
@@ -385,12 +406,27 @@ smbios_inventory parse_smbios_table(const std::string &table, const boost::optio
         m.manufacturer = a.str(0x17);
         m.serial = a.str(0x18);
         m.part_number = a.str(0x1A);
-        inv.modules.push_back(m);
+        rec.module = m;
       }
+      devices.push_back(rec);
     } else if (type == 127) {
-      break;  // end of table
+      ended = true;  // end of table
+      break;
     }
     pos = k + 2;
+  }
+  // The entry point's structure count or table length ended the walk with
+  // structures still ahead: what was read is not known to be the whole table.
+  if (!inv.truncated && !ended && pos < table.size() && data[pos] != 127) inv.capped = true;
+  for (const device_record &rec : devices) {
+    // A device of an array that is not system memory (flash, video, cache)
+    // is not a DIMM. A handle claimed by both kinds is kept.
+    if (rec.array && other_arrays.count(rec.array.value()) > 0 && system_arrays.count(rec.array.value()) == 0) {
+      inv.other_devices++;
+      continue;
+    }
+    inv.device_records++;
+    if (rec.module) inv.modules.push_back(rec.module.value());
   }
   return inv;
 }
@@ -401,16 +437,23 @@ void hardware_info::recompute() {
   modules = static_cast<long long>(module_details.size());
   long long total = 0;
   long long slowest = 0;
+  bool sized = !module_details.empty();
   module_list.clear();
   for (const memory_module &m : module_details) {
     total += m.capacity;
+    if (m.capacity <= 0) sized = false;
     if (m.speed > 0 && (slowest == 0 || m.speed < slowest)) slowest = m.speed;
     if (!module_list.empty()) module_list += "; ";
     module_list += m.locator.empty() ? "?" : m.locator;
     module_list += ": " + str::format::format_byte_units(m.capacity);
     if (m.speed > 0) module_list += "@" + str::xtos(m.speed) + "MHz";
   }
-  memory = total;
+  // A module of unknown size makes the sum a partial figure, not a total.
+  if (sized) {
+    memory = total;
+  } else {
+    memory = boost::none;
+  }
   if (slowest > 0) {
     memory_speed = slowest;
   } else {
@@ -498,6 +541,10 @@ hardware_info gather_hardware_from(const std::string &root) {
     if (read_bounded(tables + "/smbios_entry_point", kMaxEntryPointBytes, ep_bytes, nullptr)) ep = parse_smbios_entry_point(ep_bytes);
     const smbios_inventory inv = parse_smbios_table(table, ep);
     if (inv.truncated) add_error(out.gather_errors, "SMBIOS table: malformed or truncated after " + str::xtos(inv.structures) + " structure(s)");
+    if (inv.capped) {
+      add_error(out.gather_errors,
+                "SMBIOS table: the entry point ends the walk after " + str::xtos(inv.structures) + " structure(s), before the end of the table");
+    }
     if (inv.structures > 0) {
       out.smbios_ok = true;
       // The sysfs copies win where both exist; the table fills the gaps.
@@ -508,11 +555,25 @@ hardware_info gather_hardware_from(const std::string &root) {
       if (out.chassis_type == 0) out.chassis_type = inv.chassis_type;
       if (out.chassis_serial.empty()) out.chassis_serial = inv.chassis_serial;
       if (out.asset_tag.empty()) out.asset_tag = inv.asset_tag;
-      if (inv.device_records > 0 || inv.have_arrays) {
+      // The memory inventory is all or nothing: a walk that stopped early
+      // or found no populated module (a machine cannot run without one, so the
+      // table does not describe it) leaves the counts unknown rather than
+      // publishing a partial figure a threshold would then act on. A walk
+      // that stopped early is still complete when every socket the system
+      // arrays announce was read before it stopped.
+      const bool stopped = inv.truncated || inv.capped;
+      const bool complete = !stopped || (inv.have_arrays && inv.slots > 0 && inv.device_records >= inv.slots);
+      if (complete && !inv.modules.empty()) {
         out.module_details = inv.modules;
         out.recompute();
         out.slots = inv.have_arrays && inv.slots > 0 ? inv.slots : inv.device_records;
-        out.memory_source = "smbios";
+        if (out.memory) out.memory_source = "smbios";
+      } else if (!complete) {
+        add_error(out.gather_errors, "SMBIOS table: memory inventory incomplete (" + str::xtos(inv.device_records) + " memory device(s) read)");
+      } else {
+        std::string e = "SMBIOS table: no populated system memory module reported";
+        if (inv.other_devices > 0) e += " (" + str::xtos(inv.other_devices) + " device(s) of video, flash or cache arrays ignored)";
+        add_error(out.gather_errors, e);
       }
     }
   } else {
