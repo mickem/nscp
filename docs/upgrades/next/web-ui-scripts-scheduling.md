@@ -31,3 +31,9 @@ action: none
   field that is not `*` or a list of numbers.
 - **Lua, Python and .NET**: their folders, and the scripts or plugins they
   load.
+
+On every module page with its own settings panel, the panel's unsaved
+changes, *Save* and *Discard* are a bar pinned to the bottom of the window
+while there is something to save, so they stay in reach below the lists
+(which save each change from their own dialog). *Show config* moves to the
+top of the panel and prints the lists' sections too.

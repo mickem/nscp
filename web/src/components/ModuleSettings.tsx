@@ -1,9 +1,10 @@
 import { SettingsDescription, useGetSettingsDescriptionsQuery } from "../api/api.ts";
-import { Stack } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import SettingsList from "./SettingsList.tsx";
 import SettingsCollection from "./SettingsCollection.tsx";
 import SettingsKeyValueCollection from "./SettingsKeyValueCollection.tsx";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { PageFrameContext } from "../modules/kit/pageFrame.ts";
 import { isBoolTrue } from "../common/settings.ts";
 import { getCollectionConfig, getModulePage } from "../modules/registry.ts";
 
@@ -102,44 +103,58 @@ export default function ModuleSettings({
   // covers every key of its sections, and listing them again would edit each
   // in two places. Its collections (users, entries, ...) still follow it.
   const Panel = expert ? undefined : page?.Panel;
+  const [saveBar, setSaveBar] = useState<HTMLElement | null>(null);
   const showFlat = hasFlatKeys && !Panel;
 
   if (!Panel && !showFlat && visibleCollectionPaths.length === 0 && kvPaths.length === 0) {
     return null;
   }
 
+  const lists = visibleCollectionPaths.length + kvPaths.length;
   return (
-    <Stack spacing={3}>
-      {Panel && <Panel onExpertMode={onExpertMode} />}
-      {showFlat && <SettingsList settings={flatSettings} flat />}
-      {visibleCollectionPaths.map((path) => {
-        const config = getCollectionConfig(path);
-        const Editor = !expert && config?.kind === "instances" ? config.Editor : undefined;
-        return Editor ? (
-          <Editor key={path} collectionPath={path} onExpertMode={onExpertMode} />
-        ) : (
-          <SettingsCollection
-            key={path}
-            collectionPath={path}
-            settings={allDescriptions ?? []}
-            expert={expert}
-          />
-        );
-      })}
-      {kvPaths.map((path) => {
-        const config = getCollectionConfig(path);
-        const Editor = !expert && config?.kind === "keyValue" ? config.Editor : undefined;
-        return Editor ? (
-          <Editor key={path} collectionPath={path} descriptions={allDescriptions ?? []} />
-        ) : (
-          <SettingsKeyValueCollection
-            key={path}
-            collectionPath={path}
-            descriptions={allDescriptions ?? []}
-            expert={expert}
-          />
-        );
-      })}
-    </Stack>
+    <PageFrameContext.Provider
+      value={{ saveBar, collectionPaths: [...visibleCollectionPaths, ...kvPaths] }}
+    >
+      <Stack spacing={3}>
+        {Panel && <Panel onExpertMode={onExpertMode} />}
+        {Panel && lists > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            The lists below save each change from their own dialog.
+          </Typography>
+        )}
+        {showFlat && <SettingsList settings={flatSettings} flat />}
+        {visibleCollectionPaths.map((path) => {
+          const config = getCollectionConfig(path);
+          const Editor = !expert && config?.kind === "instances" ? config.Editor : undefined;
+          return Editor ? (
+            <Editor key={path} collectionPath={path} onExpertMode={onExpertMode} />
+          ) : (
+            <SettingsCollection
+              key={path}
+              collectionPath={path}
+              settings={allDescriptions ?? []}
+              expert={expert}
+            />
+          );
+        })}
+        {kvPaths.map((path) => {
+          const config = getCollectionConfig(path);
+          const Editor = !expert && config?.kind === "keyValue" ? config.Editor : undefined;
+          return Editor ? (
+            <Editor key={path} collectionPath={path} descriptions={allDescriptions ?? []} />
+          ) : (
+            <SettingsKeyValueCollection
+              key={path}
+              collectionPath={path}
+              descriptions={allDescriptions ?? []}
+              expert={expert}
+            />
+          );
+        })}
+        {/* The panel's save bar: pinned to the bottom of the window while it has
+          unsaved changes, below the lists. */}
+        <Box ref={setSaveBar} sx={{ position: "sticky", bottom: 0, zIndex: 2 }} />
+      </Stack>
+    </PageFrameContext.Provider>
   );
 }

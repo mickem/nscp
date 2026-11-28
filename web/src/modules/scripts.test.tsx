@@ -14,6 +14,7 @@ import { CHECK_HELPERS_ALIAS_PATH as A } from "./CheckHelpers/paths";
 import ExtScriptsPage from "./CheckExternalScripts/ExtScriptsPage";
 import ScriptsEditor from "./CheckExternalScripts/ScriptsEditor";
 import ScriptListEditor from "./kit/ScriptListEditor";
+import { PageFrameContext } from "./kit/pageFrame";
 import WrappedScriptsEditor from "./CheckExternalScripts/WrappedScriptsEditor";
 import { readWrappings, wrappedCommand } from "./CheckExternalScripts/wrapped";
 import {
@@ -315,5 +316,39 @@ describe("wrapped scripts", () => {
     expect(dialog().getByText('"scripts\\check_logs.bat" $ARGS"$')).toBeInTheDocument();
     await userEvent.click(dialog().getByRole("button", { name: "Save" }));
     await waitFor(() => expect(writes).toEqual([`[${WS}] logs=check_logs.bat C:\\logs 10`]));
+  });
+});
+
+describe("the page frame", () => {
+  it("shows the lists in Show config, and the save bar only once something changed", async () => {
+    api([
+      { path: EXT_SCRIPTS, key: "check_foo", value: "scripts/foo.sh" },
+      { path: "/settings/check helpers/alias", key: "other_module", value: "check_ok" },
+    ]);
+    const slot = document.createElement("div");
+    document.body.appendChild(slot);
+    renderWithProviders(
+      <PageFrameContext.Provider value={{ saveBar: slot, collectionPaths: [EXT_SCRIPTS] }}>
+        <ExtScriptsPage />
+      </PageFrameContext.Provider>,
+      { preloadedState: authenticatedState },
+    );
+    const allow = await screen.findByRole("switch", {
+      name: "Let callers pass arguments to scripts",
+    });
+    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
+    await userEvent.click(allow);
+    // The bar goes where the page puts it, not inside the panel.
+    const bar = within(slot).getByRole("region", { name: "Unsaved changes" });
+    // The setting, and switching the module on.
+    expect(within(bar).getByText("2 unsaved changes")).toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: "Save" })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Show config" }));
+    const text = within(screen.getByRole("dialog")).getByText(/\[\/modules\]/).textContent ?? "";
+    expect(text).toContain("allow arguments = true");
+    expect(text).toContain(`[${EXT_SCRIPTS}]\ncheck_foo = scripts/foo.sh`);
+    expect(text).not.toContain("other_module");
+    slot.remove();
   });
 });

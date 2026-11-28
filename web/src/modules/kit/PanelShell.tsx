@@ -10,14 +10,17 @@ import {
   CardContent,
   CardHeader,
   Divider,
+  Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { ReactNode, useState } from "react";
+import { ReactNode, useContext, useState } from "react";
+import { createPortal } from "react-dom";
 import { Settings } from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
-import { applyToStored, describeChange, SettingChange } from "./changes.ts";
+import { applyToStored, describeChange, SettingChange, toIni } from "./changes.ts";
+import { PageFrameContext } from "./pageFrame.ts";
 import ConfigDialog from "./ConfigDialog.tsx";
 import SecretField from "./SecretField.tsx";
 import type { Panel } from "./usePanel.ts";
@@ -110,6 +113,87 @@ interface ShellProps {
   children: ReactNode;
 }
 
+// The stored sections under the page's lists, as INI rows.
+function listSections(
+  stored: Settings[],
+  paths: string[],
+): Array<[string, Array<[string, string]>]> {
+  const byPath = new Map<string, Array<[string, string]>>();
+  for (const s of stored) {
+    if (s.key === "" || !paths.some((p) => s.path === p || s.path.startsWith(p + "/"))) continue;
+    byPath.set(s.path, [...(byPath.get(s.path) ?? []), [s.key, s.value]]);
+  }
+  return [...byPath.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
+
+// The panel's unsaved changes, Save and Discard: a bar pinned to the bottom
+// of the window while there is something to say, so it stays in reach while
+// the reader scrolls through the lists below the panel.
+function SaveBar({
+  panel,
+  changes,
+  problem,
+}: {
+  panel: Panel;
+  changes: SettingChange[];
+  problem: string | null;
+}) {
+  const [details, setDetails] = useState(true);
+  const pending = changes.length > 0;
+  if (!pending && !panel.saved && !panel.error && !problem) return null;
+  return (
+    <Paper
+      elevation={6}
+      role="region"
+      aria-label="Unsaved changes"
+      sx={{ p: 1.5, mt: 1, borderTop: 2, borderColor: pending ? "warning.main" : "success.main" }}
+    >
+      <Stack spacing={1}>
+        {problem && <NscpAlert severity="warning" text={problem} />}
+        {panel.error && <NscpAlert severity="error" text={panel.error} />}
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Typography variant="body2" sx={{ flexGrow: 1 }}>
+            {pending
+              ? `${changes.length} unsaved ${changes.length === 1 ? "change" : "changes"}`
+              : panel.saved
+                ? "Changed. Use Save and reload to store the settings and apply them."
+                : ""}
+          </Typography>
+          {pending && (
+            <>
+              <Button size="small" onClick={() => setDetails(!details)}>
+                {details ? "Hide changes" : "Show changes"}
+              </Button>
+              <Button onClick={panel.discard} disabled={panel.busy}>
+                Discard
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => void panel.save(changes)}
+                disabled={panel.busy || !!problem}
+                loading={panel.busy}
+              >
+                Save
+              </Button>
+            </>
+          )}
+        </Stack>
+        {pending && details && (
+          <Box
+            component="ul"
+            sx={{ fontFamily: "monospace", fontSize: 13, my: 0, pl: 3 }}
+            aria-label="Pending changes"
+          >
+            {changes.map((c) => (
+              <li key={`${c.path}/${c.key}`}>{describeChange(c)}</li>
+            ))}
+          </Box>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
 export default function PanelShell({
   title,
   subheader,
@@ -120,65 +204,37 @@ export default function PanelShell({
   children,
 }: ShellProps) {
   const [showConfig, setShowConfig] = useState(false);
+  const frame = useContext(PageFrameContext);
+  const bar = <SaveBar panel={panel} changes={changes} problem={problem} />;
   return (
     <Card>
-      <CardHeader title={<Typography variant="h6">{title}</Typography>} subheader={subheader} />
+      <CardHeader
+        title={<Typography variant="h6">{title}</Typography>}
+        subheader={subheader}
+        action={<Button onClick={() => setShowConfig(true)}>Show config</Button>}
+      />
       <CardContent>
         <Stack spacing={3} divider={<Divider flexItem />}>
           {children}
-          <Stack spacing={1.5}>
-            {problem && <NscpAlert severity="warning" text={problem} />}
-            {changes.length > 0 ? (
-              <Box>
-                <Typography variant="subtitle2">Saving will make these changes:</Typography>
-                <Box
-                  component="ul"
-                  sx={{ fontFamily: "monospace", fontSize: 13, my: 0.5, pl: 3 }}
-                  aria-label="Pending changes"
-                >
-                  {changes.map((c) => (
-                    <li key={`${c.path}/${c.key}`}>{describeChange(c)}</li>
-                  ))}
-                </Box>
-              </Box>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                {panel.saved
-                  ? "Changed. Use Save and reload to store the settings and apply them."
-                  : "No changes."}
-              </Typography>
-            )}
-            {panel.error && <NscpAlert severity="error" text={panel.error} />}
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="contained"
-                onClick={() => void panel.save(changes)}
-                disabled={panel.busy || changes.length === 0 || !!problem}
-                loading={panel.busy}
-              >
-                Save
-              </Button>
-              <Button onClick={panel.discard} disabled={panel.busy || changes.length === 0}>
-                Discard
-              </Button>
-              <Box sx={{ flexGrow: 1 }} />
-              <Button onClick={() => setShowConfig(true)}>Show config</Button>
-            </Stack>
-            <ConfigDialog
-              open={showConfig}
-              onClose={() => setShowConfig(false)}
-              title={`${title} configuration`}
-              note={
-                changes.length > 0
-                  ? "Includes the changes not saved yet. Paste it into nsclient.ini on another agent, or into a fleet bundle."
-                  : "Paste it into nsclient.ini on another agent, or into a fleet bundle."
-              }
-              render={(includeDefaults) =>
-                ini(applyToStored(panel.stored, changes), includeDefaults)
-              }
-            />
-          </Stack>
         </Stack>
+        {/* Without a page around it (a test, a wizard step) the bar stays here. */}
+        {frame?.saveBar ? createPortal(bar, frame.saveBar) : bar}
+        <ConfigDialog
+          open={showConfig}
+          onClose={() => setShowConfig(false)}
+          title={`${title} configuration`}
+          note={
+            changes.length > 0
+              ? "Includes the changes not saved yet. Paste it into nsclient.ini on another agent, or into a fleet bundle."
+              : "Paste it into nsclient.ini on another agent, or into a fleet bundle."
+          }
+          render={(includeDefaults) => {
+            const stored = applyToStored(panel.stored, changes);
+            const lists = toIni(listSections(stored, frame?.collectionPaths ?? []));
+            const own = ini(stored, includeDefaults);
+            return lists ? `${own}\n\n${lists}` : own;
+          }}
+        />
       </CardContent>
     </Card>
   );
