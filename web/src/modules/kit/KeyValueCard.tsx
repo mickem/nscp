@@ -26,8 +26,8 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import EditIcon from "@mui/icons-material/Edit";
 import { ReactNode, useState } from "react";
-import { useDeleteSettingsMutation, useUpdateSettingsMutation } from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
+import { useStagedSettings } from "./staging.ts";
 
 export interface KeyValueRow {
   key: string;
@@ -77,8 +77,7 @@ export default function KeyValueCard({
   emptyText = "None is defined.",
   rowAction,
 }: Props) {
-  const [updateSettings] = useUpdateSettingsMutation();
-  const [deleteSettings] = useDeleteSettingsMutation();
+  const { write } = useStagedSettings();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -243,13 +242,11 @@ export default function KeyValueCard({
               editing &&
               void act(
                 async () => {
-                  await updateSettings({
-                    path: collectionPath,
+                  await write([{ kind: "set", path: collectionPath,
                     key,
-                    value: editing.value.trim(),
-                  }).unwrap();
+                    value: editing.value.trim() }]);
                   if (editing.original !== null && editing.original !== key)
-                    await deleteSettings({ path: collectionPath, key: editing.original }).unwrap();
+                    await write([{ kind: "delete", path: collectionPath, key: editing.original }]);
                 },
                 () => setEditing(null),
               )
@@ -277,7 +274,7 @@ export default function KeyValueCard({
               void act(
                 async () => {
                   if (deleting)
-                    await deleteSettings({ path: collectionPath, key: deleting }).unwrap();
+                    await write([{ kind: "delete", path: collectionPath, key: deleting }]);
                 },
                 () => setDeleting(null),
               )

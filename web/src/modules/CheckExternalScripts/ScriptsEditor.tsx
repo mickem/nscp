@@ -25,11 +25,6 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import EditIcon from "@mui/icons-material/Edit";
 import { useState } from "react";
-import {
-  useDeleteSettingsMutation,
-  useGetSettingsQuery,
-  useUpdateSettingsMutation,
-} from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
 import { placeholders } from "../kit/commandLine.ts";
 import { AdvancedSection } from "../kit/PanelShell.tsx";
@@ -37,6 +32,7 @@ import SecretField from "../kit/SecretField.tsx";
 import ValueField from "../kit/ValueField.tsx";
 import { deleteEntry } from "../kit/entries.ts";
 import { EXT_SCRIPTS, readScripts, Script, scriptWrites, Write } from "./ext.ts";
+import { useStagedSettings } from "../kit/staging.ts";
 
 interface Editing {
   original: Script | null;
@@ -45,9 +41,7 @@ interface Editing {
 }
 
 export default function ScriptsEditor() {
-  const { data: stored } = useGetSettingsQuery();
-  const [updateSettings] = useUpdateSettingsMutation();
-  const [deleteSettings] = useDeleteSettingsMutation();
+  const { stored, write } = useStagedSettings();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<Script | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,9 +51,13 @@ export default function ScriptsEditor() {
   const apply = async (writes: Write[]) => {
     for (const w of writes) {
       if (w.kind === "put")
-        await updateSettings({ path: w.path, key: w.key ?? "", value: w.value ?? "" }).unwrap();
-      else if (w.kind === "delete") await deleteSettings({ path: w.path, key: w.key }).unwrap();
-      else await deleteSettings({ path: w.path }).unwrap();
+        await write([{ kind: "set", path: w.path, key: w.key ?? "", value: w.value ?? "" }]);
+      else if (w.kind === "delete") await write([
+          w.key === undefined
+            ? { kind: "deletePath", path: w.path }
+            : { kind: "delete", path: w.path, key: w.key },
+        ]);
+      else await write([{ kind: "deletePath", path: w.path }]);
     }
   };
   const run = async (writes: Write[], done: () => void) => {

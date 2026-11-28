@@ -10,6 +10,12 @@ import type {
   KeyValueCollectionConfig,
   ModulePage,
 } from "./types.ts";
+import CheckDisk from "./CheckDisk/index.ts";
+import CheckHyperV from "./CheckHyperV/index.ts";
+import CheckTaskSched from "./CheckTaskSched/index.ts";
+import CommandClient from "./CommandClient/index.ts";
+import SimpleCache from "./SimpleCache/index.ts";
+import SimpleFileWriter from "./SimpleFileWriter/index.ts";
 import CheckEventLog from "./CheckEventLog/index.ts";
 import CheckKubernetes from "./CheckKubernetes/index.ts";
 import CheckDocker from "./CheckDocker/index.tsx";
@@ -49,10 +55,12 @@ import SMTPClient from "./SMTPClient/index.ts";
 import SyslogClient from "./SyslogClient/index.ts";
 
 export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
+  CheckDisk,
   CheckDocker,
   CheckEventLog,
   CheckExternalScripts,
   CheckHelpers,
+  CheckHyperV,
   CheckKubernetes,
   CheckLogFile,
   CheckMKClient,
@@ -62,8 +70,10 @@ export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   CheckNSCP,
   CheckSystem,
   CheckSystemUnix,
+  CheckTaskSched,
   CheckWMI,
   CollectdClient,
+  CommandClient,
   DotnetPlugins,
   ElasticClient,
   GearmanClient,
@@ -83,6 +93,8 @@ export const MODULE_PAGES: ReadonlyArray<ModulePage> = [
   Op5Client,
   PythonScript,
   Scheduler,
+  SimpleCache,
+  SimpleFileWriter,
   SMTPClient,
   SyslogClient,
   WEBServer,

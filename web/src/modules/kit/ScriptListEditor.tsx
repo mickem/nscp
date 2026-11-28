@@ -24,12 +24,8 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import EditIcon from "@mui/icons-material/Edit";
 import { useMemo, useState } from "react";
-import {
-  useDeleteSettingsMutation,
-  useGetSettingsQuery,
-  useUpdateSettingsMutation,
-} from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
+import { useStagedSettings } from "./staging.ts";
 
 interface Props {
   collectionPath: string;
@@ -59,9 +55,7 @@ export default function ScriptListEditor({
   fileHelp,
   emptyMeans = (alias) => alias,
 }: Props) {
-  const { data: stored } = useGetSettingsQuery();
-  const [updateSettings] = useUpdateSettingsMutation();
-  const [deleteSettings] = useDeleteSettingsMutation();
+  const { stored, write } = useStagedSettings();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -101,13 +95,11 @@ export default function ScriptListEditor({
     act(
       async () => {
         if (!editing) return;
-        await updateSettings({
-          path: collectionPath,
+        await write([{ kind: "set", path: collectionPath,
           key: alias,
-          value: editing.file.trim(),
-        }).unwrap();
+          value: editing.file.trim() }]);
         if (editing.original !== null && editing.original !== alias)
-          await deleteSettings({ path: collectionPath, key: editing.original }).unwrap();
+          await write([{ kind: "delete", path: collectionPath, key: editing.original }]);
       },
       () => setEditing(null),
     );
@@ -239,7 +231,7 @@ export default function ScriptListEditor({
               void act(
                 async () => {
                   if (deleting)
-                    await deleteSettings({ path: collectionPath, key: deleting }).unwrap();
+                    await write([{ kind: "delete", path: collectionPath, key: deleting }]);
                 },
                 () => setDeleting(null),
               )

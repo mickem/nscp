@@ -36,11 +36,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import { useState } from "react";
 import {
   Settings,
-  useDeleteSettingsMutation,
   useGetChannelMetadataQuery,
-  useGetSettingsQuery,
-  useUpdateSettingsMutation,
-} from "../../api/api.ts";
+  } from "../../api/api.ts";
 import NscpAlert from "../../components/atoms/NscpAlert.tsx";
 import CommandLineField from "../kit/CommandLineField.tsx";
 import { deleteEntry, Entry, entryWrites, Write } from "../kit/entries.ts";
@@ -62,6 +59,7 @@ import {
   SCHEDULES,
   scheduleValue,
 } from "./scheduler.ts";
+import { useStagedSettings } from "../kit/staging.ts";
 
 interface Editing {
   original: Entry | null;
@@ -77,9 +75,7 @@ const defaultEntry = (stored: Settings[] | undefined): Entry => {
 };
 
 export default function SchedulesEditor() {
-  const { data: stored } = useGetSettingsQuery();
-  const [updateSettings] = useUpdateSettingsMutation();
-  const [deleteSettings] = useDeleteSettingsMutation();
+  const { stored, write } = useStagedSettings();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<Entry | null>(null);
   const [busy, setBusy] = useState(false);
@@ -98,9 +94,13 @@ export default function SchedulesEditor() {
     try {
       for (const w of writes) {
         if (w.kind === "put")
-          await updateSettings({ path: w.path, key: w.key ?? "", value: w.value ?? "" }).unwrap();
-        else if (w.kind === "delete") await deleteSettings({ path: w.path, key: w.key }).unwrap();
-        else await deleteSettings({ path: w.path }).unwrap();
+          await write([{ kind: "set", path: w.path, key: w.key ?? "", value: w.value ?? "" }]);
+        else if (w.kind === "delete") await write([
+          w.key === undefined
+            ? { kind: "deletePath", path: w.path }
+            : { kind: "delete", path: w.path, key: w.key },
+        ]);
+        else await write([{ kind: "deletePath", path: w.path }]);
       }
       done();
     } catch (e) {

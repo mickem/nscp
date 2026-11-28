@@ -402,32 +402,24 @@ class settings_interface_impl : public settings_interface {
     }
     return tmp;
   }
+  // The direct children of `path` among the paths set since the last load,
+  // so a section written but not yet saved is listed. Only the first segment
+  // below `path` is a child: `/settings/disk/files` under `/settings` is
+  // `disk`, never `disk/files`, and at the root it is `/settings` - a
+  // recursive walk would otherwise reach the grandchild twice (once through
+  // `disk`) and list its keys twice.
   void get_cached_sections_unsafe(std::string path, string_list &list) {
-    if (path.empty()) {
-      for (std::string s : path_cache_) {
-        if (s.length() > 1) {
-          std::string::size_type pos = s.find('/', 1);
-          if (pos != std::string::npos)
-            list.push_back(s.substr(0, pos - 1));
-          else
-            list.push_back(s);
-        }
+    const std::string base = clean_path(path);
+    for (const std::string &s : path_cache_) {
+      std::string rest = clean_path(s);
+      if (!base.empty()) {
+        if (rest.size() <= base.size() + 1 || rest.compare(0, base.size(), base) != 0 || rest[base.size()] != '/') continue;
+        rest = rest.substr(base.size() + 1);
       }
-      // TODO add support for retrieving all key paths here!
-    } else {
-      std::string::size_type path_len = path.length();
-      for (std::string s : path_cache_) {
-        if (s.length() > (path_len + 1) && s.substr(0, path_len) == path) {
-          std::string::size_type pos = s.find('/', path_len + 1);
-          std::string tmp;
-          if (pos != std::string::npos) {
-            tmp = s.substr(path_len, pos - 1);
-          } else {
-            tmp = s.substr(path_len);
-          }
-          list.push_back(clean_path(tmp));
-        }
-      }
+      if (rest.empty()) continue;
+      // At the root a section keeps its leading slash, as the backends list
+      // it (`/settings`); below it a child is a bare name (`disk`).
+      list.push_back((base.empty() ? "/" : "") + rest.substr(0, rest.find('/')));
     }
   }
   //////////////////////////////////////////////////////////////////////////

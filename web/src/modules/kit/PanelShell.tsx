@@ -5,27 +5,22 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
-  Box,
-  Button,
   Card,
   CardContent,
   CardHeader,
   Divider,
-  Paper,
   Stack,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { ReactNode, useContext, useState } from "react";
 import { createPortal } from "react-dom";
 import { Settings } from "../../api/api.ts";
-import NscpAlert from "../../components/atoms/NscpAlert.tsx";
-import { applyToStored, describeChange, SettingChange } from "./changes.ts";
+import { applyToStored, SettingChange } from "./changes.ts";
 import { listsIni } from "./listsIni.ts";
 import { PageFrameContext } from "./pageFrame.ts";
 import ConfigDialog from "./ConfigDialog.tsx";
-import RunCheckButton from "./RunCheckButton.tsx";
+import SaveBar, { PanelTest } from "./SaveBar.tsx";
 import SecretField from "./SecretField.tsx";
 import type { Panel } from "./usePanel.ts";
 import ValueField, { ValueKind } from "./ValueField.tsx";
@@ -121,105 +116,6 @@ interface ShellProps {
   children: ReactNode;
 }
 
-// The panel's unsaved changes, Save and Discard: a bar pinned to the bottom
-// of the window, always there so Save is never hunted for, and in reach
-// while the reader scrolls through the lists below the panel.
-interface PanelTest {
-  query: string;
-  args?: string[];
-  what: string;
-}
-
-function SaveBar({
-  panel,
-  changes,
-  problem,
-  test,
-  onShowConfig,
-}: {
-  panel: Panel;
-  changes: SettingChange[];
-  problem: string | null;
-  test?: PanelTest;
-  onShowConfig: () => void;
-}) {
-  const [details, setDetails] = useState(true);
-  const pending = changes.length > 0;
-  return (
-    <Paper
-      elevation={6}
-      role="region"
-      aria-label="Unsaved changes"
-      sx={{ p: 1.5, mt: 1, borderTop: 2, borderColor: pending ? "warning.main" : "divider" }}
-    >
-      <Stack spacing={1}>
-        {problem && <NscpAlert severity="warning" text={problem} />}
-        {panel.error && <NscpAlert severity="error" text={panel.error} />}
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <Typography variant="body2" sx={{ flexGrow: 1 }}>
-            {pending
-              ? `${changes.length} unsaved ${changes.length === 1 ? "change" : "changes"}`
-              : panel.saved
-                ? "Changed. Use Save and reload to store the settings and apply them."
-                : "No unsaved changes."}
-          </Typography>
-          <Button size="small" onClick={onShowConfig}>
-            Show config
-          </Button>
-          {test && (
-            <Tooltip
-              title={
-                pending
-                  ? "Save first: the test runs against the settings the agent has loaded."
-                  : test.what
-              }
-              describeChild
-            >
-              <span>
-                <RunCheckButton
-                  query={test.query}
-                  args={test.args ?? []}
-                  label="Test connection"
-                  above
-                  disabled={pending}
-                  note={`Runs ${test.query} with the settings the agent has loaded: after a save, reload the agent first.`}
-                />
-              </span>
-            </Tooltip>
-          )}
-          {pending && (
-            <Button size="small" onClick={() => setDetails(!details)}>
-              {details ? "Hide changes" : "Show changes"}
-            </Button>
-          )}
-          <Button onClick={panel.discard} disabled={panel.busy || !pending}>
-            Discard
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => void panel.save(changes)}
-            disabled={panel.busy || !pending || !!problem}
-            loading={panel.busy}
-          >
-            Save
-          </Button>
-        </Stack>
-        {pending && details && (
-          <Box
-            component="ul"
-            sx={{ fontFamily: "monospace", fontSize: 13, my: 0, pl: 3 }}
-            aria-label="Pending changes"
-          >
-            {changes.map((c) => (
-              <li key={`${c.path}/${c.key}`}>{describeChange(c)}</li>
-            ))}
-          </Box>
-        )}
-      </Stack>
-    </Paper>
-  );
-}
-
 export default function PanelShell({
   title,
   subheader,
@@ -234,9 +130,14 @@ export default function PanelShell({
   const frame = useContext(PageFrameContext);
   const bar = (
     <SaveBar
-      panel={panel}
+      moduleId={panel.moduleId}
       changes={changes}
+      onSaveChanges={panel.save}
+      onDiscard={panel.discard}
+      busy={panel.busy}
+      error={panel.error}
       problem={problem}
+      saved={panel.saved}
       test={test}
       onShowConfig={() => setShowConfig(true)}
     />
