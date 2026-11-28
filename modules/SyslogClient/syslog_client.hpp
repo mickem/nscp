@@ -47,8 +47,18 @@ struct connection_data : public socket_helpers::connection_info {
   connection_data(client::destination_container arguments, client::destination_container sender) {
     address = arguments.address.host;
     port_ = arguments.address.get_port_string("514");
-    timeout = arguments.get_int_data("timeout", 30);
-    retry = arguments.get_int_data("retry", 3);
+    // destination_container routes the well-known "timeout" and "retry" keys
+    // into typed fields (see set_string_data), never into the free-form data
+    // map, so get_int_data("timeout") / get_int_data("retry") could not see a
+    // configured value and the fallback always won. "retries" is not one of
+    // those keys and does land in the map. The settings layer notifies the
+    // documented timeout (30) for every target, the implicit "default" one
+    // included, so the container's own default (10) is only reached by a
+    // container built without settings. As in CollectdClient a configured 0
+    // survives: syslog is UDP and the value never bounds a wait here, so 0 is
+    // as good as any. Only a negative value keeps the inherited default.
+    if (arguments.timeout >= 0) timeout = static_cast<unsigned int>(arguments.timeout);
+    retry = arguments.get_int_data("retries", arguments.retry);
     severity = arguments.data["severity"];
     facility = arguments.data["facility"];
     tag_syntax = arguments.data["tag template"];

@@ -39,7 +39,16 @@ struct connection_data : public socket_helpers::connection_info {
     ssl.allowed_ciphers = arguments.get_string_data("allowed ciphers");
     ssl.dh_key = arguments.get_string_data("dh");
     ssl.verify_mode = arguments.get_string_data("verify mode");
-    timeout = arguments.get_int_data("timeout", 30);
+    // destination_container routes the well-known "timeout" key into a typed
+    // field (see set_string_data), never into the free-form data map, so
+    // get_int_data("timeout") could not see a configured value and the fallback
+    // always won. The settings layer notifies the documented default (30) for
+    // every target, the implicit "default" one included, so an unset container
+    // default (10) is only reached by a container built without settings.
+    // Unlike CollectdClient, where 0 means "no time limit", a 0 here would
+    // expire the deadline before the connect starts and fail every
+    // submission, so only a positive value replaces the inherited 30.
+    if (arguments.timeout > 0) timeout = static_cast<unsigned int>(arguments.timeout);
     retry = arguments.get_int_data("retries", 3);
     buffer_length = net::payload::clamp(arguments.get_int_data("payload length", 512), net::payload::max_nsca_payload_length, "NSCA", payload_length_warning);
     password = arguments.get_string_data("password");

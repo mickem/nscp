@@ -9,10 +9,12 @@
 #include <boost/asio.hpp>
 #include <cstring>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <memory>
 #include <set>
 #include <string>
 
 #include "nsca_ng_client.hpp"
+#include "nsca_ng_handler.hpp"
 
 // Provide the NSCAPI singleton so the NSC_TRACE_* / NSC_LOG_* macros that
 // reference plugin_singleton resolve at link time. The core_wrapper has null
@@ -296,10 +298,40 @@ TEST(NscaNgConnectionData, DefaultsAreApplied) {
   EXPECT_EQ(c.port_, "5668") << "default NSCA-NG port is 5668";
   EXPECT_TRUE(c.use_psk) << "PSK is the default authentication mode";
   EXPECT_FALSE(c.host_check_default) << "service checks are the default";
-  EXPECT_EQ(c.timeout, 30u);
+  // A container built without settings carries its own timeout default (10);
+  // a settings-loaded target always notifies 30, see
+  // NscaNgConnectionData.TheTargetDefaultTimeoutReachesTheConnection.
+  EXPECT_EQ(c.timeout, 10u);
   EXPECT_EQ(c.max_output_length, nsca_ng_client::kDefaultMaxOutputBytes);
   // identity defaults to sender hostname
   EXPECT_EQ(c.identity, "agent01");
+}
+
+TEST(NscaNgConnectionData, AConfiguredTimeoutReachesTheConnection) {
+  // destination_container routes "timeout" into its typed field, not the data
+  // map; connection_data used to read the map and always got 30.
+  client::destination_container target;
+  target.address.host = "h";
+  target.set_string_data("timeout", "5");
+
+  EXPECT_EQ(nsca_ng_client::connection_data(target, client::destination_container()).timeout, 5u);
+}
+
+TEST(NscaNgConnectionData, TheTargetDefaultTimeoutReachesTheConnection) {
+  client::destination_container target;
+  target.apply(std::make_shared<nsca_ng_handler::nsca_ng_target_object>("default", "/settings/NSCA-NG/client/targets/default"));
+  target.address.host = "h";
+
+  EXPECT_EQ(nsca_ng_client::connection_data(target, client::destination_container()).timeout, 30u);
+}
+
+TEST(NscaNgConnectionData, ANonPositiveTimeoutKeepsTheDefault) {
+  // 0 would expire the I/O deadline before the connect started.
+  client::destination_container target;
+  target.address.host = "h";
+  target.set_string_data("timeout", "0");
+
+  EXPECT_EQ(nsca_ng_client::connection_data(target, client::destination_container()).timeout, 30u);
 }
 
 TEST(NscaNgConnectionData, IdentityPreservedWhenSet) {
@@ -603,7 +635,7 @@ TEST(NscaNgSubmit, PskHandshakeAgainstSilentServerTimesOut) {
   // ClientHello — the deadline must cancel the handshake.
   local_listener server;
   client::destination_container t = ng_target(server.port());
-  t.data["timeout"] = "1";  // typed set_string_data("timeout") never reaches the data map
+  t.set_string_data("timeout", "1");
   const std::string err = submit_error(t);
   EXPECT_NE(err.find("TLS handshake timed out"), std::string::npos) << err;
 }
@@ -617,7 +649,7 @@ TEST(NscaNgSubmit, CertModeInsecureProceedsToHandshake) {
   t.set_string_data("use psk", "false");
   t.set_string_data("verify mode", "none");
   t.set_string_data("insecure", "true");
-  t.data["timeout"] = "1";
+  t.set_string_data("timeout", "1");
   const std::string err = submit_error(t);
   EXPECT_NE(err.find("TLS handshake"), std::string::npos) << err;
 }
