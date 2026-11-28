@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Modules from "./Modules";
 import { installFetchMock, jsonResponse, renderWithProviders } from "../test/test-utils";
@@ -90,5 +90,33 @@ describe("Modules page", () => {
 
     expect(screen.getByText(/No modules match/)).toBeInTheDocument();
     expect(screen.getByText("0/4")).toBeInTheDocument();
+  });
+});
+
+describe("Modules page groups", () => {
+  it("offers the groups present, with counts, and filters by the ones picked", async () => {
+    installFetchMock({
+      "/api/v2/modules": jsonResponse([
+        ...MODULES,
+        moduleFixture("CheckMSSQL", false, false, "SQL Server"),
+        moduleFixture("my_bundle", true, true, "A zip bundle"),
+      ]),
+    });
+    renderWithProviders(<Modules />);
+    const groups = within(await screen.findByRole("group", { name: "Module groups" }));
+    expect(groups.getByRole("button", { name: "Checks (4)" })).toBeInTheDocument();
+    expect(groups.getByRole("button", { name: "Databases (1)" })).toBeInTheDocument();
+    expect(groups.getByRole("button", { name: "Other (1)" })).toBeInTheDocument();
+    // No client module is installed here, so no Clients chip.
+    expect(groups.queryByRole("button", { name: /^Clients/ })).not.toBeInTheDocument();
+
+    await userEvent.click(groups.getByRole("button", { name: "Databases (1)" }));
+    expect(screen.getByText("CheckMSSQL")).toBeInTheDocument();
+    expect(screen.queryByText("CheckDisk")).not.toBeInTheDocument();
+    await userEvent.click(groups.getByRole("button", { name: "Servers (1)" }));
+    expect(screen.getByText("WEBServer")).toBeInTheDocument();
+    expect(screen.getByText("CheckMSSQL")).toBeInTheDocument();
+    await userEvent.click(groups.getByRole("button", { name: "All" }));
+    expect(screen.getByText("CheckDisk")).toBeInTheDocument();
   });
 });
