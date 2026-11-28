@@ -1501,9 +1501,10 @@ TEST_F(SettingsProxyTest, GetSectionsListsOnlyDirectChildrenOfUnsavedPaths) {
 
   // The store may hold sections of its own at the root; ours are there, whole.
   const auto root = proxy_->get_sections("");
-  EXPECT_NE(std::find(root.begin(), root.end(), "settings"), root.end());
-  EXPECT_NE(std::find(root.begin(), root.end(), "settingsx"), root.end());
-  for (const auto &s : root) EXPECT_EQ(s.find('/'), std::string::npos) << s;
+  // At the root a section keeps its leading slash, as the backends list it.
+  EXPECT_NE(std::find(root.begin(), root.end(), "/settings"), root.end());
+  EXPECT_NE(std::find(root.begin(), root.end(), "/settingsx"), root.end());
+  for (const auto &s : root) EXPECT_EQ(s.find('/', 1), std::string::npos) << s;
 }
 
 TEST_F(SettingsProxyTest, RemoveKeyDeletesJustTheKey) {

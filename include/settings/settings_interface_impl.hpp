@@ -405,8 +405,9 @@ class settings_interface_impl : public settings_interface {
   // The direct children of `path` among the paths set since the last load,
   // so a section written but not yet saved is listed. Only the first segment
   // below `path` is a child: `/settings/disk/files` under `/settings` is
-  // `disk`, never `disk/files` - a recursive walk would otherwise reach the
-  // grandchild twice (once through `disk`) and list its keys twice.
+  // `disk`, never `disk/files`, and at the root it is `/settings` - a
+  // recursive walk would otherwise reach the grandchild twice (once through
+  // `disk`) and list its keys twice.
   void get_cached_sections_unsafe(std::string path, string_list &list) {
     const std::string base = clean_path(path);
     for (const std::string &s : path_cache_) {
@@ -416,7 +417,9 @@ class settings_interface_impl : public settings_interface {
         rest = rest.substr(base.size() + 1);
       }
       if (rest.empty()) continue;
-      list.push_back(rest.substr(0, rest.find('/')));
+      // At the root a section keeps its leading slash, as the backends list
+      // it (`/settings`); below it a child is a bare name (`disk`).
+      list.push_back((base.empty() ? "/" : "") + rest.substr(0, rest.find('/')));
     }
   }
   //////////////////////////////////////////////////////////////////////////
