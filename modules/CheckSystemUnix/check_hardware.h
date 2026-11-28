@@ -56,11 +56,16 @@ struct hardware_info {
   bool dmi_ok;     // /sys/class/dmi/id was there
   bool smbios_ok;  // the SMBIOS table parsed
   std::string gather_errors;
+  // Why no inventory can be reported at all (no DMI source, a damaged SMBIOS
+  // table, a platform without a reader); empty when one can. check_from()
+  // answers UNKNOWN with this text instead of rendering a partial row.
+  std::string unavailable;
 
   hardware_info() : chassis_type(0), memory_source("none"), dmi_ok(false), smbios_ok(false) {}
 
   // Derive modules/memory/memory_speed/module_list from module_details.
-  // Called when the SMBIOS table was read.
+  // Called when the SMBIOS table was read. memory stays unset unless every
+  // module reports its size.
   void recompute();
 
   std::string get_vendor() const { return vendor; }
@@ -78,6 +83,10 @@ struct hardware_info {
   boost::optional<long long> get_memory_speed() const { return memory_speed; }
   std::string get_module_list() const { return module_list; }
   std::string get_memory_source() const { return memory_source; }
+
+  // True when modules, memory and slots are the full SMBIOS read: the only
+  // case in which the check emits perfdata.
+  bool memory_inventory_complete() const { return modules && memory && memory_source == "smbios"; }
 
   std::string show() const { return vendor + " " + model; }
 };
@@ -128,7 +137,8 @@ struct smbios_inventory {
 
 // Walk the structure table. Every header, formatted area, string set and
 // string index is bounds-checked; the walk stops (truncated = true) at the
-// first structure that does not fit, keeping what was read before it.
+// first structure that does not fit, keeping what was read before it. The
+// check does not report a truncated walk: see hardware_info::unavailable.
 // The entry point, when given, caps the length and structure count.
 smbios_inventory parse_smbios_table(const std::string &table, const boost::optional<smbios_entry_point> &entry);
 

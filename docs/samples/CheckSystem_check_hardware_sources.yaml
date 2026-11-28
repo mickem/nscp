@@ -22,9 +22,9 @@ linux:
     provides: modules, slots, memory_speed, module_list, memory (memory_source = smbios); any identity keyword the `dmi/id` attributes left empty
     privilege: elevated
     note: The raw SMBIOS table (types 1, 3, 16 and 17), root-only (mode 0400), parsed in-process; `dmidecode` is not run.
-    without: 'modules, slots and memory_speed are `unknown` and module_list is empty; memory falls back to the kernel memory blocks'
+    without: 'modules, slots and memory_speed are `unknown`, module_list is empty and no perf data is emitted; memory falls back to the kernel memory blocks. A table that is readable but malformed or truncated makes the check UNKNOWN "Cannot read the hardware inventory: the SMBIOS table is malformed or truncated ..."'
   - source: '`/sys/devices/system/memory/block_size_bytes` and `memory*/online`'
     provides: memory (memory_source = sysfs), counted in online memory blocks
     privilege: none
-    note: Only read when the SMBIOS table gave no memory devices (unreadable, missing, or a hypervisor that publishes none).
+    note: Only read when the SMBIOS table gave no complete module total (unreadable, missing, no populated memory device, or a module that does not report its size). No perf data is emitted for this total.
     without: 'memory is `unknown` and memory_source is `none`'

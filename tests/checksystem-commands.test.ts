@@ -1207,11 +1207,17 @@ describeWithModules("CheckSystem")("CheckSystem commands", () => {
       expect(q.result).toBe(OK);
       // modules is 'unknown' unless the agent may read the SMBIOS table (root).
       expect(messageOf(q)).toMatch(/modules=(\d+|unknown) memory=\S+ src=(smbios|sysfs|none)/);
+      // Perf data only for the complete SMBIOS read: a fallback total or an
+      // unknown module count is not graphed.
+      if (!/modules=\d+ memory=\S+ src=smbios/.test(messageOf(q))) {
+        expect(Object.keys(perfOf(q))).toHaveLength(0);
+      }
     } else {
       expect(q.result).toBe(UNKNOWN);
       expect(messageOf(q)).toMatch(
         /No hardware inventory available: this host exposes no DMI\/SMBIOS data/,
       );
+      expect(Object.keys(perfOf(q))).toHaveLength(0);
     }
   });
 
