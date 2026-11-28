@@ -487,6 +487,7 @@ TEST(NscaNgConnectionData, ToStringDescribesConnectionWithoutPassword) {
   client::destination_container target;
   target.address.host = "srv.example";
   target.set_string_data("password", "s3cret-pw");
+  target.set_string_data("timeout", "30");
   client::destination_container sender;
   sender.address.host = "agent01";
 
