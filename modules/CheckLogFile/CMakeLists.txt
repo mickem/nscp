@@ -18,17 +18,11 @@ set(SRCS
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
+    # Both checks read the file a caller names through safe_file.
+    ${NSCP_SAFE_FILE_CPP}
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
-
-# check_csv's file reader is the one per-OS piece: CreateFileW on Windows
-# (UNC paths, every share flag), an ifstream elsewhere.
-if(WIN32)
-    set(SRCS ${SRCS} csv_source_win.cpp)
-else()
-    set(SRCS ${SRCS} csv_source_unix.cpp)
-endif()
 
 if(WIN32)
     set(SRCS
@@ -62,17 +56,12 @@ include(${BUILD_CMAKE_FOLDER}/module.cmake)
 # check_csv: the column parsing, decoding, splitting and the filter wiring,
 # driven through check_with() with an injected reader. The file_reader and
 # bookmark tests are header-only and live in tests/CMakeLists.txt.
-if(WIN32)
-    set(CHECK_CSV_TEST_SOURCE csv_source_win.cpp)
-else()
-    set(CHECK_CSV_TEST_SOURCE csv_source_unix.cpp)
-endif()
 NSCP_CREATE_TEST(
     check_csv_test
     SOURCES
         check_csv_test.cpp
         check_csv.cpp
-        ${CHECK_CSV_TEST_SOURCE}
+        ${NSCP_SAFE_FILE_CPP}
         ${NSCP_ERROR_CPP}
         ${NSCP_FILTER_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -109,7 +98,7 @@ NSCP_CREATE_TEST(
         filter.cpp
         bookmarks.cpp
         check_csv.cpp
-        ${CHECK_CSV_TEST_SOURCE}
+        ${NSCP_SAFE_FILE_CPP}
         ${NSCP_DEF_PLUGIN_CPP}
         ${NSCP_FILTER_CPP}
         ${NSCP_ERROR_CPP}

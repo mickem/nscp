@@ -8,7 +8,7 @@ windows:
   provides: file and folder sizes on ReFS/FAT/exFAT, network shares, unelevated runs, or `method=walk`
   privilege: conditional
   note: Needs list access to the folders walked. Name-surrogate reparse points (links, junctions) are not followed. Paths are also held against `file access` in `[/settings/disk]`.
-  without: '"Unable to read folder <path>: <error>" when the root cannot be opened.'
+  without: '"Unable to read folder <path>: <error>" when the root cannot be opened. A root naming a device or a pipe is refused before either reader opens it: "Not a folder: <path> (it names a device or a pipe)".'
 linux:
 - source: Directory walk with `fts(3)` (`FTS_PHYSICAL`, `FTS_XDEV`)
   provides: file and folder sizes

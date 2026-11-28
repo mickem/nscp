@@ -18,6 +18,9 @@ struct runtime_data {
 
   struct file_container {
     boost::filesystem::path file;
+    // The name as configured (UTF-8). The reader opens this rather than
+    // file.string(), which on Windows is in the ANSI code page.
+    std::string name;
     boost::uintmax_t size;
     std::time_t time;
     file_container() : size(0), time(0) {}
@@ -38,7 +41,7 @@ struct runtime_data {
   void set_read_from_start(bool read_from_start_);
   void set_comparison(bool check_time_);
 
-  void add_file(const boost::filesystem::path &path);
+  void add_file(const std::string &name);
 
  private:
   bool has_changed(const file_container &fc) const;

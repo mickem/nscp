@@ -747,6 +747,28 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
+# safe_file: the reader every check uses for a file a caller named. On Windows
+# the reader needs the error lookup and the UTF-8 conversion compiled in, and
+# the test adds the named-pipe impersonation cases.
+if(WIN32)
+    set(SAFE_FILE_TEST_EXTRA ${NSCP_INCLUDEDIR}/error/error_w32.cpp ${NSCP_INCLUDEDIR}/str/utf8.cpp)
+endif()
+NSCP_CREATE_TEST(
+    safe_file_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/files/safe_file_test.cpp
+        ${NSCP_INCLUDEDIR}/files/safe_file.hpp
+        ${NSCP_INCLUDEDIR}/files/device_path.hpp
+        ${NSCP_INCLUDEDIR}/files/device_streambuf.hpp
+        ${NSCP_SAFE_FILE_CPP}
+        ${SAFE_FILE_TEST_EXTRA}
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile
+)
+
 NSCP_CREATE_TEST(
     check_logfile_test
     SOURCES

@@ -8,6 +8,7 @@
 #include <boost/program_options.hpp>
 #include <cstdint>
 #include <deque>
+#include <files/safe_file.hpp>
 #include <limits>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -90,6 +91,14 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
                   "file is that single file; an entry containing * or ? is a wildcard matched against the whole path, where * and ? do not cross a directory "
                   "separator and ** does. Paths are resolved (`..` is flattened and symbolic links and junctions are followed) before they are matched, so "
                   "a link planted inside an allowed directory does not widen it.")
+
+      .add_string("remote hosts", sh::string_fun_key([this](const auto& value) { file_access_.set_remote_hosts(value); }, "*"), "REMOTE HOSTS",
+                  "Comma separated list of the servers a caller may name in a UNC path (\\\\server\\share\\file.log) given to check_logfile or check_csv: "
+                  "* (the default) is any server, which is how every earlier release behaved, and none is no server at all.\n"
+                  "Reading a file on a share makes the agent log on to that server with its own account, so a caller who may name any server can "
+                  "point that logon at a machine of their choosing. A server is matched by the name the caller used, ignoring case: fs01 and "
+                  "fs01.example.com are two entries. It applies whatever 'file access' is set to, except that a file defined in "
+                  "[/settings/logfile/files] is always read. Windows only.")
 
       .add_string("max csv size", sh::string_fun_key([this](const auto &value) { set_csv_max_size(value); }, check_csv_command::kDefaultMaxCsvSize),
                   "LARGEST CSV FILE",
@@ -400,10 +409,12 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
   std::vector<std::pair<std::string, std::string> > pending;
 
   for (const std::string &filename : file_list) {
-    std::ifstream file(filename.c_str(), std::ios::in | std::ios::binary);
-    if (!file.is_open()) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to open file: " + filename);
+    std::string open_error;
+    const std::unique_ptr<std::streambuf> file_buf = safe_file::open_stream(filename, open_error);
+    if (!file_buf) {
+      return nscapi::protobuf::functions::set_response_bad(*response, open_error);
     }
+    std::istream file(file_buf.get());
     if (bookmark.empty()) {
       // With a line limit only the part of the file which can hold the wanted
       // records is read: from the last max_lines records to the end, or from

@@ -3,16 +3,16 @@
 
 #include "filter.hpp"
 
+#include <array>
 #include <check/duration_keyword.hpp>
 #include <cstdio>
 #include <ctime>
+#include <files/safe_file.hpp>
 #include <memory>
 #include <str/xtos.hpp>
 
 #ifdef CHECKDISK_HAVE_OPENSSL
 #include <openssl/evp.h>
-
-#include <array>
 #endif
 
 using namespace parsers::where;
@@ -42,22 +42,24 @@ std::string file_filter::filter_obj::get_type_su() const { return is_dir_ ? "dir
 
 unsigned long file_filter::filter_obj::get_line_count() {
   if (cached_count) return cached_count.value();
-  unsigned long count = 0;
-  FILE *pFile = fopen((path / filename).string().c_str(), "r");
-  if (pFile != nullptr) {
-    int c;
-    do {
-      c = fgetc(pFile);
-      if (c == '\r') {
-        c = fgetc(pFile);
-        count++;
-      } else if (c == '\n') {
-        c = fgetc(pFile);
-        count++;
-      }
-    } while (c != EOF);
-    fclose(pFile);
+  // Opened through safe_file: the path may be one a caller named, so a FIFO,
+  // a device or a pipe is refused rather than read (or blocked on).
+  //
+  // The count is the one the old fgetc loop produced, text-mode translation
+  // on Windows included (see line_counter).
+#ifdef WIN32
+  line_counter counter(true);
+#else
+  line_counter counter(false);
+#endif
+  safe_file::file f;
+  std::string error;
+  if (f.open((path / filename).string(), error)) {
+    std::array<char, 65536> buf{};
+    std::size_t got = 0;
+    while (f.read(buf.data(), buf.size(), got) && got > 0) counter.feed(buf.data(), got);
   }
+  const unsigned long count = counter.finish();
   cached_count = count;
   return count;
 }
@@ -68,25 +70,30 @@ namespace {
 // digest, or "" if the file cannot be opened or hashing fails.
 std::string hash_file(const std::string &path, const EVP_MD *md) {
   if (md == nullptr) return "";
-  FILE *fp = fopen(path.c_str(), "rb");
-  if (fp == nullptr) return "";
+  // Opened through safe_file, as get_line_count is: the hash is of a regular
+  // file or of nothing.
+  safe_file::file f;
+  std::string error;
+  if (!f.open(path, error)) return "";
   EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-  if (ctx == nullptr) {
-    fclose(fp);
-    return "";
-  }
+  if (ctx == nullptr) return "";
   std::string result;
   if (EVP_DigestInit_ex(ctx, md, nullptr) == 1) {
     std::array<unsigned char, 65536> buf{};
-    size_t n;
     bool ok = true;
-    while ((n = fread(buf.data(), 1, buf.size(), fp)) > 0) {
+    for (;;) {
+      std::size_t n = 0;
+      if (!f.read(reinterpret_cast<char *>(buf.data()), buf.size(), n)) {
+        ok = false;
+        break;
+      }
+      if (n == 0) break;
       if (EVP_DigestUpdate(ctx, buf.data(), n) != 1) {
         ok = false;
         break;
       }
     }
-    if (ok && ferror(fp) == 0) {
+    if (ok) {
       unsigned char digest[EVP_MAX_MD_SIZE];
       unsigned int len = 0;
       if (EVP_DigestFinal_ex(ctx, digest, &len) == 1) {
@@ -100,7 +107,6 @@ std::string hash_file(const std::string &path, const EVP_MD *md) {
     }
   }
   EVP_MD_CTX_free(ctx);
-  fclose(fp);
   return result;
 }
 #else

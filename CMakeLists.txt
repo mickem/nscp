@@ -1350,6 +1350,16 @@ else()
     set(NSCP_ERROR_HPP ${NSCP_INCLUDEDIR}/error/error.hpp)
 endif()
 
+# safe_file (include/files/safe_file.hpp): how a check opens a file a caller
+# named - regular files only, no pipe impersonation or raw devices on Windows.
+# A module compiles it in like ${NSCP_ERROR_CPP}; on Windows it needs that and
+# the UTF-8 conversion, which every module already links.
+if(WIN32)
+    set(NSCP_SAFE_FILE_CPP ${NSCP_INCLUDEDIR}/files/safe_file_win.cpp)
+else()
+    set(NSCP_SAFE_FILE_CPP ${NSCP_INCLUDEDIR}/files/safe_file_unix.cpp)
+endif()
+
 # ##############################################################################
 #
 # Build all included and required libraries

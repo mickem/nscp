@@ -523,6 +523,57 @@ The contents of the allow list are deliberately left out — the caller has no
 business enumerating it. When a check you expected to work is refused, the
 agent log is where to look.
 
+Whatever the mode, a file a caller names is read only if it is a regular
+file. A FIFO, a character device, a named pipe, the console or a raw volume is
+refused, and on Windows a name in the device namespace (`\\.\pipe\x`,
+`\\host\pipe\x`, `\\host\IPC$\x`, `\\.\C:`, `CON`) is refused before anything
+is opened, since opening a pipe hands its server the agent's identity:
+
+```
+Refusing to open \\.\pipe\x: it names a device or a pipe, not a file
+```
+
+A path on a share is read only once the share has been seen to be a file
+system, which the agent finds out from the root of the share before it opens
+anything on it.
+
+## Which servers a caller may name
+
+On Windows a path can name another machine: `\\fs01\logs\app.log`. Reading it
+is a network logon - the agent authenticates to `fs01` with its own account,
+which for a service running as `SYSTEM` is the computer's account in the
+domain. A caller who may name any path can therefore make the agent log on to
+any machine that caller chooses, including one set up to capture or relay that
+logon.
+
+`remote hosts`, in `[/settings/logfile]` and `[/settings/disk]`, lists the
+servers a caller may name:
+
+```ini
+[/settings/logfile]
+remote hosts = fs01, fs02.example.com
+
+[/settings/disk]
+remote hosts = none
+```
+
+| Value | A UNC path a caller names |
+|-------|---------------------------|
+| `*` (the default) | is used whatever server it names, as in every earlier release |
+| a list of servers | is used only when its server is in the list |
+| `none` | is refused |
+
+A server is matched by the name the caller used, ignoring case: `fs01`,
+`fs01.example.com` and its address are three different entries, so list the
+spelling your checks use. The setting is separate from `file access` and holds
+in every mode; a path defined in the `files` section is yours, not the
+caller's, and is always used. A refusal names the setting:
+
+```
+Refusing file '\\evil\share\x.log': the server 'evil' is not in 'remote hosts'
+(see [/settings/logfile] in the configuration)
+```
+
 ## See also
 
 * [Securing NSClient++](../setup/securing.md) — where this fits among the other

@@ -12,6 +12,7 @@
  * single-token argument path, which is where a boolean/implicit-value option
  * like `bookmark` (used bare) can break without the CLI noticing.
  */
+import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -27,6 +28,8 @@ import {
   perfOf,
   setupQueryNscp,
   describeWithModules,
+  itOnUnix,
+  itOnWindows,
 } from "@fixtures/index";
 
 jest.setTimeout(300_000);
@@ -420,6 +423,37 @@ describeWithModules("CheckLogFile")("CheckLogFile check_logfile", () => {
     const missing = path.join(scratch, "does-not-exist.log");
     const res = await check(missing, { bookmark: "it-missing" });
     expect(messageOf(res)).toMatch(/Failed to open file/i);
+  });
+
+  // Only a regular file is read. A FIFO with no writer used to block the open
+  // forever (and with it the check); a character device was read until
+  // max-size. Both are now refused on the open descriptor.
+  itOnUnix("refuses a FIFO without blocking, and a character device", async () => {
+    const fifo = path.join(scratch, "pipe.log");
+    execFileSync("mkfifo", [fifo]);
+    const res = await check(fifo, {});
+    expect(res.result).toBe(UNKNOWN);
+    expect(messageOf(res)).toBe(`Not a regular file: ${fifo}`);
+    expect(messageOf(await check("/dev/zero", {}))).toBe("Not a regular file: /dev/zero");
+  });
+
+  // On Windows a name in the device namespace is refused before anything is
+  // opened: connecting to a named pipe hands its server the agent's token,
+  // and \\.\C: would read the raw volume.
+  itOnWindows("refuses a named pipe and a raw volume by name", async () => {
+    // The IPC$ spellings are the same pipe reached through the redirector,
+    // where the open's impersonation limit does not apply at all.
+    for (const name of [
+      "\\\\.\\pipe\\nscp-it-pipe",
+      "\\\\.\\C:",
+      "\\\\localhost\\IPC$\\nscp-it-pipe",
+      "//localhost//pipe/nscp-it-pipe",
+      "C:\\Windows\\NUL:",
+    ]) {
+      const res = await check(name, {});
+      expect(res.result).toBe(UNKNOWN);
+      expect(messageOf(res)).toMatch(/names a device or a pipe/);
+    }
   });
 
   // --- max-size ------------------------------------------------------------

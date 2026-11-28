@@ -879,6 +879,107 @@ TEST_F(path_escape_test, the_filesystem_root_as_an_entry_allows_what_is_below_it
 #endif
 }
 
+// --- remote hosts -----------------------------------------------------------
+//
+// Which servers a caller may name in a UNC path. The match is lexical, so it
+// is pinned on every platform; resolve() consults it on Windows only.
+
+TEST(path_policy_remote_hosts, any_server_is_the_default) {
+  const check::access::path_policy p("file", "files", "/settings/logfile");
+  std::string why;
+  EXPECT_FALSE(p.refuses_remote("\\\\fs01\\logs\\app.log", why));
+  EXPECT_FALSE(p.refuses_remote("C:\\logs\\app.log", why));
+}
+
+TEST(path_policy_remote_hosts, only_listed_servers_are_accepted) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_remote_hosts("fs01, FS02.example.com");
+  std::string why;
+  for (const char *token :
+       {"\\\\fs01\\logs\\app.log", "//FS01/logs/app.log", "\\\\?\\UNC\\fs01\\logs\\app.log", "\\\\fs02.EXAMPLE.com\\logs", "\\\\\\fs01\\\\logs"}) {
+    EXPECT_FALSE(p.refuses_remote(token, why)) << token;
+  }
+  // Another server, and the same server by another name: an exact match or
+  // nothing.
+  for (const char *token : {"\\\\evil\\logs\\app.log", "\\\\fs01.example.com\\logs\\app.log", "\\\\fs02\\logs", "//10.0.0.5/logs/app.log",
+                            "\\\\?\\UNC\\evil\\logs\\app.log", "\\\\fs01x\\logs"}) {
+    why.clear();
+    EXPECT_TRUE(p.refuses_remote(token, why)) << token;
+    EXPECT_NE(std::string::npos, why.find("is not in 'remote hosts'")) << why;
+  }
+  // A local path is not this setting's business.
+  EXPECT_FALSE(p.refuses_remote("C:\\logs\\app.log", why));
+  EXPECT_FALSE(p.refuses_remote("/var/log/syslog", why));
+}
+
+TEST(path_policy_remote_hosts, none_and_an_empty_list_refuse_every_server) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  std::string why;
+  for (const char *value : {"none", "", " , ", "NONE"}) {
+    p.set_remote_hosts(value);
+    EXPECT_TRUE(p.refuses_remote("\\\\fs01\\logs\\app.log", why)) << "'" << value << "'";
+  }
+  p.set_remote_hosts("*");
+  EXPECT_FALSE(p.refuses_remote("\\\\fs01\\logs\\app.log", why));
+  p.set_remote_hosts("fs01, *");
+  EXPECT_FALSE(p.refuses_remote("\\\\other\\logs\\app.log", why));
+}
+
+TEST(path_policy_remote_hosts, a_copy_keeps_the_list) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_remote_hosts("fs01");
+  const check::access::path_policy copy(p);
+  check::access::path_policy assigned("file", "files", "/settings/logfile");
+  assigned = p;
+  std::string why;
+  EXPECT_TRUE(copy.refuses_remote("\\\\evil\\x", why));
+  EXPECT_FALSE(copy.refuses_remote("\\\\fs01\\x", why));
+  EXPECT_TRUE(assigned.refuses_remote("\\\\evil\\x", why));
+  EXPECT_FALSE(assigned.refuses_remote("\\\\fs01\\x", why));
+}
+
+// It holds in every mode but for a predefined entry, which is the operator's.
+TEST(path_policy_remote_hosts, resolve_holds_a_unc_path_against_it_on_windows) {
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_remote_hosts("fs01");
+  p.add_predefined("applog", "\\\\elsewhere\\logs\\app.log");
+  const decision named = p.resolve("applog");
+  EXPECT_TRUE(named.allowed);
+  EXPECT_EQ("\\\\elsewhere\\logs\\app.log", named.value);
+  const decision d = p.resolve("\\\\evil\\logs\\app.log");
+#ifdef WIN32
+  EXPECT_FALSE(d.allowed);
+  EXPECT_NE(std::string::npos, d.error.find("the server 'evil' is not in 'remote hosts'")) << d.error;
+  EXPECT_NE(std::string::npos, d.error.find("/settings/logfile")) << d.error;
+  EXPECT_TRUE(p.resolve("\\\\fs01\\logs\\app.log").allowed);
+  EXPECT_TRUE(p.resolve("C:\\logs\\app.log").allowed);
+#else
+  // Not a network path here: `any` mode hands the token back.
+  EXPECT_TRUE(d.allowed);
+#endif
+}
+
+// A device-namespace name is refused before the resolver touches it, even
+// under an allow list that covers the whole drive: resolving a named pipe
+// opens it, and the open is what hands its server the agent's token.
+TEST_F(path_escape_test, a_device_or_pipe_name_is_refused_before_it_is_resolved) {
+#ifdef WIN32
+  check::access::path_policy p("file", "files", "/settings/logfile");
+  p.set_mode("allowed");
+  p.set_allow_list("C:\\");
+  for (const char *token :
+       {"\\\\.\\pipe\\x", "\\\\localhost\\pipe\\x", "\\\\localhost\\IPC$\\x", "\\\\localhost\\\\pipe\\x", "\\\\.\\C:", "C:\\logs\\con.txt"}) {
+    const decision d = p.resolve(token);
+    EXPECT_FALSE(d.allowed) << token;
+    EXPECT_NE(std::string::npos, d.error.find("names a device or a pipe")) << d.error;
+  }
+#else
+  // On POSIX these are ordinary (and here non-existent) file names.
+  const check::access::path_policy p = restricted();
+  EXPECT_EQ(std::string::npos, p.resolve("\\\\.\\pipe\\x").error.find("names a device")) << p.resolve("\\\\.\\pipe\\x").error;
+#endif
+}
+
 // A path handed back must never still carry a `..`: the check opens exactly
 // what resolve() returned, so an element the resolver left behind would be
 // walked after the match had already passed.

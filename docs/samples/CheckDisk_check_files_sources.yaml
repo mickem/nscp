@@ -3,11 +3,12 @@ windows:
   provides: file list, name, path, size, creation/access/write times, attributes
   privilege: conditional
   note: The agent's account must be able to list each scanned folder. Paths are also held against `file access` in `[/settings/disk]`.
-  without: A start path that does not exist or cannot be read is reported as missing (UNKNOWN unless `ignore-missing=true`).
-- source: File contents (`fopen`)
+  without: 'A start path that does not exist or cannot be read is reported as missing (UNKNOWN unless `ignore-missing=true`). A start path naming a device or a pipe, or on a share that is not a file system, is not opened, only logged ("Refusing <path>: it names a device or a pipe, not a file or directory"), and a `pattern=` that would carry the scan to another server, share or device is refused ("Refusing pattern ''<pattern>'': ...").'
+- source: File contents (`CreateFileW` + `ReadFile`)
   provides: line_count, md5/sha1/sha256/sha384/sha512 checksums
   privilege: conditional
   note: Needs read access to each matched file; only read when one of these keywords is used.
+  without: Only a regular file is read; a FIFO, a device or a pipe (or a file that cannot be opened) gives a line_count of 0 and empty checksums.
   requires:
   - OpenSSL in the build for the checksum keywords (they are empty otherwise)
 - source: '`GetFileVersionInfo`'
@@ -18,9 +19,10 @@ linux:
   privilege: conditional
   note: The agent's account must be able to search and list each scanned folder; symbolic links are skipped. Paths are also held against `file access` in `[/settings/disk]`.
   without: A start path that does not exist or cannot be read is reported as missing (UNKNOWN unless `ignore-missing=true`); a subfolder that cannot be opened is logged and skipped.
-- source: File contents (`fopen`)
+- source: File contents (`open` + `read`)
   provides: line_count, md5/sha1/sha256/sha384/sha512 checksums
   privilege: conditional
   note: Needs read access to each matched file; only read when one of these keywords is used. `version` is always empty on Linux.
+  without: Only a regular file is read; a FIFO, a device or a pipe (or a file that cannot be opened) gives a line_count of 0 and empty checksums.
   requires:
   - OpenSSL in the build for the checksum keywords (they are empty otherwise)

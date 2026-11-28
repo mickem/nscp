@@ -4,6 +4,7 @@
 #include "realtime_data.hpp"
 
 #include <boost/filesystem.hpp>
+#include <files/safe_file.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/utils.hpp>
@@ -50,9 +51,11 @@ bool runtime_data::has_changed(transient_data_type) const {
   return false;
 }
 
-void runtime_data::add_file(const boost::filesystem::path &path) {
+void runtime_data::add_file(const std::string &name) {
+  const boost::filesystem::path path = name;
   try {
     file_container fc;
+    fc.name = name;
     if (boost::filesystem::exists(path)) {
       fc.file = path;
       fc.size = boost::filesystem::file_size(fc.file);
@@ -96,8 +99,10 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
       continue;
     }
 
-    std::ifstream file(c.file.string().c_str(), std::ios::in | std::ios::binary);
-    if (file.is_open()) {
+    std::string open_error;
+    const std::unique_ptr<std::streambuf> file_buf = safe_file::open_stream(c.name, open_error);
+    if (file_buf) {
+      std::istream file(file_buf.get());
       if (decision.offset > 0) {
         file.seekg(static_cast<std::streamoff>(decision.offset));
       }
@@ -110,9 +115,8 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
           ret.append(filter.match(record));
         }
       }
-      file.close();
     } else {
-      NSC_LOG_ERROR("Failed to open file: " + c.file.string());
+      NSC_LOG_ERROR(open_error);
     }
   }
   return ret;

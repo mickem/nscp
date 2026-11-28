@@ -3,11 +3,12 @@ windows:
   provides: name, path, size, times, attributes
   privilege: conditional
   note: Needs access to the file's folder for the agent's account. Paths are also held against `file access` in `[/settings/disk]`.
-  without: '"File not found: <path>" (or OK with `ignore-missing=true`).'
-- source: File contents (`fopen`)
+  without: '"File not found: <path>" (or OK with `ignore-missing=true`); a device or pipe name, or a file on a share that is not a file system, is reported the same way without being opened.'
+- source: File contents (`CreateFileW` + `ReadFile`)
   provides: line_count, md5/sha1/sha256/sha384/sha512 checksums
   privilege: conditional
   note: Needs read access to the file; only read when one of these keywords is used.
+  without: Only a regular file is read; a FIFO, a device or a pipe (or a file that cannot be opened) gives a line_count of 0 and empty checksums.
   requires:
   - OpenSSL in the build for the checksum keywords (they are empty otherwise)
 - source: '`GetFileVersionInfo`'
@@ -18,9 +19,10 @@ linux:
   privilege: conditional
   note: Needs search access to the file's folders for the agent's account. Paths are also held against `file access` in `[/settings/disk]`.
   without: '"File not found: <path>" (or OK with `ignore-missing=true`).'
-- source: File contents (`fopen`)
+- source: File contents (`open` + `read`)
   provides: line_count, md5/sha1/sha256/sha384/sha512 checksums
   privilege: conditional
   note: Needs read access to the file; only read when one of these keywords is used. `version` is always empty on Linux.
+  without: Only a regular file is read; a FIFO, a device or a pipe (or a file that cannot be opened) gives a line_count of 0 and empty checksums.
   requires:
   - OpenSSL in the build for the checksum keywords (they are empty otherwise)

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <file_helpers.hpp>
+#include <files/safe_file.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/utf8.hpp>
@@ -56,16 +57,43 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
   // specified" for paths like D:/DepotInterface/Reintégrer/).
   const std::wstring wide_dir = utf8::cvt<std::wstring>(dir.string());
 
-  const DWORD fileAttr = GetFileAttributes(wide_dir.c_str());
+  // A path the caller named is checked by name before anything touches it:
+  // GetFileAttributes on `\\.\pipe\x` connects to the pipe, and the
+  // checksum and version keywords would go on to open it (see
+  // files/device_path.hpp). Names found by the walk itself come from a real
+  // directory listing and are never in the device namespace.
+  if (!recursive && safe_file::is_win32_device_path(dir.string())) {
+    context.report_error("Refusing " + dir.string() + ": it names a device or a pipe, not a file or directory");
+    return;
+  }
+
+  // And a UNC path only once its share has been seen to be a file system
+  // (safe_file::examine_share). One that cannot be examined is treated as the
+  // missing path it most likely is, without being touched.
+  bool reachable = true;
+  // Why the share could not be examined, for the log: " (<reason>)" or empty.
+  std::string unreachable;
+  if (!recursive) {
+    std::string reason;
+    const safe_file::share_state share = safe_file::examine_share(dir.string(), reason);
+    if (share == safe_file::share_state::not_file_system) {
+      context.report_error("Refusing " + dir.string() + ": its share is not a file system");
+      return;
+    }
+    reachable = share != safe_file::share_state::unreachable;
+    if (!reachable && !reason.empty()) unreachable = " (" + reason + ")";
+  }
+
+  const DWORD fileAttr = reachable ? GetFileAttributes(wide_dir.c_str()) : INVALID_FILE_ATTRIBUTES;
   if ((fileAttr == INVALID_FILE_ATTRIBUTES) && (!recursive)) {
     // Top-level path supplied by the user does not exist (or is not
     // accessible). Record it so the caller can surface this as an UNKNOWN
     // result instead of silently returning "No files found" (issue #613).
     context.missing_paths.push_back(dir.string());
     if (context.ignore_missing)
-      context.report_debug("Ignoring missing path: " + dir.string());
+      context.report_debug("Ignoring missing path: " + dir.string() + unreachable);
     else
-      context.report_error("Invalid file specified: " + dir.string());
+      context.report_error("Invalid file specified: " + dir.string() + unreachable);
     return;
   } else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
     context.report_warning("Invalid file specified: " + dir.string());
@@ -88,7 +116,9 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     }
     return;
   }
-  std::string file_pattern = dir.string() + "\\" + context.pattern;
+  // Joined without doubling a separator the folder already ends in: `\` and
+  // a pattern must not become `\\pattern`, which names a server.
+  std::string file_pattern = safe_file::join_mask(dir.string(), context.pattern);
   HANDLE hFind = FindFirstFile(utf8::cvt<std::wstring>(file_pattern).c_str(), &wfd);
   if (hFind != INVALID_HANDLE_VALUE) {
     do {
@@ -108,7 +138,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
     } while (FindNextFile(hFind, &wfd));
     FindClose(hFind);
   }
-  std::string dir_pattern = dir.string() + "\\*.*";
+  std::string dir_pattern = safe_file::join_mask(dir.string(), "*.*");
   // if (context.debug) context.report_debug("File pattern: " + dir_pattern);
   hFind = FindFirstFile(utf8::cvt<std::wstring>(dir_pattern).c_str(), &wfd);
   if (hFind != INVALID_HANDLE_VALUE) {
@@ -148,6 +178,14 @@ void file_finder::scanner_context::report_debug(const std::string &str) const {
 void file_finder::scanner_context::report_warning(const std::string &msg) { NSC_LOG_ERROR(msg); }
 
 std::shared_ptr<file_filter::filter_obj> file_finder::stat_single_file(const boost::filesystem::path &path, long long now) {
+  // Refused by name before FindFirstFile, as in recursive_scan.
+  if (safe_file::is_win32_device_path(path.string())) return std::shared_ptr<file_filter::filter_obj>();
+  {
+    // Nor on a share which is not (or cannot be seen to be) a file system.
+    std::string reason;
+    const safe_file::share_state share = safe_file::examine_share(path.string(), reason);
+    if (share == safe_file::share_state::not_file_system || share == safe_file::share_state::unreachable) return std::shared_ptr<file_filter::filter_obj>();
+  }
   WIN32_FIND_DATA wfd;
   const std::wstring wide_path = utf8::cvt<std::wstring>(path.string());
   const HANDLE hFind = FindFirstFile(wide_path.c_str(), &wfd);

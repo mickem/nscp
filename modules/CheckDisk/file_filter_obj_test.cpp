@@ -8,12 +8,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <boost/filesystem.hpp>
 #include <cstdio>
 #include <fstream>
 #include <memory>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
+
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "filter.hpp"
 
@@ -192,6 +196,75 @@ TEST(FilterObjContent, LineCountMissingFileIsZero) {
   auto o = make_obj("/nonexistent-nscp-test-dir", "missing.txt");
   ASSERT_TRUE(o);
   EXPECT_EQ(o->get_line_count(), 0u);
+}
+
+// line_count reads through safe_file: a FIFO is refused on the open
+// descriptor, where the old fopen() blocked until a writer turned up.
+TEST(FilterObjContent, LineCountOfAFifoIsZeroWithoutBlocking) {
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-fifo-%%%%-%%%%");
+  boost::filesystem::create_directories(dir);
+  ASSERT_EQ(0, ::mkfifo((dir / "pipe.log").string().c_str(), 0600));
+  auto o = make_obj(dir.string(), "pipe.log");
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_line_count(), 0u);
+  boost::filesystem::remove_all(dir);
+}
+
+// The fgetc loop line_count replaced is kept byte for byte: a CR or an LF
+// ends a line and the byte after it is skipped, so CRLF is one break.
+TEST(FilterObjContent, LineCountKeepsTheCountingRules) {
+  temp_file f("crlf.txt", "one\r\ntwo\rthree\nfour");
+  auto o = make_obj(f.path.parent_path().string(), f.path.filename().string());
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_line_count(), 3u);
+}
+
+namespace {
+unsigned long count_lines(const std::string &text, const bool text_mode, const std::size_t chunk = 0) {
+  file_filter::line_counter counter(text_mode);
+  if (chunk == 0) {
+    counter.feed(text.data(), text.size());
+  } else {
+    for (std::size_t i = 0; i < text.size(); i += chunk) counter.feed(text.data() + i, (std::min)(chunk, text.size() - i));
+  }
+  return counter.finish();
+}
+}  // namespace
+
+// What the loop counted when it was handed the bytes as they are - every
+// platform but Windows.
+TEST(LineCounter, BinaryModeCountsBytesAsTheyAre) {
+  EXPECT_EQ(0u, count_lines("", false));
+  EXPECT_EQ(0u, count_lines("no break", false));
+  EXPECT_EQ(3u, count_lines("one\r\ntwo\rthree\nfour", false));
+  EXPECT_EQ(1u, count_lines("a\n\nb", false));
+  EXPECT_EQ(2u, count_lines("a\r\n\r\nb", false));
+  EXPECT_EQ(1u, count_lines("a\x1a\nb", false));
+}
+
+// What it counted on Windows, where fopen(..., "r") had already turned CRLF
+// into LF and cut the file at a Ctrl-Z: a blank line after a CRLF line is
+// LFLF there, one break, where the same bytes read raw are two.
+TEST(LineCounter, TextModeCountsWhatTheCRuntimeHandedOver) {
+  EXPECT_EQ(0u, count_lines("", true));
+  EXPECT_EQ(3u, count_lines("one\r\ntwo\rthree\nfour", true));
+  EXPECT_EQ(1u, count_lines("a\n\nb", true));
+  EXPECT_EQ(1u, count_lines("a\r\n\r\nb", true));
+  EXPECT_EQ(2u, count_lines("a\r\nb\r\nc", true));
+  // A CR on its own is still a break, also as the last byte.
+  EXPECT_EQ(2u, count_lines("a\rb\r", true));
+  EXPECT_EQ(1u, count_lines("a\r\rb", true));
+  // Nothing after a Ctrl-Z is read.
+  EXPECT_EQ(1u, count_lines("a\r\n\x1a" "b\r\nc\r\n", true));
+}
+
+// A CRLF split across two reads is still one CRLF.
+TEST(LineCounter, ChunkBoundariesDoNotChangeTheCount) {
+  const std::string text = "a\r\n\r\nb\rc\n\nd\r\n";
+  for (const bool text_mode : {false, true}) {
+    const unsigned long whole = count_lines(text, text_mode);
+    for (std::size_t chunk = 1; chunk <= text.size(); ++chunk) EXPECT_EQ(whole, count_lines(text, text_mode, chunk)) << text_mode << " chunk " << chunk;
+  }
 }
 
 TEST(FilterObjVersion, VersionIsEmptyOnUnix) {

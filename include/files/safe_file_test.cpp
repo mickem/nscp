@@ -1,0 +1,643 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <cstdint>
+#include <cstdio>
+#include <files/safe_file.hpp>
+#include <fstream>
+#include <istream>
+#include <memory>
+#include <sstream>
+#include <string>
+
+// check_logfile's reader: the most demanding user of the stream (it seeks).
+#include "file_reader.hpp"
+
+#ifdef _WIN32
+#include <windows.h>
+
+#include <str/utf8.hpp>
+#else
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
+using safe_file::device_streambuf;
+using safe_file::is_win32_device_path;
+using safe_file::open_stream;
+using safe_file::read_all;
+using safe_file::read_status;
+namespace fr = check_logfile::file_reader;
+
+namespace {
+
+// An in-memory device, so the streambuf's buffer and seek bookkeeping are
+// exercised on every OS.
+struct memory_device {
+  std::string data;
+  std::size_t pos = 0;
+  int reads = 0;
+  bool read(char *buf, std::size_t len, std::size_t &got) {
+    ++reads;
+    // Parenthesised: <windows.h> defines min() as a macro.
+    got = (std::min)(len, data.size() - (std::min)(pos, data.size()));
+    if (got > 0) data.copy(buf, got, pos);
+    pos += got;
+    return true;
+  }
+  bool seek(std::uint64_t offset) {
+    pos = static_cast<std::size_t>(offset);
+    return true;
+  }
+  bool size(std::uint64_t &out) {
+    out = data.size();
+    return true;
+  }
+};
+
+const std::string kLog = "alpha\nbravo\r\ncharlie\ndelta\necho\nfoxtrot\ngolf\nhotel\n" + std::string(200, 'x') + "\nlast-no-newline";
+
+// Every buffer size from a single byte up to larger than the content, so a
+// delimiter, a seek target or a tail scan chunk falls on every boundary.
+const std::size_t kBufferSizes[] = {1, 2, 3, 5, 7, 16, 64, 4096};
+
+}  // namespace
+
+TEST(DeviceStreambuf, ReadsLikeAStringStream) {
+  for (std::size_t bs : kBufferSizes) {
+    device_streambuf<memory_device> buf(memory_device{kLog}, bs);
+    std::istream is(&buf);
+    std::string got((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(kLog, got) << "buffer " << bs;
+  }
+}
+
+TEST(DeviceStreambuf, SeekAndTellMatchAStringStream) {
+  for (std::size_t bs : kBufferSizes) {
+    device_streambuf<memory_device> buf(memory_device{kLog}, bs);
+    std::istream is(&buf);
+    std::istringstream ref(kLog);
+    EXPECT_EQ(0, is.tellg());
+
+    char a[10] = {}, b[10] = {};
+    is.read(a, 9);
+    ref.read(b, 9);
+    EXPECT_EQ(std::string(b, 9), std::string(a, 9)) << "buffer " << bs;
+    EXPECT_EQ(ref.tellg(), is.tellg()) << "buffer " << bs;
+
+    is.seekg(0, std::ios::end);
+    EXPECT_EQ(static_cast<std::streamoff>(kLog.size()), static_cast<std::streamoff>(is.tellg()));
+
+    // Backwards, forwards, relative and inside the buffer.
+    for (std::streamoff target : {std::streamoff(3), std::streamoff(0), std::streamoff(40), std::streamoff(41), std::streamoff(12)}) {
+      is.clear();
+      is.seekg(target, std::ios::beg);
+      ASSERT_EQ(target, static_cast<std::streamoff>(is.tellg()));
+      std::string line, ref_line;
+      ref.clear();
+      ref.seekg(target, std::ios::beg);
+      fr::getline_str(is, line, "\n");
+      fr::getline_str(ref, ref_line, "\n");
+      EXPECT_EQ(ref_line, line) << "buffer " << bs << " offset " << target;
+      EXPECT_EQ(ref.tellg(), is.tellg()) << "buffer " << bs << " offset " << target;
+    }
+    is.clear();
+    is.seekg(5, std::ios::beg);
+    is.seekg(-2, std::ios::cur);
+    EXPECT_EQ(3, static_cast<std::streamoff>(is.tellg()));
+    EXPECT_EQ('h', is.get());
+    is.seekg(-4, std::ios::end);
+    EXPECT_EQ('l', is.get());
+  }
+}
+
+TEST(DeviceStreambuf, RefusesNegativeAndWriteSeeks) {
+  device_streambuf<memory_device> buf(memory_device{kLog}, 8);
+  std::istream is(&buf);
+  is.seekg(-1, std::ios::beg);
+  EXPECT_TRUE(is.fail());
+  is.clear();
+  EXPECT_EQ(std::streampos(std::streamoff(-1)), buf.pubseekoff(0, std::ios::beg, std::ios::out));
+}
+
+TEST(DeviceStreambuf, TellAndSeekInsideTheBuffer) {
+  device_streambuf<memory_device> buf(memory_device{kLog}, 16);
+  std::istream is(&buf);
+  is.get();
+  EXPECT_EQ(1, static_cast<std::streamoff>(is.tellg()));
+  is.seekg(4);
+  EXPECT_EQ('a', is.get());
+}
+
+TEST(DeviceStreambuf, FileReaderHelpersAgreeWithAStringStream) {
+  for (std::size_t bs : kBufferSizes) {
+    for (const std::string &delim : {std::string("\n"), std::string("\r\n"), std::string("o\n")}) {
+      for (std::uint64_t max : {1, 2, 3, 100}) {
+        device_streambuf<memory_device> buf(memory_device{kLog}, bs);
+        std::istream is(&buf);
+        std::istringstream ref(kLog);
+        const std::uint64_t off = fr::find_tail_offset(is, delim, max);
+        EXPECT_EQ(fr::find_tail_offset(ref, delim, max), off) << "buffer " << bs;
+
+        is.clear();
+        ref.clear();
+        is.seekg(static_cast<std::streamoff>(off));
+        ref.seekg(static_cast<std::streamoff>(off));
+        bool t1 = false, t2 = false;
+        EXPECT_EQ(fr::read_capped(ref, 100, t2), fr::read_capped(is, 100, t1)) << "buffer " << bs;
+        EXPECT_EQ(t2, t1);
+
+        is.clear();
+        ref.clear();
+        is.seekg(0);
+        ref.seekg(0);
+        EXPECT_EQ(fr::read_leading_records(ref, delim, max), fr::read_leading_records(is, delim, max)) << "buffer " << bs;
+      }
+    }
+  }
+}
+
+namespace {
+struct temp_file {
+  std::string path;
+  explicit temp_file(const std::string &contents) {
+    path = ::testing::TempDir() + "nscp_safe_file_test_" + std::to_string(reinterpret_cast<std::uintptr_t>(this)) + ".log";
+    std::ofstream out(path.c_str(), std::ios::binary);
+    out << contents;
+  }
+  ~temp_file() { std::remove(path.c_str()); }
+};
+}  // namespace
+
+TEST(SafeFile, ReadsAndSeeksARegularFile) {
+  const temp_file f(kLog);
+  std::string error;
+  const std::unique_ptr<std::streambuf> buf = open_stream(f.path, error);
+  ASSERT_TRUE(buf) << error;
+  std::istream is(buf.get());
+  is.seekg(0, std::ios::end);
+  EXPECT_EQ(static_cast<std::streamoff>(kLog.size()), static_cast<std::streamoff>(is.tellg()));
+  is.seekg(6);
+  std::string line;
+  ASSERT_TRUE(fr::getline_str(is, line, "\n"));
+  EXPECT_EQ("bravo", line);
+}
+
+TEST(SafeFile, AMissingFileIsAnErrorNamingIt) {
+  const std::string path = ::testing::TempDir() + "nscp_safe_file_test_does_not_exist.log";
+  std::string error;
+  EXPECT_FALSE(open_stream(path, error));
+  EXPECT_EQ(0u, error.find("Failed to open file: " + path)) << error;
+}
+
+// --- read_all: the bounded whole-file read ---------------------------------
+
+TEST(SafeFile, ReadAllReadsTheFile) {
+  const temp_file f(kLog);
+  std::string out, error;
+  ASSERT_EQ(read_status::ok, read_all(f.path, 0, out, error)) << error;
+  EXPECT_EQ(kLog, out);
+  ASSERT_EQ(read_status::ok, read_all(f.path, kLog.size(), out, error)) << error;
+  EXPECT_EQ(kLog, out);
+}
+
+TEST(SafeFile, ReadAllRefusesAFileOverTheLimit) {
+  const temp_file f(kLog);
+  std::string out, error;
+  EXPECT_EQ(read_status::too_large, read_all(f.path, kLog.size() - 1, out, error));
+  EXPECT_TRUE(error.empty()) << error;
+}
+
+TEST(SafeFile, ReadAllReportsAMissingFile) {
+  std::string out, error;
+  EXPECT_EQ(read_status::failed, read_all(::testing::TempDir() + "nscp_safe_file_test_missing", 0, out, error));
+  EXPECT_NE(std::string::npos, error.find("Failed to open file")) << error;
+}
+
+#ifndef _WIN32
+TEST(SafeFilePosix, CharacterDeviceIsRefusedBeforeAnythingIsRead) {
+  // /dev/zero reports a size of 0 and never ends.
+  std::string out, error;
+  EXPECT_EQ(read_status::failed, read_all("/dev/zero", 0, out, error));
+  EXPECT_EQ("Not a regular file: /dev/zero", error);
+  EXPECT_TRUE(out.empty());
+}
+
+TEST(SafeFilePosix, SymlinkToADeviceIsRefused) {
+  const std::string link = ::testing::TempDir() + "nscp_safe_file_test_link";
+  ::unlink(link.c_str());
+  ASSERT_EQ(0, ::symlink("/dev/zero", link.c_str()));
+  std::string error;
+  EXPECT_FALSE(open_stream(link, error));
+  ::unlink(link.c_str());
+  EXPECT_EQ("Not a regular file: " + link, error);
+}
+
+TEST(SafeFilePosix, FifoIsRefusedWithoutBlocking) {
+  // Opening a FIFO with no writer blocks a plain open() forever.
+  const std::string fifo = ::testing::TempDir() + "nscp_safe_file_test_fifo";
+  ::unlink(fifo.c_str());
+  ASSERT_EQ(0, ::mkfifo(fifo.c_str(), 0600));
+  std::string error;
+  EXPECT_FALSE(open_stream(fifo, error));
+  ::unlink(fifo.c_str());
+  EXPECT_EQ("Not a regular file: " + fifo, error);
+}
+
+TEST(SafeFilePosix, DirectoryIsRefused) {
+  std::string error;
+  EXPECT_FALSE(open_stream("/", error));
+  EXPECT_EQ("Not a regular file: /", error);
+}
+
+#ifdef __linux__
+// procfs is Linux-only: macOS has no /proc.
+TEST(SafeFilePosix, LimitIsEnforcedWhileReadingAFileThatReportsNoSize) {
+  // A /proc file is a regular file whose size reads as 0 while it has
+  // content: only the per-chunk check can stop it.
+  struct stat st{};
+  ASSERT_EQ(0, ::stat("/proc/self/status", &st));
+  ASSERT_EQ(0, st.st_size);
+  std::string out, error;
+  EXPECT_EQ(read_status::too_large, read_all("/proc/self/status", 16, out, error));
+  ASSERT_EQ(read_status::ok, read_all("/proc/self/status", 0, out, error)) << error;
+  EXPECT_FALSE(out.empty());
+}
+#endif
+
+TEST(SafeFilePosix, WindowsDeviceNamesAreOrdinaryNamesHere) {
+  // `\\.\pipe\x` is a file name like any other on POSIX: it is not
+  // refused by name, it simply does not exist.
+  EXPECT_FALSE(safe_file::refused_by_name("\\\\.\\pipe\\x"));
+  EXPECT_FALSE(safe_file::refused_by_name("con"));
+}
+#endif
+
+// --- is_win32_device_path: portable, so the rules are tested everywhere ----
+
+TEST(DevicePath, DeviceNamespaceIsADevice) {
+  for (const char *p : {"\\\\.\\pipe\\x", "//./pipe/x", "\\\\.\\C:", "\\\\.\\PhysicalDrive0", "\\\\.\\C:\\Windows\\win.ini", "\\??\\C:\\x.log",
+                        "\\\\?\\C:", "\\\\?\\GLOBALROOT\\Device\\NamedPipe\\x", "\\\\?\\Volume{1}\\x.log", "\\\\?\\pipe\\x", "\\\\?\\UNC\\host\\pipe\\x"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+}
+
+TEST(DevicePath, PipeAndMailslotSharesOnAnyHostAreDevices) {
+  for (const char *p : {"\\\\host\\pipe\\x", "\\\\127.0.0.1\\PIPE\\x", "//localhost/pipe/x", "\\\\host\\mailslot\\x"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+}
+
+// `\\host\pipe\x` is the redirector's alias for a file on the IPC$ share, so
+// that spelling connects to the same pipe - and over the network the
+// SECURITY_IDENTIFICATION flag is not honoured, so the name is the defence.
+TEST(DevicePath, TheIpcShareIsADeviceHoweverItIsSpelled) {
+  for (const char *p : {"\\\\host\\IPC$\\x", "\\\\localhost\\ipc$\\x", "//127.0.0.1/IPC$/x", "\\\\?\\UNC\\host\\IPC$\\x", "\\\\host\\IPC$"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+}
+
+// Win32 reads a run of separators as one, so the check has to as well.
+TEST(DevicePath, RepeatedSeparatorsDoNotHideADevice) {
+  for (const char *p : {"\\\\host\\\\pipe\\x", "//host//pipe/x", "\\\\host\\/IPC$\\x", "\\\\\\host\\pipe\\x", "\\\\.\\\\pipe\\x", "C:\\logs\\\\con",
+                        "\\\\?\\UNC\\\\host\\pipe\\x"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+  for (const char *p : {"C:\\\\logs\\\\app.log", "\\\\server\\\\share\\\\app.log"}) {
+    EXPECT_FALSE(is_win32_device_path(p)) << p;
+  }
+}
+
+// `COM1:` and `NUL:` are the devices just as `COM1.log` is.
+TEST(DevicePath, DosDeviceNamesWithAColonAreDevices) {
+  for (const char *p : {"C:\\logs\\COM1:", "C:\\logs\\nul:", "con:", "C:\\logs\\aux:x"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+  // A named stream on an ordinary file is not one.
+  EXPECT_FALSE(is_win32_device_path("C:\\logs\\app.log:stream"));
+}
+
+TEST(DevicePath, UncHostIsTheServerOfAUncPath) {
+  const struct {
+    const char *path;
+    const char *host;
+  } cases[] = {{"\\\\fs01\\logs\\app.log", "fs01"},
+               {"//fs01.example.com/logs/app.log", "fs01.example.com"},
+               {"\\\\?\\UNC\\fs01\\logs\\app.log", "fs01"},
+               {"\\\\\\fs01\\logs", "fs01"},
+               {"\\\\10.0.0.1\\c$", "10.0.0.1"},
+               {"\\\\fs01", "fs01"}};
+  for (const auto &c : cases) {
+    std::string host;
+    EXPECT_TRUE(safe_file::unc_host(c.path, host)) << c.path;
+    EXPECT_EQ(c.host, host) << c.path;
+  }
+  for (const char *p : {"C:\\logs\\app.log", "\\\\.\\pipe\\x", "\\\\?\\C:\\logs\\app.log", "\\logs\\app.log", "relative.log", "/var/log/syslog", "\\\\"}) {
+    std::string host;
+    EXPECT_FALSE(safe_file::unc_host(p, host)) << p;
+  }
+}
+
+TEST(DevicePath, UncShareRootIsTheShareWithATrailingSeparator) {
+  std::string root;
+  ASSERT_TRUE(safe_file::unc_share_root("//fs01/logs//app/x.log", root));
+  EXPECT_EQ("\\\\fs01\\logs\\", root);
+  ASSERT_TRUE(safe_file::unc_share_root("\\\\?\\UNC\\fs01\\logs", root));
+  EXPECT_EQ("\\\\?\\UNC\\fs01\\logs\\", root);
+  EXPECT_FALSE(safe_file::unc_share_root("\\\\fs01", root));
+  EXPECT_FALSE(safe_file::unc_share_root("\\\\fs01\\", root));
+  EXPECT_FALSE(safe_file::unc_share_root("C:\\logs\\app.log", root));
+}
+
+// check_files appends its pattern to the folder it scans. A pattern with
+// separators can make the two join to a place the folder was never checked
+// for.
+TEST(DevicePath, AMaskThatJoinsToAnotherServerShareOrDeviceLeavesTheRoot) {
+  const struct {
+    const char *root;
+    const char *mask;
+  } leaves[] = {{"\\", "\\evil\\share\\*"},       {"/", "/evil/share/*"}, {"", "\\evil\\share\\*"}, {"\\", "\\.\\pipe\\x"}, {"\\", "\\localhost\\IPC$\\x"},
+                {"\\", "\\?\\C:"},                 {"\\\\fs01", "other\\*"}, {"C:\\logs", "nul"},     {"\\\\fs01\\", "IPC$\\x"}};
+  for (const auto &c : leaves) EXPECT_TRUE(safe_file::mask_leaves_root(c.root, c.mask)) << c.root << " + " << c.mask;
+  const struct {
+    const char *root;
+    const char *mask;
+  } stays[] = {{"C:\\logs", "*.*"},       {"C:\\logs", "*.log"},          {"C:\\logs", "sub\\*.log"}, {"C:\\", "*.*"}, {"C:", "*.log"},
+               {"\\\\fs01\\logs", "*.log"}, {"\\\\FS01\\Logs\\app", "sub\\*"}, {"//fs01/logs/", "*.*"},   {"\\", "*.log"}, {"\\logs", "*.log"},
+               // The root of the current drive and a sub-path stay on that drive.
+               {"\\", "evil\\share\\*"},      {"/", "evil/share/*"},            {"C:\\", "evil\\share\\*"}};
+  EXPECT_EQ("\\evil\\share\\*", safe_file::join_mask("\\", "evil\\share\\*"));
+  EXPECT_EQ("C:\\logs\\*.log", safe_file::join_mask("C:\\logs", "*.log"));
+  EXPECT_EQ("C:/logs/*.log", safe_file::join_mask("C:/logs/", "*.log"));
+  for (const auto &c : stays) EXPECT_FALSE(safe_file::mask_leaves_root(c.root, c.mask)) << c.root << " + " << c.mask;
+}
+
+TEST(DevicePath, DosDeviceNamesAreDevicesInAnyDirectory) {
+  for (const char *p :
+       {"CON", "con.txt", "C:\\logs\\nul", "C:\\logs\\COM1.log", "C:\\logs\\lpt9", "C:\\logs\\CONIN$", "C:\\logs\\aux .txt", "C:nul", "\\\\?\\C:\\logs\\con"}) {
+    EXPECT_TRUE(is_win32_device_path(p)) << p;
+  }
+}
+
+TEST(DevicePath, FilesAreNotDevices) {
+  for (const char *p : {"C:\\logs\\app.log", "C:/logs/app.log", "\\\\?\\C:\\logs\\app.log", "\\\\server\\share\\app.log", "\\\\?\\UNC\\server\\share\\app.log",
+                        "\\\\server\\pipes\\app.log", "C:\\logs\\console.log", "C:\\logs\\com10.log", "C:\\logs\\com.log", "C:\\pipe\\x.log", "/var/log/syslog",
+                        "relative.log", "C:\\con\\x.log"}) {
+    EXPECT_FALSE(is_win32_device_path(p)) << p;
+  }
+}
+
+#ifdef _WIN32
+namespace {
+
+std::wstring pipe_name(const wchar_t *tag) { return L"\\\\.\\pipe\\nscp-safe-file-test-" + std::wstring(tag) + L"-" + std::to_wstring(GetCurrentProcessId()); }
+
+// What a pipe's server was given when it tried to act as the client.
+struct granted {
+  // The impersonation level of the token it got; -1 when
+  // ImpersonateNamedPipeClient refused, -3 when it succeeded with a token the
+  // server may not even open (the anonymous level), -2 when there was no pipe.
+  int level;
+  // The Win32 error behind a negative level.
+  DWORD error;
+};
+
+// Create a pipe server, let `connect` open the client end and keep it open,
+// then impersonate that client and say what the client granted. With
+// `read_first` the server first reads the byte the client is expected to have
+// written.
+template <class Connect>
+granted impersonation_granted(const std::wstring &name, Connect connect, const bool read_first = false) {
+  const HANDLE server = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, nullptr);
+  EXPECT_NE(INVALID_HANDLE_VALUE, server) << GetLastError();
+  if (server == INVALID_HANDLE_VALUE) return granted{-2, GetLastError()};
+  granted result{-1, 0};
+  {
+    // A freshly created instance is listening, so the client connects at once
+    // and ConnectNamedPipe reports ERROR_PIPE_CONNECTED instead of waiting.
+    auto client = connect(utf8::cvt<std::string>(name));
+    const BOOL connected = ConnectNamedPipe(server, nullptr);
+    const DWORD err = GetLastError();
+    EXPECT_TRUE(connected || err == ERROR_PIPE_CONNECTED) << err;
+    if (read_first) {
+      char byte = 0;
+      DWORD got = 0;
+      EXPECT_TRUE(ReadFile(server, &byte, 1, &got, nullptr)) << GetLastError();
+      EXPECT_EQ(1u, got);
+    }
+    if (ImpersonateNamedPipeClient(server)) {
+      HANDLE token = nullptr;
+      if (OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, TRUE, &token)) {
+        SECURITY_IMPERSONATION_LEVEL lvl;
+        DWORD len = 0;
+        if (GetTokenInformation(token, TokenImpersonationLevel, &lvl, sizeof(lvl), &len)) {
+          result.level = static_cast<int>(lvl);
+        } else {
+          result.error = GetLastError();
+        }
+        CloseHandle(token);
+      } else {
+        result.level = -3;
+        result.error = GetLastError();
+      }
+      RevertToSelf();
+    } else {
+      result.error = GetLastError();
+    }
+  }
+  CloseHandle(server);
+  return result;
+}
+
+struct handle_holder {
+  HANDLE h;
+  explicit handle_holder(void *handle) : h(handle == nullptr ? INVALID_HANDLE_VALUE : static_cast<HANDLE>(handle)) {}
+  handle_holder(handle_holder &&o) noexcept : h(o.h) { o.h = INVALID_HANDLE_VALUE; }
+  ~handle_holder() {
+    if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
+  }
+};
+
+}  // namespace
+
+// What a pipe's server gets from an open that asks for nothing in particular,
+// which is how std::ifstream - what check_logfile used before - opens one.
+//
+// With no quality-of-service flags Windows tracks the client's identity
+// dynamically: it is taken from the client each time the client writes, and
+// until something the client wrote has been read there is no identity for the
+// server to assume. A check which only reads never writes, so the server of a
+// local pipe is refused (ERROR_CANNOT_IMPERSONATE) ...
+TEST(SafeFileWin, AnIfstreamThatOnlyReadsCannotBeImpersonatedYet) {
+  const granted g = impersonation_granted(pipe_name(L"ifstream"), [](const std::string &path) {
+    std::unique_ptr<std::ifstream> f(new std::ifstream(utf8::cvt<std::wstring>(path).c_str(), std::ios::in | std::ios::binary));
+    EXPECT_TRUE(f->is_open());
+    return f;
+  });
+  EXPECT_EQ(-1, g.level) << "error " << g.error;
+  EXPECT_EQ(static_cast<DWORD>(ERROR_CANNOT_IMPERSONATE), g.error);
+}
+
+// ... but the moment such a client writes a byte the server may act as it in
+// full. That is what an open with no flags is worth, and why nothing a caller
+// names is opened that way - check_disk_write, for one, writes.
+TEST(SafeFileWin, ADefaultOpenThatWritesGrantsImpersonation) {
+  const granted g = impersonation_granted(
+      pipe_name(L"writer"),
+      [](const std::string &path) {
+        handle_holder h(CreateFileW(utf8::cvt<std::wstring>(path).c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
+        EXPECT_NE(INVALID_HANDLE_VALUE, h.h) << GetLastError();
+        DWORD written = 0;
+        EXPECT_TRUE(WriteFile(h.h, "x", 1, &written, nullptr)) << GetLastError();
+        return h;
+      },
+      true);
+  EXPECT_EQ(static_cast<int>(SecurityImpersonation), g.level) << "error " << g.error;
+}
+
+TEST(SafeFileWin, PipeServerOnlyLearnsWhoConnected) {
+  const granted g = impersonation_granted(pipe_name(L"reader"), [](const std::string &path) {
+    handle_holder h(safe_file::detail::create_for_read(path));
+    EXPECT_NE(INVALID_HANDLE_VALUE, h.h) << GetLastError();
+    return h;
+  });
+  // ImpersonateNamedPipeClient succeeds, but with a token that can only be
+  // queried: it cannot open or touch anything as the agent.
+  EXPECT_EQ(static_cast<int>(SecurityIdentification), g.level) << "error " << g.error;
+}
+
+TEST(SafeFileWin, NamedPipeIsRefused) {
+  const std::wstring name = pipe_name(L"refused");
+  const HANDLE server = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_OUTBOUND, PIPE_TYPE_BYTE | PIPE_WAIT, 1, 0, 0, 0, nullptr);
+  ASSERT_NE(INVALID_HANDLE_VALUE, server);
+  std::string error;
+  const std::unique_ptr<std::streambuf> buf = open_stream(utf8::cvt<std::string>(name), error);
+  CloseHandle(server);
+  EXPECT_FALSE(buf);
+  EXPECT_NE(std::string::npos, error.find("names a device or a pipe")) << error;
+}
+
+// The same pipe by its other name: a file on the IPC$ share of this machine.
+// Neither the reader nor the examination of the share may connect to it - a
+// pipe in PIPE_NOWAIT mode says whether a client ever arrived.
+TEST(SafeFileWin, NamedPipeOnTheIpcShareIsNeverConnectedTo) {
+  const std::wstring tag = L"nscp-safe-file-test-ipc-" + std::to_wstring(GetCurrentProcessId());
+  const std::wstring local = L"\\\\.\\pipe\\" + tag;
+  const HANDLE server = CreateNamedPipeW(local.c_str(), PIPE_ACCESS_OUTBOUND, PIPE_TYPE_BYTE | PIPE_NOWAIT, 1, 0, 0, 0, nullptr);
+  ASSERT_NE(INVALID_HANDLE_VALUE, server);
+  const std::string remote = "\\\\localhost\\IPC$\\" + utf8::cvt<std::string>(tag);
+
+  std::string error;
+  EXPECT_FALSE(open_stream(remote, error));
+  EXPECT_NE(std::string::npos, error.find("names a device or a pipe")) << error;
+
+  // Past the name check, as a spelling it does not know would be: the share
+  // is examined through its root, and is not a file system.
+  std::string reason;
+  EXPECT_NE(safe_file::share_state::file_system, safe_file::examine_share(remote, reason));
+  EXPECT_NE(safe_file::share_state::not_remote, safe_file::examine_share(remote, reason));
+
+  EXPECT_FALSE(ConnectNamedPipe(server, nullptr));
+  EXPECT_EQ(static_cast<DWORD>(ERROR_PIPE_LISTENING), GetLastError());
+  CloseHandle(server);
+}
+
+TEST(SafeFileWin, ALocalPathHasNoShareToExamine) {
+  std::string reason;
+  EXPECT_EQ(safe_file::share_state::not_remote, safe_file::examine_share("C:\\Windows\\win.ini", reason));
+  EXPECT_EQ(safe_file::share_state::not_remote, safe_file::examine_share("\\\\?\\C:\\Windows\\win.ini", reason));
+}
+
+// A file share on this machine is a file system and is read through. The
+// administrative share needs an account that may use it; where it may not,
+// the examination must still not call the share a file system by mistake.
+TEST(SafeFileWin, AFileShareIsExaminedAndRead) {
+  wchar_t windows_dir[MAX_PATH];
+  ASSERT_NE(0u, GetWindowsDirectoryW(windows_dir, MAX_PATH));
+  std::string path = utf8::cvt<std::string>(windows_dir);  // C:\Windows
+  ASSERT_GT(path.size(), 2u);
+  path = "\\\\localhost\\" + path.substr(0, 1) + "$" + path.substr(2) + "\\win.ini";
+  std::string reason;
+  const safe_file::share_state state = safe_file::examine_share(path, reason);
+  if (state != safe_file::share_state::file_system) {
+    EXPECT_EQ(safe_file::share_state::unreachable, state) << reason;
+    std::string error;
+    EXPECT_FALSE(open_stream(path, error));
+    return;
+  }
+  std::string error;
+  EXPECT_TRUE(open_stream(path, error)) << error;
+  // And again, from the remembered answer.
+  EXPECT_EQ(safe_file::share_state::file_system, safe_file::examine_share(path, reason));
+}
+
+TEST(SafeFileWin, AShareThatCannotBeExaminedIsNotOpened) {
+  std::string error;
+  EXPECT_FALSE(open_stream("\\\\localhost\\nscp-no-such-share\\x.log", error));
+  EXPECT_NE(std::string::npos, error.find("Failed to open file")) << error;
+}
+
+TEST(SafeFileWin, RawVolumeIsRefused) {
+  // GetFileType says FILE_TYPE_DISK for a raw volume: only the name check
+  // stands between \\.\C: and every byte on the drive.
+  std::string error;
+  EXPECT_FALSE(open_stream("\\\\.\\C:", error));
+  EXPECT_NE(std::string::npos, error.find("names a device or a pipe")) << error;
+}
+
+TEST(SafeFileWin, DirectoryIsRefused) {
+  std::string error;
+  EXPECT_FALSE(open_stream(::testing::TempDir(), error));
+  EXPECT_FALSE(error.empty());
+}
+
+TEST(SafeFileWin, ConsoleDeviceIsRefused) {
+  std::string error;
+  EXPECT_FALSE(open_stream("CONIN$", error));
+  EXPECT_NE(std::string::npos, error.find("names a device or a pipe")) << error;
+}
+
+TEST(SafeFileWin, NamesOutsideTheAnsiCodePageAreOpened) {
+  const std::wstring wide = utf8::cvt<std::wstring>(::testing::TempDir()) + L"nscp-日本-ж.log";
+  {
+    const HANDLE h = CreateFileW(wide.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    ASSERT_NE(INVALID_HANDLE_VALUE, h);
+    DWORD written = 0;
+    WriteFile(h, "one\ntwo\n", 8, &written, nullptr);
+    CloseHandle(h);
+  }
+  std::string error;
+  const std::unique_ptr<std::streambuf> buf = open_stream(utf8::cvt<std::string>(wide), error);
+  DeleteFileW(wide.c_str());
+  ASSERT_TRUE(buf) << error;
+  std::istream is(buf.get());
+  std::string line;
+  ASSERT_TRUE(fr::getline_str(is, line, "\n"));
+  EXPECT_EQ("one", line);
+}
+
+TEST(SafeFileWin, AFileHeldOpenForWritingIsRead) {
+  const std::wstring wide = utf8::cvt<std::wstring>(::testing::TempDir()) + L"nscp-held-open.log";
+  const HANDLE writer =
+      CreateFileW(wide.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  ASSERT_NE(INVALID_HANDLE_VALUE, writer);
+  DWORD written = 0;
+  WriteFile(writer, "held\n", 5, &written, nullptr);
+  std::string error;
+  {
+    const std::unique_ptr<std::streambuf> buf = open_stream(utf8::cvt<std::string>(wide), error);
+    EXPECT_TRUE(buf) << error;
+    if (buf) {
+      std::istream is(buf.get());
+      std::string line;
+      EXPECT_TRUE(fr::getline_str(is, line, "\n"));
+      EXPECT_EQ("held", line);
+    }
+  }
+  CloseHandle(writer);
+  DeleteFileW(wide.c_str());
+}
+#endif
