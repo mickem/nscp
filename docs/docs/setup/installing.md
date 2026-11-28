@@ -817,11 +817,22 @@ each package needs, and what it installs, differs:
 | ARM64          | 14.44 or newer (built with `v143`)    | None: install the [ARM64 redistributable](https://aka.ms/vs/17/release/vc_redist.arm64.exe) first |
 | Legacy (XP)    | None: the runtime is linked in        | None                                                                  |
 
-Every x64 and Win32 MSI from 0.11.6 through 0.27.0 carries 14.44.35211.0. The
-version is not chosen by the project: the merge module is the one Visual
-Studio 2022 provides on the build machine, so a later release can carry a
-newer build. To read it from a given MSI, extract the package and look at the
-file version:
+The version is not chosen by the project: the merge module is the one Visual
+Studio 2022 provides on the build machine, so it has moved whenever Visual
+Studio was updated there, and it is much newer than the agent needs:
+
+| Releases         | x64 MSI     | Win32 MSI   |
+|------------------|-------------|-------------|
+| 0.9.8 and later  | 14.44.35211 | 14.44.35211 |
+| 0.9.7            | 14.44.35208 | 14.44.35208 |
+| 0.6.12 – 0.9.6   | 14.42.34438 | 14.42.34438 |
+| 0.6.1.0 – 0.6.11 | 14.42.34433 | 14.42.34433 |
+| 0.6.0.1          | 14.38.33130 | 14.38.33130 |
+| 0.6.0.0          | 14.36.32532 | 14.38.33130 |
+
+"And later" is up to 0.27.0, the newest release when this was written. To
+read the version from any other MSI, extract the package and look at the file
+version:
 
 ```
 msiexec /a NSCP-<version>-x64.msi /qn TARGETDIR=C:\tmp\nscp
@@ -839,7 +850,7 @@ shared by every program on the machine: one copy per architecture in
 built for an older one, so the newest version installed wins.
 
 The MSI therefore only replaces the runtime when the machine has an **older**
-one than the MSI carries. A machine that already has 14.44.35211.0 or newer is
+one than the MSI carries. A machine that already has that version or newer is
 left alone, and nothing else on it is affected.
 
 When the runtime does have to be replaced, other running programs have the old
