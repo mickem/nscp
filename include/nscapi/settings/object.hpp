@@ -156,6 +156,32 @@ struct object_handler : boost::noncopyable {
   std::shared_ptr<TFactory> factory;
   std::string path;
 
+ private:
+  // Aliases whose add() is on the call stack right now, outermost first. A
+  // parent found here closes an inheritance cycle (a -> b -> a); resolving it
+  // would recurse without end and overflow the stack while settings load.
+  std::vector<std::string> loading_;
+
+  struct loading_guard {
+    std::vector<std::string> &stack;
+    loading_guard(std::vector<std::string> &stack, const std::string &alias) : stack(stack) { stack.push_back(alias); }
+    ~loading_guard() { stack.pop_back(); }
+    loading_guard(const loading_guard &) = delete;
+    loading_guard &operator=(const loading_guard &) = delete;
+  };
+
+  bool is_loading(const std::string &alias) const { return std::find(loading_.begin(), loading_.end(), alias) != loading_.end(); }
+
+  std::string describe_cycle(const std::string &parent_name) const {
+    std::string ret;
+    for (auto it = std::find(loading_.begin(), loading_.end(), parent_name); it != loading_.end(); ++it) {
+      ret += *it + " -> ";
+    }
+    return ret + parent_name;
+  }
+
+ public:
+
   object_handler() : factory(std::make_shared<TFactory>()) {}
   explicit object_handler(std::shared_ptr<TFactory> factory) : factory(factory) {}
 
@@ -201,9 +227,17 @@ struct object_handler : boost::noncopyable {
 
     object_instance object;
     if (proxy) {
+      loading_guard guard(loading_, alias);
       const std::list<std::string> keys = proxy->get_keys(make_obj_path(path, alias));
       const std::string parent_name = proxy->get_string(make_obj_path(path, alias), "parent", "default");
-      if (!parent_name.empty() && parent_name != alias) {
+      const bool parent_cycle = !parent_name.empty() && parent_name != alias && !has_object(parent_name) && is_loading(parent_name);
+      if (parent_cycle) {
+        // Same answer as the web targets editor gives a loop: built-in values.
+        proxy->err(__FILE__, __LINE__,
+                   "Settings object " + make_obj_path(path, alias) + " has a parent cycle (" + describe_cycle(parent_name) + "), ignoring parent '" +
+                       parent_name + "' and loading it with built-in defaults");
+        object = factory->create(alias, path);
+      } else if (!parent_name.empty() && parent_name != alias) {
         object_instance parent;
         if (has_object(parent_name))
           parent = find_object(parent_name);
