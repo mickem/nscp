@@ -9,9 +9,9 @@
 // POSIX the Windows-only checks answer that they are not supported (the
 // documented contract there), check_certificate is pointed at a file that
 // does not exist, and the checks that do read this host (check_users,
-// check_firewall, and on Linux check_secureboot, check_local_accounts and
-// check_group_members) are given an option they reject before reading
-// anything.
+// check_firewall, check_file_security, and on Linux check_secureboot,
+// check_local_accounts and check_group_members) are given an option they
+// reject before reading anything.
 
 #include "CheckSecurity.h"
 
@@ -74,7 +74,8 @@ TEST_F(CheckSecurityModule, CheckCertificateReportsAMissingFile) {
 }
 
 TEST_F(CheckSecurityModule, ChecksThatReadTheHostAreDispatched) {
-  std::vector<std::pair<check_fn, std::string> > checks = {{&CheckSecurity::check_users, "check_users"}, {&CheckSecurity::check_firewall, "check_firewall"}};
+  std::vector<std::pair<check_fn, std::string> > checks = {{&CheckSecurity::check_users, "check_users"}, {&CheckSecurity::check_firewall, "check_firewall"},
+                                                            {&CheckSecurity::check_file_security, "check_file_security"}};
 #if defined(WIN32) || defined(__linux__)
   // Secure Boot has a reader on Windows and on Linux (efivarfs), local
   // accounts and group members on Windows and on Linux (passwd, shadow, group).
@@ -113,11 +114,5 @@ TEST_F(CheckSecurityModule, WindowsOnlyChecksSayTheyAreNotSupported) {
     EXPECT_EQ(r.result(), PB::Common::ResultCode::UNKNOWN) << c.second;
     EXPECT_EQ(message_of(r).find(c.second + " is not supported on this platform"), 0u) << c.second << ": " << message_of(r);
   }
-}
-
-TEST_F(CheckSecurityModule, CheckFileSecurityIsNotSupported) {
-  const response_type r = run(&CheckSecurity::check_file_security, "check_file_security", {"path=/tmp"});
-  EXPECT_NE(r.result(), PB::Common::ResultCode::OK);
-  EXPECT_NE(message_of(r).find("check_file_security is not supported on this platform"), std::string::npos) << message_of(r);
 }
 #endif

@@ -9,17 +9,22 @@
 
 #include "check_file_security.hpp"
 
-// The data source is the platform-specific half of the check (security
-// descriptors and the service control manager) and is exercised by the
-// integration suite instead; the command object still needs it to link.
+#include <boost/filesystem.hpp>
+#include <fstream>
+
+#ifdef WIN32
+// The Windows data source (security descriptors and the service control
+// manager) is exercised by the integration suite instead; the command object
+// still needs it to link. Off Windows the real source is linked in and has
+// tests of its own (check_file_security_unix_test.cpp).
 namespace file_security_source {
-bool supported() { return false; }
 std::string service_binary(const std::string &, std::string &error) {
   error = "not available in the unit test";
   return {};
 }
 void inspect(file_security_filter::filter_obj &obj, std::vector<file_security_filter::ace> &) { obj.error = "not available in the unit test"; }
 }  // namespace file_security_source
+#endif
 
 namespace {
 
@@ -250,4 +255,193 @@ TEST(check_file_security, generic_all_grants_render_as_full_and_count_as_write) 
   const filter_obj obj = classify({allow("Everyone", "S-1-1-0", file_security_filter::mask_generic_all)});
   EXPECT_EQ(1, obj.get_world_writable());
   EXPECT_NE(std::string::npos, obj.get_dacl().find("Everyone(F)"));
+}
+
+// ── Entries a Unix source hands in ───────────────────────────────────────────
+// The classification is shared, so what a POSIX permission class means is
+// decided here: "other" is the world, root is the system, and the owner is only
+// as trustworthy as the caller said.
+
+namespace {
+
+ace posix(const std::string &trustee, const std::string &sid, const std::string &rights) {
+  unsigned long mask = 0;
+  if (rights[0] == 'r') mask |= file_security_filter::mask_read_data;
+  if (rights[1] == 'w') mask |= file_security_filter::mask_write_data | file_security_filter::mask_append;
+  if (rights[2] == 'x') mask |= file_security_filter::mask_execute;
+  ace entry(trustee, sid, mask, true);
+  entry.rights = rights;
+  return entry;
+}
+ace posix_owner(const std::string &name, const std::string &uid, const std::string &rights) {
+  ace entry = posix("user:" + name, "uid:" + uid, rights);
+  entry.owner = true;
+  entry.trusted = uid == "0";
+  return entry;
+}
+ace posix_other(const std::string &rights) {
+  ace entry = posix("other", "", rights);
+  entry.world = true;
+  return entry;
+}
+
+filter_obj classify_posix(const std::string &owner, const std::string &uid, const std::vector<ace> &aces,
+                          const std::vector<std::string> &allow_write = std::vector<std::string>(),
+                          const std::vector<std::string> &expected_owners = std::vector<std::string>()) {
+  filter_obj obj;
+  obj.path = "/etc/app.conf";
+  obj.exists = 1;
+  obj.readable = 1;
+  obj.owner = owner;
+  obj.owner_sid = uid;
+  file_security_filter::apply_aces(obj, aces, allow_write, expected_owners);
+  file_security_filter::apply_owner(obj, expected_owners);
+  return obj;
+}
+
+}  // namespace
+
+TEST(check_file_security, a_root_owned_0644_file_has_no_unexpected_writers) {
+  ace group = posix("group:root", "gid:0", "r--");
+  group.trusted = true;
+  const filter_obj obj = classify_posix("root", "0", {posix_owner("root", "0", "rw-"), group, posix_other("r--")});
+
+  EXPECT_EQ(0, obj.get_unexpected_write());
+  EXPECT_EQ(0, obj.get_world_writable());
+  EXPECT_EQ("user:root", obj.get_writable());
+  EXPECT_EQ("user:root(rw-), group:root(r--), other(r--)", obj.get_dacl());
+}
+
+TEST(check_file_security, the_other_class_with_write_is_world_writable) {
+  const filter_obj obj = classify_posix("root", "0", {posix_owner("root", "0", "rw-"), posix("group:root", "gid:0", "r--"), posix_other("rw-")});
+
+  EXPECT_EQ(1, obj.get_world_writable());
+  EXPECT_EQ("other", obj.get_unexpected());
+  EXPECT_EQ("world writable by other", obj.get_state());
+  // ...and, as on Windows, naming it in allow-write is how a path that is meant
+  // to be open (a spool directory) is accepted.
+  EXPECT_EQ(0, classify_posix("root", "0", {posix_other("rwx")}, {"other"}).get_world_writable());
+}
+
+TEST(check_file_security, a_non_root_owner_is_unexpected_until_the_caller_expects_it) {
+  const std::vector<ace> aces = {posix_owner("www-data", "33", "rw-"), posix("group:www-data", "gid:33", "r--"), posix_other("r--")};
+
+  const filter_obj unexpected = classify_posix("www-data", "33", aces);
+  EXPECT_EQ(1, unexpected.get_unexpected_write());
+  EXPECT_EQ(0, unexpected.get_world_writable());
+  EXPECT_EQ("writable by user:www-data", unexpected.get_state());
+
+  // An owner can always chmod what it owns, so naming it as the expected owner
+  // has to accept its write bit too - by name or by uid.
+  EXPECT_EQ(0, classify_posix("www-data", "33", aces, {}, {"www-data"}).get_unexpected_write());
+  EXPECT_EQ(0, classify_posix("www-data", "33", aces, {}, {"33"}).get_unexpected_write());
+  // A different expected owner accepts nothing.
+  const filter_obj wrong = classify_posix("www-data", "33", aces, {}, {"root"});
+  EXPECT_EQ(1, wrong.get_unexpected_write());
+  EXPECT_EQ(0, wrong.get_owner_expected());
+}
+
+TEST(check_file_security, expecting_an_owner_does_not_excuse_other_writers) {
+  // The expected-owner pass covers the owner class only: a group of the same
+  // name with a write bit is still somebody else writing.
+  const filter_obj obj =
+      classify_posix("app", "1000", {posix_owner("app", "1000", "rw-"), posix("group:app", "gid:1000", "rw-"), posix_other("r--")}, {}, {"app"});
+
+  EXPECT_EQ(1, obj.get_unexpected_write());
+  EXPECT_EQ("group:app", obj.get_unexpected());
+}
+
+TEST(check_file_security, unix_trustees_are_allow_listed_by_name_kind_or_id) {
+  const std::vector<ace> aces = {posix("group:adm", "gid:4", "rw-")};
+
+  EXPECT_EQ(1, classify_posix("root", "0", aces).get_unexpected_write());
+  EXPECT_EQ(0, classify_posix("root", "0", aces, {"adm"}).get_unexpected_write());        // bare name
+  EXPECT_EQ(0, classify_posix("root", "0", aces, {"group:adm"}).get_unexpected_write());  // kind and name
+  EXPECT_EQ(0, classify_posix("root", "0", aces, {"gid:4"}).get_unexpected_write());      // id
+  EXPECT_EQ(1, classify_posix("root", "0", aces, {"user:adm"}).get_unexpected_write());   // a user of that name is somebody else
+  // A default-ACL entry is the same trustee under another heading.
+  EXPECT_EQ(0, classify_posix("root", "0", {posix("default:group:adm", "gid:4", "rw-")}, {"adm"}).get_unexpected_write());
+}
+
+TEST(check_file_security, expected_group_matches_name_and_gid) {
+  filter_obj obj;
+  obj.group = "shadow";
+  obj.group_sid = "42";
+
+  file_security_filter::apply_group(obj, {});
+  EXPECT_EQ(1, obj.get_group_expected());
+  file_security_filter::apply_group(obj, {"shadow"});
+  EXPECT_EQ(1, obj.get_group_expected());
+  file_security_filter::apply_group(obj, {"42"});
+  EXPECT_EQ(1, obj.get_group_expected());
+  file_security_filter::apply_group(obj, {"root"});
+  EXPECT_EQ(0, obj.get_group_expected());
+}
+
+TEST(check_file_security, state_sums_a_unix_path_up_like_ls) {
+  filter_obj obj = classify_posix("root", "0", {posix_owner("root", "0", "rw-"), posix_other("r--")});
+  obj.group = "shadow";
+  obj.group_sid = "42";
+  obj.mode = "0640";
+  EXPECT_EQ("owner root:shadow mode 0640, no unexpected write access", obj.get_state());
+
+  file_security_filter::apply_group(obj, {"root"});
+  EXPECT_EQ("unexpected group shadow", obj.get_state());
+}
+
+TEST(check_file_security, timestamps_render_as_dates_and_stay_empty_when_unknown) {
+  filter_obj obj;
+  EXPECT_EQ("", obj.get_written_s());
+  EXPECT_EQ(0, obj.get_age());
+  obj.written = 86400;
+  EXPECT_EQ("1970-01-02 00:00:00", obj.get_written_s());
+}
+
+// ── The directory walk behind max-depth ──────────────────────────────────────
+
+namespace {
+
+struct scratch_tree {
+  scratch_tree() : root(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-file-security-%%%%-%%%%")) {
+    boost::filesystem::create_directories(root / "a" / "b");
+    touch(root / "top.txt");
+    touch(root / "a" / "mid.txt");
+    touch(root / "a" / "b" / "deep.txt");
+  }
+  ~scratch_tree() {
+    boost::system::error_code ec;
+    boost::filesystem::remove_all(root, ec);
+  }
+  static void touch(const boost::filesystem::path &file) { std::ofstream(file.string().c_str()) << "x"; }
+  std::vector<std::string> walk(const int depth) const {
+    std::vector<std::string> found;
+    std::vector<std::pair<std::string, std::string>> failed;
+    file_security_filter::walk(root.string(), depth, found, failed);
+    EXPECT_TRUE(failed.empty());
+    for (std::string &entry : found) entry = boost::filesystem::relative(entry, root).generic_string();
+    return found;
+  }
+  boost::filesystem::path root;
+};
+
+}  // namespace
+
+TEST(check_file_security, walk_goes_as_deep_as_asked_and_no_deeper) {
+  const scratch_tree tree;
+
+  EXPECT_TRUE(tree.walk(0).empty());
+  EXPECT_EQ((std::vector<std::string>{"a", "top.txt"}), tree.walk(1));
+  EXPECT_EQ((std::vector<std::string>{"a", "a/b", "a/mid.txt", "top.txt"}), tree.walk(2));
+  EXPECT_EQ((std::vector<std::string>{"a", "a/b", "a/b/deep.txt", "a/mid.txt", "top.txt"}), tree.walk(9));
+}
+
+TEST(check_file_security, walk_of_a_file_or_a_missing_path_finds_nothing) {
+  const scratch_tree tree;
+  std::vector<std::string> found;
+  std::vector<std::pair<std::string, std::string>> failed;
+
+  file_security_filter::walk((tree.root / "top.txt").string(), 3, found, failed);
+  file_security_filter::walk((tree.root / "no-such-dir").string(), 3, found, failed);
+  EXPECT_TRUE(found.empty());
+  EXPECT_TRUE(failed.empty());
 }

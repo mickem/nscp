@@ -1,12 +1,59 @@
 windows:
-  - source: '`GetNamedSecurityInfoW` (owner and DACL), walked entry by entry with `GetAce`'
-    provides: exists, is_dir, readable, owner, owner_sid and every write-access keyword
+  - source: '`GetFileAttributesExW`'
+    provides: exists, is_dir, size, written, access, creation, age
+    without: 'A path that is not found gets exists = 0; any other failure (a denied parent directory, a dead network path) also gets exists = 0 and readable = 0 with the system error in `error`'
+  - source: '`GetNamedSecurityInfoW` (owner, primary group and DACL), walked entry by entry with `GetAce`; `ConvertSecurityDescriptorToStringSecurityDescriptorW` for the SDDL'
+    provides: readable, owner, owner_sid, group, group_sid, sddl and every write-access keyword
     privilege: conditional
     note: 'The agent account must be allowed to read each path''s security descriptor (and reach the path); LocalSystem can on local system paths, but a DACL or share that excludes the agent account makes the path unreadable.'
     without: 'The row gets readable = 0 (or exists = 0) with the system error in `error`, which the default critical threshold reports'
   - source: '`LookupAccountSidW`'
-    provides: owner and trustee names
+    provides: owner, group and trustee names
     without: The SID string is used instead (orphaned or unresolvable SID)
   - source: 'Service Control Manager (`OpenServiceW` with `SERVICE_QUERY_CONFIG`, `QueryServiceConfigW`)'
     provides: 'the image path inspected for `service=`'
     without: 'The row is kept with the error ("Service not found: <name>", "Failed to open service ...") instead of being dropped'
+  - source: 'Directory listing (`boost::filesystem::directory_iterator`), only with `max-depth` > 0'
+    provides: the paths inside a directory that are inspected as rows of their own
+    privilege: conditional
+    note: The agent account must be allowed to list each directory in the tree. Symbolic links inside the tree are skipped.
+    without: 'The directory that could not be listed gets readable = 0 with "cannot list directory: ..." in `error`, so what went unchecked is reported rather than passed'
+linux:
+  - source: '`stat(2)` on the path (follows a symbolic link the caller names)'
+    provides: exists, is_dir, owner_sid (uid), group_sid (gid), mode, setuid, setgid, sticky, size, written, access, creation (inode change time), age, and the owner / group / other permission classes
+    privilege: conditional
+    note: 'The agent account must be able to search (execute permission on) every directory leading to the path; read permission on the path itself is not needed. The packaged agent runs as the unprivileged nsclient user, so a path below a directory such as a 0700 root-owned one cannot be inspected.'
+    without: 'A missing path gets exists = 0; any other failure (EACCES on a parent directory, a stale mount) also gets exists = 0 and readable = 0 with the system error (e.g. "Permission denied") in `error`, which the default critical threshold reports'
+  - source: '`getxattr(2)` on the `system.posix_acl_access` attribute, and on `system.posix_acl_default` for a directory (read directly, not through libacl)'
+    provides: has_acl, and the named user / named group / default ACL entries (mask applied) judged by the write-access keywords and rendered in dacl
+    privilege: conditional
+    note: Reached through the same path lookup as `stat(2)`, so the same condition applies. No libacl is needed at build or run time.
+    without: 'No ACL on the path, or a file system without POSIX ACL support (ENODATA, ENOTSUP, ENOSYS), leaves the mode bits as the whole answer. Any other failure, or a value that is not a version 2 ACL, gets readable = 0 with "Failed to read the POSIX ACL: ..." in `error` rather than a verdict on the mode bits alone'
+  - source: '`getpwuid_r` / `getgrgid_r` (the passwd and group databases through NSS)'
+    provides: owner, group and the user / group names in dacl
+    privilege: none
+    without: The numeric uid or gid is used instead
+  - source: 'systemd unit files: `<unit>` and its `<unit>.d/*.conf` drop-ins in `/etc/systemd/system`, `/run/systemd/system`, `/usr/local/lib/systemd/system`, `/usr/lib/systemd/system` and `/lib/systemd/system` (a template `name@.service` for an instance)'
+    provides: 'the `ExecStart=` program inspected for `service=`'
+    note: The files are parsed directly; systemctl and a running systemd are not needed. User units are not searched.
+    without: 'The row is kept with the error ("Service not found: <name>", "Service <name> has no ExecStart command") instead of being dropped'
+  - source: 'Directory listing (`boost::filesystem::directory_iterator`), only with `max-depth` > 0'
+    provides: the paths inside a directory that are inspected as rows of their own
+    privilege: conditional
+    note: The agent account needs read and search permission on each directory in the tree. Symbolic links inside the tree are skipped.
+    without: 'The directory that could not be listed gets readable = 0 with "cannot list directory: ..." in `error`, so what went unchecked is reported rather than passed'
+macos:
+  - source: '`stat(2)` on the path (follows a symbolic link the caller names)'
+    provides: exists, is_dir, owner_sid (uid), group_sid (gid), mode, setuid, setgid, sticky, size, written, access, creation (inode change time), age, and the owner / group / other permission classes
+    privilege: conditional
+    note: 'The agent account must be able to search (execute permission on) every directory leading to the path; read permission on the path itself is not needed. Extended (NFSv4-style) ACLs are not read on macOS: has_acl is always 0 and only the mode bits are judged.'
+    without: 'A missing path gets exists = 0; any other failure (EACCES on a parent directory, a stale mount) also gets exists = 0 and readable = 0 with the system error (e.g. "Permission denied") in `error`, which the default critical threshold reports'
+  - source: '`getpwuid_r` / `getgrgid_r` (the user and group databases)'
+    provides: owner, group and the user / group names in dacl
+    privilege: none
+    without: The numeric uid or gid is used instead
+  - source: 'Directory listing (`boost::filesystem::directory_iterator`), only with `max-depth` > 0'
+    provides: the paths inside a directory that are inspected as rows of their own
+    privilege: conditional
+    note: The agent account needs read and search permission on each directory in the tree. Symbolic links inside the tree are skipped.
+    without: 'The directory that could not be listed gets readable = 0 with "cannot list directory: ..." in `error`, so what went unchecked is reported rather than passed'
