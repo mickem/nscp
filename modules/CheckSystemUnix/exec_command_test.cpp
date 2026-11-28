@@ -4,6 +4,7 @@
 #include "exec_command.h"
 
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <chrono>
 #include <stdexcept>
@@ -29,6 +30,23 @@ TEST(exec_command, inventory_rejects_failed_commands_and_partial_stdout) {
   EXPECT_THROW(system_exec::run_inventory_command({"/bin/sh", "-c", "printf partial; exit 7"}), std::runtime_error);
   EXPECT_THROW(system_exec::run_inventory_command({"/nonexistent-systemctl"}), std::runtime_error);
 }
+
+#if defined(__linux__)
+// A descriptor the agent holds without close-on-exec - a listener socket, in
+// the case that mattered - must not reach the command: one that outlives a
+// reload kept the web server's port bound, and the rebind failed.
+TEST(exec_command, child_does_not_inherit_open_descriptors) {
+  const int inherited = dup(STDOUT_FILENO);  // dup() leaves close-on-exec clear
+  ASSERT_NE(inherited, -1);
+  const std::string probe = "test -e /proc/self/fd/" + std::to_string(inherited) + " && printf open || printf closed";
+  const std::string seen = system_exec::run_inventory_command({"/bin/sh", "-c", probe});
+  close(inherited);
+  EXPECT_EQ(seen, "closed");
+  // The exec-status pipe is the one descriptor kept, so a failed exec is still
+  // told apart from a program that ran and returned 127.
+  EXPECT_FALSE(system_exec::run({"/nonexistent-systemctl"}, 30000, 0, true).started);
+}
+#endif
 
 TEST(exec_command, inventory_errors_identify_command_condition_status_and_stderr) {
   const auto failed = inventory_error({"/bin/sh", "-c", "printf 'no running manager' >&2; exit 7"});

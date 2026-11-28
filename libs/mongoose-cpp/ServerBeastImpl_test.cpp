@@ -1288,6 +1288,32 @@ TEST(ServerBeastImpl, RestartAfterStopServesAgain) {
   EXPECT_NE(second.body.find("ok"), std::string::npos);
 }
 
+#ifndef _WIN32
+TEST(ServerBeastImpl, RebindsWhileAChildProcessIsStillRunning) {
+  // The agent forks while it serves - journalctl, dpkg-query, external
+  // scripts - and a settings reload closes the listener and binds the same
+  // port again a moment later. A child that inherited the listening socket
+  // keeps the port bound for as long as it runs; the rebind then failed with
+  // "Address already in use" and the server stayed down until a restart.
+  const ServerFixture fx;
+  auto* controller = new MatchController();
+  controller->registerRoute("GET", "/", new FixedHandler(200, "ok"));
+  const int port = fx.start(choose_port_base() + 67, controller);
+  ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
+
+  // Outlives the stop() and the start() below; inherits whatever is not
+  // close-on-exec.
+  ASSERT_EQ(std::system("sleep 3 &"), 0);
+
+  fx.server->stop();
+  const std::size_t errors_before = fx.logger->error_count();
+  // The same port, not the next free one: that is what a reload asks for.
+  EXPECT_TRUE(fx.server->start(bind_url(port)));
+  EXPECT_EQ(fx.logger->error_count(), errors_before) << "rebinding port " << port << " failed while a child was running";
+  fx.server->stop();
+}
+#endif
+
 TEST(ServerBeastImpl, CookieAttributeCrlfIsDropped) {
   // Response::setCookie stores path/same_site verbatim; a controller must not
   // be able to smuggle CR/LF through them into the Set-Cookie header (HTTP
