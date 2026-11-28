@@ -16,6 +16,15 @@ void nsclient::core::plugin_cache::add_plugins(const plugin_cache_list_type &ite
   has_all_ = true;
 }
 
+void nsclient::core::plugin_cache::remember_plugins(const plugin_cache_list_type &item) {
+  boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!writeLock.owns_lock()) {
+    LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
+    return;
+  }
+  plugin_cache_.insert(plugin_cache_.end(), item.begin(), item.end());
+}
+
 nsclient::core::plugin_cache::plugin_cache_list_type nsclient::core::plugin_cache::get_list() {
   boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!readLock.owns_lock()) {
@@ -112,7 +121,7 @@ void nsclient::core::plugin_cache::remove_plugin(unsigned int plugin_id) {
   for (plugin_cache_item &i : plugin_cache_) {
     if (i.id == plugin_id) {
       i.is_loaded = false;
-      i.id = static_cast<unsigned int>(-1);
+      i.id = plugin_interface::no_plugin_id;
       return;
     }
   }

@@ -562,6 +562,19 @@ TEST_F(RegistryOnDiskTest, AModuleOnDiskIsDescribedWhenAskedForByName) {
   EXPECT_TRUE(plugins_->get_plugin_cache()->has_module("bundle"));
 }
 
+TEST_F(RegistryOnDiskTest, ALookupByNameDoesNotHideTheRestOfTheFolder) {
+  // The web UI looks a module up by name before loading it. That used to mark
+  // the cache as fully scanned, so every later full listing showed only what
+  // was loaded plus that one module.
+  zip_test::write_zip(modules_ / "other.zip", {{"module.json", R"({"name":"Other","description":"also on disk"})"}});
+  ASSERT_NE(nullptr, find(inventory(ItemType::MODULE, "bundle"), "bundle"));
+  EXPECT_FALSE(plugins_->get_plugin_cache()->has_all());
+
+  const auto all = inventory(ItemType::MODULE, "", true);
+  EXPECT_EQ((std::vector<std::string>{"CheckExternalScripts", "CheckSystem", "bundle", "other"}), names(all));
+  EXPECT_TRUE(plugins_->get_plugin_cache()->has_all());
+}
+
 TEST_F(RegistryOnDiskTest, AModuleNotOnDiskAskedForByNameReturnsNothing) {
   EXPECT_TRUE(names(inventory(ItemType::MODULE, "NoSuchModule")).empty());
   EXPECT_FALSE(plugins_->get_plugin_cache()->has_module("NoSuchModule"));

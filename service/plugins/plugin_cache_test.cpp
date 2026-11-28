@@ -93,6 +93,16 @@ TEST_F(PluginCacheTest, AddPluginsSetHasAll) {
   cache_->add_plugins(list);
   EXPECT_TRUE(cache_->has_all());
 }
+TEST_F(PluginCacheTest, RememberPluginsDoesNotSetHasAll) {
+  nsclient::core::plugin_cache::plugin_cache_list_type list;
+  nsclient::core::plugin_cache_item item;
+  item.id = 1;
+  item.dll = "plugin1.dll";
+  list.push_back(item);
+  cache_->remember_plugins(list);
+  EXPECT_TRUE(cache_->has_module("plugin1.dll"));
+  EXPECT_FALSE(cache_->has_all());
+}
 TEST_F(PluginCacheTest, HasModuleByDll) {
   nsclient::core::plugin_cache::plugin_cache_list_type list;
   nsclient::core::plugin_cache_item item;

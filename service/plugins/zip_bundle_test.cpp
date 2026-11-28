@@ -37,15 +37,16 @@ namespace {
 class bundle_logger : public nsclient::logging::logger {
  public:
   std::vector<std::string> errors;
+  std::vector<std::string> debugs;
 
   void trace(const std::string &, const char *, int, const std::string &) override {}
-  void debug(const std::string &, const char *, int, const std::string &) override {}
+  void debug(const std::string &, const char *, int, const std::string &message) override { debugs.push_back(message); }
   void info(const std::string &, const char *, int, const std::string &) override {}
   void warning(const std::string &, const char *, int, const std::string &) override {}
   void error(const std::string &, const char *, int, const std::string &message) override { errors.push_back(message); }
   void critical(const std::string &, const char *, int, const std::string &message) override { errors.push_back(message); }
   bool should_trace() const override { return false; }
-  bool should_debug() const override { return false; }
+  bool should_debug() const override { return true; }
   bool should_info() const override { return false; }
   bool should_warning() const override { return false; }
   bool should_error() const override { return true; }
@@ -67,6 +68,9 @@ class bundle_logger : public nsclient::logging::logger {
 
   bool logged(const std::string &needle) const {
     return std::any_of(errors.begin(), errors.end(), [&](const std::string &e) { return e.find(needle) != std::string::npos; });
+  }
+  std::size_t debug_count(const std::string &needle) const {
+    return std::count_if(debugs.begin(), debugs.end(), [&](const std::string &e) { return e.find(needle) != std::string::npos; });
   }
 };
 
@@ -216,6 +220,30 @@ TEST_F(ZipBundleTest, a_broken_bundle_does_not_load) {
   EXPECT_FALSE(plugins_->load_single_plugin("broken", "", true));
   EXPECT_TRUE(plugins_->get_loaded_modules().empty());
   EXPECT_TRUE(logger_->logged("module.json"));
+}
+
+TEST_F(ZipBundleTest, a_probe_is_logged_as_one_and_takes_no_plugin_id) {
+  // The web UI probes a module by name just before loading it. That used to
+  // log "Loading module" twice and leave a gap in the plugin ids, which read
+  // as the module having been loaded twice.
+  make_bundle("bundle", {{"module.json", R"({"name":"Bundle","description":"from disk"})"}});
+  make_bundle("other", {{"module.json", R"({"name":"Other","description":""})"}});
+  bool loaded = false;
+  const auto first = plugins_->only_load_module("other", "", loaded);
+  ASSERT_TRUE(loaded);
+
+  const auto probe = plugins_->probe_module("bundle", loaded);
+  ASSERT_TRUE(loaded);
+  ASSERT_TRUE(probe);
+  EXPECT_EQ(nsclient::core::plugin_interface::no_plugin_id, probe->get_id());
+  EXPECT_EQ("from disk", probe->getDescription());
+  EXPECT_EQ(1u, logger_->debug_count("Inspecting module"));
+  EXPECT_EQ(1u, logger_->debug_count("Loading module"));  // "other", not the probe
+
+  const auto real = plugins_->only_load_module("bundle", "", loaded);
+  ASSERT_TRUE(loaded);
+  EXPECT_EQ(first->get_id() + 1, real->get_id());
+  EXPECT_EQ(2u, logger_->debug_count("Loading module"));
 }
 
 TEST_F(ZipBundleTest, a_bundle_refuses_the_calls_a_compiled_module_would_serve) {

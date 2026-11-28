@@ -61,7 +61,12 @@ class plugin_cache {
 
  public:
   plugin_cache(logging::log_client_accessor logger) : logger_(logger), has_all_(false) {}
+  // The result of a scan of the whole module folder: remembers the items and
+  // marks the cache complete, so a later full listing does not scan again.
   void add_plugins(const plugin_cache_list_type& item);
+  // Items found one at a time (a lookup by name). Remembered, but the cache is
+  // not complete because of them: a full listing must still scan the folder.
+  void remember_plugins(const plugin_cache_list_type& item);
   plugin_cache_list_type get_list();
   bool has_all();
   bool has_module(const std::string module);

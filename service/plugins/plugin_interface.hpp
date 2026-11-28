@@ -42,6 +42,12 @@ class plugin_interface : public logging::logging_subscriber {
   std::string alias_;
 
  public:
+  // The id of an instance that is not a loaded module: one opened only to read
+  // its name and description (plugin_manager::probe_module), or a cache entry
+  // for a module that has been unloaded. No command, channel or setting is
+  // ever registered under it.
+  static constexpr unsigned int no_plugin_id = static_cast<unsigned int>(-1);
+
   plugin_interface(const unsigned int id, std::string alias) : plugin_id_(id), alias_(std::move(alias)) {}
 
   virtual ~plugin_interface() = default;
