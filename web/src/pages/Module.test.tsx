@@ -71,6 +71,7 @@ function renderModule(moduleId: string) {
 }
 
 const expertSwitch = () => screen.getByRole("switch", { name: "Expert mode" });
+const hideDefaultsSwitch = () => screen.getByRole("switch", { name: "Hide defaults" });
 
 describe("Module page expert mode", () => {
   it("starts off for a module with a tailored page", async () => {
@@ -102,6 +103,19 @@ describe("Module page expert mode", () => {
     await userEvent.click(expertSwitch());
     expect(screen.queryByText("ADVANCED KEY")).not.toBeInTheDocument();
     expect(screen.getByText("PLAIN KEY")).toBeInTheDocument();
+    // The generic form is still there, so its filter is too.
+    expect(hideDefaultsSwitch()).toBeInTheDocument();
+  });
+
+  it("offers Hide defaults only where the generic settings form shows", async () => {
+    serve("CheckNSCP", "/settings/nscp/check/update");
+    renderModule("CheckNSCP");
+
+    expect(await screen.findByText("PLAIN KEY")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Hide defaults" })).not.toBeInTheDocument();
+
+    await userEvent.click(expertSwitch());
+    expect(hideDefaultsSwitch()).toBeInTheDocument();
   });
 
   it("shows no settings for a module that is not loaded", async () => {
